@@ -1,4 +1,7 @@
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::program::invoke_signed;
+use anchor_lang::solana_program::system_instruction;
+use anchor_lang::Space;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 use ics27_gmp::constants::GMP_PORT_ID;
 
@@ -7,7 +10,9 @@ use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
 use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
-use crate::state::{CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg};
+use crate::state::{
+    AccountVersion, CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
+};
 
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
@@ -101,6 +106,11 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Router program validates this
     #[account()]
     pub ibc_client: AccountInfo<'info>,
+
+    /// Pending transfer account - manually created with runtime-calculated sequence
+    /// CHECK: Manually validated and created in instruction handler
+    #[account(mut)]
+    pub pending_transfer: UncheckedAccount<'info>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
@@ -171,6 +181,19 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
+    // Create pending transfer account for ack/timeout handling
+    create_pending_transfer_account(
+        &ctx.accounts.app_state.mint,
+        &msg.client_id,
+        sequence,
+        &ctx.accounts.sender.key(),
+        msg.amount,
+        &ctx.accounts.pending_transfer,
+        &ctx.accounts.payer.to_account_info(),
+        &ctx.accounts.system_program.to_account_info(),
+        &clock,
+    )?;
+
     emit!(IFTTransferInitiated {
         mint: ctx.accounts.app_state.mint,
         client_id: msg.client_id.clone(),
@@ -212,7 +235,7 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
 
     // Parse receiver as hex address (remove 0x prefix if present)
     let receiver_hex = receiver.trim_start_matches("0x");
-    let receiver_bytes = hex_to_bytes(receiver_hex).map_err(|()| IFTError::InvalidReceiver)?;
+    let receiver_bytes = hex_to_bytes(receiver_hex)?;
 
     // Pad receiver address to 32 bytes (left-padded with zeros)
     let mut padded_receiver = [0u8; 32];
@@ -251,16 +274,98 @@ fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
+/// Creates a pending transfer PDA account manually.
+///
+/// We use manual account creation instead of Anchor's `init` constraint because
+/// the sequence is computed at runtime by the router, which Anchor's IDL cannot
+/// capture in static seed derivation. This follows the same pattern as the
+/// router's `create_packet_commitment_account`.
+#[allow(clippy::too_many_arguments)]
+fn create_pending_transfer_account<'info>(
+    mint: &Pubkey,
+    client_id: &str,
+    sequence: u64,
+    sender: &Pubkey,
+    amount: u64,
+    pending_transfer_info: &UncheckedAccount<'info>,
+    payer: &AccountInfo<'info>,
+    system_program: &AccountInfo<'info>,
+    clock: &Clock,
+) -> Result<()> {
+    let sequence_bytes = sequence.to_le_bytes();
+
+    // Validate PDA
+    let (expected_pda, bump) = Pubkey::find_program_address(
+        &[
+            PENDING_TRANSFER_SEED,
+            mint.as_ref(),
+            client_id.as_bytes(),
+            &sequence_bytes,
+        ],
+        &crate::ID,
+    );
+    require!(
+        pending_transfer_info.key() == expected_pda,
+        IFTError::InvalidPendingTransfer
+    );
+
+    // Create account
+    let account_size = 8 + PendingTransfer::INIT_SPACE;
+    let lamports = Rent::get()?.minimum_balance(account_size);
+
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        PENDING_TRANSFER_SEED,
+        mint.as_ref(),
+        client_id.as_bytes(),
+        &sequence_bytes,
+        &[bump],
+    ]];
+
+    invoke_signed(
+        &system_instruction::create_account(
+            payer.key,
+            pending_transfer_info.key,
+            lamports,
+            account_size as u64,
+            &crate::ID,
+        ),
+        &[
+            payer.clone(),
+            pending_transfer_info.to_account_info(),
+            system_program.clone(),
+        ],
+        signer_seeds,
+    )?;
+
+    // Initialize account data
+    let pending = PendingTransfer {
+        version: AccountVersion::V1,
+        bump,
+        mint: *mint,
+        client_id: client_id.to_string(),
+        sequence,
+        sender: *sender,
+        amount,
+        timestamp: clock.unix_timestamp,
+        _reserved: [0; 32],
+    };
+
+    let mut data = pending_transfer_info.try_borrow_mut_data()?;
+    data[0..8].copy_from_slice(PendingTransfer::DISCRIMINATOR);
+    pending.serialize(&mut &mut data[8..])?;
+
+    Ok(())
+}
+
 /// Simple hex string to bytes conversion
-#[allow(clippy::manual_is_multiple_of)]
-fn hex_to_bytes(hex: &str) -> std::result::Result<Vec<u8>, ()> {
-    if hex.len() % 2 != 0 {
-        return Err(());
-    }
+fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
+    require!(hex.len().is_multiple_of(2), IFTError::InvalidReceiver);
 
     (0..hex.len())
         .step_by(2)
-        .map(|i| u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| ()))
+        .map(|i| {
+            u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| error!(IFTError::InvalidReceiver))
+        })
         .collect()
 }
 

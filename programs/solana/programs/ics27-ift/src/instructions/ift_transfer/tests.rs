@@ -278,6 +278,10 @@ fn build_ift_transfer_test_setup(
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
 
+    // Pending transfer will be created with sequence from router - use placeholder for now
+    // In real execution, sequence comes from router CPI
+    let pending_transfer = Pubkey::new_unique();
+
     let msg = IFTTransferMsg {
         client_id: TEST_CLIENT_ID.to_string(),
         receiver: "0xabcdef1234567890abcdef1234567890abcdef12".to_string(),
@@ -305,6 +309,7 @@ fn build_ift_transfer_test_setup(
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -327,6 +332,7 @@ fn build_ift_transfer_test_setup(
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
         (clock_sysvar, clock_account),
     ];
 
@@ -408,6 +414,7 @@ fn test_ift_transfer_zero_amount_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     // Zero amount!
     let msg = IFTTransferMsg {
@@ -437,6 +444,7 @@ fn test_ift_transfer_zero_amount_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -459,6 +467,7 @@ fn test_ift_transfer_zero_amount_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -526,6 +535,7 @@ fn test_ift_transfer_empty_receiver_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     // Empty receiver!
     let msg = IFTTransferMsg {
@@ -555,6 +565,7 @@ fn test_ift_transfer_empty_receiver_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -577,6 +588,7 @@ fn test_ift_transfer_empty_receiver_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -644,6 +656,7 @@ fn test_ift_transfer_sender_not_signer_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     let msg = IFTTransferMsg {
         client_id: TEST_CLIENT_ID.to_string(),
@@ -673,6 +686,7 @@ fn test_ift_transfer_sender_not_signer_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -695,6 +709,7 @@ fn test_ift_transfer_sender_not_signer_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -764,6 +779,7 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     let msg = IFTTransferMsg {
         client_id: TEST_CLIENT_ID.to_string(),
@@ -792,6 +808,7 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -814,6 +831,7 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -883,6 +901,7 @@ fn test_ift_transfer_wrong_token_mint_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     let msg = IFTTransferMsg {
         client_id: TEST_CLIENT_ID.to_string(),
@@ -911,6 +930,7 @@ fn test_ift_transfer_wrong_token_mint_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -933,6 +953,7 @@ fn test_ift_transfer_wrong_token_mint_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);
@@ -1000,6 +1021,7 @@ fn test_ift_transfer_timeout_in_past_fails() {
     let packet_commitment = Pubkey::new_unique();
     let gmp_ibc_app = Pubkey::new_unique();
     let ibc_client = Pubkey::new_unique();
+    let pending_transfer = Pubkey::new_unique();
 
     // Timeout in the past!
     let msg = IFTTransferMsg {
@@ -1029,6 +1051,7 @@ fn test_ift_transfer_timeout_in_past_fails() {
             AccountMeta::new_readonly(instructions_sysvar, false),
             AccountMeta::new_readonly(gmp_ibc_app, false),
             AccountMeta::new_readonly(ibc_client, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data: crate::instruction::IftTransfer { msg }.data(),
     };
@@ -1051,6 +1074,7 @@ fn test_ift_transfer_timeout_in_past_fails() {
         (instructions_sysvar, instructions_account),
         (gmp_ibc_app, create_signer_account()),
         (ibc_client, create_signer_account()),
+        (pending_transfer, create_uninitialized_pda()),
     ];
 
     let result = mollusk.process_instruction(&instruction, &accounts);

@@ -98,6 +98,9 @@ pub enum IFTError {
 
     #[msg("Invalid GMP account - not derived from expected counterparty bridge")]
     InvalidGmpAccount,
+
+    #[msg("Invalid pending transfer account")]
+    InvalidPendingTransfer,
 }
 
 /// Convert CPI validation errors to IFT errors
