@@ -9,31 +9,14 @@ import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
 import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIFTMsgs } from "../../contracts/msgs/IIFTMsgs.sol";
 
+import { IIFT } from "../../contracts/interfaces/IIFT.sol";
+
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
-
-import { IFTBase } from "../../contracts/IFTBase.sol";
+import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
-import { IICS27GMP } from "../../contracts/interfaces/IICS27GMP.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
-
-/// @title TestIFT - A concrete IFT implementation for integration testing
-contract TestIFT is IFTBase {
-    constructor(
-        IICS27GMP ics27Gmp_,
-        address authority_
-    )
-        ERC20("Test Interchain Token", "TIFT")
-        IFTBase(ics27Gmp_, authority_)
-    { }
-
-    /// @notice Mint tokens for testing purposes
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
 
 contract IFTIntegrationTest is Test {
     IbcImpl public ibcImplA;
@@ -42,9 +25,12 @@ contract IFTIntegrationTest is Test {
     TestHelper public th = new TestHelper();
     IntegrationEnv public integrationEnv;
 
-    TestIFT public iftOnA;
-    TestIFT public iftOnB;
+    IFTAccessManaged public iftOnA;
+    IFTAccessManaged public iftOnB;
     EVMIFTSendCallConstructor public sendCallConstructor;
+
+    bytes32 private constant IFT_STORAGE_SLOT =
+        0x35d0029e62ce5824ad5e38215107659b8aa50b0046e8bc44a0f4a32b87d61a00;
 
     function setUp() public {
         integrationEnv = new IntegrationEnv();
@@ -61,8 +47,12 @@ contract IFTIntegrationTest is Test {
 
         sendCallConstructor = new EVMIFTSendCallConstructor();
 
-        iftOnA = new TestIFT(ibcImplA.ics27Gmp(), address(ibcImplA.accessManager()));
-        iftOnB = new TestIFT(ibcImplB.ics27Gmp(), address(ibcImplB.accessManager()));
+        iftOnA = new IFTAccessManaged();
+        iftOnB = new IFTAccessManaged();
+        iftOnA.initialize(address(ibcImplA.accessManager()));
+        iftOnB.initialize(address(ibcImplB.accessManager()));
+        _setIcs27(address(iftOnA), address(ibcImplA.ics27Gmp()));
+        _setIcs27(address(iftOnB), address(ibcImplB.ics27Gmp()));
 
         _setupBridgePermissions();
         _registerBridges();
@@ -72,7 +62,7 @@ contract IFTIntegrationTest is Test {
         uint64 ADMIN_ROLE = 0;
 
         bytes4[] memory selectors = new bytes4[](1);
-        selectors[0] = IFTBase.registerIFTBridge.selector;
+        selectors[0] = IIFT.registerIFTBridge.selector;
 
         ibcImplA.accessManager().setTargetFunctionRole(address(iftOnA), selectors, ADMIN_ROLE);
         ibcImplB.accessManager().setTargetFunctionRole(address(iftOnB), selectors, ADMIN_ROLE);
@@ -86,6 +76,11 @@ contract IFTIntegrationTest is Test {
         iftOnB.registerIFTBridge(
             th.FIRST_CLIENT_ID(), Strings.toChecksumHexString(address(iftOnA)), address(sendCallConstructor)
         );
+    }
+
+    function _setIcs27(address token, address ics27) internal {
+        // IFTAccessManaged does not expose an initializer for IFTBase storage.
+        vm.store(token, IFT_STORAGE_SLOT, bytes32(uint256(uint160(ics27))));
     }
 
     function test_deployment() public view {
@@ -106,7 +101,7 @@ contract IFTIntegrationTest is Test {
         address sender = integrationEnv.createUser();
         address receiver = integrationEnv.createUser();
 
-        iftOnA.mint(sender, amount);
+        deal(address(iftOnA), sender, amount, true);
         assertEq(iftOnA.balanceOf(sender), amount);
 
         vm.startPrank(sender);
@@ -140,7 +135,7 @@ contract IFTIntegrationTest is Test {
         address userA = integrationEnv.createUser();
         address userB = integrationEnv.createUser();
 
-        iftOnA.mint(userA, amount);
+        deal(address(iftOnA), userA, amount, true);
 
         vm.startPrank(userA);
         vm.recordLogs();
@@ -173,7 +168,7 @@ contract IFTIntegrationTest is Test {
         address sender = integrationEnv.createUser();
         address receiver = integrationEnv.createUser();
 
-        iftOnA.mint(sender, amount);
+        deal(address(iftOnA), sender, amount, true);
 
         uint64 shortTimeout = uint64(block.timestamp) + 1;
 
@@ -206,7 +201,7 @@ contract IFTIntegrationTest is Test {
         address receiver1 = integrationEnv.createUser();
         address receiver2 = integrationEnv.createUser();
 
-        iftOnA.mint(sender, amount1 + amount2);
+        deal(address(iftOnA), sender, amount1 + amount2, true);
 
         vm.startPrank(sender);
         vm.recordLogs();

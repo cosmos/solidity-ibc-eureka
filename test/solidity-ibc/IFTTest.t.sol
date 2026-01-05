@@ -15,71 +15,21 @@ import { IICS27GMP } from "../../contracts/interfaces/IICS27GMP.sol";
 import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
 import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 
-import { IFTBase } from "../../contracts/IFTBase.sol";
+import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
-
-import { ERC20 } from "@openzeppelin-contracts/token/ERC20/ERC20.sol";
-import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
-
 import { TestHelper } from "./utils/TestHelper.sol";
-
-/// @title Test IFT Token
-/// @notice A concrete implementation of IFTBase for testing purposes
-contract TestIFT is IFTBase {
-    constructor(
-        IICS27GMP ics27Gmp_,
-        address authority_
-    )
-        ERC20("Mock Interchain Token", "MIFT")
-        IFTBase(ics27Gmp_, authority_)
-    { }
-
-    /// @notice Mint tokens for testing
-    function mint(address to, uint256 amount) external {
-        _mint(to, amount);
-    }
-}
-
-/// @title Mock ICS27GMP for testing
-/// @notice Simulates ICS27GMP behavior for unit tests
-contract MockICS27GMP {
-    uint64 public nextSequence = 1;
-    mapping(address account => IICS27GMPMsgs.AccountIdentifier identifier) public accountIdentifiers;
-
-    function sendCall(IICS27GMPMsgs.SendCallMsg calldata) external returns (uint64) {
-        uint64 seq = nextSequence;
-        ++nextSequence;
-        return seq;
-    }
-
-    function setNextSequence(uint64 seq) external {
-        nextSequence = seq;
-    }
-
-    // solhint-disable-next-line gas-calldata-parameters
-    function setAccountIdentifier(address account, IICS27GMPMsgs.AccountIdentifier memory id) external {
-        accountIdentifiers[account] = id;
-    }
-
-    function getAccountIdentifier(address account) external view returns (IICS27GMPMsgs.AccountIdentifier memory) {
-        IICS27GMPMsgs.AccountIdentifier memory id = accountIdentifiers[account];
-        // solhint-disable-next-line gas-custom-errors
-        require(bytes(id.clientId).length > 0, "Account not found");
-        return id;
-    }
-}
+import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 
 contract IFTTest is Test {
     // solhint-disable gas-indexed-events
-    TestIFT public ift;
-    MockICS27GMP public mockIcs27;
+    IFTOwnable public ift;
     EVMIFTSendCallConstructor public evmCallConstructor;
-    AccessManager public accessManager;
 
     TestHelper public th = new TestHelper();
 
+    address public ics27Gmp;
     address public authority;
     address public user1;
     address public user2;
@@ -90,47 +40,72 @@ contract IFTTest is Test {
 
     uint256 public constant INITIAL_BALANCE = 1000 ether;
 
-    event IFTBridgeRegistered(string clientId, string counterpartyIFTAddress, address iftSendCallConstructor);
-    event IFTTransferInitiated(
-        string clientId, uint64 sequence, address indexed sender, string receiver, uint256 amount
-    );
-    event IFTMintReceived(string clientId, address indexed receiver, uint256 amount);
-    event IFTTransferCompleted(string clientId, uint64 sequence, address indexed sender, uint256 amount);
-    event IFTTransferRefunded(string clientId, uint64 sequence, address indexed sender, uint256 amount);
+    bytes32 private constant IFT_STORAGE_SLOT =
+        0x35d0029e62ce5824ad5e38215107659b8aa50b0046e8bc44a0f4a32b87d61a00;
 
     function setUp() public {
+        ics27Gmp = makeAddr("ics27Gmp");
         authority = makeAddr("authority");
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
         relayer = makeAddr("relayer");
 
-        accessManager = new AccessManager(authority);
-        mockIcs27 = new MockICS27GMP();
         evmCallConstructor = new EVMIFTSendCallConstructor();
 
-        ift = new TestIFT(IICS27GMP(address(mockIcs27)), address(accessManager));
-
-        // Grant IFT the ability to call registerIFTBridge (role 0 = admin by default)
-        vm.startPrank(authority);
-        bytes4 registerSelector = IIFT.registerIFTBridge.selector;
-        accessManager.setTargetFunctionRole(address(ift), _asSingletonArray(registerSelector), 0);
-        vm.stopPrank();
+        ift = new IFTOwnable();
+        ift.initialize(authority);
+        _setIcs27(address(ift), ics27Gmp);
 
         // Give user1 some tokens
-        ift.mint(user1, INITIAL_BALANCE);
+        deal(address(ift), user1, INITIAL_BALANCE, true);
     }
 
     // Helper Functions
 
-    function _asSingletonArray(bytes4 element) internal pure returns (bytes4[] memory) {
-        bytes4[] memory array = new bytes4[](1);
-        array[0] = element;
-        return array;
-    }
-
     function _registerBridge() internal {
         vm.prank(authority);
         ift.registerIFTBridge(CLIENT_ID, COUNTERPARTY_IFT, address(evmCallConstructor));
+    }
+
+    function _setIcs27(address token, address ics27) internal {
+        // IFTAccessManaged/IFTOwnable do not expose an initializer for IFTBase storage.
+        vm.store(token, IFT_STORAGE_SLOT, bytes32(uint256(uint160(ics27))));
+    }
+
+    function _mockSendCall(
+        string memory clientId,
+        string memory counterparty,
+        string memory receiver,
+        uint256 amount,
+        uint64 timeoutTimestamp,
+        uint64 seq
+    )
+        internal
+    {
+        bytes memory payload = evmCallConstructor.constructMintCall(receiver, amount);
+        IICS27GMPMsgs.SendCallMsg memory msg_ = IICS27GMPMsgs.SendCallMsg({
+            sourceClient: clientId,
+            receiver: counterparty,
+            salt: "",
+            payload: payload,
+            timeoutTimestamp: timeoutTimestamp,
+            memo: ""
+        });
+
+        vm.mockCall(ics27Gmp, abi.encodeCall(IICS27GMP.sendCall, (msg_)), abi.encode(seq));
+    }
+
+    function _mockAccountIdentifier(
+        address account,
+        string memory clientId,
+        string memory sender,
+        bytes memory salt
+    )
+        internal
+    {
+        IICS27GMPMsgs.AccountIdentifier memory id =
+            IICS27GMPMsgs.AccountIdentifier({ clientId: clientId, sender: sender, salt: salt });
+        vm.mockCall(ics27Gmp, abi.encodeCall(IICS27GMP.getAccountIdentifier, (account)), abi.encode(id));
     }
 
     function _createAckCallback(
@@ -146,7 +121,7 @@ contract IFTTest is Test {
             sourceClient: sourceClient,
             destinationClient: th.SECOND_CLIENT_ID(),
             sequence: sequence,
-            payload: IICS26RouterMsgs.Payload({ sourcePort: "", destPort: "", version: "", encoding: "", value: "" }),
+            payload: IICS26RouterMsgs.Payload({ sourcePort: ICS27Lib.DEFAULT_PORT_ID, destPort: ICS27Lib.DEFAULT_PORT_ID, version: ICS27Lib.ICS27_VERSION, encoding: ICS27Lib.ICS27_ENCODING, value: "" }),
             acknowledgement: ack,
             relayer: relayer
         });
@@ -164,7 +139,7 @@ contract IFTTest is Test {
             sourceClient: sourceClient,
             destinationClient: th.SECOND_CLIENT_ID(),
             sequence: sequence,
-            payload: IICS26RouterMsgs.Payload({ sourcePort: "", destPort: "", version: "", encoding: "", value: "" }),
+            payload: IICS26RouterMsgs.Payload({ sourcePort: ICS27Lib.DEFAULT_PORT_ID, destPort: ICS27Lib.DEFAULT_PORT_ID, version: ICS27Lib.ICS27_VERSION, encoding: ICS27Lib.ICS27_ENCODING, value: "" }),
             relayer: relayer
         });
     }
@@ -173,7 +148,7 @@ contract IFTTest is Test {
 
     function test_registerIFTBridge_success() public {
         vm.expectEmit(true, true, true, true);
-        emit IFTBridgeRegistered(CLIENT_ID, COUNTERPARTY_IFT, address(evmCallConstructor));
+        emit IIFT.IFTBridgeRegistered(CLIENT_ID, COUNTERPARTY_IFT, address(evmCallConstructor));
 
         vm.prank(authority);
         ift.registerIFTBridge(CLIENT_ID, COUNTERPARTY_IFT, address(evmCallConstructor));
@@ -232,10 +207,12 @@ contract IFTTest is Test {
         uint64 expectedSeq = 1;
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, expectedSeq);
+
         uint256 balanceBefore = ift.balanceOf(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTTransferInitiated(CLIENT_ID, expectedSeq, user1, receiver, transferAmount);
+        emit IIFT.IFTTransferInitiated(CLIENT_ID, expectedSeq, user1, receiver, transferAmount);
 
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
@@ -256,7 +233,9 @@ contract IFTTest is Test {
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
         vm.startPrank(user1);
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, amount1, timeout, 1);
         ift.iftTransfer(CLIENT_ID, receiver, amount1, timeout);
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, amount2, timeout, 2);
         ift.iftTransfer(CLIENT_ID, receiver, amount2, timeout);
         vm.stopPrank();
 
@@ -346,10 +325,13 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 expectedSeq = 1;
 
+        uint64 expectedTimeout = uint64(block.timestamp) + 15 minutes;
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, expectedTimeout, expectedSeq);
+
         uint256 balanceBefore = ift.balanceOf(user1);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTTransferInitiated(CLIENT_ID, expectedSeq, user1, receiver, transferAmount);
+        emit IIFT.IFTTransferInitiated(CLIENT_ID, expectedSeq, user1, receiver, transferAmount);
 
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount); // 3-param version with default timeout
@@ -368,6 +350,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, amount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, amount, timeout);
 
@@ -382,14 +366,12 @@ contract IFTTest is Test {
         address ics27Account = makeAddr("ics27Account");
         uint256 mintAmount = 200 ether;
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, "");
 
         uint256 balanceBefore = ift.balanceOf(user2);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTMintReceived(CLIENT_ID, user2, mintAmount);
+        emit IIFT.IFTMintReceived(CLIENT_ID, user2, mintAmount);
 
         vm.prank(ics27Account);
         ift.iftMint(user2, mintAmount);
@@ -400,10 +382,7 @@ contract IFTTest is Test {
     function test_iftMint_bridgeNotFound_reverts() public {
         address ics27Account = makeAddr("ics27Account");
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account,
-            IICS27GMPMsgs.AccountIdentifier({ clientId: "unknown-client", sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, "unknown-client", COUNTERPARTY_IFT, "");
 
         vm.prank(ics27Account);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, "unknown-client"));
@@ -416,9 +395,7 @@ contract IFTTest is Test {
         address ics27Account = makeAddr("ics27Account");
         string memory wrongSender = "0xwrongSenderAddress12345678901234567890";
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: wrongSender, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, wrongSender, "");
 
         vm.prank(ics27Account);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTUnauthorizedMint.selector, COUNTERPARTY_IFT, wrongSender));
@@ -431,10 +408,7 @@ contract IFTTest is Test {
         address ics27Account = makeAddr("ics27Account");
         bytes memory unexpectedSalt = hex"1234";
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account,
-            IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: unexpectedSalt })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, unexpectedSalt);
 
         vm.prank(ics27Account);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTUnexpectedSalt.selector, unexpectedSalt));
@@ -457,9 +431,7 @@ contract IFTTest is Test {
 
         address ics27Account = makeAddr("ics27Account");
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, "");
 
         vm.prank(ics27Account);
         ift.iftMint(user2, amount);
@@ -472,9 +444,7 @@ contract IFTTest is Test {
 
         address ics27Account = makeAddr("ics27Account");
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, "");
 
         // Zero amount mint is allowed by ERC20 (no-op)
         vm.prank(ics27Account);
@@ -488,9 +458,7 @@ contract IFTTest is Test {
 
         address ics27Account = makeAddr("ics27Account");
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, "");
 
         // ERC20 reverts on mint to zero address
         vm.prank(ics27Account);
@@ -507,6 +475,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
 
@@ -516,9 +486,9 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(CLIENT_ID, seq, successAck);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTTransferCompleted(CLIENT_ID, seq, user1, transferAmount);
+        emit IIFT.IFTTransferCompleted(CLIENT_ID, seq, user1, transferAmount);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onAckPacket(true, ackMsg);
 
         IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(CLIENT_ID, seq);
@@ -533,6 +503,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
 
@@ -545,9 +517,9 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(CLIENT_ID, seq, errorAck);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTTransferRefunded(CLIENT_ID, seq, user1, transferAmount);
+        emit IIFT.IFTTransferRefunded(CLIENT_ID, seq, user1, transferAmount);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onAckPacket(false, ackMsg);
 
         assertEq(ift.balanceOf(user1), INITIAL_BALANCE);
@@ -568,7 +540,7 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg =
             _createAckCallback(CLIENT_ID, 999, ICS24Host.UNIVERSAL_ERROR_ACK);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, CLIENT_ID, 999));
         ift.onAckPacket(false, ackMsg);
     }
@@ -580,6 +552,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
 
@@ -589,13 +563,13 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(CLIENT_ID, seq, successAck);
 
         // First ack succeeds
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onAckPacket(true, ackMsg);
 
         // Second ack should fail (pending transfer already cleared)
         // With success=true, it just deletes and emits (no revert on empty)
         // With success=false, it tries to refund and reverts
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, CLIENT_ID, seq));
         ift.onAckPacket(false, ackMsg);
     }
@@ -604,7 +578,7 @@ contract IFTTest is Test {
         // When success=true and no pending transfer exists, it should revert
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(CLIENT_ID, 999, hex"01");
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, CLIENT_ID, 999));
         ift.onAckPacket(true, ackMsg);
     }
@@ -618,6 +592,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
 
@@ -629,9 +605,9 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(CLIENT_ID, seq);
 
         vm.expectEmit(true, true, true, true);
-        emit IFTTransferRefunded(CLIENT_ID, seq, user1, transferAmount);
+        emit IIFT.IFTTransferRefunded(CLIENT_ID, seq, user1, transferAmount);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onTimeoutPacket(timeoutMsg);
 
         assertEq(ift.balanceOf(user1), INITIAL_BALANCE);
@@ -651,7 +627,7 @@ contract IFTTest is Test {
     function test_onTimeoutPacket_noPendingTransfer_reverts() public {
         IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(CLIENT_ID, 999);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, CLIENT_ID, 999));
         ift.onTimeoutPacket(timeoutMsg);
     }
@@ -663,6 +639,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
 
@@ -670,11 +648,11 @@ contract IFTTest is Test {
         IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(CLIENT_ID, seq);
 
         // First timeout succeeds
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onTimeoutPacket(timeoutMsg);
 
         // Second timeout should fail (pending transfer already cleared)
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, CLIENT_ID, seq));
         ift.onTimeoutPacket(timeoutMsg);
     }
@@ -694,7 +672,7 @@ contract IFTTest is Test {
     }
 
     function test_ics27() public view {
-        assertEq(address(ift.ics27()), address(mockIcs27));
+        assertEq(address(ift.ics27()), ics27Gmp);
     }
 
     // EVMIFTSendCallConstructor Tests
@@ -735,6 +713,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         // Step 1: User1 initiates transfer
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
@@ -744,7 +724,7 @@ contract IFTTest is Test {
         // Step 2: Simulate successful ack
         IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = _createAckCallback(CLIENT_ID, 1, hex"01");
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onAckPacket(true, ackMsg);
 
         // Pending transfer should be cleared
@@ -759,6 +739,8 @@ contract IFTTest is Test {
         string memory receiver = Strings.toHexString(user2);
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
         // Step 1: User1 initiates transfer
         vm.prank(user1);
         ift.iftTransfer(CLIENT_ID, receiver, transferAmount, timeout);
@@ -768,7 +750,7 @@ contract IFTTest is Test {
         // Step 2: Simulate timeout
         IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(CLIENT_ID, 1);
 
-        vm.prank(address(mockIcs27));
+        vm.prank(ics27Gmp);
         ift.onTimeoutPacket(timeoutMsg);
 
         // User should get refund
@@ -781,9 +763,7 @@ contract IFTTest is Test {
         uint256 mintAmount = 500 ether;
         address ics27Account = makeAddr("ics27Account");
 
-        mockIcs27.setAccountIdentifier(
-            ics27Account, IICS27GMPMsgs.AccountIdentifier({ clientId: CLIENT_ID, sender: COUNTERPARTY_IFT, salt: "" })
-        );
+        _mockAccountIdentifier(ics27Account, CLIENT_ID, COUNTERPARTY_IFT, "");
 
         // Simulate receiving mint from counterparty
         vm.prank(ics27Account);
@@ -815,7 +795,9 @@ contract IFTTest is Test {
         uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
 
         vm.startPrank(user1);
+        _mockSendCall(CLIENT_ID, COUNTERPARTY_IFT, receiver, 100 ether, timeout, 1);
         ift.iftTransfer(CLIENT_ID, receiver, 100 ether, timeout);
+        _mockSendCall(clientId2, counterparty2, receiver, 200 ether, timeout, 2);
         ift.iftTransfer(clientId2, receiver, 200 ether, timeout);
         vm.stopPrank();
 
@@ -827,7 +809,7 @@ contract IFTTest is Test {
         assertEq(pending2.amount, 200 ether);
 
         // Ack one, timeout the other
-        vm.startPrank(address(mockIcs27));
+        vm.startPrank(ics27Gmp);
         ift.onAckPacket(true, _createAckCallback(CLIENT_ID, 1, hex"01"));
         ift.onTimeoutPacket(_createTimeoutCallback(clientId2, 2));
         vm.stopPrank();
