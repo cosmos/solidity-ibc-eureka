@@ -14,37 +14,6 @@ const TEST_CLIENT_ID: &str = "07-tendermint-0";
 const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
 
 #[test]
-fn test_hex_to_bytes_valid() {
-    assert_eq!(hex_to_bytes("").unwrap(), Vec::<u8>::new());
-    assert_eq!(hex_to_bytes("00").unwrap(), vec![0]);
-    assert_eq!(hex_to_bytes("ff").unwrap(), vec![255]);
-    assert_eq!(hex_to_bytes("FF").unwrap(), vec![255]);
-    assert_eq!(
-        hex_to_bytes("deadbeef").unwrap(),
-        vec![0xde, 0xad, 0xbe, 0xef]
-    );
-    assert_eq!(
-        hex_to_bytes("0123456789abcdef").unwrap(),
-        vec![0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef]
-    );
-}
-
-#[test]
-fn test_hex_to_bytes_invalid_odd_length() {
-    assert!(hex_to_bytes("0").is_err());
-    assert!(hex_to_bytes("abc").is_err());
-    assert!(hex_to_bytes("12345").is_err());
-}
-
-#[test]
-fn test_hex_to_bytes_invalid_chars() {
-    assert!(hex_to_bytes("gg").is_err());
-    assert!(hex_to_bytes("0x").is_err());
-    assert!(hex_to_bytes("zz").is_err());
-    assert!(hex_to_bytes("ab cd").is_err());
-}
-
-#[test]
 fn test_construct_evm_mint_call_basic() {
     let receiver = "0x1234567890abcdef1234567890abcdef12345678";
     let amount = 1_000_000u64;

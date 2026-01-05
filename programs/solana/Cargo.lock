@@ -2111,6 +2111,7 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
+ "hex",
  "ics26-router",
  "ics27-gmp",
  "mollusk-svm",

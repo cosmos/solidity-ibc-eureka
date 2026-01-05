@@ -235,7 +235,8 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
 
     // Parse receiver as hex address (remove 0x prefix if present)
     let receiver_hex = receiver.trim_start_matches("0x");
-    let receiver_bytes = hex_to_bytes(receiver_hex)?;
+    let receiver_bytes =
+        hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
     // Pad receiver address to 32 bytes (left-padded with zeros)
     let mut padded_receiver = [0u8; 32];
@@ -355,18 +356,6 @@ fn create_pending_transfer_account<'info>(
     pending.serialize(&mut &mut data[8..])?;
 
     Ok(())
-}
-
-/// Simple hex string to bytes conversion
-fn hex_to_bytes(hex: &str) -> Result<Vec<u8>> {
-    require!(hex.len().is_multiple_of(2), IFTError::InvalidReceiver);
-
-    (0..hex.len())
-        .step_by(2)
-        .map(|i| {
-            u8::from_str_radix(&hex[i..i + 2], 16).map_err(|_| error!(IFTError::InvalidReceiver))
-        })
-        .collect()
 }
 
 #[cfg(test)]

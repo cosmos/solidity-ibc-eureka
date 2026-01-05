@@ -33,6 +33,7 @@ ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
+hex.workspace = true
 
 [build-dependencies]
 solana-keccak-hasher.workspace = true
