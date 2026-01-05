@@ -72,7 +72,6 @@ pub fn on_acknowledgement_packet(
     ctx: Context<OnAckPacket>,
     msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
@@ -83,11 +82,9 @@ pub fn on_acknowledgement_packet(
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
 
-    // Parse acknowledgement to determine success/failure
     let is_success = parse_gmp_acknowledgement(&msg.acknowledgement);
 
     if is_success {
-        // Transfer completed successfully - just clear pending transfer
         emit!(IFTTransferCompleted {
             mint: ctx.accounts.app_state.mint,
             client_id: pending.client_id.clone(),
@@ -97,7 +94,6 @@ pub fn on_acknowledgement_packet(
             timestamp: clock.unix_timestamp,
         });
     } else {
-        // Transfer failed - refund tokens to sender
         let mint_key = ctx.accounts.mint.key();
         let seeds = &[
             MINT_AUTHORITY_SEED,

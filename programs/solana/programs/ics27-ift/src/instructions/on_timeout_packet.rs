@@ -82,7 +82,6 @@ pub fn on_timeout_packet(
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
 
-    // Refund tokens to sender by minting
     let mint_key = ctx.accounts.mint.key();
     let seeds = &[
         MINT_AUTHORITY_SEED,
