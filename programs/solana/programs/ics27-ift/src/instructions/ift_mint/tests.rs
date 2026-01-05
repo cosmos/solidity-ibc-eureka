@@ -31,7 +31,7 @@ fn test_ift_mint_zero_amount_fails() {
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-    let (gmp_account_pda, _) =
+    let (gmp_account_pda, gmp_account_bump) =
         get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
     let (system_program, system_account) = create_system_program_account();
 
@@ -101,6 +101,7 @@ fn test_ift_mint_zero_amount_fails() {
         receiver,
         amount: 0,
         client_id: TEST_CLIENT_ID.to_string(),
+        gmp_account_bump,
     };
 
     let instruction = Instruction {
@@ -162,7 +163,7 @@ fn test_ift_mint_receiver_mismatch_fails() {
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-    let (gmp_account_pda, _) =
+    let (gmp_account_pda, gmp_account_bump) =
         get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
     let (system_program, system_account) = create_system_program_account();
 
@@ -233,6 +234,7 @@ fn test_ift_mint_receiver_mismatch_fails() {
         receiver, // expects 'receiver'
         amount: 1000,
         client_id: TEST_CLIENT_ID.to_string(),
+        gmp_account_bump,
     };
 
     let instruction = Instruction {
@@ -293,7 +295,7 @@ fn test_ift_mint_gmp_not_signer_fails() {
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-    let (gmp_account_pda, _) =
+    let (gmp_account_pda, gmp_account_bump) =
         get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
     let (system_program, system_account) = create_system_program_account();
 
@@ -362,6 +364,7 @@ fn test_ift_mint_gmp_not_signer_fails() {
         receiver,
         amount: 1000,
         client_id: TEST_CLIENT_ID.to_string(),
+        gmp_account_bump,
     };
 
     // GMP account is NOT marked as signer
@@ -423,7 +426,7 @@ fn test_ift_mint_bridge_not_active_fails() {
     let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
     let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
     let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-    let (gmp_account_pda, _) =
+    let (gmp_account_pda, gmp_account_bump) =
         get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
     let (system_program, system_account) = create_system_program_account();
 
@@ -493,6 +496,7 @@ fn test_ift_mint_bridge_not_active_fails() {
         receiver,
         amount: 1000,
         client_id: TEST_CLIENT_ID.to_string(),
+        gmp_account_bump,
     };
 
     let instruction = Instruction {
@@ -618,10 +622,12 @@ fn test_ift_mint_invalid_gmp_account_fails() {
         rent_epoch: 0,
     };
 
+    // Use a dummy bump since the GMP account is wrong anyway
     let msg = IFTMintMsg {
         receiver,
         amount: 1000,
         client_id: TEST_CLIENT_ID.to_string(),
+        gmp_account_bump: 255,
     };
 
     let instruction = Instruction {

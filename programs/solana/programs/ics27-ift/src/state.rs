@@ -190,6 +190,8 @@ pub struct IFTMintMsg {
     pub amount: u64,
     /// IBC client identifier (for bridge lookup and GMP validation)
     pub client_id: String,
+    /// GMP account PDA bump (for efficient validation with create_program_address)
+    pub gmp_account_bump: u8,
 }
 
 #[cfg(test)]
