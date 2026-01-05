@@ -34,4 +34,4 @@ solana-keccak-hasher = { workspace = true }
 sha2 = "0.10"
 
 # ECDSA signature verification
-solana-program = { workspace = true }
+solana-secp256k1-recover = { workspace = true }

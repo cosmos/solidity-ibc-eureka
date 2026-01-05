@@ -130,6 +130,7 @@ solana-keccak-hasher = { version = "2.2", default-features = false }
 solana-msg = { version = "2.2", default-features = false }
 solana-sdk-ids = { version = "2.2", default-features = false }
 solana-define-syscall = { version = "2.2", default-features = false }
+solana-secp256k1-recover = {version = "3.1", default-features = false}
 
 [profile.dev]
 debug = 0

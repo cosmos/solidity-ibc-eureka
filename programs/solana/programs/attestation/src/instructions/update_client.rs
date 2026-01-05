@@ -23,6 +23,7 @@ pub fn handler(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<Update
         serde_json::from_slice(&update_msg).map_err(|_| ErrorCode::JsonDeserializationFailed)?;
 
     // Verify signature
+    // TODO: Check in what format is the attestation_data. So that we know how to deserialize
     let digest = sha256(&proof.attestation_data);
     verify_signatures_threshold(
         digest,

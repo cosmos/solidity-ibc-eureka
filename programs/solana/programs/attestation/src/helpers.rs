@@ -2,7 +2,7 @@ use crate::error::ErrorCode;
 use crate::state::EthereumAddress;
 use anchor_lang::prelude::*;
 use sha2::{Digest, Sha256};
-use solana_program::secp256k1_recover::secp256k1_recover;
+use solana_secp256k1_recover::secp256k1_recover;
 
 /// ECDSA signature length (r || s || v)
 const ECDSA_SIGNATURE_LENGTH: usize = 65;
@@ -133,19 +133,7 @@ pub fn sha256(data: &[u8]) -> [u8; 32] {
 /// # Arguments
 /// * `digest` - SHA256 hash of attestation_data
 /// * `signature` - 65-byte ECDSA signature (r||s||v format)
-/// * `attestor_addresses` - Known attestor set for validation
-///
-/// # Returns
-/// The recovered Ethereum address if verification succeeds
-///
-/// # Errors
-/// * `InvalidSignature` - If signature length is not 65 bytes or recovery fails
-/// * `UnknownSigner` - If recovered address is not in the attestor set
-fn verify_signature(
-    digest: &[u8; 32],
-    signature: &[u8],
-    attestor_addresses: &[EthereumAddress],
-) -> Result<EthereumAddress> {
+fn verify_signature(digest: &[u8; 32], signature: &[u8]) -> Result<EthereumAddress> {
     // Verify signature length
     require!(
         signature.len() == ECDSA_SIGNATURE_LENGTH,
@@ -167,6 +155,8 @@ fn verify_signature(
     let recovered_pubkey = secp256k1_recover(digest, recovery_id, &sig_bytes)
         .map_err(|_| ErrorCode::InvalidSignature)?;
 
+    // TODO: Should we use alloy types here?
+
     // Derive Ethereum address: keccak256(pubkey)[12..32]
     // The recovered pubkey is 64 bytes (uncompressed, without 0x04 prefix)
     let pubkey_hash = keccak256(&recovered_pubkey.to_bytes());
@@ -181,12 +171,6 @@ fn verify_signature(
         ErrorCode::InvalidSignature
     );
 
-    // Verify the recovered address is in the attestor set
-    require!(
-        attestor_addresses.contains(&recovered_address),
-        ErrorCode::UnknownSigner
-    );
-
     Ok(recovered_address)
 }
 
@@ -197,13 +181,6 @@ fn verify_signature(
 /// * `signatures` - Array of 65-byte ECDSA signatures (r||s||v format)
 /// * `attestor_addresses` - Known attestor set
 /// * `min_required_sigs` - Minimum signatures needed
-///
-/// # Errors
-/// * `EmptySignatures` - If no signatures provided
-/// * `ThresholdNotMet` - If signature count is less than minimum required
-/// * `InvalidSignature` - If any signature is invalid
-/// * `UnknownSigner` - If any signer is not in the attestor set
-/// * `DuplicateSignature` - If duplicate signers detected
 pub fn verify_signatures_threshold(
     digest: [u8; 32],
     signatures: &Vec<Vec<u8>>,
@@ -224,7 +201,13 @@ pub fn verify_signatures_threshold(
 
     for signature in signatures {
         // Verify the signature and recover the signer address
-        let recovered = verify_signature(&digest, signature, attestor_addresses)?;
+        let recovered = verify_signature(&digest, signature)?;
+
+        // Verify the recovered address is in the attestor set
+        require!(
+            attestor_addresses.contains(&recovered),
+            ErrorCode::UnknownSigner
+        );
 
         // Check for duplicate signers
         require!(

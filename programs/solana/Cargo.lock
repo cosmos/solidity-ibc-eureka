@@ -270,7 +270,7 @@ dependencies = [
  "solana-account-info",
  "solana-clock",
  "solana-cpi",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-feature-gate-interface",
  "solana-instruction",
  "solana-instructions-sysvar",
@@ -529,7 +529,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "solana-keccak-hasher",
- "solana-program",
+ "solana-secp256k1-recover 3.1.0",
 ]
 
 [[package]]
@@ -563,6 +563,12 @@ dependencies = [
  "rustc-demangle",
  "windows-targets",
 ]
+
+[[package]]
+name = "base16ct"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
 name = "base64"
@@ -976,6 +982,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43da5946c66ffcc7745f48db692ffbb10a83bfe0afd96235c5c2a4fb23994929"
 
 [[package]]
+name = "crypto-bigint"
+version = "0.5.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
+dependencies = [
+ "generic-array",
+ "rand_core 0.6.4",
+ "subtle",
+ "zeroize",
+]
+
+[[package]]
 name = "crypto-common"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1179,6 +1197,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ed9a281f7bc9b7576e61468ba615a66a5c8cfdff42420a70aa82701a3b1e292"
 dependencies = [
  "block-buffer 0.10.4",
+ "const-oid",
  "crypto-common",
  "subtle",
 ]
@@ -1211,6 +1230,20 @@ name = "eager"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abe71d579d1812060163dff96056261deb5bf6729b100fa2e36a68b9649ba3d3"
+
+[[package]]
+name = "ecdsa"
+version = "0.16.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee27f32b5c5292967d2d4a9d7f1e0b0aed2c15daded5a60300e4abb9d8020bca"
+dependencies = [
+ "der",
+ "digest 0.10.7",
+ "elliptic-curve",
+ "rfc6979",
+ "signature 2.2.0",
+ "spki",
+]
 
 [[package]]
 name = "ed25519"
@@ -1263,6 +1296,25 @@ name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
+
+[[package]]
+name = "elliptic-curve"
+version = "0.13.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e6043086bf7973472e0c7dff2142ea0b680d30e18d9cc40f267efbf222bd47"
+dependencies = [
+ "base16ct",
+ "crypto-bigint",
+ "digest 0.10.7",
+ "ff",
+ "generic-array",
+ "group",
+ "pkcs8",
+ "rand_core 0.6.4",
+ "sec1",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "enum-iterator"
@@ -1324,6 +1376,16 @@ name = "feature-probe"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "835a3dc7d1ec9e75e2b5fb4ba75396837112d2060b03f7d43bc1897c7f7211da"
+
+[[package]]
+name = "ff"
+version = "0.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c0b50bfb653653f9ca9095b427bed08ab8d75a137839d9ad64eb11810d5b6393"
+dependencies = [
+ "rand_core 0.6.4",
+ "subtle",
+]
 
 [[package]]
 name = "fiat-crypto"
@@ -1482,6 +1544,7 @@ checksum = "85649ca51fd72272d7821adaf274ad91c288277713d9c18820d8499a7ff69e9a"
 dependencies = [
  "typenum",
  "version_check",
+ "zeroize",
 ]
 
 [[package]]
@@ -1551,6 +1614,17 @@ dependencies = [
  "mollusk-svm-bencher",
  "solana-ibc-types",
  "solana-sdk",
+]
+
+[[package]]
+name = "group"
+version = "0.13.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0f9ef7462f7c099f518d754361858f86d8a07af53ba9af0fe635bbccb151a63"
+dependencies = [
+ "ff",
+ "rand_core 0.6.4",
+ "subtle",
 ]
 
 [[package]]
@@ -2033,7 +2107,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-allocator",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-ibc-constants",
  "solana-ibc-types",
  "solana-sdk",
@@ -2315,6 +2389,20 @@ checksum = "1cfaf33c695fc6e08064efbc1f72ec937429614f25eef83af942d0e227c3a28f"
 dependencies = [
  "once_cell",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "k256"
+version = "0.13.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6e3919bbaa2945715f0bb6d3934a173d1e9a59ac23767fbaaef277265a7411b"
+dependencies = [
+ "cfg-if",
+ "ecdsa",
+ "elliptic-curve",
+ "once_cell",
+ "sha2 0.10.9",
+ "signature 2.2.0",
 ]
 
 [[package]]
@@ -3282,6 +3370,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rfc6979"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8dd2a808d456c4a54e300a23e9f5a67e122c3024119acbfd73e3bf664491cb2"
+dependencies = [
+ "hmac 0.12.1",
+ "subtle",
+]
+
+[[package]]
 name = "ring"
 version = "0.17.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3390,6 +3488,20 @@ name = "scopeguard"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
+
+[[package]]
+name = "sec1"
+version = "0.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3e97a565f76233a6003f9f5c54be1d9c5bdfa3eccfb189469f11ec4901c47dc"
+dependencies = [
+ "base16ct",
+ "der",
+ "generic-array",
+ "pkcs8",
+ "subtle",
+ "zeroize",
+]
 
 [[package]]
 name = "semver"
@@ -3573,6 +3685,10 @@ name = "signature"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77549399552de45a898a580c1b41d445bf730df867cc44e6c0233bbc4b8329de"
+dependencies = [
+ "digest 0.10.7",
+ "rand_core 0.6.4",
+]
 
 [[package]]
 name = "siphasher"
@@ -3680,7 +3796,7 @@ checksum = "75db7f2bbac3e62cfd139065d15bcda9e2428883ba61fc8d27ccb251081e7567"
 dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
 ]
 
 [[package]]
@@ -3701,7 +3817,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1a0801e25a1b31a14494fc80882a036be0ffd290efc4c2d640bfcca120a4672"
 dependencies = [
  "blake3",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-hash",
  "solana-sanitize",
 ]
@@ -3717,7 +3833,7 @@ dependencies = [
  "ark-ff",
  "ark-serialize",
  "bytemuck",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "thiserror 2.0.12",
 ]
 
@@ -3765,7 +3881,7 @@ dependencies = [
  "solana-pubkey",
  "solana-sbpf",
  "solana-sdk-ids",
- "solana-secp256k1-recover",
+ "solana-secp256k1-recover 2.2.1",
  "solana-sha256-hasher",
  "solana-stable-layout",
  "solana-svm-feature-set",
@@ -3817,7 +3933,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8dc71126edddc2ba014622fc32d0f5e2e78ec6c5a1e0eb511b85618c09e9ea11"
 dependencies = [
  "solana-account-info",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-instruction",
  "solana-program-error",
  "solana-pubkey",
@@ -3833,7 +3949,7 @@ dependencies = [
  "bytemuck",
  "bytemuck_derive",
  "curve25519-dalek 4.1.3",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "subtle",
  "thiserror 2.0.12",
 ]
@@ -3852,6 +3968,12 @@ name = "solana-define-syscall"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2ae3e2abcf541c8122eafe9a625d4d194b4023c20adde1e251f94e056bb1aee2"
+
+[[package]]
+name = "solana-define-syscall"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57e5b1c0bc1d4a4d10c88a4100499d954c09d3fecfae4912c1a074dff68b1738"
 
 [[package]]
 name = "solana-derivation-path"
@@ -4086,7 +4208,7 @@ dependencies = [
  "num-traits",
  "serde",
  "serde_derive",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-pubkey",
  "wasm-bindgen",
 ]
@@ -4115,7 +4237,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "58f5693c6de226b3626658377168b0184e94e8292ff16e3d31d4766e65627565"
 dependencies = [
  "solana-account-info",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-instruction",
  "solana-program-entrypoint",
  "solana-stable-layout",
@@ -4128,7 +4250,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7aeb957fbd42a451b99235df4942d96db7ef678e8d5061ef34c9b34cae12f79"
 dependencies = [
  "sha3",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-hash",
  "solana-sanitize",
 ]
@@ -4278,7 +4400,7 @@ version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f36a1a14399afaabc2781a1db09cb14ee4cc4ee5c7a5a3cfcc601811379a8092"
 dependencies = [
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
 ]
 
 [[package]]
@@ -4345,7 +4467,7 @@ checksum = "1e3dca50aa507fdebd0ac57dbb82fb852cde0089b947a50195668e129d4920fb"
 dependencies = [
  "ark-bn254",
  "light-poseidon",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "thiserror 2.0.12",
 ]
 
@@ -4394,7 +4516,7 @@ dependencies = [
  "solana-clock",
  "solana-cpi",
  "solana-decode-error",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-epoch-rewards",
  "solana-epoch-schedule",
  "solana-example-mocks",
@@ -4422,7 +4544,7 @@ dependencies = [
  "solana-sanitize",
  "solana-sdk-ids",
  "solana-sdk-macro",
- "solana-secp256k1-recover",
+ "solana-secp256k1-recover 2.2.1",
  "solana-serde-varint",
  "solana-serialize-utils",
  "solana-sha256-hasher",
@@ -4473,7 +4595,7 @@ version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a5426090c6f3fd6cfdc10685322fede9ca8e5af43cd6a59e98bfe4e91671712"
 dependencies = [
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
 ]
 
 [[package]]
@@ -4554,7 +4676,7 @@ dependencies = [
  "serde_derive",
  "solana-atomic-u64",
  "solana-decode-error",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-sanitize",
  "solana-sha256-hasher",
  "wasm-bindgen",
@@ -4663,7 +4785,7 @@ dependencies = [
  "solana-sanitize",
  "solana-sdk-ids",
  "solana-sdk-macro",
- "solana-secp256k1-recover",
+ "solana-secp256k1-recover 2.2.1",
  "solana-secp256r1-program",
  "solana-serde",
  "solana-serde-varint",
@@ -4717,7 +4839,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baa3120b6cdaa270f39444f5093a90a7b03d296d362878f7a6991d6de3bbe496"
 dependencies = [
  "libsecp256k1",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "solana-secp256k1-recover"
+version = "3.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9de18cfdab99eeb940fbedd8c981fa130c0d76252da75d05446f22fae8b51932"
+dependencies = [
+ "k256",
+ "solana-define-syscall 4.0.1",
  "thiserror 2.0.12",
 ]
 
@@ -4797,7 +4930,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0037386961c0d633421f53560ad7c80675c0447cba4d1bb66d60974dd486c7ea"
 dependencies = [
  "sha2 0.10.9",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-hash",
 ]
 
@@ -4963,7 +5096,7 @@ dependencies = [
  "serde_derive",
  "solana-account-info",
  "solana-clock",
- "solana-define-syscall",
+ "solana-define-syscall 2.3.0",
  "solana-epoch-rewards",
  "solana-epoch-schedule",
  "solana-fee-calculator",
