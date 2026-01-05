@@ -121,16 +121,7 @@ pub mod attestation {
         Ok(result)
     }
 
-    // TODO: CRITICAL - Add signature verification before calling handler
-    // The Solidity implementation verifies attestor signatures in verifyMembership()
-    // by calling _verifySignaturesThreshold() which:
-    // 1. Computes sha256 digest of proof.attestationData
-    // 2. Recovers signer from each ECDSA signature (65 bytes: r||s||v)
-    // 3. Verifies each recovered signer is in the attestor set
-    // 4. Checks for duplicate signers
-    // 5. Ensures signature count meets minRequiredSigs threshold
-    // Currently, this implementation does NOT verify signatures at all!
-    // See: contracts/light-clients/attestation/AttestationLightClient.sol:125-162
+    /// Verify membership
     pub fn verify_membership(
         ctx: Context<VerifyMembership>,
         msg: ics25_handler::MembershipMsg,
