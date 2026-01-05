@@ -90,6 +90,7 @@ pub struct UpdateClient<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// TODO: Add access control
 #[program]
 pub mod attestation {
     use super::*;
@@ -97,7 +98,7 @@ pub mod attestation {
     pub fn initialize(
         ctx: Context<Initialize>,
         client_id: String,
-        attestor_addresses: Vec<[u8; 20]>,
+        attestor_addresses: Vec<Pubkey>,
         min_required_sigs: u8,
         initial_height: u64,
         initial_timestamp: u64,
@@ -112,9 +113,8 @@ pub mod attestation {
         )
     }
 
-    /// Update the client with a new consensus state
-    /// Implements the logic from AttestationLightClient.sol:88-122
-    /// Returns UpdateResult indicating success, no-op, or misbehavior
+    /// Update the client with a new consensus state. Returns UpdateResult
+    /// indicating success, no-op, or misbehavior
     pub fn update_client(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<UpdateResult> {
         let result = instructions::update_client::handler(ctx, update_msg)?;
 

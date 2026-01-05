@@ -5,7 +5,7 @@ use std::collections::HashSet;
 pub fn handler(
     ctx: Context<Initialize>,
     _client_id: String,
-    attestor_addresses: Vec<[u8; 20]>,
+    attestor_addresses: Vec<Pubkey>,
     min_required_sigs: u8,
     initial_height: u64,
     initial_timestamp: u64,

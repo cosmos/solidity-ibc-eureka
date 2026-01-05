@@ -1,5 +1,6 @@
 use crate::error::ErrorCode;
 use anchor_lang::prelude::*;
+use sha2::{Digest, Sha256};
 
 /// Attestation data structures (matching Solidity ABI encoding)
 #[derive(Debug, Clone)]
@@ -115,15 +116,28 @@ pub fn keccak256(data: &[u8]) -> [u8; 32] {
     solana_keccak_hasher::hash(data).to_bytes()
 }
 
-// TODO: CRITICAL - Implement SHA256 digest computation
-// The Solidity implementation uses sha256() to hash the attestationData before signature verification.
-// This is required for ECDSA signature verification in all proof validation flows.
-// See: AttestationLightClient.sol:97, 141, 180
-// Example implementation:
-// pub fn sha256_digest(data: &[u8]) -> [u8; 32] {
-//     use solana_program::hash::hashv;
-//     hashv(&[data]).to_bytes()
-// }
+/// Compute SHA256
+pub fn sha256(data: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    hasher.finalize().into()
+}
+
+/// Verifies that `signatures` over `digest` are valid, unique, and meet the threshold.
+///
+/// Parameters:
+/// - digest: SHA256 hash of attestation_data
+/// - signatures: Array of 65-byte ECDSA signatures (r||s||v format)
+/// - attestor_addresses: Known attestor set
+/// - min_required_sigs: Minimum signatures needed
+pub fn verify_signatures_threshold(
+    digest: [u8; 32],
+    signatures: &Vec<Vec<u8>>,
+    attestor_addresses: &[Pubkey],
+    min_required_sigs: u8,
+) -> Result<()> {
+    todo!()
+}
 
 // TODO: CRITICAL - Implement verify_signatures_threshold function
 // This function must verify that the provided signatures meet the attestor threshold.

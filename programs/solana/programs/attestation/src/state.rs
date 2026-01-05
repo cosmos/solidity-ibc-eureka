@@ -6,8 +6,8 @@ use anchor_lang::prelude::*;
 pub enum UpdateResult {
     /// The update was successful
     Update,
-    /// A misbehaviour was detected
-    Misbehaviour,
+    /// A misbehavior was detected
+    Misbehavior,
     /// Client is already up to date
     NoOp,
 }
@@ -19,7 +19,7 @@ pub enum UpdateResult {
 pub struct ClientState {
     /// Fixed list of attestor addresses. Maximum of 10 attestors supported
     #[max_len(10)]
-    pub attestor_addresses: Vec<[u8; 20]>,
+    pub attestor_addresses: Vec<Pubkey>,
 
     /// Minimum number of signatures required (m-of-n quorum)
     pub min_required_sigs: u8,
@@ -29,12 +29,6 @@ pub struct ClientState {
 
     /// Whether the client is frozen due to misbehavior
     pub is_frozen: bool,
-    // TODO: Consider adding access control fields
-    // The Solidity implementation uses OpenZeppelin's AccessControl with roles.
-    // For Solana, consider adding:
-    // - proof_submitter_authority: Option<Pubkey> - If None, anyone can submit
-    // - admin_authority: Option<Pubkey> - For managing roles/upgrades
-    // See: contracts/light-clients/attestation/AttestationLightClient.sol:25, 65-70
 }
 
 impl ClientState {
@@ -51,7 +45,7 @@ impl ClientState {
     }
 
     /// Check if an address is in the attestor set
-    pub fn is_attestor(&self, address: &[u8; 20]) -> bool {
+    pub fn is_attestor(&self, address: &Pubkey) -> bool {
         self.attestor_addresses.iter().any(|addr| addr == address)
     }
 }
@@ -78,9 +72,9 @@ mod tests {
 
     #[test]
     fn test_is_attestor() {
-        let addr1 = [1u8; 20];
-        let addr2 = [2u8; 20];
-        let addr3 = [3u8; 20];
+        let addr1 = Pubkey::new_unique();
+        let addr2 = Pubkey::new_unique();
+        let addr3 = Pubkey::new_unique();
 
         let client_state = ClientState {
             attestor_addresses: vec![addr1, addr2],
@@ -97,7 +91,7 @@ mod tests {
     #[test]
     fn test_freeze() {
         let mut client_state = ClientState {
-            attestor_addresses: vec![[1u8; 20]],
+            attestor_addresses: vec![Pubkey::new_unique()],
             min_required_sigs: 1,
             latest_height: 100,
             is_frozen: false,

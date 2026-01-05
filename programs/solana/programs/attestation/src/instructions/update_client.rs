@@ -1,6 +1,6 @@
 use crate::{
     error::ErrorCode,
-    helpers::{decode_state_attestation, AttestationProof},
+    helpers::{decode_state_attestation, sha256, verify_signatures_threshold, AttestationProof},
     state::{ClientState, ConsensusStateStore, UpdateResult},
     UpdateClient,
 };
@@ -9,45 +9,38 @@ use anchor_lang::{
     system_program::{self, CreateAccount},
 };
 
-/// Handler for the update_client instruction
-/// Implements the logic from AttestationLightClient.sol:88-122
+/// Handler for the update_client instruction.
 pub fn handler(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<UpdateResult> {
     // Check if client is frozen
-    require!(!ctx.accounts.client_state.is_frozen(), ErrorCode::ClientFrozen);
+    require!(
+        !ctx.accounts.client_state.is_frozen(),
+        ErrorCode::ClientFrozen
+    );
 
-    // Step 1: Decode AttestationProof from updateMsg
-    let proof: AttestationProof = serde_json::from_slice(&update_msg)
-        .map_err(|_| ErrorCode::JsonDeserializationFailed)?;
+    // Decode AttestationProof from updateMsg
+    // TODO: In what format is the proof in?
+    let proof: AttestationProof =
+        serde_json::from_slice(&update_msg).map_err(|_| ErrorCode::JsonDeserializationFailed)?;
 
-    // Step 2: Compute SHA256 digest of proof.attestationData
-    // TODO: CRITICAL - This step is currently skipped
-    // The Solidity implementation computes: bytes32 digest = sha256(proof.attestationData);
-    // See: AttestationLightClient.sol:97
-    // let digest = sha256_digest(&proof.attestation_data);
+    // Verify signature
+    let digest = sha256(&proof.attestation_data);
+    verify_signatures_threshold(
+        digest,
+        &proof.signatures,
+        ctx.accounts.client_state.attestor_addresses.as_slice(),
+        ctx.accounts.client_state.min_required_sigs,
+    )?;
 
-    // Step 3: Verify signatures using _verifySignaturesThreshold logic
-    // TODO: CRITICAL - This step is currently skipped
-    // The Solidity implementation verifies attestor signatures by:
-    // 1. Checking signatures.len() >= min_required_sigs
-    // 2. For each signature: recover signer, verify in attestor set, check duplicates
-    // See: AttestationLightClient.sol:98, 214-233
-    // verify_signatures_threshold(
-    //     &digest,
-    //     &proof.signatures,
-    //     &ctx.accounts.client_state.attestor_addresses,
-    //     ctx.accounts.client_state.min_required_sigs,
-    // )?;
-
-    // Step 4: Decode StateAttestation from proof.attestationData
+    // Decode StateAttestation from proof.attestationData
+    // TODO: In what format is the state attestation?
     let state = decode_state_attestation(&proof.attestation_data)?;
 
-    // Step 5: Validate state.height > 0 && state.timestamp > 0
+    // Validate initial state
     require!(
         state.height > 0 && state.timestamp > 0,
         ErrorCode::InvalidState
     );
 
-    // Step 6: Check if consensus state already exists at this height
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.consensus_state,
         submitter: &ctx.accounts.payer,
@@ -72,7 +65,6 @@ struct StoreConsensusStateParams<'a, 'info> {
 }
 
 /// Store consensus state, handling existing state conflicts
-/// Implements the logic from AttestationLightClient.sol:105-120
 fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
     // Validate PDA
     let (expected_pda, bump) = Pubkey::find_program_address(
@@ -84,33 +76,28 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         &crate::ID,
     );
 
-    require_keys_eq!(
-        expected_pda,
-        params.account.key(),
-        ErrorCode::InvalidProof
-    );
+    require_keys_eq!(expected_pda, params.account.key(), ErrorCode::InvalidProof);
 
     // Check if account exists
     if params.account.lamports() > 0 {
         // Account exists - check for conflicts
         let account_data = params.account.try_borrow_data()?;
         if !account_data.is_empty() {
-            let existing: ConsensusStateStore =
-                ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
+            let existing = ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
 
             // Check if timestamp matches
-            // See: AttestationLightClient.sol:108-113
             if existing.timestamp != params.timestamp {
-                // Misbehaviour detected: same height but different timestamp
+                // Misbehavior detected: same height but different timestamp
                 // Freeze the client
                 params.client_state.freeze();
                 msg!(
-                    "Misbehaviour detected at height {}: existing timestamp {}, new timestamp {}",
+                    "Misbehavior detected at height {}: existing timestamp {}, new timestamp {}",
                     params.height,
                     existing.timestamp,
                     params.timestamp
                 );
-                return Ok(UpdateResult::Misbehaviour);
+
+                return Ok(UpdateResult::Misbehavior);
             }
 
             // Same height and timestamp - no operation needed
@@ -119,12 +106,12 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
                 params.height,
                 params.timestamp
             );
+
             return Ok(UpdateResult::NoOp);
         }
     }
 
     // Create new consensus state account
-    // See: AttestationLightClient.sol:119
     let space = 8 + ConsensusStateStore::INIT_SPACE;
     let rent = Rent::get()?.minimum_balance(space);
 
@@ -155,10 +142,10 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     let mut cursor = std::io::Cursor::new(&mut data[..]);
     new_store.try_serialize(&mut cursor)?;
 
-    // Step 7: Update clientState.latestHeight if new height is higher
-    // See: AttestationLightClient.sol:116-118
+    // Update clientState.latestHeight if new height is higher
     if params.height > params.client_state.latest_height {
         params.client_state.latest_height = params.height;
+
         msg!(
             "Updated client latest height from {} to {}",
             params.client_state.latest_height,
@@ -172,7 +159,6 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
         params.timestamp
     );
 
-    // Step 8: Return UpdateResult::Update
     Ok(UpdateResult::Update)
 }
 
@@ -184,7 +170,7 @@ mod tests {
     fn test_update_result_serialization() {
         // Verify UpdateResult enum matches Solidity ordering
         assert_eq!(UpdateResult::Update as u8, 0);
-        assert_eq!(UpdateResult::Misbehaviour as u8, 1);
+        assert_eq!(UpdateResult::Misbehavior as u8, 1);
         assert_eq!(UpdateResult::NoOp as u8, 2);
     }
 }
