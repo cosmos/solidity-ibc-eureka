@@ -252,6 +252,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 		seqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		// Timeout 15 minutes from now
 		timeoutTimestamp := time.Now().Add(15 * time.Minute).UnixNano()
@@ -282,6 +283,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 			solanago.SysVarInstructionsPubkey, // Instructions sysvar
 			gmpIbcAppPDA,                      // GMP IBC app
 			ibcClientPDA,                      // IBC client
+			pendingTransferPDA,                // Pending transfer
 		)
 		s.Require().NoError(err)
 
@@ -514,6 +516,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		seqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		// Use a timeout that's already in the past (1 second ago)
 		// Note: In practice, the program might reject this. If so, we'd need to wait for actual timeout.
@@ -545,6 +548,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 			solanago.SysVarInstructionsPubkey,
 			gmpIbcAppPDA,
 			ibcClientPDA,
+			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -640,6 +644,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		seqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		timeoutTimestamp := time.Now().Add(15 * time.Minute).UnixNano()
 
@@ -669,6 +674,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			solanago.SysVarInstructionsPubkey,
 			gmpIbcAppPDA,
 			ibcClientPDA,
+			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
