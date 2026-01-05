@@ -212,6 +212,7 @@ func NewIftTransferInstruction(
 	instructionSysvarAccount solanago.PublicKey,
 	gmpIbcAppAccount solanago.PublicKey,
 	ibcClientAccount solanago.PublicKey,
+	pendingTransferAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -279,6 +280,9 @@ func NewIftTransferInstruction(
 		// Account 16 "ibc_client": Read-only, Non-signer, Required
 		// IBC client account
 		accounts__.Append(solanago.NewAccountMeta(ibcClientAccount, false, false))
+		// Account 17 "pending_transfer": Writable, Non-signer, Required
+		// Pending transfer account - manually created with runtime-calculated sequence
+		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 
 	// Create the instruction.
