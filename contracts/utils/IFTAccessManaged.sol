@@ -10,7 +10,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @dev If you need a custom IFT implementation, then inherit from IFTBaseUpgradeable instead of deploying this
 /// contract directly @dev WARNING: This contract is experimental
 contract IFTAccessManaged is IFTBaseUpgradeable, AccessManagedUpgradeable, UUPSUpgradeable {
-    /// @notice Initializes the IFTAccessManaged contract
+    /// @notice Initializes the IFTAccessManaged contract with the given access manager
     /// @param authority_ The address of the AccessManager contract
     /// @param erc20Name The name of the ERC20 token
     /// @param erc20Symbol The symbol of the ERC20 token

@@ -209,6 +209,88 @@ contract IFTTest is Test {
         ift.registerIFTBridge(clientId, "", address(evmCallConstructor));
     }
 
+    // removeIFTBridge Tests
+
+    function test_removeIFTBridge_success() public {
+        _registerBridge();
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+
+        vm.expectEmit(true, true, true, true);
+        emit IIFT.IFTBridgeRemoved(clientId);
+
+        vm.prank(authority);
+        ift.removeIFTBridge(clientId);
+
+        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
+        assertEq(bridge.clientId, "");
+        assertEq(bridge.counterpartyIFTAddress, "");
+    }
+
+    function test_removeIFTBridge_unauthorizedCaller_reverts() public {
+        _registerBridge();
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+        vm.prank(user1);
+        vm.expectRevert();
+        ift.removeIFTBridge(clientId);
+    }
+
+    function test_removeIFTBridge_bridgeNotFound_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
+        vm.prank(authority);
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, clientId));
+        ift.removeIFTBridge(clientId);
+    }
+
+    function testFuzz_removeIFTBridge_pendingTransfersStillProcessable(uint256 transferAmount) public {
+        _registerBridge();
+
+        transferAmount = bound(transferAmount, 1, INITIAL_BALANCE);
+        string memory receiver = Strings.toHexString(user2);
+        uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        string memory clientId = th.FIRST_CLIENT_ID();
+
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
+        vm.prank(user1);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
+
+        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(clientId, 1);
+        assertEq(pending.sender, user1);
+        assertEq(pending.amount, transferAmount);
+
+        vm.prank(authority);
+        ift.removeIFTBridge(clientId);
+
+        pending = ift.getPendingTransfer(clientId, 1);
+        assertEq(pending.sender, user1, "pending transfer should still exist after bridge removal");
+        assertEq(pending.amount, transferAmount);
+
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = _createTimeoutCallback(clientId, 1);
+
+        vm.prank(ics27Gmp);
+        ift.onTimeoutPacket(timeoutMsg);
+
+        assertEq(ift.balanceOf(user1), INITIAL_BALANCE, "tokens should be refunded");
+    }
+
+    function test_removeIFTBridge_cannotTransferAfterRemoval() public {
+        _registerBridge();
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+
+        vm.prank(authority);
+        ift.removeIFTBridge(clientId);
+
+        string memory receiver = Strings.toHexString(user2);
+        uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, clientId));
+        ift.iftTransfer(clientId, receiver, 100, timeout);
+    }
+
     // iftTransfer Tests
 
     function testFuzz_iftTransfer_success(uint256 transferAmount) public {
