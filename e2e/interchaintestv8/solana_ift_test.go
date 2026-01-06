@@ -194,7 +194,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		// Timeout 15 minutes from now
-		timeoutTimestamp := time.Now().Add(15 * time.Minute).UnixNano()
+		timeoutTimestamp := time.Now().Add(15 * time.Minute).Unix()
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -479,7 +479,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 		// Use a timeout that's already in the past (1 second ago)
 		// Note: In practice, the program might reject this. If so, we'd need to wait for actual timeout.
-		timeoutTimestamp := time.Now().Add(1 * time.Second).UnixNano()
+		timeoutTimestamp := time.Now().Add(1 * time.Second).Unix()
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -605,7 +605,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
 		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
-		timeoutTimestamp := time.Now().Add(15 * time.Minute).UnixNano()
+		timeoutTimestamp := time.Now().Add(15 * time.Minute).Unix()
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
