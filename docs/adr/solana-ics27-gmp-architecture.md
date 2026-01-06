@@ -419,6 +419,54 @@ fn extract_payload_accounts(
 }
 ```
 
+## CPI Caller Validation Limitation
+
+### The Problem
+
+Solana's instruction sysvar only exposes the **top-level transaction instruction**, not the immediate CPI caller. This creates an issue for layered architectures like IFT → GMP → Router:
+
+- When IFT calls GMP, and GMP calls Router
+- Router's `send_packet` validates: "Is the caller the registered IBC app for this port?"
+- Router sees IFT (top-level) instead of GMP (immediate caller)
+- Validation fails because IFT ≠ GMP
+
+This differs from EVM where `msg.sender` always returns the immediate caller.
+
+### Solution: Upstream Caller Whitelisting
+
+The Router's `IBCApp` registration supports an `upstream_callers` list - programs authorized to call through a registered IBC app:
+
+```rust
+pub struct IBCApp {
+    pub app_program_id: Pubkey,      // The registered app (e.g., GMP)
+    pub upstream_callers: Vec<Pubkey>, // Programs allowed to call through this app (e.g., IFT)
+    // ...
+}
+```
+
+When validating `send_packet`, Router accepts if:
+1. Top-level program == registered app, OR
+2. Top-level program ∈ upstream_callers
+
+### Usage
+
+After registering GMP as an IBC app, register IFT as an upstream caller:
+```rust
+router.add_upstream_caller("gmpport", ift_program_id)?;
+```
+
+### Alternatives Considered
+
+**1. IFT registers its own port**: IFT could register as `iftport` directly with Router. Rejected because it duplicates GMP's packet handling logic and diverges from Solidity architecture.
+
+**2. Custom CPI caller tracking**: Pass caller info through accounts. Rejected because no Solana runtime support and requires invasive changes across all programs.
+
+**3. Walk instruction sysvar for CPI stack**: Use introspection to find immediate caller. Rejected because Solana's sysvar doesn't expose CPI call stack.
+
+**4. GMP passes "trusted" flag to Router**: GMP validates caller, tells Router to trust. Rejected because creates security vulnerability.
+
+The upstream caller whitelist was chosen for minimal changes, explicit security, and alignment with existing patterns.
+
 ## Security Model
 
 - **Account Control**: Only GMP program can sign via `invoke_signed` - users cannot directly control PDAs

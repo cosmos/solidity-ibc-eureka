@@ -1,5 +1,6 @@
 pub mod ack_packet;
 pub mod add_ibc_app;
+pub mod add_upstream_caller;
 pub mod cleanup_chunks;
 pub mod client;
 pub mod initialize;
@@ -12,6 +13,7 @@ pub mod upload_proof_chunk;
 
 pub use ack_packet::*;
 pub use add_ibc_app::*;
+pub use add_upstream_caller::*;
 pub use cleanup_chunks::*;
 pub use client::*;
 pub use initialize::*;

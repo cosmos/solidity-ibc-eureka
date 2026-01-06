@@ -32,6 +32,8 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 └─────────────────────────────────────────────────────┘
 ```
 
+**Note on CPI Validation**: Due to Solana's instruction sysvar limitation (which only exposes the top-level program, not immediate CPI caller), IFT must be registered as an "upstream caller" for GMP's port in the Router. See [GMP ADR](./solana-ics27-gmp-architecture.md#cpi-caller-validation-limitation) for details.
+
 ## SPL Token Operations
 
 ### Operations Used

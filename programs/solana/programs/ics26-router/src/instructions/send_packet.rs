@@ -58,9 +58,10 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    solana_ibc_types::validate_cpi_caller(
+    solana_ibc_types::validate_cpi_caller_with_upstream(
         &ctx.accounts.instruction_sysvar,
         &ibc_app.app_program_id,
+        &ibc_app.upstream_callers,
         &crate::ID,
     )
     .map_err(RouterError::from)?;
@@ -206,6 +207,7 @@ mod tests {
         port_id: &'static str,
         app_program_id: Option<Pubkey>,
         cpi_caller_program_id: Pubkey,
+        upstream_callers: Vec<Pubkey>,
         active_client: bool,
         current_timestamp: i64,
         timeout_timestamp: i64,
@@ -220,6 +222,7 @@ mod tests {
                 port_id: "test-port",
                 app_program_id: Some(app_program_id),
                 cpi_caller_program_id: app_program_id,
+                upstream_callers: vec![],
                 active_client: true,
                 current_timestamp: 1000,
                 timeout_timestamp: 2000,
@@ -241,7 +244,8 @@ mod tests {
         );
         let (client_sequence_pda, client_sequence_data) =
             setup_client_sequence(params.client_id, params.initial_sequence);
-        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
+        let (ibc_app_pda, ibc_app_data) =
+            setup_ibc_app_with_upstream(params.port_id, app_program_id, params.upstream_callers);
 
         let msg = MsgSendPacket {
             source_client: params.client_id.to_string(),
@@ -890,5 +894,121 @@ mod tests {
         let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
+    }
+
+    // ========================================
+    // Upstream Caller Tests
+    // ========================================
+    // These tests verify the upstream caller whitelisting feature, which allows
+    // programs like IFT to call through registered IBC apps like GMP.
+
+    #[test]
+    fn test_send_packet_upstream_caller_success() {
+        // Test that a whitelisted upstream caller can send packets
+        // This simulates: IFT (upstream) → GMP (registered app) → Router
+        let app_program_id = Pubkey::new_unique(); // GMP
+        let upstream_caller = Pubkey::new_unique(); // IFT
+
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: upstream_caller, // IFT is calling
+            upstream_callers: vec![upstream_caller], // IFT is whitelisted
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::success()];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_send_packet_upstream_caller_one_of_many() {
+        // Test that any caller in the upstream_callers list can send packets
+        let app_program_id = Pubkey::new_unique(); // GMP
+        let upstream_caller_1 = Pubkey::new_unique(); // IFT
+        let upstream_caller_2 = Pubkey::new_unique(); // Some other upstream program
+        let upstream_caller_3 = Pubkey::new_unique(); // Yet another upstream program
+
+        // Test with caller 2 (not the first in the list)
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: upstream_caller_2, // Calling from second upstream caller
+            upstream_callers: vec![upstream_caller_1, upstream_caller_2, upstream_caller_3],
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::success()];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_send_packet_upstream_caller_not_in_list() {
+        // Test that a caller NOT in the upstream_callers list is rejected
+        let app_program_id = Pubkey::new_unique(); // GMP
+        let whitelisted_upstream = Pubkey::new_unique(); // IFT (whitelisted)
+        let unauthorized_caller = Pubkey::new_unique(); // Attacker program (not whitelisted)
+
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: unauthorized_caller, // Not in whitelist
+            upstream_callers: vec![whitelisted_upstream], // Only IFT is whitelisted
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_send_packet_registered_app_still_works_with_upstream_callers() {
+        // Test that the registered app itself can still send packets when upstream callers exist
+        // This ensures whitelisting upstream callers doesn't break the normal flow
+        let app_program_id = Pubkey::new_unique(); // GMP
+        let upstream_caller = Pubkey::new_unique(); // IFT
+
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: app_program_id, // GMP itself is calling
+            upstream_callers: vec![upstream_caller], // IFT is also whitelisted
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::success()];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_send_packet_empty_upstream_callers_requires_registered_app() {
+        // Test that with empty upstream_callers, only the registered app can send
+        let app_program_id = Pubkey::new_unique();
+        let unauthorized_caller = Pubkey::new_unique();
+
+        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
+            app_program_id: Some(app_program_id),
+            cpi_caller_program_id: unauthorized_caller, // Not the registered app
+            upstream_callers: vec![],                   // No upstream callers whitelisted
+            ..Default::default()
+        });
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

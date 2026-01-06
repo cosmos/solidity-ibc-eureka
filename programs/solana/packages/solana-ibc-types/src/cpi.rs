@@ -53,6 +53,45 @@ pub fn validate_cpi_caller(
     Ok(())
 }
 
+/// Validates that this instruction is called via CPI from the authorized program OR an upstream caller
+///
+/// This extends `validate_cpi_caller` to support layered architectures (e.g., IFT → GMP → Router)
+/// where the top-level program (IFT) differs from the registered app (GMP).
+///
+/// Checks:
+/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 2. Current instruction's `program_id` is NOT self (rejects direct calls)
+/// 3. Current instruction's `program_id` is either:
+///    - The authorized program, OR
+///    - One of the upstream callers
+pub fn validate_cpi_caller_with_upstream(
+    instruction_sysvar: &AccountInfo<'_>,
+    authorized_program: &Pubkey,
+    upstream_callers: &[Pubkey],
+    self_program_id: &Pubkey,
+) -> Result<(), CpiValidationError> {
+    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
+        return Err(CpiValidationError::InvalidSysvar);
+    }
+
+    let current_ix = get_instruction_relative(0, instruction_sysvar)
+        .map_err(|_| CpiValidationError::InvalidSysvar)?;
+
+    if current_ix.program_id == *self_program_id {
+        return Err(CpiValidationError::DirectCallNotAllowed);
+    }
+
+    if current_ix.program_id == *authorized_program {
+        return Ok(());
+    }
+
+    if upstream_callers.contains(&current_ix.program_id) {
+        return Ok(());
+    }
+
+    Err(CpiValidationError::UnauthorizedCaller)
+}
+
 /// Validates that this instruction is either called directly OR via CPI from a whitelisted program
 ///
 /// Checks:

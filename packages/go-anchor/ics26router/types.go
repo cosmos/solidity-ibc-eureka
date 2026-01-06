@@ -409,6 +409,9 @@ type Ics26RouterStateIbcApp struct {
 	// Authority that registered this port
 	Authority solanago.PublicKey `json:"authority"`
 
+	// Programs authorized to call through this IBC app (for layered architectures like IFT→GMP)
+	UpstreamCallers []solanago.PublicKey `json:"upstreamCallers"`
+
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -433,6 +436,11 @@ func (obj Ics26RouterStateIbcApp) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.Authority)
 	if err != nil {
 		return errors.NewField("Authority", err)
+	}
+	// Serialize `UpstreamCallers`:
+	err = encoder.Encode(obj.UpstreamCallers)
+	if err != nil {
+		return errors.NewField("UpstreamCallers", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -472,6 +480,11 @@ func (obj *Ics26RouterStateIbcApp) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.Authority)
 	if err != nil {
 		return errors.NewField("Authority", err)
+	}
+	// Deserialize `UpstreamCallers`:
+	err = decoder.Decode(&obj.UpstreamCallers)
+	if err != nil {
+		return errors.NewField("UpstreamCallers", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

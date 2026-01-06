@@ -1,6 +1,9 @@
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{instruction::Instruction, program::invoke};
+use anchor_lang::solana_program::{
+    instruction::Instruction,
+    program::{get_return_data, invoke},
+};
 use solana_ibc_types::MsgSendPacket;
 use solana_sha256_hasher::hash;
 
@@ -59,20 +62,17 @@ pub fn send_packet_cpi<'a>(
 
     invoke(&instruction, account_infos)?;
 
-    // Read sequence number from updated client_sequence account
-    // The router increments the sequence after sending the packet
-    let client_sequence_data = client_sequence.try_borrow_data()?;
-    if client_sequence_data.len() >= 16 {
-        // Account layout: 8 bytes Anchor discriminator + 8 bytes u64 sequence
-        let sequence_bytes = &client_sequence_data[8..16];
-        let current_sequence = u64::from_le_bytes(
-            sequence_bytes
-                .try_into()
-                .map_err(|_| GMPError::SequenceParseError)?,
-        );
-        // Return the sequence that was just used (current - 1)
-        Ok(current_sequence.saturating_sub(1))
-    } else {
-        Err(GMPError::SequenceParseError.into())
+    // Read the namespaced sequence from Router's return data
+    // Router returns the actual sequence used for the packet commitment
+    if let Some((program_id, data)) = get_return_data() {
+        if program_id == *router_program.key && data.len() >= 8 {
+            let sequence = u64::from_le_bytes(
+                data[..8]
+                    .try_into()
+                    .map_err(|_| GMPError::SequenceParseError)?,
+            );
+            return Ok(sequence);
+        }
     }
+    Err(GMPError::SequenceParseError.into())
 }
