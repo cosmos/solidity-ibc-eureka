@@ -102,8 +102,26 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 
 	simd := s.CosmosChains[0]
 
-	// Initialize GMP first (IFT uses GMP as transport)
 	s.initializeICS27GMP(ctx)
+
+	s.Require().True(s.Run("Verify GMP App State", func() {
+		s.T().Logf("ics27_gmp.ProgramID: %s", ics27_gmp.ProgramID)
+		s.T().Logf("s.ICS27GMPProgramID: %s", s.ICS27GMPProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		s.T().Logf("Querying GMP app state at PDA: %s", gmpAppStatePDA)
+		account, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, gmpAppStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err, "Failed to get GMP app state account")
+		s.Require().NotNil(account.Value, "GMP app state account not found at PDA %s", gmpAppStatePDA)
+		data := account.Value.Data.GetBinary()
+		s.T().Logf("GMP app state: PDA=%s, data_len=%d, owner=%s", gmpAppStatePDA, len(data), account.Value.Owner)
+		if len(data) > 9 {
+			paused := data[9] != 0
+			s.T().Logf("GMP app state paused flag: %v (raw byte: %d)", paused, data[9])
+			s.Require().False(paused, "GMP app state should not be paused after initialization")
+		}
+	}))
 
 	// Create mint and mint tokens BEFORE initializing IFT (so we have mint authority)
 	var senderTokenAccount solanago.PublicKey
@@ -180,18 +198,30 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	// Execute IFT transfer
 	s.Require().True(s.Run("Execute IFT Transfer", func() {
 		// Derive required PDAs
-		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
-		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(IFTPortID))
+		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcClientPDA, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
+		clientSequencePDA, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		// Get next sequence for packet commitment
-		nextSeq := uint64(1) // First transfer
-		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
-		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
-		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
+		// Get next sequence number and derive packet commitment PDA
+		var packetCommitmentPDA solanago.PublicKey
+		var baseSequence uint64
+		baseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence := solana.CalculateNamespacedSequence(
+			baseSequence,
+			ics27_gmp.ProgramID,
+			s.SolanaRelayer.PublicKey(),
+		)
+
+		namespacedSequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
+		packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+
+		// Pending transfer uses the namespaced sequence
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferWithAccountSeedPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), namespacedSequenceBytes)
 
 		// Timeout 15 minutes from now
 		timeoutTimestamp := time.Now().Add(15 * time.Minute).Unix()
@@ -475,7 +505,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		seqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
-		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferWithAccountSeedPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		// Use a timeout that's already in the past (1 second ago)
 		// Note: In practice, the program might reject this. If so, we'd need to wait for actual timeout.
@@ -603,7 +633,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		seqBytes := make([]byte, 8)
 		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
-		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
+		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferWithAccountSeedPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
 		timeoutTimestamp := time.Now().Add(15 * time.Minute).Unix()
 
