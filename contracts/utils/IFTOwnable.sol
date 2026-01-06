@@ -3,7 +3,6 @@ pragma solidity ^0.8.28;
 
 import { IFTBaseUpgradeable } from "./IFTBaseUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
-import { Initializable } from "@openzeppelin-upgradeable/proxy/utils/Initializable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title IFT Ownable
@@ -11,11 +10,28 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @dev If you need a custom IFT implementation, then inherit from IFTBaseUpgradeable instead of deploying this
 /// contract directly @dev WARNING: This contract is experimental
 contract IFTOwnable is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
-    /// @notice Initializes the IFTOwnable contract with the given owner
+    // natlint-disable-next-line MissingNotice
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the IFTOwnable contract
     /// @param owner_ The owner of the contract
+    /// @param erc20Name The name of the ERC20 token
+    /// @param erc20Symbol The symbol of the ERC20 token
+    /// @param ics27Gmp The address of the ICS27-GMP contract
     // natlint-disable-next-line MissingInheritdoc
-    function initialize(address owner_) external initializer {
+    function initialize(
+        address owner_,
+        string calldata erc20Name,
+        string calldata erc20Symbol,
+        address ics27Gmp
+    )
+        external
+        initializer
+    {
         __Ownable_init(owner_);
+        __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
     }
 
     /// @inheritdoc IFTBaseUpgradeable

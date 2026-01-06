@@ -17,6 +17,7 @@ import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
+import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract IFTIntegrationTest is Test {
     IbcImpl public ibcImplA;
@@ -29,8 +30,8 @@ contract IFTIntegrationTest is Test {
     IFTAccessManaged public iftOnB;
     EVMIFTSendCallConstructor public sendCallConstructor;
 
-    bytes32 private constant IFT_STORAGE_SLOT =
-        0x35d0029e62ce5824ad5e38215107659b8aa50b0046e8bc44a0f4a32b87d61a00;
+    string public constant TOKEN_NAME = "Test IFT";
+    string public constant TOKEN_SYMBOL = "TIFT";
 
     function setUp() public {
         integrationEnv = new IntegrationEnv();
@@ -47,12 +48,25 @@ contract IFTIntegrationTest is Test {
 
         sendCallConstructor = new EVMIFTSendCallConstructor();
 
-        iftOnA = new IFTAccessManaged();
-        iftOnB = new IFTAccessManaged();
-        iftOnA.initialize(address(ibcImplA.accessManager()));
-        iftOnB.initialize(address(ibcImplB.accessManager()));
-        _setIcs27(address(iftOnA), address(ibcImplA.ics27Gmp()));
-        _setIcs27(address(iftOnB), address(ibcImplB.ics27Gmp()));
+        IFTAccessManaged impl = new IFTAccessManaged();
+
+        ERC1967Proxy proxyA = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(
+                IFTAccessManaged.initialize,
+                (address(ibcImplA.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplA.ics27Gmp()))
+            )
+        );
+        iftOnA = IFTAccessManaged(address(proxyA));
+
+        ERC1967Proxy proxyB = new ERC1967Proxy(
+            address(impl),
+            abi.encodeCall(
+                IFTAccessManaged.initialize,
+                (address(ibcImplB.accessManager()), TOKEN_NAME, TOKEN_SYMBOL, address(ibcImplB.ics27Gmp()))
+            )
+        );
+        iftOnB = IFTAccessManaged(address(proxyB));
 
         _setupBridgePermissions();
         _registerBridges();
@@ -76,11 +90,6 @@ contract IFTIntegrationTest is Test {
         iftOnB.registerIFTBridge(
             th.FIRST_CLIENT_ID(), Strings.toChecksumHexString(address(iftOnA)), address(sendCallConstructor)
         );
-    }
-
-    function _setIcs27(address token, address ics27) internal {
-        // IFTAccessManaged does not expose an initializer for IFTBase storage.
-        vm.store(token, IFT_STORAGE_SLOT, bytes32(uint256(uint160(ics27))));
     }
 
     function test_deployment() public view {
