@@ -4067,6 +4067,7 @@ dependencies = [
  "prost",
  "solana-ibc-constants",
  "solana-ibc-proto",
+ "solana-sdk",
  "solana-sha256-hasher",
  "tendermint",
 ]
