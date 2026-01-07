@@ -806,6 +806,57 @@ contract IFTTest is Test {
         assertTrue(ift.supportsInterface(erc165Id));
     }
 
+    // Upgrade Tests
+
+    function test_upgrade_success() public {
+        _registerBridge();
+
+        IFTOwnable newImpl = new IFTOwnable();
+
+        vm.prank(authority);
+        ift.upgradeToAndCall(address(newImpl), "");
+
+        assertEq(ift.owner(), authority, "owner should be preserved after upgrade");
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
+        assertEq(bridge.clientId, clientId, "bridge should be preserved after upgrade");
+    }
+
+    function test_upgrade_unauthorizedCaller_reverts() public {
+        IFTOwnable newImpl = new IFTOwnable();
+
+        vm.prank(user1);
+        vm.expectRevert();
+        ift.upgradeToAndCall(address(newImpl), "");
+    }
+
+    function test_upgrade_preservesPendingTransfers() public {
+        _registerBridge();
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+        string memory receiver = Strings.toHexString(user2);
+        uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        uint256 transferAmount = 100 ether;
+
+        _mockSendCall(clientId, COUNTERPARTY_IFT, receiver, transferAmount, timeout, 1);
+
+        vm.prank(user1);
+        ift.iftTransfer(clientId, receiver, transferAmount, timeout);
+
+        IIFTMsgs.PendingTransfer memory pendingBefore = ift.getPendingTransfer(clientId, 1);
+        assertEq(pendingBefore.sender, user1);
+        assertEq(pendingBefore.amount, transferAmount);
+
+        IFTOwnable newImpl = new IFTOwnable();
+        vm.prank(authority);
+        ift.upgradeToAndCall(address(newImpl), "");
+
+        IIFTMsgs.PendingTransfer memory pendingAfter = ift.getPendingTransfer(clientId, 1);
+        assertEq(pendingAfter.sender, user1, "pending sender should be preserved");
+        assertEq(pendingAfter.amount, transferAmount, "pending amount should be preserved");
+    }
+
     // Integration Scenario Tests
 
     function testFuzz_fullTransferCycle_success(uint256 transferAmount) public {
