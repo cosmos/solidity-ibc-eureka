@@ -17,6 +17,7 @@ import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 
 import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { IIFTSendCallConstructor } from "../../contracts/interfaces/IIFTSendCallConstructor.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -211,6 +212,15 @@ contract IFTTest is Test {
         vm.prank(authority);
         vm.expectRevert(IIFTErrors.IFTEmptyCounterpartyAddress.selector);
         ift.registerIFTBridge(clientId, "", address(evmCallConstructor));
+    }
+
+    function test_registerIFTBridge_invalidConstructorInterface_reverts() public {
+        string memory clientId = th.FIRST_CLIENT_ID();
+        address invalidConstructor = makeAddr("invalidConstructor");
+
+        vm.prank(authority);
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTInvalidConstructorInterface.selector, invalidConstructor));
+        ift.registerIFTBridge(clientId, COUNTERPARTY_IFT, invalidConstructor);
     }
 
     // removeIFTBridge Tests
@@ -792,6 +802,20 @@ contract IFTTest is Test {
         amount = bound(amount, 0, type(uint256).max);
         vm.expectRevert();
         evmCallConstructor.constructMintCall("invalid-address", amount);
+    }
+
+    function test_evmCallConstructor_supportsInterface_IIFTSendCallConstructor() public view {
+        assertTrue(evmCallConstructor.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
+    }
+
+    function test_evmCallConstructor_supportsInterface_IERC165() public view {
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(evmCallConstructor.supportsInterface(erc165Id));
+    }
+
+    function test_evmCallConstructor_supportsInterface_unsupported() public view {
+        bytes4 randomId = 0xdeadbeef;
+        assertFalse(evmCallConstructor.supportsInterface(randomId));
     }
 
     // ERC165 Interface Tests

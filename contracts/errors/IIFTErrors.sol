@@ -49,4 +49,8 @@ interface IIFTErrors {
     /// @param timeout The invalid timeout timestamp
     /// @param currentTime The current block timestamp
     error IFTTimeoutInPast(uint64 timeout, uint64 currentTime);
+
+    /// @notice IFT send call constructor does not support required interface
+    /// @param callConstructor The address that failed the interface check
+    error IFTInvalidConstructorInterface(address callConstructor);
 }
