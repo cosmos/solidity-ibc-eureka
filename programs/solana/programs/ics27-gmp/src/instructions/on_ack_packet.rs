@@ -2,6 +2,9 @@ use crate::constants::*;
 use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+use anchor_lang::solana_program::program::invoke;
+use solana_ibc_proto::{GmpPacketData, Protobuf};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -30,17 +33,66 @@ pub struct OnAckPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_acknowledgement_packet(
-    ctx: Context<OnAckPacket>,
-    _msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+pub fn on_acknowledgement_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, OnAckPacket<'info>>,
+    msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    let gmp_packet =
+        GmpPacketData::decode_vec(&msg.payload.value).map_err(|_| GMPError::InvalidPacketData)?;
+
+    // Forward acknowledgement to sender if remaining_accounts provided (indicates callback expected)
+    // The sender field contains the calling program's ID (for CPI calls) or user wallet (for direct calls)
+    if !ctx.remaining_accounts.is_empty() {
+        // Parse sender as Pubkey - this is the callback target
+        let callback_program: Pubkey = gmp_packet
+            .sender
+            .as_ref()
+            .parse()
+            .map_err(|_| GMPError::InvalidSender)?;
+
+        msg!(
+            "Forwarding acknowledgement to sender program: {}",
+            callback_program
+        );
+
+        // Build instruction data for callback program's on_acknowledgement_packet
+        // Uses Anchor's instruction discriminator: sha256("global:on_acknowledgement_packet")[..8]
+        let discriminator = solana_sha256_hasher::hash(b"global:on_acknowledgement_packet");
+        let mut ix_data = discriminator.to_bytes()[..8].to_vec();
+
+        // Serialize the OnAcknowledgementPacketMsg using Anchor's serialization
+        msg.serialize(&mut ix_data)?;
+
+        // Build account metas from remaining_accounts
+        // remaining_accounts layout: [callback_app_state, ...other accounts needed by callback]
+        let account_metas: Vec<AccountMeta> = ctx
+            .remaining_accounts
+            .iter()
+            .map(|acc| AccountMeta {
+                pubkey: *acc.key,
+                is_signer: acc.is_signer,
+                is_writable: acc.is_writable,
+            })
+            .collect();
+
+        let instruction = Instruction {
+            program_id: callback_program,
+            accounts: account_metas,
+            data: ix_data,
+        };
+
+        // CPI to callback program
+        invoke(&instruction, ctx.remaining_accounts)?;
+
+        msg!("Acknowledgement forwarded to sender program successfully");
+    }
 
     Ok(())
 }

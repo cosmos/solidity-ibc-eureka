@@ -2,6 +2,9 @@ use crate::constants::*;
 use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+use anchor_lang::solana_program::program::invoke;
+use solana_ibc_proto::{GmpPacketData, Protobuf};
 
 /// Process IBC packet timeout (called by router via CPI)
 #[derive(Accounts)]
@@ -30,9 +33,9 @@ pub struct OnTimeoutPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_timeout_packet(
-    ctx: Context<OnTimeoutPacket>,
-    _msg: solana_ibc_types::OnTimeoutPacketMsg,
+pub fn on_timeout_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, OnTimeoutPacket<'info>>,
+    msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
@@ -41,6 +44,54 @@ pub fn on_timeout_packet(
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    // Decode GMP packet to get sender (callback target)
+    let gmp_packet =
+        GmpPacketData::decode_vec(&msg.payload.value).map_err(|_| GMPError::InvalidPacketData)?;
+
+    // Forward timeout to sender if remaining_accounts provided (indicates callback expected)
+    // The sender field contains the calling program's ID (for CPI calls) or user wallet (for direct calls)
+    if !ctx.remaining_accounts.is_empty() {
+        // Parse sender as Pubkey - this is the callback target
+        let callback_program: Pubkey = gmp_packet
+            .sender
+            .as_ref()
+            .parse()
+            .map_err(|_| GMPError::InvalidSender)?;
+
+        msg!("Forwarding timeout to sender program: {}", callback_program);
+
+        // Build instruction data for callback program's on_timeout_packet
+        // Uses Anchor's instruction discriminator: sha256("global:on_timeout_packet")[..8]
+        let discriminator = solana_sha256_hasher::hash(b"global:on_timeout_packet");
+        let mut ix_data = discriminator.to_bytes()[..8].to_vec();
+
+        // Serialize the OnTimeoutPacketMsg using Anchor's serialization
+        msg.serialize(&mut ix_data)?;
+
+        // Build account metas from remaining_accounts
+        // remaining_accounts layout: [callback_app_state, ...other accounts needed by callback]
+        let account_metas: Vec<AccountMeta> = ctx
+            .remaining_accounts
+            .iter()
+            .map(|acc| AccountMeta {
+                pubkey: *acc.key,
+                is_signer: acc.is_signer,
+                is_writable: acc.is_writable,
+            })
+            .collect();
+
+        let instruction = Instruction {
+            program_id: callback_program,
+            accounts: account_metas,
+            data: ix_data,
+        };
+
+        // CPI to callback program
+        invoke(&instruction, ctx.remaining_accounts)?;
+
+        msg!("Timeout forwarded to sender program successfully");
+    }
 
     Ok(())
 }

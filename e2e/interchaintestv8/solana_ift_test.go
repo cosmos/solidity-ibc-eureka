@@ -480,6 +480,29 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		s.Require().NoError(err)
 	}))
 
+	s.Require().True(s.Run("Register IFT as Upstream Caller", func() {
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(IFTPortID))
+
+		addUpstreamCallerIx, err := ics26_router.NewAddUpstreamCallerInstruction(
+			IFTPortID,
+			ics27_ift.ProgramID,
+			routerStateAccount,
+			accessControlAccount,
+			ibcAppAccount,
+			s.SolanaRelayer.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), addUpstreamCallerIx)
+		s.Require().NoError(err)
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+	}))
+
 	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
@@ -493,13 +516,24 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(IFTPortID))
 		ibcClientPDA, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		nextSeq := uint64(1)
+		baseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence := solana.CalculateNamespacedSequence(
+			baseSequence,
+			ics27_gmp.ProgramID,
+			s.SolanaRelayer.PublicKey(),
+		)
+
 		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
+		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
 		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferWithAccountSeedPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
-		timeoutTimestamp := time.Now().Add(1 * time.Second).Unix()
+		solanaClockTime, err := s.SolanaChain.GetSolanaClockTime(ctx)
+		s.Require().NoError(err)
+
+		timeoutTimestamp := solanaClockTime + 120
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -537,20 +571,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
-		s.T().Log("Transfer executed with short timeout")
 	}))
 
-	// Verify tokens were burned
 	burnedBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
 	s.Require().Equal(initialBalance-IFTTransferAmount, burnedBalance, "Tokens should be burned")
-	s.T().Logf("Tokens burned, balance: %d", burnedBalance)
-
-	// Wait for timeout and trigger on_timeout_packet
-	// Note: This requires the relayer to detect the timeout and submit the timeout proof
-	s.T().Log("Timeout refund test setup complete")
-	s.T().Log("Note: Full timeout flow requires relayer to submit timeout proof and trigger on_timeout_packet")
-	s.T().Log("On timeout, the PendingTransfer account would be used to refund tokens to the sender")
 }
 
 // Test_IFT_AckFailureRefund tests that tokens are refunded on acknowledgement failure
@@ -602,6 +627,29 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.Require().NoError(err)
 	}))
 
+	s.Require().True(s.Run("Register IFT as Upstream Caller", func() {
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(IFTPortID))
+
+		addUpstreamCallerIx, err := ics26_router.NewAddUpstreamCallerInstruction(
+			IFTPortID,
+			ics27_ift.ProgramID,
+			routerStateAccount,
+			accessControlAccount,
+			ibcAppAccount,
+			s.SolanaRelayer.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), addUpstreamCallerIx)
+		s.Require().NoError(err)
+
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+	}))
+
 	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
@@ -615,13 +663,24 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(IFTPortID))
 		ibcClientPDA, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		nextSeq := uint64(1)
+		baseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence := solana.CalculateNamespacedSequence(
+			baseSequence,
+			ics27_gmp.ProgramID,
+			s.SolanaRelayer.PublicKey(),
+		)
+
 		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, nextSeq)
+		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
 		pendingTransferPDA, _ := solana.Ics27Ift.PendingTransferWithAccountSeedPDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(SolanaClientID), seqBytes)
 
-		timeoutTimestamp := time.Now().Add(15 * time.Minute).Unix()
+		solanaClockTime, err := s.SolanaChain.GetSolanaClockTime(ctx)
+		s.Require().NoError(err)
+
+		timeoutTimestamp := solanaClockTime + 900 // 15 minutes
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -661,18 +720,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.Require().NoError(err)
 	}))
 
-	// Verify tokens burned
 	burnedBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
 	s.Require().Equal(initialBalance-IFTTransferAmount, burnedBalance)
-	s.T().Logf("Tokens burned for transfer, balance: %d", burnedBalance)
-
-	// The ack failure scenario requires:
-	// 1. Relayer delivers packet to Cosmos
-	// 2. Cosmos returns error acknowledgement
-	// 3. Relayer delivers error ack back to Solana
-	// 4. on_acknowledgement_packet processes the error and refunds
-	s.T().Log("Ack failure refund test setup complete")
-	s.T().Log("Note: Full ack failure flow requires relayer to deliver packet and return error ack")
-	s.T().Log("On error ack, the on_acknowledgement_packet handler would refund tokens to sender")
 }
