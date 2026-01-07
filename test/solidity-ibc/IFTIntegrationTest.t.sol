@@ -233,6 +233,25 @@ contract IFTIntegrationTest is Test {
         assertEq(iftOnB.balanceOf(receiver1), amount1);
     }
 
+    function test_upgrade_success() public {
+        IFTAccessManaged newImpl = new IFTAccessManaged();
+
+        iftOnA.upgradeToAndCall(address(newImpl), "");
+
+        IIFTMsgs.IFTBridge memory bridge = iftOnA.getIFTBridge(th.FIRST_CLIENT_ID());
+        assertEq(bridge.clientId, th.FIRST_CLIENT_ID(), "bridge should be preserved after upgrade");
+    }
+
+    function test_upgrade_unauthorizedCaller_reverts() public {
+        IFTAccessManaged newImpl = new IFTAccessManaged();
+
+        address unauthorizedUser = integrationEnv.createUser();
+
+        vm.prank(unauthorizedUser);
+        vm.expectRevert();
+        iftOnA.upgradeToAndCall(address(newImpl), "");
+    }
+
     function _extractPacketFromLogs() internal returns (IICS26RouterMsgs.Packet memory) {
         bytes memory packetBz = th.getValueFromEvent(IICS26Router.SendPacket.selector);
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
