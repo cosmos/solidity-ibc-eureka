@@ -177,8 +177,9 @@ pub fn on_recv_packet<'info>(
             GMPError::AccountKeyMismatch
         );
 
+        // Allow writable when payload says readonly (Solana account merging)
         require!(
-            account_info.is_writable == meta.is_writable,
+            account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
         );
     }

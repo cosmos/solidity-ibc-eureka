@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
 )
 
@@ -97,8 +99,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 
-	simd := s.CosmosChains[0]
-
 	s.initializeICS27GMP(ctx)
 
 	var senderTokenAccount solanago.PublicKey
@@ -172,7 +172,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 		s.Require().NoError(err)
 	}))
 
-	cosmosUser := s.CreateAndFundCosmosUser(ctx, simd)
+	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
 	var initialBalance uint64
@@ -296,24 +296,30 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 		s.Require().NoError(err)
 	}))
 
-	cosmosUser := s.CreateAndFundCosmosUser(ctx, simd)
+	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
 	var receiverTokenAccount solanago.PublicKey
-	s.Require().True(s.Run("Create Receiver Token Account", func() {
-		receiver := solanago.NewWallet()
-		_, err := s.SolanaChain.FundUserWithRetry(ctx, receiver.PublicKey(), testvalues.InitialSolBalance, 5)
+	receiverPubkey := s.SolanaRelayer.PublicKey()
+	s.Require().True(s.Run("Derive Receiver ATA Address", func() {
+		ataAddr, err := solana.AssociatedTokenAccountAddress(receiverPubkey, s.IFTMint)
 		s.Require().NoError(err)
-
-		tokenAccount, err := s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, s.IFTMint, receiver.PublicKey())
-		s.Require().NoError(err)
-		receiverTokenAccount = tokenAccount
-		s.ReceiverTokenAccount = tokenAccount
+		receiverTokenAccount = ataAddr
+		s.ReceiverTokenAccount = ataAddr
 	}))
 
-	s.Require().True(s.Run("Send GMP Call from Cosmos", func() {
-		receiverPubkey := s.SolanaRelayer.PublicKey()
+	var initialBalance uint64
+	s.Require().True(s.Run("Get Initial Balance", func() {
+		balance, err := s.SolanaChain.GetTokenBalance(ctx, receiverTokenAccount)
+		if err != nil {
+			initialBalance = 0
+		} else {
+			initialBalance = balance
+		}
+	}))
 
+	var cosmosGMPTxHash []byte
+	s.Require().True(s.Run("Send GMP Call from Cosmos", func() {
 		gmpAccountPDA, gmpAccountBump := solana.Ics27Gmp.GmpAccountPDA(
 			ics27_gmp.ProgramID,
 			[]byte(SolanaClientID),
@@ -335,7 +341,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 		iftMintData = append(iftMintData, ics27_ift.Instruction_IftMint[:]...)
 		iftMintData = append(iftMintData, msgBytes...)
 
-		// Account order must match IFTMint struct; GMP injects payer at PayerPosition
 		payerPosition := uint32(8)
 
 		associatedTokenProgramID := solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
@@ -349,7 +354,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 			{Pubkey: receiverPubkey[:], IsWritable: false, IsSigner: false},
 			{Pubkey: ics27_gmp.ProgramID[:], IsWritable: false, IsSigner: false},
 			{Pubkey: gmpAccountPDA[:], IsWritable: false, IsSigner: true},
-			// payer injected by GMP at PayerPosition
 			{Pubkey: token.ProgramID[:], IsWritable: false, IsSigner: false},
 			{Pubkey: associatedTokenProgramID[:], IsWritable: false, IsSigner: false},
 			{Pubkey: solanago.SystemProgramID[:], IsWritable: false, IsSigner: false},
@@ -366,7 +370,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 
-		_, err = s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
 			SourceClient:     CosmosClientID,
 			Sender:           cosmosUser.FormattedAddress(),
 			Receiver:         ics27_ift.ProgramID.String(),
@@ -377,6 +381,53 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 			Encoding:         testvalues.Ics27ProtobufEncoding,
 		})
 		s.Require().NoError(err)
+
+		cosmosGMPTxHashBytes, err := hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		cosmosGMPTxHash = cosmosGMPTxHashBytes
+	}))
+
+	var solanaRelayTxSig solanago.Signature
+	s.Require().True(s.Run("Relay and Execute IFT Mint on Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Verify Token Mint", func() {
+		finalBalance, err := s.SolanaChain.GetTokenBalance(ctx, receiverTokenAccount)
+		s.Require().NoError(err)
+		expectedBalance := initialBalance + IFTTransferAmount
+		s.Require().Equal(expectedBalance, finalBalance, "Tokens should be minted to receiver")
+	}))
+
+	s.Require().True(s.Run("Relay Acknowledgment to Cosmos", func() {
+		var ackRelayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
+				SrcClientId: SolanaClientID,
+				DstClientId: CosmosClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			ackRelayTxBodyBz = resp.Tx
+		}))
+
+		s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+			_ = s.MustBroadcastSdkTxBody(ctx, simd, cosmosUser, CosmosDefaultGasLimit, ackRelayTxBodyBz)
+		}))
 	}))
 }
 
@@ -386,8 +437,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
-
-	simd := s.CosmosChains[0]
 
 	s.initializeICS27GMP(ctx)
 
@@ -431,7 +480,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		s.Require().NoError(err)
 	}))
 
-	cosmosUser := s.CreateAndFundCosmosUser(ctx, simd)
+	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
 	initialBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
@@ -511,8 +560,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 
-	simd := s.CosmosChains[0]
-
 	s.initializeICS27GMP(ctx)
 
 	var senderTokenAccount solanago.PublicKey
@@ -555,7 +602,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.Require().NoError(err)
 	}))
 
-	cosmosUser := s.CreateAndFundCosmosUser(ctx, simd)
+	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
 	initialBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)

@@ -102,6 +102,24 @@ func (s *Solana) CreateTokenAccount(ctx context.Context, payer *solanago.Wallet,
 	return tokenAccountPubkey, nil
 }
 
+// AssociatedTokenAccountAddress derives the Associated Token Account address for a given owner and mint.
+// This is the canonical ATA address used by the Associated Token Program.
+func AssociatedTokenAccountAddress(owner, mint solanago.PublicKey) (solanago.PublicKey, error) {
+	// ATA seeds: [owner, TOKEN_PROGRAM_ID, mint]
+	// Program: ASSOCIATED_TOKEN_PROGRAM_ID
+	associatedTokenProgramID := solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+	addr, _, err := solanago.FindProgramAddress(
+		[][]byte{
+			owner[:],
+			token.ProgramID[:],
+			mint[:],
+		},
+		associatedTokenProgramID,
+	)
+	return addr, err
+}
+
 // MintTokensTo mints tokens to a specified token account
 func (s *Solana) MintTokensTo(ctx context.Context, mintAuthority *solanago.Wallet, mint, destination solanago.PublicKey, amount uint64) error {
 	mintToIx := token.NewMintToInstruction(
