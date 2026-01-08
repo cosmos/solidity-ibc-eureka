@@ -308,7 +308,6 @@ fn build_ift_transfer_test_setup(
     (instruction, accounts, mint, sender)
 }
 
-/// Test that `ift_transfer` fails when bridge is not active
 #[test]
 fn test_ift_transfer_inactive_bridge_fails() {
     let mollusk = setup_mollusk();
@@ -325,7 +324,6 @@ fn test_ift_transfer_inactive_bridge_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails with zero amount
 #[test]
 fn test_ift_transfer_zero_amount_fails() {
     let mollusk = setup_mollusk();
@@ -446,7 +444,6 @@ fn test_ift_transfer_zero_amount_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails with empty receiver
 #[test]
 fn test_ift_transfer_empty_receiver_fails() {
     let mollusk = setup_mollusk();
@@ -567,7 +564,6 @@ fn test_ift_transfer_empty_receiver_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails when sender is not a signer
 #[test]
 fn test_ift_transfer_sender_not_signer_fails() {
     let mollusk = setup_mollusk();
@@ -688,7 +684,6 @@ fn test_ift_transfer_sender_not_signer_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails when token account owner doesn't match sender
 #[test]
 fn test_ift_transfer_wrong_token_account_owner_fails() {
     let mollusk = setup_mollusk();
@@ -810,7 +805,6 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails when token account mint doesn't match
 #[test]
 fn test_ift_transfer_wrong_token_mint_fails() {
     let mollusk = setup_mollusk();
@@ -932,7 +926,6 @@ fn test_ift_transfer_wrong_token_mint_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails with timeout in the past
 #[test]
 fn test_ift_transfer_timeout_in_past_fails() {
     let mollusk = setup_mollusk();
@@ -1053,7 +1046,6 @@ fn test_ift_transfer_timeout_in_past_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails with timeout too far in the future
 #[test]
 fn test_ift_transfer_timeout_too_long_fails() {
     let mollusk = setup_mollusk();
@@ -1176,7 +1168,6 @@ fn test_ift_transfer_timeout_too_long_fails() {
     );
 }
 
-/// Test that `ift_transfer` fails when receiver exceeds max length
 #[test]
 fn test_ift_transfer_receiver_too_long_fails() {
     let mollusk = setup_mollusk();

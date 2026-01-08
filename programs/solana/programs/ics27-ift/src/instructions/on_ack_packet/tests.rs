@@ -72,7 +72,6 @@ fn test_parse_gmp_acknowledgement_extended() {
 // on_ack_packet instruction tests
 // ============================================================================
 
-/// Test that `on_ack_packet` fails when called directly (not via CPI from router)
 #[test]
 fn test_on_ack_packet_direct_call_fails() {
     let mollusk = setup_mollusk();
@@ -199,7 +198,6 @@ fn test_on_ack_packet_direct_call_fails() {
     );
 }
 
-/// Test that `on_ack_packet` fails with wrong sender token account owner
 #[test]
 fn test_on_ack_packet_wrong_token_owner_fails() {
     let mollusk = setup_mollusk();
@@ -327,7 +325,6 @@ fn test_on_ack_packet_wrong_token_owner_fails() {
     );
 }
 
-/// Test that `on_ack_packet` fails with wrong mint in token account
 #[test]
 fn test_on_ack_packet_wrong_token_mint_fails() {
     let mollusk = setup_mollusk();
@@ -455,7 +452,6 @@ fn test_on_ack_packet_wrong_token_mint_fails() {
     );
 }
 
-/// Test that `on_ack_packet` fails when pending transfer has wrong mint
 #[test]
 fn test_on_ack_packet_pending_mint_mismatch_fails() {
     let mollusk = setup_mollusk();

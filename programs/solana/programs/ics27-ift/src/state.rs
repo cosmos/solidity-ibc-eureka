@@ -30,10 +30,7 @@ pub enum CounterpartyChainType {
 #[account]
 #[derive(InitSpace)]
 pub struct IFTAppState {
-    /// Schema version for upgrades
     pub version: AccountVersion,
-
-    /// PDA bump seed
     pub bump: u8,
 
     /// SPL Token mint address (this IFT controls this mint)
@@ -48,7 +45,6 @@ pub struct IFTAppState {
     /// GMP program address for sending cross-chain calls
     pub gmp_program: Pubkey,
 
-    /// Reserved space for future fields
     pub _reserved: [u8; 128],
 }
 
@@ -73,10 +69,7 @@ impl IFTAppState {
 #[account]
 #[derive(InitSpace)]
 pub struct IFTBridge {
-    /// Schema version
     pub version: AccountVersion,
-
-    /// PDA bump seed
     pub bump: u8,
 
     /// Mint this bridge is associated with
@@ -96,7 +89,6 @@ pub struct IFTBridge {
     /// Whether bridge is active
     pub active: bool,
 
-    /// Reserved space for future fields
     pub _reserved: [u8; 64],
 }
 
@@ -116,10 +108,7 @@ impl IFTBridge {
 #[account]
 #[derive(InitSpace)]
 pub struct PendingTransfer {
-    /// Schema version
     pub version: AccountVersion,
-
-    /// PDA bump seed
     pub bump: u8,
 
     /// Mint this transfer is for
@@ -141,7 +130,6 @@ pub struct PendingTransfer {
     /// Transfer initiation timestamp
     pub timestamp: i64,
 
-    /// Reserved space for future fields
     pub _reserved: [u8; 32],
 }
 

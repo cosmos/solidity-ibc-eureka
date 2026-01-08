@@ -14,7 +14,6 @@ use crate::test_utils::*;
 // initialize tests
 // ============================================================================
 
-/// Create a mock SPL Token mint account with specified decimals
 fn create_mock_mint_account(decimals: u8, mint_authority: Pubkey) -> solana_sdk::account::Account {
     // SPL Token Mint layout (82 bytes):
     // - 0..4: mint_authority option (4 bytes: 1 = Some, 0 = None)
@@ -51,7 +50,6 @@ fn create_mock_mint_account(decimals: u8, mint_authority: Pubkey) -> solana_sdk:
     }
 }
 
-/// Test that initialize fails with decimals mismatch
 #[test]
 fn test_initialize_decimals_mismatch_fails() {
     let mollusk = setup_mollusk();
@@ -131,7 +129,6 @@ fn test_initialize_decimals_mismatch_fails() {
     );
 }
 
-/// Test that initialize fails when `current_mint_authority` is not a signer
 #[test]
 fn test_initialize_no_authority_signer_fails() {
     let mollusk = setup_mollusk();
@@ -209,7 +206,6 @@ fn test_initialize_no_authority_signer_fails() {
     );
 }
 
-/// Test that initialize fails with wrong `app_state` PDA seeds
 #[test]
 fn test_initialize_wrong_pda_fails() {
     let mollusk = setup_mollusk();
@@ -288,7 +284,6 @@ fn test_initialize_wrong_pda_fails() {
     );
 }
 
-/// Test that initialize fails when mint is not owned by token program
 #[test]
 fn test_initialize_wrong_mint_owner_fails() {
     let mollusk = setup_mollusk();
@@ -367,7 +362,6 @@ fn test_initialize_wrong_mint_owner_fails() {
     );
 }
 
-/// Test that initialize fails when signer is not the actual mint authority
 #[test]
 fn test_initialize_wrong_mint_authority_fails() {
     let mollusk = setup_mollusk();

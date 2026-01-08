@@ -17,7 +17,6 @@ const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345
 // ift_mint tests
 // ============================================================================
 
-/// Test that `ift_mint` fails with zero amount
 #[test]
 fn test_ift_mint_zero_amount_fails() {
     let mollusk = setup_mollusk();
@@ -148,7 +147,6 @@ fn test_ift_mint_zero_amount_fails() {
     );
 }
 
-/// Test that `ift_mint` fails with receiver mismatch
 #[test]
 fn test_ift_mint_receiver_mismatch_fails() {
     let mollusk = setup_mollusk();
@@ -281,7 +279,6 @@ fn test_ift_mint_receiver_mismatch_fails() {
     );
 }
 
-/// Test that `ift_mint` fails when GMP account is not a signer
 #[test]
 fn test_ift_mint_gmp_not_signer_fails() {
     let mollusk = setup_mollusk();
@@ -412,7 +409,6 @@ fn test_ift_mint_gmp_not_signer_fails() {
     );
 }
 
-/// Test that `ift_mint` fails when bridge is not active
 #[test]
 fn test_ift_mint_bridge_not_active_fails() {
     let mollusk = setup_mollusk();
@@ -543,7 +539,6 @@ fn test_ift_mint_bridge_not_active_fails() {
     );
 }
 
-/// Test that `ift_mint` fails with invalid GMP account (wrong PDA)
 #[test]
 fn test_ift_mint_invalid_gmp_account_fails() {
     let mollusk = setup_mollusk();
