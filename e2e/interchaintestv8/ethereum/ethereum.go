@@ -92,7 +92,7 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
 	args = append(args, "script", "--rpc-url", e.RPC, "--private-key",
 		hex.EncodeToString(crypto.FromECDSA(deployer)), "--broadcast",
-		"--slow", "--non-interactive", "-vvvv", solidityContract,
+		"--non-interactive", "-vvvv", solidityContract,
 	)
 	cmd := exec.Command(
 		"forge", args...,
