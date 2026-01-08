@@ -1,12 +1,13 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{self, Mint, MintTo, Token, TokenAccount},
+    token::{Mint, Token, TokenAccount},
 };
 
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
+use crate::helpers::mint_to_account;
 use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request
@@ -83,25 +84,14 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         msg.gmp_account_bump,
     )?;
 
-    let mint_key = ctx.accounts.mint.key();
-    let seeds = &[
-        MINT_AUTHORITY_SEED,
-        mint_key.as_ref(),
-        &[ctx.accounts.app_state.mint_authority_bump],
-    ];
-    let signer_seeds = &[&seeds[..]];
-
-    let mint_accounts = MintTo {
-        mint: ctx.accounts.mint.to_account_info(),
-        to: ctx.accounts.receiver_token_account.to_account_info(),
-        authority: ctx.accounts.mint_authority.to_account_info(),
-    };
-    let mint_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        mint_accounts,
-        signer_seeds,
-    );
-    token::mint_to(mint_ctx, msg.amount)?;
+    mint_to_account(
+        &ctx.accounts.mint,
+        &ctx.accounts.receiver_token_account,
+        &ctx.accounts.mint_authority,
+        ctx.accounts.app_state.mint_authority_bump,
+        &ctx.accounts.token_program,
+        msg.amount,
+    )?;
 
     let clock = Clock::get()?;
     emit!(IFTMintReceived {

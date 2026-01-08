@@ -5,6 +5,7 @@ pub mod errors;
 pub mod events;
 pub mod evm_selectors;
 pub mod gmp_cpi;
+pub mod helpers;
 pub mod instructions;
 pub mod state;
 

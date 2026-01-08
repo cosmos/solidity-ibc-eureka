@@ -1,9 +1,10 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
+use anchor_spl::token::{Mint, Token, TokenAccount};
 
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::{IFTTransferRefunded, RefundReason};
+use crate::helpers::mint_to_account;
 use crate::state::{IFTAppState, PendingTransfer};
 
 #[derive(Accounts)]
@@ -82,25 +83,14 @@ pub fn on_timeout_packet(
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
 
-    let mint_key = ctx.accounts.mint.key();
-    let seeds = &[
-        MINT_AUTHORITY_SEED,
-        mint_key.as_ref(),
-        &[ctx.accounts.app_state.mint_authority_bump],
-    ];
-    let signer_seeds = &[&seeds[..]];
-
-    let mint_accounts = MintTo {
-        mint: ctx.accounts.mint.to_account_info(),
-        to: ctx.accounts.sender_token_account.to_account_info(),
-        authority: ctx.accounts.mint_authority.to_account_info(),
-    };
-    let mint_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        mint_accounts,
-        signer_seeds,
-    );
-    token::mint_to(mint_ctx, pending.amount)?;
+    mint_to_account(
+        &ctx.accounts.mint,
+        &ctx.accounts.sender_token_account,
+        &ctx.accounts.mint_authority,
+        ctx.accounts.app_state.mint_authority_bump,
+        &ctx.accounts.token_program,
+        pending.amount,
+    )?;
 
     emit!(IFTTransferRefunded {
         mint: ctx.accounts.app_state.mint,
