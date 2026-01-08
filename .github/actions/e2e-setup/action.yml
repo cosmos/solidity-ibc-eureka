@@ -1,12 +1,10 @@
 name: e2e-setup
+description: Sets up the E2E test environment
 
 inputs:
   github_token:
     description: A Github PAT
     required: true
-  ghcr_token:
-    description: Token for ghcr.io access (defaults to github_token)
-    required: false
 
 runs:
   using: composite
@@ -16,7 +14,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ inputs.ghcr_token || inputs.github_token }}
+        password: ${{ inputs.github_token }}
 
     - name: Pre-pull private images
       shell: bash

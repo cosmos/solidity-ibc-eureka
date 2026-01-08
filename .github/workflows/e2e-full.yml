@@ -74,7 +74,6 @@ jobs:
         uses: ./.github/actions/e2e-setup
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          ghcr_token: ${{ secrets.GHCR_READ_TOKEN }}
 
       - name: Run Tests
         env:
