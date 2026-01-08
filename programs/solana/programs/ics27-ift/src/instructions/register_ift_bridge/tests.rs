@@ -10,10 +10,6 @@ use solana_sdk::{
 use crate::state::{CounterpartyChainType, IFTBridge, RegisterIFTBridgeMsg};
 use crate::test_utils::*;
 
-// ============================================================================
-// register_ift_bridge tests
-// ============================================================================
-
 #[test]
 fn test_register_ift_bridge_success() {
     let mollusk = setup_mollusk();

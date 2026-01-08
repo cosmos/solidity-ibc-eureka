@@ -9,13 +9,8 @@ use solana_sdk::{
 use crate::state::{CounterpartyChainType, IFTMintMsg};
 use crate::test_utils::*;
 
-// Test constants
 const TEST_CLIENT_ID: &str = "07-tendermint-0";
 const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
-
-// ============================================================================
-// ift_mint tests
-// ============================================================================
 
 #[test]
 fn test_ift_mint_zero_amount_fails() {

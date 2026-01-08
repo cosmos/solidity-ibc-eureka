@@ -10,10 +10,6 @@ use solana_sdk::{
 use crate::state::IFTAppState;
 use crate::test_utils::*;
 
-// ============================================================================
-// initialize tests
-// ============================================================================
-
 fn create_mock_mint_account(decimals: u8, mint_authority: Pubkey) -> solana_sdk::account::Account {
     // SPL Token Mint layout (82 bytes):
     // - 0..4: mint_authority option (4 bytes: 1 = Some, 0 = None)

@@ -8,10 +8,6 @@ use solana_sdk::{
 
 use crate::test_utils::*;
 
-// ============================================================================
-// on_timeout_packet tests
-// ============================================================================
-
 #[test]
 fn test_on_timeout_packet_direct_call_fails() {
     let mollusk = setup_mollusk();

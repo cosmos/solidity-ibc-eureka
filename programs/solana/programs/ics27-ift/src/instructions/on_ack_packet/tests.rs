@@ -68,10 +68,6 @@ fn test_parse_gmp_acknowledgement_extended() {
     );
 }
 
-// ============================================================================
-// on_ack_packet instruction tests
-// ============================================================================
-
 #[test]
 fn test_on_ack_packet_direct_call_fails() {
     let mollusk = setup_mollusk();

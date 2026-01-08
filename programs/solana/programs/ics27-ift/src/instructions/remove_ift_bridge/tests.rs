@@ -9,10 +9,6 @@ use solana_sdk::{
 use crate::state::CounterpartyChainType;
 use crate::test_utils::*;
 
-// ============================================================================
-// remove_ift_bridge tests
-// ============================================================================
-
 #[test]
 fn test_remove_ift_bridge_success() {
     let mollusk = setup_mollusk();

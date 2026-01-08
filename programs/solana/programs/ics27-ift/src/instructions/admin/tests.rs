@@ -13,10 +13,6 @@ fn setup_test_mollusk() -> Mollusk {
     setup_mollusk()
 }
 
-// ============================================================================
-// set_access_manager tests
-// ============================================================================
-
 #[test]
 fn test_set_access_manager_success() {
     let mollusk = setup_test_mollusk();

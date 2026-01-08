@@ -896,12 +896,6 @@ mod tests {
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
     }
 
-    // ========================================
-    // Upstream Caller Tests
-    // ========================================
-    // These tests verify the upstream caller whitelisting feature, which allows
-    // programs like IFT to call through registered IBC apps like GMP.
-
     #[test]
     fn test_send_packet_upstream_caller_success() {
         // Test that a whitelisted upstream caller can send packets
