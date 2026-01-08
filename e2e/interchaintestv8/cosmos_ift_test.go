@@ -37,7 +37,7 @@ import (
 
 const (
 	testIFTDenom              = "factory/wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63/testift"
-	iftSendCallConstructorCtx = "cosmostx"
+	iftSendCallConstructorCtx = "cosmos"
 	iftModuleName             = "ift"
 )
 
