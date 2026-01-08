@@ -38,6 +38,14 @@ pub mod ics26_router {
         instructions::add_upstream_caller(ctx, port_id, upstream_caller)
     }
 
+    pub fn remove_upstream_caller(
+        ctx: Context<RemoveUpstreamCaller>,
+        port_id: String,
+        upstream_caller: Pubkey,
+    ) -> Result<()> {
+        instructions::remove_upstream_caller(ctx, port_id, upstream_caller)
+    }
+
     pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
         instructions::send_packet(ctx, msg)
     }

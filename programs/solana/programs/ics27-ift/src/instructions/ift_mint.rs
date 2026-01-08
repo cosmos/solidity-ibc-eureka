@@ -108,9 +108,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
 
 /// Validate GMP account is derived from expected counterparty bridge
 ///
-/// The GMP account PDA is derived with seeds:
-/// `["gmp_account", client_id.as_bytes(), sha256(sender.as_bytes()), salt, bump]`
-///
 /// For IFT, the sender is the counterparty IFT address and salt must be empty.
 fn validate_gmp_account(
     gmp_account: &Pubkey,
@@ -125,7 +122,7 @@ fn validate_gmp_account(
             b"gmp_account",
             client_id.as_bytes(),
             &sender_hash,
-            &[],
+            &[], // Salt
             &[bump],
         ],
         gmp_program,

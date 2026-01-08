@@ -70,7 +70,6 @@ pub fn initialize(
         Some(ctx.accounts.mint_authority.key()),
     )?;
 
-    // Initialize app state
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
     app_state.bump = ctx.bumps.app_state;

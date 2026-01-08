@@ -86,6 +86,9 @@ pub enum RouterError {
 
     #[msg("Upstream caller already registered")]
     UpstreamCallerAlreadyExists,
+
+    #[msg("Upstream caller not found")]
+    UpstreamCallerNotFound,
 }
 
 /// Convert CPI validation errors to Router errors

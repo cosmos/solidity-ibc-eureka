@@ -123,7 +123,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         IFTError::InvalidReceiver
     );
 
-    // Calculate timeout (default 15 minutes)
     let timeout = if msg.timeout_timestamp == 0 {
         clock.unix_timestamp + DEFAULT_TIMEOUT_DURATION
     } else {
@@ -146,7 +145,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
     token::burn(burn_ctx, msg.amount)?;
 
-    // Construct mint call payload based on counterparty chain type
     let mint_call_payload = construct_mint_call(
         ctx.accounts.ift_bridge.counterparty_chain_type,
         &ctx.accounts.ift_bridge.counterparty_ift_address,
@@ -154,7 +152,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         msg.amount,
     )?;
 
-    // Send GMP call via CPI
     let gmp_accounts = SendGmpCallAccounts {
         gmp_program: ctx.accounts.gmp_program.clone(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
@@ -179,7 +176,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
-    // Create pending transfer account for ack/timeout handling
     create_pending_transfer_account(
         &ctx.accounts.app_state.mint,
         &msg.client_id,
@@ -205,7 +201,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     Ok(sequence)
 }
 
-/// Construct the mint call payload based on counterparty chain type
 fn construct_mint_call(
     chain_type: CounterpartyChainType,
     counterparty_address: &str,
@@ -260,7 +255,6 @@ fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u
     msg.into_bytes()
 }
 
-/// Construct Solana instruction data for IFT mint
 fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     use std::str::FromStr;
 
