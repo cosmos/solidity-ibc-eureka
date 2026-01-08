@@ -2,6 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-01-04
+**Last Updated**: 2026-01-08
 
 IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain messaging—no escrow accounts, minimal SPL token operations.
 
@@ -199,6 +200,30 @@ IFT uses GMP as pure transport, not for account control:
 - **IFT Usage**: GMP Account PDA validates sender identity only
 
 IFT maintains its own mint authority and doesn't delegate token control to GMP PDAs.
+
+### Callback Routing
+
+GMP automatically routes timeout/ack callbacks to IFT via implicit sender detection:
+
+1. IFT calls `GMP.send_call()` via CPI
+2. GMP stores IFT's program ID as `GMPPacketData.sender`
+3. On timeout/ack, GMP invokes IFT's callback handlers
+
+IFT must implement:
+```rust
+pub fn on_timeout_packet(ctx: Context<...>, msg: OnTimeoutPacketMsg) -> Result<()>
+pub fn on_acknowledgement_packet(ctx: Context<...>, msg: OnAcknowledgementPacketMsg) -> Result<()>
+```
+
+No explicit callback registration required—GMP derives the target from the original sender.
+
+**Why implicit detection**: Solana lacks EVM's `msg.sender`. Alternatives considered:
+
+1. **Explicit callback registration**: Requires extra state, admin transaction, and risk of sender/callback mismatch.
+2. **Callback address in packet**: Adds payload overhead and complexity for relayers.
+3. **IFT as direct IBC App**: Register IFT directly with Router, bypassing GMP. Loses GMP's cross-chain abstraction and payload encoding.
+
+Implicit CPI detection is simpler, automatic, and aligns with spec semantics without prescribing mechanism.
 
 ## Performance (TO UPDATE POST TESTING)
 
