@@ -841,7 +841,7 @@ contract IFTTest is Test {
         CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
 
         string memory receiver = "wf1receiver123";
-        uint256 amount = 1000000;
+        uint256 amount = 1_000_000;
 
         bytes memory callData = constructor_.constructMintCall(receiver, amount);
 
@@ -928,8 +928,9 @@ contract IFTTest is Test {
         assertEq(constructor_.icaAddress(), "");
 
         bytes memory callData = constructor_.constructMintCall("receiver", 100);
-        bytes memory expected =
-            abi.encodePacked("{\"messages\":[{\"@type\":\"\",\"signer\":\"\",\"denom\":\"\",\"receiver\":\"receiver\",\"amount\":\"100\"}]}");
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"\",\"signer\":\"\",\"denom\":\"\",\"receiver\":\"receiver\",\"amount\":\"100\"}]}"
+        );
         assertEq(callData, expected);
     }
 
