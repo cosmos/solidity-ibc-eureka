@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2025-11-07
+**Last Updated**: 2026-01-08
 
 ## Executive Summary
 
@@ -418,6 +418,39 @@ fn extract_payload_accounts(
     }
 }
 ```
+
+## Packet Lifecycle Callbacks
+
+### Problem
+
+When a GMP packet times out or receives a failure acknowledgement, the original sender program (e.g., IFT) needs notification to handle recovery (e.g., refund burned tokens).
+
+### Solution: Callback Forwarding
+
+GMP forwards `on_timeout_packet` and `on_acknowledgement_packet` to the original sender program when `remaining_accounts` are provided by the relayer.
+
+The sender program ID is extracted from `GMPPacketData.sender`. GMP constructs the callback using Anchor's discriminator convention (`sha256("global:<instruction>")[..8]`) and invokes the sender program.
+
+### Sender Program Requirements
+
+Programs sending GMP packets that need callbacks must implement:
+
+```rust
+pub fn on_timeout_packet(ctx: Context<...>, msg: OnTimeoutPacketMsg) -> Result<()>
+pub fn on_acknowledgement_packet(ctx: Context<...>, msg: OnAcknowledgementPacketMsg) -> Result<()>
+```
+
+### Alternatives Considered
+
+**1. IFT registers as its own IBC app**: IFT could register directly with Router on its own port instead of using GMP. Rejected because it duplicates GMP's packet handling logic and diverges from the Solidity architecture where IFT uses GMP.
+
+**2. Auto-registration of callback targets**: GMP could automatically track sender programs and route callbacks without relayer involvement. Rejected because it requires on-chain state for every unique sender, increasing costs and complexity.
+
+**3. Router calls sender directly**: Router could bypass GMP and call IFT directly. Rejected because Router doesn't know about GMP-specific packet encoding and would need port-specific callback logic.
+
+**4. Relayer handles refunds off-chain**: Relayer could monitor timeouts and submit refund transactions. Rejected because it's not trustless and requires relayer to have refund authority.
+
+Callback forwarding was chosen because it's trustless, uses existing CPI patterns, and keeps packet handling logic in GMP.
 
 ## CPI Caller Validation Limitation
 
