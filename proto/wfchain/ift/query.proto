@@ -1,0 +1,94 @@
+syntax = "proto3";
+package wfchain.ift;
+
+import "cosmos_proto/cosmos.proto";
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "wfchain/ift/ift.proto";
+
+option go_package = "github.com/cosmos/wfchain/x/ift/types";
+
+// Query defines the gRPC querier service.
+service Query {
+  // ICS27GMP returns the ICS27-GMP module address
+  rpc ICS27GMP(QueryICS27GMPRequest) returns (QueryICS27GMPResponse) {
+    option (google.api.http).get = "/wfchain/ift/ics27gmp";
+  }
+
+  // IFTBridge queries the IFT bridge information for a specific denom and client_id
+  rpc IFTBridge(QueryIFTBridgeRequest) returns (QueryIFTBridgeResponse) {
+    option (google.api.http).get = "/wfchain/ift/bridge/{denom}/{client_id}";
+  }
+
+  // IFTBridges queries all IFT bridges
+  rpc IFTBridges(QueryIFTBridgesRequest) returns (QueryIFTBridgesResponse) {
+    option (google.api.http).get = "/wfchain/ift/bridges";
+  }
+
+  // IFTBridgesByDenom queries all IFT bridges for a specific denom
+  rpc IFTBridgesByDenom(QueryIFTBridgesByDenomRequest) returns (QueryIFTBridgesByDenomResponse) {
+    option (google.api.http).get = "/wfchain/ift/bridges/{denom}";
+  }
+
+  // PendingTransfer queries a pending transfer
+  rpc PendingTransfer(QueryPendingTransferRequest) returns (QueryPendingTransferResponse) {
+    option (google.api.http).get = "/wfchain/ift/pending/{denom}/{client_id}/{sequence}";
+  }
+
+  // Params queries the module parameters
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/wfchain/ift/params";
+  }
+}
+
+message QueryICS27GMPRequest {}
+
+message QueryICS27GMPResponse {
+  // The address of the ICS27-GMP module
+  string address = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+message QueryIFTBridgeRequest {
+  string denom = 1;
+  string client_id = 2;
+}
+
+message QueryIFTBridgeResponse {
+  IFTBridge bridge = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryIFTBridgesRequest {}
+
+message QueryIFTBridgesResponse {
+  repeated DenomBridge bridges = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryIFTBridgesByDenomRequest {
+  string denom = 1;
+}
+
+message QueryIFTBridgesByDenomResponse {
+  repeated IFTBridge bridges = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryPendingTransferRequest {
+  string denom = 1;
+  string client_id = 2;
+  uint64 sequence = 3;
+}
+
+message QueryPendingTransferResponse {
+  PendingTransfer pending_transfer = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// DenomBridge wraps denom with its bridge info for query responses
+message DenomBridge {
+  string denom = 1;
+  IFTBridge bridge = 2 [(gogoproto.nullable) = false];
+}

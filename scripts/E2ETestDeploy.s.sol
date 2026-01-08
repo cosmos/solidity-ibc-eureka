@@ -28,12 +28,50 @@ import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1Veri
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
+import { EVMIFTSendCallConstructor } from "../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
+import { IFTBaseUpgradeable } from "../contracts/utils/IFTBaseUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+
+/// @title TestIFT - A concrete IFT implementation for e2e testing with mint capability
+contract TestIFT is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address owner_,
+        string calldata erc20Name,
+        string calldata erc20Symbol,
+        address ics27Gmp
+    )
+        external
+        initializer
+    {
+        __Ownable_init(owner_);
+        __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
+    }
+
+    /// @notice Mint tokens for testing purposes
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
+}
+
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 
     string internal constant SP1_GENESIS_DIR = "/scripts/";
 
+    // solhint-disable-next-line function-max-lines
     function run() public returns (string memory) {
         // ============ Step 1: Load parameters ==============
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
@@ -93,6 +131,24 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
 
+        // Deploy IFT contracts
+        EVMIFTSendCallConstructor evmIftConstructor = new EVMIFTSendCallConstructor();
+
+        // Deploy CosmosIFTSendCallConstructor with env vars (for EVM→Cosmos transfers)
+        string memory cosmosIftTypeUrl = vm.envOr("COSMOS_IFT_TYPE_URL", string("/wfchain.ift.MsgIFTMint"));
+        string memory cosmosIftDenom = vm.envOr("COSMOS_IFT_DENOM", string("testift"));
+        string memory cosmosIftIcaAddress = vm.envOr("COSMOS_IFT_ICA_ADDRESS", string(""));
+        CosmosIFTSendCallConstructor cosmosIftConstructor =
+            new CosmosIFTSendCallConstructor(cosmosIftTypeUrl, cosmosIftDenom, cosmosIftIcaAddress);
+
+        // Deploy TestIFT with proxy pattern
+        address testIftLogic = address(new TestIFT());
+        ERC1967Proxy iftProxy = new ERC1967Proxy(
+            testIftLogic,
+            abi.encodeCall(TestIFT.initialize, (msg.sender, "Test Interchain Token", "TIFT", address(gmpProxy)))
+        );
+        TestIFT ift = TestIFT(address(iftProxy));
+
         vm.stopBroadcast();
 
         string memory json = "json";
@@ -102,7 +158,11 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
         json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
-        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
+        json.serialize("erc20", Strings.toHexString(address(erc20)));
+        json.serialize("ift", Strings.toHexString(address(ift)));
+        json.serialize("evmIftConstructor", Strings.toHexString(address(evmIftConstructor)));
+        string memory finalJson =
+            json.serialize("cosmosIftConstructor", Strings.toHexString(address(cosmosIftConstructor)));
 
         return finalJson;
     }
