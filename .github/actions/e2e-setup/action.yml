@@ -4,6 +4,9 @@ inputs:
   github_token:
     description: A Github PAT
     required: true
+  ghcr_token:
+    description: Token for ghcr.io access (defaults to github_token)
+    required: false
 
 runs:
   using: composite
@@ -13,7 +16,7 @@ runs:
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ inputs.github_token }}
+        password: ${{ inputs.ghcr_token || inputs.github_token }}
 
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
