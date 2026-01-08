@@ -448,9 +448,7 @@ pub fn on_acknowledgement_packet(ctx: Context<...>, msg: OnAcknowledgementPacket
 
 **3. Router calls sender directly**: Router could bypass GMP and call IFT directly. Rejected because Router doesn't know about GMP-specific packet encoding and would need port-specific callback logic.
 
-**4. Relayer handles refunds off-chain**: Relayer could monitor timeouts and submit refund transactions. Rejected because it's not trustless and requires relayer to have refund authority.
-
-Callback forwarding was chosen because it's trustless, uses existing CPI patterns, and keeps packet handling logic in GMP.
+Callback forwarding was chosen because it aligns with the ICS27 specification where the IBC application (GMP) handles packet lifecycle events, is trustless, and uses existing CPI patterns.
 
 ## CPI Caller Validation Limitation
 
