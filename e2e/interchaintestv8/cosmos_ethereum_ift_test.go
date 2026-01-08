@@ -22,6 +22,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
+	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -44,8 +45,6 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
-
-	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 )
 
 const (
@@ -316,12 +315,12 @@ func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 }
 
 type iftTestContext struct {
-	ethIFTAddress      ethcommon.Address
-	tmClientID         string
-	wasmClientID       string
-	ics26Address       ethcommon.Address
-	sp1Ics07Address    ethcommon.Address
-	cosmosDenom        string
+	ethIFTAddress   ethcommon.Address
+	tmClientID      string
+	wasmClientID    string
+	ics26Address    ethcommon.Address
+	sp1Ics07Address ethcommon.Address
+	cosmosDenom     string
 }
 
 func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context) iftTestContext {
