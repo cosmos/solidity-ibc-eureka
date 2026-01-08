@@ -18,6 +18,12 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.ghcr_token || inputs.github_token }}
 
+    - name: Pre-pull private images
+      shell: bash
+      run: |
+        echo "Pulling wfchain image..."
+        docker pull ghcr.io/cosmos/wfchain:mariuszzak-ift || echo "Failed to pull wfchain image"
+
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 
