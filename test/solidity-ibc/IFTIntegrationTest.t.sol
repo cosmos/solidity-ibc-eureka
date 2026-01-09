@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors,max-line-length,max-states-count,var-name-mixedcase,gas-small-strings
+// solhint-disable
+// custom-errors,max-line-length,max-states-count,var-name-mixedcase,gas-small-strings,gas-strict-inequalities
 
 import { Test } from "forge-std/Test.sol";
 
@@ -238,7 +239,7 @@ contract IFTIntegrationTest is Test {
         assertEq(iftOnB.balanceOf(receiver1), amount1);
     }
 
-    function _extractPacketFromLogs() internal returns (IICS26RouterMsgs.Packet memory) {
+    function _extractPacketFromLogs() internal view returns (IICS26RouterMsgs.Packet memory) {
         bytes memory packetBz = th.getValueFromEvent(IICS26Router.SendPacket.selector);
         return abi.decode(packetBz, (IICS26RouterMsgs.Packet));
     }
