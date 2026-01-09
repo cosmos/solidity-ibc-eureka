@@ -200,7 +200,6 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 	}))
 }
 
-// getIFTModuleAddress returns the IFT module address on the Cosmos chain
 func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
 	iftAddr := authtypes.NewModuleAddress(cosmosIFTModuleName)
 	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
@@ -208,7 +207,6 @@ func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
 	return bech32Addr
 }
 
-// createTokenFactoryDenom creates a denom on the Cosmos chain
 func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context, user ibc.Wallet, denom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: user.FormattedAddress(),
@@ -221,7 +219,6 @@ func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context
 	return denom
 }
 
-// mintTokensOnCosmos mints tokens on the Cosmos chain
 func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
 	msg := &tokenfactorytypes.MsgMint{
 		From:    user.FormattedAddress(),
@@ -233,7 +230,6 @@ func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, use
 	s.Require().NoError(err)
 }
 
-// registerIFTBridgeOnCosmos registers an IFT bridge via governance proposal
 func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
 	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
@@ -250,7 +246,6 @@ func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Conte
 	s.Require().NoError(err)
 }
 
-// iftTransferFromCosmos initiates an IFT transfer from Cosmos to Ethereum
 func (s *CosmosEthereumIFTTestSuite) iftTransferFromCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
 	msg := &ifttypes.MsgIFTTransfer{
 		Signer:           user.FormattedAddress(),
@@ -267,7 +262,6 @@ func (s *CosmosEthereumIFTTestSuite) iftTransferFromCosmos(ctx context.Context, 
 	return resp.TxHash
 }
 
-// queryCosmosBalance queries balance on Cosmos chain
 func (s *CosmosEthereumIFTTestSuite) queryCosmosBalance(ctx context.Context, address, denom string) sdkmath.Int {
 	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.Wfchain, &banktypes.QueryBalanceRequest{
 		Address: address,
@@ -277,7 +271,6 @@ func (s *CosmosEthereumIFTTestSuite) queryCosmosBalance(ctx context.Context, add
 	return resp.Balance.Amount
 }
 
-// queryPendingTransferOnCosmos queries a specific pending IFT transfer on Cosmos chain
 func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Context, denom, clientId string, sequence uint64) (*ifttypes.PendingTransfer, error) {
 	resp, err := e2esuite.GRPCQuery[ifttypes.QueryPendingTransferResponse](ctx, s.Wfchain, &ifttypes.QueryPendingTransferRequest{
 		Denom:    denom,
@@ -290,7 +283,6 @@ func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Co
 	return &resp.PendingTransfer, nil
 }
 
-// Test_Deploy verifies that both chains start correctly
 func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
@@ -465,7 +457,6 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 			txOpts, err := eth.GetTransactOpts(s.ethDeployer)
 			s.Require().NoError(err)
 
-			// Use the newly deployed CosmosIftConstructor with correct ICS27 account address
 			tx, err := iftContract.RegisterIFTBridge(txOpts, tc.tmClientID, cosmosIFTModuleAddr, cosmosIftConstructorAddr)
 			s.Require().NoError(err)
 

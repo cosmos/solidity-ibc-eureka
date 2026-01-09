@@ -36,7 +36,6 @@ import (
 )
 
 const (
-	testIFTDenom              = "factory/wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63/testift"
 	iftSendCallConstructorCtx = "cosmos"
 	iftModuleName             = "ift"
 )
@@ -182,8 +181,6 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 	}))
 }
 
-// createTokenFactoryDenom creates a denom using the tokenfactory module
-// Note: wfchain tokenfactory uses simple denoms (max 20 chars alphanumeric), not factory/creator/subdenom format
 func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: user.FormattedAddress(),
@@ -196,7 +193,6 @@ func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain 
 	return denom
 }
 
-// mintTokens mints tokens using the tokenfactory module
 func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
 	msg := &tokenfactorytypes.MsgMint{
 		From:    user.FormattedAddress(),
@@ -208,9 +204,7 @@ func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.Cosmo
 	s.Require().NoError(err)
 }
 
-// registerIFTBridge registers an IFT bridge via governance proposal
 func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
-	// Get governance module address for the signer
 	govModuleAddr, err := chain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
 
@@ -226,7 +220,6 @@ func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmo
 	s.Require().NoError(err)
 }
 
-// iftTransfer initiates an IFT transfer
 func (s *CosmosIFTTestSuite) iftTransfer(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
 	msg := &ifttypes.MsgIFTTransfer{
 		Signer:           user.FormattedAddress(),
@@ -243,7 +236,6 @@ func (s *CosmosIFTTestSuite) iftTransfer(ctx context.Context, chain *cosmos.Cosm
 	return resp.TxHash
 }
 
-// queryBalance queries the balance of an address using gRPC
 func (s *CosmosIFTTestSuite) queryBalance(ctx context.Context, chain *cosmos.CosmosChain, address, denom string) sdkmath.Int {
 	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, chain, &banktypes.QueryBalanceRequest{
 		Address: address,
@@ -262,19 +254,14 @@ func (s *CosmosIFTTestSuite) queryPendingTransfer(ctx context.Context, chain *co
 	})
 }
 
-// getIFTModuleAddress returns the IFT module address
 func (s *CosmosIFTTestSuite) getIFTModuleAddress(ctx context.Context, chain *cosmos.CosmosChain) string {
-	// The IFT module address is derived from the module name "ift"
 	iftAddr := authtypes.NewModuleAddress(iftModuleName)
-
-	// Convert to bech32 with chain's prefix
 	bech32Addr, err := sdk.Bech32ifyAddressBytes(chain.Config().Bech32Prefix, iftAddr)
 	s.Require().NoError(err)
 
 	return bech32Addr
 }
 
-// Test_Deploy verifies that two wfchain instances start correctly
 func (s *CosmosIFTTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -294,7 +281,6 @@ func (s *CosmosIFTTestSuite) Test_Deploy() {
 	}))
 }
 
-// Test_IFTTransfer tests a roundtrip IFT transfer: A -> B -> A
 func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -497,7 +483,6 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	}))
 }
 
-// Test_IFTTransferTimeout tests that a timed-out transfer refunds tokens to the sender
 func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
