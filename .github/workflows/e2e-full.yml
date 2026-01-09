@@ -37,6 +37,7 @@ env:
   ANCHOR_VERSION: "0.32.1"
 permissions:
   contents: read
+  packages: read
 
 jobs:
   generate-matrix:
