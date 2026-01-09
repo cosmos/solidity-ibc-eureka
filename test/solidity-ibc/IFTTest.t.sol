@@ -745,10 +745,7 @@ contract IFTTest is Test {
         UpgradeTestCase[] memory testCases = new UpgradeTestCase[](2);
 
         testCases[0] = UpgradeTestCase({
-            name: "success: ownable admin upgrades",
-            caller: admin,
-            ownable: true,
-            expectedRevert: ""
+            name: "success: ownable admin upgrades", caller: admin, ownable: true, expectedRevert: ""
         });
         testCases[1] = UpgradeTestCase({
             name: "revert: ownable unauthorized caller",
@@ -823,7 +820,6 @@ contract IFTTest is Test {
         bytes4 erc165Id = 0x01ffc9a7;
         assertTrue(IERC165(address(ift)).supportsInterface(erc165Id));
     }
-
 
     struct IFTMintTestCase {
         string name;
