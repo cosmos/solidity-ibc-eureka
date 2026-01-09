@@ -6,13 +6,13 @@
       "dependencies": {
         "@openzeppelin/contracts": "^5.4.0",
         "@openzeppelin/contracts-upgradeable": "^5.4.0",
-        "@uniswap/permit2": "github:Uniswap/permit2",
+        "@uniswap/permit2": "github:Uniswap/permit2#cc56ad0f3439c502c246fc5cfcc3db92bb8b7219",
       },
       "devDependencies": {
         "forge-std": "github:foundry-rs/forge-std#v1.11.0",
         "quicktype": "^23.2.6",
-        "solhint": "^6.0.1",
-        "sp1-contracts": "github:succinctlabs/sp1-contracts#v5.0.0",
+        "solhint": "^6.0.2",
+        "sp1-contracts": "github:succinctlabs/sp1-contracts#512b5e029abc27f6e46a3c7eba220dac83ecc306",
       },
     },
   },
