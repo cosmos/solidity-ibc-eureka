@@ -10,6 +10,7 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIFTMsgs } from "../../contracts/msgs/IIFTMsgs.sol";
 
 import { IIFT } from "../../contracts/interfaces/IIFT.sol";
+import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 
 import { IbcImpl } from "./utils/IbcImpl.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -105,24 +106,25 @@ contract IFTIntegrationTest is Test {
     }
 
     function testFuzz_success_iftTransferAcrossChains(uint256 amount) public {
-        amount = bound(amount, 1, type(uint128).max - 1);
+        vm.assume(amount > 0);
 
         address sender = integrationEnv.createUser();
         address receiver = integrationEnv.createUser();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         deal(address(iftOnA), sender, amount, true);
         assertEq(iftOnA.balanceOf(sender), amount);
 
         vm.startPrank(sender);
         vm.recordLogs();
-        iftOnA.iftTransfer(th.FIRST_CLIENT_ID(), Strings.toHexString(receiver), amount);
+        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount);
         vm.stopPrank();
 
         assertEq(iftOnA.balanceOf(sender), 0, "tokens should be burned from sender");
 
         IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
 
-        IIFTMsgs.PendingTransfer memory pending = iftOnA.getPendingTransfer(th.FIRST_CLIENT_ID(), sentPacket.sequence);
+        IIFTMsgs.PendingTransfer memory pending = iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
         assertEq(pending.sender, sender);
         assertEq(pending.amount, amount);
 
@@ -133,13 +135,12 @@ contract IFTIntegrationTest is Test {
 
         ibcImplA.ackPacket(sentPacket, acks);
 
-        pending = iftOnA.getPendingTransfer(th.FIRST_CLIENT_ID(), sentPacket.sequence);
-        assertEq(pending.sender, address(0), "pending transfer should be cleared");
-        assertEq(pending.amount, 0, "pending amount should be zero");
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence));
+        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
     }
 
     function testFuzz_success_roundTripTransfer(uint256 amount) public {
-        amount = bound(amount, 1, type(uint128).max - 1);
+        vm.assume(amount > 0);
 
         address userA = integrationEnv.createUser();
         address userB = integrationEnv.createUser();
@@ -172,10 +173,11 @@ contract IFTIntegrationTest is Test {
     }
 
     function testFuzz_timeout_refundsTokens(uint256 amount) public {
-        amount = bound(amount, 1, type(uint128).max - 1);
+        vm.assume(amount > 0);
 
         address sender = integrationEnv.createUser();
         address receiver = integrationEnv.createUser();
+        string memory clientId = th.FIRST_CLIENT_ID();
 
         deal(address(iftOnA), sender, amount, true);
 
@@ -183,7 +185,7 @@ contract IFTIntegrationTest is Test {
 
         vm.startPrank(sender);
         vm.recordLogs();
-        iftOnA.iftTransfer(th.FIRST_CLIENT_ID(), Strings.toHexString(receiver), amount, shortTimeout);
+        iftOnA.iftTransfer(clientId, Strings.toHexString(receiver), amount, shortTimeout);
         vm.stopPrank();
 
         IICS26RouterMsgs.Packet memory sentPacket = _extractPacketFromLogs();
@@ -197,14 +199,13 @@ contract IFTIntegrationTest is Test {
 
         assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
 
-        IIFTMsgs.PendingTransfer memory pending = iftOnA.getPendingTransfer(th.FIRST_CLIENT_ID(), sentPacket.sequence);
-        assertEq(pending.sender, address(0), "pending transfer should be cleared");
-        assertEq(pending.amount, 0);
+        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence));
+        iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
     }
 
     function testFuzz_multipleTransfersInFlight(uint256 amount1, uint256 amount2) public {
-        amount1 = bound(amount1, 1, type(uint64).max - 1);
-        amount2 = bound(amount2, 1, type(uint64).max - 1);
+        // Check no overflow occurs when adding amounts
+        vm.assume(amount1 > 0 && amount2 > 0 && amount2 <= type(uint256).max - amount1);
 
         address sender = integrationEnv.createUser();
         address receiver1 = integrationEnv.createUser();
