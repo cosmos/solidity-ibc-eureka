@@ -195,7 +195,9 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
         view
         returns (IIFTMsgs.PendingTransfer memory)
     {
-        return _getIFTBaseStorage()._pendingTransfers[clientId][sequence];
+        IIFTMsgs.PendingTransfer memory pending = _getIFTBaseStorage()._pendingTransfers[clientId][sequence];
+        require(pending.amount > 0, IFTPendingTransferNotFound(clientId, sequence));
+        return pending;
     }
 
     /// @inheritdoc IIFT

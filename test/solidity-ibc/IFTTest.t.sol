@@ -6,11 +6,13 @@ pragma solidity ^0.8.28;
 import { Test } from "forge-std/Test.sol";
 
 import { IIFTMsgs } from "../../contracts/msgs/IIFTMsgs.sol";
+import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 
 import { IIFT } from "../../contracts/interfaces/IIFT.sol";
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 import { IICS27GMP } from "../../contracts/interfaces/IICS27GMP.sol";
+import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
 
 import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
@@ -234,6 +236,90 @@ contract IFTTest is Test {
         ift.getIFTBridge(removeBridgeTC.clientId);
     }
 
+    function fixtureTransferTC() public returns (IFTTransferTestCase[] memory) {
+        address sender = makeAddr("sender");
+        string memory receiver = Strings.toHexString(makeAddr("receiver"));
+
+        uint64 timeout = th.DEFAULT_TIMEOUT_TIMESTAMP();
+        uint64 pastTimeout = uint64(block.timestamp) - 1;
+        uint256 transferAmount = 100;
+
+        IFTTransferTestCase[] memory testCases = new IFTTransferTestCase[](7);
+
+        testCases[0] = IFTTransferTestCase({
+            name: "success: ownable transfer",
+            caller: sender,
+            ownable: true,
+            clientId: th.FIRST_CLIENT_ID(),
+            receiver: receiver,
+            amount: transferAmount,
+            timeoutTimestamp: timeout,
+            expectedRevert: ""
+        });
+        testCases[1] = IFTTransferTestCase({
+            name: "success: access managed transfer",
+            caller: sender,
+            ownable: false,
+            clientId: th.FIRST_CLIENT_ID(),
+            receiver: receiver,
+            amount: transferAmount,
+            timeoutTimestamp: timeout,
+            expectedRevert: ""
+        });
+        testCases[2] = IFTTransferTestCase({
+            name: "revert: empty receiver",
+            caller: sender,
+            ownable: true,
+            clientId: th.FIRST_CLIENT_ID(),
+            receiver: "",
+            amount: transferAmount,
+            timeoutTimestamp: timeout,
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTEmptyReceiver.selector)
+        });
+        testCases[3] = IFTTransferTestCase({
+            name: "revert: zero amount",
+            caller: sender,
+            ownable: true,
+            clientId: th.FIRST_CLIENT_ID(),
+            receiver: receiver,
+            amount: 0,
+            timeoutTimestamp: timeout,
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTZeroAmount.selector)
+        });
+        testCases[4] = IFTTransferTestCase({
+            name: "revert: timeout in past",
+            caller: sender,
+            ownable: true,
+            clientId: th.FIRST_CLIENT_ID(),
+            receiver: receiver,
+            amount: transferAmount,
+            timeoutTimestamp: pastTimeout,
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTTimeoutInPast.selector, pastTimeout, uint64(block.timestamp))
+        });
+        testCases[5] = IFTTransferTestCase({
+            name: "revert: unregistered clientId",
+            caller: sender,
+            ownable: true,
+            clientId: th.INVALID_ID(),
+            receiver: receiver,
+            amount: transferAmount,
+            timeoutTimestamp: timeout,
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, th.INVALID_ID())
+        });
+        testCases[6] = IFTTransferTestCase({
+            name: "revert: empty clientId",
+            caller: sender,
+            ownable: true,
+            clientId: "",
+            receiver: receiver,
+            amount: transferAmount,
+            timeoutTimestamp: timeout,
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTEmptyClientId.selector)
+        });
+
+        return testCases;
+    }
+
     function tableIFTTransferTest(IFTTransferTestCase memory transferTC) public {
         if (transferTC.ownable) {
             setUpOwnable();
@@ -244,7 +330,7 @@ contract IFTTest is Test {
         // First register the bridge
         vm.startPrank(admin);
         ift.registerIFTBridge(
-            transferTC.clientId, "0x123", address(evmCallConstructor)
+            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
         );
         vm.stopPrank();
 
@@ -258,7 +344,7 @@ contract IFTTest is Test {
 
         // Mint some tokens to the caller
         uint256 initialBalance = 1_000_000 ether;
-        vm.deal(transferTC.caller, initialBalance);
+        deal(address(ift), transferTC.caller, initialBalance, true);
 
         if (transferTC.expectedRevert.length != 0) {
             vm.expectRevert(transferTC.expectedRevert);
@@ -289,6 +375,67 @@ contract IFTTest is Test {
         IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(transferTC.clientId, seq);
         assertEq(pending.sender, transferTC.caller);
         assertEq(pending.amount, transferTC.amount);
+    }
+
+    function tableOnAckPacketTest(OnAckPacketTestCase memory ackTC) public {
+        setUpOwnable();
+
+        // First register the bridge and initiate a transfer
+        vm.startPrank(admin);
+        ift.registerIFTBridge(
+            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+        );
+        vm.stopPrank();
+
+        uint64 seq = 42;
+        uint256 transferAmount = 1000;
+        address sender = makeAddr("sender");
+        vm.mockCall(
+            address(mockICS27),
+            IICS27GMP.sendCall.selector,
+            abi.encode(seq)
+        );
+
+        // Mint some tokens to the caller
+        deal(address(ift), sender, transferAmount, true);
+
+        vm.startPrank(sender);
+        ift.iftTransfer(
+            th.FIRST_CLIENT_ID(),
+            Strings.toHexString(makeAddr("receiver")),
+            transferAmount
+        );
+        vm.stopPrank();
+
+        if (ackTC.expectedRevert.length != 0) {
+            vm.expectRevert(ackTC.expectedRevert);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit IIFT.IFTTransferCompleted(ackTC.callback.sourceClient, ackTC.callback.sequence, sender, transferAmount);
+        }
+
+        vm.prank(mockICS27);
+        IIBCSenderCallbacks(address(ift)).onAckPacket(
+            ackTC.success,
+            ackTC.callback
+        );
+
+        if (ackTC.expectedRevert.length != 0) {
+            return;
+        }
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, ackTC.callback.sourceClient, ackTC.callback.sequence)
+        );
+        ift.getPendingTransfer(ackTC.callback.sourceClient, ackTC.callback.sequence);
+    }
+
+    struct OnAckPacketTestCase {
+        string name;
+        address caller;
+        bool success;
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback callback;
+        bytes expectedRevert;
     }
 
     struct IFTTransferTestCase {
