@@ -68,7 +68,7 @@ contract IFTTest is Test {
     function fixtureregisterBridgeTC() public returns (RegisterIFTBridgeTestCase[] memory) {
         address unauthorized = makeAddr("unauthorized");
 
-        RegisterIFTBridgeTestCase[] memory testCases = new RegisterIFTBridgeTestCase[](7);
+        RegisterIFTBridgeTestCase[] memory testCases = new RegisterIFTBridgeTestCase[](8);
 
         testCases[0] = RegisterIFTBridgeTestCase({
             name: "success: ownable admin registers",
@@ -132,6 +132,17 @@ contract IFTTest is Test {
             counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(0),
             expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTZeroAddressConstructor.selector)
+        });
+        testCases[7] = RegisterIFTBridgeTestCase({
+            name: "revert: iftSendCallConstructor does not support IIFTSendCallConstructor",
+            caller: admin,
+            ownable: true,
+            clientId: th.FIRST_CLIENT_ID(),
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
+            iftSendCallConstructor: makeAddr("invalidConstructor"),
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTInvalidConstructorInterface.selector, makeAddr("invalidConstructor")
+            )
         });
 
         return testCases;
