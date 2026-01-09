@@ -13,6 +13,7 @@ import { IIFTErrors } from "../errors/IIFTErrors.sol";
 
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IBCCallbackReceiver } from "../utils/IBCCallbackReceiver.sol";
+import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC165Checker.sol";
 
 /// @title IFT Base Upgradeable Contract
 /// @notice Abstract base contract for Interchain Fungible Tokens
@@ -72,6 +73,10 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
         require(bytes(clientId).length > 0, IFTEmptyClientId());
         require(bytes(counterpartyIFTAddress).length > 0, IFTEmptyCounterpartyAddress());
         require(iftSendCallConstructor != address(0), IFTZeroAddressConstructor());
+        require(
+            ERC165Checker.supportsInterface(iftSendCallConstructor, type(IIFTSendCallConstructor).interfaceId),
+            IFTInvalidConstructorInterface(iftSendCallConstructor)
+        );
 
         IFTBaseStorage storage $ = _getIFTBaseStorage();
         $._iftBridges[clientId] = IIFTMsgs.IFTBridge({

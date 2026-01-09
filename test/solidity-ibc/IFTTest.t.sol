@@ -17,10 +17,12 @@ import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 import { IICS27GMP } from "../../contracts/interfaces/IICS27GMP.sol";
 import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
 import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
+import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol";
 
 import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { IIFTSendCallConstructor } from "../../contracts/interfaces/IIFTSendCallConstructor.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
@@ -28,6 +30,7 @@ import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
 contract IFTTest is Test {
     // solhint-disable gas-indexed-events
@@ -732,6 +735,84 @@ contract IFTTest is Test {
 
         uint256 receiverBalance = IERC20(address(ift)).balanceOf(mintTC.receiver);
         assertEq(receiverBalance, mintTC.amount);
+    }
+
+    // EVMIFTSendCallConstructor Tests
+
+    function testFuzz_evmCallConstructor_constructMintCall(uint256 amount) public {
+        address receiver = makeAddr("receiver");
+        string memory receiverStr = Strings.toHexString(receiver);
+
+        bytes memory callData = evmCallConstructor.constructMintCall(receiverStr, amount);
+        bytes memory expected = abi.encodeCall(IIFT.iftMint, (receiver, amount));
+
+        assertEq(callData, expected);
+    }
+
+    function testFuzz_evmCallConstructor_invalidReceiver_reverts(uint256 amount) public {
+        vm.expectRevert();
+        evmCallConstructor.constructMintCall("invalid-address", amount);
+    }
+
+    function test_evmCallConstructor_supportsInterface_IIFTSendCallConstructor() public view {
+        assertTrue(evmCallConstructor.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
+    }
+
+    function test_evmCallConstructor_supportsInterface_IERC165() public view {
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(evmCallConstructor.supportsInterface(erc165Id));
+    }
+
+    function test_evmCallConstructor_supportsInterface_unsupported() public view {
+        bytes4 randomId = 0xdeadbeef;
+        assertFalse(evmCallConstructor.supportsInterface(randomId));
+    }
+
+    // ERC165 Interface Tests
+
+    function test_supportsInterface() public {
+        setUpOwnable();
+
+        // IIBCSenderCallbacks interface ID
+        bytes4 senderCallbacksId = type(IIBCSenderCallbacks).interfaceId;
+        assertTrue(IERC165(address(ift)).supportsInterface(senderCallbacksId));
+
+        // ERC165 interface ID
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(IERC165(address(ift)).supportsInterface(erc165Id));
+    }
+
+    // Upgrade Tests
+
+    function test_upgrade_success() public {
+        setUpOwnable();
+
+        // First register the bridge
+        vm.startPrank(admin);
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
+        vm.stopPrank();
+
+        IFTOwnable newImpl = new IFTOwnable();
+
+        vm.prank(admin);
+        UUPSUpgradeable(address(ift)).upgradeToAndCall(address(newImpl), "");
+
+        assertEq(IFTOwnable(address(ift)).owner(), admin, "owner should be preserved after upgrade");
+
+        string memory clientId = th.FIRST_CLIENT_ID();
+        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
+        assertEq(bridge.clientId, clientId, "bridge should be preserved after upgrade");
+    }
+
+    function test_upgrade_unauthorizedCaller_reverts() public {
+        setUpOwnable();
+
+        IFTOwnable newImpl = new IFTOwnable();
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert();
+        UUPSUpgradeable(address(ift)).upgradeToAndCall(address(newImpl), "");
     }
 
     struct IFTMintTestCase {
