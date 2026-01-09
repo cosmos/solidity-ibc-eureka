@@ -181,7 +181,9 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
 
     /// @inheritdoc IIFT
     function getIFTBridge(string calldata clientId) external view returns (IIFTMsgs.IFTBridge memory) {
-        return _getIFTBaseStorage()._iftBridges[clientId];
+        IIFTMsgs.IFTBridge memory bridge = _getIFTBaseStorage()._iftBridges[clientId];
+        require(bytes(bridge.clientId).length > 0, IFTBridgeNotFound(clientId));
+        return bridge;
     }
 
     /// @inheritdoc IIFT
