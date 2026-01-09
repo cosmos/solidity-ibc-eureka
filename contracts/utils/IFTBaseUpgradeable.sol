@@ -164,6 +164,7 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
         IICS27GMPMsgs.AccountIdentifier memory accountId = $._ics27Gmp.getAccountIdentifier(_msgSender());
         IIFTMsgs.IFTBridge memory bridge = $._iftBridges[accountId.clientId];
 
+        require(bytes(bridge.clientId).length > 0, IFTBridgeNotFound(accountId.clientId));
         require(
             keccak256(bytes(bridge.clientId)) == keccak256(bytes(accountId.clientId)),
             IFTBridgeNotFound(accountId.clientId)

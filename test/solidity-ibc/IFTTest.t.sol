@@ -8,12 +8,14 @@ import { Test } from "forge-std/Test.sol";
 import { IIFTMsgs } from "../../contracts/msgs/IIFTMsgs.sol";
 import { IIBCAppCallbacks } from "../../contracts/msgs/IIBCAppCallbacks.sol";
 import { IICS26RouterMsgs } from "../../contracts/msgs/IICS26RouterMsgs.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 
 import { IIFT } from "../../contracts/interfaces/IIFT.sol";
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 import { IIFTErrors } from "../../contracts/errors/IIFTErrors.sol";
 import { IICS27GMP } from "../../contracts/interfaces/IICS27GMP.sol";
 import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
+import { IERC20 } from "@openzeppelin-contracts/token/ERC20/IERC20.sol";
 
 import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
@@ -35,6 +37,8 @@ contract IFTTest is Test {
 
     string public constant TOKEN_NAME = "Test IFT";
     string public constant TOKEN_SYMBOL = "TIFT";
+
+    string public constant COUNTERPARTY_IFT_ADDRESS = "0x123";
 
     address public mockICS27 = makeAddr("mockICS27");
     // admin is the owner of the IFTOwnable and authority of the access manager
@@ -67,7 +71,7 @@ contract IFTTest is Test {
             caller: admin,
             ownable: true,
             clientId: th.FIRST_CLIENT_ID(),
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(evmCallConstructor),
             expectedRevert: ""
         });
@@ -76,7 +80,7 @@ contract IFTTest is Test {
             caller: admin,
             ownable: false,
             clientId: th.FIRST_CLIENT_ID(),
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(evmCallConstructor),
             expectedRevert: ""
         });
@@ -85,7 +89,7 @@ contract IFTTest is Test {
             caller: unauthorized,
             ownable: true,
             clientId: th.FIRST_CLIENT_ID(),
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(evmCallConstructor),
             expectedRevert: abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized)
         });
@@ -94,7 +98,7 @@ contract IFTTest is Test {
             caller: makeAddr("unauthorized"),
             ownable: false,
             clientId: th.FIRST_CLIENT_ID(),
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(evmCallConstructor),
             expectedRevert: abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized)
         });
@@ -103,7 +107,7 @@ contract IFTTest is Test {
             caller: admin,
             ownable: true,
             clientId: "",
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(evmCallConstructor),
             expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTEmptyClientId.selector)
         });
@@ -121,7 +125,7 @@ contract IFTTest is Test {
             caller: admin,
             ownable: true,
             clientId: th.FIRST_CLIENT_ID(),
-            counterpartyIFT: "0x123",
+            counterpartyIFT: COUNTERPARTY_IFT_ADDRESS,
             iftSendCallConstructor: address(0),
             expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTZeroAddressConstructor.selector)
         });
@@ -213,7 +217,7 @@ contract IFTTest is Test {
         // First register the bridge
         vm.startPrank(admin);
         ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
         );
         vm.stopPrank();
 
@@ -331,7 +335,7 @@ contract IFTTest is Test {
         // First register the bridge
         vm.startPrank(admin);
         ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
         );
         vm.stopPrank();
 
@@ -472,7 +476,7 @@ contract IFTTest is Test {
         // First register the bridge and initiate a transfer
         vm.startPrank(admin);
         ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
         );
         vm.stopPrank();
 
@@ -600,7 +604,7 @@ contract IFTTest is Test {
         // First register the bridge and initiate a transfer
         vm.startPrank(admin);
         ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
         );
         vm.stopPrank();
 
@@ -650,12 +654,159 @@ contract IFTTest is Test {
         ift.getPendingTransfer(timeoutTC.callback.sourceClient, timeoutTC.callback.sequence);
     }
 
-    function test_tableOnTimeoutPacketTest() public {
-        OnTimeoutPacketTestCase[] memory testCases = fixtureTimeoutTC();
+    function fixtureMintTC() public returns (IFTMintTestCase[] memory) {
+        address authorizedCaller = makeAddr("authorizedCaller");
+        address unauthorizedCaller = makeAddr("unauthorizedCaller");
+        address receiver = makeAddr("receiver");
 
-        for (uint256 i = 0; i < testCases.length; ++i) {
-            tableOnTimeoutPacketTest(testCases[i]);
+        IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
+            clientId: th.FIRST_CLIENT_ID(),
+            sender: COUNTERPARTY_IFT_ADDRESS,
+            salt: ""
+        });
+
+        IFTMintTestCase[] memory testCases = new IFTMintTestCase[](6);
+
+        testCases[0] = IFTMintTestCase({
+            name: "success: ownable mint by authorized caller",
+            ownable: true,
+            caller: authorizedCaller,
+            accountId: accountId,
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: ""
+        });
+        testCases[1] = IFTMintTestCase({
+            name: "success: access managed mint by authorized caller",
+            ownable: false,
+            caller: authorizedCaller,
+            accountId: accountId,
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: ""
+        });
+        testCases[2] = IFTMintTestCase({
+            name: "revert: mint by unauthorized caller",
+            ownable: true,
+            caller: unauthorizedCaller,
+            accountId: accountId,
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: "mock revert"
+        });
+        testCases[3] = IFTMintTestCase({
+            name: "revert: incorrect account identifier clientId",
+            ownable: true,
+            caller: authorizedCaller,
+            accountId: IICS27GMPMsgs.AccountIdentifier({
+                clientId: th.INVALID_ID(),
+                sender: COUNTERPARTY_IFT_ADDRESS,
+                salt: ""
+            }),
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTBridgeNotFound.selector,
+                th.INVALID_ID()
+            )
+        });
+        testCases[4] = IFTMintTestCase({
+            name: "revert: unexpected salt in account identifier",
+            ownable: true,
+            caller: authorizedCaller,
+            accountId: IICS27GMPMsgs.AccountIdentifier({
+                clientId: th.FIRST_CLIENT_ID(),
+                sender: COUNTERPARTY_IFT_ADDRESS,
+                salt: hex"01"
+            }),
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTUnexpectedSalt.selector,
+                hex"01"
+            )
+        });
+        testCases[5] = IFTMintTestCase({
+            name: "revert: incorrect account identifier sender",
+            ownable: true,
+            caller: authorizedCaller,
+            accountId: IICS27GMPMsgs.AccountIdentifier({
+                clientId: th.FIRST_CLIENT_ID(),
+                sender: "0x456",
+                salt: ""
+            }),
+            receiver: receiver,
+            amount: vm.randomUint(1, uint256(type(uint128).max)),
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTUnauthorizedMint.selector,
+                COUNTERPARTY_IFT_ADDRESS,
+                "0x456"
+            )
+        });
+
+        return testCases;
+    }
+
+    function tableIFTMintTest(IFTMintTestCase memory mintTC) public {
+        if (mintTC.ownable) {
+            setUpOwnable();
+        } else {
+            setUpAccessManaged();
         }
+
+        // First register the bridge
+        vm.startPrank(admin);
+        ift.registerIFTBridge(
+            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
+        );
+        vm.stopPrank();
+
+        address authorizedCaller = makeAddr("authorizedCaller");
+        address unauthorizedCaller = makeAddr("unauthorizedCaller");
+
+        vm.mockCall(
+            address(mockICS27),
+            abi.encodeCall(
+                IICS27GMP.getAccountIdentifier,
+                (authorizedCaller)
+            ),
+            abi.encode(mintTC.accountId)
+        );
+        vm.mockCallRevert(
+            address(mockICS27),
+            abi.encodeCall(
+                IICS27GMP.getAccountIdentifier,
+                (unauthorizedCaller)
+            ),
+            "mock revert"
+        );
+
+        if (mintTC.expectedRevert.length != 0) {
+            vm.expectRevert(mintTC.expectedRevert);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit IIFT.IFTMintReceived(th.FIRST_CLIENT_ID(), mintTC.receiver, mintTC.amount);
+        }
+
+        vm.prank(mintTC.caller);
+        ift.iftMint(mintTC.receiver, mintTC.amount);
+
+        if (mintTC.expectedRevert.length != 0) {
+            return;
+        }
+
+        uint256 receiverBalance = IERC20(address(ift)).balanceOf(mintTC.receiver);
+        assertEq(receiverBalance, mintTC.amount);
+    }
+
+    struct IFTMintTestCase {
+        string name;
+        bool ownable;
+        address caller;
+        IICS27GMPMsgs.AccountIdentifier accountId;
+        address receiver;
+        uint256 amount;
+        bytes expectedRevert;
     }
 
     struct OnAckPacketTestCase {
