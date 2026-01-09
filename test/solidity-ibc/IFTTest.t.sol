@@ -523,7 +523,139 @@ contract IFTTest is Test {
                 ackTC.callback.sequence
             )
         );
-        IIFTMsgs.PendingTransfer memory pending = ift.getPendingTransfer(ackTC.callback.sourceClient, ackTC.callback.sequence);
+        ift.getPendingTransfer(ackTC.callback.sourceClient, ackTC.callback.sequence);
+    }
+
+    function fixtureTimeoutTC() public returns (OnTimeoutPacketTestCase[] memory) {
+        address unauthorized = makeAddr("unauthorized");
+        address relayer = makeAddr("relayer");
+
+        IICS26RouterMsgs.Payload memory payload = IICS26RouterMsgs.Payload({
+            sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+            destPort: ICS27Lib.DEFAULT_PORT_ID,
+            version: ICS27Lib.ICS27_VERSION,
+            encoding: ICS27Lib.ICS27_ENCODING,
+            value: ""
+        });
+
+        OnTimeoutPacketTestCase[] memory testCases = new OnTimeoutPacketTestCase[](4);
+
+        testCases[0] = OnTimeoutPacketTestCase({
+            name: "success: timeout refunds transfer",
+            caller: mockICS27,
+            callback: IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceClient: th.FIRST_CLIENT_ID(),
+                destinationClient: th.SECOND_CLIENT_ID(),
+                sequence: 42,
+                payload: payload,
+                relayer: relayer
+            }),
+            expectedRevert: ""
+        });
+        testCases[1] = OnTimeoutPacketTestCase({
+            name: "revert: unauthorized caller",
+            caller: unauthorized,
+            callback: IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceClient: th.FIRST_CLIENT_ID(),
+                destinationClient: th.SECOND_CLIENT_ID(),
+                sequence: 42,
+                payload: payload,
+                relayer: relayer
+            }),
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTOnlyICS27GMP.selector, unauthorized)
+        });
+        testCases[2] = OnTimeoutPacketTestCase({
+            name: "revert: incorrect sequence",
+            caller: mockICS27,
+            callback: IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceClient: th.FIRST_CLIENT_ID(),
+                destinationClient: th.SECOND_CLIENT_ID(),
+                sequence: 43,
+                payload: payload,
+                relayer: relayer
+            }),
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 43
+            )
+        });
+        testCases[3] = OnTimeoutPacketTestCase({
+            name: "revert: incorrect clientId",
+            caller: mockICS27,
+            callback: IIBCAppCallbacks.OnTimeoutPacketCallback({
+                sourceClient: th.INVALID_ID(),
+                destinationClient: th.SECOND_CLIENT_ID(),
+                sequence: 42,
+                payload: payload,
+                relayer: relayer
+            }),
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.INVALID_ID(), 42)
+        });
+
+        return testCases;
+    }
+
+    function tableOnTimeoutPacketTest(OnTimeoutPacketTestCase memory timeoutTC) public {
+        setUpOwnable();
+
+        // First register the bridge and initiate a transfer
+        vm.startPrank(admin);
+        ift.registerIFTBridge(
+            th.FIRST_CLIENT_ID(), "0x123", address(evmCallConstructor)
+        );
+        vm.stopPrank();
+
+        uint64 seq = 42;
+        uint256 transferAmount = 1000;
+        address sender = makeAddr("sender");
+        vm.mockCall(
+            address(mockICS27),
+            IICS27GMP.sendCall.selector,
+            abi.encode(seq)
+        );
+
+        // Mint some tokens to the caller
+        deal(address(ift), sender, transferAmount, true);
+
+        vm.startPrank(sender);
+        ift.iftTransfer(
+            th.FIRST_CLIENT_ID(),
+            Strings.toHexString(makeAddr("receiver")),
+            transferAmount
+        );
+        vm.stopPrank();
+
+        if (timeoutTC.expectedRevert.length != 0) {
+            vm.expectRevert(timeoutTC.expectedRevert);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit IIFT.IFTTransferRefunded(
+                timeoutTC.callback.sourceClient, timeoutTC.callback.sequence, sender, transferAmount
+            );
+        }
+
+        vm.prank(timeoutTC.caller);
+        IIBCSenderCallbacks(address(ift)).onTimeoutPacket(timeoutTC.callback);
+
+        if (timeoutTC.expectedRevert.length != 0) {
+            return;
+        }
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IIFTErrors.IFTPendingTransferNotFound.selector,
+                timeoutTC.callback.sourceClient,
+                timeoutTC.callback.sequence
+            )
+        );
+        ift.getPendingTransfer(timeoutTC.callback.sourceClient, timeoutTC.callback.sequence);
+    }
+
+    function test_tableOnTimeoutPacketTest() public {
+        OnTimeoutPacketTestCase[] memory testCases = fixtureTimeoutTC();
+
+        for (uint256 i = 0; i < testCases.length; ++i) {
+            tableOnTimeoutPacketTest(testCases[i]);
+        }
     }
 
     struct OnAckPacketTestCase {
@@ -531,6 +663,13 @@ contract IFTTest is Test {
         address caller;
         bool success;
         IIBCAppCallbacks.OnAcknowledgementPacketCallback callback;
+        bytes expectedRevert;
+    }
+
+    struct OnTimeoutPacketTestCase {
+        string name;
+        address caller;
+        IIBCAppCallbacks.OnTimeoutPacketCallback callback;
         bytes expectedRevert;
     }
 
