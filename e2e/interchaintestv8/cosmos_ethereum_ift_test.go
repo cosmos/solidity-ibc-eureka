@@ -868,3 +868,332 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 		s.Require().True(balance.IsZero(), "Cosmos should have no tokens")
 	}))
 }
+
+// Test_IFTTransfer_FailedReceiveOnCosmos tests error acknowledgment when Cosmos receive fails.
+// The test sends from Ethereum to an invalid Cosmos address. The IFT module on Cosmos fails
+// to mint tokens because the receiver address is not a valid bech32 address. This generates
+// an error ack that is relayed back to Ethereum, triggering a refund to the sender.
+func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
+	ctx := context.Background()
+	s.SetupSuite(ctx, types.ProofTypeGroth16)
+
+	eth := s.EthChain
+	transferAmount := sdkmath.NewInt(1_000_000)
+
+	tc := s.setupIFTInfrastructure(ctx)
+
+	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+	invalidCosmosAddr := "invalid-cosmos-address"
+
+	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.Mint(txOpts, ethUserAddr, transferAmount.BigInt())
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0)
+	}))
+
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send transfer to invalid Cosmos address", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethUser)
+		s.Require().NoError(err)
+
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		tx, err := iftContract.IftTransfer(txOpts, tc.tmClientID, invalidCosmosAddr, transferAmount.BigInt(), timeout)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		sendTxHash = receipt.TxHash.Bytes()
+	}))
+
+	s.Require().True(s.Run("Verify tokens burned on Ethereum", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Tokens should be burned")
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer exists on Ethereum", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		pending, err := iftContract.GetPendingTransfer(nil, tc.tmClientID, 1)
+		s.Require().NoError(err)
+		s.Require().Equal(ethUserAddr, pending.Sender)
+		s.Require().True(pending.Amount.Cmp(transferAmount.BigInt()) == 0)
+	}))
+
+	var recvTxHash string
+	s.Require().True(s.Run("Relay packet to Cosmos (execution fails)", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    s.Wfchain.Config().ChainID,
+			SourceTxIds: [][]byte{sendTxHash},
+			SrcClientId: tc.tmClientID,
+			DstClientId: tc.wasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		cosmosRecvTxResponse := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosRelayerSubmitter, 2_000_000, resp.Tx)
+		recvTxHash = cosmosRecvTxResponse.TxHash
+	}))
+
+	s.Require().True(s.Run("Verify no balance minted on Cosmos", func() {
+		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().True(balance.IsZero(), "Cosmos user should have no tokens")
+	}))
+
+	s.Require().True(s.Run("Relay error ack to Ethereum", func() {
+		recvTxHashBytes, err := hex.DecodeString(recvTxHash)
+		s.Require().NoError(err)
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    s.Wfchain.Config().ChainID,
+			DstChain:    eth.ChainID.String(),
+			SourceTxIds: [][]byte{recvTxHashBytes},
+			SrcClientId: tc.wasmClientID,
+			DstClientId: tc.tmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &tc.ics26Address, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	s.Require().True(s.Run("Verify tokens refunded on Ethereum", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0, "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer cleared on Ethereum", func() {
+		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		pending, err := iftContract.GetPendingTransfer(nil, tc.tmClientID, 1)
+		s.Require().NoError(err)
+		s.Require().Equal(ethcommon.Address{}, pending.Sender, "pending transfer should be cleared")
+		s.Require().True(pending.Amount.Cmp(big.NewInt(0)) == 0, "pending amount should be zero")
+	}))
+}
+
+// Test_IFTTransfer_FailedReceiveOnEthereum tests error acknowledgment when Ethereum receive fails.
+// The test intentionally skips registering the IFT bridge on Ethereum while registering it on Cosmos.
+// When Cosmos sends an IFT transfer, Ethereum's IFT contract fails because no bridge is registered
+// for the client ID. The ICS26 router catches this error and generates an error ack, which is
+// relayed back to Cosmos to refund the sender.
+func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() {
+	ctx := context.Background()
+	s.SetupSuite(ctx, types.ProofTypeGroth16)
+
+	eth := s.EthChain
+	transferAmount := sdkmath.NewInt(1_000_000)
+
+	tmClientID := testvalues.CustomClientID
+	wasmClientID := testvalues.FirstWasmClientID
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
+
+	var sp1Ics07Address ethcommon.Address
+
+	s.Require().True(s.Run("Setup light clients", func() {
+		s.Require().True(s.Run("Create Tendermint light client on Ethereum", func() {
+			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+				SrcChain: s.Wfchain.Config().ChainID,
+				DstChain: eth.ChainID.String(),
+				Parameters: map[string]string{
+					testvalues.ParameterKey_Sp1Verifier: s.contractAddresses.VerifierMock,
+					testvalues.ParameterKey_ZkAlgorithm: types.ProofTypeGroth16.String(),
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+
+			receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, nil, resp.Tx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			sp1Ics07Address = receipt.ContractAddress
+		}))
+
+		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {
+			checksumHex := s.StoreEthereumLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
+			s.Require().NotEmpty(checksumHex)
+
+			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+				SrcChain: eth.ChainID.String(),
+				DstChain: s.Wfchain.Config().ChainID,
+				Parameters: map[string]string{
+					testvalues.ParameterKey_ChecksumHex: checksumHex,
+				},
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+
+			_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosRelayerSubmitter, 20_000_000, resp.Tx)
+		}))
+
+		s.Require().True(s.Run("Add client and counterparty on Ethereum", func() {
+			ics26Contract, err := ics26router.NewContract(ics26Address, eth.RPCClient)
+			s.Require().NoError(err)
+
+			counterpartyInfo := ics26router.IICS02ClientMsgsCounterpartyInfo{
+				ClientId:     wasmClientID,
+				MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+			}
+
+			txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+			s.Require().NoError(err)
+
+			tx, err := ics26Contract.AddClient(txOpts, tmClientID, counterpartyInfo, sp1Ics07Address)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Register counterparty on Cosmos", func() {
+			merklePathPrefix := [][]byte{[]byte("")}
+
+			_, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosRelayerSubmitter, 200_000, &clienttypesv2.MsgRegisterCounterparty{
+				ClientId:                 wasmClientID,
+				CounterpartyMerklePrefix: merklePathPrefix,
+				CounterpartyClientId:     tmClientID,
+				Signer:                   s.CosmosRelayerSubmitter.FormattedAddress(),
+			})
+			s.Require().NoError(err)
+		}))
+	}))
+
+	var cosmosDenom string
+	s.Require().True(s.Run("Setup IFT bridge on Cosmos only", func() {
+		s.Require().True(s.Run("Create denom on Cosmos", func() {
+			cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, cosmosIFTDenom)
+		}))
+
+		s.Require().True(s.Run("Register IFT bridge on Cosmos", func() {
+			s.registerIFTBridgeOnCosmos(
+				ctx,
+				s.CosmosRelayerSubmitter,
+				cosmosDenom,
+				wasmClientID,
+				ethIFTAddress.Hex(),
+				iftSendCallConstructorEVM,
+			)
+		}))
+		// NOTE: Intentionally NOT registering the IFT bridge on Ethereum
+	}))
+
+	ethReceiverAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+
+	s.Require().True(s.Run("Mint tokens to user on Cosmos", func() {
+		s.mintTokensOnCosmos(ctx, s.CosmosRelayerSubmitter, cosmosDenom, transferAmount, s.CosmosUser.FormattedAddress())
+		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().True(balance.Equal(transferAmount))
+	}))
+
+	var sendTxHash string
+	s.Require().True(s.Run("Send transfer from Cosmos to Ethereum", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		sendTxHash = s.iftTransferFromCosmos(
+			ctx,
+			s.CosmosUser,
+			cosmosDenom,
+			wasmClientID,
+			ethReceiverAddr.Hex(),
+			transferAmount,
+			timeout,
+		)
+		s.Require().NotEmpty(sendTxHash)
+	}))
+
+	s.Require().True(s.Run("Verify balance burned on Cosmos", func() {
+		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().True(balance.IsZero())
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer exists on Cosmos", func() {
+		pending, err := s.queryPendingTransferOnCosmos(ctx, cosmosDenom, wasmClientID, 1)
+		s.Require().NoError(err)
+		s.Require().Equal(s.CosmosUser.FormattedAddress(), pending.Sender)
+		s.Require().True(pending.Amount.Equal(transferAmount))
+	}))
+
+	var recvTxHash []byte
+	s.Require().True(s.Run("Relay packet to Ethereum (execution fails - no bridge registered)", func() {
+		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
+		s.Require().NoError(err)
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    s.Wfchain.Config().ChainID,
+			DstChain:    eth.ChainID.String(),
+			SourceTxIds: [][]byte{sendTxHashBytes},
+			SrcClientId: wasmClientID,
+			DstClientId: tmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		recvTxHash = receipt.TxHash.Bytes()
+	}))
+
+	s.Require().True(s.Run("Verify no balance minted on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		balance, err := iftContract.BalanceOf(nil, ethReceiverAddr)
+		s.Require().NoError(err)
+		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Ethereum should have no tokens")
+	}))
+
+	s.Require().True(s.Run("Relay error ack to Cosmos", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    s.Wfchain.Config().ChainID,
+			SourceTxIds: [][]byte{recvTxHash},
+			SrcClientId: tmClientID,
+			DstClientId: wasmClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosRelayerSubmitter, 2_000_000, resp.Tx)
+	}))
+
+	s.Require().True(s.Run("Verify tokens refunded on Cosmos", func() {
+		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().True(balance.Equal(transferAmount), "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer cleared on Cosmos", func() {
+		_, err := s.queryPendingTransferOnCosmos(ctx, cosmosDenom, wasmClientID, 1)
+		s.Require().Error(err, "pending transfer should be cleared after error ack")
+	}))
+}

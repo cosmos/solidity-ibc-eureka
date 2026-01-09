@@ -38,6 +38,7 @@ import (
 const (
 	iftSendCallConstructorCtx = "cosmos"
 	iftModuleName             = "ift"
+	iftTestDenom              = "testift"
 )
 
 // CosmosIFTTestSuite tests IFT transfers between two wfchain instances
@@ -289,7 +290,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	userA := s.CosmosUsers[0]
 	userB := s.CosmosUsers[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
-	subdenom := "testift"
+	subdenom := iftTestDenom
 
 	var denomA, denomB string
 
@@ -490,7 +491,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 
 	userA := s.CosmosUsers[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
-	subdenom := "testift"
+	subdenom := iftTestDenom
 
 	var denomA, denomB string
 
@@ -631,5 +632,118 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 		s.Require().Error(err, "chain should reject timed-out packet")
 		s.Require().Nil(resp)
 		s.T().Logf("Chain B correctly rejected timed-out packet: %v", err)
+	}))
+}
+
+// Test_IFTTransferFailedReceive tests error acknowledgment handling when receive fails.
+// The test sends to an invalid bech32 address which causes the token factory mint to fail
+// on the destination chain. The IFT module catches this error and returns an error ack,
+// which triggers a refund of tokens to the sender on the source chain.
+func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+	s.createLightClients(ctx)
+
+	userA := s.CosmosUsers[0]
+	transferAmount := sdkmath.NewInt(1_000_000)
+	subdenom := iftTestDenom
+	invalidReceiver := "invalid-cosmos-address"
+
+	var denomA, denomB string
+
+	s.Require().True(s.Run("Create denom on Chain A", func() {
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+	}))
+
+	s.Require().True(s.Run("Create denom on Chain B", func() {
+		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
+	}))
+
+	var iftModuleAddrA, iftModuleAddrB string
+	s.Require().True(s.Run("Get IFT module addresses", func() {
+		iftModuleAddrA = s.getIFTModuleAddress(ctx, s.ChainA)
+		iftModuleAddrB = s.getIFTModuleAddress(ctx, s.ChainB)
+	}))
+
+	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
+	}))
+
+	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
+	}))
+
+	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
+		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
+		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		s.Require().True(balance.Equal(transferAmount))
+	}))
+
+	var sendTxHash string
+	s.Require().True(s.Run("Send transfer to invalid address", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, invalidReceiver, transferAmount, timeout)
+		s.Require().NotEmpty(sendTxHash)
+	}))
+
+	s.Require().True(s.Run("Verify balance burned on Chain A", func() {
+		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		s.Require().True(balance.IsZero())
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer exists", func() {
+		resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		s.Require().NoError(err)
+		s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
+		s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
+	}))
+
+	var ackTxHash []byte
+	s.Require().True(s.Run("Relay packet to Chain B (execution fails)", func() {
+		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
+		s.Require().NoError(err)
+
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    s.ChainA.Config().ChainID,
+			DstChain:    s.ChainB.Config().ChainID,
+			SourceTxIds: [][]byte{sendTxHashBytes},
+			SrcClientId: ibctesting.FirstClientID,
+			DstClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		broadcastResp := s.MustBroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, resp.Tx)
+		ackTxHash, err = hex.DecodeString(broadcastResp.TxHash)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Verify no balance minted on Chain B", func() {
+		balance := s.queryBalance(ctx, s.ChainB, invalidReceiver, denomB)
+		s.Require().True(balance.IsZero(), "Chain B should have no tokens for invalid receiver")
+	}))
+
+	s.Require().True(s.Run("Relay error ack to Chain A", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    s.ChainB.Config().ChainID,
+			DstChain:    s.ChainA.Config().ChainID,
+			SourceTxIds: [][]byte{ackTxHash},
+			SrcClientId: ibctesting.FirstClientID,
+			DstClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		_ = s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, resp.Tx)
+	}))
+
+	s.Require().True(s.Run("Verify tokens refunded on Chain A", func() {
+		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		s.Require().True(balance.Equal(transferAmount), "expected %s (refunded), got %s", transferAmount, balance)
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer removed after error ack", func() {
+		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
+		s.Require().Error(err, "pending transfer should be removed after error ack")
 	}))
 }
