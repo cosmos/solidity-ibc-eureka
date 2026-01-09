@@ -216,9 +216,7 @@ contract IFTTest is Test {
         }
         // First register the bridge
         vm.startPrank(admin);
-        ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
-        );
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
         vm.stopPrank();
 
         // Now attempt to remove the bridge
@@ -299,7 +297,9 @@ contract IFTTest is Test {
             receiver: receiver,
             amount: transferAmount,
             timeoutTimestamp: pastTimeout,
-            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTTimeoutInPast.selector, pastTimeout, uint64(block.timestamp))
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTTimeoutInPast.selector, pastTimeout, uint64(block.timestamp)
+            )
         });
         testCases[5] = IFTTransferTestCase({
             name: "revert: unregistered clientId",
@@ -334,18 +334,12 @@ contract IFTTest is Test {
 
         // First register the bridge
         vm.startPrank(admin);
-        ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
-        );
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
         vm.stopPrank();
 
         // random sequence number
         uint64 seq = uint64(vm.randomUint(1, type(uint64).max));
-        vm.mockCall(
-            address(mockICS27),
-            IICS27GMP.sendCall.selector,
-            abi.encode(seq)
-        );
+        vm.mockCall(address(mockICS27), IICS27GMP.sendCall.selector, abi.encode(seq));
 
         // Mint some tokens to the caller
         uint256 initialBalance = 1_000_000 ether;
@@ -356,21 +350,12 @@ contract IFTTest is Test {
         } else {
             vm.expectEmit(true, true, true, true);
             emit IIFT.IFTTransferInitiated(
-                transferTC.clientId,
-                seq,
-                transferTC.caller,
-                transferTC.receiver,
-                transferTC.amount
+                transferTC.clientId, seq, transferTC.caller, transferTC.receiver, transferTC.amount
             );
         }
 
         vm.startPrank(transferTC.caller);
-        ift.iftTransfer(
-            transferTC.clientId,
-            transferTC.receiver,
-            transferTC.amount,
-            transferTC.timeoutTimestamp
-        );
+        ift.iftTransfer(transferTC.clientId, transferTC.receiver, transferTC.amount, transferTC.timeoutTimestamp);
         vm.stopPrank();
 
         if (transferTC.expectedRevert.length != 0) {
@@ -450,7 +435,9 @@ contract IFTTest is Test {
                 acknowledgement: hex"01",
                 relayer: relayer
             }),
-            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 43)
+            expectedRevert: abi.encodeWithSelector(
+                IIFTErrors.IFTPendingTransferNotFound.selector, th.FIRST_CLIENT_ID(), 43
+            )
         });
         testCases[4] = OnAckPacketTestCase({
             name: "revert: incorrect clientId",
@@ -475,29 +462,19 @@ contract IFTTest is Test {
 
         // First register the bridge and initiate a transfer
         vm.startPrank(admin);
-        ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
-        );
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
         vm.stopPrank();
 
         uint64 seq = 42;
         uint256 transferAmount = 1000;
         address sender = makeAddr("sender");
-        vm.mockCall(
-            address(mockICS27),
-            IICS27GMP.sendCall.selector,
-            abi.encode(seq)
-        );
+        vm.mockCall(address(mockICS27), IICS27GMP.sendCall.selector, abi.encode(seq));
 
         // Mint some tokens to the caller
         deal(address(ift), sender, transferAmount, true);
 
         vm.startPrank(sender);
-        ift.iftTransfer(
-            th.FIRST_CLIENT_ID(),
-            Strings.toHexString(makeAddr("receiver")),
-            transferAmount
-        );
+        ift.iftTransfer(th.FIRST_CLIENT_ID(), Strings.toHexString(makeAddr("receiver")), transferAmount);
         vm.stopPrank();
 
         if (ackTC.expectedRevert.length != 0) {
@@ -511,10 +488,7 @@ contract IFTTest is Test {
         }
 
         vm.prank(ackTC.caller);
-        IIBCSenderCallbacks(address(ift)).onAckPacket(
-            ackTC.success,
-            ackTC.callback
-        );
+        IIBCSenderCallbacks(address(ift)).onAckPacket(ackTC.success, ackTC.callback);
 
         if (ackTC.expectedRevert.length != 0) {
             return;
@@ -522,9 +496,7 @@ contract IFTTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IIFTErrors.IFTPendingTransferNotFound.selector,
-                ackTC.callback.sourceClient,
-                ackTC.callback.sequence
+                IIFTErrors.IFTPendingTransferNotFound.selector, ackTC.callback.sourceClient, ackTC.callback.sequence
             )
         );
         ift.getPendingTransfer(ackTC.callback.sourceClient, ackTC.callback.sequence);
@@ -603,29 +575,19 @@ contract IFTTest is Test {
 
         // First register the bridge and initiate a transfer
         vm.startPrank(admin);
-        ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
-        );
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
         vm.stopPrank();
 
         uint64 seq = 42;
         uint256 transferAmount = 1000;
         address sender = makeAddr("sender");
-        vm.mockCall(
-            address(mockICS27),
-            IICS27GMP.sendCall.selector,
-            abi.encode(seq)
-        );
+        vm.mockCall(address(mockICS27), IICS27GMP.sendCall.selector, abi.encode(seq));
 
         // Mint some tokens to the caller
         deal(address(ift), sender, transferAmount, true);
 
         vm.startPrank(sender);
-        ift.iftTransfer(
-            th.FIRST_CLIENT_ID(),
-            Strings.toHexString(makeAddr("receiver")),
-            transferAmount
-        );
+        ift.iftTransfer(th.FIRST_CLIENT_ID(), Strings.toHexString(makeAddr("receiver")), transferAmount);
         vm.stopPrank();
 
         if (timeoutTC.expectedRevert.length != 0) {
@@ -660,9 +622,7 @@ contract IFTTest is Test {
         address receiver = makeAddr("receiver");
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = IICS27GMPMsgs.AccountIdentifier({
-            clientId: th.FIRST_CLIENT_ID(),
-            sender: COUNTERPARTY_IFT_ADDRESS,
-            salt: ""
+            clientId: th.FIRST_CLIENT_ID(), sender: COUNTERPARTY_IFT_ADDRESS, salt: ""
         });
 
         IFTMintTestCase[] memory testCases = new IFTMintTestCase[](6);
@@ -699,48 +659,32 @@ contract IFTTest is Test {
             ownable: true,
             caller: authorizedCaller,
             accountId: IICS27GMPMsgs.AccountIdentifier({
-                clientId: th.INVALID_ID(),
-                sender: COUNTERPARTY_IFT_ADDRESS,
-                salt: ""
+                clientId: th.INVALID_ID(), sender: COUNTERPARTY_IFT_ADDRESS, salt: ""
             }),
             receiver: receiver,
             amount: vm.randomUint(1, uint256(type(uint128).max)),
-            expectedRevert: abi.encodeWithSelector(
-                IIFTErrors.IFTBridgeNotFound.selector,
-                th.INVALID_ID()
-            )
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTBridgeNotFound.selector, th.INVALID_ID())
         });
         testCases[4] = IFTMintTestCase({
             name: "revert: unexpected salt in account identifier",
             ownable: true,
             caller: authorizedCaller,
             accountId: IICS27GMPMsgs.AccountIdentifier({
-                clientId: th.FIRST_CLIENT_ID(),
-                sender: COUNTERPARTY_IFT_ADDRESS,
-                salt: hex"01"
+                clientId: th.FIRST_CLIENT_ID(), sender: COUNTERPARTY_IFT_ADDRESS, salt: hex"01"
             }),
             receiver: receiver,
             amount: vm.randomUint(1, uint256(type(uint128).max)),
-            expectedRevert: abi.encodeWithSelector(
-                IIFTErrors.IFTUnexpectedSalt.selector,
-                hex"01"
-            )
+            expectedRevert: abi.encodeWithSelector(IIFTErrors.IFTUnexpectedSalt.selector, hex"01")
         });
         testCases[5] = IFTMintTestCase({
             name: "revert: incorrect account identifier sender",
             ownable: true,
             caller: authorizedCaller,
-            accountId: IICS27GMPMsgs.AccountIdentifier({
-                clientId: th.FIRST_CLIENT_ID(),
-                sender: "0x456",
-                salt: ""
-            }),
+            accountId: IICS27GMPMsgs.AccountIdentifier({ clientId: th.FIRST_CLIENT_ID(), sender: "0x456", salt: "" }),
             receiver: receiver,
             amount: vm.randomUint(1, uint256(type(uint128).max)),
             expectedRevert: abi.encodeWithSelector(
-                IIFTErrors.IFTUnauthorizedMint.selector,
-                COUNTERPARTY_IFT_ADDRESS,
-                "0x456"
+                IIFTErrors.IFTUnauthorizedMint.selector, COUNTERPARTY_IFT_ADDRESS, "0x456"
             )
         });
 
@@ -756,9 +700,7 @@ contract IFTTest is Test {
 
         // First register the bridge
         vm.startPrank(admin);
-        ift.registerIFTBridge(
-            th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor)
-        );
+        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
         vm.stopPrank();
 
         address authorizedCaller = makeAddr("authorizedCaller");
@@ -766,19 +708,11 @@ contract IFTTest is Test {
 
         vm.mockCall(
             address(mockICS27),
-            abi.encodeCall(
-                IICS27GMP.getAccountIdentifier,
-                (authorizedCaller)
-            ),
+            abi.encodeCall(IICS27GMP.getAccountIdentifier, (authorizedCaller)),
             abi.encode(mintTC.accountId)
         );
         vm.mockCallRevert(
-            address(mockICS27),
-            abi.encodeCall(
-                IICS27GMP.getAccountIdentifier,
-                (unauthorizedCaller)
-            ),
-            "mock revert"
+            address(mockICS27), abi.encodeCall(IICS27GMP.getAccountIdentifier, (unauthorizedCaller)), "mock revert"
         );
 
         if (mintTC.expectedRevert.length != 0) {

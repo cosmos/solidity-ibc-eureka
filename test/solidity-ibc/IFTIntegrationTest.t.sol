@@ -135,7 +135,9 @@ contract IFTIntegrationTest is Test {
 
         ibcImplA.ackPacket(sentPacket, acks);
 
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence));
+        vm.expectRevert(
+            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
+        );
         iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
     }
 
@@ -199,7 +201,9 @@ contract IFTIntegrationTest is Test {
 
         assertEq(iftOnA.balanceOf(sender), amount, "tokens should be refunded");
 
-        vm.expectRevert(abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence));
+        vm.expectRevert(
+            abi.encodeWithSelector(IIFTErrors.IFTPendingTransferNotFound.selector, clientId, sentPacket.sequence)
+        );
         iftOnA.getPendingTransfer(clientId, sentPacket.sequence);
     }
 
