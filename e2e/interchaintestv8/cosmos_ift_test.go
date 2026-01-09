@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -743,5 +744,237 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	s.Require().True(s.Run("Verify pending transfer removed after error ack", func() {
 		_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, 1)
 		s.Require().Error(err, "pending transfer should be removed after error ack")
+	}))
+}
+
+// Test_IFTTransferMultipleSequential tests that multiple transfers can be sent before
+// relaying acks, verifying that sequence numbers are tracked correctly. Each transfer
+// gets a unique sequence number and can be acknowledged independently.
+func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+	s.createLightClients(ctx)
+
+	userA := s.CosmosUsers[0]
+	userB := s.CosmosUsers[1]
+	transferAmount := sdkmath.NewInt(1_000_000)
+	totalAmount := transferAmount.MulRaw(3)
+	subdenom := iftTestDenom
+
+	var denomA, denomB string
+
+	s.Require().True(s.Run("Create denom on Chain A", func() {
+		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
+	}))
+
+	s.Require().True(s.Run("Create denom on Chain B", func() {
+		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
+	}))
+
+	var iftModuleAddrA, iftModuleAddrB string
+	s.Require().True(s.Run("Get IFT module addresses", func() {
+		iftModuleAddrA = s.getIFTModuleAddress(ctx, s.ChainA)
+		iftModuleAddrB = s.getIFTModuleAddress(ctx, s.ChainB)
+	}))
+
+	s.Require().True(s.Run("Register IFT bridges", func() {
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
+	}))
+
+	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
+		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, totalAmount, userA.FormattedAddress())
+		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		s.Require().True(balance.Equal(totalAmount))
+	}))
+
+	var sendTxHashes []string
+	var ackTxHashes [][]byte
+	s.Require().True(s.Run("Transfer A to B", func() {
+		sendTxHashes = make([]string, 3)
+		s.Require().True(s.Run("Send 3 transfers without relaying", func() {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Send transfer %d", i+1), func() {
+					sendTxHashes[i] = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userB.FormattedAddress(), transferAmount, timeout)
+					s.Require().NotEmpty(sendTxHashes[i])
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify all tokens burned on Chain A", func() {
+			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
+		}))
+
+		s.Require().True(s.Run("Verify 3 pending transfers exist with correct sequences", func() {
+			for seq := uint64(1); seq <= 3; seq++ {
+				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d", seq), func() {
+					resp, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, seq)
+					s.Require().NoError(err)
+					s.Require().Equal(userA.FormattedAddress(), resp.PendingTransfer.Sender)
+					s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
+				}))
+			}
+		}))
+
+		ackTxHashes = make([][]byte, 3)
+		s.Require().True(s.Run("Relay all packets to Chain B", func() {
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Relay packet %d", i+1), func() {
+					sendTxHashBytes, err := hex.DecodeString(sendTxHashes[i])
+					s.Require().NoError(err)
+
+					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+						SrcChain:    s.ChainA.Config().ChainID,
+						DstChain:    s.ChainB.Config().ChainID,
+						SourceTxIds: [][]byte{sendTxHashBytes},
+						SrcClientId: ibctesting.FirstClientID,
+						DstClientId: ibctesting.FirstClientID,
+					})
+					s.Require().NoError(err)
+					s.Require().NotEmpty(resp.Tx)
+
+					broadcastResp := s.MustBroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, resp.Tx)
+					ackTxHashes[i], err = hex.DecodeString(broadcastResp.TxHash)
+					s.Require().NoError(err)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify total balance minted on Chain B", func() {
+			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			s.Require().True(balance.Equal(totalAmount), "expected %s, got %s", totalAmount, balance)
+		}))
+
+		s.Require().True(s.Run("Relay all acks to Chain A", func() {
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Relay ack %d", i+1), func() {
+					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+						SrcChain:    s.ChainB.Config().ChainID,
+						DstChain:    s.ChainA.Config().ChainID,
+						SourceTxIds: [][]byte{ackTxHashes[i]},
+						SrcClientId: ibctesting.FirstClientID,
+						DstClientId: ibctesting.FirstClientID,
+					})
+					s.Require().NoError(err)
+					s.Require().NotEmpty(resp.Tx)
+
+					_ = s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, resp.Tx)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify all pending transfers cleared", func() {
+			for seq := uint64(1); seq <= 3; seq++ {
+				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d cleared", seq), func() {
+					_, err := s.queryPendingTransfer(ctx, s.ChainA, denomA, ibctesting.FirstClientID, seq)
+					s.Require().Error(err, "pending transfer seq=%d should be cleared", seq)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify balances after A to B transfers", func() {
+			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			s.Require().True(balanceA.IsZero(), "Chain A user should have 0")
+			s.Require().True(balanceB.Equal(totalAmount), "Chain B user should have %s", totalAmount)
+		}))
+	}))
+
+	var sendTxHashesBA []string
+	var ackTxHashesBA [][]byte
+	s.Require().True(s.Run("Transfer B to A", func() {
+		sendTxHashesBA = make([]string, 3)
+		s.Require().True(s.Run("Send 3 transfers without relaying", func() {
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Send transfer %d", i+1), func() {
+					sendTxHashesBA[i] = s.iftTransfer(ctx, s.ChainB, userB, denomB, ibctesting.FirstClientID, userA.FormattedAddress(), transferAmount, timeout)
+					s.Require().NotEmpty(sendTxHashesBA[i])
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify all tokens burned on Chain B", func() {
+			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
+		}))
+
+		s.Require().True(s.Run("Verify 3 pending transfers exist on Chain B", func() {
+			for seq := uint64(1); seq <= 3; seq++ {
+				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d", seq), func() {
+					resp, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, seq)
+					s.Require().NoError(err)
+					s.Require().Equal(userB.FormattedAddress(), resp.PendingTransfer.Sender)
+					s.Require().Equal(transferAmount.String(), resp.PendingTransfer.Amount.String())
+				}))
+			}
+		}))
+
+		ackTxHashesBA = make([][]byte, 3)
+		s.Require().True(s.Run("Relay all packets to Chain A", func() {
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Relay packet %d", i+1), func() {
+					sendTxHashBytes, err := hex.DecodeString(sendTxHashesBA[i])
+					s.Require().NoError(err)
+
+					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+						SrcChain:    s.ChainB.Config().ChainID,
+						DstChain:    s.ChainA.Config().ChainID,
+						SourceTxIds: [][]byte{sendTxHashBytes},
+						SrcClientId: ibctesting.FirstClientID,
+						DstClientId: ibctesting.FirstClientID,
+					})
+					s.Require().NoError(err)
+					s.Require().NotEmpty(resp.Tx)
+
+					broadcastResp := s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, resp.Tx)
+					ackTxHashesBA[i], err = hex.DecodeString(broadcastResp.TxHash)
+					s.Require().NoError(err)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify total balance minted on Chain A", func() {
+			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			s.Require().True(balance.Equal(totalAmount), "expected %s, got %s", totalAmount, balance)
+		}))
+
+		s.Require().True(s.Run("Relay all acks to Chain B", func() {
+			for i := 0; i < 3; i++ {
+				s.Require().True(s.Run(fmt.Sprintf("Relay ack %d", i+1), func() {
+					resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+						SrcChain:    s.ChainA.Config().ChainID,
+						DstChain:    s.ChainB.Config().ChainID,
+						SourceTxIds: [][]byte{ackTxHashesBA[i]},
+						SrcClientId: ibctesting.FirstClientID,
+						DstClientId: ibctesting.FirstClientID,
+					})
+					s.Require().NoError(err)
+					s.Require().NotEmpty(resp.Tx)
+
+					_ = s.MustBroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, resp.Tx)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify all pending transfers cleared on Chain B", func() {
+			for seq := uint64(1); seq <= 3; seq++ {
+				s.Require().True(s.Run(fmt.Sprintf("Verify pending transfer seq=%d cleared", seq), func() {
+					_, err := s.queryPendingTransfer(ctx, s.ChainB, denomB, ibctesting.FirstClientID, seq)
+					s.Require().Error(err, "pending transfer seq=%d should be cleared", seq)
+				}))
+			}
+		}))
+
+		s.Require().True(s.Run("Verify final balances", func() {
+			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			s.Require().True(balanceA.Equal(totalAmount), "Chain A user should have %s", totalAmount)
+			s.Require().True(balanceB.IsZero(), "Chain B user should have 0")
+		}))
 	}))
 }
