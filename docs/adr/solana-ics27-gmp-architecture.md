@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2025-11-07
+**Last Updated**: 2026-01-08
 
 ## Executive Summary
 
@@ -418,6 +418,85 @@ fn extract_payload_accounts(
     }
 }
 ```
+
+## Packet Lifecycle Callbacks
+
+### Problem
+
+When a GMP packet times out or receives a failure acknowledgement, the original sender program (e.g., IFT) needs notification to handle recovery (e.g., refund burned tokens).
+
+### Solution: Callback Forwarding
+
+GMP forwards `on_timeout_packet` and `on_acknowledgement_packet` to the original sender program when `remaining_accounts` are provided by the relayer.
+
+The sender program ID is extracted from `GMPPacketData.sender`. GMP constructs the callback using Anchor's discriminator convention (`sha256("global:<instruction>")[..8]`) and invokes the sender program.
+
+### Sender Program Requirements
+
+Programs sending GMP packets that need callbacks must implement:
+
+```rust
+pub fn on_timeout_packet(ctx: Context<...>, msg: OnTimeoutPacketMsg) -> Result<()>
+pub fn on_acknowledgement_packet(ctx: Context<...>, msg: OnAcknowledgementPacketMsg) -> Result<()>
+```
+
+### Alternatives Considered
+
+**1. IFT registers as its own IBC app**: IFT could register directly with Router on its own port instead of using GMP. Rejected because it duplicates GMP's packet handling logic and diverges from the Solidity architecture where IFT uses GMP.
+
+**2. Auto-registration of callback targets**: GMP could automatically track sender programs and route callbacks without relayer involvement. Rejected because it requires on-chain state for every unique sender, increasing costs and complexity.
+
+**3. Router calls sender directly**: Router could bypass GMP and call IFT directly. Rejected because Router doesn't know about GMP-specific packet encoding and would need port-specific callback logic.
+
+Callback forwarding was chosen because it aligns with the ICS27 specification where the IBC application (GMP) handles packet lifecycle events, is trustless, and uses existing CPI patterns.
+
+## CPI Caller Validation Limitation
+
+### The Problem
+
+Solana's instruction sysvar only exposes the **top-level transaction instruction**, not the immediate CPI caller. This creates an issue for layered architectures like IFT → GMP → Router:
+
+- When IFT calls GMP, and GMP calls Router
+- Router's `send_packet` validates: "Is the caller the registered IBC app for this port?"
+- Router sees IFT (top-level) instead of GMP (immediate caller)
+- Validation fails because IFT ≠ GMP
+
+This differs from EVM where `msg.sender` always returns the immediate caller.
+
+### Solution: Upstream Caller Whitelisting
+
+The Router's `IBCApp` registration supports an `upstream_callers` list - programs authorized to call through a registered IBC app:
+
+```rust
+pub struct IBCApp {
+    pub app_program_id: Pubkey,      // The registered app (e.g., GMP)
+    pub upstream_callers: Vec<Pubkey>, // Programs allowed to call through this app (e.g., IFT)
+    // ...
+}
+```
+
+When validating `send_packet`, Router accepts if:
+1. Top-level program == registered app, OR
+2. Top-level program ∈ upstream_callers
+
+### Usage
+
+After registering GMP as an IBC app, register IFT as an upstream caller:
+```rust
+router.add_upstream_caller("gmpport", ift_program_id)?;
+```
+
+### Alternatives Considered
+
+**1. IFT registers its own port**: IFT could register as `iftport` directly with Router. Rejected because it duplicates GMP's packet handling logic and diverges from Solidity architecture.
+
+**2. Custom CPI caller tracking**: Pass caller info through accounts. Rejected because no Solana runtime support and requires invasive changes across all programs.
+
+**3. Walk instruction sysvar for CPI stack**: Use introspection to find immediate caller. Rejected because Solana's sysvar doesn't expose CPI call stack.
+
+**4. GMP passes "trusted" flag to Router**: GMP validates caller, tells Router to trust. Rejected because creates security vulnerability.
+
+The upstream caller whitelist was chosen for minimal changes, explicit security, and alignment with existing patterns.
 
 ## Security Model
 

@@ -21,6 +21,7 @@ var ()
 var (
 	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
 	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
+	Instruction_AddUpstreamCaller  = [8]byte{146, 224, 124, 183, 10, 210, 164, 183}
 	Instruction_SendPacket         = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
 	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
 	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}

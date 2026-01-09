@@ -3,6 +3,8 @@ use crate::errors::GMPError;
 use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::get_stack_height;
+use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
@@ -19,8 +21,10 @@ pub struct SendCall<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Sender of the call
-    pub sender: Signer<'info>,
+    /// Sender of the call - for direct calls must be a signer (user wallet),
+    /// for CPI calls this is the calling program ID (callback target)
+    /// CHECK: Validated in instruction logic based on call type (CPI vs direct)
+    pub sender: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -65,6 +69,25 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
 
+    // Determine sender based on call type (direct vs CPI)
+    // Stack height of 1 means this is a direct call from a transaction
+    // Stack height > 1 means this is called via CPI from another program
+    let stack_height = get_stack_height();
+    let sender_pubkey = if stack_height <= 1 {
+        // Direct call - sender must be a signer (user wallet)
+        require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
+        ctx.accounts.sender.key()
+    } else {
+        // CPI call - auto-detect calling program ID from instruction introspection
+        // This matches Solidity's msg.sender behavior where internal calls
+        // have the calling contract as sender (used for callback routing)
+        let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
+        let parent_instruction =
+            sysvar_instructions::get_instruction_relative(-1, &instruction_sysvar)
+                .map_err(|_| GMPError::InvalidSysvar)?;
+        parent_instruction.program_id
+    };
+
     // Validate IBC routing fields
     let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
         .map_err(|_| GMPError::InvalidClientId)?;
@@ -79,9 +102,9 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::TimeoutTooLong
     );
 
-    // Create raw GMP packet
+    // Create raw GMP packet - sender is used for callback routing on timeout/ack
     let raw_packet_data = RawGmpPacketData {
-        sender: ctx.accounts.sender.key().to_string(),
+        sender: sender_pubkey.to_string(),
         receiver: msg.receiver.clone(),
         salt: msg.salt.clone(),
         payload: msg.payload.clone(),
@@ -130,7 +153,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     // Emit event
     emit!(GMPCallSent {
         sequence,
-        sender: ctx.accounts.sender.key(),
+        sender: sender_pubkey,
         receiver: msg.receiver.clone(),
         client_id: source_client.to_string(),
         salt: msg.salt.clone(),
@@ -140,7 +163,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 
     msg!(
         "GMP call sent: sender={}, receiver={}, sequence={}",
-        ctx.accounts.sender.key(),
+        sender_pubkey,
         &msg.receiver,
         sequence
     );

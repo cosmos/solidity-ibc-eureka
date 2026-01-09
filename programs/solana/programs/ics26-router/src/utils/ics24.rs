@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
 use crate::state::Packet;
 use anchor_lang::prelude::*;
-use sha2::{Digest, Sha256};
 use solana_ibc_types::Payload;
 use solana_keccak_hasher::hash as keccak256;
+use solana_sha256_hasher::{hash as sha256_single, hashv as sha256_multi};
 
 // Include auto-generated constants from build.rs
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
@@ -57,13 +57,11 @@ pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
         app_bytes.extend_from_slice(&payload_hash);
     }
 
-    let mut hasher = Sha256::new();
-    hasher.update([2u8]); // version byte
-    hasher.update(sha256(packet.dest_client.as_bytes()));
-    hasher.update(sha256(&packet.timeout_timestamp.to_be_bytes()));
-    hasher.update(sha256(&app_bytes));
+    let dest_client_hash = sha256(packet.dest_client.as_bytes());
+    let timeout_hash = sha256(&packet.timeout_timestamp.to_be_bytes());
+    let app_hash = sha256(&app_bytes);
 
-    hasher.finalize().into()
+    sha256_multi(&[&[2u8], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
 }
 
 fn hash_payload(payload: &Payload) -> [u8; 32] {
@@ -86,11 +84,7 @@ pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8
         ack_bytes.extend_from_slice(&sha256(ack));
     }
 
-    let mut hasher = Sha256::new();
-    hasher.update([2u8]); // version byte
-    hasher.update(&ack_bytes);
-
-    Ok(hasher.finalize().into())
+    Ok(sha256_multi(&[&[2u8], &ack_bytes]).to_bytes())
 }
 
 // TODO: maybe remove
@@ -112,9 +106,7 @@ pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u
 }
 
 fn sha256(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hasher.finalize().into()
+    sha256_single(data).to_bytes()
 }
 
 #[cfg(test)]

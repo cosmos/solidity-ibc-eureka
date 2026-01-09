@@ -19,15 +19,17 @@ type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
 type ics26RouterPDAs struct{}
 type ics27GmpPDAs struct{}
+type ics27IftPDAs struct{}
 type mockLightClientPDAs struct{}
 
 var (
-	AccessManager = accessManagerPDAs{}
-	DummyIbcApp = dummyIbcAppPDAs{}
-	GmpCounterApp = gmpCounterAppPDAs{}
+	AccessManager   = accessManagerPDAs{}
+	DummyIbcApp     = dummyIbcAppPDAs{}
+	GmpCounterApp   = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router = ics26RouterPDAs{}
-	Ics27Gmp = ics27GmpPDAs{}
+	Ics26Router     = ics26RouterPDAs{}
+	Ics27Gmp        = ics27GmpPDAs{}
+	Ics27Ift        = ics27IftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
 )
 
@@ -306,6 +308,52 @@ func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.P
 	return pda, bump
 }
 
+// NOTE: Corrupted PDA helper removed - IFT PDAs are manually maintained in pda_ift.go
+
+func (ics27IftPDAs) IftAppStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_app_state"), mint},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Ift.IftAppStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27IftPDAs) IftBridgeWithAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_bridge"), mint, clientId},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Ift.IftBridgeWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27IftPDAs) IftMintAuthorityWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_mint_authority"), mint},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Ift.IftMintAuthorityWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27IftPDAs) PendingTransferWithAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("pending_transfer"), mint, clientId, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Ift.PendingTransferWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (mockLightClientPDAs) ClientPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), chainId},
@@ -327,4 +375,3 @@ func (mockLightClientPDAs) ConsensusStatePDA(programID solanago.PublicKey, clien
 	}
 	return pda, bump
 }
-
