@@ -784,35 +784,48 @@ contract IFTTest is Test {
 
     // Upgrade Tests
 
-    function test_upgrade_success() public {
-        setUpOwnable();
-
-        // First register the bridge
-        vm.startPrank(admin);
-        ift.registerIFTBridge(th.FIRST_CLIENT_ID(), COUNTERPARTY_IFT_ADDRESS, address(evmCallConstructor));
-        vm.stopPrank();
-
-        IFTOwnable newImpl = new IFTOwnable();
-
-        vm.prank(admin);
-        UUPSUpgradeable(address(ift)).upgradeToAndCall(address(newImpl), "");
-
-        assertEq(IFTOwnable(address(ift)).owner(), admin, "owner should be preserved after upgrade");
-
-        string memory clientId = th.FIRST_CLIENT_ID();
-        IIFTMsgs.IFTBridge memory bridge = ift.getIFTBridge(clientId);
-        assertEq(bridge.clientId, clientId, "bridge should be preserved after upgrade");
-    }
-
-    function test_upgrade_unauthorizedCaller_reverts() public {
-        setUpOwnable();
-
-        IFTOwnable newImpl = new IFTOwnable();
+    function fixtureUpgradeTC() public returns (UpgradeTestCase[] memory) {
         address unauthorized = makeAddr("unauthorized");
 
-        vm.prank(unauthorized);
-        vm.expectRevert();
+        UpgradeTestCase[] memory testCases = new UpgradeTestCase[](2);
+
+        testCases[0] = UpgradeTestCase({
+            name: "success: ownable admin upgrades",
+            caller: admin,
+            ownable: true,
+            expectedRevert: ""
+        });
+        testCases[1] = UpgradeTestCase({
+            name: "revert: ownable unauthorized caller",
+            caller: unauthorized,
+            ownable: true,
+            expectedRevert: abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized)
+        });
+
+        return testCases;
+    }
+
+    function tableUpgradeTest(UpgradeTestCase memory upgradeTC) public {
+        if (upgradeTC.ownable) {
+            setUpOwnable();
+        } else {
+            setUpAccessManaged();
+        }
+
+        IFTOwnable newImpl = new IFTOwnable();
+
+        if (upgradeTC.expectedRevert.length != 0) {
+            vm.expectRevert(upgradeTC.expectedRevert);
+        }
+
+        vm.prank(upgradeTC.caller);
         UUPSUpgradeable(address(ift)).upgradeToAndCall(address(newImpl), "");
+
+        if (upgradeTC.expectedRevert.length != 0) {
+            return;
+        }
+
+        assertEq(IFTOwnable(address(ift)).owner(), admin, "owner should be preserved after upgrade");
     }
 
     struct IFTMintTestCase {
@@ -866,6 +879,13 @@ contract IFTTest is Test {
         string clientId;
         address iftSendCallConstructor;
         string counterpartyIFT;
+        bytes expectedRevert;
+    }
+
+    struct UpgradeTestCase {
+        string name;
+        address caller;
+        bool ownable;
         bytes expectedRevert;
     }
 }
