@@ -17,6 +17,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
+	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -976,5 +977,80 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 			s.Require().True(balanceA.Equal(totalAmount), "Chain A user should have %s", totalAmount)
 			s.Require().True(balanceB.IsZero(), "Chain B user should have 0")
 		}))
+	}))
+}
+
+// Test_GMPPacketNotBlockedByIFT verifies that IFT's callback handler doesn't interfere
+// with other GMP applications. IFT is registered as the ContractKeeper for all GMP callbacks,
+// so it receives callbacks for all GMP packets. It must gracefully ignore non-IFT packets.
+func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+	s.createLightClients(ctx)
+
+	user := s.CosmosUsers[0]
+
+	// Send a GMP packet directly from a user (not through IFT module).
+	// This simulates another application using GMP on the same chain.
+	var sendTxHash string
+	s.Require().True(s.Run("User sends GMP packet directly", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		// Send to a non-existent receiver - this will cause an error ack,
+		// which is fine for this test. We just want to verify the ack callback
+		// doesn't break when IFT receives it.
+		resp, err := s.BroadcastMessages(ctx, s.ChainA, user, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     ibctesting.FirstClientID,
+			Sender:           user.FormattedAddress(),
+			Receiver:         "nonexistent-receiver-address",
+			Payload:          []byte("test payload"),
+			TimeoutTimestamp: timeout,
+		})
+		s.Require().NoError(err)
+		sendTxHash = resp.TxHash
+		s.Require().NotEmpty(sendTxHash)
+	}))
+
+	var recvTxHash []byte
+	s.Require().True(s.Run("Relay packet to Chain B", func() {
+		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
+		s.Require().NoError(err)
+
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    s.ChainA.Config().ChainID,
+			DstChain:    s.ChainB.Config().ChainID,
+			SourceTxIds: [][]byte{sendTxHashBytes},
+			SrcClientId: ibctesting.FirstClientID,
+			DstClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		// Broadcast to Chain B - this will likely produce an error ack
+		// since the receiver doesn't exist, but that's expected
+		broadcastResp := s.MustBroadcastSdkTxBody(ctx, s.ChainB, s.ChainBSubmitter, 2_000_000, resp.Tx)
+		recvTxHash, err = hex.DecodeString(broadcastResp.TxHash)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Relay ack back to Chain A", func() {
+		// This is the critical part: when the ack is relayed back,
+		// IFT's IBCOnAcknowledgementPacketCallback will be invoked
+		// (since IFT is the ContractKeeper for GMP).
+		// IFT should gracefully ignore this packet (return nil, not error)
+		// because packetSender != IFT module address.
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    s.ChainB.Config().ChainID,
+			DstChain:    s.ChainA.Config().ChainID,
+			SourceTxIds: [][]byte{recvTxHash},
+			SrcClientId: ibctesting.FirstClientID,
+			DstClientId: ibctesting.FirstClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		// If IFT returned an error for non-IFT packets, this broadcast would fail.
+		// The fact that it succeeds proves IFT gracefully ignores non-IFT packets.
+		_ = s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, resp.Tx)
 	}))
 }
