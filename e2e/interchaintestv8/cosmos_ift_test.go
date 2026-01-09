@@ -718,10 +718,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Verify no balance minted on Chain B", func() {
-		balance := s.queryBalance(ctx, s.ChainB, invalidReceiver, denomB)
-		s.Require().True(balance.IsZero(), "Chain B should have no tokens for invalid receiver")
-	}))
+	// Note: We cannot query balance for invalid address, but we verify the error ack
+	// refunds tokens to the sender which confirms the receive failed
 
 	s.Require().True(s.Run("Relay error ack to Chain A", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
