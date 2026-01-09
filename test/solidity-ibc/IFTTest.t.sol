@@ -737,51 +737,6 @@ contract IFTTest is Test {
         assertEq(receiverBalance, mintTC.amount);
     }
 
-    // EVMIFTSendCallConstructor Tests
-
-    function testFuzz_evmCallConstructor_constructMintCall(uint256 amount) public {
-        address receiver = makeAddr("receiver");
-        string memory receiverStr = Strings.toHexString(receiver);
-
-        bytes memory callData = evmCallConstructor.constructMintCall(receiverStr, amount);
-        bytes memory expected = abi.encodeCall(IIFT.iftMint, (receiver, amount));
-
-        assertEq(callData, expected);
-    }
-
-    function testFuzz_evmCallConstructor_invalidReceiver_reverts(uint256 amount) public {
-        vm.expectRevert();
-        evmCallConstructor.constructMintCall("invalid-address", amount);
-    }
-
-    function test_evmCallConstructor_supportsInterface_IIFTSendCallConstructor() public view {
-        assertTrue(evmCallConstructor.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
-    }
-
-    function test_evmCallConstructor_supportsInterface_IERC165() public view {
-        bytes4 erc165Id = 0x01ffc9a7;
-        assertTrue(evmCallConstructor.supportsInterface(erc165Id));
-    }
-
-    function test_evmCallConstructor_supportsInterface_unsupported() public view {
-        bytes4 randomId = 0xdeadbeef;
-        assertFalse(evmCallConstructor.supportsInterface(randomId));
-    }
-
-    // ERC165 Interface Tests
-
-    function test_supportsInterface() public {
-        setUpOwnable();
-
-        // IIBCSenderCallbacks interface ID
-        bytes4 senderCallbacksId = type(IIBCSenderCallbacks).interfaceId;
-        assertTrue(IERC165(address(ift)).supportsInterface(senderCallbacksId));
-
-        // ERC165 interface ID
-        bytes4 erc165Id = 0x01ffc9a7;
-        assertTrue(IERC165(address(ift)).supportsInterface(erc165Id));
-    }
-
     // Upgrade Tests
 
     function fixtureUpgradeTC() public returns (UpgradeTestCase[] memory) {
@@ -827,6 +782,48 @@ contract IFTTest is Test {
 
         assertEq(IFTOwnable(address(ift)).owner(), admin, "owner should be preserved after upgrade");
     }
+
+    // EVMIFTSendCallConstructor Tests
+
+    function testFuzz_evmCallConstructor_constructMintCall(uint256 amount) public {
+        address receiver = makeAddr("receiver");
+        string memory receiverStr = Strings.toHexString(receiver);
+
+        bytes memory callData = evmCallConstructor.constructMintCall(receiverStr, amount);
+        bytes memory expected = abi.encodeCall(IIFT.iftMint, (receiver, amount));
+
+        assertEq(callData, expected);
+    }
+
+    function testFuzz_evmCallConstructor_invalidReceiver_reverts(uint256 amount) public {
+        vm.expectRevert();
+        evmCallConstructor.constructMintCall("invalid-address", amount);
+    }
+
+    function test_evmCallConstructor_supportsInterface() public view {
+        assertTrue(evmCallConstructor.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
+
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(evmCallConstructor.supportsInterface(erc165Id));
+
+        bytes4 randomId = 0xdeadbeef;
+        assertFalse(evmCallConstructor.supportsInterface(randomId));
+    }
+
+    // ERC165 Interface Tests
+
+    function test_IFT_supportsInterface() public {
+        setUpOwnable();
+
+        // IIBCSenderCallbacks interface ID
+        bytes4 senderCallbacksId = type(IIBCSenderCallbacks).interfaceId;
+        assertTrue(IERC165(address(ift)).supportsInterface(senderCallbacksId));
+
+        // ERC165 interface ID
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(IERC165(address(ift)).supportsInterface(erc165Id));
+    }
+
 
     struct IFTMintTestCase {
         string name;
