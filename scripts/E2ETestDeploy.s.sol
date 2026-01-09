@@ -29,7 +29,6 @@ import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 
 import { EVMIFTSendCallConstructor } from "../contracts/utils/EVMIFTSendCallConstructor.sol";
-import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
 import { IFTBaseUpgradeable } from "../contracts/utils/IFTBaseUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -79,7 +78,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address erc20;
         address ift;
         address evmIftConstructor;
-        address cosmosIftConstructor;
     }
 
     function run() public returns (string memory) {
@@ -107,13 +105,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address iftLogic = address(new TestIFT());
         TestERC20 erc20 = new TestERC20();
         c.evmIftConstructor = address(new EVMIFTSendCallConstructor());
-        c.cosmosIftConstructor = address(
-            new CosmosIFTSendCallConstructor(
-                vm.envOr("COSMOS_IFT_TYPE_URL", string("/wfchain.ift.MsgIFTMint")),
-                vm.envOr("COSMOS_IFT_DENOM", string("testift")),
-                vm.envOr("COSMOS_IFT_ICA_ADDRESS", string(""))
-            )
-        );
 
         // Phase 2: Deploy proxies (depend on logic contracts above)
         c.ics26Router =
@@ -161,7 +152,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics27Gmp", Strings.toHexString(c.ics27Gmp));
         json.serialize("erc20", Strings.toHexString(c.erc20));
         json.serialize("ift", Strings.toHexString(c.ift));
-        json.serialize("evmIftConstructor", Strings.toHexString(c.evmIftConstructor));
-        return json.serialize("cosmosIftConstructor", Strings.toHexString(c.cosmosIftConstructor));
+        return json.serialize("evmIftConstructor", Strings.toHexString(c.evmIftConstructor));
     }
 }
