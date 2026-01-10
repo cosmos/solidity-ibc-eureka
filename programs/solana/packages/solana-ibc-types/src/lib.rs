@@ -36,9 +36,9 @@ pub use ics07::{
 };
 
 pub use ics27::{
-    ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString, ConstrainedVec, GMPAccount,
-    GMPAppState, GMPPacketError, GmpPacketData, Salt, SignerSeeds, MAX_MEMO_LENGTH,
-    MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
+    CallResultStatus, ClientId, ConstrainedBytes, ConstrainedError, ConstrainedString,
+    ConstrainedVec, GMPAccount, GMPAppState, GMPCallResult, GMPPacketError, GmpPacketData, Salt,
+    SignerSeeds, MAX_MEMO_LENGTH, MAX_RECEIVER_LENGTH, MAX_SALT_LENGTH, MAX_SENDER_LENGTH,
 };
 
 pub use events::{

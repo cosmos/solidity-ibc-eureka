@@ -62,3 +62,21 @@ pub struct GMPExecutionFailed {
     /// Failure timestamp
     pub timestamp: i64,
 }
+
+#[event]
+pub struct GMPCallAcknowledged {
+    pub source_client: String,
+    pub sequence: u64,
+    pub sender: String,
+    pub result_pda: Pubkey,
+    pub timestamp: i64,
+}
+
+#[event]
+pub struct GMPCallTimedOut {
+    pub source_client: String,
+    pub sequence: u64,
+    pub sender: String,
+    pub result_pda: Pubkey,
+    pub timestamp: i64,
+}

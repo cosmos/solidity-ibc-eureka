@@ -69,6 +69,10 @@ message SolanaPacketTxs {
     bytes final_tx = 2;
     // Cleanup transaction (reclaims rent from chunks)
     bytes cleanup_tx = 3;
+    // GMP result PDA address (32 bytes) - present for ack/timeout packets on GMP port
+    // This PDA stores the acknowledgement or timeout result of a GMP call
+    // Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
+    bytes gmp_result_pda = 4;
 }
 
 // Batch of packet transactions for relay operations
