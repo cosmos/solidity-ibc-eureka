@@ -2,6 +2,9 @@
 //!
 //! This crate provides all the program IDs and constants used by IBC on Solana
 
+/// Anchor default discriminator length in bytes
+pub const ANCHOR_DISCRIMINATOR_LEN: usize = 8;
+
 /// ICS26 Router Program ID on Solana
 pub const ICS26_ROUTER_ID: &str = "FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx";
 

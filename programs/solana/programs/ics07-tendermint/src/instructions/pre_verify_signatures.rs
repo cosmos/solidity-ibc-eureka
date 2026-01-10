@@ -18,8 +18,8 @@ pub fn pre_verify_signature<'info>(
         &signature.signature,
     )?;
 
-    ctx.accounts.signature_verification.submitter = ctx.accounts.payer.key();
     ctx.accounts.signature_verification.is_valid = is_valid;
+    ctx.accounts.signature_verification.submitter = ctx.accounts.payer.key();
 
     Ok(())
 }

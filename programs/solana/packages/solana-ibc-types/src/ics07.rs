@@ -118,3 +118,8 @@ pub struct SignatureData {
     pub msg: Vec<u8>,
     pub signature: [u8; 64],
 }
+
+/// Offset of `is_valid` field in SignatureVerification account data.
+/// Equals Anchor discriminator length since `is_valid` is the first field.
+pub const SIGNATURE_VERIFICATION_IS_VALID_OFFSET: usize =
+    solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN;
