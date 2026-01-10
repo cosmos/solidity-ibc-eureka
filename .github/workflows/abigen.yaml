@@ -19,7 +19,7 @@ jobs:
   check:
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -47,7 +47,7 @@ jobs:
   golangci:
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 1.25
@@ -62,7 +62,7 @@ jobs:
   test:
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 1.25
