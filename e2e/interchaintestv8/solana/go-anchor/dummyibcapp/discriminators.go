@@ -14,7 +14,13 @@ var (
 )
 
 // Event discriminators
-var ()
+var (
+	Event_DummyIbcAppInstructionsSendPacketDummyAppPacketSent = [8]byte{155, 3, 248, 96, 249, 116, 241, 118}
+	Event_DummyIbcAppStateDummyAppPacketAcknowledged          = [8]byte{193, 42, 40, 231, 146, 136, 63, 56}
+	Event_DummyIbcAppStateDummyAppPacketTimedOut              = [8]byte{59, 156, 106, 212, 120, 83, 2, 183}
+	Event_DummyIbcAppStatePacketReceived                      = [8]byte{58, 84, 51, 248, 117, 120, 242, 178}
+	Event_DummyIbcAppStateTransferSent                        = [8]byte{1, 174, 197, 32, 9, 145, 255, 214}
+)
 
 // Instruction discriminators
 var (

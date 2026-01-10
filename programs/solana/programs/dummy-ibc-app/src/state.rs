@@ -61,7 +61,7 @@ pub struct PacketReceived {
 }
 
 #[event]
-pub struct PacketAcknowledged {
+pub struct DummyAppPacketAcknowledged {
     pub source_client: String,
     pub dest_client: String,
     pub sequence: u64,
@@ -69,7 +69,7 @@ pub struct PacketAcknowledged {
 }
 
 #[event]
-pub struct PacketTimedOut {
+pub struct DummyAppPacketTimedOut {
     pub source_client: String,
     pub dest_client: String,
     pub sequence: u64,
