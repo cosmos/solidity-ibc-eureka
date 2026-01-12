@@ -237,7 +237,10 @@ impl super::TxBuilder {
         accounts.extend(ift_accounts);
 
         // Debug: log total accounts in instruction
-        tracing::info!("Total accounts in ack_packet instruction: {}", accounts.len());
+        tracing::info!(
+            "Total accounts in ack_packet instruction: {}",
+            accounts.len()
+        );
         for (i, acc) in accounts.iter().enumerate() {
             tracing::info!(
                 "  Account[{}]: {} (signer={}, writable={})",

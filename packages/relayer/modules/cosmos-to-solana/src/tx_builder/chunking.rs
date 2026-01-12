@@ -302,7 +302,8 @@ impl super::TxBuilder {
         );
 
         // Build final transaction with or without ALT based on account count
-        let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT {
+        let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT
+        {
             tracing::info!(
                 "Using ALT for ack_packet: {} accounts exceeds threshold of {}",
                 unique_accounts,
@@ -407,8 +408,7 @@ impl super::TxBuilder {
             .collect::<Result<Vec<_>>>()?;
 
         // Build final transaction using ALT
-        let final_tx =
-            self.create_tx_bytes_with_alt(instructions, alt_address, alt_accounts)?;
+        let final_tx = self.create_tx_bytes_with_alt(instructions, alt_address, alt_accounts)?;
 
         Ok((final_tx, alt_create_tx, alt_extend_txs))
     }
