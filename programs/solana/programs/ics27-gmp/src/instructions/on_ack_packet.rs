@@ -2,9 +2,8 @@ use crate::constants::*;
 use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
-use anchor_lang::solana_program::program::invoke;
-use solana_ibc_proto::{GmpPacketData, Protobuf};
+
+use super::callback_helper::forward_callback;
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -44,58 +43,13 @@ pub fn on_acknowledgement_packet<'info>(
     )
     .map_err(GMPError::from)?;
 
-    let gmp_packet =
-        GmpPacketData::decode_vec(&msg.payload.value).map_err(|_| GMPError::InvalidPacketData)?;
-
-    // Forward acknowledgement to sender if remaining_accounts provided (indicates callback expected)
-    // The sender field contains the calling program's ID (for CPI calls) or user wallet (for direct calls)
-    if ctx.remaining_accounts.is_empty() {
-        return Ok(());
-    }
-
-    // Parse sender as Pubkey - this is the callback target
-    let callback_program: Pubkey = gmp_packet
-        .sender
-        .as_ref()
-        .parse()
-        .map_err(|_| GMPError::InvalidSender)?;
-
-    // Validate that remaining_accounts[0] is the callback program
-    // This is required because invoke() needs the target program in the account_infos slice
-    let remaining = ctx.remaining_accounts;
-    require!(
-        remaining[0].key() == callback_program,
-        GMPError::AccountKeyMismatch
-    );
-
-    // Build instruction data for callback program's on_acknowledgement_packet
-    // Uses Anchor's instruction discriminator: sha256("global:on_acknowledgement_packet")[..8]
-    let discriminator = solana_sha256_hasher::hash(b"global:on_acknowledgement_packet");
-    let mut ix_data = discriminator.to_bytes()[..8].to_vec();
-
-    // Serialize the OnAcknowledgementPacketMsg using Anchor's serialization
-    msg.serialize(&mut ix_data)?;
-
-    // Build account metas from remaining_accounts, skipping the callback program at [0]
-    // The callback program is used as instruction.program_id, not in the accounts array
-    let callback_accounts = &remaining[1..];
-    let account_metas: Vec<AccountMeta> = callback_accounts
-        .iter()
-        .map(|acc| AccountMeta {
-            pubkey: *acc.key,
-            is_signer: acc.is_signer,
-            is_writable: acc.is_writable,
-        })
-        .collect();
-
-    let instruction = Instruction {
-        program_id: callback_program,
-        accounts: account_metas,
-        data: ix_data,
-    };
-
-    // CPI to callback program - pass remaining_accounts as AccountInfos
-    invoke(&instruction, remaining)?;
+    // Forward acknowledgement to sender if remaining_accounts provided
+    forward_callback(
+        ctx.remaining_accounts,
+        &msg.payload.value,
+        b"global:on_acknowledgement_packet",
+        &msg,
+    )?;
 
     Ok(())
 }
