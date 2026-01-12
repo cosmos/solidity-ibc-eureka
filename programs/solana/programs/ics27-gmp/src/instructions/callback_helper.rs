@@ -4,7 +4,7 @@ use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
 use solana_ibc_proto::{GmpPacketData, Protobuf};
 
-/// Forward IBC callback to sender program. Returns false if no remaining_accounts.
+/// Forward IBC callback to sender program. Returns false if no `remaining_accounts`.
 pub fn forward_callback<M: AnchorSerialize>(
     remaining: &[AccountInfo],
     payload_value: &[u8],
