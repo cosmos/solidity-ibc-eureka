@@ -202,7 +202,7 @@ impl super::TxBuilder {
         );
 
         let ift_accounts =
-            crate::ift::extract_ift_ack_callback_accounts(&crate::ift::IftAckParams {
+            crate::ift::extract_ift_callback_accounts(&crate::ift::IftCallbackParams {
                 source_port,
                 encoding: &payload.encoding,
                 payload_value: &payload.value,
@@ -251,7 +251,7 @@ impl super::TxBuilder {
         )?;
 
         // Add IFT callback accounts if this is an IFT transfer timeout
-        let ift_accounts = crate::ift::extract_ift_timeout_callback_accounts(
+        let ift_accounts = crate::ift::extract_ift_callback_accounts(
             &crate::ift::IftCallbackParams {
                 source_port,
                 encoding: &payload.encoding,

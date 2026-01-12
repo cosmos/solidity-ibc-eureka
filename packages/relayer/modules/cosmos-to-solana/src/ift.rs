@@ -43,7 +43,7 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
-/// Parameters for extracting IFT callback accounts (used for both ack and timeout)
+/// Parameters for extracting IFT callback accounts
 pub struct IftCallbackParams<'a> {
     /// The packet source port
     pub source_port: &'a str,
@@ -63,39 +63,19 @@ pub struct IftCallbackParams<'a> {
     pub fee_payer: Pubkey,
 }
 
-/// Type alias for backwards compatibility
-pub type IftAckParams<'a> = IftCallbackParams<'a>;
-
-/// Extract IFT callback accounts for an ack packet
+/// Extract IFT callback accounts for ack/timeout packets
 ///
 /// When a GMP packet's sender is an IFT program, we need to include additional
-/// accounts so GMP can forward the acknowledgement to IFT for refund processing.
+/// accounts so GMP can forward the ack/timeout to IFT for refund processing.
 ///
 /// Returns empty vec if the packet is not from IFT or pending transfer not found.
 #[must_use]
-pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Vec<AccountMeta> {
-    extract_ift_callback_accounts(params)
-}
-
-/// Extract IFT callback accounts for a timeout packet
-///
-/// When a GMP packet's sender is an IFT program, we need to include additional
-/// accounts so GMP can forward the timeout to IFT for refund processing.
-///
-/// Returns empty vec if the packet is not from IFT or pending transfer not found.
-#[must_use]
-pub fn extract_ift_timeout_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
-    extract_ift_callback_accounts(params)
-}
-
-/// Common implementation for extracting IFT callback accounts (ack and timeout share the same accounts)
-fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
+pub fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
     // Only process GMP port packets with protobuf encoding
     if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
         return Vec::new();
     }
 
-    // Decode GMP packet to get sender
     let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
         Ok(packet) => packet,
         Err(e) => {
@@ -137,7 +117,6 @@ fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountM
         pending_transfer.amount
     );
 
-    // Build callback accounts (same for both ack and timeout)
     build_ift_callback_accounts(
         sender_program,
         &pending_transfer,
@@ -184,7 +163,6 @@ fn find_pending_transfer(
             }
         };
 
-        // Match by client_id and sequence
         if pending.client_id == client_id && pending.sequence == sequence {
             return Ok(Some(pending));
         }
@@ -204,11 +182,9 @@ fn build_ift_callback_accounts(
 ) -> Vec<AccountMeta> {
     let mint = pending_transfer.mint;
 
-    // Derive IFT app state PDA
     let (app_state_pda, _) =
         Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
 
-    // Derive pending transfer PDA
     let (pending_transfer_pda, _) = Pubkey::find_program_address(
         &[
             PENDING_TRANSFER_SEED,
@@ -219,7 +195,6 @@ fn build_ift_callback_accounts(
         &ift_program_id,
     );
 
-    // Derive mint authority PDA
     let (mint_authority_pda, _) =
         Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
 
@@ -236,61 +211,51 @@ fn build_ift_callback_accounts(
             is_signer: false,
             is_writable: false,
         },
-        // app_state
         AccountMeta {
             pubkey: app_state_pda,
             is_signer: false,
             is_writable: true,
         },
-        // pending_transfer
         AccountMeta {
             pubkey: pending_transfer_pda,
             is_signer: false,
             is_writable: true,
         },
-        // mint
         AccountMeta {
             pubkey: mint,
             is_signer: false,
             is_writable: true,
         },
-        // mint_authority
         AccountMeta {
             pubkey: mint_authority_pda,
             is_signer: false,
             is_writable: false,
         },
-        // sender_token_account
         AccountMeta {
             pubkey: sender_token_account,
             is_signer: false,
             is_writable: true,
         },
-        // router_program
         AccountMeta {
             pubkey: router_program_id,
             is_signer: false,
             is_writable: false,
         },
-        // instruction_sysvar
         AccountMeta {
             pubkey: solana_sdk::sysvar::instructions::id(),
             is_signer: false,
             is_writable: false,
         },
-        // payer
         AccountMeta {
             pubkey: fee_payer,
             is_signer: true,
             is_writable: true,
         },
-        // token_program
         AccountMeta {
             pubkey: spl_token::id(),
             is_signer: false,
             is_writable: false,
         },
-        // system_program
         AccountMeta {
             pubkey: solana_sdk::system_program::id(),
             is_signer: false,
