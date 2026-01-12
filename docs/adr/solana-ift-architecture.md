@@ -170,26 +170,11 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 
 1. **Burn Authorization**: Only token owner can burn (standard SPL token semantics)
 
-2. **Mint Authorization**: Only IFT's mint authority PDA can mint, controlled by:
-   - Incoming GMP calls validated against registered bridge
-   - Refund operations validated by pending transfer records
+2. **Mint Authorization**: Only IFT's mint authority PDA can mint, controlled by incoming GMP calls validated against registered bridge, or refund operations validated by pending transfer records
 
-3. **Empty Salt Requirement**: Per IFT spec, salt MUST be empty:
-   ```rust
-   // On send (gmp_cpi.rs): hardcoded empty
-   salt: vec![], // Empty salt for IFT
+3. **Empty Salt Requirement**: Salt is hardcoded empty on send and validated empty on receive via GMP account PDA derivation. Prevents unauthorized minting via alternate GMP account PDAs.
 
-   // On receive (ift_mint.rs): validated empty in PDA derivation
-   &[b"gmp_account", client_id.as_bytes(), &sender_hash, &[]]
-   ```
-   This prevents unauthorized minting via alternate GMP account PDAs.
-
-4. **GMP Validation**: Incoming mints verify:
-   ```rust
-   // GMP account must match expected PDA from counterparty
-   let expected_pda = derive_gmp_pda(client_id, counterparty_address, gmp_program);
-   require!(gmp_account == expected_pda, IFTError::InvalidGmpAccount);
-   ```
+4. **GMP Validation**: Incoming mints verify GMP account matches expected PDA derived from counterparty address
 
 5. **Replay Protection**: Pending transfers use sequence numbers, closed after processing
 
@@ -207,14 +192,15 @@ GMP routes timeout/ack callbacks to IFT via implicit sender detection (see [GMP 
 
 IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure. These handlers accept CPI calls from both Router (direct) and GMP (for forwarded callbacks):
 
-## Performance (TO UPDATE POST TESTING)
+## Performance (TODO: Update post testing)
 
 | Metric | Value |
 |--------|-------|
-| **Compute Units** | ~50,000 for transfer, ~40,000 for mint |
-| **Accounts per TX** | 12-15 (including GMP/Router infrastructure) |
-| **Storage per Bridge** | ~200 bytes |
-| **Storage per Pending** | ~150 bytes (reclaimed on completion) |
+| **Compute Budget** | 400,000 CU for transfer (IFT→GMP→Router CPI chain) |
+| **Accounts - transfer** | 18 (including GMP/Router infrastructure) |
+| **Accounts - mint** | 12 |
+| **Storage per Bridge** | 308 bytes |
+| **Storage per Pending** | 198 bytes (reclaimed on completion) |
 
 ## Limitations
 
