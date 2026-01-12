@@ -41,19 +41,25 @@ impl MisbehaviourChunk {
     pub const SEED: &'static [u8] = b"misbehaviour_chunk";
 }
 
-/// Storage for Ed25519 signature verification results
+/// Storage for Ed25519 signature verification results.
+/// IMPORTANT: Field order matters: verifier reads `data[8]` for `is_valid`.
 #[account]
 #[derive(InitSpace)]
 pub struct SignatureVerification {
-    /// The submitter who created this verification
-    pub submitter: Pubkey,
     /// Whether the signature is valid
     pub is_valid: bool,
+    /// The submitter who created this verification
+    pub submitter: Pubkey,
 }
 
 impl SignatureVerification {
     pub const SEED: &'static [u8] = b"sig_verify";
 }
+
+// Compile-time verification that discriminator length matches the shared constant
+const _: () = assert!(
+    SignatureVerification::DISCRIMINATOR.len() == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN
+);
 
 #[cfg(test)]
 mod compatibility_tests {

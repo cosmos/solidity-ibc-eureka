@@ -104,50 +104,46 @@ impl<'a> SolanaSignatureVerifier<'a> {
 
 impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a> {
     fn verify(&self, pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
-        match pubkey {
-            PublicKey::Ed25519(pk) => {
-                if !self.verification_accounts.is_empty() {
-                    use solana_msg::msg;
+        use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
 
-                    let sig_hash =
-                        solana_sha256_hasher::hashv(&[pk.as_bytes(), msg, signature.as_bytes()])
-                            .to_bytes();
+        let PublicKey::Ed25519(pk) = pubkey else {
+            return Err(Error::UnsupportedKeyType);
+        };
 
-                    // PDA: [b"sig_verify", hash(pubkey || msg || signature)]
-                    let (expected_pda, _) =
-                        Pubkey::find_program_address(&[b"sig_verify", &sig_hash], self.program_id);
+        let sig_hash =
+            solana_sha256_hasher::hashv(&[pk.as_bytes(), msg, signature.as_bytes()]).to_bytes();
+        let (expected_pda, _) =
+            Pubkey::find_program_address(&[b"sig_verify", &sig_hash], self.program_id);
 
-                    for account in self.verification_accounts {
-                        if account.key == &expected_pda {
-                            let data = account.try_borrow_data().map_err(|_| {
-                                msg!("Failed to borrow verification account data");
-                                Error::VerificationFailed
-                            })?;
+        // Fallback: brine-ed25519 (~30k CU/sig, audited by OtterSec)
+        let fallback = || {
+            brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
+                .map_err(|_| Error::VerificationFailed)
+        };
 
-                            if data.len() < 9 {
-                                msg!("Verification account data too short");
-                                return Err(Error::VerificationFailed);
-                            }
+        let Some(account) = self
+            .verification_accounts
+            .iter()
+            .find(|a| a.key == &expected_pda)
+        else {
+            return fallback();
+        };
 
-                            let is_valid = data[8] != 0;
-                            if !is_valid {
-                                return Err(Error::VerificationFailed);
-                            }
+        let Ok(data) = account.try_borrow_data() else {
+            return fallback();
+        };
 
-                            return Ok(());
-                        }
-                    }
-
-                    msg!("Pre-verification account not found, using brine-ed25519");
-                }
-
-                // Ed25519Program only verifies sigs in current tx, can't handle external Tendermint headers.
-                // Pre-verification (above) uses Ed25519Program via separate tx for FREE verification.
-                // Fallback: brine-ed25519 (~30k CU/sig, audited by OtterSec)
-                brine_ed25519::sig_verify(pk.as_bytes(), signature.as_bytes(), msg)
-                    .map_err(|_| Error::VerificationFailed)
+        match data.get(SIGNATURE_VERIFICATION_IS_VALID_OFFSET) {
+            Some(&1) => Ok(()),
+            Some(&0) => Err(Error::VerificationFailed),
+            Some(v) => {
+                solana_msg::msg!("Unexpected verification value: {}", v);
+                fallback()
             }
-            _ => Err(Error::UnsupportedKeyType),
+            None => {
+                solana_msg::msg!("Verification account data too short");
+                fallback()
+            }
         }
     }
 }
@@ -220,5 +216,143 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
 
     fn blake3(message: &[u8]) -> [u8; 32] {
         HostFunctionsManager::blake3(message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use tendermint::crypto::signature::Verifier;
+
+    fn create_verification_account_data(is_valid: u8) -> Vec<u8> {
+        let mut data = vec![0u8; SIGNATURE_VERIFICATION_IS_VALID_OFFSET + 1];
+        data[SIGNATURE_VERIFICATION_IS_VALID_OFFSET] = is_valid;
+        data
+    }
+
+    fn create_account_info<'a>(
+        key: &'a Pubkey,
+        data: &'a mut [u8],
+        lamports: &'a mut u64,
+        owner: &'a Pubkey,
+    ) -> AccountInfo<'a> {
+        AccountInfo {
+            key,
+            is_signer: false,
+            is_writable: false,
+            lamports: Rc::new(RefCell::new(lamports)),
+            data: Rc::new(RefCell::new(data)),
+            owner,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
+    fn compute_sig_verify_pda(
+        pk: &[u8; 32],
+        msg: &[u8],
+        sig: &[u8; 64],
+        program_id: &Pubkey,
+    ) -> Pubkey {
+        let sig_hash = solana_sha256_hasher::hashv(&[pk, msg, sig]).to_bytes();
+        let (pda, _) = Pubkey::find_program_address(&[b"sig_verify", &sig_hash], program_id);
+        pda
+    }
+
+    #[test]
+    fn test_preverify_valid_signature() {
+        let program_id = Pubkey::new_unique();
+        let owner = Pubkey::new_unique();
+        let pk_bytes = [1u8; 32];
+        let msg = b"test message";
+        let sig_bytes = [2u8; 64];
+        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
+
+        let mut data = create_verification_account_data(1);
+        let mut lamports = 1_000_000u64;
+        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
+
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
+        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
+
+        assert!(verifier.verify(pk, msg, &sig).is_ok());
+    }
+
+    #[test]
+    fn test_preverify_invalid_signature() {
+        let program_id = Pubkey::new_unique();
+        let owner = Pubkey::new_unique();
+        let pk_bytes = [1u8; 32];
+        let msg = b"test message";
+        let sig_bytes = [2u8; 64];
+        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
+
+        let mut data = create_verification_account_data(0);
+        let mut lamports = 1_000_000u64;
+        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
+
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
+        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
+
+        assert!(verifier.verify(pk, msg, &sig).is_err());
+    }
+
+    #[test]
+    fn test_preverify_unexpected_value_falls_back() {
+        let program_id = Pubkey::new_unique();
+        let owner = Pubkey::new_unique();
+        let pk_bytes = [1u8; 32];
+        let msg = b"test message";
+        let sig_bytes = [2u8; 64];
+        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
+
+        let mut data = create_verification_account_data(42);
+        let mut lamports = 1_000_000u64;
+        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
+
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
+        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
+
+        assert!(verifier.verify(pk, msg, &sig).is_err());
+    }
+
+    #[test]
+    fn test_preverify_data_too_short_falls_back() {
+        let program_id = Pubkey::new_unique();
+        let owner = Pubkey::new_unique();
+        let pk_bytes = [1u8; 32];
+        let msg = b"test message";
+        let sig_bytes = [2u8; 64];
+        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
+
+        let mut data = vec![0u8; SIGNATURE_VERIFICATION_IS_VALID_OFFSET];
+        let mut lamports = 1_000_000u64;
+        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
+
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
+        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
+
+        assert!(verifier.verify(pk, msg, &sig).is_err());
+    }
+
+    #[test]
+    fn test_no_preverify_account_falls_back() {
+        let program_id = Pubkey::new_unique();
+        let pk_bytes = [1u8; 32];
+        let msg = b"test message";
+        let sig_bytes = [2u8; 64];
+
+        let verifier = SolanaSignatureVerifier::new(&[], &program_id);
+        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
+
+        assert!(verifier.verify(pk, msg, &sig).is_err());
     }
 }
