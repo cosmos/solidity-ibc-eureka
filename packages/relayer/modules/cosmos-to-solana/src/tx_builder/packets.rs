@@ -251,8 +251,8 @@ impl super::TxBuilder {
         )?;
 
         // Add IFT callback accounts if this is an IFT transfer timeout
-        let ift_accounts = crate::ift::extract_ift_callback_accounts(
-            &crate::ift::IftCallbackParams {
+        let ift_accounts =
+            crate::ift::extract_ift_callback_accounts(&crate::ift::IftCallbackParams {
                 source_port,
                 encoding: &payload.encoding,
                 payload_value: &payload.value,
@@ -261,8 +261,7 @@ impl super::TxBuilder {
                 solana_client: &self.target_solana_client,
                 router_program_id: self.solana_ics26_program_id,
                 fee_payer: self.fee_payer,
-            },
-        );
+            });
 
         tracing::debug!(
             "IFT timeout callback: {} accounts for port={}, client={}, seq={}",
