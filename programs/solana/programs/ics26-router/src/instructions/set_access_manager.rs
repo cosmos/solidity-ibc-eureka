@@ -1,5 +1,5 @@
+use crate::events::AccessManagerUpdatedEvent;
 use crate::state::RouterState;
-use crate::AccessManagerUpdated;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -44,7 +44,7 @@ pub fn set_access_manager(
 
     ctx.accounts.router_state.access_manager = new_access_manager;
 
-    emit!(AccessManagerUpdated {
+    emit!(AccessManagerUpdatedEvent {
         old_access_manager,
         new_access_manager,
     });

@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
+use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
-use crate::{ClientAddedEvent, ClientUpdatedEvent};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

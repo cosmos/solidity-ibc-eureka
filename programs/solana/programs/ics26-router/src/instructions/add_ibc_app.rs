@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
+use crate::events::IBCAppAddedEvent;
 use crate::state::{AccountVersion, IBCApp, RouterState};
-use crate::IBCAppAdded;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -64,7 +64,7 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     ibc_app.authority = ctx.accounts.authority.key();
     ibc_app._reserved = [0u8; 256];
 
-    emit!(IBCAppAdded {
+    emit!(IBCAppAddedEvent {
         port_id: ibc_app.port_id.clone(),
         app_program_id: ibc_app.app_program_id,
     });

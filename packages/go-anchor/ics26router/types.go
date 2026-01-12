@@ -12,12 +12,12 @@ import (
 )
 
 // Event emitted when access manager is updated
-type Ics26RouterEventsAccessManagerUpdated struct {
+type Ics26RouterEventsAccessManagerUpdatedEvent struct {
 	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
 	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
 }
 
-func (obj Ics26RouterEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsAccessManagerUpdatedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `OldAccessManager`:
 	err = encoder.Encode(obj.OldAccessManager)
 	if err != nil {
@@ -31,17 +31,17 @@ func (obj Ics26RouterEventsAccessManagerUpdated) MarshalWithEncoder(encoder *bin
 	return nil
 }
 
-func (obj Ics26RouterEventsAccessManagerUpdated) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsAccessManagerUpdatedEvent) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsAccessManagerUpdated: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsAccessManagerUpdatedEvent: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsAccessManagerUpdatedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `OldAccessManager`:
 	err = decoder.Decode(&obj.OldAccessManager)
 	if err != nil {
@@ -55,16 +55,16 @@ func (obj *Ics26RouterEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *
 	return nil
 }
 
-func (obj *Ics26RouterEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsAccessManagerUpdatedEvent) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsAccessManagerUpdated: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsAccessManagerUpdatedEvent: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsAccessManagerUpdated(buf []byte) (*Ics26RouterEventsAccessManagerUpdated, error) {
-	obj := new(Ics26RouterEventsAccessManagerUpdated)
+func UnmarshalIcs26RouterEventsAccessManagerUpdatedEvent(buf []byte) (*Ics26RouterEventsAccessManagerUpdatedEvent, error) {
+	obj := new(Ics26RouterEventsAccessManagerUpdatedEvent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -256,12 +256,12 @@ func UnmarshalIcs26RouterEventsClientUpdatedEvent(buf []byte) (*Ics26RouterEvent
 }
 
 // Event emitted when an IBC app is added
-type Ics26RouterEventsIbcAppAdded struct {
+type Ics26RouterEventsIbcAppAddedEvent struct {
 	PortId       string             `json:"portId"`
 	AppProgramId solanago.PublicKey `json:"appProgramId"`
 }
 
-func (obj Ics26RouterEventsIbcAppAdded) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj Ics26RouterEventsIbcAppAddedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `PortId`:
 	err = encoder.Encode(obj.PortId)
 	if err != nil {
@@ -275,17 +275,17 @@ func (obj Ics26RouterEventsIbcAppAdded) MarshalWithEncoder(encoder *binary.Encod
 	return nil
 }
 
-func (obj Ics26RouterEventsIbcAppAdded) Marshal() ([]byte, error) {
+func (obj Ics26RouterEventsIbcAppAddedEvent) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterEventsIbcAppAdded: %w", err)
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsIbcAppAddedEvent: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *Ics26RouterEventsIbcAppAdded) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *Ics26RouterEventsIbcAppAddedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `PortId`:
 	err = decoder.Decode(&obj.PortId)
 	if err != nil {
@@ -299,16 +299,16 @@ func (obj *Ics26RouterEventsIbcAppAdded) UnmarshalWithDecoder(decoder *binary.De
 	return nil
 }
 
-func (obj *Ics26RouterEventsIbcAppAdded) Unmarshal(buf []byte) error {
+func (obj *Ics26RouterEventsIbcAppAddedEvent) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterEventsIbcAppAdded: %w", err)
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsIbcAppAddedEvent: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIcs26RouterEventsIbcAppAdded(buf []byte) (*Ics26RouterEventsIbcAppAdded, error) {
-	obj := new(Ics26RouterEventsIbcAppAdded)
+func UnmarshalIcs26RouterEventsIbcAppAddedEvent(buf []byte) (*Ics26RouterEventsIbcAppAddedEvent, error) {
+	obj := new(Ics26RouterEventsIbcAppAddedEvent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
