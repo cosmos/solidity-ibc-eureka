@@ -74,7 +74,9 @@ pub fn on_acknowledgement_packet<'info>(
 
     // Forward acknowledgement to sender if remaining_accounts provided (indicates callback expected)
     // The sender field contains the calling program's ID (for CPI calls) or user wallet (for direct calls)
-    if !ctx.remaining_accounts.is_empty() {
+    if ctx.remaining_accounts.is_empty() {
+        msg!("GMP on_ack_packet: NO remaining_accounts, skipping callback");
+    } else {
         // Parse sender as Pubkey - this is the callback target
         let callback_program: Pubkey = gmp_packet
             .sender
@@ -140,8 +142,6 @@ pub fn on_acknowledgement_packet<'info>(
         invoke(&instruction, remaining)?;
 
         msg!("GMP on_ack_packet: callback CPI completed successfully");
-    } else {
-        msg!("GMP on_ack_packet: NO remaining_accounts, skipping callback");
     }
 
     msg!("GMP on_ack_packet: done");
