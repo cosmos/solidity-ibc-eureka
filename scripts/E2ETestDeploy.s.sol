@@ -23,6 +23,8 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
+import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
+import { EVMIFTSendCallConstructor } from "../contracts/utils/EVMIFTSendCallConstructor.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -78,6 +80,15 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
             )
         );
 
+        // Deploy IFT contract
+        address iftLogic = address(new IFTOwnable());
+        ERC1967Proxy iftProxy = new ERC1967Proxy(
+            iftLogic, abi.encodeCall(IFTOwnable.initialize, (msg.sender, "IFT Token", "IFT", address(gmpProxy)))
+        );
+
+        // Deploy EVM IFT send call constructor
+        EVMIFTSendCallConstructor evmIftConstructor = new EVMIFTSendCallConstructor();
+
         // Wire up the IBCAdmin and access control
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
 
@@ -102,7 +113,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
         json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
-        string memory finalJson = json.serialize("erc20", Strings.toHexString(address(erc20)));
+        json.serialize("erc20", Strings.toHexString(address(erc20)));
+        json.serialize("ift", Strings.toHexString(address(iftProxy)));
+        string memory finalJson = json.serialize("evmIftConstructor", Strings.toHexString(address(evmIftConstructor)));
 
         return finalJson;
     }
