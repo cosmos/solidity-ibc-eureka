@@ -373,7 +373,6 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 		t.Logf("✅ Transaction succeeded")
 	}
 
-	// Always log program messages for debugging
 	if len(txDetails.Meta.LogMessages) > 0 {
 		t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
 		for i, log := range txDetails.Meta.LogMessages {
