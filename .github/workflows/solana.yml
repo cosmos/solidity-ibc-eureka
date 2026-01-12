@@ -96,6 +96,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-solana-cov-
 
+      - name: Install just
+        uses: extractions/setup-just@v2
+
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
 
@@ -103,6 +106,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y protobuf-compiler
+
+      - name: Build Solana programs
+        run: just build-solana
 
       - name: Run coverage
         run: cargo llvm-cov --workspace --lcov --output-path lcov.info
