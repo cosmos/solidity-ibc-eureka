@@ -75,27 +75,10 @@ pub struct IftAckParams<'a> {
 /// - Failed to deserialize pending transfer account data
 #[allow(clippy::too_many_lines)]
 pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Vec<AccountMeta>> {
-    tracing::info!(
-        "IFT: extract_ift_ack_callback_accounts called - port={}, encoding={}, client={}, seq={}",
-        params.source_port,
-        params.encoding,
-        params.source_client,
-        params.sequence
-    );
-
     // Only process GMP port packets with protobuf encoding
     if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
-        tracing::info!(
-            "IFT: Skipping - not a GMP packet (port={} vs {}, encoding={} vs {})",
-            params.source_port,
-            GMP_PORT_ID,
-            params.encoding,
-            PROTOBUF_ENCODING
-        );
         return Ok(Vec::new());
     }
-
-    tracing::info!("IFT: Port and encoding match GMP, decoding packet...");
 
     // Decode GMP packet to get sender
     let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
@@ -106,8 +89,6 @@ pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Ve
         }
     };
 
-    tracing::info!("IFT: GMP packet decoded, sender={}", gmp_packet.sender);
-
     // Parse sender as Pubkey (potential IFT program ID)
     let sender_program = match Pubkey::from_str(&gmp_packet.sender) {
         Ok(pk) => pk,
@@ -117,32 +98,15 @@ pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Ve
         }
     };
 
-    tracing::info!(
-        "IFT: Checking if GMP sender {} is an IFT program for sequence {} on client {}",
-        sender_program,
-        params.sequence,
-        params.source_client
-    );
-
     // Try to find pending transfer for this (client_id, sequence)
-    tracing::info!("IFT: Searching for pending transfer...");
     let pending_transfer = match find_pending_transfer(
         params.solana_client,
         sender_program,
         params.source_client,
         params.sequence,
     ) {
-        Ok(Some(pt)) => {
-            tracing::info!("IFT: Found pending transfer!");
-            pt
-        }
+        Ok(Some(pt)) => pt,
         Ok(None) => {
-            tracing::info!(
-                "IFT: No pending transfer found for program {}, client={}, seq={}",
-                sender_program,
-                params.source_client,
-                params.sequence
-            );
             return Ok(Vec::new());
         }
         Err(e) => {
@@ -151,7 +115,7 @@ pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Ve
         }
     };
 
-    tracing::info!(
+    tracing::debug!(
         "Found IFT pending transfer: mint={}, sender={}, amount={}",
         pending_transfer.mint,
         pending_transfer.sender,
@@ -178,15 +142,6 @@ fn find_pending_transfer(
 ) -> Result<Option<PendingTransfer>> {
     // Query all IFT program accounts without filtering (RPC filter encoding has compatibility issues)
     // Then filter locally by discriminator
-    //
-    // NOTE: We use `get_program_accounts` (no config) to avoid any filter encoding issues
-    // with the test validator. The validator version mismatch causes base58/base64 encoding
-    // errors even when we specify no filters.
-    tracing::info!(
-        "IFT: Querying all accounts for program {} (no RPC filters, filtering locally)",
-        ift_program_id
-    );
-
     let all_accounts = solana_client
         .get_program_accounts(&ift_program_id)
         .map_err(|e| anyhow::anyhow!("Failed to get program accounts: {e}"))?;
@@ -200,11 +155,8 @@ fn find_pending_transfer(
         })
         .collect();
 
-    tracing::info!("IFT: Found {} pending transfer accounts", accounts.len());
-
     for (pubkey, account) in accounts {
         if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
-            tracing::debug!("IFT: Skipping account {} - data too short", pubkey);
             continue;
         }
 
@@ -217,28 +169,12 @@ fn find_pending_transfer(
             }
         };
 
-        tracing::info!(
-            "IFT: Checking pending transfer at {}: client_id={}, sequence={} (looking for client={}, seq={})",
-            pubkey,
-            pending.client_id,
-            pending.sequence,
-            client_id,
-            sequence
-        );
-
         // Match by client_id and sequence
         if pending.client_id == client_id && pending.sequence == sequence {
-            tracing::info!(
-                "IFT: MATCH! Found pending transfer at {}: client_id={}, sequence={}",
-                pubkey,
-                pending.client_id,
-                pending.sequence
-            );
             return Ok(Some(pending));
         }
     }
 
-    tracing::info!("IFT: No matching pending transfer found after checking all accounts");
     Ok(None)
 }
 
@@ -274,16 +210,6 @@ fn build_ift_ack_accounts(
 
     // Derive sender's token account (Associated Token Account)
     let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
-
-    // Log derived accounts for debugging
-    tracing::info!(
-        "IFT account derivation: app_state={}, pending_transfer={}, mint={}, mint_authority={}, sender_ata={}",
-        app_state_pda,
-        pending_transfer_pda,
-        mint,
-        mint_authority_pda,
-        sender_token_account
-    );
 
     // Build account list matching IFT's OnAckPacket struct order
     // Note: IFT program ID MUST be included because Solana's invoke() requires
@@ -356,12 +282,6 @@ fn build_ift_ack_accounts(
             is_writable: false,
         },
     ];
-
-    tracing::info!(
-        "Built {} IFT callback accounts for ack packet (mint: {})",
-        accounts.len(),
-        mint
-    );
 
     accounts
 }
