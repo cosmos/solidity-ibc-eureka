@@ -2,7 +2,7 @@
 //!
 //! This module handles extraction of IFT callback accounts for acknowledgement packets.
 //! When GMP packets originate from IFT (sender is IFT program), the relayer needs to
-//! include IFT's on_ack_packet accounts so GMP can forward the acknowledgement.
+//! include IFT's `on_ack_packet` accounts so GMP can forward the acknowledgement.
 
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -43,48 +43,53 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
+/// Parameters for extracting IFT ack callback accounts
+pub struct IftAckParams<'a> {
+    /// The packet source port
+    pub source_port: &'a str,
+    /// The payload encoding type
+    pub encoding: &'a str,
+    /// The raw payload data
+    pub payload_value: &'a [u8],
+    /// The source client ID
+    pub source_client: &'a str,
+    /// The packet sequence number
+    pub sequence: u64,
+    /// RPC client for Solana queries
+    pub solana_client: &'a Arc<RpcClient>,
+    /// ICS26 router program ID
+    pub router_program_id: Pubkey,
+    /// Transaction fee payer
+    pub fee_payer: Pubkey,
+}
+
 /// Extract IFT callback accounts for an ack packet
 ///
 /// When a GMP packet's sender is an IFT program, we need to include additional
 /// accounts so GMP can forward the acknowledgement to IFT for refund processing.
 ///
-/// # Arguments
-/// * `source_port` - The packet source port
-/// * `encoding` - The payload encoding type
-/// * `payload_value` - The raw payload data
-/// * `source_client` - The source client ID
-/// * `sequence` - The packet sequence number
-/// * `solana_client` - RPC client for Solana queries
-/// * `router_program_id` - ICS26 router program ID
-/// * `fee_payer` - Transaction fee payer
+/// # Errors
 ///
-/// # Returns
-/// Vector of IFT callback accounts, or empty vector if not an IFT packet
-pub async fn extract_ift_ack_callback_accounts(
-    source_port: &str,
-    encoding: &str,
-    payload_value: &[u8],
-    source_client: &str,
-    sequence: u64,
-    solana_client: &Arc<RpcClient>,
-    router_program_id: Pubkey,
-    fee_payer: Pubkey,
-) -> Result<Vec<AccountMeta>> {
+/// Returns an error if:
+/// - Failed to query Solana RPC for program accounts
+/// - Failed to deserialize pending transfer account data
+#[allow(clippy::too_many_lines)]
+pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Vec<AccountMeta>> {
     tracing::info!(
         "IFT: extract_ift_ack_callback_accounts called - port={}, encoding={}, client={}, seq={}",
-        source_port,
-        encoding,
-        source_client,
-        sequence
+        params.source_port,
+        params.encoding,
+        params.source_client,
+        params.sequence
     );
 
     // Only process GMP port packets with protobuf encoding
-    if source_port != GMP_PORT_ID || encoding != PROTOBUF_ENCODING {
+    if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
         tracing::info!(
             "IFT: Skipping - not a GMP packet (port={} vs {}, encoding={} vs {})",
-            source_port,
+            params.source_port,
             GMP_PORT_ID,
-            encoding,
+            params.encoding,
             PROTOBUF_ENCODING
         );
         return Ok(Vec::new());
@@ -93,7 +98,7 @@ pub async fn extract_ift_ack_callback_accounts(
     tracing::info!("IFT: Port and encoding match GMP, decoding packet...");
 
     // Decode GMP packet to get sender
-    let gmp_packet = match GmpPacketData::decode_vec(payload_value) {
+    let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
         Ok(packet) => packet,
         Err(e) => {
             tracing::warn!("IFT: Failed to decode GMP packet: {e:?}");
@@ -115,32 +120,36 @@ pub async fn extract_ift_ack_callback_accounts(
     tracing::info!(
         "IFT: Checking if GMP sender {} is an IFT program for sequence {} on client {}",
         sender_program,
-        sequence,
-        source_client
+        params.sequence,
+        params.source_client
     );
 
     // Try to find pending transfer for this (client_id, sequence)
     tracing::info!("IFT: Searching for pending transfer...");
-    let pending_transfer =
-        match find_pending_transfer(solana_client, sender_program, source_client, sequence).await {
-            Ok(Some(pt)) => {
-                tracing::info!("IFT: Found pending transfer!");
-                pt
-            }
-            Ok(None) => {
-                tracing::info!(
-                    "IFT: No pending transfer found for program {}, client={}, seq={}",
-                    sender_program,
-                    source_client,
-                    sequence
-                );
-                return Ok(Vec::new());
-            }
-            Err(e) => {
-                tracing::error!("IFT: Error searching for pending transfer: {e:?}");
-                return Ok(Vec::new());
-            }
-        };
+    let pending_transfer = match find_pending_transfer(
+        params.solana_client,
+        sender_program,
+        params.source_client,
+        params.sequence,
+    ) {
+        Ok(Some(pt)) => {
+            tracing::info!("IFT: Found pending transfer!");
+            pt
+        }
+        Ok(None) => {
+            tracing::info!(
+                "IFT: No pending transfer found for program {}, client={}, seq={}",
+                sender_program,
+                params.source_client,
+                params.sequence
+            );
+            return Ok(Vec::new());
+        }
+        Err(e) => {
+            tracing::error!("IFT: Error searching for pending transfer: {e:?}");
+            return Ok(Vec::new());
+        }
+    };
 
     tracing::info!(
         "Found IFT pending transfer: mint={}, sender={}, amount={}",
@@ -150,19 +159,18 @@ pub async fn extract_ift_ack_callback_accounts(
     );
 
     // Build callback accounts
-    build_ift_ack_accounts(
-        solana_client,
+    Ok(build_ift_ack_accounts(
         sender_program,
         &pending_transfer,
-        source_client,
-        sequence,
-        router_program_id,
-        fee_payer,
-    )
+        params.source_client,
+        params.sequence,
+        params.router_program_id,
+        params.fee_payer,
+    ))
 }
 
-/// Find pending transfer by client_id and sequence
-async fn find_pending_transfer(
+/// Find pending transfer by `client_id` and sequence
+fn find_pending_transfer(
     solana_client: &Arc<RpcClient>,
     ift_program_id: Pubkey,
     client_id: &str,
@@ -188,7 +196,7 @@ async fn find_pending_transfer(
         .into_iter()
         .filter(|(_, account)| {
             account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == &*PENDING_TRANSFER_DISCRIMINATOR
+                && account.data[..ANCHOR_DISCRIMINATOR_SIZE] == *PENDING_TRANSFER_DISCRIMINATOR
         })
         .collect();
 
@@ -234,16 +242,15 @@ async fn find_pending_transfer(
     Ok(None)
 }
 
-/// Build IFT on_ack_packet callback accounts
+/// Build IFT `on_ack_packet` callback accounts
 fn build_ift_ack_accounts(
-    _solana_client: &Arc<RpcClient>,
     ift_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
     client_id: &str,
     sequence: u64,
     router_program_id: Pubkey,
     fee_payer: Pubkey,
-) -> Result<Vec<AccountMeta>> {
+) -> Vec<AccountMeta> {
     let mint = pending_transfer.mint;
 
     // Derive IFT app state PDA
@@ -356,5 +363,5 @@ fn build_ift_ack_accounts(
         mint
     );
 
-    Ok(accounts)
+    accounts
 }

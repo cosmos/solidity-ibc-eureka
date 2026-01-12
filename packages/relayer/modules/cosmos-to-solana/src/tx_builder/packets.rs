@@ -201,55 +201,25 @@ impl super::TxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        tracing::info!(
-            "Building ack packet - about to extract IFT callback accounts for port={}, encoding={}, client={}, seq={}",
+        let ift_accounts = crate::ift::extract_ift_ack_callback_accounts(&crate::ift::IftAckParams {
             source_port,
-            &payload.encoding,
-            &msg.packet.source_client,
+            encoding: &payload.encoding,
+            payload_value: &payload.value,
+            source_client: &msg.packet.source_client,
+            sequence: msg.packet.sequence,
+            solana_client: &self.target_solana_client,
+            router_program_id: self.solana_ics26_program_id,
+            fee_payer: self.fee_payer,
+        })?;
+
+        tracing::debug!(
+            "IFT callback: {} accounts for port={}, client={}, seq={}",
+            ift_accounts.len(),
+            source_port,
+            msg.packet.source_client,
             msg.packet.sequence
         );
-        let ift_accounts = crate::ift::extract_ift_ack_callback_accounts(
-            source_port,
-            &payload.encoding,
-            &payload.value,
-            &msg.packet.source_client,
-            msg.packet.sequence,
-            &self.target_solana_client,
-            self.solana_ics26_program_id,
-            self.fee_payer,
-        )
-        .await?;
-        tracing::info!(
-            "IFT callback accounts extraction returned {} accounts",
-            ift_accounts.len()
-        );
-
-        // Debug: log all IFT callback accounts being added
-        for (i, acc) in ift_accounts.iter().enumerate() {
-            tracing::info!(
-                "IFT callback account[{}]: {} (signer={}, writable={})",
-                i,
-                acc.pubkey,
-                acc.is_signer,
-                acc.is_writable
-            );
-        }
         accounts.extend(ift_accounts);
-
-        // Debug: log total accounts in instruction
-        tracing::info!(
-            "Total accounts in ack_packet instruction: {}",
-            accounts.len()
-        );
-        for (i, acc) in accounts.iter().enumerate() {
-            tracing::info!(
-                "  Account[{}]: {} (signer={}, writable={})",
-                i,
-                acc.pubkey,
-                acc.is_signer,
-                acc.is_writable
-            );
-        }
 
         let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);

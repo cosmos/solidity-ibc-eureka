@@ -19,6 +19,9 @@ use solana_ibc_types::{
 
 use super::transaction::derive_alt_address;
 
+/// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
+type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
+
 /// Maximum accounts that fit in a Solana transaction without ALT
 const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 
@@ -343,11 +346,11 @@ impl super::TxBuilder {
         accounts.len()
     }
 
-    /// Build transaction with ALT support (following update_client pattern)
+    /// Build transaction with ALT support (following `update_client` pattern)
     fn build_tx_with_alt(
         &self,
         instructions: &[Instruction],
-    ) -> Result<(Vec<u8>, Vec<u8>, Vec<Vec<u8>>)> {
+    ) -> Result<AltBuildResult> {
         // Get current slot for ALT derivation
         let slot = self
             .target_solana_client
@@ -369,14 +372,12 @@ impl super::TxBuilder {
 
         // Add all accounts from instructions, but only if they exist on-chain
         for ix in instructions {
-            if !seen.contains(&ix.program_id) {
+            if seen.insert(ix.program_id) {
                 // Program IDs always exist
                 alt_accounts.push(ix.program_id);
-                seen.insert(ix.program_id);
             }
             for acc in &ix.accounts {
-                if !seen.contains(&acc.pubkey) {
-                    seen.insert(acc.pubkey);
+                if seen.insert(acc.pubkey) {
                     // Check if account exists before adding to ALT
                     // Non-existent accounts (signing-only PDAs) will be referenced directly
                     if self.account_exists(&acc.pubkey) {
