@@ -4,6 +4,7 @@
 //! to ensure consistent PDA derivation across the system.
 
 use anchor_lang::prelude::*;
+use borsh::BorshSerialize;
 
 // Re-export from solana-ibc-proto
 pub use solana_ibc_proto::{
@@ -14,7 +15,7 @@ pub use solana_ibc_proto::{
 
 /// Account identifier for GMP accounts
 /// The sha256 hash of this identifier is used for PDA derivation.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, BorshSerialize)]
 pub struct AccountIdentifier {
     pub client_id: ClientId,
     pub sender: Sender,
@@ -31,30 +32,12 @@ impl AccountIdentifier {
         }
     }
 
-    /// Compute sha256 hash of this identifier
+    /// Compute sha256 digest of this identifier
     ///
     /// Uses Borsh serialization to ensure deterministic, collision-resistant encoding.
     /// Borsh automatically length-prefixes variable-length fields (strings use u32 length prefix).
-    pub fn hash(&self) -> [u8; 32] {
-        use borsh::BorshSerialize;
-
-        // Wrapper struct for Borsh serialization
-        // Borsh encodes String as: u32 length + bytes
-        // Borsh encodes Vec<u8> as: u32 length + bytes
-        #[derive(BorshSerialize)]
-        struct Hashable {
-            client_id: String,
-            sender: String,
-            salt: Vec<u8>,
-        }
-
-        let hashable = Hashable {
-            client_id: self.client_id.to_string(),
-            sender: self.sender.to_string(),
-            salt: self.salt.to_vec(),
-        };
-
-        let data = borsh::to_vec(&hashable).expect("borsh serialization cannot fail");
+    pub fn digest(&self) -> [u8; 32] {
+        let data = borsh::to_vec(self).expect("borsh serialization cannot fail");
         solana_sha256_hasher::hash(&data).to_bytes()
     }
 }
@@ -81,7 +64,7 @@ impl GMPAccount {
     pub fn new(client_id: ClientId, sender: Sender, salt: Salt, program_id: &Pubkey) -> Self {
         let account_id = AccountIdentifier::new(client_id, sender, salt);
         let (pda, account_bump) =
-            Pubkey::find_program_address(&[Self::SEED, &account_id.hash()], program_id);
+            Pubkey::find_program_address(&[Self::SEED, &account_id.digest()], program_id);
 
         Self {
             account_id,
@@ -98,7 +81,7 @@ impl GMPAccount {
     /// Create signer seeds for use with invoke_signed
     pub fn to_signer_seeds(&self) -> SignerSeeds {
         SignerSeeds {
-            account_id_hash: self.account_id.hash(),
+            account_id_hash: self.account_id.digest(),
             bump: self.account_bump,
         }
     }
@@ -170,8 +153,8 @@ mod tests {
 
         // With length-prefix fix: these produce DIFFERENT hashes
         assert_ne!(
-            id1.hash(),
-            id2.hash(),
+            id1.digest(),
+            id2.digest(),
             "Different field boundaries must produce different hashes"
         );
     }
@@ -195,8 +178,8 @@ mod tests {
 
         // With length-prefix fix: these produce DIFFERENT hashes
         assert_ne!(
-            id1.hash(),
-            id2.hash(),
+            id1.digest(),
+            id2.digest(),
             "Different sender/salt boundaries must produce different hashes"
         );
     }
@@ -217,8 +200,8 @@ mod tests {
         );
 
         assert_ne!(
-            id1.hash(),
-            id2.hash(),
+            id1.digest(),
+            id2.digest(),
             "Different client_id should produce different hash"
         );
     }

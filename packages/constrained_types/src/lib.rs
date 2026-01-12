@@ -121,6 +121,13 @@ impl<const MIN: usize, const MAX: usize> core::convert::TryFrom<&str>
     }
 }
 
+#[cfg(feature = "borsh")]
+impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedString<MIN, MAX> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        borsh::BorshSerialize::serialize(&self.0, writer)
+    }
+}
+
 /// Generic constrained vector type
 ///
 /// A vector wrapper that enforces minimum and maximum length constraints at compile time.
@@ -195,6 +202,15 @@ impl<T, const MIN: usize, const MAX: usize> core::convert::TryFrom<Vec<T>>
     }
 }
 
+#[cfg(feature = "borsh")]
+impl<T: borsh::BorshSerialize, const MIN: usize, const MAX: usize> borsh::BorshSerialize
+    for ConstrainedVec<T, MIN, MAX>
+{
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        borsh::BorshSerialize::serialize(&self.0, writer)
+    }
+}
+
 /// Generic constrained bytes type
 ///
 /// A byte vector wrapper that enforces minimum and maximum length constraints at compile time.
@@ -262,6 +278,13 @@ impl<const MIN: usize, const MAX: usize> core::convert::TryFrom<&[u8]>
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         Self::new(Vec::from(bytes))
+    }
+}
+
+#[cfg(feature = "borsh")]
+impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        borsh::BorshSerialize::serialize(&self.0, writer)
     }
 }
 

@@ -17,7 +17,7 @@ solana-sha256-hasher.workspace = true
 # This ensures correct version even when built from root workspace context via path dependencies.
 borsh = { version = "0.10.4", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
-ibc-eureka-constrained-types.workspace = true
+ibc-eureka-constrained-types = { workspace = true, features = ["borsh"] }
 solana-ibc-proto = { path = "../solana-ibc-proto" }
 
 # Dependencies for light-client feature

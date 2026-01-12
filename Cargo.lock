@@ -5460,6 +5460,9 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-constrained-types"
 version = "0.1.0"
+dependencies = [
+ "borsh 0.10.4",
+]
 
 [[package]]
 name = "ibc-eureka-relayer"
