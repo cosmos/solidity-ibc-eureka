@@ -201,16 +201,17 @@ impl super::TxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        let ift_accounts = crate::ift::extract_ift_ack_callback_accounts(&crate::ift::IftAckParams {
-            source_port,
-            encoding: &payload.encoding,
-            payload_value: &payload.value,
-            source_client: &msg.packet.source_client,
-            sequence: msg.packet.sequence,
-            solana_client: &self.target_solana_client,
-            router_program_id: self.solana_ics26_program_id,
-            fee_payer: self.fee_payer,
-        })?;
+        let ift_accounts =
+            crate::ift::extract_ift_ack_callback_accounts(&crate::ift::IftAckParams {
+                source_port,
+                encoding: &payload.encoding,
+                payload_value: &payload.value,
+                source_client: &msg.packet.source_client,
+                sequence: msg.packet.sequence,
+                solana_client: &self.target_solana_client,
+                router_program_id: self.solana_ics26_program_id,
+                fee_payer: self.fee_payer,
+            })?;
 
         tracing::debug!(
             "IFT callback: {} accounts for port={}, client={}, seq={}",

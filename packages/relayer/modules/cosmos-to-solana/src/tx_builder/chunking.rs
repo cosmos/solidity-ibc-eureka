@@ -347,10 +347,7 @@ impl super::TxBuilder {
     }
 
     /// Build transaction with ALT support (following `update_client` pattern)
-    fn build_tx_with_alt(
-        &self,
-        instructions: &[Instruction],
-    ) -> Result<AltBuildResult> {
+    fn build_tx_with_alt(&self, instructions: &[Instruction]) -> Result<AltBuildResult> {
         // Get current slot for ALT derivation
         let slot = self
             .target_solana_client
