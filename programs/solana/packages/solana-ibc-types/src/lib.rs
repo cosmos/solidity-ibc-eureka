@@ -46,9 +46,6 @@ pub use events::{
     NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
-// ibc_app_instructions re-exported for backwards compatibility
-pub use ibc_app::ibc_app_instructions;
-
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
     reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,

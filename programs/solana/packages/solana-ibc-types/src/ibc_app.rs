@@ -24,43 +24,12 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_lang::solana_program::program::get_return_data;
-
-use crate::utils::compute_discriminator;
+use solana_ibc_macros::discriminator;
 
 // Re-export message types for convenient imports
 pub use crate::app_msgs::{OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg};
 
 const INSTRUCTION_DATA_CAPACITY: usize = 1024;
-
-/// IBC app callback instruction names and discriminators
-/// These MUST match the function names in your #[ibc_app] module
-pub mod ibc_app_instructions {
-    use crate::utils::compute_discriminator;
-
-    /// Instruction name for receiving packets
-    /// Your #[program] function MUST be named: `on_recv_packet`
-    pub const ON_RECV_PACKET: &str = "on_recv_packet";
-
-    /// Instruction name for acknowledgement callbacks
-    /// Your #[program] function MUST be named: `on_acknowledgement_packet`
-    pub const ON_ACKNOWLEDGEMENT_PACKET: &str = "on_acknowledgement_packet";
-
-    /// Instruction name for timeout callbacks
-    /// Your #[program] function MUST be named: `on_timeout_packet`
-    pub const ON_TIMEOUT_PACKET: &str = "on_timeout_packet";
-
-    pub fn on_recv_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(ON_RECV_PACKET)
-    }
-
-    pub fn on_acknowledgement_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(ON_ACKNOWLEDGEMENT_PACKET)
-    }
-
-    pub fn on_timeout_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(ON_TIMEOUT_PACKET)
-    }
-}
 
 /// Accounts for `on_recv_packet` CPI call
 #[derive(Clone)]
@@ -70,6 +39,10 @@ pub struct OnRecvPacket<'info> {
     pub instructions_sysvar: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
+}
+
+impl OnRecvPacket<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = discriminator!("on_recv_packet");
 }
 
 /// Accounts for `on_acknowledgement_packet` CPI call
@@ -82,6 +55,10 @@ pub struct OnAcknowledgementPacket<'info> {
     pub system_program: AccountInfo<'info>,
 }
 
+impl OnAcknowledgementPacket<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = discriminator!("on_acknowledgement_packet");
+}
+
 /// Accounts for `on_timeout_packet` CPI call
 #[derive(Clone)]
 pub struct OnTimeoutPacket<'info> {
@@ -90,6 +67,10 @@ pub struct OnTimeoutPacket<'info> {
     pub instructions_sysvar: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
+}
+
+impl OnTimeoutPacket<'_> {
+    pub const DISCRIMINATOR: [u8; 8] = discriminator!("on_timeout_packet");
 }
 
 impl<'info> anchor_lang::ToAccountMetas for OnRecvPacket<'info> {
@@ -182,11 +163,7 @@ pub fn on_recv_packet<'info>(
     ctx: CpiContext<'_, '_, '_, 'info, OnRecvPacket<'info>>,
     msg: OnRecvPacketMsg,
 ) -> Result<Vec<u8>> {
-    invoke_ibc_app(
-        &ctx,
-        compute_discriminator(ibc_app_instructions::ON_RECV_PACKET),
-        msg,
-    )?;
+    invoke_ibc_app(&ctx, OnRecvPacket::DISCRIMINATOR, msg)?;
 
     // Get acknowledgement from return data
     match get_return_data() {
@@ -211,11 +188,7 @@ pub fn on_acknowledgement_packet<'info>(
     ctx: CpiContext<'_, '_, '_, 'info, OnAcknowledgementPacket<'info>>,
     msg: OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    invoke_ibc_app(
-        &ctx,
-        compute_discriminator(ibc_app_instructions::ON_ACKNOWLEDGEMENT_PACKET),
-        msg,
-    )
+    invoke_ibc_app(&ctx, OnAcknowledgementPacket::DISCRIMINATOR, msg)
 }
 
 /// Invoke `on_timeout_packet` on an IBC app via CPI.
@@ -234,11 +207,7 @@ pub fn on_timeout_packet<'info>(
     ctx: CpiContext<'_, '_, '_, 'info, OnTimeoutPacket<'info>>,
     msg: OnTimeoutPacketMsg,
 ) -> Result<()> {
-    invoke_ibc_app(
-        &ctx,
-        compute_discriminator(ibc_app_instructions::ON_TIMEOUT_PACKET),
-        msg,
-    )
+    invoke_ibc_app(&ctx, OnTimeoutPacket::DISCRIMINATOR, msg)
 }
 
 fn invoke_ibc_app<'info, T, M>(
