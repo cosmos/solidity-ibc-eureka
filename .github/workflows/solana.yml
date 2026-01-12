@@ -96,6 +96,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-solana-cov-
 
+      - uses: solana-developers/github-actions/setup-all@v0.2.5
+        with:
+          anchor_version: ${{ env.ANCHOR_VERSION }}
+          solana_version: ${{ env.SOLANA_VERSION }}
+
       - name: Install just
         uses: extractions/setup-just@v2
 
