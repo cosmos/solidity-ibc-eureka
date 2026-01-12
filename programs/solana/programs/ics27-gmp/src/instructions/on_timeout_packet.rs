@@ -62,6 +62,14 @@ pub fn on_timeout_packet<'info>(
         .parse()
         .map_err(|_| GMPError::InvalidSender)?;
 
+    // Validate that remaining_accounts[0] is the callback program
+    // This is required because invoke() needs the target program in the account_infos slice
+    let remaining = ctx.remaining_accounts;
+    require!(
+        remaining[0].key() == callback_program,
+        GMPError::AccountKeyMismatch
+    );
+
     // Build instruction data for callback program's on_timeout_packet
     // Uses Anchor's instruction discriminator: sha256("global:on_timeout_packet")[..8]
     let discriminator = solana_sha256_hasher::hash(b"global:on_timeout_packet");
@@ -70,55 +78,17 @@ pub fn on_timeout_packet<'info>(
     // Serialize the OnTimeoutPacketMsg using Anchor's serialization
     msg.serialize(&mut ix_data)?;
 
-    // Build account metas for callback CPI
-    // When Solana deduplicates transaction accounts, standard accounts (router_program,
-    // instruction_sysvar, payer, system_program) end up in GMP's named accounts rather
-    // than remaining_accounts. We need to reconstruct the full account list.
-    //
-    // IBC app callback account layout (e.g., IFT):
-    // [0-4]: App-specific accounts from remaining_accounts
-    // [5]: router_program (from GMP context)
-    // [6]: instruction_sysvar (from GMP context)
-    // [7]: payer (from GMP context)
-    // [8]: token_program or other app account from remaining_accounts
-    // [9]: system_program (from GMP context)
-    let remaining = ctx.remaining_accounts;
-    let mut account_metas: Vec<AccountMeta> = Vec::with_capacity(remaining.len() + 4);
-
-    // First 5 app-specific accounts
-    for acc in remaining.iter().take(5) {
-        account_metas.push(AccountMeta {
+    // Build account metas from remaining_accounts, skipping the callback program at [0]
+    // The callback program is used as instruction.program_id, not in the accounts array
+    let callback_accounts = &remaining[1..];
+    let account_metas: Vec<AccountMeta> = callback_accounts
+        .iter()
+        .map(|acc| AccountMeta {
             pubkey: *acc.key,
             is_signer: acc.is_signer,
             is_writable: acc.is_writable,
-        });
-    }
-
-    // Insert standard IBC accounts at positions 5-7
-    account_metas.push(AccountMeta::new_readonly(
-        *ctx.accounts.router_program.key,
-        false,
-    ));
-    account_metas.push(AccountMeta::new_readonly(
-        *ctx.accounts.instruction_sysvar.key,
-        false,
-    ));
-    account_metas.push(AccountMeta::new(*ctx.accounts.payer.key, true));
-
-    // App-specific accounts after position 7 (e.g., token_program)
-    for acc in remaining.iter().skip(5) {
-        account_metas.push(AccountMeta {
-            pubkey: *acc.key,
-            is_signer: acc.is_signer,
-            is_writable: acc.is_writable,
-        });
-    }
-
-    // system_program at the end
-    account_metas.push(AccountMeta::new_readonly(
-        *ctx.accounts.system_program.key,
-        false,
-    ));
+        })
+        .collect();
 
     let instruction = Instruction {
         program_id: callback_program,
@@ -126,18 +96,8 @@ pub fn on_timeout_packet<'info>(
         data: ix_data,
     };
 
-    // Build combined account infos for invoke - includes both named accounts and remaining
-    // This ensures all pubkeys referenced in account_metas have corresponding AccountInfos
-    let mut all_account_infos: Vec<AccountInfo> = vec![
-        ctx.accounts.router_program.to_account_info(),
-        ctx.accounts.instruction_sysvar.clone(),
-        ctx.accounts.payer.to_account_info(),
-        ctx.accounts.system_program.to_account_info(),
-    ];
-    all_account_infos.extend(remaining.iter().cloned());
-
-    // CPI to callback program
-    invoke(&instruction, &all_account_infos)?;
+    // CPI to callback program - pass remaining_accounts as AccountInfos
+    invoke(&instruction, remaining)?;
 
     Ok(())
 }

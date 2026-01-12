@@ -444,6 +444,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	initialBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
 
+	var solanaPacketTxHash []byte
+	var baseSequence uint64
 	s.Require().True(s.Run("Execute Transfer with Short Timeout", func() {
 		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -451,7 +453,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(IFTPortID))
 		ibcClientPDA, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		baseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		var err error
+		baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
 		s.Require().NoError(err)
 
 		namespacedSequence := solana.CalculateNamespacedSequence(
@@ -468,7 +471,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		solanaClockTime, err := s.SolanaChain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp := solanaClockTime + 120
+		// Use 35 second timeout for faster test execution
+		timeoutTimestamp := solanaClockTime + 35
+		s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeoutTimestamp, solanaClockTime)
 
 		transferMsg := ics27_ift.Ics27IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -504,13 +509,53 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
+
+		solanaPacketTxHash = []byte(sig.String())
+		s.T().Logf("IFT transfer transaction (will timeout): %s", sig)
 	}))
 
 	burnedBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
-	s.Require().Equal(initialBalance-IFTTransferAmount, burnedBalance, "Tokens should be burned")
+	s.Require().Equal(initialBalance-IFTTransferAmount, burnedBalance, "Tokens should be burned after transfer")
+
+	// Sleep for 40 seconds to let the packet timeout (timeout is set to solana_time + 35 seconds)
+	s.T().Log("Sleeping 40 seconds to let packet timeout...")
+	time.Sleep(40 * time.Second)
+
+	simd := s.CosmosChains[0]
+	s.Require().True(s.Run("Relay timeout back to Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:     simd.Config().ChainID,
+			DstChain:     testvalues.SolanaChainID,
+			TimeoutTxIds: [][]byte{solanaPacketTxHash},
+			SrcClientId:  CosmosClientID,
+			DstClientId:  SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Timeout transaction broadcasted: %s", sig)
+
+		s.T().Log("Timeout successfully processed on Solana")
+	}))
+
+	s.Require().True(s.Run("Verify timeout effects", func() {
+		s.Require().True(s.Run("Verify packet commitment deleted", func() {
+			s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+			s.T().Logf("Packet commitment successfully deleted for base sequence %d", baseSequence)
+		}))
+
+		s.Require().True(s.Run("Verify tokens refunded to sender", func() {
+			refundedBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
+			s.Require().NoError(err)
+			s.Require().Equal(initialBalance, refundedBalance, "Tokens should be refunded to sender after timeout")
+			s.T().Logf("Token balance after refund: %d (initial: %d)", refundedBalance, initialBalance)
+		}))
+	}))
 }
 
 // Test_IFT_AckFailureRefund tests that tokens are refunded on acknowledgement failure

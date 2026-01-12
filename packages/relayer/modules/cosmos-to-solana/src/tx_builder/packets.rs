@@ -238,13 +238,41 @@ impl super::TxBuilder {
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = Self::extract_timeout_source_port(msg)?;
-        let accounts = self.build_timeout_accounts_with_derived_keys(
+        let [payload] = msg.packet.payloads.as_slice() else {
+            anyhow::bail!("Expected exactly one timeout packet payload element");
+        };
+        let source_port = &payload.source_port;
+
+        let mut accounts = self.build_timeout_accounts_with_derived_keys(
             chain_id,
             msg,
-            &source_port,
+            source_port,
             chunk_accounts,
         )?;
+
+        // Add IFT callback accounts if this is an IFT transfer timeout
+        let ift_accounts = crate::ift::extract_ift_timeout_callback_accounts(
+            &crate::ift::IftCallbackParams {
+                source_port,
+                encoding: &payload.encoding,
+                payload_value: &payload.value,
+                source_client: &msg.packet.source_client,
+                sequence: msg.packet.sequence,
+                solana_client: &self.target_solana_client,
+                router_program_id: self.solana_ics26_program_id,
+                fee_payer: self.fee_payer,
+            },
+        )?;
+
+        tracing::debug!(
+            "IFT timeout callback: {} accounts for port={}, client={}, seq={}",
+            ift_accounts.len(),
+            source_port,
+            msg.packet.source_client,
+            msg.packet.sequence
+        );
+        accounts.extend(ift_accounts);
+
         let data = Self::build_timeout_instruction_data(msg)?;
 
         Ok(Instruction {
@@ -252,13 +280,6 @@ impl super::TxBuilder {
             accounts,
             data,
         })
-    }
-
-    pub(crate) fn extract_timeout_source_port(msg: &MsgTimeoutPacket) -> Result<String> {
-        let [payload] = msg.packet.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one timeout packet payload element");
-        };
-        Ok(payload.source_port.clone())
     }
 
     pub(crate) fn build_timeout_accounts_with_derived_keys(

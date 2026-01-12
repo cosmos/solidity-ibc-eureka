@@ -1,8 +1,8 @@
 //! IFT (Inter-chain Fungible Token) callback account extraction utilities
 //!
-//! This module handles extraction of IFT callback accounts for acknowledgement packets.
+//! This module handles extraction of IFT callback accounts for acknowledgement and timeout packets.
 //! When GMP packets originate from IFT (sender is IFT program), the relayer needs to
-//! include IFT's `on_ack_packet` accounts so GMP can forward the acknowledgement.
+//! include IFT's callback accounts so GMP can forward the ack/timeout to IFT for refund processing.
 
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -43,8 +43,8 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
-/// Parameters for extracting IFT ack callback accounts
-pub struct IftAckParams<'a> {
+/// Parameters for extracting IFT callback accounts (used for both ack and timeout)
+pub struct IftCallbackParams<'a> {
     /// The packet source port
     pub source_port: &'a str,
     /// The payload encoding type
@@ -63,6 +63,9 @@ pub struct IftAckParams<'a> {
     pub fee_payer: Pubkey,
 }
 
+/// Type alias for backwards compatibility
+pub type IftAckParams<'a> = IftCallbackParams<'a>;
+
 /// Extract IFT callback accounts for an ack packet
 ///
 /// When a GMP packet's sender is an IFT program, we need to include additional
@@ -73,8 +76,28 @@ pub struct IftAckParams<'a> {
 /// Returns an error if:
 /// - Failed to query Solana RPC for program accounts
 /// - Failed to deserialize pending transfer account data
-#[allow(clippy::too_many_lines)]
 pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Vec<AccountMeta>> {
+    extract_ift_callback_accounts(params)
+}
+
+/// Extract IFT callback accounts for a timeout packet
+///
+/// When a GMP packet's sender is an IFT program, we need to include additional
+/// accounts so GMP can forward the timeout to IFT for refund processing.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Failed to query Solana RPC for program accounts
+/// - Failed to deserialize pending transfer account data
+pub fn extract_ift_timeout_callback_accounts(
+    params: &IftCallbackParams<'_>,
+) -> Result<Vec<AccountMeta>> {
+    extract_ift_callback_accounts(params)
+}
+
+/// Common implementation for extracting IFT callback accounts (ack and timeout share the same accounts)
+fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<AccountMeta>> {
     // Only process GMP port packets with protobuf encoding
     if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
         return Ok(Vec::new());
@@ -122,8 +145,8 @@ pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Ve
         pending_transfer.amount
     );
 
-    // Build callback accounts
-    Ok(build_ift_ack_accounts(
+    // Build callback accounts (same for both ack and timeout)
+    Ok(build_ift_callback_accounts(
         sender_program,
         &pending_transfer,
         params.source_client,
@@ -178,8 +201,8 @@ fn find_pending_transfer(
     Ok(None)
 }
 
-/// Build IFT `on_ack_packet` callback accounts
-fn build_ift_ack_accounts(
+/// Build IFT callback accounts (same for both `on_ack_packet` and `on_timeout_packet`)
+fn build_ift_callback_accounts(
     ift_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
     client_id: &str,
