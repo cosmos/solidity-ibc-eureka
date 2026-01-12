@@ -227,11 +227,12 @@ func (b *funcNameBuilder) build() string {
 	hasArg := b.hasArgSeed()
 	hasAccount := b.hasAccountSeed()
 
-	if hasArg && hasAccount {
+	switch {
+	case hasArg && hasAccount:
 		baseName += "WithArgAndAccountSeed"
-	} else if hasArg {
+	case hasArg:
 		baseName += "WithArgSeed"
-	} else if hasAccount {
+	case hasAccount:
 		baseName += "WithAccountSeed"
 	}
 
