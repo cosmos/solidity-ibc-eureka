@@ -15,25 +15,18 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
-	case Event_DummyIbcAppInstructionsSendPacketDummyAppPacketSent:
-		value := new(DummyIbcAppInstructionsSendPacketDummyAppPacketSent)
+	case Event_DummyIbcAppInstructionsSendPacketPacketSent:
+		value := new(DummyIbcAppInstructionsSendPacketPacketSent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppInstructionsSendPacketDummyAppPacketSent: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppInstructionsSendPacketPacketSent: %w", err)
 		}
 		return value, nil
-	case Event_DummyIbcAppStateDummyAppPacketAcknowledged:
-		value := new(DummyIbcAppStateDummyAppPacketAcknowledged)
+	case Event_DummyIbcAppStatePacketAcknowledged:
+		value := new(DummyIbcAppStatePacketAcknowledged)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppStateDummyAppPacketAcknowledged: %w", err)
-		}
-		return value, nil
-	case Event_DummyIbcAppStateDummyAppPacketTimedOut:
-		value := new(DummyIbcAppStateDummyAppPacketTimedOut)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppStateDummyAppPacketTimedOut: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppStatePacketAcknowledged: %w", err)
 		}
 		return value, nil
 	case Event_DummyIbcAppStatePacketReceived:
@@ -41,6 +34,13 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppStatePacketReceived: %w", err)
+		}
+		return value, nil
+	case Event_DummyIbcAppStatePacketTimedOut:
+		value := new(DummyIbcAppStatePacketTimedOut)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as DummyIbcAppStatePacketTimedOut: %w", err)
 		}
 		return value, nil
 	case Event_DummyIbcAppStateTransferSent:
@@ -55,53 +55,36 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 	}
 }
 
-func ParseEvent_DummyIbcAppInstructionsSendPacketDummyAppPacketSent(eventData []byte) (*DummyIbcAppInstructionsSendPacketDummyAppPacketSent, error) {
+func ParseEvent_DummyIbcAppInstructionsSendPacketPacketSent(eventData []byte) (*DummyIbcAppInstructionsSendPacketPacketSent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_DummyIbcAppInstructionsSendPacketDummyAppPacketSent {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppInstructionsSendPacketDummyAppPacketSent, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_DummyIbcAppInstructionsSendPacketPacketSent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppInstructionsSendPacketPacketSent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(DummyIbcAppInstructionsSendPacketDummyAppPacketSent)
+	event := new(DummyIbcAppInstructionsSendPacketPacketSent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppInstructionsSendPacketDummyAppPacketSent: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppInstructionsSendPacketPacketSent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_DummyIbcAppStateDummyAppPacketAcknowledged(eventData []byte) (*DummyIbcAppStateDummyAppPacketAcknowledged, error) {
+func ParseEvent_DummyIbcAppStatePacketAcknowledged(eventData []byte) (*DummyIbcAppStatePacketAcknowledged, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_DummyIbcAppStateDummyAppPacketAcknowledged {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppStateDummyAppPacketAcknowledged, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_DummyIbcAppStatePacketAcknowledged {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppStatePacketAcknowledged, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(DummyIbcAppStateDummyAppPacketAcknowledged)
+	event := new(DummyIbcAppStatePacketAcknowledged)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppStateDummyAppPacketAcknowledged: %w", err)
-	}
-	return event, nil
-}
-
-func ParseEvent_DummyIbcAppStateDummyAppPacketTimedOut(eventData []byte) (*DummyIbcAppStateDummyAppPacketTimedOut, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_DummyIbcAppStateDummyAppPacketTimedOut {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppStateDummyAppPacketTimedOut, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(DummyIbcAppStateDummyAppPacketTimedOut)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppStateDummyAppPacketTimedOut: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppStatePacketAcknowledged: %w", err)
 	}
 	return event, nil
 }
@@ -119,6 +102,23 @@ func ParseEvent_DummyIbcAppStatePacketReceived(eventData []byte) (*DummyIbcAppSt
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppStatePacketReceived: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_DummyIbcAppStatePacketTimedOut(eventData []byte) (*DummyIbcAppStatePacketTimedOut, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_DummyIbcAppStatePacketTimedOut {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_DummyIbcAppStatePacketTimedOut, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(DummyIbcAppStatePacketTimedOut)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type DummyIbcAppStatePacketTimedOut: %w", err)
 	}
 	return event, nil
 }

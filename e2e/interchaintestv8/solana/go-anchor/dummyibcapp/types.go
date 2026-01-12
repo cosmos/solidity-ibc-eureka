@@ -11,7 +11,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-type DummyIbcAppInstructionsSendPacketDummyAppPacketSent struct {
+type DummyIbcAppInstructionsSendPacketPacketSent struct {
 	Sequence     uint64 `json:"sequence"`
 	SourceClient string `json:"sourceClient"`
 	SourcePort   string `json:"sourcePort"`
@@ -19,7 +19,7 @@ type DummyIbcAppInstructionsSendPacketDummyAppPacketSent struct {
 	DataLength   uint64 `json:"dataLength"`
 }
 
-func (obj DummyIbcAppInstructionsSendPacketDummyAppPacketSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj DummyIbcAppInstructionsSendPacketPacketSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `Sequence`:
 	err = encoder.Encode(obj.Sequence)
 	if err != nil {
@@ -48,17 +48,17 @@ func (obj DummyIbcAppInstructionsSendPacketDummyAppPacketSent) MarshalWithEncode
 	return nil
 }
 
-func (obj DummyIbcAppInstructionsSendPacketDummyAppPacketSent) Marshal() ([]byte, error) {
+func (obj DummyIbcAppInstructionsSendPacketPacketSent) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding DummyIbcAppInstructionsSendPacketDummyAppPacketSent: %w", err)
+		return nil, fmt.Errorf("error while encoding DummyIbcAppInstructionsSendPacketPacketSent: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *DummyIbcAppInstructionsSendPacketDummyAppPacketSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *DummyIbcAppInstructionsSendPacketPacketSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `Sequence`:
 	err = decoder.Decode(&obj.Sequence)
 	if err != nil {
@@ -87,16 +87,16 @@ func (obj *DummyIbcAppInstructionsSendPacketDummyAppPacketSent) UnmarshalWithDec
 	return nil
 }
 
-func (obj *DummyIbcAppInstructionsSendPacketDummyAppPacketSent) Unmarshal(buf []byte) error {
+func (obj *DummyIbcAppInstructionsSendPacketPacketSent) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling DummyIbcAppInstructionsSendPacketDummyAppPacketSent: %w", err)
+		return fmt.Errorf("error while unmarshaling DummyIbcAppInstructionsSendPacketPacketSent: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalDummyIbcAppInstructionsSendPacketDummyAppPacketSent(buf []byte) (*DummyIbcAppInstructionsSendPacketDummyAppPacketSent, error) {
-	obj := new(DummyIbcAppInstructionsSendPacketDummyAppPacketSent)
+func UnmarshalDummyIbcAppInstructionsSendPacketPacketSent(buf []byte) (*DummyIbcAppInstructionsSendPacketPacketSent, error) {
+	obj := new(DummyIbcAppInstructionsSendPacketPacketSent)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -362,159 +362,6 @@ func UnmarshalDummyIbcAppInstructionsSendTransferSendTransferMsg(buf []byte) (*D
 	return obj, nil
 }
 
-type DummyIbcAppStateDummyAppPacketAcknowledged struct {
-	SourceClient    string `json:"sourceClient"`
-	DestClient      string `json:"destClient"`
-	Sequence        uint64 `json:"sequence"`
-	Acknowledgement []byte `json:"acknowledgement"`
-}
-
-func (obj DummyIbcAppStateDummyAppPacketAcknowledged) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj DummyIbcAppStateDummyAppPacketAcknowledged) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding DummyIbcAppStateDummyAppPacketAcknowledged: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *DummyIbcAppStateDummyAppPacketAcknowledged) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
-	}
-	return nil
-}
-
-func (obj *DummyIbcAppStateDummyAppPacketAcknowledged) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling DummyIbcAppStateDummyAppPacketAcknowledged: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalDummyIbcAppStateDummyAppPacketAcknowledged(buf []byte) (*DummyIbcAppStateDummyAppPacketAcknowledged, error) {
-	obj := new(DummyIbcAppStateDummyAppPacketAcknowledged)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-type DummyIbcAppStateDummyAppPacketTimedOut struct {
-	SourceClient string `json:"sourceClient"`
-	DestClient   string `json:"destClient"`
-	Sequence     uint64 `json:"sequence"`
-}
-
-func (obj DummyIbcAppStateDummyAppPacketTimedOut) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourceClient`:
-	err = encoder.Encode(obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Serialize `DestClient`:
-	err = encoder.Encode(obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Serialize `Sequence`:
-	err = encoder.Encode(obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	return nil
-}
-
-func (obj DummyIbcAppStateDummyAppPacketTimedOut) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding DummyIbcAppStateDummyAppPacketTimedOut: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *DummyIbcAppStateDummyAppPacketTimedOut) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourceClient`:
-	err = decoder.Decode(&obj.SourceClient)
-	if err != nil {
-		return errors.NewField("SourceClient", err)
-	}
-	// Deserialize `DestClient`:
-	err = decoder.Decode(&obj.DestClient)
-	if err != nil {
-		return errors.NewField("DestClient", err)
-	}
-	// Deserialize `Sequence`:
-	err = decoder.Decode(&obj.Sequence)
-	if err != nil {
-		return errors.NewField("Sequence", err)
-	}
-	return nil
-}
-
-func (obj *DummyIbcAppStateDummyAppPacketTimedOut) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling DummyIbcAppStateDummyAppPacketTimedOut: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalDummyIbcAppStateDummyAppPacketTimedOut(buf []byte) (*DummyIbcAppStateDummyAppPacketTimedOut, error) {
-	obj := new(DummyIbcAppStateDummyAppPacketTimedOut)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Dummy IBC App state
 type DummyIbcAppStateDummyIbcAppState struct {
 	// Authority that can perform restricted operations
@@ -708,6 +555,88 @@ func UnmarshalDummyIbcAppStateEscrowState(buf []byte) (*DummyIbcAppStateEscrowSt
 	return obj, nil
 }
 
+type DummyIbcAppStatePacketAcknowledged struct {
+	SourceClient    string `json:"sourceClient"`
+	DestClient      string `json:"destClient"`
+	Sequence        uint64 `json:"sequence"`
+	Acknowledgement []byte `json:"acknowledgement"`
+}
+
+func (obj DummyIbcAppStatePacketAcknowledged) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Acknowledgement`:
+	err = encoder.Encode(obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	return nil
+}
+
+func (obj DummyIbcAppStatePacketAcknowledged) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding DummyIbcAppStatePacketAcknowledged: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *DummyIbcAppStatePacketAcknowledged) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Acknowledgement`:
+	err = decoder.Decode(&obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	return nil
+}
+
+func (obj *DummyIbcAppStatePacketAcknowledged) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling DummyIbcAppStatePacketAcknowledged: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalDummyIbcAppStatePacketAcknowledged(buf []byte) (*DummyIbcAppStatePacketAcknowledged, error) {
+	obj := new(DummyIbcAppStatePacketAcknowledged)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Events
 type DummyIbcAppStatePacketReceived struct {
 	SourceClient    string `json:"sourceClient"`
@@ -784,6 +713,77 @@ func (obj *DummyIbcAppStatePacketReceived) Unmarshal(buf []byte) error {
 
 func UnmarshalDummyIbcAppStatePacketReceived(buf []byte) (*DummyIbcAppStatePacketReceived, error) {
 	obj := new(DummyIbcAppStatePacketReceived)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type DummyIbcAppStatePacketTimedOut struct {
+	SourceClient string `json:"sourceClient"`
+	DestClient   string `json:"destClient"`
+	Sequence     uint64 `json:"sequence"`
+}
+
+func (obj DummyIbcAppStatePacketTimedOut) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	return nil
+}
+
+func (obj DummyIbcAppStatePacketTimedOut) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding DummyIbcAppStatePacketTimedOut: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *DummyIbcAppStatePacketTimedOut) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	return nil
+}
+
+func (obj *DummyIbcAppStatePacketTimedOut) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling DummyIbcAppStatePacketTimedOut: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalDummyIbcAppStatePacketTimedOut(buf []byte) (*DummyIbcAppStatePacketTimedOut, error) {
+	obj := new(DummyIbcAppStatePacketTimedOut)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

@@ -132,7 +132,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     app_state.packets_sent = app_state.packets_sent.saturating_add(1);
 
     // Emit event for tracking
-    emit!(DummyAppPacketSent {
+    emit!(PacketSent {
         sequence,
         source_client: msg.source_client.clone(),
         source_port: msg.source_port.clone(),
@@ -152,7 +152,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
 }
 
 #[event]
-pub struct DummyAppPacketSent {
+pub struct PacketSent {
     pub sequence: u64,
     pub source_client: String,
     pub source_port: String,
