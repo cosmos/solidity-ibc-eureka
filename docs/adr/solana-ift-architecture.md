@@ -205,7 +205,7 @@ IFT maintains its own mint authority and doesn't delegate token control to GMP P
 
 GMP routes timeout/ack callbacks to IFT via implicit sender detection (see [GMP ADR](./solana-ics27-gmp-architecture.md#packet-lifecycle-callbacks) for mechanism details).
 
-IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure.
+IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure. These handlers accept CPI calls from both Router (direct) and GMP (for forwarded callbacks):
 
 ## Performance (TO UPDATE POST TESTING)
 
