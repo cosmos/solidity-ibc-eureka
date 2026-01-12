@@ -9905,6 +9905,16 @@ name = "solana-ibc-constants"
 version = "0.1.0"
 
 [[package]]
+name = "solana-ibc-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.9",
+ "syn 2.0.111",
+]
+
+[[package]]
 name = "solana-ibc-proto"
 version = "0.1.0"
 dependencies = [
@@ -9927,6 +9937,7 @@ dependencies = [
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",
+ "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-sha256-hasher",
  "tendermint",
