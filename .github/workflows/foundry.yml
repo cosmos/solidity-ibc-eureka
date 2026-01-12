@@ -24,7 +24,7 @@ jobs:
         run: bun run lint:sol
 
       -- TODO: update original repo
-      - uses: vaporif/natlint@drop-forge-fmt
+      - uses: srdtrk/natlint@main
         with:
           include: 'contracts/**/*.sol'
 
