@@ -18,4 +18,5 @@ solana-pubkey.workspace = true
 solana-sha256-hasher.workspace = true
 solana-keccak-hasher.workspace = true
 solana-msg.workspace = true
+solana-ibc-types = { path = "../../../programs/solana/packages/solana-ibc-types" }
 
