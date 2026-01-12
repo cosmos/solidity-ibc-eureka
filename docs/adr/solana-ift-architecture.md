@@ -80,28 +80,38 @@ WSOL (Wrapped SOL) is intentionally not supported because:
 ```rust
 // IFT App State - one per token
 pub struct IFTAppState {
+    pub version: AccountVersion,
+    pub bump: u8,
     pub mint: Pubkey,                    // Token mint address
     pub mint_authority_bump: u8,         // PDA bump for signing
     pub access_manager: Pubkey,          // Role-based access control
     pub gmp_program: Pubkey,             // ICS27-GMP program
+    pub _reserved: [u8; 128],
 }
 
 // IFT Bridge - one per destination chain
 pub struct IFTBridge {
+    pub version: AccountVersion,
+    pub bump: u8,
     pub mint: Pubkey,
-    pub client_id: String,               // IBC client (e.g., "07-tendermint-0")
-    pub counterparty_ift_address: String,// IFT contract on destination
-    pub counterparty_chain_type: ChainType,
+    pub client_id: String,               // IBC client (max 64)
+    pub counterparty_ift_address: String,// IFT contract on destination (max 128)
+    pub counterparty_chain_type: CounterpartyChainType,
     pub active: bool,
+    pub _reserved: [u8; 64],
 }
 
 // Pending Transfer - tracks in-flight transfers for refunds
 pub struct PendingTransfer {
+    pub version: AccountVersion,
+    pub bump: u8,
     pub mint: Pubkey,
-    pub sender: Pubkey,
-    pub amount: u64,
-    pub client_id: String,
+    pub client_id: String,               // max 64
     pub sequence: u64,
+    pub sender: Pubkey,                  // Original sender (for refunds)
+    pub amount: u64,                     // Amount transferred (for refunds)
+    pub timestamp: i64,
+    pub _reserved: [u8; 32],
 }
 ```
 
