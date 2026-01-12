@@ -15,8 +15,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN cargo build --release --locked --bin relayer && \
-    cargo build --release --locked --bin ibc_attestor
+RUN cargo build --release --locked --bin relayer
 
 FROM gcr.io/distroless/cc-debian12:debug
 
@@ -28,12 +27,9 @@ COPY --from=build /etc/ssl/certs /etc/ssl/certs
 
 COPY --from=build /src/target/release/relayer /usr/local/bin/relayer
 
-COPY --from=build /src/target/release/ibc_attestor /usr/local/bin/ibc_attestor
-
 # 3000 is the relayer port
 # 9000 is the relayer metrics port
 # 8081 is the relayer grpc web port
-# 8080 is the attestor port
-EXPOSE 3000 9000 8081 8080
+EXPOSE 3000 9000 8081
 
 ENTRYPOINT [ "sh", "/entrypoint.sh" ]

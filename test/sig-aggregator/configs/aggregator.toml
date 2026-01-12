@@ -6,9 +6,9 @@ log_level = "INFO"
 attestor_query_timeout_ms = 5000
 quorum_threshold = 2
 attestor_endpoints = [
-    "http://ibc-attestor-1:9000",
-    "http://ibc-attestor-2:9001",
-    "http://ibc-attestor-3:9002",
+    "http://attestor-1:9000",
+    "http://attestor-2:9001",
+    "http://attestor-3:9002",
 ]
 
 [cache]

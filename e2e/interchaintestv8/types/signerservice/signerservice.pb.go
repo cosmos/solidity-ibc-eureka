@@ -474,6 +474,7 @@ type SignRequest struct {
 	//	*SignRequest_CosmosTransaction
 	//	*SignRequest_RawMessage
 	//	*SignRequest_SolanaTransaction
+	//	*SignRequest_RecoverableMessage
 	Payload       isSignRequest_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -559,6 +560,15 @@ func (x *SignRequest) GetSolanaTransaction() *SolanaTransaction {
 	return nil
 }
 
+func (x *SignRequest) GetRecoverableMessage() *RecoverableMessage {
+	if x != nil {
+		if x, ok := x.Payload.(*SignRequest_RecoverableMessage); ok {
+			return x.RecoverableMessage
+		}
+	}
+	return nil
+}
+
 type isSignRequest_Payload interface {
 	isSignRequest_Payload()
 }
@@ -579,6 +589,10 @@ type SignRequest_SolanaTransaction struct {
 	SolanaTransaction *SolanaTransaction `protobuf:"bytes,5,opt,name=solana_transaction,json=solanaTransaction,proto3,oneof"`
 }
 
+type SignRequest_RecoverableMessage struct {
+	RecoverableMessage *RecoverableMessage `protobuf:"bytes,6,opt,name=recoverable_message,json=recoverableMessage,proto3,oneof"`
+}
+
 func (*SignRequest_EvmTransaction) isSignRequest_Payload() {}
 
 func (*SignRequest_CosmosTransaction) isSignRequest_Payload() {}
@@ -586,6 +600,8 @@ func (*SignRequest_CosmosTransaction) isSignRequest_Payload() {}
 func (*SignRequest_RawMessage) isSignRequest_Payload() {}
 
 func (*SignRequest_SolanaTransaction) isSignRequest_Payload() {}
+
+func (*SignRequest_RecoverableMessage) isSignRequest_Payload() {}
 
 type SignResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -595,6 +611,7 @@ type SignResponse struct {
 	//	*SignResponse_CosmosSignature
 	//	*SignResponse_RawSignature
 	//	*SignResponse_SolanaSignature
+	//	*SignResponse_RecoverableSignature
 	Signature     isSignResponse_Signature `protobuf_oneof:"signature"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -673,6 +690,15 @@ func (x *SignResponse) GetSolanaSignature() *SolanaTransactionSignature {
 	return nil
 }
 
+func (x *SignResponse) GetRecoverableSignature() *RecoverableMessageSignature {
+	if x != nil {
+		if x, ok := x.Signature.(*SignResponse_RecoverableSignature); ok {
+			return x.RecoverableSignature
+		}
+	}
+	return nil
+}
+
 type isSignResponse_Signature interface {
 	isSignResponse_Signature()
 }
@@ -693,6 +719,10 @@ type SignResponse_SolanaSignature struct {
 	SolanaSignature *SolanaTransactionSignature `protobuf:"bytes,4,opt,name=solana_signature,json=solanaSignature,proto3,oneof"`
 }
 
+type SignResponse_RecoverableSignature struct {
+	RecoverableSignature *RecoverableMessageSignature `protobuf:"bytes,5,opt,name=recoverable_signature,json=recoverableSignature,proto3,oneof"`
+}
+
 func (*SignResponse_EvmSignature) isSignResponse_Signature() {}
 
 func (*SignResponse_CosmosSignature) isSignResponse_Signature() {}
@@ -700,6 +730,8 @@ func (*SignResponse_CosmosSignature) isSignResponse_Signature() {}
 func (*SignResponse_RawSignature) isSignResponse_Signature() {}
 
 func (*SignResponse_SolanaSignature) isSignResponse_Signature() {}
+
+func (*SignResponse_RecoverableSignature) isSignResponse_Signature() {}
 
 type EvmTransaction struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1077,6 +1109,110 @@ func (x *SolanaTransaction) GetTransaction() string {
 	return ""
 }
 
+type RecoverableMessage struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       []byte                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecoverableMessage) Reset() {
+	*x = RecoverableMessage{}
+	mi := &file_signer_signerservice_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoverableMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoverableMessage) ProtoMessage() {}
+
+func (x *RecoverableMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_signer_signerservice_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoverableMessage.ProtoReflect.Descriptor instead.
+func (*RecoverableMessage) Descriptor() ([]byte, []int) {
+	return file_signer_signerservice_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RecoverableMessage) GetMessage() []byte {
+	if x != nil {
+		return x.Message
+	}
+	return nil
+}
+
+type RecoverableMessageSignature struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	R             []byte                 `protobuf:"bytes,1,opt,name=r,proto3" json:"r,omitempty"`
+	S             []byte                 `protobuf:"bytes,2,opt,name=s,proto3" json:"s,omitempty"`
+	V             []byte                 `protobuf:"bytes,3,opt,name=v,proto3" json:"v,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecoverableMessageSignature) Reset() {
+	*x = RecoverableMessageSignature{}
+	mi := &file_signer_signerservice_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecoverableMessageSignature) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecoverableMessageSignature) ProtoMessage() {}
+
+func (x *RecoverableMessageSignature) ProtoReflect() protoreflect.Message {
+	mi := &file_signer_signerservice_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecoverableMessageSignature.ProtoReflect.Descriptor instead.
+func (*RecoverableMessageSignature) Descriptor() ([]byte, []int) {
+	return file_signer_signerservice_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RecoverableMessageSignature) GetR() []byte {
+	if x != nil {
+		return x.R
+	}
+	return nil
+}
+
+func (x *RecoverableMessageSignature) GetS() []byte {
+	if x != nil {
+		return x.S
+	}
+	return nil
+}
+
+func (x *RecoverableMessageSignature) GetV() []byte {
+	if x != nil {
+		return x.V
+	}
+	return nil
+}
+
 var File_signer_signerservice_proto protoreflect.FileDescriptor
 
 const file_signer_signerservice_proto_rawDesc = "" +
@@ -1103,20 +1239,22 @@ const file_signer_signerservice_proto_rawDesc = "" +
 	"\x06wallet\x18\x01 \x01(\v2\x15.signerservice.WalletR\x06wallet\"\x13\n" +
 	"\x11GetWalletsRequest\"E\n" +
 	"\x12GetWalletsResponse\x12/\n" +
-	"\awallets\x18\x01 \x03(\v2\x15.signerservice.WalletR\awallets\"\xe3\x02\n" +
+	"\awallets\x18\x01 \x03(\v2\x15.signerservice.WalletR\awallets\"\xb9\x03\n" +
 	"\vSignRequest\x12\x1b\n" +
 	"\twallet_id\x18\x01 \x01(\tR\bwalletId\x12H\n" +
 	"\x0fevm_transaction\x18\x02 \x01(\v2\x1d.signerservice.EvmTransactionH\x00R\x0eevmTransaction\x12Q\n" +
 	"\x12cosmos_transaction\x18\x03 \x01(\v2 .signerservice.CosmosTransactionH\x00R\x11cosmosTransaction\x12<\n" +
 	"\vraw_message\x18\x04 \x01(\v2\x19.signerservice.RawMessageH\x00R\n" +
 	"rawMessage\x12Q\n" +
-	"\x12solana_transaction\x18\x05 \x01(\v2 .signerservice.SolanaTransactionH\x00R\x11solanaTransactionB\t\n" +
-	"\apayload\"\xe5\x02\n" +
+	"\x12solana_transaction\x18\x05 \x01(\v2 .signerservice.SolanaTransactionH\x00R\x11solanaTransaction\x12T\n" +
+	"\x13recoverable_message\x18\x06 \x01(\v2!.signerservice.RecoverableMessageH\x00R\x12recoverableMessageB\t\n" +
+	"\apayload\"\xc8\x03\n" +
 	"\fSignResponse\x12M\n" +
 	"\revm_signature\x18\x01 \x01(\v2&.signerservice.EvmTransactionSignatureH\x00R\fevmSignature\x12V\n" +
 	"\x10cosmos_signature\x18\x02 \x01(\v2).signerservice.CosmosTransactionSignatureH\x00R\x0fcosmosSignature\x12I\n" +
 	"\rraw_signature\x18\x03 \x01(\v2\".signerservice.RawMessageSignatureH\x00R\frawSignature\x12V\n" +
-	"\x10solana_signature\x18\x04 \x01(\v2).signerservice.SolanaTransactionSignatureH\x00R\x0fsolanaSignatureB\v\n" +
+	"\x10solana_signature\x18\x04 \x01(\v2).signerservice.SolanaTransactionSignatureH\x00R\x0fsolanaSignature\x12a\n" +
+	"\x15recoverable_signature\x18\x05 \x01(\v2*.signerservice.RecoverableMessageSignatureH\x00R\x14recoverableSignatureB\v\n" +
 	"\tsignature\"F\n" +
 	"\x0eEvmTransaction\x12\x19\n" +
 	"\bchain_id\x18\x01 \x01(\tR\achainId\x12\x19\n" +
@@ -1137,7 +1275,13 @@ const file_signer_signerservice_proto_rawDesc = "" +
 	"\x1aSolanaTransactionSignature\x12\x1c\n" +
 	"\tsignature\x18\x01 \x01(\fR\tsignature\"5\n" +
 	"\x11SolanaTransaction\x12 \n" +
-	"\vtransaction\x18\x01 \x01(\tR\vtransaction*;\n" +
+	"\vtransaction\x18\x01 \x01(\tR\vtransaction\".\n" +
+	"\x12RecoverableMessage\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\fR\amessage\"G\n" +
+	"\x1bRecoverableMessageSignature\x12\f\n" +
+	"\x01r\x18\x01 \x01(\fR\x01r\x12\f\n" +
+	"\x01s\x18\x02 \x01(\fR\x01s\x12\f\n" +
+	"\x01v\x18\x03 \x01(\fR\x01v*;\n" +
 	"\n" +
 	"PubKeyType\x12\a\n" +
 	"\x03Raw\x10\x00\x12\n" +
@@ -1167,27 +1311,29 @@ func file_signer_signerservice_proto_rawDescGZIP() []byte {
 }
 
 var file_signer_signerservice_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_signer_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_signer_signerservice_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_signer_signerservice_proto_goTypes = []any{
-	(PubKeyType)(0),                    // 0: signerservice.PubKeyType
-	(*Chain)(nil),                      // 1: signerservice.Chain
-	(*GetChainsRequest)(nil),           // 2: signerservice.GetChainsRequest
-	(*GetChainsResponse)(nil),          // 3: signerservice.GetChainsResponse
-	(*Wallet)(nil),                     // 4: signerservice.Wallet
-	(*GetWalletRequest)(nil),           // 5: signerservice.GetWalletRequest
-	(*GetWalletResponse)(nil),          // 6: signerservice.GetWalletResponse
-	(*GetWalletsRequest)(nil),          // 7: signerservice.GetWalletsRequest
-	(*GetWalletsResponse)(nil),         // 8: signerservice.GetWalletsResponse
-	(*SignRequest)(nil),                // 9: signerservice.SignRequest
-	(*SignResponse)(nil),               // 10: signerservice.SignResponse
-	(*EvmTransaction)(nil),             // 11: signerservice.EvmTransaction
-	(*EvmTransactionSignature)(nil),    // 12: signerservice.EvmTransactionSignature
-	(*CosmosTransaction)(nil),          // 13: signerservice.CosmosTransaction
-	(*CosmosTransactionSignature)(nil), // 14: signerservice.CosmosTransactionSignature
-	(*RawMessage)(nil),                 // 15: signerservice.RawMessage
-	(*RawMessageSignature)(nil),        // 16: signerservice.RawMessageSignature
-	(*SolanaTransactionSignature)(nil), // 17: signerservice.SolanaTransactionSignature
-	(*SolanaTransaction)(nil),          // 18: signerservice.SolanaTransaction
+	(PubKeyType)(0),                     // 0: signerservice.PubKeyType
+	(*Chain)(nil),                       // 1: signerservice.Chain
+	(*GetChainsRequest)(nil),            // 2: signerservice.GetChainsRequest
+	(*GetChainsResponse)(nil),           // 3: signerservice.GetChainsResponse
+	(*Wallet)(nil),                      // 4: signerservice.Wallet
+	(*GetWalletRequest)(nil),            // 5: signerservice.GetWalletRequest
+	(*GetWalletResponse)(nil),           // 6: signerservice.GetWalletResponse
+	(*GetWalletsRequest)(nil),           // 7: signerservice.GetWalletsRequest
+	(*GetWalletsResponse)(nil),          // 8: signerservice.GetWalletsResponse
+	(*SignRequest)(nil),                 // 9: signerservice.SignRequest
+	(*SignResponse)(nil),                // 10: signerservice.SignResponse
+	(*EvmTransaction)(nil),              // 11: signerservice.EvmTransaction
+	(*EvmTransactionSignature)(nil),     // 12: signerservice.EvmTransactionSignature
+	(*CosmosTransaction)(nil),           // 13: signerservice.CosmosTransaction
+	(*CosmosTransactionSignature)(nil),  // 14: signerservice.CosmosTransactionSignature
+	(*RawMessage)(nil),                  // 15: signerservice.RawMessage
+	(*RawMessageSignature)(nil),         // 16: signerservice.RawMessageSignature
+	(*SolanaTransactionSignature)(nil),  // 17: signerservice.SolanaTransactionSignature
+	(*SolanaTransaction)(nil),           // 18: signerservice.SolanaTransaction
+	(*RecoverableMessage)(nil),          // 19: signerservice.RecoverableMessage
+	(*RecoverableMessageSignature)(nil), // 20: signerservice.RecoverableMessageSignature
 }
 var file_signer_signerservice_proto_depIdxs = []int32{
 	1,  // 0: signerservice.GetChainsResponse.chains:type_name -> signerservice.Chain
@@ -1198,23 +1344,25 @@ var file_signer_signerservice_proto_depIdxs = []int32{
 	13, // 5: signerservice.SignRequest.cosmos_transaction:type_name -> signerservice.CosmosTransaction
 	15, // 6: signerservice.SignRequest.raw_message:type_name -> signerservice.RawMessage
 	18, // 7: signerservice.SignRequest.solana_transaction:type_name -> signerservice.SolanaTransaction
-	12, // 8: signerservice.SignResponse.evm_signature:type_name -> signerservice.EvmTransactionSignature
-	14, // 9: signerservice.SignResponse.cosmos_signature:type_name -> signerservice.CosmosTransactionSignature
-	16, // 10: signerservice.SignResponse.raw_signature:type_name -> signerservice.RawMessageSignature
-	17, // 11: signerservice.SignResponse.solana_signature:type_name -> signerservice.SolanaTransactionSignature
-	2,  // 12: signerservice.SignerService.GetChains:input_type -> signerservice.GetChainsRequest
-	5,  // 13: signerservice.SignerService.GetWallet:input_type -> signerservice.GetWalletRequest
-	7,  // 14: signerservice.SignerService.GetWallets:input_type -> signerservice.GetWalletsRequest
-	9,  // 15: signerservice.SignerService.Sign:input_type -> signerservice.SignRequest
-	3,  // 16: signerservice.SignerService.GetChains:output_type -> signerservice.GetChainsResponse
-	6,  // 17: signerservice.SignerService.GetWallet:output_type -> signerservice.GetWalletResponse
-	8,  // 18: signerservice.SignerService.GetWallets:output_type -> signerservice.GetWalletsResponse
-	10, // 19: signerservice.SignerService.Sign:output_type -> signerservice.SignResponse
-	16, // [16:20] is the sub-list for method output_type
-	12, // [12:16] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	19, // 8: signerservice.SignRequest.recoverable_message:type_name -> signerservice.RecoverableMessage
+	12, // 9: signerservice.SignResponse.evm_signature:type_name -> signerservice.EvmTransactionSignature
+	14, // 10: signerservice.SignResponse.cosmos_signature:type_name -> signerservice.CosmosTransactionSignature
+	16, // 11: signerservice.SignResponse.raw_signature:type_name -> signerservice.RawMessageSignature
+	17, // 12: signerservice.SignResponse.solana_signature:type_name -> signerservice.SolanaTransactionSignature
+	20, // 13: signerservice.SignResponse.recoverable_signature:type_name -> signerservice.RecoverableMessageSignature
+	2,  // 14: signerservice.SignerService.GetChains:input_type -> signerservice.GetChainsRequest
+	5,  // 15: signerservice.SignerService.GetWallet:input_type -> signerservice.GetWalletRequest
+	7,  // 16: signerservice.SignerService.GetWallets:input_type -> signerservice.GetWalletsRequest
+	9,  // 17: signerservice.SignerService.Sign:input_type -> signerservice.SignRequest
+	3,  // 18: signerservice.SignerService.GetChains:output_type -> signerservice.GetChainsResponse
+	6,  // 19: signerservice.SignerService.GetWallet:output_type -> signerservice.GetWalletResponse
+	8,  // 20: signerservice.SignerService.GetWallets:output_type -> signerservice.GetWalletsResponse
+	10, // 21: signerservice.SignerService.Sign:output_type -> signerservice.SignResponse
+	18, // [18:22] is the sub-list for method output_type
+	14, // [14:18] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_signer_signerservice_proto_init() }
@@ -1227,12 +1375,14 @@ func file_signer_signerservice_proto_init() {
 		(*SignRequest_CosmosTransaction)(nil),
 		(*SignRequest_RawMessage)(nil),
 		(*SignRequest_SolanaTransaction)(nil),
+		(*SignRequest_RecoverableMessage)(nil),
 	}
 	file_signer_signerservice_proto_msgTypes[9].OneofWrappers = []any{
 		(*SignResponse_EvmSignature)(nil),
 		(*SignResponse_CosmosSignature)(nil),
 		(*SignResponse_RawSignature)(nil),
 		(*SignResponse_SolanaSignature)(nil),
+		(*SignResponse_RecoverableSignature)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -1240,7 +1390,7 @@ func file_signer_signerservice_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_signer_signerservice_proto_rawDesc), len(file_signer_signerservice_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   18,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

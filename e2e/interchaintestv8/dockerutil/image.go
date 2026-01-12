@@ -9,7 +9,7 @@ const (
 	EnvKeyAttestorImage = "IBC_ATTESTOR_IMAGE"
 )
 
-// GetImage returns the Docker image to use for attestor containers.
+// GetAttestorImage returns the Docker image to use for attestor containers.
 // It checks the IBC_EUREKA_IMAGE environment variable first, falling back to DefaultImage.
 func GetAttestorImage() string {
 	if img := os.Getenv(EnvKeyAttestorImage); img != "" {

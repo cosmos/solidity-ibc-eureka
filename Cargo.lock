@@ -5312,55 +5312,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-attestor"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "alloy-contract",
- "alloy-network",
- "alloy-primitives 1.5.2",
- "alloy-provider",
- "alloy-rpc-client",
- "alloy-signer",
- "alloy-signer-local",
- "alloy-sol-types 1.5.2",
- "anyhow",
- "async-trait",
- "borsh 1.6.0",
- "clap",
- "ethereum-keys",
- "futures",
- "hex",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils 0.1.0",
- "indexmap 2.12.1",
- "opentelemetry",
- "opentelemetry_sdk",
- "prost",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "sha3",
- "solana-client",
- "solana-commitment-config",
- "solana-ibc-types",
- "solana-sdk",
- "tendermint",
- "tendermint-rpc",
- "thiserror 2.0.17",
- "tokio",
- "toml 0.8.23",
- "tonic 0.13.1",
- "tonic-build",
- "tonic-reflection",
- "tower-http",
- "tracing",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
 name = "ibc-client-tendermint"
 version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13539,7 +13490,6 @@ dependencies = [
  "tower 0.5.2",
  "tower-layer",
  "tower-service",
- "tracing",
 ]
 
 [[package]]
@@ -13666,7 +13616,6 @@ dependencies = [
  "sharded-slab",
  "smallvec",
  "thread_local",
- "time",
  "tracing",
  "tracing-core",
  "tracing-log",
@@ -13942,7 +13891,6 @@ dependencies = [
  "idna",
  "percent-encoding",
  "serde",
- "serde_derive",
 ]
 
 [[package]]

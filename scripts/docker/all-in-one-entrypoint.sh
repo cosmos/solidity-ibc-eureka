@@ -13,12 +13,9 @@ Commands:
     help                    Show this help message
     sh                      Start an interactive shell
     relayer                 Run the relayer with [ARGS...]
-    ibc_attestor            Run the attestor with [ARGS...]
 
 Examples:
     docker run --rm ibc-eureka:latest relayer --config config.json
-    docker run --rm ibc-eureka:latest ibc_attestor server --config config.toml --chain_type evm
-    docker run --rm ibc-eureka:latest ibc_attestor server --config config.toml --chain_type cosmos
     docker run --rm ibc-eureka:latest sh
 
 EOF
@@ -44,9 +41,6 @@ case "$COMMAND" in
         ;;
     relayer)
         exec "$BIN_DIR/relayer" "$@"
-        ;;
-    ibc_attestor)
-        exec "$BIN_DIR/ibc_attestor" "$@"
         ;;
     *)
         echo "Error: Unknown command '$COMMAND'"

@@ -760,21 +760,6 @@ install-operator:
 install-relayer:
 	cargo install --bin relayer --path programs/relayer --locked --force
 
-# Install the attestor using `cargo install`
-[group('install')]
-install-attestor:
-	# Clean up old keys
-	rm -rf ~/.ibc-attestor
-
-	# For some reason `cargo install` removes the CLI help options
-	# so we build manually and mv it to the default `cargo install`
-	# location
-
-	# Build attestor binary
-	cargo build --bin ibc_attestor --release --locked &&\
-	rm -f ~/.cargo/bin/ibc_attestor &&\
-	mv target/release/ibc_attestor ~/.cargo/bin/ibc_attestor
-
 # Run all linters
 [group('lint')]
 lint:
@@ -993,7 +978,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer install-attestor
+test-e2e testname: clean-foundry install-relayer
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
