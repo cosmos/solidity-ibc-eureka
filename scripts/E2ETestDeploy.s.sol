@@ -5,7 +5,7 @@ pragma solidity ^0.8.28;
     This script is used for end-to-end testing
 */
 
-// solhint-disable custom-errors,gas-custom-errors
+// solhint-disable custom-errors,gas-custom-errors,function-max-lines
 
 import { stdJson } from "forge-std/StdJson.sol";
 import { Script } from "forge-std/Script.sol";
@@ -23,12 +23,44 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
-import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
 import { EVMIFTSendCallConstructor } from "../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { IFTBaseUpgradeable } from "../contracts/utils/IFTBaseUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+
+/// @title TestIFT - IFT implementation for e2e testing with mint capability
+contract TestIFT is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
+        address owner_,
+        string calldata erc20Name,
+        string calldata erc20Symbol,
+        address ics27Gmp
+    )
+        external
+        initializer
+    {
+        __Ownable_init(owner_);
+        __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
+    }
+
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
+
+    // solhint-disable-next-line no-empty-blocks
+    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
+}
 
 /// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
@@ -81,9 +113,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         );
 
         // Deploy IFT contract
-        address iftLogic = address(new IFTOwnable());
+        address iftLogic = address(new TestIFT());
         ERC1967Proxy iftProxy = new ERC1967Proxy(
-            iftLogic, abi.encodeCall(IFTOwnable.initialize, (msg.sender, "IFT Token", "IFT", address(gmpProxy)))
+            iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, "Test IFT", "TIFT", address(gmpProxy)))
         );
 
         // Deploy EVM IFT send call constructor

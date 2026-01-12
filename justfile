@@ -785,11 +785,11 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
-	jq '.abi' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.json
+	jq '.abi' out/E2ETestDeploy.s.sol/TestIFT.json > abi/TestIFT.json
 	jq '.abi' out/CosmosIFTSendCallConstructor.sol/CosmosIFTSendCallConstructor.json > abi/CosmosIFTSendCallConstructor.json
 	jq -r '.bytecode.object' out/CosmosIFTSendCallConstructor.sol/CosmosIFTSendCallConstructor.json > abi/bytecode/CosmosIFTSendCallConstructor.bin
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
-	abigen --abi abi/IFTOwnable.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
+	abigen --abi abi/TestIFT.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
 	abigen --abi abi/CosmosIFTSendCallConstructor.json --bin abi/bytecode/CosmosIFTSendCallConstructor.bin --pkg cosmosiftconstructor --type Contract --out e2e/interchaintestv8/types/cosmosiftconstructor/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
