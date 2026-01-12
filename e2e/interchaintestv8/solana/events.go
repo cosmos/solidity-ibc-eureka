@@ -7,10 +7,10 @@ import (
 	ics26router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 )
 
-// ParseAcknowledgementWrittenEventsFromLogs parses AcknowledgementWritten events from Solana transaction logs
+// ParseWriteAcknowledgementEventsFromLogs parses WriteAcknowledgementEvent from Solana transaction logs
 // using the auto-generated types from packages/go-anchor/ics26router.
-func ParseAcknowledgementWrittenEventsFromLogs(logs []string) ([]*ics26router.Ics26RouterEventsAcknowledgementWritten, error) {
-	var events []*ics26router.Ics26RouterEventsAcknowledgementWritten
+func ParseWriteAcknowledgementEventsFromLogs(logs []string) ([]*ics26router.Ics26RouterEventsWriteAcknowledgementEvent, error) {
+	var events []*ics26router.Ics26RouterEventsWriteAcknowledgementEvent
 
 	for _, log := range logs {
 		if !strings.HasPrefix(log, "Program data: ") {
@@ -27,10 +27,10 @@ func ParseAcknowledgementWrittenEventsFromLogs(logs []string) ([]*ics26router.Ic
 			continue // Too short to be an Anchor event
 		}
 
-		// Try to parse as AcknowledgementWritten using auto-generated parser
-		event, err := ics26router.ParseEvent_Ics26RouterEventsAcknowledgementWritten(data)
+		// Try to parse as WriteAcknowledgementEvent using auto-generated parser
+		event, err := ics26router.ParseEvent_Ics26RouterEventsWriteAcknowledgementEvent(data)
 		if err != nil {
-			continue // Not an AcknowledgementWritten event or failed to parse
+			continue // Not a WriteAcknowledgementEvent or failed to parse
 		}
 
 		events = append(events, event)

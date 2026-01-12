@@ -1,6 +1,6 @@
 use crate::errors::RouterError;
-use crate::events::{ClientAdded, ClientUpdated};
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
+use crate::{ClientAddedEvent, ClientUpdatedEvent};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -140,7 +140,7 @@ pub fn add_client(
     let client_sequence = &mut ctx.accounts.client_sequence;
     client_sequence.next_sequence_send = 1;
 
-    emit!(ClientAdded {
+    emit!(ClientAddedEvent {
         client: client.to_client_account(),
     });
 
@@ -185,7 +185,7 @@ pub fn migrate_client(
         client.active = new_active;
     }
 
-    emit!(ClientUpdated {
+    emit!(ClientUpdatedEvent {
         client: client.to_client_account(),
     });
 

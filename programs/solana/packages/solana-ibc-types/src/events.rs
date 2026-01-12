@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 /// Event emitted when a packet is sent
 #[event]
 #[derive(Debug, Clone)]
-pub struct PacketSent {
+pub struct SendPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
@@ -20,7 +20,7 @@ pub struct PacketSent {
 /// Event emitted when a packet acknowledgement is written
 #[event]
 #[derive(Debug, Clone)]
-pub struct AcknowledgementWritten {
+pub struct WriteAcknowledgementEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
@@ -30,7 +30,7 @@ pub struct AcknowledgementWritten {
 /// Event emitted when a packet is acknowledged
 #[event]
 #[derive(Debug, Clone)]
-pub struct PacketAcknowledged {
+pub struct AckPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
@@ -40,7 +40,7 @@ pub struct PacketAcknowledged {
 /// Event emitted when a packet times out
 #[event]
 #[derive(Debug, Clone)]
-pub struct PacketTimedOut {
+pub struct TimeoutPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
@@ -49,14 +49,14 @@ pub struct PacketTimedOut {
 /// Event emitted when a client is added
 #[event]
 #[derive(Debug, Clone)]
-pub struct ClientAdded {
+pub struct ClientAddedEvent {
     pub client: ClientAccount,
 }
 
 /// Event emitted when a client is updated
 #[event]
 #[derive(Debug, Clone)]
-pub struct ClientUpdated {
+pub struct ClientUpdatedEvent {
     pub client: ClientAccount,
 }
 
@@ -71,7 +71,7 @@ pub struct IBCAppAdded {
 /// No-op event for testing
 #[event]
 #[derive(Debug, Clone)]
-pub struct Noop {}
+pub struct NoopEvent {}
 
 /// Event emitted when access manager is updated
 #[event]

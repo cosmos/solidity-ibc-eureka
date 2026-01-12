@@ -1,4 +1,4 @@
-use crate::events::RoleGranted;
+use crate::events::RoleGrantedEvent;
 use crate::state::AccessManager;
 use crate::{errors::AccessManagerError, WHITELISTED_CPI_PROGRAMS};
 use anchor_lang::prelude::*;
@@ -46,7 +46,7 @@ pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Res
 
     ctx.accounts.access_manager.grant_role(role_id, account)?;
 
-    emit!(RoleGranted {
+    emit!(RoleGrantedEvent {
         role_id,
         account,
         granted_by: ctx.accounts.admin.key(),

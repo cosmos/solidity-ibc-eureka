@@ -1,5 +1,5 @@
 use crate::errors::AccessManagerError;
-use crate::events::RoleRevoked;
+use crate::events::RoleRevokedEvent;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
@@ -49,7 +49,7 @@ pub fn renounce_role(ctx: Context<RenounceRole>, role_id: u64) -> Result<()> {
         .access_manager
         .revoke_role(role_id, &caller_key)?;
 
-    emit!(RoleRevoked {
+    emit!(RoleRevokedEvent {
         role_id,
         account: caller_key,
         revoked_by: caller_key, // Self-revocation

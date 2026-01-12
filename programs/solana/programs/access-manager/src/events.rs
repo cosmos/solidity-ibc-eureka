@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[event]
 #[derive(Debug, Clone)]
-pub struct RoleGranted {
+pub struct RoleGrantedEvent {
     pub role_id: u64,
     pub account: Pubkey,
     pub granted_by: Pubkey,
@@ -10,7 +10,7 @@ pub struct RoleGranted {
 
 #[event]
 #[derive(Debug, Clone)]
-pub struct RoleRevoked {
+pub struct RoleRevokedEvent {
     pub role_id: u64,
     pub account: Pubkey,
     pub revoked_by: Pubkey,
@@ -18,7 +18,7 @@ pub struct RoleRevoked {
 
 #[event]
 #[derive(Debug, Clone)]
-pub struct ProgramUpgraded {
+pub struct ProgramUpgradedEvent {
     pub program: Pubkey,
     pub authority: Pubkey,
     pub timestamp: i64,
@@ -26,7 +26,7 @@ pub struct ProgramUpgraded {
 
 #[event]
 #[derive(Debug, Clone)]
-pub struct ProgramExtended {
+pub struct ProgramExtendedEvent {
     pub program: Pubkey,
     pub authority: Pubkey,
     pub additional_bytes: u32,

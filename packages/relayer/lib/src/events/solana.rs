@@ -10,7 +10,7 @@ use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
     Packet as SolPacket, Payload as SolPayload,
 };
 use solana_ibc_types::{
-    events::{AcknowledgementWritten, PacketSent},
+    events::{SendPacketEvent, WriteAcknowledgementEvent},
     Packet as SolanaPacket, Payload as SolanaPayload,
 };
 
@@ -21,9 +21,9 @@ use solana_ibc_constants::CHUNK_DATA_SIZE;
 #[derive(Debug, Clone)]
 pub enum SolanaEurekaEvent {
     /// A packet was sent
-    PacketSent(PacketSent),
+    SendPacket(SendPacketEvent),
     /// An acknowledgement was written for a received packet
-    AcknowledgementWritten(AcknowledgementWritten),
+    WriteAcknowledgement(WriteAcknowledgementEvent),
 }
 
 /// Solana-specific Eureka event with height
@@ -38,13 +38,13 @@ pub struct SolanaEurekaEventWithHeight {
 impl From<SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
     fn from(event_with_height: SolanaEurekaEventWithHeight) -> Self {
         let event = match event_with_height.event {
-            SolanaEurekaEvent::PacketSent(packet_sent_event) => {
-                EurekaEvent::SendPacket(to_sol_packet(packet_sent_event.packet))
+            SolanaEurekaEvent::SendPacket(send_packet_event) => {
+                EurekaEvent::SendPacket(to_sol_packet(send_packet_event.packet))
             }
-            SolanaEurekaEvent::AcknowledgementWritten(ack_written_event) => {
+            SolanaEurekaEvent::WriteAcknowledgement(write_acknowledgement_event) => {
                 EurekaEvent::WriteAcknowledgement(
-                    to_sol_packet(ack_written_event.packet),
-                    ack_written_event
+                    to_sol_packet(write_acknowledgement_event.packet),
+                    write_acknowledgement_event
                         .acknowledgements
                         .into_iter()
                         .map(Bytes::from)
@@ -234,22 +234,26 @@ fn try_parse_event_from_log(
     let discriminator = &data[..8];
     let event_data = &data[8..];
 
-    let is_ibc_event = discriminator == PacketSent::DISCRIMINATOR
-        || discriminator == AcknowledgementWritten::DISCRIMINATOR;
+    let is_ibc_event = discriminator == SendPacketEvent::DISCRIMINATOR
+        || discriminator == WriteAcknowledgementEvent::DISCRIMINATOR;
 
     if !is_ibc_event {
         return Ok(None);
     }
 
     let event = match discriminator {
-        disc if disc == PacketSent::DISCRIMINATOR => PacketSent::try_from_slice(event_data)
-            .map(SolanaEurekaEvent::PacketSent)
-            .with_context(|| format!("Failed to deserialize PacketSent in log {log_idx}"))?,
-        disc if disc == AcknowledgementWritten::DISCRIMINATOR => {
-            AcknowledgementWritten::try_from_slice(event_data)
-                .map(SolanaEurekaEvent::AcknowledgementWritten)
+        disc if disc == SendPacketEvent::DISCRIMINATOR => {
+            SendPacketEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::SendPacket)
                 .with_context(|| {
-                    format!("Failed to deserialize AcknowledgementWritten in log {log_idx}")
+                    format!("Failed to deserialize SendPacketEvent in log {log_idx}")
+                })?
+        }
+        disc if disc == WriteAcknowledgementEvent::DISCRIMINATOR => {
+            WriteAcknowledgementEvent::try_from_slice(event_data)
+                .map(SolanaEurekaEvent::WriteAcknowledgement)
+                .with_context(|| {
+                    format!("Failed to deserialize WriteAcknowledgementEvent in log {log_idx}")
                 })?
         }
         _ => {
@@ -276,17 +280,17 @@ fn log_event_details(event: &SolanaEurekaEvent) {
     tracing::info!(?event, "parsed event");
 
     match event {
-        SolanaEurekaEvent::PacketSent(send_event) => {
+        SolanaEurekaEvent::SendPacket(send_event) => {
             tracing::debug!(
-                "PacketSent: sequence={}, {} payloads",
+                "SendPacketEvent: sequence={}, {} payloads",
                 send_event.sequence,
                 send_event.packet.payloads.len()
             );
             log_payload_list(&send_event.packet.payloads);
         }
-        SolanaEurekaEvent::AcknowledgementWritten(ack_event) => {
+        SolanaEurekaEvent::WriteAcknowledgement(ack_event) => {
             tracing::debug!(
-                "AcknowledgementWritten: sequence={}, {} payloads, {} acks",
+                "WriteAcknowledgementEvent: sequence={}, {} payloads, {} acks",
                 ack_event.sequence,
                 ack_event.packet.payloads.len(),
                 ack_event.acknowledgements.len()
@@ -306,7 +310,7 @@ fn log_event_details(event: &SolanaEurekaEvent) {
 ///
 /// This function will return an error if:
 /// - Base64 decoding fails for any "Program data:" log entry
-/// - Deserialization fails for any recognized IBC event (`PacketSent`, `AcknowledgementWritten`)
+/// - Deserialization fails for any recognized IBC event (`SendPacket`, `WriteAcknowledgement`)
 /// - An impossible discriminator match occurs (internal logic error)
 ///
 ///   TODO: Might be easier to parse via `anchor_client` but dependencies get kinda messy so manual parse

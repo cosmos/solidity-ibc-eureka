@@ -22,25 +22,25 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAccessManagerUpdated: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsAcknowledgementWritten:
-		value := new(Ics26RouterEventsAcknowledgementWritten)
+	case Event_Ics26RouterEventsAckPacketEvent:
+		value := new(Ics26RouterEventsAckPacketEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAcknowledgementWritten: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAckPacketEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsClientAdded:
-		value := new(Ics26RouterEventsClientAdded)
+	case Event_Ics26RouterEventsClientAddedEvent:
+		value := new(Ics26RouterEventsClientAddedEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsClientAdded: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsClientAddedEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsClientUpdated:
-		value := new(Ics26RouterEventsClientUpdated)
+	case Event_Ics26RouterEventsClientUpdatedEvent:
+		value := new(Ics26RouterEventsClientUpdatedEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsClientUpdated: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsClientUpdatedEvent: %w", err)
 		}
 		return value, nil
 	case Event_Ics26RouterEventsIbcAppAdded:
@@ -50,32 +50,32 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsIbcAppAdded: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsNoop:
-		value := new(Ics26RouterEventsNoop)
+	case Event_Ics26RouterEventsNoopEvent:
+		value := new(Ics26RouterEventsNoopEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsNoop: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsNoopEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsPacketAcknowledged:
-		value := new(Ics26RouterEventsPacketAcknowledged)
+	case Event_Ics26RouterEventsSendPacketEvent:
+		value := new(Ics26RouterEventsSendPacketEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsPacketAcknowledged: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsSendPacketEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsPacketSent:
-		value := new(Ics26RouterEventsPacketSent)
+	case Event_Ics26RouterEventsTimeoutPacketEvent:
+		value := new(Ics26RouterEventsTimeoutPacketEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsPacketSent: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsTimeoutPacketEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsPacketTimedOut:
-		value := new(Ics26RouterEventsPacketTimedOut)
+	case Event_Ics26RouterEventsWriteAcknowledgementEvent:
+		value := new(Ics26RouterEventsWriteAcknowledgementEvent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsPacketTimedOut: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsWriteAcknowledgementEvent: %w", err)
 		}
 		return value, nil
 	default:
@@ -100,53 +100,53 @@ func ParseEvent_Ics26RouterEventsAccessManagerUpdated(eventData []byte) (*Ics26R
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsAcknowledgementWritten(eventData []byte) (*Ics26RouterEventsAcknowledgementWritten, error) {
+func ParseEvent_Ics26RouterEventsAckPacketEvent(eventData []byte) (*Ics26RouterEventsAckPacketEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsAcknowledgementWritten {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsAcknowledgementWritten, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsAckPacketEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsAckPacketEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsAcknowledgementWritten)
+	event := new(Ics26RouterEventsAckPacketEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsAcknowledgementWritten: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsAckPacketEvent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsClientAdded(eventData []byte) (*Ics26RouterEventsClientAdded, error) {
+func ParseEvent_Ics26RouterEventsClientAddedEvent(eventData []byte) (*Ics26RouterEventsClientAddedEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsClientAdded {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsClientAdded, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsClientAddedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsClientAddedEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsClientAdded)
+	event := new(Ics26RouterEventsClientAddedEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsClientAdded: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsClientAddedEvent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsClientUpdated(eventData []byte) (*Ics26RouterEventsClientUpdated, error) {
+func ParseEvent_Ics26RouterEventsClientUpdatedEvent(eventData []byte) (*Ics26RouterEventsClientUpdatedEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsClientUpdated {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsClientUpdated, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsClientUpdatedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsClientUpdatedEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsClientUpdated)
+	event := new(Ics26RouterEventsClientUpdatedEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsClientUpdated: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsClientUpdatedEvent: %w", err)
 	}
 	return event, nil
 }
@@ -168,70 +168,70 @@ func ParseEvent_Ics26RouterEventsIbcAppAdded(eventData []byte) (*Ics26RouterEven
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsNoop(eventData []byte) (*Ics26RouterEventsNoop, error) {
+func ParseEvent_Ics26RouterEventsNoopEvent(eventData []byte) (*Ics26RouterEventsNoopEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsNoop {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsNoop, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsNoopEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsNoopEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsNoop)
+	event := new(Ics26RouterEventsNoopEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsNoop: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsNoopEvent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsPacketAcknowledged(eventData []byte) (*Ics26RouterEventsPacketAcknowledged, error) {
+func ParseEvent_Ics26RouterEventsSendPacketEvent(eventData []byte) (*Ics26RouterEventsSendPacketEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsPacketAcknowledged {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsPacketAcknowledged, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsSendPacketEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsSendPacketEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsPacketAcknowledged)
+	event := new(Ics26RouterEventsSendPacketEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsPacketAcknowledged: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsSendPacketEvent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsPacketSent(eventData []byte) (*Ics26RouterEventsPacketSent, error) {
+func ParseEvent_Ics26RouterEventsTimeoutPacketEvent(eventData []byte) (*Ics26RouterEventsTimeoutPacketEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsPacketSent {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsPacketSent, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsTimeoutPacketEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsTimeoutPacketEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsPacketSent)
+	event := new(Ics26RouterEventsTimeoutPacketEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsPacketSent: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsTimeoutPacketEvent: %w", err)
 	}
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsPacketTimedOut(eventData []byte) (*Ics26RouterEventsPacketTimedOut, error) {
+func ParseEvent_Ics26RouterEventsWriteAcknowledgementEvent(eventData []byte) (*Ics26RouterEventsWriteAcknowledgementEvent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsPacketTimedOut {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsPacketTimedOut, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsWriteAcknowledgementEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsWriteAcknowledgementEvent, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsPacketTimedOut)
+	event := new(Ics26RouterEventsWriteAcknowledgementEvent)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsPacketTimedOut: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsWriteAcknowledgementEvent: %w", err)
 	}
 	return event, nil
 }

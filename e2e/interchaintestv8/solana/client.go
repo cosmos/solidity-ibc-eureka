@@ -417,8 +417,8 @@ func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error)
 	return pda, nil
 }
 
-// GetAcknowledgementWrittenEvents fetches a transaction and parses AcknowledgementWritten events from its logs
-func (s *Solana) GetAcknowledgementWrittenEvents(ctx context.Context, sig solana.Signature) ([]*ics26router.Ics26RouterEventsAcknowledgementWritten, error) {
+// GetWriteAcknowledgementEvents fetches a transaction and parses WriteAcknowledgementEvents from its logs
+func (s *Solana) GetWriteAcknowledgementEvents(ctx context.Context, sig solana.Signature) ([]*ics26router.Ics26RouterEventsWriteAcknowledgementEvent, error) {
 	version := uint64(0)
 	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
 		Encoding:                       solana.EncodingBase64,
@@ -433,5 +433,5 @@ func (s *Solana) GetAcknowledgementWrittenEvents(ctx context.Context, sig solana
 		return nil, fmt.Errorf("transaction details or meta is nil")
 	}
 
-	return ParseAcknowledgementWrittenEventsFromLogs(txDetails.Meta.LogMessages)
+	return ParseWriteAcknowledgementEventsFromLogs(txDetails.Meta.LogMessages)
 }

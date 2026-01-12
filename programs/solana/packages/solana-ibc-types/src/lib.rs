@@ -42,8 +42,8 @@ pub use ics27::{
 };
 
 pub use events::{
-    AccessManagerUpdated, AcknowledgementWritten, ClientAdded, ClientUpdated, IBCAppAdded, Noop,
-    PacketAcknowledged, PacketSent, PacketTimedOut,
+    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
+    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
 // ibc_app_instructions re-exported for backwards compatibility

@@ -10,6 +10,12 @@ pub mod state;
 pub mod test_utils;
 pub mod utils;
 
+// Re-export events for use by instructions
+pub use events::{
+    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
+    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+};
+
 use instructions::client::MigrateClientParams;
 use instructions::*;
 use state::{

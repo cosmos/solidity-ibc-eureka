@@ -1,5 +1,5 @@
 use crate::errors::AccessManagerError;
-use crate::events::RoleRevoked;
+use crate::events::RoleRevokedEvent;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
@@ -47,7 +47,7 @@ pub fn revoke_role(ctx: Context<RevokeRole>, role_id: u64, account: Pubkey) -> R
     // Revoke the role (will fail if trying to remove last admin)
     ctx.accounts.access_manager.revoke_role(role_id, &account)?;
 
-    emit!(RoleRevoked {
+    emit!(RoleRevokedEvent {
         role_id,
         account,
         revoked_by: ctx.accounts.admin.key(),

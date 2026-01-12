@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
-use crate::events::{Noop, PacketTimedOut};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
+use crate::{NoopEvent, TimeoutPacketEvent};
 use anchor_lang::prelude::*;
 use ics25_handler::NonMembershipMsg;
 use solana_ibc_types::ibc_app::{on_timeout_packet, OnTimeoutPacket, OnTimeoutPacketMsg};
@@ -171,7 +171,7 @@ pub fn timeout_packet<'info>(
     // Check if packet commitment exists (no-op case)
     // An uninitialized account will be owned by System Program
     if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
-        emit!(Noop {});
+        emit!(NoopEvent {});
         return Ok(());
     }
 
@@ -228,7 +228,7 @@ pub fn timeout_packet<'info>(
         **packet_commitment_account.lamports.borrow_mut() = 0;
     }
 
-    emit!(PacketTimedOut {
+    emit!(TimeoutPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
         packet,
