@@ -201,6 +201,16 @@ impl super::TxBuilder {
         recent_blockhash: solana_sdk::hash::Hash,
         alt_addresses: Vec<Pubkey>,
     ) -> Result<Vec<u8>> {
+        // Debug: log instruction account counts before compilation
+        for (i, ix) in instructions.iter().enumerate() {
+            tracing::info!(
+                "create_v0_tx: instruction[{}] program={} accounts={}",
+                i,
+                ix.program_id,
+                ix.accounts.len()
+            );
+        }
+
         let v0_message = if alt_addresses.is_empty() {
             self.compile_v0_message(instructions, recent_blockhash)?
         } else {
@@ -212,6 +222,16 @@ impl super::TxBuilder {
             self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?
         };
 
+        // Debug: log v0 message account count after compilation
+        tracing::info!(
+            "create_v0_tx: v0_message compiled with {} static accounts, {} instructions",
+            v0_message.account_keys.len(),
+            v0_message.instructions.len()
+        );
+        for (i, key) in v0_message.account_keys.iter().enumerate() {
+            tracing::info!("create_v0_tx: v0_message account[{}]: {}", i, key);
+        }
+
         Self::serialize_v0_transaction(v0_message)
     }
 
@@ -220,8 +240,34 @@ impl super::TxBuilder {
         instructions: &[Instruction],
         recent_blockhash: solana_sdk::hash::Hash,
     ) -> Result<v0::Message> {
-        v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash)
-            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
+        // Debug: log total unique accounts across all instructions
+        let mut all_accounts: std::collections::HashSet<Pubkey> = std::collections::HashSet::new();
+        all_accounts.insert(self.fee_payer);
+        for ix in instructions {
+            all_accounts.insert(ix.program_id);
+            for acc in &ix.accounts {
+                all_accounts.insert(acc.pubkey);
+            }
+        }
+        tracing::info!(
+            "compile_v0_message: {} unique accounts across {} instructions (fee_payer + programs + accounts)",
+            all_accounts.len(),
+            instructions.len()
+        );
+
+        let result = v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash);
+        match &result {
+            Ok(msg) => {
+                tracing::info!(
+                    "compile_v0_message: SUCCESS - {} account_keys in message",
+                    msg.account_keys.len()
+                );
+            }
+            Err(e) => {
+                tracing::error!("compile_v0_message: FAILED - {}", e);
+            }
+        }
+        result.map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
     }
 
     pub(crate) fn compile_v0_message_with_alt(
@@ -291,5 +337,14 @@ impl super::TxBuilder {
             ComputeBudgetInstruction::set_compute_unit_price(DEFAULT_PRIORITY_FEE);
         let heap_size_ix = ComputeBudgetInstruction::request_heap_frame(256 * 1024);
         vec![compute_budget_ix, priority_fee_ix, heap_size_ix]
+    }
+
+    /// Check if an account exists on-chain
+    /// Used to filter out signing-only PDAs from ALT (they don't exist as accounts)
+    pub(crate) fn account_exists(&self, pubkey: &Pubkey) -> bool {
+        self.target_solana_client
+            .get_account_with_commitment(pubkey, CommitmentConfig::confirmed())
+            .map(|response| response.value.is_some())
+            .unwrap_or(false)
     }
 }

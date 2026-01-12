@@ -1,8 +1,11 @@
 //! Chunking operations for large payloads and proofs.
 
+use std::collections::HashSet;
+
 use anchor_lang::prelude::*;
 use anyhow::Result;
 use solana_sdk::{
+    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -13,6 +16,14 @@ use solana_ibc_types::{
     router::{router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk},
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
+
+use super::transaction::derive_alt_address;
+
+/// Maximum accounts that fit in a Solana transaction without ALT
+const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
+
+/// Batch size for ALT extension transactions
+const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
 impl super::TxBuilder {
     /// Helper function to split data into chunks
@@ -246,6 +257,8 @@ impl super::TxBuilder {
             chunks: chunk_txs,
             final_tx: recv_tx,
             cleanup_tx,
+            alt_create_tx: vec![],
+            alt_extend_txs: vec![],
         })
     }
 
@@ -279,7 +292,26 @@ impl super::TxBuilder {
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);
 
-        let ack_tx = self.create_tx_bytes(&instructions)?;
+        // Count unique accounts across all instructions
+        let unique_accounts = Self::count_unique_accounts(&instructions, self.fee_payer);
+
+        tracing::info!(
+            "build_ack_packet_chunked: {} unique accounts (threshold: {})",
+            unique_accounts,
+            MAX_ACCOUNTS_WITHOUT_ALT
+        );
+
+        // Build final transaction with or without ALT based on account count
+        let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT {
+            tracing::info!(
+                "Using ALT for ack_packet: {} accounts exceeds threshold of {}",
+                unique_accounts,
+                MAX_ACCOUNTS_WITHOUT_ALT
+            );
+            self.build_tx_with_alt(&instructions)?
+        } else {
+            (self.create_tx_bytes(&instructions)?, vec![], vec![])
+        };
 
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.source_client,
@@ -292,7 +324,93 @@ impl super::TxBuilder {
             chunks: chunk_txs,
             final_tx: ack_tx,
             cleanup_tx,
+            alt_create_tx,
+            alt_extend_txs,
         })
+    }
+
+    /// Count unique accounts across all instructions
+    fn count_unique_accounts(instructions: &[Instruction], fee_payer: Pubkey) -> usize {
+        let mut accounts: HashSet<Pubkey> = HashSet::new();
+        accounts.insert(fee_payer);
+        for ix in instructions {
+            accounts.insert(ix.program_id);
+            for acc in &ix.accounts {
+                accounts.insert(acc.pubkey);
+            }
+        }
+        accounts.len()
+    }
+
+    /// Build transaction with ALT support (following update_client pattern)
+    fn build_tx_with_alt(
+        &self,
+        instructions: &[Instruction],
+    ) -> Result<(Vec<u8>, Vec<u8>, Vec<Vec<u8>>)> {
+        // Get current slot for ALT derivation
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::processed())
+            .map_err(|e| anyhow::anyhow!("Failed to get slot for ALT: {e}"))?;
+
+        let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+
+        // Collect all unique accounts for ALT (only accounts that exist on-chain)
+        // Signing-only PDAs (like mint_authority) don't exist as accounts and must be excluded
+        let mut alt_accounts: Vec<Pubkey> = Vec::new();
+        let mut seen: HashSet<Pubkey> = HashSet::new();
+
+        // Add fee payer and system program first (these always exist)
+        alt_accounts.push(self.fee_payer);
+        seen.insert(self.fee_payer);
+        alt_accounts.push(solana_sdk::system_program::id());
+        seen.insert(solana_sdk::system_program::id());
+
+        // Add all accounts from instructions, but only if they exist on-chain
+        for ix in instructions {
+            if !seen.contains(&ix.program_id) {
+                // Program IDs always exist
+                alt_accounts.push(ix.program_id);
+                seen.insert(ix.program_id);
+            }
+            for acc in &ix.accounts {
+                if !seen.contains(&acc.pubkey) {
+                    seen.insert(acc.pubkey);
+                    // Check if account exists before adding to ALT
+                    // Non-existent accounts (signing-only PDAs) will be referenced directly
+                    if self.account_exists(&acc.pubkey) {
+                        alt_accounts.push(acc.pubkey);
+                    } else {
+                        tracing::debug!(
+                            "Excluding non-existent account {} from ALT (signing-only PDA)",
+                            acc.pubkey
+                        );
+                    }
+                }
+            }
+        }
+
+        tracing::info!(
+            "Building ALT with {} accounts at address {} (slot {})",
+            alt_accounts.len(),
+            alt_address,
+            slot
+        );
+
+        // Build ALT creation transaction
+        let alt_create_tx = self.build_create_alt_tx(slot)?;
+
+        // Build ALT extension transactions in batches
+        let alt_extend_txs: Vec<Vec<u8>> = alt_accounts
+            .chunks(ALT_EXTEND_BATCH_SIZE)
+            .map(|batch| self.build_extend_alt_tx(slot, batch.to_vec()))
+            .collect::<Result<Vec<_>>>()?;
+
+        // Build final transaction using ALT
+        let final_tx =
+            self.create_tx_bytes_with_alt(instructions, alt_address, alt_accounts)?;
+
+        Ok((final_tx, alt_create_tx, alt_extend_txs))
     }
 
     pub(crate) fn build_timeout_packet_chunked(
@@ -338,6 +456,8 @@ impl super::TxBuilder {
             chunks: chunk_txs,
             final_tx: timeout_tx,
             cleanup_tx,
+            alt_create_tx: vec![],
+            alt_extend_txs: vec![],
         })
     }
 

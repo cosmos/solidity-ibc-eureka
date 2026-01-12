@@ -80,7 +80,7 @@ pub(crate) const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 pub(crate) const DEFAULT_PRIORITY_FEE: u64 = 1000;
 
 /// Maximum accounts that fit in a Solana transaction without ALT
-const MAX_ACCOUNTS_WITHOUT_ALT: usize = 30;
+const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

@@ -73,19 +73,39 @@ pub fn on_acknowledgement_packet(
     ctx: Context<OnAckPacket>,
     msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    solana_ibc_types::validate_cpi_caller(
+    msg!("IFT on_ack_packet: entry");
+
+    // Allow CPI from either Router (direct) or GMP (when IFT sends through GMP)
+    solana_ibc_types::validate_cpi_caller_with_upstream(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
+        &[ics27_gmp::ID], // Allow GMP as upstream caller for IFT→GMP→Router flow
         &crate::ID,
     )
     .map_err(IFTError::from)?;
 
+    msg!("IFT on_ack_packet: CPI caller validated");
+
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
 
+    msg!(
+        "IFT on_ack_packet: pending_transfer client_id={}, sequence={}, sender={}, amount={}",
+        pending.client_id,
+        pending.sequence,
+        pending.sender,
+        pending.amount
+    );
+
     let is_success = parse_gmp_acknowledgement(&msg.acknowledgement);
+    msg!(
+        "IFT on_ack_packet: ack parsed, is_success={}, ack_len={}",
+        is_success,
+        msg.acknowledgement.len()
+    );
 
     if is_success {
+        msg!("IFT on_ack_packet: transfer succeeded, emitting IFTTransferCompleted");
         emit!(IFTTransferCompleted {
             mint: ctx.accounts.app_state.mint,
             client_id: pending.client_id.clone(),
@@ -95,6 +115,11 @@ pub fn on_acknowledgement_packet(
             timestamp: clock.unix_timestamp,
         });
     } else {
+        msg!(
+            "IFT on_ack_packet: transfer FAILED, refunding {} tokens to {}",
+            pending.amount,
+            pending.sender
+        );
         mint_to_account(
             &ctx.accounts.mint,
             &ctx.accounts.sender_token_account,
@@ -104,6 +129,7 @@ pub fn on_acknowledgement_packet(
             pending.amount,
         )?;
 
+        msg!("IFT on_ack_packet: refund complete, emitting IFTTransferRefunded");
         emit!(IFTTransferRefunded {
             mint: ctx.accounts.app_state.mint,
             client_id: pending.client_id.clone(),
@@ -115,6 +141,7 @@ pub fn on_acknowledgement_packet(
         });
     }
 
+    msg!("IFT on_ack_packet: done");
     Ok(())
 }
 

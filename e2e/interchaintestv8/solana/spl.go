@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	solanago "github.com/gagliardetto/solana-go"
+	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -118,6 +119,42 @@ func AssociatedTokenAccountAddress(owner, mint solanago.PublicKey) (solanago.Pub
 		associatedTokenProgramID,
 	)
 	return addr, err
+}
+
+// CreateOrGetAssociatedTokenAccount creates an Associated Token Account (ATA) for the given owner and mint.
+// If the ATA already exists, it returns the existing address. ATAs are deterministic addresses derived
+// from the owner and mint, which IFT expects for refund processing.
+func (s *Solana) CreateOrGetAssociatedTokenAccount(ctx context.Context, payer *solanago.Wallet, mint, owner solanago.PublicKey) (solanago.PublicKey, error) {
+	ata, err := AssociatedTokenAccountAddress(owner, mint)
+	if err != nil {
+		return solanago.PublicKey{}, err
+	}
+
+	// Check if ATA already exists
+	_, err = s.RPCClient.GetAccountInfo(ctx, ata)
+	if err == nil {
+		return ata, nil // Already exists
+	}
+
+	// Create ATA instruction
+	createATAIx := associatedtokenaccount.NewCreateInstruction(
+		payer.PublicKey(),
+		owner,
+		mint,
+	).Build()
+
+	tx, err := s.NewTransactionFromInstructions(payer.PublicKey(), createATAIx)
+	if err != nil {
+		return solanago.PublicKey{}, err
+	}
+
+	// Use confirmed commitment for faster execution
+	_, err = s.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, payer)
+	if err != nil {
+		return solanago.PublicKey{}, err
+	}
+
+	return ata, nil
 }
 
 // MintTokensTo mints tokens to a specified token account

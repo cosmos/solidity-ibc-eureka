@@ -52,11 +52,8 @@ func (value Ics27IftStateCounterpartyChainType) String() string {
 // Main IFT application state
 // PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
 type Ics27IftStateIftAppState struct {
-	// Schema version for upgrades
 	Version Ics27IftStateAccountVersion `json:"version"`
-
-	// PDA bump seed
-	Bump uint8 `json:"bump"`
+	Bump    uint8                       `json:"bump"`
 
 	// SPL Token mint address (this IFT controls this mint)
 	Mint solanago.PublicKey `json:"mint"`
@@ -69,9 +66,7 @@ type Ics27IftStateIftAppState struct {
 
 	// GMP program address for sending cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
-
-	// Reserved space for future fields
-	Reserved [128]uint8 `json:"reserved"`
+	Reserved   [128]uint8         `json:"reserved"`
 }
 
 func (obj Ics27IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -182,11 +177,8 @@ func UnmarshalIcs27IftStateIftAppState(buf []byte) (*Ics27IftStateIftAppState, e
 // IFT Bridge configuration for a counterparty chain
 // PDA Seeds: [`IFT_BRIDGE_SEED`, `mint.as_ref()`, `client_id.as_bytes()`]
 type Ics27IftStateIftBridge struct {
-	// Schema version
 	Version Ics27IftStateAccountVersion `json:"version"`
-
-	// PDA bump seed
-	Bump uint8 `json:"bump"`
+	Bump    uint8                       `json:"bump"`
 
 	// Mint this bridge is associated with
 	Mint solanago.PublicKey `json:"mint"`
@@ -201,9 +193,7 @@ type Ics27IftStateIftBridge struct {
 	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
 
 	// Whether bridge is active
-	Active bool `json:"active"`
-
-	// Reserved space for future fields
+	Active   bool      `json:"active"`
 	Reserved [64]uint8 `json:"reserved"`
 }
 
@@ -505,11 +495,8 @@ func UnmarshalIcs27IftStateIftTransferMsg(buf []byte) (*Ics27IftStateIftTransfer
 // Pending transfer tracking for ack/timeout handling
 // PDA Seeds: [`PENDING_TRANSFER_SEED`, `mint.as_ref()`, `client_id.as_bytes()`, `sequence.to_le_bytes()`]
 type Ics27IftStatePendingTransfer struct {
-	// Schema version
 	Version Ics27IftStateAccountVersion `json:"version"`
-
-	// PDA bump seed
-	Bump uint8 `json:"bump"`
+	Bump    uint8                       `json:"bump"`
 
 	// Mint this transfer is for
 	Mint solanago.PublicKey `json:"mint"`
@@ -527,10 +514,8 @@ type Ics27IftStatePendingTransfer struct {
 	Amount uint64 `json:"amount"`
 
 	// Transfer initiation timestamp
-	Timestamp int64 `json:"timestamp"`
-
-	// Reserved space for future fields
-	Reserved [32]uint8 `json:"reserved"`
+	Timestamp int64     `json:"timestamp"`
+	Reserved  [32]uint8 `json:"reserved"`
 }
 
 func (obj Ics27IftStatePendingTransfer) MarshalWithEncoder(encoder *binary.Encoder) (err error) {

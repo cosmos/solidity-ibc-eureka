@@ -51,10 +51,10 @@ func CalculateNamespacedSequence(baseSequence uint64, callingProgram, sender sol
 func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPortID string, clientID string, userPubKey solana.PublicKey) []solana.PublicKey {
 	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
 	routerStatePDA, _ := Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-	ibcAppPDA, _ := Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(gmpPortID))
+	ibcAppPDA, _ := Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(gmpPortID))
 	gmpAppStatePDA, _ := Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
-	clientPDA, _ := Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(clientID))
-	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	clientPDA, _ := Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID))
+	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
 
 	return []solana.PublicKey{
 		solana.SystemProgramID,

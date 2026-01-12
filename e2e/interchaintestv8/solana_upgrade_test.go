@@ -107,7 +107,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 		programDataAccount, err = solana.GetProgramDataAddress(targetProgramID)
 		s.Require().NoError(err, "failed to derive program data address")
 
-		upgradeAuthorityPDA, _ = solana.AccessManager.UpgradeAuthorityPDA(
+		upgradeAuthorityPDA, _ = solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
 			access_manager.ProgramID,
 			targetProgramID.Bytes(),
 		)
@@ -346,7 +346,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeUpgraderRole() {
 		programDataAccount, err := solana.GetProgramDataAddress(targetProgramID)
 		s.Require().NoError(err)
 
-		upgradeAuthorityPDA, _ := solana.AccessManager.UpgradeAuthorityPDA(
+		upgradeAuthorityPDA, _ := solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
 			access_manager.ProgramID,
 			targetProgramID.Bytes(),
 		)

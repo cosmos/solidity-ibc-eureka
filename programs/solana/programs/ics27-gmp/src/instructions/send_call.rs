@@ -78,14 +78,14 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
         ctx.accounts.sender.key()
     } else {
-        // CPI call - auto-detect calling program ID from instruction introspection
-        // This matches Solidity's msg.sender behavior where internal calls
-        // have the calling contract as sender (used for callback routing)
+        // CPI call - get calling program ID for callback routing.
+        // Index 0 = current top-level instruction (the CPI caller, e.g. IFT).
+        // Index -1 would be previous instruction (e.g. ComputeBudget) - wrong.
         let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
-        let parent_instruction =
-            sysvar_instructions::get_instruction_relative(-1, &instruction_sysvar)
+        let current_instruction =
+            sysvar_instructions::get_instruction_relative(0, &instruction_sysvar)
                 .map_err(|_| GMPError::InvalidSysvar)?;
-        parent_instruction.program_id
+        current_instruction.program_id
     };
 
     // Validate IBC routing fields

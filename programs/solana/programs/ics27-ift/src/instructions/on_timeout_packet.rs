@@ -73,9 +73,11 @@ pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
     _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    solana_ibc_types::validate_cpi_caller(
+    // Allow CPI from either Router (direct) or GMP (when IFT sends through GMP)
+    solana_ibc_types::validate_cpi_caller_with_upstream(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
+        &[ics27_gmp::ID], // Allow GMP as upstream caller for IFT→GMP→Router flow
         &crate::ID,
     )
     .map_err(IFTError::from)?;

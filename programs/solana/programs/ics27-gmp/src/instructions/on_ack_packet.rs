@@ -37,6 +37,12 @@ pub fn on_acknowledgement_packet<'info>(
     ctx: Context<'_, '_, '_, 'info, OnAckPacket<'info>>,
     msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
+    msg!(
+        "GMP on_ack_packet: entry, source_client={}, sequence={}",
+        msg.source_client,
+        msg.sequence
+    );
+
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
@@ -44,8 +50,27 @@ pub fn on_acknowledgement_packet<'info>(
     )
     .map_err(GMPError::from)?;
 
+    msg!("GMP on_ack_packet: CPI caller validated");
+
     let gmp_packet =
         GmpPacketData::decode_vec(&msg.payload.value).map_err(|_| GMPError::InvalidPacketData)?;
+
+    msg!(
+        "GMP on_ack_packet: decoded gmp_packet, sender={}, remaining_accounts={}",
+        gmp_packet.sender.as_ref(),
+        ctx.remaining_accounts.len()
+    );
+
+    // Debug: log all remaining account pubkeys
+    for (i, acc) in ctx.remaining_accounts.iter().enumerate() {
+        msg!(
+            "GMP remaining_account[{}]: {} (signer={}, writable={})",
+            i,
+            acc.key,
+            acc.is_signer,
+            acc.is_writable
+        );
+    }
 
     // Forward acknowledgement to sender if remaining_accounts provided (indicates callback expected)
     // The sender field contains the calling program's ID (for CPI calls) or user wallet (for direct calls)
@@ -58,8 +83,16 @@ pub fn on_acknowledgement_packet<'info>(
             .map_err(|_| GMPError::InvalidSender)?;
 
         msg!(
-            "Forwarding acknowledgement to sender program: {}",
+            "GMP on_ack_packet: Forwarding ack to callback program: {}",
             callback_program
+        );
+
+        // Validate that remaining_accounts[0] is the callback program
+        // This is required because invoke() needs the target program in the account_infos slice
+        let remaining = ctx.remaining_accounts;
+        require!(
+            remaining[0].key() == callback_program,
+            GMPError::AccountKeyMismatch
         );
 
         // Build instruction data for callback program's on_acknowledgement_packet
@@ -70,10 +103,10 @@ pub fn on_acknowledgement_packet<'info>(
         // Serialize the OnAcknowledgementPacketMsg using Anchor's serialization
         msg.serialize(&mut ix_data)?;
 
-        // Build account metas from remaining_accounts
-        // remaining_accounts layout: [callback_app_state, ...other accounts needed by callback]
-        let account_metas: Vec<AccountMeta> = ctx
-            .remaining_accounts
+        // Build account metas from remaining_accounts, skipping the callback program at [0]
+        // The callback program is used as instruction.program_id, not in the accounts array
+        let callback_accounts = &remaining[1..];
+        let account_metas: Vec<AccountMeta> = callback_accounts
             .iter()
             .map(|acc| AccountMeta {
                 pubkey: *acc.key,
@@ -82,18 +115,36 @@ pub fn on_acknowledgement_packet<'info>(
             })
             .collect();
 
+        msg!(
+            "GMP on_ack_packet: built CPI with {} accounts, ack_len={}",
+            account_metas.len(),
+            msg.acknowledgement.len()
+        );
+
+        // Debug: log GMP's named accounts for comparison
+        msg!(
+            "GMP named accounts: router={}, sysvar={}, payer={}, system={}",
+            ctx.accounts.router_program.key,
+            ctx.accounts.instruction_sysvar.key,
+            ctx.accounts.payer.key,
+            ctx.accounts.system_program.key
+        );
+
         let instruction = Instruction {
             program_id: callback_program,
             accounts: account_metas,
             data: ix_data,
         };
 
-        // CPI to callback program
-        invoke(&instruction, ctx.remaining_accounts)?;
+        // CPI to callback program - pass remaining_accounts as AccountInfos
+        invoke(&instruction, remaining)?;
 
-        msg!("Acknowledgement forwarded to sender program successfully");
+        msg!("GMP on_ack_packet: callback CPI completed successfully");
+    } else {
+        msg!("GMP on_ack_packet: NO remaining_accounts, skipping callback");
     }
 
+    msg!("GMP on_ack_packet: done");
     Ok(())
 }
 

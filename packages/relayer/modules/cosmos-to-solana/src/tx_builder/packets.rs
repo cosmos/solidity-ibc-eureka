@@ -79,7 +79,6 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        // Resolve the light client program ID for this client
         let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
 
         let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
@@ -170,7 +169,6 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
-        // Resolve the light client program ID for this client
         let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
 
         let chain_id = self.chain_id().await?;
@@ -202,6 +200,53 @@ impl super::TxBuilder {
                 .into_iter()
                 .map(|a| AccountMeta::new(a, false)),
         );
+
+        tracing::info!(
+            "Building ack packet - about to extract IFT callback accounts for port={}, encoding={}, client={}, seq={}",
+            source_port,
+            &payload.encoding,
+            &msg.packet.source_client,
+            msg.packet.sequence
+        );
+        let ift_accounts = crate::ift::extract_ift_ack_callback_accounts(
+            source_port,
+            &payload.encoding,
+            &payload.value,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            &self.target_solana_client,
+            self.solana_ics26_program_id,
+            self.fee_payer,
+        )
+        .await?;
+        tracing::info!(
+            "IFT callback accounts extraction returned {} accounts",
+            ift_accounts.len()
+        );
+
+        // Debug: log all IFT callback accounts being added
+        for (i, acc) in ift_accounts.iter().enumerate() {
+            tracing::info!(
+                "IFT callback account[{}]: {} (signer={}, writable={})",
+                i,
+                acc.pubkey,
+                acc.is_signer,
+                acc.is_writable
+            );
+        }
+        accounts.extend(ift_accounts);
+
+        // Debug: log total accounts in instruction
+        tracing::info!("Total accounts in ack_packet instruction: {}", accounts.len());
+        for (i, acc) in accounts.iter().enumerate() {
+            tracing::info!(
+                "  Account[{}]: {} (signer={}, writable={})",
+                i,
+                acc.pubkey,
+                acc.is_signer,
+                acc.is_writable
+            );
+        }
 
         let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);

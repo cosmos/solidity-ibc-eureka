@@ -6,6 +6,7 @@
 pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
+pub mod ift;
 pub mod proto;
 pub mod tx_builder;
 

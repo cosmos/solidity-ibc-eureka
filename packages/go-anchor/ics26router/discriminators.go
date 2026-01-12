@@ -19,17 +19,18 @@ var ()
 
 // Instruction discriminators
 var (
-	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
-	Instruction_AddUpstreamCaller  = [8]byte{146, 224, 124, 183, 10, 210, 164, 183}
-	Instruction_SendPacket         = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
-	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
-	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
-	Instruction_TimeoutPacket      = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
-	Instruction_AddClient          = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
-	Instruction_MigrateClient      = [8]byte{95, 190, 13, 80, 51, 174, 34, 252}
-	Instruction_UploadPayloadChunk = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
-	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
-	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
-	Instruction_SetAccessManager   = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_Initialize           = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_AddIbcApp            = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
+	Instruction_AddUpstreamCaller    = [8]byte{146, 224, 124, 183, 10, 210, 164, 183}
+	Instruction_RemoveUpstreamCaller = [8]byte{11, 200, 204, 129, 158, 120, 154, 44}
+	Instruction_SendPacket           = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
+	Instruction_RecvPacket           = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
+	Instruction_AckPacket            = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
+	Instruction_TimeoutPacket        = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
+	Instruction_AddClient            = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
+	Instruction_MigrateClient        = [8]byte{95, 190, 13, 80, 51, 174, 34, 252}
+	Instruction_UploadPayloadChunk   = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
+	Instruction_UploadProofChunk     = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
+	Instruction_CleanupChunks        = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
+	Instruction_SetAccessManager     = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 )
