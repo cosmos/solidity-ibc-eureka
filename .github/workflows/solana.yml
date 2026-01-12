@@ -69,3 +69,48 @@ jobs:
 
       - name: Run Solana linting
         run: just lint-solana
+
+  coverage:
+    name: solana-coverage
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: llvm-tools-preview
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-solana-cov-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-solana-cov-
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+
+      - name: Install protobuf compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y protobuf-compiler
+
+      - name: Run coverage
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        working-directory: programs/solana
+
+      - uses: codecov/codecov-action@v5
+        with:
+          files: programs/solana/lcov.info
+          flags: solana
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
