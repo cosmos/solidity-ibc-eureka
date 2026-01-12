@@ -538,9 +538,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
-		s.T().Logf("Timeout transaction broadcasted: %s", sig)
-
-		s.T().Log("Timeout successfully processed on Solana")
+		s.T().Logf("Timeout transaction: %s", sig)
 	}))
 
 	s.Require().True(s.Run("Verify timeout effects", func() {
@@ -577,11 +575,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.Require().NoError(err)
 		senderTokenAccount = tokenAccount
 		s.SenderTokenAccount = tokenAccount
-
-		// Debug logging for ATA address comparison with relayer
-		s.T().Logf("DEBUG IFT Test: sender_wallet=%s", s.SolanaRelayer.PublicKey().String())
-		s.T().Logf("DEBUG IFT Test: mint=%s", mint.String())
-		s.T().Logf("DEBUG IFT Test: sender_ata_created=%s", tokenAccount.String())
 
 		err = s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, mint, tokenAccount, IFTMintAmount)
 		s.Require().NoError(err)
@@ -670,9 +663,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 
 	simd := s.CosmosChains[0]
 
-	// Relay packet to Cosmos - execution will fail because there's no IFT module to handle MsgIFTMint
 	var cosmosRecvTxHash string
-	s.Require().True(s.Run("Relay packet to Cosmos (execution will fail)", func() {
+	s.Require().True(s.Run("Relay packet to Cosmos (will fail - no IFT handler)", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -689,18 +681,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 
 		s.Require().True(s.Run("Submit relay tx to Cosmos", func() {
 			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 2_000_000, recvRelayTx)
-			s.T().Logf("Recv packet tx result: code=%d, gas=%d", receipt.Code, receipt.GasUsed)
-
-			// IBC layer succeeds (code=0) even if app execution fails
-			// The MsgIFTMint payload will fail because there's no IFT module on Cosmos
-			s.Require().Equal(uint32(0), receipt.Code, "Recv packet should succeed at IBC layer")
+			s.Require().Equal(uint32(0), receipt.Code, "IBC layer should succeed even if app fails")
 			cosmosRecvTxHash = receipt.TxHash
-			s.T().Logf("Packet received on Cosmos, error ack written: %s", cosmosRecvTxHash)
 		}))
 	}))
 
-	// Relay error acknowledgment back to Solana
-	s.Require().True(s.Run("Relay error acknowledgment to Solana", func() {
+	s.Require().True(s.Run("Relay error ack to Solana", func() {
 		cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxHash)
 		s.Require().NoError(err)
 
@@ -716,13 +702,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 
 		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
-		s.T().Logf("Error acknowledgment relayed to Solana: %s", sig)
-
-		// Log transaction details including program logs
-		s.SolanaChain.LogTransactionDetails(ctx, s.T(), sig, "IFT Ack Packet Transaction")
+		s.T().Logf("Error ack relayed: %s", sig)
 	}))
 
-	// Verify tokens were refunded after processing error ack
 	s.Require().True(s.Run("Verify tokens refunded", func() {
 		finalBalance, err := s.SolanaChain.GetTokenBalance(ctx, senderTokenAccount)
 		s.Require().NoError(err)
