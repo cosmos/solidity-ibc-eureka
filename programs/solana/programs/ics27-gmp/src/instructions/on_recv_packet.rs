@@ -76,25 +76,21 @@ pub fn on_recv_packet<'info>(
     )
     .map_err(GMPError::from)?;
 
-    // Validate version
     require!(
         msg.payload.version == ICS27_VERSION,
         GMPError::InvalidVersion
     );
 
-    // Validate source port
     require!(
         msg.payload.source_port == GMP_PORT_ID,
         GMPError::InvalidPort
     );
 
-    // Validate encoding
     require!(
         msg.payload.encoding == ICS27_ENCODING,
         GMPError::InvalidEncoding
     );
 
-    // Validate dest port
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
     // Extract target_program from `remaining_accounts`
@@ -103,7 +99,6 @@ pub fn on_recv_packet<'info>(
         .get(OnRecvPacket::TARGET_PROGRAM_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Validate target_program is executable
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Decode and validate GMP packet data from protobuf payload
@@ -124,7 +119,6 @@ pub fn on_recv_packet<'info>(
         GMPError::AccountKeyMismatch
     );
 
-    // Create ClientId from dest_client (local client on this chain)
     let client_id = solana_ibc_types::ClientId::try_from(msg.dest_client)
         .map_err(|_| GMPError::InvalidClientId)?;
 
@@ -142,7 +136,6 @@ pub fn on_recv_packet<'info>(
         .get(OnRecvPacket::GMP_ACCOUNT_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Validate GMP account PDA matches expected address
     require_keys_eq!(
         gmp_account_info.key(),
         gmp_account.pda,

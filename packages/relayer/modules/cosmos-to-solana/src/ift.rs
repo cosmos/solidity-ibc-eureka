@@ -71,12 +71,9 @@ pub type IftAckParams<'a> = IftCallbackParams<'a>;
 /// When a GMP packet's sender is an IFT program, we need to include additional
 /// accounts so GMP can forward the acknowledgement to IFT for refund processing.
 ///
-/// # Errors
-///
-/// Returns an error if:
-/// - Failed to query Solana RPC for program accounts
-/// - Failed to deserialize pending transfer account data
-pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Vec<AccountMeta>> {
+/// Returns empty vec if the packet is not from IFT or pending transfer not found.
+#[must_use]
+pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Vec<AccountMeta> {
     extract_ift_callback_accounts(params)
 }
 
@@ -85,22 +82,17 @@ pub fn extract_ift_ack_callback_accounts(params: &IftAckParams<'_>) -> Result<Ve
 /// When a GMP packet's sender is an IFT program, we need to include additional
 /// accounts so GMP can forward the timeout to IFT for refund processing.
 ///
-/// # Errors
-///
-/// Returns an error if:
-/// - Failed to query Solana RPC for program accounts
-/// - Failed to deserialize pending transfer account data
-pub fn extract_ift_timeout_callback_accounts(
-    params: &IftCallbackParams<'_>,
-) -> Result<Vec<AccountMeta>> {
+/// Returns empty vec if the packet is not from IFT or pending transfer not found.
+#[must_use]
+pub fn extract_ift_timeout_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
     extract_ift_callback_accounts(params)
 }
 
 /// Common implementation for extracting IFT callback accounts (ack and timeout share the same accounts)
-fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<AccountMeta>> {
+fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
     // Only process GMP port packets with protobuf encoding
     if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
-        return Ok(Vec::new());
+        return Vec::new();
     }
 
     // Decode GMP packet to get sender
@@ -108,7 +100,7 @@ fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<A
         Ok(packet) => packet,
         Err(e) => {
             tracing::warn!("IFT: Failed to decode GMP packet: {e:?}");
-            return Ok(Vec::new());
+            return Vec::new();
         }
     };
 
@@ -117,7 +109,7 @@ fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<A
         Ok(pk) => pk,
         Err(e) => {
             tracing::warn!("IFT: GMP sender is not a valid Pubkey: {e:?}");
-            return Ok(Vec::new());
+            return Vec::new();
         }
     };
 
@@ -130,11 +122,11 @@ fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<A
     ) {
         Ok(Some(pt)) => pt,
         Ok(None) => {
-            return Ok(Vec::new());
+            return Vec::new();
         }
         Err(e) => {
             tracing::error!("IFT: Error searching for pending transfer: {e:?}");
-            return Ok(Vec::new());
+            return Vec::new();
         }
     };
 
@@ -146,14 +138,14 @@ fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Result<Vec<A
     );
 
     // Build callback accounts (same for both ack and timeout)
-    Ok(build_ift_callback_accounts(
+    build_ift_callback_accounts(
         sender_program,
         &pending_transfer,
         params.source_client,
         params.sequence,
         params.router_program_id,
         params.fee_payer,
-    ))
+    )
 }
 
 /// Find pending transfer by `client_id` and sequence

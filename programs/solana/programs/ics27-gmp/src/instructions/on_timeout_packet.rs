@@ -43,7 +43,6 @@ pub fn on_timeout_packet<'info>(
     )
     .map_err(GMPError::from)?;
 
-    // Forward timeout to sender if remaining_accounts provided
     forward_callback(
         ctx.remaining_accounts,
         &msg.payload.value,

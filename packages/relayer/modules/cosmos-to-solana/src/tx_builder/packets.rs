@@ -211,7 +211,7 @@ impl super::TxBuilder {
                 solana_client: &self.target_solana_client,
                 router_program_id: self.solana_ics26_program_id,
                 fee_payer: self.fee_payer,
-            })?;
+            });
 
         tracing::debug!(
             "IFT callback: {} accounts for port={}, client={}, seq={}",
@@ -262,7 +262,7 @@ impl super::TxBuilder {
                 router_program_id: self.solana_ics26_program_id,
                 fee_payer: self.fee_payer,
             },
-        )?;
+        );
 
         tracing::debug!(
             "IFT timeout callback: {} accounts for port={}, client={}, seq={}",
