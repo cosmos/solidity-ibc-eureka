@@ -785,7 +785,12 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
+	jq '.abi' out/E2ETestDeploy.s.sol/TestIFT.json > abi/TestIFT.json
+	jq '.abi' out/CosmosIFTSendCallConstructor.sol/CosmosIFTSendCallConstructor.json > abi/CosmosIFTSendCallConstructor.json
+	jq -r '.bytecode.object' out/CosmosIFTSendCallConstructor.sol/CosmosIFTSendCallConstructor.json > abi/bytecode/CosmosIFTSendCallConstructor.bin
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
+	abigen --abi abi/TestIFT.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
+	abigen --abi abi/CosmosIFTSendCallConstructor.json --bin abi/bytecode/CosmosIFTSendCallConstructor.bin --pkg cosmosiftconstructor --type Contract --out e2e/interchaintestv8/types/cosmosiftconstructor/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
@@ -910,11 +915,13 @@ generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true E2E_PROOF_TYPE=plonk go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test_25_Membership' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
-# Generate the code from pritibuf using `buf generate`. (Only used for relayer testing at the moment)
+# Generate the code from protobuf using `buf generate`
 [group('generate')]
 generate-buf:
-    @echo "Generating Protobuf files for relayer"
-    buf generate --template buf.gen.yaml
+    @echo "Generating Protobuf files (non-wfchain)"
+    buf generate --template buf.gen.yaml --exclude-path proto/wfchain
+    @echo "Generating Protobuf files (wfchain with gogoproto)"
+    buf generate --template buf.gen.wfchain.yaml --path proto/wfchain
 
 shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
 
@@ -993,6 +1000,18 @@ test-e2e-solana-gmp testname:
 test-e2e-solana-upgrade testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaUpgradeTestSuite/{{testname}}
+
+# Run the e2e tests in the CosmosIFTTestSuite. For example, `just test-e2e-cosmos-ift Test_IFTTransfer`
+[group('test')]
+test-e2e-cosmos-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosIFTTestSuite/{{testname}}
+
+# Run the e2e tests in the CosmosEthereumIFTTestSuite. For example, `just test-e2e-cosmos-ethereum-ift Test_Deploy`
+[group('test')]
+test-e2e-cosmos-ethereum-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosEthereumIFTTestSuite/{{testname}}
 
 # Run the Solana Anchor e2e tests
 [group('test')]

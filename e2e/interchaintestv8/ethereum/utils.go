@@ -33,6 +33,9 @@ type DeployedContracts struct {
 	Ics20Transfer string `json:"ics20Transfer"`
 	Ics27Gmp      string `json:"ics27Gmp"`
 	Erc20         string `json:"erc20"`
+	// IFT contracts (optional)
+	Ift               string `json:"ift,omitempty"`
+	EvmIftConstructor string `json:"evmIftConstructor,omitempty"`
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {

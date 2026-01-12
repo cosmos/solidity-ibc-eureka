@@ -4,7 +4,9 @@ import (
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	cryptocodec "github.com/cosmos/cosmos-sdk/crypto/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
@@ -28,6 +30,9 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+
+	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
+	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
 
 // Codec returns the global E2E protobuf codec.
@@ -79,6 +84,24 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	proposaltypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	authz.RegisterInterfaces(cfg.InterfaceRegistry)
 	txtypes.RegisterInterfaces(cfg.InterfaceRegistry)
+
+	// wfchain IFT and TokenFactory types
+	registerWfchainTypes(cfg.InterfaceRegistry)
+
 	cdc := codec.NewProtoCodec(cfg.InterfaceRegistry)
 	return cdc, cfg
+}
+
+// registerWfchainTypes registers wfchain IFT and TokenFactory message types
+func registerWfchainTypes(registry codectypes.InterfaceRegistry) {
+	registry.RegisterImplementations((*sdk.Msg)(nil),
+		&ifttypes.MsgRegisterIFTBridge{},
+		&ifttypes.MsgRemoveIFTBridge{},
+		&ifttypes.MsgIFTTransfer{},
+		&ifttypes.MsgIFTMint{},
+		&ifttypes.MsgUpdateParams{},
+		&tokenfactorytypes.MsgCreateDenom{},
+		&tokenfactorytypes.MsgMint{},
+		&tokenfactorytypes.MsgBurn{},
+	)
 }

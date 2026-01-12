@@ -1,4 +1,5 @@
 name: e2e-setup
+description: Sets up the E2E test environment
 
 inputs:
   github_token:
@@ -8,6 +9,19 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
+
+    - name: Pre-pull private images
+      shell: bash
+      run: |
+        echo "Pulling wfchain image..."
+        docker pull ghcr.io/cosmos/wfchain:mariuszzak-ift || echo "Failed to pull wfchain image"
+
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
 

@@ -73,6 +73,7 @@
           inherit anchor;
         };
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
+        protoc-gen-gocosmos = pkgs.callPackage ./nix/protoc-gen-gocosmos.nix {};
       in
       {
         devShells = {
@@ -97,6 +98,7 @@
               buf
               protoc-gen-go
               protoc-gen-go-grpc
+              protoc-gen-gocosmos
               quicktype
               inputs.natlint.packages.${system}.default
             ]
@@ -140,6 +142,7 @@
               buf
               protoc-gen-go
               protoc-gen-go-grpc
+              protoc-gen-gocosmos
               just
               rust
               golangci-lint
