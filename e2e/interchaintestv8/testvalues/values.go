@@ -2,6 +2,7 @@ package testvalues
 
 import (
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/holiman/uint256"
@@ -25,6 +26,9 @@ const (
 
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
+
+	// NumAttestors is the number of attestor instances to start in tests
+	NumAttestors int = 1
 
 	// InitialSolBalance is the default amount of SOL to give a new user
 	InitialSolBalance uint64 = solana.LAMPORTS_PER_SOL * 1
@@ -85,8 +89,27 @@ const (
 	EthTestnetTypePoW = "pow"
 	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
 	EthTestnetTypePoS = "pos"
+	// EthTestnetTypeOptimism is the Ethereum testnet type for using the Optimism chain.
+	EthTestnetTypeOptimism = "optimism"
+	// EthTestnetTypeArbitrum is the Ethereum testnet type for using the Arbitrum testnode.
+	EthTestnetTypeArbitrum = "arbitrum"
 	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
 	EthTestnetTypeNone = "none"
+
+	// Dummy light client (for Eth verification on Cosmos)
+	EthWasmTypeDummy = "dummy"
+	// Full light client (for Eth verification on Cosmos)
+	EthWasmTypeFull = "full"
+	// Wasm attestor light client (for Eth verification on Cosmos) - uses 08-wasm
+	EthWasmTypeAttestorWasm = "attestor-wasm"
+	// Native ibc-go attestor light client (for Eth verification on Cosmos) - uses attestations module
+	EthWasmTypeAttestorNative = "attestor-native"
+
+	// SP1 light client (for Cosmos verification on Ethereum)
+	CosmosLcTypeSp1 = "sp1"
+	// Attestor light client (for Cosmos verification on Ethereum)
+	CosmosLcTypeAttestor = "attestor"
+
 	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
@@ -100,6 +123,20 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
+	// EnvKeyEthLcOnCosmos is the environment variable name to configure the Ethereum light client
+	// deployed on Cosmos (dummy|full|attestor-wasm|attestor-native)
+	EnvKeyEthLcOnCosmos = "ETH_LC_ON_COSMOS"
+	// EnvKeyCosmosLcOnEth is the environment variable name to configure the Cosmos light client
+	// deployed on Ethereum (sp1|attestor). Defaults to sp1.
+	EnvKeyCosmosLcOnEth = "COSMOS_LC_ON_ETH"
+
+	// EnvKeyMultiAttestorCount is the total number of attestor keys to generate and register
+	// in light clients as authorized signers.
+	EnvKeyMultiAttestorCount = "MULTI_ATTESTOR_COUNT"
+	// EnvKeyMultiAttestorQuorum is the minimum number of signatures required for valid attestation.
+	EnvKeyMultiAttestorQuorum = "MULTI_ATTESTOR_QUORUM"
+	// EnvKeyMultiAttestorActive is the number of attestor processes to actually run.
+	EnvKeyMultiAttestorActive = "MULTI_ATTESTOR_ACTIVE"
 
 	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
 	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
@@ -144,6 +181,8 @@ const (
 
 	// FirstWasmClientID is the first wasm client ID. Used for testing.
 	FirstWasmClientID = "08-wasm-0"
+	// FirstAttestationsClientID is the first native ibc-go attestations client ID. Used for testing.
+	FirstAttestationsClientID = "attestations-0"
 	// FirstUniversalClientID is the first universal client ID. Used for testing.
 	FirstUniversalClientID = "client-0"
 	// SecondUniversalClientID is the second universal client ID. Used for testing.
@@ -161,6 +200,31 @@ const (
 	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+
+	// Min sigs parameter for the attestor light client creation.
+	ParameterKey_MinRequiredSigs = "min_required_sigs"
+	// Default minimum required signatures for attestor light client in tests.
+	DefaultMinRequiredSigs = 1
+	// Addresses parameter for the attestor light client creation.
+	ParameterKey_AttestorAddresses = "attestor_addresses"
+	// Height parameter for the attestor light client creation.
+	ParameterKey_height = "height"
+	// Timestamp parameter for the attestor light client creation.
+	ParameterKey_timestamp = "timestamp"
+	// The tmp path used for programatically generated attestor configs
+	AttestorConfigPath = "/tmp/attestor.toml"
+	// The tmp path template for multiple Ethereum attestor configs
+	EthAttestorConfigPathTemplate = "/tmp/eth_attestor_%d.toml"
+	// The tmp path template for multiple Cosmos attestor configs
+	CosmosAttestorConfigPathTemplate = "/tmp/cosmos_attestor_%d.toml"
+	// The tmp path template for multiple Solana attestor configs
+	SolanaAttestorConfigPathTemplate = "/tmp/solana_attestor_%d.toml"
+	// The tmp path template for attestor keystores
+	AttestorKeystorePathTemplate = "/tmp/attestor_keystore_%d"
+	// The tmp path used for programatically generated aggregator configs
+	AggregatorConfigPath = "/tmp/aggregator.toml"
+	// The RPC endpoint for the aggregator service
+	AggregatorRpcPath = "http://localhost:8080"
 )
 
 var (
@@ -199,3 +263,22 @@ var (
 		return role
 	}()
 )
+
+func EnvGet(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	return value
+}
+
+func EnvEnsure(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+
+	os.Setenv(key, defaultValue)
+
+	return defaultValue
+}

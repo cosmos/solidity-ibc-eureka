@@ -1,2 +1,3 @@
 target/**
 programs/relayer/Dockerfile
+programs/ibc-attestor/Dockerfile

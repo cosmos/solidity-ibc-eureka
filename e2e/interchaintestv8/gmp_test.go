@@ -77,9 +77,10 @@ func TestWithIbcEurekaGmpTestSuite(t *testing.T) {
 }
 
 func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoW)
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, simd := s.EthChains[0], s.CosmosChains[0]
 
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
@@ -154,24 +155,29 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		sp1Config := relayer.SP1ProverConfig{
-			Type:           prover,
-			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
-		}
-
-		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
-			relayer.EthCosmosConfigInfo{
-				EthChainID:     eth.ChainID.String(),
-				CosmosChainID:  simd.Config().ChainID,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26Address:   s.contractAddresses.Ics26Router,
-				EthRPC:         eth.RPC,
-				BeaconAPI:      beaconAPI,
-				SP1Config:      sp1Config,
-				SignerAddress:  s.SimdRelayerSubmitter.FormattedAddress(),
-				MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			}),
-		)
+		config := relayer.NewConfigBuilder().
+			EthToCosmos(relayer.EthToCosmosParams{
+				EthChainID:    eth.ChainID.String(),
+				CosmosChainID: simd.Config().ChainID,
+				TmRPC:         simd.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				BeaconAPI:     beaconAPI,
+				SignerAddress: s.SimdRelayerSubmitter.FormattedAddress(),
+				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+			}).
+			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+				EthChainID:    eth.ChainID.String(),
+				CosmosChainID: simd.Config().ChainID,
+				TmRPC:         simd.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				Prover: relayer.SP1ProverConfig{
+					Type:           prover,
+					PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
+				},
+			}).
+			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -194,6 +200,8 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	})
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
+		time.Sleep(5 * time.Second) // wait for the relayer to start
+
 		var err error
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err)
@@ -251,7 +259,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	}))
 
 	s.Require().True(s.Run("Create ethereum light client on Cosmos chain", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simd, s.SimdRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simd, s.SimdRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -317,7 +325,7 @@ func (s *IbcEurekaGmpTestSuite) TestDeploy() {
 func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, simd := s.EthChains[0], s.CosmosChains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
 		clientState, err := s.sp1Ics07Contract.ClientState(nil)
@@ -398,7 +406,7 @@ func (s *IbcEurekaGmpTestSuite) TestSendCallFromCosmos() {
 func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, simd := s.EthChains[0], s.CosmosChains[0]
 	simdUser := s.CosmosUsers[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
@@ -537,7 +545,7 @@ func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth() {
 func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChain, s.CosmosChains[0]
+	eth, simd := s.EthChains[0], s.CosmosChains[0]
 	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)

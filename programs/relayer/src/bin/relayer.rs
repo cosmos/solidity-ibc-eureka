@@ -9,6 +9,7 @@ use ibc_eureka_relayer_cosmos_to_eth::CosmosToEthRelayerModule;
 use ibc_eureka_relayer_cosmos_to_solana::CosmosToSolanaRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
+use ibc_eureka_relayer_eth_to_eth::EthToEthRelayerModule;
 use ibc_eureka_relayer_solana_to_cosmos::SolanaToCosmosRelayerModule;
 
 use prometheus::{Encoder, TextEncoder};
@@ -37,6 +38,7 @@ async fn main() -> anyhow::Result<()> {
             relayer_builder.add_module(CosmosToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosRelayerModule);
             relayer_builder.add_module(EthToCosmosCompatRelayerModule);
+            relayer_builder.add_module(EthToEthRelayerModule);
             relayer_builder.add_module(SolanaToCosmosRelayerModule);
             relayer_builder.add_module(CosmosToSolanaRelayerModule);
 

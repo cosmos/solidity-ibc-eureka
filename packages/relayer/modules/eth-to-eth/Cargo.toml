@@ -1,0 +1,18 @@
+[package]
+name = "ibc-eureka-relayer-eth-to-eth"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+ibc-eureka-relayer-core = { workspace = true }
+ibc-eureka-relayer-lib = { workspace = true }
+ibc-eureka-solidity-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }

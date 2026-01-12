@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+package signerservice;
+
+option go_package = "types/signerservice";
+
+service SignerService {
+    rpc GetChains(GetChainsRequest) returns (GetChainsResponse) {}
+    rpc GetWallet(GetWalletRequest) returns (GetWalletResponse) {}
+    rpc GetWallets(GetWalletsRequest) returns (GetWalletsResponse) {}
+    rpc Sign(SignRequest) returns (SignResponse) {}
+}
+
+message Chain {
+    string name = 1;
+    string chain_id = 2;
+}
+
+message GetChainsRequest {}
+message GetChainsResponse {
+    repeated Chain chains = 1;
+}
+
+message Wallet {
+    string id = 1;
+    string name = 2;
+    repeated string tags = 3;
+    bytes pubkey = 4;
+    bytes address_bytes = 5;
+    string formatted_address = 6;
+}
+
+message GetWalletRequest {
+    string id = 1;
+    PubKeyType pubkey_type = 2;
+}
+
+enum PubKeyType {
+    Raw = 0;
+    Cosmos = 1;
+    Ethereum = 2;
+    Solana = 3;
+}
+
+message GetWalletResponse {
+    Wallet wallet = 1;
+}
+
+message GetWalletsRequest {}
+
+message GetWalletsResponse {
+    repeated Wallet wallets = 1;
+}
+
+message SignRequest {
+    string wallet_id = 1;
+    oneof payload {
+        EvmTransaction evm_transaction = 2;
+        CosmosTransaction cosmos_transaction = 3;
+        RawMessage raw_message = 4;
+        SolanaTransaction solana_transaction = 5;
+    }
+}
+
+message SignResponse {
+    oneof signature {
+        EvmTransactionSignature evm_signature = 1;
+        CosmosTransactionSignature cosmos_signature = 2;
+        RawMessageSignature raw_signature = 3;
+        SolanaTransactionSignature solana_signature = 4;
+    }
+}
+
+message EvmTransaction {
+    string chain_id = 1;
+    bytes tx_bytes = 2;
+}
+
+message EvmTransactionSignature {
+    bytes r = 1;
+    bytes s = 2;
+    bytes v = 3;
+}
+
+message CosmosTransaction {
+    bytes sign_doc_bytes = 2;
+}
+
+message CosmosTransactionSignature {
+    bytes signature = 1;
+}
+
+message RawMessage {
+    bytes message = 1;
+}
+
+message RawMessageSignature {
+    bytes signature = 1;
+}
+
+message SolanaTransactionSignature {
+    bytes signature = 1;
+}
+
+message SolanaTransaction {
+    string transaction = 1; // Base-64 encoded transaction
+}

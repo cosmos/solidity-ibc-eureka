@@ -71,14 +71,61 @@ runs:
         command: install
         args: --bin operator --path programs/operator --locked
 
+    - name: Cache Attestor
+      id: cache-attestor
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/ibc_attestor
+        key: ${{ runner.os }}-attestor-${{ hashFiles('programs/ibc-attestor/**', 'packages/**', 'Cargo.lock') }}
+
+    - name: Install just for attestor
+      if: steps.cache-attestor.outputs.cache-hit != 'true'
+      uses: extractions/setup-just@v2
+
+    - name: Install attestor
+      if: steps.cache-attestor.outputs.cache-hit != 'true'
+      shell: bash
+      run: just install-attestor
+
+    - name: Cache Solana Programs
+      id: cache-solana
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/solana/
+          ~/.local/share/solana/
+          ~/.avm/
+          ./programs/solana/target/deploy/
+          ./programs/solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
+
+    - name: Setup Solana and Anchor
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      uses: solana-developers/github-actions/setup-all@v0.2.5
+      with:
+        anchor_version: ${{ env.ANCHOR_VERSION }}
+        solana_version: ${{ env.SOLANA_VERSION }}
+
+    - name: Install just for Solana build
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      uses: extractions/setup-just@v2
+
+    - name: Build Solana Programs
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-solana
+
     - name: Package artifacts
       shell: bash
       run: |
         mkdir -p e2e-artifacts/bin
         mkdir -p e2e-artifacts/sp1-programs
+        mkdir -p e2e-artifacts/solana-programs
         cp ~/.cargo/bin/relayer e2e-artifacts/bin/
         cp ~/.cargo/bin/operator e2e-artifacts/bin/
+        cp ~/.cargo/bin/ibc_attestor e2e-artifacts/bin/
         cp -r programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
+        cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v4

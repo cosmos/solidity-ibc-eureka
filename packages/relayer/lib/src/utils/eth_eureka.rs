@@ -1,5 +1,6 @@
 //! Relayer utilities for `solidity-ibc-eureka` chains.
 
+use crate::events::{EurekaEvent, EurekaEventWithHeight};
 use alloy::{primitives::Bytes, sol_types::SolValue};
 use anyhow::Result;
 use futures::future;
@@ -24,8 +25,6 @@ use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
-
-use crate::events::{EurekaEvent, EurekaEventWithHeight};
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`routerCalls::timeoutPacket`]s with empty
 /// proofs.

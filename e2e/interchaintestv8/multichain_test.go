@@ -84,7 +84,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
 
 	s.T().Logf("Setting up test suite with proof type: %s", proofType.String())
 
@@ -166,20 +166,64 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			sp1Config.PrivateCluster = os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
 		}
 
-		config := relayer.NewConfig(relayer.CreateMultichainModules(relayer.MultichainConfigInfo{
-			ChainAID:            simdA.Config().ChainID,
-			ChainBID:            simdB.Config().ChainID,
-			EthChainID:          eth.ChainID.String(),
-			ChainATmRPC:         simdA.GetHostRPCAddress(),
-			ChainBTmRPC:         simdB.GetHostRPCAddress(),
-			ChainASignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
-			ChainBSignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
-			ICS26Address:        s.contractAddresses.Ics26Router,
-			EthRPC:              eth.RPC,
-			BeaconAPI:           beaconAPI,
-			SP1Config:           sp1Config,
-			MockWasmClient:      os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-		}))
+		mockClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW
+
+		// Eth↔ChainA, Eth↔ChainB, ChainA↔ChainB
+		config := relayer.NewConfigBuilder().
+			// Eth ↔ ChainA
+			EthToCosmos(relayer.EthToCosmosParams{
+				EthChainID:    eth.ChainID.String(),
+				CosmosChainID: simdA.Config().ChainID,
+				TmRPC:         simdA.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				BeaconAPI:     beaconAPI,
+				SignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
+				MockClient:    mockClient,
+			}).
+			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+				CosmosChainID: simdA.Config().ChainID,
+				EthChainID:    eth.ChainID.String(),
+				TmRPC:         simdA.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				Prover:        sp1Config,
+			}).
+			// Eth ↔ ChainB
+			EthToCosmos(relayer.EthToCosmosParams{
+				EthChainID:    eth.ChainID.String(),
+				CosmosChainID: simdB.Config().ChainID,
+				TmRPC:         simdB.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				BeaconAPI:     beaconAPI,
+				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
+				MockClient:    mockClient,
+			}).
+			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+				CosmosChainID: simdB.Config().ChainID,
+				EthChainID:    eth.ChainID.String(),
+				TmRPC:         simdB.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				Prover:        sp1Config,
+			}).
+			// ChainA ↔ ChainB (signer must exist on destination chain)
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    simdA.Config().ChainID,
+				DstChainID:    simdB.Config().ChainID,
+				SrcRPC:        simdA.GetHostRPCAddress(),
+				DstRPC:        simdB.GetHostRPCAddress(),
+				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
+			}).
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    simdB.Config().ChainID,
+				DstChainID:    simdA.Config().ChainID,
+				SrcRPC:        simdB.GetHostRPCAddress(),
+				DstRPC:        simdA.GetHostRPCAddress(),
+				SignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
+			}).
+			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -287,7 +331,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdA", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simdA, s.SimdARelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdA, s.SimdARelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -332,7 +376,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	}))
 
 	s.Require().True(s.Run("Add ethereum light client on SimdB", func() {
-		checksumHex := s.StoreEthereumLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
+		checksumHex := s.StoreLightClient(ctx, simdB, s.SimdBRelayerSubmitter)
 		s.Require().NotEmpty(checksumHex)
 
 		var createClientTxBodyBz []byte
@@ -476,7 +520,7 @@ func (s *MultichainTestSuite) Test_Deploy() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
 
 	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
 		clientState, err := s.chainASP1Ics07Contract.ClientState(nil)
@@ -669,7 +713,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -1024,7 +1068,7 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
@@ -1347,7 +1391,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChain, s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))

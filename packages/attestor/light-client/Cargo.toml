@@ -1,0 +1,31 @@
+[package]
+name = "attestor-light-client"
+version = { workspace = true }
+edition = { workspace = true }
+repository = { workspace = true }
+
+[features]
+default = []
+test-utils = ["dep:alloy-signer", "dep:alloy-signer-local", "dep:sha2"]
+
+[dependencies]
+ibc-eureka-solidity-types = { workspace = true }
+ethereum-keys = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true }
+alloy-sol-types = { workspace = true, default-features = false }
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
+
+# Optional test dependencies
+sha2 = { workspace = true, optional = true }
+alloy-signer-local = { workspace = true, optional = true }
+alloy-signer = { workspace = true, optional = true }
+
+
+[dev-dependencies]
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
+alloy-signer-local = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-sol-types = { workspace = true }
+sha2 = { workspace = true }

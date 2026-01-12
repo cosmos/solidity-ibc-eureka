@@ -270,21 +270,29 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	go func() {
 		s.T().Log("Starting relayer asynchronously...")
 
-		configInfo := relayer.SolanaCosmosConfigInfo{
-			SolanaChainID:          testvalues.SolanaChainID,
-			CosmosChainID:          simd.Config().ChainID,
-			SolanaRPC:              testvalues.SolanaLocalnetRPC,
-			TmRPC:                  simd.GetHostRPCAddress(),
-			ICS07ProgramID:         ics07_tendermint.ProgramID.String(),
-			ICS26RouterProgramID:   ics26_router.ProgramID.String(),
-			CosmosSignerAddress:    s.CosmosUsers[0].FormattedAddress(),
-			SolanaFeePayer:         s.SolanaRelayer.PublicKey().String(),
-			SolanaAltAddress:       s.SolanaAltAddress,
-			MockWasmClient:         s.UseMockWasmClient,
-			SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
-		}
-
-		config := relayer.NewConfig(relayer.CreateSolanaCosmosModules(configInfo))
+		config := relayer.NewConfigBuilder().
+			SolanaToCosmos(relayer.SolanaToCosmosParams{
+				SolanaChainID:  testvalues.SolanaChainID,
+				CosmosChainID:  simd.Config().ChainID,
+				SolanaRPC:      testvalues.SolanaLocalnetRPC,
+				TmRPC:          simd.GetHostRPCAddress(),
+				ICS26ProgramID: ics26_router.ProgramID.String(),
+				SignerAddress:  s.CosmosUsers[0].FormattedAddress(),
+				MockClient:     s.UseMockWasmClient,
+			}).
+			CosmosToSolana(relayer.CosmosToSolanaParams{
+				CosmosChainID:          simd.Config().ChainID,
+				SolanaChainID:          testvalues.SolanaChainID,
+				SolanaRPC:              testvalues.SolanaLocalnetRPC,
+				TmRPC:                  simd.GetHostRPCAddress(),
+				ICS07ProgramID:         ics07_tendermint.ProgramID.String(),
+				ICS26ProgramID:         ics26_router.ProgramID.String(),
+				FeePayer:               s.SolanaRelayer.PublicKey().String(),
+				ALTAddress:             s.SolanaAltAddress,
+				MockClient:             s.UseMockWasmClient,
+				SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
+			}).
+			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		if err != nil {

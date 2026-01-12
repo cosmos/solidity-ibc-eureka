@@ -1,0 +1,6 @@
+[server]
+listen_addr = "0.0.0.0:9000"
+
+[adapter]
+url = "https://api.devnet.solana.com"
+account_key = "vines1vzrYbzLMRdu58ou5XTby4qAqVRLmqo36NKPTg"

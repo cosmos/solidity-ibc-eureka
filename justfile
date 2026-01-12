@@ -708,6 +708,42 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
+# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+[group('build')]
+build-cw-ics08-wasm-attestor:
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
+	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
+	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
+
+# Start the attestor and aggregator services using Docker Compose
+[group('run')]
+start-aggregator-services *flags="":
+    @just stop-aggregator-services
+    @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
+    @cd test/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--no-build" { "" } else { "--build" } }} -d --wait
+
+# Stop the attestor and aggregator services
+[group('run')]
+stop-aggregator-services:
+    cd test/sig-aggregator && docker compose down --volumes
+
+# Test the attestor and aggregator services
+[group('run')]
+test-aggregator-services *flags="":
+    # TODO: point to e2e test when we have one.
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        echo "✅ Services are already running, proceeding with tests..."; \
+    else \
+        echo "🚀 Services not running, starting them..."; \
+        just start-aggregator-services {{ flags }}; \
+    fi
+    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
+        grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
+    else \
+        echo "❌ Aggregator service is not reachable. Check logs with: cd test/sig-aggregator && docker compose logs"; \
+        exit 1; \
+    fi
+
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
@@ -717,12 +753,27 @@ build-relayer-image:
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
-	cargo install --bin operator --path programs/operator --locked
+	cargo install --bin operator --path programs/operator --locked --force
 
 # Install the relayer using `cargo install`
 [group('install')]
 install-relayer:
-	cargo install --bin relayer --path programs/relayer --locked
+	cargo install --bin relayer --path programs/relayer --locked --force
+
+# Install the attestor using `cargo install`
+[group('install')]
+install-attestor:
+	# Clean up old keys
+	rm -rf ~/.ibc-attestor
+
+	# For some reason `cargo install` removes the CLI help options
+	# so we build manually and mv it to the default `cargo install`
+	# location
+
+	# Build attestor binary
+	cargo build --bin ibc_attestor --release --locked &&\
+	rm -f ~/.cargo/bin/ibc_attestor &&\
+	mv target/release/ibc_attestor ~/.cargo/bin/ibc_attestor
 
 # Run all linters
 [group('lint')]
@@ -803,7 +854,7 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: generate-pda
+generate-solana-types: build-solana generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
@@ -853,7 +904,7 @@ generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
-# Generate go types for the e2e tests from the etheruem light client code
+# Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
@@ -942,7 +993,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer
+test-e2e testname: clean-foundry install-relayer install-attestor
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
@@ -976,6 +1027,24 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+[group('test')]
+test-e2e-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
+
+# Run the e2e tests in the EthToEthAttestedTestSuite. For example, `just test-e2e-eth-to-eth Test_Deploy`
+[group('test')]
+test-e2e-eth-to-eth testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithEthToEthAttestedTestSuite/{{testname}}
+
+# Run the e2e tests in the MultiAttestorTestSuite. For example, `just test-e2e-multi-attestor Test_MultiAttestorDeploy`
+[group('test')]
+test-e2e-multi-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultiAttestorTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcEurekaSolanaTestSuite. For example, `just test-e2e-solana Test_Deploy`
 [group('test')]
 test-e2e-solana testname:
@@ -994,12 +1063,28 @@ test-e2e-solana-upgrade testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaUpgradeTestSuite/{{testname}}
 
+[group('test')]
+test-e2e-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcAttestorTestSuite/{{testname}}
+
+# Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
+[group('test')]
+test-e2e-solana-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcSolanaAttestorTestSuite/{{testname}}
+
 # Run the Solana Anchor e2e tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Running Solana Client Anchor tests..."
-	@echo "🦀 Using {{anchor_cmd}}"
-	(cd programs/solana && {{anchor_cmd}} test {{ARGS}})
+	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
+	@if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor test {{ARGS}}); \
+	fi
 
 # Run Solana unit tests (mollusk + litesvm)
 [group('test')]
@@ -1014,12 +1099,6 @@ test-solana *ARGS:
 		(cd programs/solana && cargo test {{ARGS}}); \
 	fi
 
-# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
-[group('test')]
-test-e2e-gmp testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
-
 # Clean up the foundry cache and out directories
 [group('clean')]
 clean-foundry:
@@ -1032,6 +1111,34 @@ clean-cargo:
 	@echo "Cleaning up cargo target directory"
 	cargo clean
 	cd programs/sp1-programs && cargo clean
+
+# Spike related recipes below:
+
+run-optimism:
+	kurtosis run github.com/ethpandaops/optimism-package@1.4.0 --enclave local-optimism --args-file ./network-config.yaml
+
+teardown-optimism:
+	kurtosis enclave stop local-optimism
+	kurtosis enclave rm local-optimism
+
+run-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8
+	if [ ! -d "nitro-testnode" ]; then
+		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
+	else
+		cd nitro-testnode
+		git pull origin release
+		cd ..
+	fi
+	cd nitro-testnode
+	docker compose down || true
+	./test-node.bash --init --no-simple --detach
+
+teardown-arbitrum:
+	#!/bin/bash
+	cd e2e/interchaintestv8/nitro-testnode
+	docker compose down || true
 
 # Run Slither static analysis on contracts
 [group('security')]

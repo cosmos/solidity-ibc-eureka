@@ -79,16 +79,22 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		config := relayer.NewConfig(
-			relayer.CreateCosmosCosmosModules(relayer.CosmosToCosmosConfigInfo{
-				ChainAID:    s.SimdA.Config().ChainID,
-				ChainBID:    s.SimdB.Config().ChainID,
-				ChainATmRPC: s.SimdA.GetHostRPCAddress(),
-				ChainBTmRPC: s.SimdB.GetHostRPCAddress(),
-				ChainAUser:  s.SimdASubmitter.FormattedAddress(),
-				ChainBUser:  s.SimdBSubmitter.FormattedAddress(),
-			}),
-		)
+		config := relayer.NewConfigBuilder().
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    s.SimdA.Config().ChainID,
+				DstChainID:    s.SimdB.Config().ChainID,
+				SrcRPC:        s.SimdA.GetHostRPCAddress(),
+				DstRPC:        s.SimdB.GetHostRPCAddress(),
+				SignerAddress: s.SimdBSubmitter.FormattedAddress(),
+			}).
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    s.SimdB.Config().ChainID,
+				DstChainID:    s.SimdA.Config().ChainID,
+				SrcRPC:        s.SimdB.GetHostRPCAddress(),
+				DstRPC:        s.SimdA.GetHostRPCAddress(),
+				SignerAddress: s.SimdASubmitter.FormattedAddress(),
+			}).
+			Build()
 
 		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)

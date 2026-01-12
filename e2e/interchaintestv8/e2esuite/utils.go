@@ -118,7 +118,7 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return event, err
 }
 
-func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethereum) *bind.TransactOpts {
+func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain *ethereum.Ethereum) *bind.TransactOpts {
 	opts, err := chain.GetTransactOpts(key)
 	s.Require().NoError(err)
 	return opts
@@ -409,4 +409,11 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+}
+
+// StripHTTPPrefix removes http:// or https:// prefix from an endpoint.
+func StripHTTPPrefix(endpoint string) string {
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	return endpoint
 }
