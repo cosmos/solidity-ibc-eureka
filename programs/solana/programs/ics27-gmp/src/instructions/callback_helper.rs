@@ -1,23 +1,10 @@
-//! Helper for forwarding IBC callbacks to upstream programs (e.g., IFT)
-
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke;
 use solana_ibc_proto::{GmpPacketData, Protobuf};
 
-/// Forward an IBC callback to the sender program if `remaining_accounts` is provided.
-///
-/// # Arguments
-/// * `remaining` - Remaining accounts where `[0]` is the callback program
-/// * `payload_value` - Raw GMP packet payload bytes
-/// * `discriminator_name` - Anchor discriminator name (e.g., `global:on_acknowledgement_packet`)
-/// * `msg` - The message to serialize and forward
-///
-/// # Returns
-/// * `Ok(true)` - Callback was forwarded
-/// * `Ok(false)` - No callback needed (`remaining_accounts` empty)
-/// * `Err(_)` - Error during forwarding
+/// Forward IBC callback to sender program. Returns false if no remaining_accounts.
 pub fn forward_callback<M: AnchorSerialize>(
     remaining: &[AccountInfo],
     payload_value: &[u8],

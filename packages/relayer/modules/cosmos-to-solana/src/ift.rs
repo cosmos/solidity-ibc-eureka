@@ -1,8 +1,4 @@
-//! IFT (Inter-chain Fungible Token) callback account extraction utilities
-//!
-//! This module handles extraction of IFT callback accounts for acknowledgement and timeout packets.
-//! When GMP packets originate from IFT (sender is IFT program), the relayer needs to
-//! include IFT's callback accounts so GMP can forward the ack/timeout to IFT for refund processing.
+//! IFT callback account extraction for ack/timeout packets.
 
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -43,32 +39,18 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
-/// Parameters for extracting IFT callback accounts
 pub struct IftCallbackParams<'a> {
-    /// The packet source port
     pub source_port: &'a str,
-    /// The payload encoding type
     pub encoding: &'a str,
-    /// The raw payload data
     pub payload_value: &'a [u8],
-    /// The source client ID
     pub source_client: &'a str,
-    /// The packet sequence number
     pub sequence: u64,
-    /// RPC client for Solana queries
     pub solana_client: &'a Arc<RpcClient>,
-    /// ICS26 router program ID
     pub router_program_id: Pubkey,
-    /// Transaction fee payer
     pub fee_payer: Pubkey,
 }
 
-/// Extract IFT callback accounts for ack/timeout packets
-///
-/// When a GMP packet's sender is an IFT program, we need to include additional
-/// accounts so GMP can forward the ack/timeout to IFT for refund processing.
-///
-/// Returns empty vec if the packet is not from IFT or pending transfer not found.
+/// Returns IFT callback accounts if packet is from IFT, empty vec otherwise.
 #[must_use]
 pub fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<AccountMeta> {
     // Only process GMP port packets with protobuf encoding
@@ -127,20 +109,16 @@ pub fn extract_ift_callback_accounts(params: &IftCallbackParams<'_>) -> Vec<Acco
     )
 }
 
-/// Find pending transfer by `client_id` and sequence
 fn find_pending_transfer(
     solana_client: &Arc<RpcClient>,
     ift_program_id: Pubkey,
     client_id: &str,
     sequence: u64,
 ) -> Result<Option<PendingTransfer>> {
-    // Query all IFT program accounts without filtering (RPC filter encoding has compatibility issues)
-    // Then filter locally by discriminator
     let all_accounts = solana_client
         .get_program_accounts(&ift_program_id)
         .map_err(|e| anyhow::anyhow!("Failed to get program accounts: {e}"))?;
 
-    // Filter accounts by discriminator locally
     let accounts: Vec<_> = all_accounts
         .into_iter()
         .filter(|(_, account)| {
@@ -171,7 +149,6 @@ fn find_pending_transfer(
     Ok(None)
 }
 
-/// Build IFT callback accounts (same for both `on_ack_packet` and `on_timeout_packet`)
 fn build_ift_callback_accounts(
     ift_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
@@ -198,14 +175,10 @@ fn build_ift_callback_accounts(
     let (mint_authority_pda, _) =
         Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
 
-    // Derive sender's token account (Associated Token Account)
     let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
 
-    // Build account list matching IFT's OnAckPacket struct order
-    // Note: IFT program ID MUST be included because Solana's invoke() requires
-    // the target program to be in the account_infos slice
+    // Account order must match IFT's OnAckPacket struct
     let accounts = vec![
-        // IFT program (required for CPI from GMP)
         AccountMeta {
             pubkey: ift_program_id,
             is_signer: false,
