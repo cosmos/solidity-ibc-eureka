@@ -106,9 +106,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     Ok(())
 }
 
-/// Validate GMP account is derived from expected counterparty bridge
-///
-/// For IFT, the sender is the counterparty IFT address and salt must be empty.
 fn validate_gmp_account(
     gmp_account: &Pubkey,
     client_id: &str,

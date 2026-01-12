@@ -267,12 +267,7 @@ fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
-/// Creates a pending transfer PDA account manually.
-///
-/// We use manual account creation instead of Anchor's `init` constraint because
-/// the sequence is computed at runtime by the router, which Anchor's IDL cannot
-/// capture in static seed derivation. This follows the same pattern as the
-/// router's `create_packet_commitment_account`.
+/// Creates pending transfer PDA (sequence is runtime-computed, can't use Anchor's `init`)
 #[allow(clippy::too_many_arguments)]
 fn create_pending_transfer_account<'info>(
     mint: &Pubkey,
