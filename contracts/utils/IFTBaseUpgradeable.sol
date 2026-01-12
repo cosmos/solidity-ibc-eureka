@@ -171,10 +171,6 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
 
         require(bytes(bridge.clientId).length > 0, IFTBridgeNotFound(accountId.clientId));
         require(
-            keccak256(bytes(bridge.clientId)) == keccak256(bytes(accountId.clientId)),
-            IFTBridgeNotFound(accountId.clientId)
-        );
-        require(
             keccak256(bytes(bridge.counterpartyIFTAddress)) == keccak256(bytes(accountId.sender)),
             IFTUnauthorizedMint(bridge.counterpartyIFTAddress, accountId.sender)
         );
