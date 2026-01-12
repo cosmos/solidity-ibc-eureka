@@ -54,6 +54,7 @@ impl std::error::Error for ConstrainedError {}
 /// assert!(too_short.is_err());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
 pub struct ConstrainedString<const MIN: usize, const MAX: usize>(String);
 
 impl<const MIN: usize, const MAX: usize> ConstrainedString<MIN, MAX> {
@@ -118,13 +119,6 @@ impl<const MIN: usize, const MAX: usize> core::convert::TryFrom<&str>
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         Self::new(String::from(s))
-    }
-}
-
-#[cfg(feature = "borsh")]
-impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedString<MIN, MAX> {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        borsh::BorshSerialize::serialize(&self.0, writer)
     }
 }
 
@@ -202,15 +196,6 @@ impl<T, const MIN: usize, const MAX: usize> core::convert::TryFrom<Vec<T>>
     }
 }
 
-#[cfg(feature = "borsh")]
-impl<T: borsh::BorshSerialize, const MIN: usize, const MAX: usize> borsh::BorshSerialize
-    for ConstrainedVec<T, MIN, MAX>
-{
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        borsh::BorshSerialize::serialize(&self.0, writer)
-    }
-}
-
 /// Generic constrained bytes type
 ///
 /// A byte vector wrapper that enforces minimum and maximum length constraints at compile time.
@@ -234,6 +219,16 @@ impl<T: borsh::BorshSerialize, const MIN: usize, const MAX: usize> borsh::BorshS
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstrainedBytes<const MIN: usize, const MAX: usize>(ConstrainedVec<u8, MIN, MAX>);
+
+#[cfg(feature = "borsh")]
+impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
+    fn serialize<W: borsh::maybestd::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> borsh::maybestd::io::Result<()> {
+        borsh::BorshSerialize::serialize(self.0.as_ref(), writer)
+    }
+}
 
 impl<const MIN: usize, const MAX: usize> ConstrainedBytes<MIN, MAX> {
     /// Create new constrained bytes with validation
@@ -278,13 +273,6 @@ impl<const MIN: usize, const MAX: usize> core::convert::TryFrom<&[u8]>
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         Self::new(Vec::from(bytes))
-    }
-}
-
-#[cfg(feature = "borsh")]
-impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        borsh::BorshSerialize::serialize(&self.0, writer)
     }
 }
 
