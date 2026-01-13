@@ -117,12 +117,12 @@ jobs:
 
       - name: Run coverage
         run: |
-          cargo llvm-cov --workspace --lcov --output-path lcov.info \
-            --ignore-filename-regex 'programs/(dummy-ibc-app\
-            |gmp-counter-app\
-            |malicious-caller\
-            |mock-ibc-app\
-            |mock-light-client)/'
+          EXCLUDE='programs/(dummy-ibc-app'
+          EXCLUDE+='|gmp-counter-app'
+          EXCLUDE+='|malicious-caller'
+          EXCLUDE+='|mock-ibc-app'
+          EXCLUDE+='|mock-light-client)/'
+          cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "$EXCLUDE"
         working-directory: programs/solana
 
       - uses: codecov/codecov-action@v5
