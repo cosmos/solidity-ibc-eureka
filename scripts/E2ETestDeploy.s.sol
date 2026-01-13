@@ -143,7 +143,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         d.erc20 = address(erc20);
     }
 
-    function _toJson(DeployedContracts memory d) internal pure returns (string memory) {
+    function _toJson(DeployedContracts memory d) internal returns (string memory) {
         string memory json = "json";
         json.serialize("verifierPlonk", Strings.toHexString(d.verifierPlonk));
         json.serialize("verifierGroth16", Strings.toHexString(d.verifierGroth16));
