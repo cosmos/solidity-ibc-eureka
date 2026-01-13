@@ -116,7 +116,18 @@ jobs:
         run: just build-solana
 
       - name: Run coverage
-        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+        env:
+          # Exclude non-ICS programs from coverage
+          EXCLUDE_REGEX: >-
+            programs/(
+            access-manager|
+            dummy-ibc-app|
+            gmp-counter-app|
+            malicious-caller|
+            mock-ibc-app|
+            mock-light-client
+            )/
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "$EXCLUDE_REGEX"
         working-directory: programs/solana
 
       - uses: codecov/codecov-action@v5
