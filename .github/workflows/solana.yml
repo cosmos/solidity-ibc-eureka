@@ -70,6 +70,7 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
+      # Exclude test programs
       - name: Run coverage
         run: |
           EXCLUDE='programs/(dummy-ibc-app'
