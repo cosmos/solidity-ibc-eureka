@@ -66,89 +66,93 @@ contract TestIFT is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 
-    string internal constant SP1_GENESIS_DIR = "/scripts/";
+    struct DeployedContracts {
+        address verifierPlonk;
+        address verifierGroth16;
+        address verifierMock;
+        address ics26Router;
+        address ics20Transfer;
+        address ics27Gmp;
+        address erc20;
+        address ift;
+        address evmIftConstructor;
+    }
 
     function run() public returns (string memory) {
-        // ============ Step 1: Load parameters ==============
         address e2eFaucet = vm.envAddress("E2E_FAUCET_ADDRESS");
 
-        // ============ Step 2: Deploy the contracts ==============
-
         vm.startBroadcast();
+        DeployedContracts memory d = _deploy(e2eFaucet);
+        vm.stopBroadcast();
 
-        // Deploy the SP1 verifiers for testing
-        address verifierPlonk = address(new SP1VerifierPlonk());
-        address verifierGroth16 = address(new SP1VerifierGroth16());
-        address verifierMock = address(new SP1MockVerifier());
+        return _toJson(d);
+    }
 
-        // Deploy IBC Eureka with proxy
-        address ics26RouterLogic = address(new ICS26Router());
-        address ics20TransferLogic = address(new ICS20Transfer());
-        address ics27GmpLogic = address(new ICS27GMP());
+    function _deploy(address e2eFaucet) internal returns (DeployedContracts memory d) {
+        // Deploy SP1 verifiers
+        d.verifierPlonk = address(new SP1VerifierPlonk());
+        d.verifierGroth16 = address(new SP1VerifierGroth16());
+        d.verifierMock = address(new SP1MockVerifier());
 
+        // Deploy IBC core
         AccessManager accessManager = new AccessManager(msg.sender);
+        address routerLogic = address(new ICS26Router());
+        address transferLogic = address(new ICS20Transfer());
+        address gmpLogic = address(new ICS27GMP());
 
-        ERC1967Proxy routerProxy =
-            new ERC1967Proxy(ics26RouterLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager))));
+        d.ics26Router =
+            address(new ERC1967Proxy(routerLogic, abi.encodeCall(ICS26Router.initialize, (address(accessManager)))));
 
-        ERC1967Proxy transferProxy = new ERC1967Proxy(
-            ics20TransferLogic,
-            abi.encodeCall(
-                ICS20Transfer.initialize,
-                (
-                    address(routerProxy),
-                    address(new Escrow()),
-                    address(new IBCERC20()),
-                    address(0),
-                    address(accessManager)
+        d.ics20Transfer = address(
+            new ERC1967Proxy(
+                transferLogic,
+                abi.encodeCall(
+                    ICS20Transfer.initialize,
+                    (d.ics26Router, address(new Escrow()), address(new IBCERC20()), address(0), address(accessManager))
                 )
             )
         );
 
-        ERC1967Proxy gmpProxy = new ERC1967Proxy(
-            ics27GmpLogic,
-            abi.encodeCall(
-                ICS27GMP.initialize, (address(routerProxy), address(new ICS27Account()), address(accessManager))
+        d.ics27Gmp = address(
+            new ERC1967Proxy(
+                gmpLogic,
+                abi.encodeCall(
+                    ICS27GMP.initialize, (d.ics26Router, address(new ICS27Account()), address(accessManager))
+                )
             )
         );
 
-        // Deploy IFT contract
+        // Deploy IFT
         address iftLogic = address(new TestIFT());
-        ERC1967Proxy iftProxy = new ERC1967Proxy(
-            iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, "Test IFT", "TIFT", address(gmpProxy)))
+        d.ift = address(
+            new ERC1967Proxy(iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, "Test IFT", "TIFT", d.ics27Gmp)))
         );
+        d.evmIftConstructor = address(new EVMIFTSendCallConstructor());
 
-        // Deploy EVM IFT send call constructor
-        EVMIFTSendCallConstructor evmIftConstructor = new EVMIFTSendCallConstructor();
-
-        // Wire up the IBCAdmin and access control
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
-
+        // Wire up access control and apps
+        accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, true);
         accessManagerSetRoles(
             accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
+        ICS26Router(d.ics26Router).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, d.ics20Transfer);
+        ICS26Router(d.ics26Router).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, d.ics27Gmp);
 
-        // Wire Transfer app
-        ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
-        ICS26Router(address(routerProxy)).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(gmpProxy));
-
-        // Mint some tokens
+        // Deploy and mint test ERC20
         TestERC20 erc20 = new TestERC20();
         erc20.mint(e2eFaucet, type(uint256).max);
+        d.erc20 = address(erc20);
+    }
 
-        vm.stopBroadcast();
-
+    function _toJson(DeployedContracts memory d) internal pure returns (string memory) {
         string memory json = "json";
-        json.serialize("verifierPlonk", Strings.toHexString(address(verifierPlonk)));
-        json.serialize("verifierGroth16", Strings.toHexString(address(verifierGroth16)));
-        json.serialize("verifierMock", Strings.toHexString(address(verifierMock)));
-        json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
-        json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
-        json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
-        json.serialize("erc20", Strings.toHexString(address(erc20)));
-        json.serialize("ift", Strings.toHexString(address(iftProxy)));
-        string memory finalJson = json.serialize("evmIftConstructor", Strings.toHexString(address(evmIftConstructor)));
-
-        return finalJson;
+        json.serialize("verifierPlonk", Strings.toHexString(d.verifierPlonk));
+        json.serialize("verifierGroth16", Strings.toHexString(d.verifierGroth16));
+        json.serialize("verifierMock", Strings.toHexString(d.verifierMock));
+        json.serialize("ics26Router", Strings.toHexString(d.ics26Router));
+        json.serialize("ics20Transfer", Strings.toHexString(d.ics20Transfer));
+        json.serialize("ics27Gmp", Strings.toHexString(d.ics27Gmp));
+        json.serialize("erc20", Strings.toHexString(d.erc20));
+        json.serialize("ift", Strings.toHexString(d.ift));
+        return json.serialize("evmIftConstructor", Strings.toHexString(d.evmIftConstructor));
     }
 }
