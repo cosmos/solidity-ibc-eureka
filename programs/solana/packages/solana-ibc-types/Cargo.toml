@@ -17,8 +17,9 @@ solana-sha256-hasher.workspace = true
 # This ensures correct version even when built from root workspace context via path dependencies.
 borsh = { version = "0.10.4", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
-ibc-eureka-constrained-types.workspace = true
+ibc-eureka-constrained-types = { workspace = true, features = ["borsh"] }
 solana-ibc-proto = { path = "../solana-ibc-proto" }
+solana-ibc-macros = { path = "../solana-ibc-macros" }
 
 # Dependencies for light-client feature
 ibc-client-tendermint = { workspace = true, optional = true }
@@ -28,6 +29,7 @@ tendermint = { workspace = true, optional = true }
 [features]
 light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
 solana = []
+idl-build = ["anchor-lang/idl-build"]
 
 [lib]
 crate-type = ["cdylib", "lib"]

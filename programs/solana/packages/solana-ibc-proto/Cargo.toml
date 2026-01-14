@@ -12,7 +12,7 @@ categories = ["cryptography", "blockchain"]
 [dependencies]
 prost = { workspace = true, features = ["prost-derive"] }
 anchor-lang = { workspace = true }
-ibc-eureka-constrained-types = { workspace = true }
+ibc-eureka-constrained-types = { workspace = true, features = ["borsh"] }
 ibc-proto = { workspace = true }
 thiserror = { workspace = true }
 

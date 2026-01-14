@@ -54,6 +54,7 @@ impl std::error::Error for ConstrainedError {}
 /// assert!(too_short.is_err());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
 pub struct ConstrainedString<const MIN: usize, const MAX: usize>(String);
 
 impl<const MIN: usize, const MAX: usize> ConstrainedString<MIN, MAX> {
@@ -218,6 +219,16 @@ impl<T, const MIN: usize, const MAX: usize> core::convert::TryFrom<Vec<T>>
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstrainedBytes<const MIN: usize, const MAX: usize>(ConstrainedVec<u8, MIN, MAX>);
+
+#[cfg(feature = "borsh")]
+impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
+    fn serialize<W: borsh::maybestd::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> borsh::maybestd::io::Result<()> {
+        borsh::BorshSerialize::serialize(self.0.as_ref(), writer)
+    }
+}
 
 impl<const MIN: usize, const MAX: usize> ConstrainedBytes<MIN, MAX> {
     /// Create new constrained bytes with validation

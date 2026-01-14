@@ -9,7 +9,7 @@ pub mod app_msgs;
 pub mod borsh_header;
 pub mod cpi;
 pub mod events;
-pub mod ibc_app_interface;
+pub mod ibc_app;
 pub mod ics07;
 pub mod ics27;
 pub mod router;
@@ -46,10 +46,8 @@ pub use events::{
     NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
-pub use ibc_app_interface::ibc_app_instructions;
-
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
-    reject_cpi, validate_cpi_caller, validate_direct_or_whitelisted_cpi, CpiValidationError,
+    reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,
 };
 pub use utils::compute_discriminator;

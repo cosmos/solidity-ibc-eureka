@@ -1965,6 +1965,9 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-constrained-types"
 version = "0.1.0"
+dependencies = [
+ "borsh 0.10.4",
+]
 
 [[package]]
 name = "ibc-primitives"
@@ -4019,6 +4022,7 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "sha2 0.10.9",
  "syn 2.0.101",
 ]
 
@@ -4045,6 +4049,7 @@ dependencies = [
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",
+ "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-sha256-hasher",
  "tendermint",

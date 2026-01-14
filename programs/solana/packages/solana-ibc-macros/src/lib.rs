@@ -2,11 +2,13 @@
 //!
 //! This crate provides:
 //! - `#[ibc_app]` - Validates IBC app callback implementations
+//! - `discriminator!` - Computes Anchor discriminators at compile time
 
 use proc_macro::TokenStream;
 use quote::quote;
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use syn::{parse_macro_input, FnArg, ItemFn, ItemMod, ReturnType, Type, TypePath};
+use syn::{parse_macro_input, FnArg, ItemFn, ItemMod, LitStr, ReturnType, Type, TypePath};
 
 // ============================================================================
 // Constants & Types
@@ -421,4 +423,43 @@ fn generate_discriminator_checks() -> proc_macro2::TokenStream {
     quote! {
         #(#checks)*
     }
+}
+
+// ============================================================================
+// Discriminator Macro
+// ============================================================================
+
+/// Computes an Anchor instruction discriminator at compile time.
+///
+/// The discriminator is the first 8 bytes of `sha256("global:<instruction_name>")`.
+///
+/// # Example
+///
+/// ```ignore
+/// use solana_ibc_macros::discriminator;
+///
+/// const ON_RECV_PACKET_DISCRIMINATOR: [u8; 8] = discriminator!("on_recv_packet");
+/// ```
+#[proc_macro]
+pub fn discriminator(input: TokenStream) -> TokenStream {
+    let instruction_name = parse_macro_input!(input as LitStr).value();
+
+    let preimage = format!("global:{instruction_name}");
+    let hash = Sha256::digest(preimage.as_bytes());
+    let bytes: [u8; 8] = hash[..8].try_into().unwrap();
+
+    let b0 = bytes[0];
+    let b1 = bytes[1];
+    let b2 = bytes[2];
+    let b3 = bytes[3];
+    let b4 = bytes[4];
+    let b5 = bytes[5];
+    let b6 = bytes[6];
+    let b7 = bytes[7];
+
+    let output = quote! {
+        [#b0, #b1, #b2, #b3, #b4, #b5, #b6, #b7]
+    };
+
+    output.into()
 }
