@@ -86,7 +86,64 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	for packetIdx, packet := range batch.Packets {
 		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
 			packetStart := time.Now()
-			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
+			hasAlt := len(pkt.AltCreateTx) > 0
+			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx, ALT: %v) ---", pktIdx+1, len(pkt.Chunks), hasAlt)
+
+			// Phase 0: Submit ALT create + extend in background (if present)
+			altDone := make(chan error, 1)
+			if hasAlt {
+				go func() {
+					// Submit ALT creation transaction
+					altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(pkt.AltCreateTx))
+					if err != nil {
+						altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
+						return
+					}
+
+					// Update blockhash for ALT creation tx (relayer's blockhash may have expired)
+					altRecent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						altDone <- fmt.Errorf("failed to get blockhash for ALT creation tx: %w", err)
+						return
+					}
+					altCreateTx.Message.RecentBlockhash = altRecent.Value.Blockhash
+
+					altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
+						return
+					}
+					t.Logf("✓ Packet %d ALT creation tx submitted: %s", pktIdx+1, altCreateSig)
+
+					// Submit ALT extension transactions sequentially
+					for i, altExtendTxBytes := range pkt.AltExtendTxs {
+						altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
+						if err != nil {
+							altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+							return
+						}
+
+						// Update blockhash for ALT extension tx
+						extendRecent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+						if err != nil {
+							altDone <- fmt.Errorf("failed to get blockhash for ALT extension tx %d: %w", i+1, err)
+							return
+						}
+						altExtendTx.Message.RecentBlockhash = extendRecent.Value.Blockhash
+
+						altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+						if err != nil {
+							altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+							return
+						}
+						t.Logf("✓ Packet %d ALT extension tx %d/%d submitted: %s", pktIdx+1, i+1, len(pkt.AltExtendTxs), altExtendSig)
+					}
+
+					altDone <- nil
+				}()
+			} else {
+				altDone <- nil
+			}
 
 			type chunkResult struct {
 				chunkIdx int
@@ -169,8 +226,52 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				return
 			}
 
-			t.Logf("--- Packet %d: All %d chunks completed in %v, submitting final tx ---",
+			t.Logf("--- Packet %d: All %d chunks completed in %v ---",
 				pktIdx+1, len(pkt.Chunks), chunksDuration)
+
+			// Wait for ALT to complete before final tx (if ALT is being used)
+			if altErr := <-altDone; altErr != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d ALT setup failed: %w", pktIdx, altErr),
+					chunksDuration: chunksDuration,
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+			if hasAlt {
+				// Wait for ALT to activate (requires at least 1 slot)
+				t.Logf("--- Packet %d: ALT setup complete, waiting for activation ---", pktIdx+1)
+				currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+				if err != nil {
+					packetResults <- packetResult{
+						packetIdx:      pktIdx,
+						err:            fmt.Errorf("packet %d failed to get current slot: %w", pktIdx, err),
+						chunksDuration: chunksDuration,
+						totalDuration:  time.Since(packetStart),
+					}
+					return
+				}
+
+				targetSlot := currentSlot + 1
+				for {
+					slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						packetResults <- packetResult{
+							packetIdx:      pktIdx,
+							err:            fmt.Errorf("packet %d failed to poll slot: %w", pktIdx, err),
+							chunksDuration: chunksDuration,
+							totalDuration:  time.Since(packetStart),
+						}
+						return
+					}
+					if slot >= targetSlot {
+						t.Logf("--- Packet %d: ALT activated at slot %d, submitting final tx ---", pktIdx+1, slot)
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 
 			// Phase 2: Submit final transaction for this packet
 			finalStart := time.Now()
@@ -199,6 +300,83 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				return
 			}
 			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+			// Debug: log transaction accounts
+			t.Logf("DEBUG Packet %d final tx: %d account keys", pktIdx+1, len(finalTx.Message.AccountKeys))
+			for i, key := range finalTx.Message.AccountKeys {
+				t.Logf("  Account[%d]: %s", i, key.String())
+			}
+
+			// If ALT was used, resolve addresses from on-chain ALT and check all accounts exist
+			if hasAlt {
+				t.Logf("DEBUG Packet %d: Checking ALT and account existence...", pktIdx+1)
+
+				// Get static addresses from the message
+				allAddresses := make([]solana.PublicKey, 0)
+				allAddresses = append(allAddresses, finalTx.Message.AccountKeys...)
+
+				// Check for address table lookups (v0 messages)
+				lookups := finalTx.Message.GetAddressTableLookups()
+				if len(lookups) > 0 {
+					for _, lookup := range lookups {
+						t.Logf("DEBUG Packet %d: ALT %s - %d writable, %d readonly indices",
+							pktIdx+1, lookup.AccountKey.String(),
+							len(lookup.WritableIndexes), len(lookup.ReadonlyIndexes))
+
+						// Fetch ALT content from chain (use confirmed commitment to match what we used for submission)
+						altInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, lookup.AccountKey, &rpc.GetAccountInfoOpts{
+							Commitment: rpc.CommitmentConfirmed,
+						})
+						if err != nil || altInfo == nil || altInfo.Value == nil {
+							t.Logf("ERROR Packet %d: ALT %s NOT FOUND or error (will cause MissingAccount): %v", pktIdx+1, lookup.AccountKey.String(), err)
+							t.Logf("ERROR Packet %d: The ALT creation may have failed - check tx %s for errors", pktIdx+1, lookup.AccountKey.String())
+							continue
+						}
+
+						// Parse ALT to get addresses
+						altData := altInfo.Value.Data.GetBinary()
+						if len(altData) > 56 { // Header is 56 bytes
+							addressesData := altData[56:]
+							numAddresses := len(addressesData) / 32
+							t.Logf("DEBUG Packet %d: ALT has %d addresses stored", pktIdx+1, numAddresses)
+
+							for i := 0; i < numAddresses && i*32+32 <= len(addressesData); i++ {
+								addrBytes := addressesData[i*32 : i*32+32]
+								addr := solana.PublicKeyFromBytes(addrBytes)
+								t.Logf("DEBUG Packet %d: ALT[%d] = %s", pktIdx+1, i, addr.String())
+								allAddresses = append(allAddresses, addr)
+							}
+						}
+					}
+				}
+
+				// Check if each address exists on-chain (skip system accounts)
+				t.Logf("DEBUG Packet %d: Checking existence of %d unique accounts...", pktIdx+1, len(allAddresses))
+				seenAddrs := make(map[string]bool)
+				for _, addr := range allAddresses {
+					addrStr := addr.String()
+					if seenAddrs[addrStr] {
+						continue
+					}
+					seenAddrs[addrStr] = true
+
+					// Skip well-known system accounts
+					if addr.Equals(solana.SystemProgramID) ||
+						addr.Equals(solana.SysVarInstructionsPubkey) ||
+						addr.Equals(solana.TokenProgramID) ||
+						addr.Equals(solana.SPLAssociatedTokenAccountProgramID) {
+						continue
+					}
+
+					// Use confirmed commitment to match what we used for tx submission
+					accInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, addr, &rpc.GetAccountInfoOpts{
+						Commitment: rpc.CommitmentConfirmed,
+					})
+					if err != nil || accInfo == nil || accInfo.Value == nil {
+						t.Logf("WARNING Packet %d: Account %s DOES NOT EXIST or error: %v", pktIdx+1, addrStr, err)
+					}
+				}
+			}
 
 			// Use confirmed commitment - relayer and verification both read with confirmed commitment
 			sig, err := s.SignAndBroadcastTxWithOpts(ctx, finalTx, rpc.ConfirmationStatusConfirmed, user)
@@ -652,7 +830,7 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
-	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
+	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -732,7 +910,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
 	chunksStart := time.Now()
 
-	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
 
 	type chunkResult struct {
 		chunkIdx int
@@ -831,8 +1009,8 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	binary.LittleEndian.PutUint64(height2Bytes, trustedHeight2)
 
 	// Get trusted consensus state PDAs (use client state PDA address as seed, not chain ID)
-	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
-	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
+	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
+	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 		clientID,

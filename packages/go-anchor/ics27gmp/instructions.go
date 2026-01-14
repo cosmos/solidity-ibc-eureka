@@ -102,9 +102,10 @@ func NewSendCallInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "sender": Read-only, Signer, Required
-		// Sender of the call
-		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, true))
+		// Account 1 "sender": Read-only, Non-signer, Required
+		// Sender of the call - for direct calls must be a signer (user wallet),
+		// for CPI calls this is the calling program ID (callback target)
+		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, false))
 		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 3 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx

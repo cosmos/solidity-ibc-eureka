@@ -1,7 +1,7 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use access_manager::RoleData;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
+use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;
@@ -101,6 +101,14 @@ pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Ve
 }
 
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
+    setup_ibc_app_with_upstream(port_id, app_program_id, vec![])
+}
+
+pub fn setup_ibc_app_with_upstream(
+    port_id: &str,
+    app_program_id: Pubkey,
+    upstream_callers: Vec<Pubkey>,
+) -> (Pubkey, Vec<u8>) {
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
     let ibc_app = IBCApp {
@@ -108,9 +116,13 @@ pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>)
         port_id: port_id.to_string(),
         app_program_id,
         authority: Pubkey::new_unique(),
+        upstream_callers,
         _reserved: [0; 256],
     };
-    let ibc_app_data = create_account_data(&ibc_app);
+    let mut ibc_app_data = create_account_data(&ibc_app);
+    // Pad to full INIT_SPACE to allow adding upstream callers
+    let full_size = ANCHOR_DISCRIMINATOR_SIZE + IBCApp::INIT_SPACE;
+    ibc_app_data.resize(full_size, 0);
     (ibc_app_pda, ibc_app_data)
 }
 

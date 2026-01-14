@@ -80,6 +80,15 @@ pub enum RouterError {
 
     #[msg("Invalid sequence suffix: must match hash(program_id || sender) % 10000")]
     InvalidSequenceSuffix,
+
+    #[msg("Too many upstream callers registered")]
+    TooManyUpstreamCallers,
+
+    #[msg("Upstream caller already registered")]
+    UpstreamCallerAlreadyExists,
+
+    #[msg("Upstream caller not found")]
+    UpstreamCallerNotFound,
 }
 
 /// Convert CPI validation errors to Router errors

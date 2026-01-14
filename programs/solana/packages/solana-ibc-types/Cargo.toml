@@ -29,5 +29,8 @@ tendermint = { workspace = true, optional = true }
 light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
 solana = []
 
+[dev-dependencies]
+solana-sdk.workspace = true
+
 [lib]
 crate-type = ["cdylib", "lib"]

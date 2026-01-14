@@ -3,6 +3,8 @@ use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 
+use super::callback_helper::forward_callback;
+
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnAcknowledgementPacketMsg)]
@@ -30,17 +32,23 @@ pub struct OnAckPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_acknowledgement_packet(
-    ctx: Context<OnAckPacket>,
-    _msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+pub fn on_acknowledgement_packet<'info>(
+    ctx: Context<'_, '_, '_, 'info, OnAckPacket<'info>>,
+    msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    forward_callback(
+        ctx.remaining_accounts,
+        &msg.payload.value,
+        b"global:on_acknowledgement_packet",
+        &msg,
+    )?;
 
     Ok(())
 }

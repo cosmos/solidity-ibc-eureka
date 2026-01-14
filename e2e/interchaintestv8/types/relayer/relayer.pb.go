@@ -7,12 +7,11 @@
 package relayer
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -229,7 +228,7 @@ func (x *SolanaUpdateClient) GetCleanupTx() []byte {
 }
 
 // Transactions for a single packet (chunks + final instruction + cleanup)
-// Submission order: chunks (parallel) -> final_tx -> cleanup_tx
+// Submission order: alt_create_tx (if present) -> alt_extend_txs (sequential) -> chunks (parallel) -> final_tx -> cleanup_tx
 type SolanaPacketTxs struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Chunk upload transactions (can be submitted in parallel)
@@ -237,7 +236,11 @@ type SolanaPacketTxs struct {
 	// Final packet transaction (recv_packet, ack_packet, or timeout_packet)
 	FinalTx []byte `protobuf:"bytes,2,opt,name=final_tx,json=finalTx,proto3" json:"final_tx,omitempty"`
 	// Cleanup transaction (reclaims rent from chunks)
-	CleanupTx     []byte `protobuf:"bytes,3,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
+	CleanupTx []byte `protobuf:"bytes,3,opt,name=cleanup_tx,json=cleanupTx,proto3" json:"cleanup_tx,omitempty"`
+	// ALT creation transaction (optional, must be submitted first if present)
+	AltCreateTx []byte `protobuf:"bytes,4,opt,name=alt_create_tx,json=altCreateTx,proto3" json:"alt_create_tx,omitempty"`
+	// ALT extension transactions (optional, adds accounts to ALT in batches, submit sequentially after creation)
+	AltExtendTxs  [][]byte `protobuf:"bytes,5,rep,name=alt_extend_txs,json=altExtendTxs,proto3" json:"alt_extend_txs,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -289,6 +292,20 @@ func (x *SolanaPacketTxs) GetFinalTx() []byte {
 func (x *SolanaPacketTxs) GetCleanupTx() []byte {
 	if x != nil {
 		return x.CleanupTx
+	}
+	return nil
+}
+
+func (x *SolanaPacketTxs) GetAltCreateTx() []byte {
+	if x != nil {
+		return x.AltCreateTx
+	}
+	return nil
+}
+
+func (x *SolanaPacketTxs) GetAltExtendTxs() [][]byte {
+	if x != nil {
+		return x.AltExtendTxs
 	}
 	return nil
 }
@@ -851,12 +868,14 @@ const file_relayer_relayer_proto_rawDesc = "" +
 	"assemblyTx\x12#\n" +
 	"\rtarget_height\x18\x05 \x01(\x04R\ftargetHeight\x12\x1d\n" +
 	"\n" +
-	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"c\n" +
+	"cleanup_tx\x18\x06 \x01(\fR\tcleanupTx\"\xad\x01\n" +
 	"\x0fSolanaPacketTxs\x12\x16\n" +
 	"\x06chunks\x18\x01 \x03(\fR\x06chunks\x12\x19\n" +
 	"\bfinal_tx\x18\x02 \x01(\fR\afinalTx\x12\x1d\n" +
 	"\n" +
-	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\"\x8e\x01\n" +
+	"cleanup_tx\x18\x03 \x01(\fR\tcleanupTx\x12\"\n" +
+	"\ralt_create_tx\x18\x04 \x01(\fR\valtCreateTx\x12$\n" +
+	"\x0ealt_extend_txs\x18\x05 \x03(\fR\faltExtendTxs\"\x8e\x01\n" +
 	"\x16SolanaRelayPacketBatch\x122\n" +
 	"\apackets\x18\x01 \x03(\v2\x18.relayer.SolanaPacketTxsR\apackets\x12@\n" +
 	"\rupdate_client\x18\x02 \x01(\v2\x1b.relayer.SolanaUpdateClientR\fupdateClient\"=\n" +

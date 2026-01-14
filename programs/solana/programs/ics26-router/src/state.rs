@@ -26,6 +26,9 @@ impl RouterState {
     pub const SEED: &'static [u8] = solana_ibc_types::RouterState::SEED;
 }
 
+/// Maximum number of upstream callers that can be registered for an IBC app
+pub const MAX_UPSTREAM_CALLERS: usize = solana_ibc_types::MAX_UPSTREAM_CALLERS;
+
 /// `IBCApp` mapping port IDs to IBC app program IDs
 #[account]
 #[derive(InitSpace)]
@@ -39,6 +42,9 @@ pub struct IBCApp {
     pub app_program_id: Pubkey,
     /// Authority that registered this port
     pub authority: Pubkey,
+    /// Programs authorized to call through this IBC app (for layered architectures like IFT→GMP)
+    #[max_len(MAX_UPSTREAM_CALLERS)]
+    pub upstream_callers: Vec<Pubkey>,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -184,11 +190,13 @@ mod compatibility_tests {
     /// using `solana_ibc_types::IBCApp`
     #[test]
     fn test_ibc_app_serialization_compatibility() {
+        let upstream_caller = Pubkey::new_unique();
         let app = IBCApp {
             version: AccountVersion::V1,
             port_id: "transfer".to_string(),
             app_program_id: Pubkey::new_unique(),
             authority: Pubkey::new_unique(),
+            upstream_callers: vec![upstream_caller],
             _reserved: [0; 256],
         };
 
@@ -205,6 +213,7 @@ mod compatibility_tests {
         assert_eq!(app.port_id, types_app.port_id);
         assert_eq!(app.app_program_id, types_app.app_program_id);
         assert_eq!(app.authority, types_app.authority);
+        assert_eq!(app.upstream_callers, types_app.upstream_callers);
         assert_eq!(app._reserved, types_app._reserved);
     }
 
