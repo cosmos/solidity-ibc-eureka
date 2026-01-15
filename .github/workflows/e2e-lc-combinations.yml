@@ -1,4 +1,4 @@
-name: e2e-lc-permutations
+name: e2e-lc-combinations
 on:
   workflow_dispatch:
     inputs:
@@ -18,7 +18,7 @@ on:
       - '**.mod'
       - '**.sum'
       - '**.sol'
-      - '.github/workflows/e2e-lc-permutations.yml'
+      - '.github/workflows/e2e-lc-combinations.yml'
       - 'bun.lockb'
 
 concurrency:
@@ -48,7 +48,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  e2e-lc-permutations:
+  e2e-lc-combinations:
     needs: build-e2e-programs
     strategy:
       fail-fast: false
