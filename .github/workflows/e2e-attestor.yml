@@ -227,3 +227,25 @@ jobs:
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^TestWithMultiAttestorTestSuite$/Test_MultiAttestorTransferWithAggregation$" -timeout 60m
+
+  e2e-update-client-cosmos-to-eth:
+    needs: build-e2e-programs
+    name: update-client-cosmos-to-eth
+    env:
+      ETH_LC_ON_COSMOS: attestor-native
+      MULTI_ATTESTOR_COUNT: 1
+      MULTI_ATTESTOR_QUORUM: 1
+      MULTI_ATTESTOR_ACTIVE: 1
+
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up E2E environment
+        uses: ./.github/actions/e2e-setup
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Tests
+        run: |
+          cd e2e/interchaintestv8
+          go test -v -mod=readonly . -run "^TestWithMultiAttestorTestSuite$/Test_UpdateClientCosmosToEth$" -timeout 60m

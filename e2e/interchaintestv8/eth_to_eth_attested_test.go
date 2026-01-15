@@ -836,3 +836,24 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacketFromChainA() {
 
 	s.T().Log("Timeout packet from Chain A completed successfully")
 }
+
+func (s *EthToEthAttestedTestSuite) Test_UpdateClient() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	s.Require().True(s.Run("Update client on Chain B", func() {
+		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			SrcChain:    s.EthChainA().ChainID.String(),
+			DstChain:    s.EthChainB().ChainID.String(),
+			DstClientId: ClientB,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		// Broadcast the update client tx
+		ics26AddressB := ethcommon.HexToAddress(s.contractAddressesB.Ics26Router)
+		receipt, err := s.EthChainB().BroadcastTx(ctx, s.EthRelayerSubmitterB, 15_000_000, &ics26AddressB, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+}

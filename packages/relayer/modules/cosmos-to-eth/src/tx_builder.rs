@@ -41,6 +41,7 @@ use ibc_eureka_relayer_lib::{
     utils::{
         eth_attested::{
             build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
+            build_eth_attestor_update_client_calldata,
         },
         eth_eureka::{self, inject_sp1_proof},
     },
@@ -409,10 +410,8 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     /// Update a client on Ethereum using attestations.
     ///
     /// # Errors
-    /// Returns an error when called (not yet implemented).
-    #[allow(clippy::unused_async)]
-    pub async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
-        // TODO: IBC-164
-        todo!()
+    /// Returns an error if attestation retrieval fails.
+    pub async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id).await
     }
 }

@@ -15,6 +15,7 @@ use ibc_eureka_relayer_lib::{
     listener::{eth_eureka, ChainListenerService},
     utils::eth_attested::{
         build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
+        build_eth_attestor_update_client_calldata,
     },
 };
 use tonic::{Request, Response};
@@ -312,12 +313,10 @@ impl EthToEthTxBuilder {
         }
     }
 
-    #[allow(clippy::pedantic)]
-    async fn update_client(&self, _dst_client_id: String) -> anyhow::Result<Vec<u8>> {
+    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Attested(_) => {
-                // TODO: IBC-164
-                todo!()
+            Self::Attested(tb) => {
+                build_eth_attestor_update_client_calldata(&tb.aggregator, dst_client_id).await
             }
         }
     }

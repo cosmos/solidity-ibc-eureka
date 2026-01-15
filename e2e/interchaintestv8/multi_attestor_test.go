@@ -764,6 +764,28 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 		s.quorumThreshold, s.totalAttestors)
 }
 
+func (s *MultiAttestorTestSuite) Test_UpdateClientCosmosToEth() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	eth := s.EthChain()
+
+	s.Require().True(s.Run("Update client on Ethereum", func() {
+		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			SrcChain:    s.CosmosChain().Config().ChainID,
+			DstChain:    eth.ChainID.String(),
+			DstClientId: MultiAttestorClientOnEth,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+		receipt, err := eth.BroadcastTx(ctx, s.EthRelayerSubmitter, 15_000_000, &ics26Address, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+}
+
 func must[T any](v T, err error) T {
 	if err != nil {
 		panic(err)
