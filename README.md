@@ -166,10 +166,6 @@ The recipe also accepts a `testname` argument that will only run the test with t
 just test-foundry test_success_sendTransfer
 ```
 
-## Aggregator Services For Dev Environment
-
-For documentation on IBC attestor and sig-aggregator services, see the [sig-aggregator README](./programs/sig-aggregator/README.md).
-
 ## End to End Testing
 
 There are several end-to-end tests in the `e2e/interchaintestv8` directory. These tests are written in Go and use the [`interchaintest`](https://github.com/strangelove-ventures/interchaintest) library.
