@@ -1092,34 +1092,6 @@ clean-cargo:
 	cargo clean
 	cd programs/sp1-programs && cargo clean
 
-# Spike related recipes below:
-
-run-optimism:
-	kurtosis run github.com/ethpandaops/optimism-package@1.4.0 --enclave local-optimism --args-file ./network-config.yaml
-
-teardown-optimism:
-	kurtosis enclave stop local-optimism
-	kurtosis enclave rm local-optimism
-
-run-arbitrum:
-	#!/bin/bash
-	cd e2e/interchaintestv8
-	if [ ! -d "nitro-testnode" ]; then
-		git clone -b release --recurse-submodules https://github.com/OffchainLabs/nitro-testnode.git
-	else
-		cd nitro-testnode
-		git pull origin release
-		cd ..
-	fi
-	cd nitro-testnode
-	docker compose down || true
-	./test-node.bash --init --no-simple --detach
-
-teardown-arbitrum:
-	#!/bin/bash
-	cd e2e/interchaintestv8/nitro-testnode
-	docker compose down || true
-
 # Run Slither static analysis on contracts
 [group('security')]
 slither:
