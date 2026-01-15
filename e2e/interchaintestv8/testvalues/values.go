@@ -225,6 +225,11 @@ const (
 	AggregatorConfigPath = "/tmp/aggregator.toml"
 	// The RPC endpoint for the aggregator service
 	AggregatorRpcPath = "http://localhost:8080"
+
+	// Attestor chain type values
+	Attestor_ChainType_EVM    = "evm"
+	Attestor_ChainType_Cosmos = "cosmos"
+	Attestor_ChainType_Solana = "solana"
 )
 
 var (

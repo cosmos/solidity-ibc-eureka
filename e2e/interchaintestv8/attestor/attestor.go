@@ -23,9 +23,9 @@ import (
 type ChainType string
 
 const (
-	ChainTypeEvm    ChainType = "evm"
-	ChainTypeCosmos ChainType = "cosmos"
-	ChainTypeSolana ChainType = "solana"
+	ChainTypeEvm    ChainType = testvalues.Attestor_ChainType_EVM
+	ChainTypeCosmos ChainType = testvalues.Attestor_ChainType_Cosmos
+	ChainTypeSolana ChainType = testvalues.Attestor_ChainType_Solana
 )
 
 // KeystorePath returns the keystore path for a given attestor index.
