@@ -83,25 +83,18 @@ func (s *TestSuite) processEthereumPoSResult(ctx context.Context, chain *chainco
 	s.Eth.Chains = append(s.Eth.Chains, &ethChain)
 }
 
-// setupAnvilChains sets up Anvil chains from the end of the chains slice.
-// Returns the remaining (non-Anvil) chains.
-func (s *TestSuite) setupAnvilChains(ctx context.Context, chains []ibc.Chain, count int) []ibc.Chain {
-	if count == 0 {
-		return chains
-	}
-
+// setupAnvilChains detects and sets up any Anvil chains in the slice.
+func (s *TestSuite) setupAnvilChains(ctx context.Context, chains []ibc.Chain) {
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
 	s.Require().NoError(err)
 
-	anvilStartIdx := len(chains) - count
-	for i := anvilStartIdx; i < len(chains); i++ {
-		anvil := chains[i].(*icfoundry.AnvilChain)
-		rpcAddr := strings.Replace(anvil.GetHostRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
-		ethChain, err := ethereum.NewEthereum(ctx, rpcAddr, nil, faucet)
-		s.Require().NoError(err)
-		// Store Docker internal RPC address for container-to-container communication
-		ethChain.DockerRPC = anvil.GetRPCAddress()
-		s.Eth.Chains = append(s.Eth.Chains, &ethChain)
+	for _, chain := range chains {
+		if anvil, ok := chain.(*icfoundry.AnvilChain); ok {
+			rpcAddr := strings.Replace(anvil.GetHostRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
+			ethChain, err := ethereum.NewEthereum(ctx, rpcAddr, nil, faucet)
+			s.Require().NoError(err)
+			ethChain.DockerRPC = anvil.GetRPCAddress()
+			s.Eth.Chains = append(s.Eth.Chains, &ethChain)
+		}
 	}
-	return chains[:anvilStartIdx]
 }
