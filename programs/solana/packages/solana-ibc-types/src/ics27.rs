@@ -120,7 +120,10 @@ pub enum CallResultStatus {
 }
 
 /// GMP call result PDA marker. Seeds: [b"gmp_result", source_client, sequence]
-pub struct GMPCallResult;
+pub struct GMPCallResult {
+    source_client: String,
+    sequence: u64,
+}
 
 impl GMPCallResult {
     pub const SEED: &'static [u8] = b"gmp_result";
