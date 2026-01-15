@@ -73,7 +73,7 @@ pub struct GMPCallAcknowledged {
 }
 
 #[event]
-pub struct GMPCallTimedOut {
+pub struct GMPCallTimeout {
     pub source_client: String,
     pub sequence: u64,
     pub sender: String,
