@@ -764,6 +764,13 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 		s.quorumThreshold, s.totalAttestors)
 }
 
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
 func mustGetEnvInt(t *testing.T, key string) int {
 	t.Helper()
 	value := os.Getenv(key)
