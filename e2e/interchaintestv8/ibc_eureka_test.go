@@ -250,7 +250,7 @@ func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.Sup
 				EthRPC:        eth.RPC,
 				BeaconAPI:     beaconAPI,
 				SignerAddress: s.SimdRelayerSubmitter.FormattedAddress(),
-				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil,
 			})
 		}
 

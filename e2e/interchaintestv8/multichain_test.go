@@ -166,7 +166,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			sp1Config.PrivateCluster = os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster
 		}
 
-		mockClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW
+		mockClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil
 
 		// Eth↔ChainA, Eth↔ChainB, ChainA↔ChainB
 		config := relayer.NewConfigBuilder().

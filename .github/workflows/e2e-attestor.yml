@@ -27,7 +27,7 @@ concurrency:
 
 env:
   FOUNDRY_PROFILE: ci
-  ETH_TESTNET_TYPE: pow
+  ETH_TESTNET_TYPE: anvil
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-attestor-light-client-tag || 'local' }}
   COSMOS_LC_ON_ETH: attestor
   SOLANA_VERSION: "2.1.17"

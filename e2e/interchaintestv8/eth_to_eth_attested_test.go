@@ -94,7 +94,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 	}
 
 	// Configure for two Anvil chains
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoW)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 	s.AnvilCount = 2
 
 	// Call the base SetupSuite which will create the chains

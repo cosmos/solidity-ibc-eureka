@@ -75,9 +75,9 @@ jobs:
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     name: ${{ matrix.entrypoint }}/${{ matrix.test }}
     env:
-        ETH_TESTNET_TYPE: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'optimism' || 'pow' }}
-        ETH_LC_ON_COSMOS: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'attestor-wasm' || 'dummy' }}
-        COSMOS_LC_ON_ETH: ${{ startsWith(matrix.entrypoint, 'TestWithIbcAttestorTestSuite') && 'attestor' || 'sp1' }}
+        ETH_TESTNET_TYPE: anvil
+        ETH_LC_ON_COSMOS: dummy
+        COSMOS_LC_ON_ETH: sp1
 
     runs-on: depot-ubuntu-24.04-4
     steps:

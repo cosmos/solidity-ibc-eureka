@@ -27,7 +27,7 @@ concurrency:
 
 env:
   FOUNDRY_PROFILE: ci
-  ETH_TESTNET_TYPE: pow
+  ETH_TESTNET_TYPE: anvil
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-light-client-tag || 'local' }}
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16

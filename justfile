@@ -1048,11 +1048,6 @@ test-e2e-solana-upgrade testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaUpgradeTestSuite/{{testname}}
 
-[group('test')]
-test-e2e-attestor testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithIbcAttestorTestSuite/{{testname}}
-
 # Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
 [group('test')]
 test-e2e-solana-attestor testname:

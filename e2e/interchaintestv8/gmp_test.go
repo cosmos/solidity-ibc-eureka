@@ -77,7 +77,7 @@ func TestWithIbcEurekaGmpTestSuite(t *testing.T) {
 }
 
 func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoW)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.EthChains[0], s.CosmosChains[0]
@@ -164,7 +164,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 				EthRPC:        eth.RPC,
 				BeaconAPI:     beaconAPI,
 				SignerAddress: s.SimdRelayerSubmitter.FormattedAddress(),
-				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
+				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil,
 			}).
 			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
 				EthChainID:    eth.ChainID.String(),

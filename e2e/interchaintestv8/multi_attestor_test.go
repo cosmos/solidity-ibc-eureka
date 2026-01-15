@@ -135,7 +135,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	}
 
 	// Configure for single Anvil chain (PoW) + Cosmos
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoW)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 
 	// Set ETH_LC_ON_COSMOS to use attestor (wasm or native based on env)
 	// Default to attestor-wasm if not set

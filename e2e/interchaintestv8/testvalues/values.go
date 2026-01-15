@@ -85,15 +85,13 @@ const (
 	// EnvValueWasmLightClientTag_Local is the value to set to use the local Wasm light client binary.
 	EnvValueWasmLightClientTag_Local = "local"
 
-	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
-	EthTestnetTypePoW = "pow"
-	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
+	// EthTestnetTypeAnvil uses local Anvil chain (supports dummy or attestor light client)
+	EthTestnetTypeAnvil = "anvil"
+
+	// EthTestnetTypePoS uses Kurtosis for full PoS infrastructure with beacon chain
 	EthTestnetTypePoS = "pos"
-	// EthTestnetTypeOptimism is the Ethereum testnet type for using the Optimism chain.
-	EthTestnetTypeOptimism = "optimism"
-	// EthTestnetTypeArbitrum is the Ethereum testnet type for using the Arbitrum testnode.
-	EthTestnetTypeArbitrum = "arbitrum"
-	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
+
+	// EthTestnetTypeNone disables Ethereum chain setup
 	EthTestnetTypeNone = "none"
 
 	// Dummy light client (for Eth verification on Cosmos)
@@ -110,7 +108,7 @@ const (
 	// Attestor light client (for Cosmos verification on Ethereum)
 	CosmosLcTypeAttestor = "attestor"
 
-	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
+	// EnvKeyEthTestnetType The Ethereum testnet type (anvil|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
 	// EnvE2EFacuetAddress The address of the faucet
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"

@@ -53,7 +53,7 @@ type TestSuite struct {
 	// otherwise, it will download the version from the github release with the given tag
 	WasmLightClientTag string
 
-	// AnvilCount specifies how many Anvil chains to create. Only used when ETH_TESTNET_TYPE=pow.
+	// AnvilCount specifies how many Anvil chains to create. Only used when ETH_TESTNET_TYPE=anvil.
 	AnvilCount int
 }
 
@@ -64,10 +64,9 @@ type ethereumConfig struct {
 	anvilCount  int
 }
 
+// isAnvilBased returns true for testnets using local Anvil chain.
 func (c *ethereumConfig) isAnvilBased() bool {
-	return c.testnetType == testvalues.EthTestnetTypePoW ||
-		c.testnetType == testvalues.EthTestnetTypeOptimism ||
-		c.testnetType == testvalues.EthTestnetTypeArbitrum
+	return c.testnetType == testvalues.EthTestnetTypeAnvil
 }
 
 func (c *ethereumConfig) needsPoS() bool {
@@ -89,6 +88,29 @@ type setupConfig struct {
 	ethereum          ethereumConfig
 	solana            solanaConfig
 	cosmosLightClient cosmosLightClientConfig
+}
+
+// validate checks for invalid environment variable combinations and returns an error if found.
+func (c *setupConfig) validate() error {
+	ethTestnetType := c.ethereum.testnetType
+	ethLcOnCosmos := c.cosmosLightClient.ethWasmType
+
+	// Skip validation if no ethereum chain
+	if ethTestnetType == "" || ethTestnetType == testvalues.EthTestnetTypeNone {
+		return nil
+	}
+
+	// Anvil cannot use full light client (no beacon chain to verify)
+	if c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthWasmTypeFull {
+		return fmt.Errorf("invalid config: ETH_TESTNET_TYPE=%s cannot use ETH_LC_ON_COSMOS=%s (Anvil doesn't have beacon chain)", ethTestnetType, ethLcOnCosmos)
+	}
+
+	// PoS testnets cannot use dummy light client (requires actual verification)
+	if !c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthWasmTypeDummy {
+		return fmt.Errorf("invalid config: ETH_TESTNET_TYPE=%s cannot use ETH_LC_ON_COSMOS=%s (PoS requires actual verification)", ethTestnetType, ethLcOnCosmos)
+	}
+
+	return nil
 }
 
 // Result types for parallel chain setup
@@ -113,6 +135,9 @@ type ethPosSetupResult struct {
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
 	cfg := s.parseConfig()
+	if err := cfg.validate(); err != nil {
+		s.T().Fatalf("Configuration error: %v", err)
+	}
 	s.ethTestnetType = cfg.ethereum.testnetType
 	s.EthWasmType = cfg.cosmosLightClient.ethWasmType
 	s.WasmLightClientTag = cfg.cosmosLightClient.wasmLightClientTag

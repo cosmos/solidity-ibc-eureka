@@ -3,7 +3,6 @@ package e2esuite
 import (
 	"context"
 	"os"
-	"slices"
 
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/cosmos/interchaintest/v10/ibc"
@@ -64,51 +63,39 @@ func (s *TestSuite) StoreSolanaAttestedLightClient(ctx context.Context, cosmosCh
 }
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
-	// For PoW testnets, we use the dummy light client
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeDummy {
-		s.T().Log("Using dummy Wasm light client for PoW testnet")
-		file, err := wasm.GetWasmDummyLightClient()
-		s.Require().NoError(err, "Failed to get local Wasm light client binary")
-		return file
-	}
-	// For PoW testnets using wasm attestor
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW && s.EthWasmType == testvalues.EthWasmTypeAttestorWasm {
-		s.T().Log("Using attestor Wasm light client for PoW testnet")
-		file, err := wasm.GetLocalWasmAttestationLightClient()
-		s.Require().NoError(err, "Failed to get local Wasm light client binary")
-		return file
-	}
-	// For native attestor, no wasm binary is needed
+	// Native attestor doesn't need a wasm binary
 	if s.EthWasmType == testvalues.EthWasmTypeAttestorNative {
 		s.T().Log("Using native attestor - no wasm binary needed")
 		return nil
 	}
 
-	allNonPowEvmTestnets := []string{testvalues.EthTestnetTypePoS, testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism}
-	s.Require().True(slices.Contains(allNonPowEvmTestnets, s.ethTestnetType))
-
-	acceptedWasmKinds := []string{testvalues.EthWasmTypeFull, testvalues.EthWasmTypeAttestorWasm}
-	s.Require().True(slices.Contains(acceptedWasmKinds, s.EthWasmType))
-
-	// If it is empty or set to "local", we use the local Wasm light client binary
-	// NOTE: We ignore the wasm kind here because we don't care about
-	// testing attestors on PoS and L2s only support attested solutions
-	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
-		switch s.ethTestnetType {
-		case testvalues.EthTestnetTypeArbitrum, testvalues.EthTestnetTypeOptimism:
-			s.T().Log("Using local Wasm attestor light client binary")
-			file, err := wasm.GetLocalWasmAttestationLightClient()
-			s.Require().NoError(err, "Failed to get local Wasm attestor light client binary")
-			return file
-		default:
-			s.T().Log("Using local Wasm Ethereum light client binary")
-			file, err := wasm.GetLocalWasmEthLightClient()
-			s.Require().NoError(err, "Failed to get local Wasm Ethereum light client binary")
-			return file
-		}
+	// Dummy light client (only valid for Anvil testnets)
+	if s.EthWasmType == testvalues.EthWasmTypeDummy {
+		s.T().Log("Using dummy Wasm light client")
+		file, err := wasm.GetWasmDummyLightClient()
+		s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
+		return file
 	}
 
-	// Otherwise, we download the Wasm light client binary from the GitHub release of the given tag
+	// Attestor light client
+	if s.EthWasmType == testvalues.EthWasmTypeAttestorWasm {
+		s.T().Log("Using attestor Wasm light client")
+		file, err := wasm.GetLocalWasmAttestationLightClient()
+		s.Require().NoError(err, "Failed to get attestor Wasm light client binary")
+		return file
+	}
+
+	// Full Ethereum light client (only valid for PoS testnets)
+	s.Require().Equal(testvalues.EthWasmTypeFull, s.EthWasmType, "unexpected EthWasmType: %s", s.EthWasmType)
+	s.Require().Equal(testvalues.EthTestnetTypePoS, s.ethTestnetType, "full light client requires PoS testnet")
+
+	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
+		s.T().Log("Using local Wasm Ethereum light client binary")
+		file, err := wasm.GetLocalWasmEthLightClient()
+		s.Require().NoError(err, "Failed to get local Wasm Ethereum light client binary")
+		return file
+	}
+
 	s.T().Logf("Downloading Wasm light client binary for tag %s", s.WasmLightClientTag)
 	file, err := wasm.DownloadWasmLightClientRelease(wasm.Release{
 		TagName: s.WasmLightClientTag,
