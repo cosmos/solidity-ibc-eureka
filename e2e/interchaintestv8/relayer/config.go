@@ -185,60 +185,79 @@ func ModulesToJSON(modules []ModuleConfig) (string, error) {
 
 // ethToCosmosCompatConfig represents the configuration for eth_to_cosmos_compat module (beacon chain based)
 type ethToCosmosCompatConfig struct {
-	TmRpcUrl        string                   `json:"tm_rpc_url"`
-	Ics26Address    string                   `json:"ics26_address"`
-	EthRpcUrl       string                   `json:"eth_rpc_url"`
-	EthBeaconApiUrl string                   `json:"eth_beacon_api_url"`
-	SignerAddress   string                   `json:"signer_address"`
-	Mode            EthToCosmosTxBuilderMode `json:"mode"`
+	TmRpcUrl        string        `json:"tm_rpc_url"`
+	Ics26Address    string        `json:"ics26_address"`
+	EthRpcUrl       string        `json:"eth_rpc_url"`
+	EthBeaconApiUrl string        `json:"eth_beacon_api_url"`
+	SignerAddress   string        `json:"signer_address"`
+	Mode            TxBuilderMode `json:"mode"`
 }
 
 // EthToCosmosModuleConfig represents the configuration for eth_to_cosmos module
 type EthToCosmosModuleConfig struct {
-	Ics26Address  string                   `json:"ics26_address"`
-	TmRpcUrl      string                   `json:"tm_rpc_url"`
-	EthRpcUrl     string                   `json:"eth_rpc_url"`
-	SignerAddress string                   `json:"signer_address"`
-	Mode          EthToCosmosTxBuilderMode `json:"mode"`
+	Ics26Address  string        `json:"ics26_address"`
+	TmRpcUrl      string        `json:"tm_rpc_url"`
+	EthRpcUrl     string        `json:"eth_rpc_url"`
+	SignerAddress string        `json:"signer_address"`
+	Mode          TxBuilderMode `json:"mode"`
 }
 
-// EthToCosmosTxBuilderMode represents the tx builder mode for eth_to_cosmos
-type EthToCosmosTxBuilderMode struct {
-	Type             string            `json:"type"` // "real", "mock", or "attested"
-	EthBeaconApiUrl  string            `json:"eth_beacon_api_url,omitempty"`
-	AggregatorConfig *AggregatorConfig `json:"aggregator_config,omitempty"`
+// TxBuilderMode serializes to Rust's externally tagged enum format.
+// Unit variants serialize as strings, tuple variants as {"variant": content}.
+type TxBuilderMode interface {
+	json.Marshaler
 }
 
-// CosmosToEthTxBuilderMode represents the tx builder mode for cosmos_to_eth
-type CosmosToEthTxBuilderMode struct {
-	Type             string            `json:"type"` // "sp1" or "attested"
-	Sp1Prover        *SP1ProverConfig  `json:"sp1_prover,omitempty"`
-	Sp1Programs      *SP1ProgramPaths  `json:"sp1_programs,omitempty"`
-	AggregatorConfig *AggregatorConfig `json:"aggregator_config,omitempty"`
+// RealMode uses Ethereum beacon chain proofs.
+type RealMode struct{}
+
+func (RealMode) MarshalJSON() ([]byte, error) { return json.Marshal("real") }
+
+// MockMode is for testing without real proofs.
+type MockMode struct{}
+
+func (MockMode) MarshalJSON() ([]byte, error) { return json.Marshal("mock") }
+
+// AttestedMode uses aggregator attestations.
+type AttestedMode struct {
+	Config AggregatorConfig
+}
+
+func (m AttestedMode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]AggregatorConfig{"attested": m.Config})
+}
+
+// SP1Mode uses zero-knowledge proofs.
+type SP1Mode struct {
+	Prover   SP1ProverConfig
+	Programs SP1ProgramPaths
+}
+
+func (m SP1Mode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"sp1": map[string]interface{}{
+			"sp1_prover":   m.Prover,
+			"sp1_programs": m.Programs,
+		},
+	})
 }
 
 // CosmosToEthModuleConfig represents the configuration for cosmos_to_eth module.
 type CosmosToEthModuleConfig struct {
-	TmRpcUrl     string                   `json:"tm_rpc_url"`
-	Ics26Address string                   `json:"ics26_address"`
-	EthRpcUrl    string                   `json:"eth_rpc_url"`
-	Mode         CosmosToEthTxBuilderMode `json:"mode"`
+	TmRpcUrl     string        `json:"tm_rpc_url"`
+	Ics26Address string        `json:"ics26_address"`
+	EthRpcUrl    string        `json:"eth_rpc_url"`
+	Mode         TxBuilderMode `json:"mode"`
 }
 
 // EthToEthModuleConfig represents the configuration for eth_to_eth module
 type EthToEthModuleConfig struct {
-	SrcChainId      string                `json:"src_chain_id"`
-	SrcRpcUrl       string                `json:"src_rpc_url"`
-	SrcIcs26Address string                `json:"src_ics26_address"`
-	DstRpcUrl       string                `json:"dst_rpc_url"`
-	DstIcs26Address string                `json:"dst_ics26_address"`
-	Mode            EthToEthTxBuilderMode `json:"mode"`
-}
-
-// EthToEthTxBuilderMode represents the tx builder mode for eth_to_eth
-type EthToEthTxBuilderMode struct {
-	Type             string           `json:"type"` // "attested"
-	AggregatorConfig AggregatorConfig `json:"aggregator_config"`
+	SrcChainId      string        `json:"src_chain_id"`
+	SrcRpcUrl       string        `json:"src_rpc_url"`
+	SrcIcs26Address string        `json:"src_ics26_address"`
+	DstRpcUrl       string        `json:"dst_rpc_url"`
+	DstIcs26Address string        `json:"dst_ics26_address"`
+	Mode            TxBuilderMode `json:"mode"`
 }
 
 // AttestorConfig represents the attestor configuration section

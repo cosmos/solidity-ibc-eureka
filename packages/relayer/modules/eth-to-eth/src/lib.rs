@@ -73,13 +73,10 @@ pub struct EthToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// Attested mode using aggregator attestations.
-    Attested {
-        /// Aggregator configuration.
-        aggregator_config: AggregatorConfig,
-    },
+    Attested(AggregatorConfig),
 }
 
 impl EthToEthRelayerModuleService {
@@ -99,7 +96,7 @@ impl EthToEthRelayerModuleService {
             eth_eureka::ChainListener::new(config.dst_ics26_address, dst_provider.clone());
 
         let tx_builder = match config.mode {
-            TxBuilderMode::Attested { aggregator_config } => {
+            TxBuilderMode::Attested(aggregator_config) => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;

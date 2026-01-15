@@ -75,17 +75,14 @@ pub struct EthToCosmosConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// Real mode using Ethereum beacon chain proofs.
     Real,
     /// Mock mode for testing without real proofs.
     Mock,
     /// Attested mode using aggregator attestations.
-    Attested {
-        /// Aggregator configuration.
-        aggregator_config: AggregatorConfig,
-    },
+    Attested(AggregatorConfig),
 }
 
 impl EthToCosmosRelayerModuleService {
@@ -112,7 +109,7 @@ impl EthToCosmosRelayerModuleService {
                 tm_client,
                 config.signer_address,
             )),
-            TxBuilderMode::Attested { aggregator_config } => {
+            TxBuilderMode::Attested(aggregator_config) => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;

@@ -43,11 +43,11 @@ type EthToCosmosParams struct {
 
 // EthToCosmos adds an Eth→Cosmos module using beacon chain light client.
 func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
-	var mode EthToCosmosTxBuilderMode
+	var mode TxBuilderMode
 	if p.MockClient {
-		mode = EthToCosmosTxBuilderMode{Type: "mock"}
+		mode = MockMode{}
 	} else {
-		mode = EthToCosmosTxBuilderMode{Type: "real"}
+		mode = RealMode{}
 	}
 
 	module := ModuleConfig{
@@ -106,10 +106,7 @@ func (b *ConfigBuilder) EthToCosmosAttested(p EthToCosmosAttestedParams) *Config
 			TmRpcUrl:      p.TmRPC,
 			EthRpcUrl:     p.EthRPC,
 			SignerAddress: p.SignerAddress,
-			Mode: EthToCosmosTxBuilderMode{
-				Type:             "attested",
-				AggregatorConfig: &aggConfig,
-			},
+			Mode:          AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)
@@ -141,11 +138,7 @@ func (b *ConfigBuilder) CosmosToEthSP1(p CosmosToEthSP1Params) *ConfigBuilder {
 			TmRpcUrl:     p.TmRPC,
 			Ics26Address: p.ICS26Address,
 			EthRpcUrl:    p.EthRPC,
-			Mode: CosmosToEthTxBuilderMode{
-				Type:        "sp1",
-				Sp1Prover:   &p.Prover,
-				Sp1Programs: &sp1Programs,
-			},
+			Mode:         SP1Mode{Prover: p.Prover, Programs: sp1Programs},
 		},
 	}
 	b.modules = append(b.modules, module)
@@ -189,10 +182,7 @@ func (b *ConfigBuilder) CosmosToEthAttested(p CosmosToEthAttestedParams) *Config
 			TmRpcUrl:     p.TmRPC,
 			Ics26Address: p.ICS26Address,
 			EthRpcUrl:    p.EthRPC,
-			Mode: CosmosToEthTxBuilderMode{
-				Type:             "attested",
-				AggregatorConfig: &aggConfig,
-			},
+			Mode:         AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)
@@ -239,10 +229,7 @@ func (b *ConfigBuilder) EthToEthAttested(p EthToEthAttestedParams) *ConfigBuilde
 			SrcIcs26Address: p.SrcICS26,
 			DstRpcUrl:       p.DstRPC,
 			DstIcs26Address: p.DstICS26,
-			Mode: EthToEthTxBuilderMode{
-				Type:             "attested",
-				AggregatorConfig: aggConfig,
-			},
+			Mode:            AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)

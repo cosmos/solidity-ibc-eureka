@@ -75,20 +75,21 @@ pub struct CosmosToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// SP1 prover mode using zero-knowledge proofs.
-    Sp1 {
-        /// The SP1 prover configuration.
-        sp1_prover: SP1Config,
-        /// The SP1 program paths.
-        sp1_programs: SP1ProgramPaths,
-    },
+    Sp1(Sp1ModeConfig),
     /// Attested mode using aggregator attestations.
-    Attested {
-        /// Aggregator configuration.
-        aggregator_config: AggregatorConfig,
-    },
+    Attested(AggregatorConfig),
+}
+
+/// Configuration for SP1 prover mode.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct Sp1ModeConfig {
+    /// The SP1 prover configuration.
+    pub sp1_prover: SP1Config,
+    /// The SP1 program paths.
+    pub sp1_programs: SP1ProgramPaths,
 }
 
 /// The paths to the SP1 programs.
@@ -171,15 +172,13 @@ impl CosmosToEthRelayerModuleService {
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
         let tx_builder = match config.mode {
-            TxBuilderMode::Sp1 {
-                sp1_prover,
-                sp1_programs,
-            } => {
-                let programs = sp1_programs
+            TxBuilderMode::Sp1(sp1_config) => {
+                let programs = sp1_config
+                    .sp1_programs
                     .read_programs()
                     .map_err(|e| anyhow::anyhow!("failed to read SP1 programs: {e}"))?;
 
-                let sp1_tx_builder = match sp1_prover {
+                let sp1_tx_builder = match sp1_config.sp1_prover {
                     SP1Config::Mock => {
                         let prover: Box<dyn Prover<CpuProverComponents>> =
                             Box::new(ProverClient::builder().mock().build());
@@ -235,7 +234,7 @@ impl CosmosToEthRelayerModuleService {
                 };
                 CosmosToEthTxBuilder::SP1(sp1_tx_builder)
             }
-            TxBuilderMode::Attested { aggregator_config } => {
+            TxBuilderMode::Attested(aggregator_config) => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
