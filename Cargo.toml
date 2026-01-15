@@ -80,7 +80,6 @@ ed25519-dalek = { version = "2.0", default-features = false }
 serde           = { version = "1.0", default-features = false }
 serde_json      = { version = "1.0", default-features = false }
 serde_with      = { version = "3.11", default-features = false }
-toml            = { version = "0.8.23", default-features = false }
 hex             = { version = "0.4", default-features = false }
 base64          = { version = "0.22", default-features = false }
 prost           = { version = "0.13", default-features = false }
