@@ -72,6 +72,7 @@ contract IFTTest is Test {
         assertEq(address(ift.ics27()), mockICS27);
         assertEq(IERC20Metadata(address(ift)).name(), TOKEN_NAME);
         assertEq(IERC20Metadata(address(ift)).symbol(), TOKEN_SYMBOL);
+        assertEq(IERC20Metadata(address(ift)).decimals(), 6);
         assertEq(IFTOwnable(address(ift)).owner(), admin);
     }
 
@@ -80,6 +81,7 @@ contract IFTTest is Test {
         assertEq(address(ift.ics27()), mockICS27);
         assertEq(IERC20Metadata(address(ift)).name(), TOKEN_NAME);
         assertEq(IERC20Metadata(address(ift)).symbol(), TOKEN_SYMBOL);
+        assertEq(IERC20Metadata(address(ift)).decimals(), 6);
 
         AccessManager manager = AccessManager(IFTAccessManaged(address(ift)).authority());
         (bool isAdmin,) = manager.hasRole(IBCRolesLib.ADMIN_ROLE, admin);
