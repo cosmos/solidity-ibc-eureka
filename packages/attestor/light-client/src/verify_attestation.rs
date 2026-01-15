@@ -20,6 +20,12 @@ pub(crate) fn verify_attestation(
     attestation_data: &[u8],
     raw_signatures: &[Vec<u8>],
 ) -> Result<(), IbcAttestorClientError> {
+    if raw_signatures.is_empty() {
+        return Err(IbcAttestorClientError::InvalidAttestedData {
+            reason: "no signatures provided".into(),
+        });
+    }
+
     if raw_signatures.len() < client_state.min_required_sigs as usize {
         return Err(IbcAttestorClientError::InvalidAttestedData {
             reason: "too few signatures provided".into(),
@@ -176,5 +182,28 @@ mod tests {
             result.unwrap_err(),
             IbcAttestorClientError::InvalidAttestedData { .. }
         ));
+    }
+
+    #[test]
+    fn test_verify_attestation_fails_with_empty_signatures() {
+        use alloy_primitives::Address;
+
+        let attestation_data = b"test attestation data";
+
+        let client_state = ClientState {
+            attestor_addresses: vec![Address::from([0x11; 20])],
+            min_required_sigs: 1,
+            latest_height: 0,
+            is_frozen: false,
+        };
+
+        let result = verify_attestation(&client_state, attestation_data, &[]);
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            IbcAttestorClientError::InvalidAttestedData { reason } => {
+                assert_eq!(reason, "no signatures provided");
+            }
+            _ => panic!("expected InvalidAttestedData"),
+        }
     }
 }

@@ -299,7 +299,7 @@ pub fn build_wasm_attestor_create_client_msg(
         .collect::<Result<_, _>>()
         .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
-    let client_state = WasmAttestorClientState::new(attestor_addresses, min_required_sigs, height);
+    let client_state = WasmAttestorClientState::new(attestor_addresses, min_required_sigs, height)?;
     let consensus_state = WasmAttestorConsensusState { height, timestamp };
 
     let client_state_bz = serde_json::to_vec(&client_state)?;

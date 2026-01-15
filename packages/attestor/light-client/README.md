@@ -42,5 +42,5 @@ let attestor_addresses: Vec<Address> = vec![
     Address::from([0x11u8; 20]),
     Address::from([0x22u8; 20]),
 ];
-let client_state = ClientState::new(attestor_addresses, 2, 42);
+let client_state = ClientState::new(attestor_addresses, 2, 42).unwrap();
 ```
