@@ -22,7 +22,6 @@ sha2 = { workspace = true, optional = true }
 alloy-signer-local = { workspace = true, optional = true }
 alloy-signer = { workspace = true, optional = true }
 
-
 [dev-dependencies]
 alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
 alloy-signer-local = { workspace = true }

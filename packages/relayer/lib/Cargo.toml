@@ -42,10 +42,10 @@ solana-transaction-status = { workspace = true }
 solana-ibc-types = { path = "../../../programs/solana/packages/solana-ibc-types" }
 solana-ibc-constants = { path = "../../../programs/solana/packages/solana-ibc-constants" }
 
-ibc-proto                 = { workspace = true }
-ibc-proto-eureka          = { workspace = true }
-ibc-core-commitment-types = { workspace = true }
-ibc-client-tendermint-types      = { workspace = true }
+ibc-proto                   = { workspace = true }
+ibc-proto-eureka            = { workspace = true }
+ibc-core-commitment-types   = { workspace = true }
+ibc-client-tendermint-types = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
@@ -53,13 +53,10 @@ sp1-sdk = { workspace = true, default-features = true }
 sp1-prover = { workspace = true }
 
 # Aggregator deps
-moka = { workspace = true, features = ["future"] }
-
-tokio        = { workspace = true, features = ["full"] }
-
-tonic            = { workspace = true, default-features = true }
-
-sha2 = { workspace = true, default-features = true }
+moka  = { workspace = true, features = ["future"] }
+tokio = { workspace = true, features = ["full"] }
+tonic = { workspace = true, default-features = true }
+sha2  = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }

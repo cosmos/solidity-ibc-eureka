@@ -66,7 +66,6 @@ impl AttestatorData {
     }
 }
 
-// TODO: move this to a separate library IBC-138
 impl Attestation {
     fn validate(&self) -> Result<()> {
         // Always enforce 65-byte recoverable signature format
