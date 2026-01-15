@@ -35,14 +35,6 @@ contract IFTAccessManaged is IFTBaseUpgradeable, AccessManagedUpgradeable, UUPSU
         __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
     }
 
-    /// @inheritdoc IFTBaseUpgradeable
-    function _onlyAuthority() internal override(IFTBaseUpgradeable) restricted { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal override(UUPSUpgradeable) restricted { }
-    // solhint-disable-previous-line no-empty-blocks
-
     /**
      * @inheritdoc ERC20Upgradeable
      *
@@ -60,4 +52,12 @@ contract IFTAccessManaged is IFTBaseUpgradeable, AccessManagedUpgradeable, UUPSU
     function decimals() public pure override(ERC20Upgradeable) returns (uint8) {
         return 6;
     }
+
+    /// @inheritdoc IFTBaseUpgradeable
+    function _onlyAuthority() internal override(IFTBaseUpgradeable) restricted { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal override(UUPSUpgradeable) restricted { }
+    // solhint-disable-previous-line no-empty-blocks
 }

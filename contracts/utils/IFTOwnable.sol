@@ -35,14 +35,6 @@ contract IFTOwnable is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
         __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
     }
 
-    /// @inheritdoc IFTBaseUpgradeable
-    function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
-    // solhint-disable-previous-line no-empty-blocks
-
-    /// @inheritdoc UUPSUpgradeable
-    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
-    // solhint-disable-previous-line no-empty-blocks
-
     /**
      * @inheritdoc ERC20Upgradeable
      *
@@ -60,4 +52,12 @@ contract IFTOwnable is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     function decimals() public pure override(ERC20Upgradeable) returns (uint8) {
         return 6;
     }
+
+    /// @inheritdoc IFTBaseUpgradeable
+    function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
+    // solhint-disable-previous-line no-empty-blocks
+
+    /// @inheritdoc UUPSUpgradeable
+    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
+    // solhint-disable-previous-line no-empty-blocks
 }
