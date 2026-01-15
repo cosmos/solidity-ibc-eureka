@@ -13,6 +13,3 @@ plugins:
 
 inputs:
   - directory: proto
-  - git_repo: ssh://git@github.com/cosmos/ibc-attestor.git
-    subdir: proto
-    branch: main
