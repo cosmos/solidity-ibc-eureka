@@ -715,35 +715,6 @@ build-cw-ics08-wasm-attestor:
 	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
 	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
 
-# Start the attestor and aggregator services using Docker Compose
-[group('run')]
-start-aggregator-services *flags="":
-    @just stop-aggregator-services
-    @echo "🚀 Starting IBC Attestor and Sig-Aggregator services..."
-    @cd test/sig-aggregator && COMPOSE_BAKE=true docker compose up {{ if flags =~ "--no-build" { "" } else { "--build" } }} -d --wait
-
-# Stop the attestor and aggregator services
-[group('run')]
-stop-aggregator-services:
-    cd test/sig-aggregator && docker compose down --volumes
-
-# Test the attestor and aggregator services
-[group('run')]
-test-aggregator-services *flags="":
-    # TODO: point to e2e test when we have one.
-    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
-        echo "✅ Services are already running, proceeding with tests..."; \
-    else \
-        echo "🚀 Services not running, starting them..."; \
-        just start-aggregator-services {{ flags }}; \
-    fi
-    @if grpcurl -plaintext localhost:8080 list aggregator.Aggregator > /dev/null 2>&1; then \
-        grpcurl -plaintext -d '{"min_height": 100}' localhost:8080 aggregator.Aggregator.GetAggregateAttestation | jq; \
-    else \
-        echo "❌ Aggregator service is not reachable. Check logs with: cd test/sig-aggregator && docker compose logs"; \
-        exit 1; \
-    fi
-
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
