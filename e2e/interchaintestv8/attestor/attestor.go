@@ -26,7 +26,20 @@ const (
 	ChainTypeEvm    ChainType = testvalues.Attestor_ChainType_EVM
 	ChainTypeCosmos ChainType = testvalues.Attestor_ChainType_Cosmos
 	ChainTypeSolana ChainType = testvalues.Attestor_ChainType_Solana
+
+	// DefaultAttestorImage is the default Docker image for the attestor.
+	DefaultAttestorImage = "ghcr.io/cosmos/ibc-attestor:v0.2.0"
+	// EnvKeyAttestorImage is the environment variable to override the Docker image.
+	EnvKeyAttestorImage = "IBC_ATTESTOR_IMAGE"
 )
+
+// GetAttestorImage returns the Docker image to use for attestor containers.
+func GetAttestorImage() string {
+	if img := os.Getenv(EnvKeyAttestorImage); img != "" {
+		return img
+	}
+	return DefaultAttestorImage
+}
 
 // KeystorePath returns the keystore path for a given attestor index.
 func KeystorePath(index int) string {
@@ -139,7 +152,7 @@ func GenerateAttestorKeyDocker(ctx context.Context, client *dockerclient.Client,
 	// Run a one-shot container to generate the key
 	container, err := dockerutil.CreateAndStart(ctx, client, dockerutil.ContainerConfig{
 		Name:  containerName,
-		Image: dockerutil.GetAttestorImage(),
+		Image: GetAttestorImage(),
 		Cmd:   []string{"key", "generate", "--keystore", attestorKeystorePath},
 		Mounts: []dockerutil.Mount{
 			{
@@ -196,7 +209,7 @@ func ReadAttestorAddressDocker(ctx context.Context, client *dockerclient.Client,
 	// Run a one-shot container to show the key
 	container, err := dockerutil.CreateAndStart(ctx, client, dockerutil.ContainerConfig{
 		Name:  containerName,
-		Image: dockerutil.GetAttestorImage(),
+		Image: GetAttestorImage(),
 		Cmd:   []string{"key", "show", "--keystore", attestorKeystorePath},
 		Mounts: []dockerutil.Mount{
 			{
@@ -377,7 +390,7 @@ func StartAttestorDocker(ctx context.Context, params StartAttestorDockerParams) 
 	// Create and start container
 	container, err := dockerutil.CreateAndStart(ctx, params.Client, dockerutil.ContainerConfig{
 		Name:      containerName,
-		Image:     dockerutil.GetAttestorImage(),
+		Image:     GetAttestorImage(),
 		Cmd:       []string{"server", "--config", attestorConfigPath, "--chain-type", string(params.ChainType)},
 		NetworkID: params.NetworkID,
 		Mounts: []dockerutil.Mount{
