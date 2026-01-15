@@ -1054,7 +1054,7 @@ test-e2e-solana-attestor testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcSolanaAttestorTestSuite/{{testname}}
 
-# Run the Solana Anchor e2e tests
+# Run the Solana Anchor tests
 [group('test')]
 test-anchor-solana *ARGS:
 	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
