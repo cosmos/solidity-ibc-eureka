@@ -48,19 +48,3 @@ jobs:
           file: e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz
           tag: ${{ github.ref }}
           overwrite: true
-
-  release-cw-ics08-wasm-attestor:
-    runs-on: depot-ubuntu-24.04-4
-    if: contains(github.ref_name, 'attestor')
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Upload cw-ics08-wasm-attestor to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file_glob: true
-          file: e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm.gz
-          tag: ${{ github.ref }}
-          overwrite: true
-
