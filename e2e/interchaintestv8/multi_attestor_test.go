@@ -98,17 +98,17 @@ func TestWithMultiAttestorTestSuite(t *testing.T) {
 	suite.Run(t, new(MultiAttestorTestSuite))
 }
 
-func (s *MultiAttestorTestSuite) Eth() *ethereum.Ethereum {
-	return s.EthChains[0]
+func (s *MultiAttestorTestSuite) EthChain() *ethereum.Ethereum {
+	return s.Eth.Chains[0]
 }
 
-func (s *MultiAttestorTestSuite) Simd() *cosmos.CosmosChain {
-	return s.CosmosChains[0]
+func (s *MultiAttestorTestSuite) CosmosChain() *cosmos.CosmosChain {
+	return s.Cosmos.Chains[0]
 }
 
 // isNativeAttestor returns true if ETH_LC_ON_COSMOS is attestor-native
 func (s *MultiAttestorTestSuite) isNativeAttestor() bool {
-	return s.EthWasmType == testvalues.EthWasmTypeAttestorNative
+	return s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorNative
 }
 
 // getEthLcClientIDOnCosmos returns the client ID for Ethereum light client on Cosmos
@@ -154,7 +154,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	err := os.Chdir("../..")
 	s.Require().NoError(err)
 
-	eth, simd := s.Eth(), s.Simd()
+	eth, simd := s.EthChain(), s.CosmosChain()
 
 	s.T().Logf("Ethereum RPC: %s, Chain ID: %s", eth.RPC, eth.ChainID.String())
 	s.T().Logf("Cosmos RPC: %s, Chain ID: %s", simd.GetHostRPCAddress(), simd.Config().ChainID)
@@ -459,7 +459,7 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	eth, simd := s.Eth(), s.Simd()
+	eth, simd := s.EthChain(), s.CosmosChain()
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	userAddressEth := crypto.PubkeyToAddress(s.userKeyEth.PublicKey)

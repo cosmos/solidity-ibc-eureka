@@ -88,16 +88,16 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	s.TestSuite.SetupSuite(ctx)
 
-	err = s.SolanaChain.WaitForClusterReady(ctx, 30*time.Second)
+	err = s.Solana.Chain.WaitForClusterReady(ctx, 30*time.Second)
 	s.Require().NoError(err)
 
 	s.SolanaUser = solanago.NewWallet()
 
-	_, err = s.SolanaChain.FundUserWithRetry(ctx, s.SolanaUser.PublicKey(), testvalues.InitialSolBalance, 5)
+	_, err = s.Solana.Chain.FundUserWithRetry(ctx, s.SolanaUser.PublicKey(), testvalues.InitialSolBalance, 5)
 	s.Require().NoError(err)
 
 	const deployerFunding = 100 * testvalues.InitialSolBalance
-	_, err = s.SolanaChain.FundUserWithRetry(ctx, solana.DeployerPubkey, deployerFunding, 5)
+	_, err = s.Solana.Chain.FundUserWithRetry(ctx, solana.DeployerPubkey, deployerFunding, 5)
 	s.Require().NoError(err)
 
 	s.T().Log("Deploying programs...")
@@ -109,28 +109,28 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			Name: "Deploy ICS26 Router",
 			Run: func() (solanago.PublicKey, error) {
 				keypairPath := fmt.Sprintf("%s/ics26_router-keypair.json", keypairDir)
-				return s.SolanaChain.DeploySolanaProgramAsync(ctx, "ics26_router", keypairPath, deployerPath)
+				return s.Solana.Chain.DeploySolanaProgramAsync(ctx, "ics26_router", keypairPath, deployerPath)
 			},
 		},
 		{
 			Name: "Deploy ICS07 Tendermint",
 			Run: func() (solanago.PublicKey, error) {
 				keypairPath := fmt.Sprintf("%s/ics07_tendermint-keypair.json", keypairDir)
-				return s.SolanaChain.DeploySolanaProgramAsync(ctx, "ics07_tendermint", keypairPath, deployerPath)
+				return s.Solana.Chain.DeploySolanaProgramAsync(ctx, "ics07_tendermint", keypairPath, deployerPath)
 			},
 		},
 		{
 			Name: "Deploy Dummy App",
 			Run: func() (solanago.PublicKey, error) {
 				keypairPath := fmt.Sprintf("%s/dummy_ibc_app-keypair.json", keypairDir)
-				return s.SolanaChain.DeploySolanaProgramAsync(ctx, "dummy_ibc_app", keypairPath, deployerPath)
+				return s.Solana.Chain.DeploySolanaProgramAsync(ctx, "dummy_ibc_app", keypairPath, deployerPath)
 			},
 		},
 		{
 			Name: "Deploy Access Manager",
 			Run: func() (solanago.PublicKey, error) {
 				keypairPath := fmt.Sprintf("%s/access_manager-keypair.json", keypairDir)
-				return s.SolanaChain.DeploySolanaProgramAsync(ctx, "access_manager", keypairPath, deployerPath)
+				return s.Solana.Chain.DeploySolanaProgramAsync(ctx, "access_manager", keypairPath, deployerPath)
 			},
 		},
 	}
@@ -157,10 +157,10 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAccessManagerInstruction)
+	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAccessManagerInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("Access Manager initialized")
 
@@ -175,10 +175,10 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err = s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction)
+	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("RELAYER_ROLE granted")
 
@@ -193,10 +193,10 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err = s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantIdCustomizerRoleInstruction)
+	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantIdCustomizerRoleInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("ID_CUSTOMIZER_ROLE granted")
 
@@ -211,15 +211,15 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err = s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
+	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
 	s.Require().NoError(err)
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 	cosmosChainID := simd.Config().ChainID
-	altAddress := s.SolanaChain.CreateIBCAddressLookupTable(
+	altAddress := s.Solana.Chain.CreateIBCAddressLookupTable(
 		ctx, s.T(), s.Require(), s.SolanaUser, cosmosChainID, transfertypes.PortID, SolanaClientID,
 	)
 	s.SolanaAltAddress = altAddress.String()
@@ -245,7 +245,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			SolanaRPC:      testvalues.SolanaLocalnetRPC,
 			TmRPC:          simd.GetHostRPCAddress(),
 			ICS26ProgramID: ics26_router.ProgramID.String(),
-			SignerAddress:  s.CosmosUsers[0].FormattedAddress(),
+			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
 			MockClient:     true,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
@@ -286,13 +286,13 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 	s.Require().NoError(err)
 
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaUser)
+	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaUser)
 	s.Require().NoError(err)
 
 	s.T().Logf("IBC client created on Solana - tx: %s", sig)
 
 	s.T().Log("Storing Solana light client on Cosmos...")
-	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.CosmosUsers[0])
+	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
 	s.Require().NotEmpty(checksumHex, "Failed to store Solana light client")
 
 	s.T().Log("Creating IBC client on Cosmos...")
@@ -305,7 +305,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	})
 	s.Require().NoError(err)
 
-	txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosCreateClientGasLimit, clientResp.Tx)
+	txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, clientResp.Tx)
 	s.T().Logf("IBC client created on Cosmos - tx: %s", txResp.TxHash)
 
 	s.T().Log("Adding client to Router on Solana...")
@@ -333,20 +333,20 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err = s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
+	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("Client added to router")
 
 	s.T().Log("Registering counterparty on Cosmos...")
 	merklePathPrefix := [][]byte{[]byte("")}
-	_, err = s.BroadcastMessages(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, &clienttypesv2.MsgRegisterCounterparty{
+	_, err = s.BroadcastMessages(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, &clienttypesv2.MsgRegisterCounterparty{
 		ClientId:                 CosmosClientID,
 		CounterpartyMerklePrefix: merklePathPrefix,
 		CounterpartyClientId:     SolanaClientID,
-		Signer:                   s.CosmosUsers[0].FormattedAddress(),
+		Signer:                   s.Cosmos.Users[0].FormattedAddress(),
 	})
 	s.Require().NoError(err)
 	s.T().Log("Counterparty registered on Cosmos")
@@ -362,10 +362,10 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	appTx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAppInstruction)
+	appTx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAppInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, appTx, rpc.CommitmentFinalized, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, appTx, rpc.CommitmentFinalized, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("Dummy IBC App initialized successfully")
 
@@ -386,10 +386,10 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	)
 	s.Require().NoError(err)
 
-	tx, err = s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
+	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), registerInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
 	s.Require().NoError(err)
 	s.T().Log("Dummy app registered with router")
 }
@@ -420,7 +420,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_StateAttestation() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	slot, err := s.SolanaChain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+	slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 	s.Require().NoError(err)
 
 	resp, err := attestor.GetStateAttestation(ctx, s.AttestorClient, slot)
@@ -453,7 +453,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments
 		client, _ := solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 		clientSequence, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
-		clientSequenceAccountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
+		clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentFinalized,
 		})
 		s.Require().NoError(err)
@@ -495,17 +495,17 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments
 		s.Require().NoError(err)
 
 		computeBudgetInstruction := solana.NewComputeBudgetInstruction(DefaultComputeUnits)
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.SolanaUser.PublicKey(),
 			computeBudgetInstruction,
 			sendPacketInstruction,
 		)
 		s.Require().NoError(err)
 
-		solanaTxSig, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
+		solanaTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentFinalized, s.SolanaUser)
 		s.Require().NoError(err)
 
-		slot, err = s.SolanaChain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+		slot, err = s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 		s.Require().NoError(err)
 
 		s.T().Logf("Sent packet - tx: %s, sequence: %d, slot: %d", solanaTxSig, namespacedSequence, slot)
@@ -514,7 +514,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments
 	var event *solana.SendPacketEvent
 	s.Require().True(s.Run("Parse event and verify sequence", func() {
 		var err error
-		event, err = solana.GetSendPacketEventFromTransaction(ctx, s.SolanaChain.RPCClient, solanaTxSig)
+		event, err = solana.GetSendPacketEventFromTransaction(ctx, s.Solana.Chain.RPCClient, solanaTxSig)
 		s.Require().NoError(err)
 		s.Require().NotNil(event)
 		s.Require().Equal(SolanaClientID, event.ClientID)
@@ -523,7 +523,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments
 
 	var onChainCommitment []byte
 	s.Require().True(s.Run("Query commitment on chain", func() {
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentFinalized,
 		})
 		s.Require().NoError(err)
@@ -572,13 +572,13 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 	var solanaRelayTxSig solanago.Signature
 	var slot uint64
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 
 	var timeout uint64
 	var encodedPayload []byte
 
 	s.Require().True(s.Run("Send packet from Cosmos to Solana", func() {
-		cosmosUserWallet := s.CosmosUsers[0]
+		cosmosUserWallet := s.Cosmos.Users[0]
 		cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 		solanaUserAddress := s.SolanaUser.PublicKey().String()
 		transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(TestTransferAmount))
@@ -635,7 +635,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
+			s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), resp, s.SolanaUser)
 		}))
 
 		s.Require().True(s.Run("Relay packet", func() {
@@ -649,10 +649,10 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+			solanaRelayTxSig, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
 			s.Require().NoError(err)
 
-			slot, err = s.SolanaChain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+			slot, err = s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 			s.Require().NoError(err)
 		}))
 	}))
@@ -662,14 +662,14 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, actualSequence)
 
-	s.Require().NoError(s.SolanaChain.WaitForTxStatus(solanaRelayTxSig, rpc.ConfirmationStatusFinalized))
+	s.Require().NoError(s.Solana.Chain.WaitForTxStatus(solanaRelayTxSig, rpc.ConfirmationStatusFinalized))
 
 	var onChainAckCommitment []byte
 
 	s.Require().True(s.Run("Query ACK commitment on chain", func() {
 		packetAckPDA, _ := solana.Ics26Router.PacketAckPDA(ics26_router.ProgramID, []byte(SolanaClientID), sequenceBytes)
 
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, packetAckPDA, &rpc.GetAccountInfoOpts{
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, packetAckPDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentFinalized,
 		})
 		s.Require().NoError(err)

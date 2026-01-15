@@ -80,7 +80,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
@@ -325,7 +325,7 @@ func (s *IbcEurekaGmpTestSuite) TestDeploy() {
 func (s *IbcEurekaGmpTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	s.Require().True(s.Run("Verify SP1 Client", func() {
 		clientState, err := s.sp1Ics07Contract.ClientState(nil)
@@ -406,8 +406,8 @@ func (s *IbcEurekaGmpTestSuite) TestSendCallFromCosmos() {
 func (s *IbcEurekaGmpTestSuite) SendCallFromCosmosTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
-	simdUser := s.CosmosUsers[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
+	simdUser := s.Cosmos.Users[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	testAmount := big.NewInt(1)
@@ -545,7 +545,7 @@ func (s *IbcEurekaGmpTestSuite) TestSendCallFromEth() {
 func (s *IbcEurekaGmpTestSuite) SendCallFromEthTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 	ethUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)

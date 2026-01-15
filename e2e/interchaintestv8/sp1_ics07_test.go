@@ -72,7 +72,7 @@ type SP1ICS07TendermintTestSuite struct {
 func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
 
@@ -265,7 +265,7 @@ func (s *SP1ICS07TendermintTestSuite) Test_Deploy() {
 func (s *SP1ICS07TendermintTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	_, simd := s.EthChains[0], s.CosmosChains[0]
+	_, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	s.Require().True(s.Run("Verify deployment", func() {
 		clientState, err := s.contract.ClientState(nil)
@@ -295,7 +295,7 @@ func (s *SP1ICS07TendermintTestSuite) Test_UpdateClient() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	_, simd := s.EthChains[0], s.CosmosChains[0]
+	_, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClient does not support it (yet)")
@@ -336,8 +336,8 @@ func (s *SP1ICS07TendermintTestSuite) Test_Membership() {
 func (s *SP1ICS07TendermintTestSuite) MembershipTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
-	simdUser := s.CosmosUsers[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
+	simdUser := s.Cosmos.Users[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestVerifyMembership does not support it (yet)")
@@ -443,8 +443,8 @@ func (s *SP1ICS07TendermintTestSuite) Test_UpdateClientAndMembership() {
 func (s *SP1ICS07TendermintTestSuite) UpdateClientAndMembershipTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
-	simdUser := s.CosmosUsers[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
+	simdUser := s.Cosmos.Users[0]
 
 	if s.generateFixtures {
 		s.T().Log("Generate fixtures is set to true, but TestUpdateClientAndMembership does not support it (yet)")
@@ -537,7 +537,7 @@ func (s *SP1ICS07TendermintTestSuite) Test_DoubleSignMisbehaviour() {
 func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Context, fixName string, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 	_ = eth
 
 	var height clienttypes.Height
@@ -640,7 +640,7 @@ func (s *SP1ICS07TendermintTestSuite) Test_BreakingTimeMonotonicityMisbehaviour(
 func (s *SP1ICS07TendermintTestSuite) BreakingTimeMonotonicityMisbehaviourTest(ctx context.Context, fixName string, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	var height clienttypes.Height
 	var trustedHeader tmclient.Header
@@ -735,8 +735,8 @@ func (s *SP1ICS07TendermintTestSuite) Test_25_Membership() {
 func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n uint64, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
-	simdUser := s.CosmosUsers[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
+	simdUser := s.Cosmos.Users[0]
 
 	s.Require().True(s.Run(fmt.Sprintf("Large membership test with %d key-value pairs", n), func() {
 		membershipKeys := make([][][]byte, n)
@@ -818,7 +818,7 @@ func (s *SP1ICS07TendermintTestSuite) largeMembershipTest(ctx context.Context, n
 
 // UpdateClient updates the SP1ICS07Tendermint client and returns the new height
 func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clienttypes.Height {
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	var initialHeight uint64
 	s.Require().True(s.Run("Get the initial height", func() {

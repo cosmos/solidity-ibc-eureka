@@ -78,12 +78,12 @@ func TestWithEthToEthAttestedTestSuite(t *testing.T) {
 
 // EthChainA returns the first Ethereum chain
 func (s *EthToEthAttestedTestSuite) EthChainA() *ethereum.Ethereum {
-	return s.EthChains[chainAIndex]
+	return s.Eth.Chains[chainAIndex]
 }
 
 // EthChainB returns the second Ethereum chain
 func (s *EthToEthAttestedTestSuite) EthChainB() *ethereum.Ethereum {
-	return s.EthChains[chainBIndex]
+	return s.Eth.Chains[chainBIndex]
 }
 
 func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
@@ -95,7 +95,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 	// Configure for two Anvil chains
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
-	s.AnvilCount = 2
+	os.Setenv(testvalues.EnvKeyEthAnvilCount, "2")
 
 	// Call the base SetupSuite which will create the chains
 	s.TestSuite.SetupSuite(ctx)

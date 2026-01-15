@@ -94,13 +94,13 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 
 // isEthLcOnCosmosAttestor returns true if the Ethereum light client on Cosmos uses any attestor type (attestor-wasm or attestor-native)
 func (s *IbcEurekaTestSuite) isEthLcOnCosmosAttestor() bool {
-	return s.EthWasmType == testvalues.EthWasmTypeAttestorWasm ||
-		s.EthWasmType == testvalues.EthWasmTypeAttestorNative
+	return s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorWasm ||
+		s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorNative
 }
 
 // isEthLcOnCosmosNativeAttestor returns true if the Ethereum light client on Cosmos is a native ibc-go attestor (attestor-native)
 func (s *IbcEurekaTestSuite) isEthLcOnCosmosNativeAttestor() bool {
-	return s.EthWasmType == testvalues.EthWasmTypeAttestorNative
+	return s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorNative
 }
 
 // isCosmosLcOnEthAttestor returns true if the Cosmos light client on Ethereum uses attestor (COSMOS_LC_ON_ETH=attestor)
@@ -123,7 +123,7 @@ func (s *IbcEurekaTestSuite) getEthLcClientIDOnCosmos() string {
 func (s *IbcEurekaTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	s.T().Logf("Setting up the test suite with proof type: %s", proofType.String())
 
@@ -538,7 +538,7 @@ func (s *IbcEurekaTestSuite) Test_Deploy() {
 func (s *IbcEurekaTestSuite) DeployTest(ctx context.Context, proofType types.SupportedProofType) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	if !s.isCosmosLcOnEthAttestor() {
 		s.Require().True(s.Run("Verify SP1 Client", func() {
@@ -652,7 +652,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -660,7 +660,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenfromEthereumToCosmosAndBackT
 
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	ics20transferAbi, err := abi.JSON(strings.NewReader(ics20transfer.ContractABI))
@@ -1002,7 +1002,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackF
 ) {
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -1010,7 +1010,7 @@ func (s *IbcEurekaTestSuite) ICS20TransferERC20TokenFromEthereumToCosmosAndBackF
 
 	totalTransferAmount := new(big.Int).Mul(transferAmount, big.NewInt(int64(numOfTransfers)))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	ics20transferAbi, err := abi.JSON(strings.NewReader(ics20transfer.ContractABI))
@@ -1201,13 +1201,13 @@ func (s *IbcEurekaTestSuite) Test_ICS20TransferNativeCosmosCoinsToEthereumAndBac
 func (s *IbcEurekaTestSuite) ICS20TransferNativeCosmosCoinsToEthereumAndBackTest(ctx context.Context, pt types.SupportedProofType, transferAmount *big.Int) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	sendMemo := "nativesend"
 
@@ -1576,7 +1576,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
@@ -1590,7 +1590,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutPacketFromEthereumTest(
 		refundedAmount = new(big.Int).Mul(transferAmount, big.NewInt(int64(len(timeoutFilter))))
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	var originalBalance *sdk.Coin
@@ -1781,7 +1781,7 @@ func (s *IbcEurekaTestSuite) ICS20ErrorAckToEthereumTest(
 ) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
@@ -1952,7 +1952,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := big.NewInt(testvalues.TransferAmount * int64(numOfTransfers))
@@ -1966,7 +1966,7 @@ func (s *IbcEurekaTestSuite) FilteredICS20TimeoutFromCosmosTimeoutTest(
 		refundedAmount = big.NewInt(testvalues.TransferAmount * int64(len(timeoutFilter)))
 	}
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 	sendMemo := "nonnativesend"
 
@@ -2114,14 +2114,14 @@ func (s *IbcEurekaTestSuite) Test_TimeoutPacketEthRemintsVouchers() {
 func (s *IbcEurekaTestSuite) TimeoutPacketEthRemintsVouchersTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	var cosmosSendTxHash []byte
@@ -2325,7 +2325,7 @@ func (s *IbcEurekaTestSuite) Test_TimeoutPacketCosmosRemintsVouchers() {
 func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.Context, pt types.SupportedProofType) {
 	s.SetupSuite(ctx, pt)
 
-	eth, simd := s.EthChains[0], s.CosmosChains[0]
+	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
@@ -2333,7 +2333,7 @@ func (s *IbcEurekaTestSuite) TimeoutPacketCosmosRemintsVouchersTest(ctx context.
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	cosmosUserWallet := s.CosmosUsers[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
 	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {

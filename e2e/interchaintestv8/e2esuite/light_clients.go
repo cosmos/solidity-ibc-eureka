@@ -15,7 +15,7 @@ import (
 // For native attestor (attestor-native), returns empty string as no wasm binary is needed.
 func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
 	// Native attestor doesn't need a wasm binary
-	if s.EthWasmType == testvalues.EthWasmTypeAttestorNative {
+	if s.config.cosmos.lightClientType == testvalues.EthWasmTypeAttestorNative {
 		s.T().Log("Using native attestor - no wasm storage needed")
 		return ""
 	}
@@ -63,14 +63,17 @@ func (s *TestSuite) StoreSolanaAttestedLightClient(ctx context.Context, cosmosCh
 }
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
+	lightClientType := s.config.cosmos.lightClientType
+	wasmTag := s.config.cosmos.wasmLightClientTag
+
 	// Native attestor doesn't need a wasm binary
-	if s.EthWasmType == testvalues.EthWasmTypeAttestorNative {
+	if lightClientType == testvalues.EthWasmTypeAttestorNative {
 		s.T().Log("Using native attestor - no wasm binary needed")
 		return nil
 	}
 
 	// Dummy light client (only valid for Anvil testnets)
-	if s.EthWasmType == testvalues.EthWasmTypeDummy {
+	if lightClientType == testvalues.EthWasmTypeDummy {
 		s.T().Log("Using dummy Wasm light client")
 		file, err := wasm.GetWasmDummyLightClient()
 		s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
@@ -78,7 +81,7 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	}
 
 	// Attestor light client
-	if s.EthWasmType == testvalues.EthWasmTypeAttestorWasm {
+	if lightClientType == testvalues.EthWasmTypeAttestorWasm {
 		s.T().Log("Using attestor Wasm light client")
 		file, err := wasm.GetLocalWasmAttestationLightClient()
 		s.Require().NoError(err, "Failed to get attestor Wasm light client binary")
@@ -86,19 +89,19 @@ func (s *TestSuite) getWasmLightClientBinary() *os.File {
 	}
 
 	// Full Ethereum light client (only valid for PoS testnets)
-	s.Require().Equal(testvalues.EthWasmTypeFull, s.EthWasmType, "unexpected EthWasmType: %s", s.EthWasmType)
-	s.Require().Equal(testvalues.EthTestnetTypePoS, s.ethTestnetType, "full light client requires PoS testnet")
+	s.Require().Equal(testvalues.EthWasmTypeFull, lightClientType, "unexpected EthWasmType: %s", lightClientType)
+	s.Require().Equal(testvalues.EthTestnetTypePoS, s.config.ethereum.testnetType, "full light client requires PoS testnet")
 
-	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
+	if wasmTag == "" || wasmTag == testvalues.EnvValueWasmLightClientTag_Local {
 		s.T().Log("Using local Wasm Ethereum light client binary")
 		file, err := wasm.GetLocalWasmEthLightClient()
 		s.Require().NoError(err, "Failed to get local Wasm Ethereum light client binary")
 		return file
 	}
 
-	s.T().Logf("Downloading Wasm light client binary for tag %s", s.WasmLightClientTag)
+	s.T().Logf("Downloading Wasm light client binary for tag %s", wasmTag)
 	file, err := wasm.DownloadWasmLightClientRelease(wasm.Release{
-		TagName: s.WasmLightClientTag,
+		TagName: wasmTag,
 	})
 	s.Require().NoError(err, "Failed to download Wasm light client binary from release")
 	return file

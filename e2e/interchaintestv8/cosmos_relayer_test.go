@@ -70,7 +70,7 @@ func (s *CosmosRelayerTestSuite) SetupSuite(ctx context.Context) {
 
 	s.TestSuite.SetupSuite(ctx)
 
-	s.SimdA, s.SimdB = s.CosmosChains[0], s.CosmosChains[1]
+	s.SimdA, s.SimdB = s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 	s.SimdASubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdA)
 	s.SimdBSubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdB)
 
@@ -241,7 +241,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.C
 
 	s.SetupSuite(ctx)
 
-	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	simdAUser, simdBUser := s.Cosmos.Users[0], s.Cosmos.Users[1]
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
 	var relayedAmount int64
@@ -410,7 +410,7 @@ func (s *CosmosRelayerTestSuite) FilteredICS20TimeoutPacketTest(ctx context.Cont
 
 	s.SetupSuite(ctx)
 
-	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	simdAUser, simdBUser := s.Cosmos.Users[0], s.Cosmos.Users[1]
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	totalTransferAmount := testvalues.TransferAmount * int64(numOfTransfers)
 	var refundedAmount int64

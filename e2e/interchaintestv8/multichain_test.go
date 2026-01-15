@@ -84,7 +84,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 	s.TestSuite.SetupSuite(ctx)
 
-	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.Eth.Chains[0], s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 
 	s.T().Logf("Setting up test suite with proof type: %s", proofType.String())
 
@@ -520,7 +520,7 @@ func (s *MultichainTestSuite) Test_Deploy() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.Eth.Chains[0], s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 
 	s.Require().True(s.Run("Verify SimdA SP1 Client", func() {
 		clientState, err := s.chainASP1Ics07Contract.ClientState(nil)
@@ -713,13 +713,13 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.Eth.Chains[0], s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	simdAUser, simdBUser := s.Cosmos.Users[0], s.Cosmos.Users[1]
 
 	var simdASendTxHash []byte
 	s.Require().True(s.Run("Send transfer on SimdA chain", func() {
@@ -1068,14 +1068,14 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.Eth.Chains[0], s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)
 	erc20Address := ethcommon.HexToAddress(s.contractAddresses.Erc20)
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
-	simdAUser, simdBUser := s.CosmosUsers[0], s.CosmosUsers[1]
+	simdAUser, simdBUser := s.Cosmos.Users[0], s.Cosmos.Users[1]
 
 	s.Require().True(s.Run("Approve the ICS20Transfer.sol contract to spend the erc20 tokens", func() {
 		tx, err := s.erc20Contract.Approve(s.GetTransactOpts(s.key, eth), ics20Address, transferAmount)
@@ -1391,12 +1391,12 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 
 	s.SetupSuite(ctx, proofType)
 
-	eth, simdA, simdB := s.EthChains[0], s.CosmosChains[0], s.CosmosChains[1]
+	eth, simdA, simdB := s.Eth.Chains[0], s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 
 	transferAmount := big.NewInt(testvalues.TransferAmount)
 	transferCoin := sdk.NewCoin(simdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
-	simdAUser := s.CosmosUsers[0]
-	simdBUser := s.CosmosUsers[1]
+	simdAUser := s.Cosmos.Users[0]
+	simdBUser := s.Cosmos.Users[1]
 	ethereumUserAddress := crypto.PubkeyToAddress(s.key.PublicKey)
 
 	ics20Address := ethcommon.HexToAddress(s.contractAddresses.Ics20Transfer)

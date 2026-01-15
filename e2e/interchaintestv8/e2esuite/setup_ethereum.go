@@ -1,0 +1,107 @@
+package e2esuite
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	ethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	interchaintest "github.com/cosmos/interchaintest/v10"
+	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
+	"github.com/cosmos/interchaintest/v10/ibc"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+)
+
+const (
+	anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	baseAnvilChainID      = 31337
+)
+
+func (s *TestSuite) buildChainSpecs(cfg setupConfig) []*interchaintest.ChainSpec {
+	if !cfg.ethereum.isAnvilBased() {
+		return chainconfig.DefaultChainSpecs
+	}
+
+	// Multi-anvil: only Anvil chains, no Cosmos
+	if cfg.ethereum.anvilCount > 1 {
+		return s.buildAnvilSpecs(cfg.ethereum.anvilCount)
+	}
+
+	// Single anvil: Cosmos chains + one Anvil
+	specs := chainconfig.DefaultChainSpecs
+	specs = append(specs, &interchaintest.ChainSpec{
+		ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum"),
+	})
+	return specs
+}
+
+func (s *TestSuite) buildAnvilSpecs(count int) []*interchaintest.ChainSpec {
+	specs := make([]*interchaintest.ChainSpec, 0, count)
+	for i := 0; i < count; i++ {
+		chainID := strconv.Itoa(baseAnvilChainID + i)
+		name := fmt.Sprintf("ethereum-%d", i)
+		chainConfig := icfoundry.DefaultEthereumAnvilChainConfig(name)
+		chainConfig.ChainID = chainID
+		chainConfig.AdditionalStartArgs = append(chainConfig.AdditionalStartArgs, "--chain-id", chainID)
+		specs = append(specs, &interchaintest.ChainSpec{ChainConfig: chainConfig})
+	}
+	return specs
+}
+
+func (s *TestSuite) setupEthereumPoSAsync(ctx context.Context, resultCh chan<- ethPosSetupResult) {
+	var result ethPosSetupResult
+	defer func() { resultCh <- result }()
+
+	chain, err := chainconfig.SpinUpKurtosisPoS(ctx)
+	if err != nil {
+		result.err = err
+		return
+	}
+	result.chain = &chain
+}
+
+func (s *TestSuite) processEthereumPoSResult(ctx context.Context, chain *chainconfig.EthKurtosisChain) {
+	if chain == nil {
+		return
+	}
+
+	s.T().Cleanup(func() {
+		cleanupCtx := context.Background()
+		if s.T().Failed() {
+			_ = chain.DumpLogs(cleanupCtx)
+		}
+		chain.Destroy(cleanupCtx)
+	})
+
+	ethChain, err := ethereum.NewEthereum(ctx, chain.RPC, &chain.BeaconApiClient, chain.Faucet)
+	s.Require().NoError(err, "Failed to create Ethereum client")
+	s.Eth.Chains = append(s.Eth.Chains, &ethChain)
+}
+
+// setupAnvilChains sets up Anvil chains from the end of the chains slice.
+// Returns the remaining (non-Anvil) chains.
+func (s *TestSuite) setupAnvilChains(ctx context.Context, chains []ibc.Chain, count int) []ibc.Chain {
+	if count == 0 {
+		return chains
+	}
+
+	faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
+	s.Require().NoError(err)
+
+	anvilStartIdx := len(chains) - count
+	for i := anvilStartIdx; i < len(chains); i++ {
+		anvil := chains[i].(*icfoundry.AnvilChain)
+		rpcAddr := strings.Replace(anvil.GetHostRPCAddress(), "0.0.0.0", "127.0.0.1", 1)
+		ethChain, err := ethereum.NewEthereum(ctx, rpcAddr, nil, faucet)
+		s.Require().NoError(err)
+		// Store Docker internal RPC address for container-to-container communication
+		ethChain.DockerRPC = anvil.GetRPCAddress()
+		s.Eth.Chains = append(s.Eth.Chains, &ethChain)
+	}
+	return chains[:anvilStartIdx]
+}

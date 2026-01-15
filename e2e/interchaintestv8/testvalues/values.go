@@ -110,6 +110,8 @@ const (
 
 	// EnvKeyEthTestnetType The Ethereum testnet type (anvil|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
+	// EnvKeyEthAnvilCount Number of Anvil chains to create (only when ETH_TESTNET_TYPE=anvil). Defaults to 1.
+	EnvKeyEthAnvilCount = "ETH_ANVIL_COUNT"
 	// EnvE2EFacuetAddress The address of the faucet
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
 	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
