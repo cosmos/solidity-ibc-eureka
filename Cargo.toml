@@ -1,17 +1,21 @@
 [workspace]
 members = [
+    # Packages
+    "packages/solidity",
+    "packages/utils",
+    "packages/constrained_types",
     "packages/ethereum/light-client",
     "packages/ethereum/trie-db",
     "packages/ethereum/types",
     "packages/ethereum/apis",
     "packages/ethereum/tree_hash",
+    "packages/ethereum/keys",
     "packages/attestor/light-client",
     "packages/tendermint-light-client/update-client",
     "packages/tendermint-light-client/membership",
     "packages/tendermint-light-client/misbehaviour",
     "packages/tendermint-light-client/uc-and-membership",
     "packages/tendermint-light-client/solana",
-    "packages/solidity",
     "packages/relayer/lib",
     "packages/relayer/core",
     "packages/relayer/modules/eth-to-cosmos",
@@ -22,13 +26,12 @@ members = [
     "packages/relayer/modules/solana-to-cosmos",
     "packages/relayer/modules/cosmos-to-solana",
     "packages/sp1-ics07-tendermint-prover",
-    "packages/utils",
-    "packages/constrained_types",
+
+    # Programs (binaries)
     "programs/relayer",
     "programs/operator",
     "programs/cw-ics08-wasm-eth",
     "programs/cw-ics08-wasm-attestor",
-    "packages/ethereum/keys",
 ]
 resolver = "2"
 
