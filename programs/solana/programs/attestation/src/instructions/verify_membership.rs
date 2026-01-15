@@ -1,8 +1,8 @@
 use crate::error::ErrorCode;
-use crate::helpers::{
-    decode_packet_attestation, keccak256, sha256, verify_signatures_threshold, AttestationProof,
-};
+use crate::helpers::{keccak256, sha256, verify_signatures_threshold, AttestationProof};
+use alloy_sol_types::SolType;
 use anchor_lang::prelude::*;
+use ibc_eureka_solidity_types::msgs::IAttestationMsgs;
 use ics25_handler::MembershipMsg;
 
 pub fn handler(ctx: Context<crate::VerifyMembership>, msg: MembershipMsg) -> Result<u64> {
@@ -18,8 +18,8 @@ pub fn handler(ctx: Context<crate::VerifyMembership>, msg: MembershipMsg) -> Res
     // Validate path length
     require!(msg.path.len() == 1, ErrorCode::InvalidPathLength);
 
-    // Deserialize proof from JSON
-    // TODO: Check the proof format
+    // Deserialize proof
+    // TODO: From where are we getting the proof. In what format is it? Is there an existing type we can use?
     let proof: AttestationProof =
         serde_json::from_slice(&msg.proof).map_err(|_| ErrorCode::DeserializationFailed)?;
 
@@ -33,11 +33,11 @@ pub fn handler(ctx: Context<crate::VerifyMembership>, msg: MembershipMsg) -> Res
     )?;
 
     // Decode PacketAttestation from ABI-encoded attestation_data
-    // TODO: Check format
-    let packet_attestation = decode_packet_attestation(&proof.attestation_data)?;
+    let packet_attestation =
+        IAttestationMsgs::PacketAttestation::abi_decode(&proof.attestation_data)
+            .map_err(|_| ErrorCode::AbiDecodingFailed)?;
 
-    // Verify height matches
-    // TODO: Verify this check
+    // Verify packet attestation height matches
     require!(
         packet_attestation.height == consensus_state.height,
         ErrorCode::HeightMismatch

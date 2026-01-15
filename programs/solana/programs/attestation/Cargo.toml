@@ -19,11 +19,8 @@ name = "attestation"
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 ics25-handler.workspace = true
-
-# Attestor light client integration
-# TODO: Re-enable after fixing alloy dependency compatibility issues
-# attestor-light-client = { workspace = true }
-# ethereum-keys = { workspace = true }
+alloy-sol-types = { workspace = true }
+ibc-eureka-solidity-types = { workspace = true }
 
 # Serialization
 serde = { workspace = true }

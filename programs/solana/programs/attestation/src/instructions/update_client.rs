@@ -1,13 +1,15 @@
 use crate::{
     error::ErrorCode,
-    helpers::{decode_state_attestation, sha256, verify_signatures_threshold, AttestationProof},
+    helpers::{sha256, verify_signatures_threshold, AttestationProof},
     state::{ClientState, ConsensusStateStore, UpdateResult},
     UpdateClient,
 };
+use alloy_sol_types::SolType;
 use anchor_lang::{
     prelude::*,
     system_program::{self, CreateAccount},
 };
+use ibc_eureka_solidity_types::msgs::IAttestationMsgs;
 
 /// Handler for the update_client instruction.
 pub fn handler(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<UpdateResult> {
@@ -33,8 +35,8 @@ pub fn handler(ctx: Context<UpdateClient>, update_msg: Vec<u8>) -> Result<Update
     )?;
 
     // Decode StateAttestation from proof.attestationData
-    // TODO: In what format is the state attestation?
-    let state = decode_state_attestation(&proof.attestation_data)?;
+    let state = IAttestationMsgs::StateAttestation::abi_decode(&proof.attestation_data)
+        .map_err(|_| ErrorCode::AbiDecodingFailed)?;
 
     // Validate initial state
     require!(

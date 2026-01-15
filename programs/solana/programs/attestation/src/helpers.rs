@@ -7,113 +7,12 @@ use solana_secp256k1_recover::secp256k1_recover;
 /// ECDSA signature length (r || s || v)
 const ECDSA_SIGNATURE_LENGTH: usize = 65;
 
-/// Attestation data structures (matching Solidity ABI encoding)
-#[derive(Debug, Clone)]
-pub struct StateAttestation {
-    pub height: u64,
-    pub timestamp: u64,
-}
-
-#[derive(Debug, Clone)]
-pub struct PacketAttestation {
-    pub height: u64,
-    pub packets: Vec<PacketCompact>,
-}
-
-#[derive(Debug, Clone)]
-pub struct PacketCompact {
-    pub path: [u8; 32],
-    pub commitment: [u8; 32],
-}
-
 /// Attestation proof structure (from relayer)
+/// TODO: This can probably be replaced by some existing type
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct AttestationProof {
     pub attestation_data: Vec<u8>,
     pub signatures: Vec<Vec<u8>>,
-}
-
-/// Decode StateAttestation from ABI-encoded bytes
-/// Format: abi.encode(height: uint64, timestamp: uint64)
-pub fn decode_state_attestation(data: &[u8]) -> Result<StateAttestation> {
-    // Simple ABI decoding for (uint64, uint64)
-    // ABI encoding pads each uint64 to 32 bytes
-    if data.len() != 64 {
-        return Err(ErrorCode::AbiDecodingFailed.into());
-    }
-
-    // Extract height (bytes 24-32 of first 32-byte word)
-    let height = u64::from_be_bytes(
-        data[24..32]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?,
-    );
-
-    // Extract timestamp (bytes 56-64 of second 32-byte word)
-    let timestamp = u64::from_be_bytes(
-        data[56..64]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?,
-    );
-
-    Ok(StateAttestation { height, timestamp })
-}
-
-/// Decode PacketAttestation from ABI-encoded bytes
-/// Format: abi.encode(height: uint64, packets: PacketCompact[])
-pub fn decode_packet_attestation(data: &[u8]) -> Result<PacketAttestation> {
-    if data.len() < 96 {
-        // Minimum: height (32) + array offset (32) + array length (32)
-        return Err(ErrorCode::AbiDecodingFailed.into());
-    }
-
-    // Extract height (bytes 24-32 of first 32-byte word)
-    let height = u64::from_be_bytes(
-        data[24..32]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?,
-    );
-
-    // Extract array offset (bytes 32-64, should be 64 for dynamic arrays)
-    let array_offset = u64::from_be_bytes(
-        data[56..64]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?,
-    ) as usize;
-
-    if array_offset != 64 {
-        return Err(ErrorCode::AbiDecodingFailed.into());
-    }
-
-    // Extract array length (bytes 88-96)
-    let array_length = u64::from_be_bytes(
-        data[88..96]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?,
-    ) as usize;
-
-    let mut packets = Vec::with_capacity(array_length);
-
-    // Each PacketCompact is 64 bytes (2 * bytes32)
-    let packets_start = 96;
-    for i in 0..array_length {
-        let packet_offset = packets_start + (i * 64);
-        if data.len() < packet_offset + 64 {
-            return Err(ErrorCode::AbiDecodingFailed.into());
-        }
-
-        let path: [u8; 32] = data[packet_offset..packet_offset + 32]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?;
-
-        let commitment: [u8; 32] = data[packet_offset + 32..packet_offset + 64]
-            .try_into()
-            .map_err(|_| ErrorCode::AbiDecodingFailed)?;
-
-        packets.push(PacketCompact { path, commitment });
-    }
-
-    Ok(PacketAttestation { height, packets })
 }
 
 /// Compute keccak256 hash of data
@@ -214,31 +113,6 @@ pub fn verify_signatures_threshold(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_decode_state_attestation() {
-        // Create ABI-encoded StateAttestation(height=100, timestamp=1234567890)
-        let mut data = vec![0u8; 64];
-
-        // Height = 100 (padded to 32 bytes)
-        data[31] = 100;
-
-        // Timestamp = 1234567890 (0x499602D2) (padded to 32 bytes)
-        data[60] = 0x49;
-        data[61] = 0x96;
-        data[62] = 0x02;
-        data[63] = 0xD2;
-
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, 100);
-        assert_eq!(result.timestamp, 1234567890);
-    }
-
-    #[test]
-    fn test_decode_state_attestation_invalid_length() {
-        let data = vec![0u8; 32]; // Too short
-        assert!(decode_state_attestation(&data).is_err());
-    }
 
     #[test]
     fn test_keccak256() {
