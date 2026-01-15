@@ -184,6 +184,10 @@ func (s *TestSuite) setupInterchainAsync(
 }
 
 func (s *TestSuite) processChains(ctx context.Context, cfg setupConfig, chains []ibc.Chain) {
-	cosmosChains := s.setupAnvilChains(ctx, chains, cfg.ethereum.anvilCount)
+	anvilCount := 0
+	if cfg.ethereum.isAnvilBased() {
+		anvilCount = cfg.ethereum.anvilCount
+	}
+	cosmosChains := s.setupAnvilChains(ctx, chains, anvilCount)
 	s.setupCosmosChains(ctx, cosmosChains)
 }
