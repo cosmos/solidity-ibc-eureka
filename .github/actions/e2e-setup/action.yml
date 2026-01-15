@@ -39,7 +39,6 @@ runs:
     - name: Install just
       uses: extractions/setup-just@v2
 
-
     - name: Install artifacts
       shell: bash
       run: |
