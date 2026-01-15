@@ -115,8 +115,8 @@ impl GMPAppState {
 /// Status of a GMP call result
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
 pub enum CallResultStatus {
-    Acknowledged,
-    TimedOut,
+    Acknowledgment,
+    Timeout,
 }
 
 /// GMP call result PDA marker. Seeds: [b"gmp_result", source_client, sequence]
