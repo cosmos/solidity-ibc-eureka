@@ -42,6 +42,7 @@ struct SolanaToCosmosRelayerModuleService {
     tx_builder: SolanaToCosmosTxBuilder,
 }
 
+#[allow(dead_code)]
 enum SolanaToCosmosTxBuilder {
     Real(),
     Mock(tx_builder::MockTxBuilder),
