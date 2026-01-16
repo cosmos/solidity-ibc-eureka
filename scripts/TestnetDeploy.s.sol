@@ -13,6 +13,7 @@ import { Script } from "forge-std/Script.sol";
 import { ICS26Router } from "../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../contracts/ICS20Transfer.sol";
 import { ICS27GMP } from "../contracts/ICS27GMP.sol";
+import { AttestationLightClient } from "../contracts/light-clients/attestation/AttestationLightClient.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ICS20Lib } from "../contracts/utils/ICS20Lib.sol";
 import { ICS27Lib } from "../contracts/utils/ICS27Lib.sol";
@@ -31,8 +32,15 @@ contract TestnetDeploy is Script, DeployAccessManagerWithRoles {
 
     // Permit2 contract address on Ethereum mainnet and testnets
     address internal constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
     string internal constant IFT_TOKEN_NAME = "IFT Fungible Token";
     string internal constant IFT_TOKEN_SYMBOL = "IFT";
+
+    // Attestor public key for testnets
+    address internal constant ATTESTOR_PUBKEY = 0x5Bc9C9baB1B5Df2d114164437261839D207AF061;
+    uint64 internal constant ATTESTOR_INITIAL_HEIGHT = 1;
+    uint64 internal constant ATTESTOR_INITIAL_TIMESTAMP = 1;
+    string internal constant CLIENT_ID = "attestation-0";
 
     function run() public returns (string memory) {
         // ============ Step 1: Deploy the contracts ==============
@@ -63,6 +71,16 @@ contract TestnetDeploy is Script, DeployAccessManagerWithRoles {
             )
         );
 
+        address[] memory attestors = new address[](1);
+        attestors[0] = ATTESTOR_PUBKEY;
+        AttestationLightClient attestationLightClient = new AttestationLightClient({
+            attestorAddresses: attestors,
+            minRequiredSigs: 1,
+            initialHeight: ATTESTOR_INITIAL_HEIGHT,
+            initialTimestampSeconds: ATTESTOR_INITIAL_TIMESTAMP,
+            roleManager: address(0)
+        });
+
         IFTAccessManaged iftImpl = new IFTAccessManaged();
         ERC1967Proxy iftProxy = new ERC1967Proxy(
             address(iftImpl),
@@ -81,6 +99,8 @@ contract TestnetDeploy is Script, DeployAccessManagerWithRoles {
         // Wire Transfer + GMP apps
         ICS26Router(address(routerProxy)).addIBCApp(ICS20Lib.DEFAULT_PORT_ID, address(transferProxy));
         ICS26Router(address(routerProxy)).addIBCApp(ICS27Lib.DEFAULT_PORT_ID, address(gmpProxy));
+        // Add client needs counterparty chain info, which is not available at deployment time.
+        // ICS26Router(address(routerProxy)).addClient();
 
         vm.stopBroadcast();
 
@@ -89,6 +109,7 @@ contract TestnetDeploy is Script, DeployAccessManagerWithRoles {
         json.serialize("ics26Router", Strings.toHexString(address(routerProxy)));
         json.serialize("ics20Transfer", Strings.toHexString(address(transferProxy)));
         json.serialize("ics27Gmp", Strings.toHexString(address(gmpProxy)));
+        json.serialize("attestationLightClient", Strings.toHexString(address(attestationLightClient)));
         string memory finalJson = json.serialize("iftToken", Strings.toHexString(address(iftProxy)));
 
         return finalJson;
