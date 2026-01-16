@@ -293,7 +293,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let cosmos_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        let eth_txs = inner_req
+        let timeout_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
@@ -313,20 +313,35 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             cosmos_events.len()
         );
 
-        let eth_events = self
+        let has_timeouts = !timeout_txs.is_empty();
+
+        let timeout_events = self
             .eth_listener
-            .fetch_tx_events(eth_txs)
+            .fetch_tx_events(timeout_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
-        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
+        tracing::debug!(timeout_events = ?timeout_events, "Fetched timeout events from EVM.");
+        tracing::info!("Fetched {} timeout events from EVM.", timeout_events.len());
+
+        // For timeouts, get the current height from the source chain (Cosmos) where non-membership is proven
+        let timeout_relay_height = if has_timeouts {
+            Some(
+                self.tm_listener
+                    .get_block_height()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
 
         let multicall_tx = self
             .tx_builder
             .relay_events(
                 cosmos_events,
-                eth_events,
+                timeout_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,

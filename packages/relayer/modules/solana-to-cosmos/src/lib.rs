@@ -139,14 +139,13 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
 
         let solana_tx_hashes = parse_solana_tx_hashes(inner_req.source_tx_ids)?;
-
-        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
+        let timeout_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let solana_events = self
             .src_listener
             .fetch_tx_events(solana_tx_hashes)
             .await
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+            .map_err(to_tonic_status)?;
 
         tracing::debug!(?solana_events, "Fetched source Solana events.");
         tracing::info!(
@@ -154,23 +153,33 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             solana_events.len()
         );
 
-        let cosmos_events = self
-            .target_listener
-            .fetch_tx_events(cosmos_txs)
-            .await
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let has_timeouts = !timeout_txs.is_empty();
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
+        let timeout_events = self
+            .target_listener
+            .fetch_tx_events(timeout_txs)
+            .await
+            .map_err(to_tonic_status)?;
+
+        tracing::debug!(?timeout_events, "Fetched timeout events from Cosmos.");
         tracing::info!(
-            "Fetched {} eureka events from CosmosSDK.",
-            cosmos_events.len()
+            "Fetched {} timeout eureka events from CosmosSDK.",
+            timeout_events.len()
         );
+
+        // For timeouts, get the current slot from the source chain (Solana) where non-membership is proven
+        let timeout_relay_height = if has_timeouts {
+            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
+        } else {
+            None
+        };
 
         let tx = self
             .tx_builder
             .relay_events(
                 solana_events,
-                cosmos_events,
+                timeout_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,

@@ -184,6 +184,8 @@ impl RelayerService for EthToEthRelayerModuleService {
             src_events.len()
         );
 
+        let has_timeouts = !timeout_txs.is_empty();
+
         let dst_events = self
             .dst_listener
             .fetch_tx_events(timeout_txs)
@@ -196,11 +198,24 @@ impl RelayerService for EthToEthRelayerModuleService {
             dst_events.len()
         );
 
+        // For timeouts, get the current height from the source chain (where non-membership is proven)
+        let timeout_relay_height = if has_timeouts {
+            Some(
+                self.src_listener
+                    .get_block_number()
+                    .await
+                    .map_err(to_tonic_status)?,
+            )
+        } else {
+            None
+        };
+
         let tx = self
             .tx_builder
             .relay_events(
                 src_events,
                 dst_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -280,6 +295,7 @@ impl EthToEthTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -291,7 +307,7 @@ impl EthToEthTxBuilder {
                     &tb.aggregator,
                     src_events,
                     target_events,
-                    &tb.provider,
+                    timeout_relay_height,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,

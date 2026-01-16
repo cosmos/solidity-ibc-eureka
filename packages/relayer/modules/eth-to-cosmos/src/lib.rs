@@ -170,7 +170,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids)?;
         let eth_txs = eth_tx_hashes.into_iter().map(TxHash::from).collect();
 
-        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
+        let timeout_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let eth_events = self
             .eth_listener
@@ -181,23 +181,38 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
-        let cosmos_events = self
+        let has_timeouts = !timeout_txs.is_empty();
+
+        let timeout_events = self
             .tm_listener
-            .fetch_tx_events(cosmos_txs)
+            .fetch_tx_events(timeout_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
+        tracing::debug!(timeout_events = ?timeout_events, "Fetched timeout events from Cosmos.");
         tracing::info!(
-            "Fetched {} eureka events from CosmosSDK.",
-            cosmos_events.len()
+            "Fetched {} timeout eureka events from CosmosSDK.",
+            timeout_events.len()
         );
+
+        // For timeouts, get the current height from the source chain (Eth) where non-membership is proven
+        let timeout_relay_height = if has_timeouts {
+            Some(
+                self.eth_listener
+                    .get_block_number()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
 
         let tx = self
             .tx_builder
             .relay_events(
                 eth_events,
-                cosmos_events,
+                timeout_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
