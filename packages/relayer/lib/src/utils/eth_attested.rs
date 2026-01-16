@@ -357,3 +357,26 @@ pub fn build_eth_attestor_create_client_calldata<
         .to_vec(),
     )
 }
+
+/// Builds update client calldata for an Ethereum attestor light client.
+///
+/// Fetches the latest state attestation from the aggregator and builds
+/// the ABI-encoded `updateClient` call for the ICS26 router.
+///
+/// # Errors
+/// Returns an error if fetching attestation fails.
+pub async fn build_eth_attestor_update_client_calldata(
+    aggregator: &Aggregator,
+    dst_client_id: String,
+) -> Result<Vec<u8>> {
+    let current_height = aggregator.get_latest_height().await?;
+    let state = aggregator.get_state_attestation(current_height).await?;
+
+    let proof = build_eth_attestor_proof(state.attested_data, state.signatures);
+    let call = updateClientCall {
+        clientId: dst_client_id,
+        updateMsg: Bytes::from(proof),
+    };
+
+    Ok(call.abi_encode())
+}

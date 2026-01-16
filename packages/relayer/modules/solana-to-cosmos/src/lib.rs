@@ -29,6 +29,7 @@ use ibc_eureka_relayer_core::{
 enum SolanaToCosmosTxBuilder {
     Real(),
     Mock(tx_builder::MockTxBuilder),
+    Attested(tx_builder::AttestedTxBuilder),
 }
 
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
@@ -258,6 +259,7 @@ impl SolanaToCosmosTxBuilder {
         &self,
         src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -276,6 +278,18 @@ impl SolanaToCosmosTxBuilder {
                 )
                 .await
             }
+            Self::Attested(tb) => {
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    timeout_relay_height,
+                    &src_client_id,
+                    &dst_client_id,
+                    &src_packet_seqs,
+                    &dst_packet_seqs,
+                )
+                .await
+            }
         }
     }
 
@@ -283,6 +297,7 @@ impl SolanaToCosmosTxBuilder {
         match self {
             Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.create_client(parameters).await,
+            Self::Attested(tb) => tb.create_client(parameters),
         }
     }
 
@@ -290,6 +305,7 @@ impl SolanaToCosmosTxBuilder {
         match self {
             Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
+            Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
     }
 }

@@ -115,7 +115,6 @@ impl EthToCosmosRelayerModuleService {
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
                 EthToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
                     aggregator,
-                    tm_client,
                     config.ics26_address,
                     config.signer_address,
                 ))
@@ -300,6 +299,7 @@ impl EthToCosmosTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -332,6 +332,7 @@ impl EthToCosmosTxBuilder {
                 tb.relay_events(
                     src_events,
                     target_events,
+                    timeout_relay_height,
                     &src_client_id,
                     &dst_client_id,
                     &src_packet_seqs,

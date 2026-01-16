@@ -429,6 +429,7 @@ impl CosmosToEthTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -450,6 +451,7 @@ impl CosmosToEthTxBuilder {
                 tb.relay_events(
                     src_events,
                     target_events,
+                    timeout_relay_height,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,
