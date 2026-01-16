@@ -69,7 +69,7 @@ pub struct SolanaToCosmosConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// Mock mode for testing without real proofs.
     #[default]

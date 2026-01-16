@@ -75,7 +75,7 @@ pub struct CosmosToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// SP1 prover mode using zero-knowledge proofs.
     Sp1 {
@@ -127,7 +127,7 @@ impl SP1ProgramPaths {
 
 /// The configuration for the SP1 prover.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case", tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum SP1Config {
     /// Mock prover.
     Mock,
