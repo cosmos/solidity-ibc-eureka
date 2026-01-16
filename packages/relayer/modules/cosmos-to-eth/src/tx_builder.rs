@@ -41,7 +41,6 @@ use ibc_eureka_relayer_lib::{
     utils::{
         eth_attested::{
             build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
-            build_eth_attestor_update_client_calldata,
         },
         eth_eureka::{self, inject_sp1_proof},
     },
@@ -375,12 +374,17 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
 
     /// Relay events from Cosmos to Ethereum using attestations.
     ///
+    /// # Arguments
+    /// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
+    ///   attestation. Required when processing timeouts.
+    ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
     pub async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -390,7 +394,7 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
             &self.aggregator,
             src_events,
             target_events,
-            &self.provider,
+            timeout_relay_height,
             src_client_id,
             dst_client_id,
             src_packet_seqs,
@@ -410,8 +414,10 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
     /// Update a client on Ethereum using attestations.
     ///
     /// # Errors
-    /// Returns an error if attestation retrieval fails.
-    pub async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
-        build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id).await
+    /// Returns an error when called (not yet implemented).
+    #[allow(clippy::unused_async)]
+    pub async fn update_client(&self, _dst_client_id: String) -> Result<Vec<u8>> {
+        // TODO: IBC-164
+        todo!()
     }
 }
