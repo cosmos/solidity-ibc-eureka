@@ -43,6 +43,7 @@ struct SolanaToCosmosRelayerModuleService {
 }
 
 enum SolanaToCosmosTxBuilder {
+    Real(),
     Mock(tx_builder::MockTxBuilder),
     Attested(tx_builder::AttestedTxBuilder),
 }
@@ -283,6 +284,7 @@ impl SolanaToCosmosTxBuilder {
         dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
+            Self::Real() => unreachable!(),
             Self::Mock(tb) => {
                 tb.relay_events(
                     src_events,
@@ -311,6 +313,7 @@ impl SolanaToCosmosTxBuilder {
 
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
+            Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.create_client(parameters).await,
             Self::Attested(tb) => tb.create_client(parameters),
         }
@@ -318,6 +321,7 @@ impl SolanaToCosmosTxBuilder {
 
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
+            Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
