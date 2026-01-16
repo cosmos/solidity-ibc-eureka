@@ -77,7 +77,6 @@ func TestWithIbcEurekaGmpTestSuite(t *testing.T) {
 }
 
 func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.SupportedProofType) {
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 	s.TestSuite.SetupSuite(ctx)
 
 	eth, simd := s.Eth.Chains[0], s.Cosmos.Chains[0]
