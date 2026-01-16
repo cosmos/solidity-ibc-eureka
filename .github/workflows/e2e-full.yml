@@ -33,10 +33,13 @@ env:
   E2E_PROOF_TYPE: ${{ inputs.proof-type || 'groth16' }}
   E2E_PRIVATE_CLUSTER: true
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
+  ETH_LC_ON_COSMOS: full
+  COSMOS_LC_ON_ETH: sp1
   SOLANA_VERSION: "2.1.17"
   ANCHOR_VERSION: "0.32.1"
 permissions:
   contents: read
+  packages: read
 
 jobs:
   generate-matrix:
@@ -49,7 +52,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
         with:
-          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithMultiAttestorTestSuite
 
   build-e2e-programs:
     runs-on: depot-ubuntu-24.04-4

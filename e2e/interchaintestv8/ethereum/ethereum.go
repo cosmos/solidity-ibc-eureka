@@ -25,6 +25,7 @@ import (
 type Ethereum struct {
 	ChainID         *big.Int
 	RPC             string
+	DockerRPC       string // Docker internal RPC address (for container-to-container communication)
 	BeaconAPIClient *BeaconAPIClient
 	RPCClient       *ethclient.Client
 

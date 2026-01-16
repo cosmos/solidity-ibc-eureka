@@ -7,6 +7,8 @@
     unused_crate_dependencies
 )]
 
+pub mod aggregator;
+
 use anchor_lang as _;
 use ibc_core_commitment_types as _;
 use solana_sdk as _;

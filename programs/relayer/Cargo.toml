@@ -9,6 +9,7 @@ license    = { workspace = true }
 ibc-eureka-relayer-core                 = { workspace = true, default-features = false }
 ibc-eureka-relayer-eth-to-cosmos        = { workspace = true, default-features = false }
 ibc-eureka-relayer-cosmos-to-eth        = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-eth           = { workspace = true, default-features = false }
 ibc-eureka-relayer-cosmos-to-cosmos     = { workspace = true, default-features = false }
 ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features = false }
 ibc-eureka-relayer-solana-to-cosmos     = { workspace = true, default-features = false }
