@@ -180,8 +180,6 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
-        let has_timeouts = !timeout_txs.is_empty();
-
         let timeout_events = self
             .tm_listener
             .fetch_tx_events(timeout_txs)
@@ -195,7 +193,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         );
 
         // For timeouts, get the current height from the source chain (Eth) where non-membership is proven
-        let timeout_relay_height = if has_timeouts {
+        let timeout_relay_height = if !timeout_events.is_empty() {
             Some(
                 self.eth_listener
                     .get_block_number()

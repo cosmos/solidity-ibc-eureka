@@ -154,8 +154,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             solana_events.len()
         );
 
-        let has_timeouts = !timeout_txs.is_empty();
-
         let timeout_events = self
             .target_listener
             .fetch_tx_events(timeout_txs)
@@ -169,7 +167,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         );
 
         // For timeouts, get the current slot from the source chain (Solana) where non-membership is proven
-        let timeout_relay_height = if has_timeouts {
+        let timeout_relay_height = if !timeout_events.is_empty() {
             Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
         } else {
             None

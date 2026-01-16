@@ -184,22 +184,20 @@ impl RelayerService for EthToEthRelayerModuleService {
             src_events.len()
         );
 
-        let has_timeouts = !timeout_txs.is_empty();
-
-        let dst_events = self
+        let timeout_txs = self
             .dst_listener
             .fetch_tx_events(timeout_txs)
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::debug!(?dst_events, "Fetched destination Eth events.");
+        tracing::debug!(?timeout_txs, "Fetched destination Eth events.");
         tracing::info!(
             "Fetched {} eureka events from destination Eth.",
-            dst_events.len()
+            timeout_txs.len()
         );
 
         // For timeouts, get the current height from the source chain (where non-membership is proven)
-        let timeout_relay_height = if has_timeouts {
+        let timeout_relay_height = if !timeout_txs.is_empty() {
             Some(
                 self.src_listener
                     .get_block_number()
@@ -214,7 +212,7 @@ impl RelayerService for EthToEthRelayerModuleService {
             .tx_builder
             .relay_events(
                 src_events,
-                dst_events,
+                timeout_txs,
                 timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
