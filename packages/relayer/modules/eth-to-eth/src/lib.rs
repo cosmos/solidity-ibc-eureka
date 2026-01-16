@@ -15,7 +15,6 @@ use ibc_eureka_relayer_lib::{
     listener::{eth_eureka, ChainListenerService},
     utils::eth_attested::{
         build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
-        build_eth_attestor_update_client_calldata,
     },
 };
 use tonic::{Request, Response};
@@ -73,10 +72,13 @@ pub struct EthToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum TxBuilderMode {
     /// Attested mode using aggregator attestations.
-    Attested(AggregatorConfig),
+    Attested {
+        /// Aggregator configuration.
+        aggregator_config: AggregatorConfig,
+    },
 }
 
 impl EthToEthRelayerModuleService {
@@ -96,7 +98,7 @@ impl EthToEthRelayerModuleService {
             eth_eureka::ChainListener::new(config.dst_ics26_address, dst_provider.clone());
 
         let tx_builder = match config.mode {
-            TxBuilderMode::Attested(aggregator_config) => {
+            TxBuilderMode::Attested { aggregator_config } => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
@@ -184,6 +186,8 @@ impl RelayerService for EthToEthRelayerModuleService {
             src_events.len()
         );
 
+        let has_timeouts = !timeout_txs.is_empty();
+
         let dst_events = self
             .dst_listener
             .fetch_tx_events(timeout_txs)
@@ -196,11 +200,24 @@ impl RelayerService for EthToEthRelayerModuleService {
             dst_events.len()
         );
 
+        // For timeouts, get the current height from the source chain (where non-membership is proven)
+        let timeout_relay_height = if has_timeouts {
+            Some(
+                self.src_listener
+                    .get_block_number()
+                    .await
+                    .map_err(to_tonic_status)?,
+            )
+        } else {
+            None
+        };
+
         let tx = self
             .tx_builder
             .relay_events(
                 src_events,
                 dst_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -280,6 +297,7 @@ impl EthToEthTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -291,7 +309,7 @@ impl EthToEthTxBuilder {
                     &tb.aggregator,
                     src_events,
                     target_events,
-                    &tb.provider,
+                    timeout_relay_height,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,
@@ -310,10 +328,12 @@ impl EthToEthTxBuilder {
         }
     }
 
-    async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
+    #[allow(clippy::pedantic)]
+    async fn update_client(&self, _dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Attested(tb) => {
-                build_eth_attestor_update_client_calldata(&tb.aggregator, dst_client_id).await
+            Self::Attested(_) => {
+                // TODO: IBC-164
+                todo!()
             }
         }
     }

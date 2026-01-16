@@ -75,21 +75,20 @@ pub struct CosmosToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", tag = "type")]
 pub enum TxBuilderMode {
     /// SP1 prover mode using zero-knowledge proofs.
-    Sp1(Sp1ModeConfig),
+    Sp1 {
+        /// The SP1 prover configuration.
+        sp1_prover: SP1Config,
+        /// The SP1 program paths.
+        sp1_programs: SP1ProgramPaths,
+    },
     /// Attested mode using aggregator attestations.
-    Attested(AggregatorConfig),
-}
-
-/// Configuration for SP1 prover mode.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct Sp1ModeConfig {
-    /// The SP1 prover configuration.
-    pub sp1_prover: SP1Config,
-    /// The SP1 program paths.
-    pub sp1_programs: SP1ProgramPaths,
+    Attested {
+        /// Aggregator configuration.
+        aggregator_config: AggregatorConfig,
+    },
 }
 
 /// The paths to the SP1 programs.
@@ -172,13 +171,15 @@ impl CosmosToEthRelayerModuleService {
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
         let tx_builder = match config.mode {
-            TxBuilderMode::Sp1(sp1_config) => {
-                let programs = sp1_config
-                    .sp1_programs
+            TxBuilderMode::Sp1 {
+                sp1_prover,
+                sp1_programs,
+            } => {
+                let programs = sp1_programs
                     .read_programs()
                     .map_err(|e| anyhow::anyhow!("failed to read SP1 programs: {e}"))?;
 
-                let sp1_tx_builder = match sp1_config.sp1_prover {
+                let sp1_tx_builder = match sp1_prover {
                     SP1Config::Mock => {
                         let prover: Box<dyn Prover<CpuProverComponents>> =
                             Box::new(ProverClient::builder().mock().build());
@@ -234,7 +235,7 @@ impl CosmosToEthRelayerModuleService {
                 };
                 CosmosToEthTxBuilder::SP1(sp1_tx_builder)
             }
-            TxBuilderMode::Attested(aggregator_config) => {
+            TxBuilderMode::Attested { aggregator_config } => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
@@ -293,7 +294,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let cosmos_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        let eth_txs = inner_req
+        let timeout_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
@@ -313,20 +314,35 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             cosmos_events.len()
         );
 
-        let eth_events = self
+        let has_timeouts = !timeout_txs.is_empty();
+
+        let timeout_events = self
             .eth_listener
-            .fetch_tx_events(eth_txs)
+            .fetch_tx_events(timeout_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
-        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
+        tracing::debug!(timeout_events = ?timeout_events, "Fetched timeout events from EVM.");
+        tracing::info!("Fetched {} timeout events from EVM.", timeout_events.len());
+
+        // For timeouts, get the current height from the source chain (Cosmos) where non-membership is proven
+        let timeout_relay_height = if has_timeouts {
+            Some(
+                self.tm_listener
+                    .get_block_height()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
 
         let multicall_tx = self
             .tx_builder
             .relay_events(
                 cosmos_events,
-                eth_events,
+                timeout_events,
+                timeout_relay_height,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -414,6 +430,7 @@ impl CosmosToEthTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -435,6 +452,7 @@ impl CosmosToEthTxBuilder {
                 tb.relay_events(
                     src_events,
                     target_events,
+                    timeout_relay_height,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,

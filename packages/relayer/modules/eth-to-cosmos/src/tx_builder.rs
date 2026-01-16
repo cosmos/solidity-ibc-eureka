@@ -822,7 +822,6 @@ where
 /// Transaction builder for attested relay to Cosmos.
 pub struct AttestedTxBuilder {
     aggregator: Aggregator,
-    tm_client: HttpClient,
     ics26_router: Address,
     signer_address: String,
 }
@@ -832,13 +831,11 @@ impl AttestedTxBuilder {
     #[must_use]
     pub const fn new(
         aggregator: Aggregator,
-        tm_client: HttpClient,
         ics26_router: Address,
         signer_address: String,
     ) -> Self {
         Self {
             aggregator,
-            tm_client,
             ics26_router,
             signer_address,
         }
@@ -852,12 +849,17 @@ impl AttestedTxBuilder {
 
     /// Relay events from source chain to Cosmos using attestations.
     ///
+    /// # Arguments
+    /// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
+    ///   attestation. Required when processing timeouts.
+    ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
     pub async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
+        timeout_relay_height: Option<u64>,
         src_client_id: &str,
         dst_client_id: &str,
         src_packet_seqs: &[u64],
@@ -867,7 +869,7 @@ impl AttestedTxBuilder {
             &self.aggregator,
             src_events,
             target_events,
-            &self.tm_client,
+            timeout_relay_height,
             src_client_id,
             dst_client_id,
             src_packet_seqs,

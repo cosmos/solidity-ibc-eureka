@@ -36,7 +36,6 @@ use ibc_proto_eureka::{
     },
 };
 use prost::Message;
-use tendermint_rpc::{Client, HttpClient};
 
 /// Parameter key for wasm light client checksum (empty for native attestor).
 pub const PARAM_CHECKSUM_HEX: &str = "checksum_hex";
@@ -299,7 +298,7 @@ pub fn build_wasm_attestor_create_client_msg(
         .collect::<Result<_, _>>()
         .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
 
-    let client_state = WasmAttestorClientState::new(attestor_addresses, min_required_sigs, height)?;
+    let client_state = WasmAttestorClientState::new(attestor_addresses, min_required_sigs, height);
     let consensus_state = WasmAttestorConsensusState { height, timestamp };
 
     let client_state_bz = serde_json::to_vec(&client_state)?;
@@ -485,6 +484,11 @@ pub fn build_attestor_create_client_tx<S: std::hash::BuildHasher>(
 ///
 /// Automatically selects the appropriate proof builder based on the client ID prefix.
 ///
+/// # Arguments
+/// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
+///   attestation. Required when processing timeouts. The caller should provide the current height
+///   from the source chain (where non-membership needs to be proven).
+///
 /// # Errors
 /// Returns an error if attestation fetching or message encoding fails.
 ///
@@ -495,7 +499,7 @@ pub async fn build_attestor_relay_events_tx(
     aggregator: &Aggregator,
     src_events: Vec<EurekaEventWithHeight>,
     target_events: Vec<EurekaEventWithHeight>,
-    dst_client: &HttpClient,
+    timeout_relay_height: Option<u64>,
     src_client_id: &str,
     dst_client_id: &str,
     src_packet_seqs: &[u64],
@@ -508,7 +512,7 @@ pub async fn build_attestor_relay_events_tx(
                 aggregator,
                 src_events,
                 target_events,
-                dst_client,
+                timeout_relay_height,
                 src_client_id,
                 dst_client_id,
                 src_packet_seqs,
@@ -522,7 +526,7 @@ pub async fn build_attestor_relay_events_tx(
                 aggregator,
                 src_events,
                 target_events,
-                dst_client,
+                timeout_relay_height,
                 src_client_id,
                 dst_client_id,
                 src_packet_seqs,
@@ -539,7 +543,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
     aggregator: &Aggregator,
     src_events: Vec<EurekaEventWithHeight>,
     target_events: Vec<EurekaEventWithHeight>,
-    dst_client: &HttpClient,
+    timeout_relay_height: Option<u64>,
     src_client_id: &str,
     dst_client_id: &str,
     src_packet_seqs: &[u64],
@@ -559,32 +563,18 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
         src_packet_seqs,
         dst_packet_seqs,
     );
-    let (timeout_packets, timeout_timestamp) = collect_timeout_packets_with_timestamp(
+    let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
         &target_events,
         src_client_id,
         dst_client_id,
         dst_packet_seqs,
     );
 
-    if let Some(ts) = timeout_timestamp {
-        wait_for_condition(
-            Duration::from_secs(25 * 60),
-            Duration::from_secs(1),
-            || async {
-                let timestamp = dst_client
-                    .latest_block()
-                    .await?
-                    .block
-                    .header
-                    .time
-                    .unix_timestamp()
-                    .cast_unsigned();
-                Ok(timestamp >= ts)
-            },
-        )
-        .await?;
-
-        relay_height = Some(dst_client.latest_block().await?.block.header.height.value());
+    if !timeout_packets.is_empty() {
+        let timeout_height = timeout_relay_height
+            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
+        // Use max of src_events height and timeout height
+        relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     } else {
         tracing::debug!("No timeout packets collected");
     }

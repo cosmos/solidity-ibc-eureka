@@ -10,8 +10,6 @@ use crate::utils::attestor::{
     fetch_attestations, AttestationData,
 };
 use crate::utils::{eth_eureka, wait_for_condition};
-use alloy::eips::BlockId;
-use alloy::providers::Provider;
 use alloy::{primitives::Address, primitives::Bytes, sol_types::SolCall, sol_types::SolValue};
 use anyhow::Result;
 use ibc_eureka_solidity_types::{
@@ -254,14 +252,19 @@ pub fn build_eth_multicall(input: MulticallInput) -> Result<Vec<u8>> {
 /// 2. Fetching attestations from the aggregator
 /// 3. Building the multicall transaction
 ///
+/// # Arguments
+/// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
+///   attestation. Required when processing timeouts. The caller should provide the current height
+///   from the source chain (where non-membership needs to be proven).
+///
 /// # Errors
 /// Returns an error if attestation fetching or transaction building fails.
 #[allow(clippy::too_many_arguments)]
-pub async fn build_eth_attestor_relay_events_tx<P: Provider>(
+pub async fn build_eth_attestor_relay_events_tx(
     aggregator: &Aggregator,
     src_events: Vec<EurekaEventWithHeight>,
     target_events: Vec<EurekaEventWithHeight>,
-    dst_provider: &P,
+    timeout_relay_height: Option<u64>,
     src_client_id: String,
     dst_client_id: String,
     src_packet_seqs: Vec<u64>,
@@ -281,30 +284,18 @@ pub async fn build_eth_attestor_relay_events_tx<P: Provider>(
         &dst_packet_seqs,
     );
 
-    let (timeout_packets, timeout_timestamp) = collect_timeout_packets_with_timestamp(
+    let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
         &target_events,
         &src_client_id,
         &dst_client_id,
         &dst_packet_seqs,
     );
 
-    if let Some(ts) = timeout_timestamp {
-        wait_for_condition(
-            Duration::from_secs(25 * 60),
-            Duration::from_secs(1),
-            || async {
-                let timestamp = dst_provider
-                    .get_block(BlockId::latest())
-                    .await?
-                    .ok_or_else(|| anyhow::anyhow!("latest block not found"))?
-                    .header
-                    .timestamp;
-                Ok(timestamp >= ts)
-            },
-        )
-        .await?;
-
-        relay_height = Some(dst_provider.get_block_number().await?);
+    if !timeout_packets.is_empty() {
+        let timeout_height = timeout_relay_height
+            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
+        // Use max of src_events height and timeout height
+        relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     } else {
         tracing::debug!("No timeout packets collected");
     }
@@ -365,27 +356,4 @@ pub fn build_eth_attestor_create_client_calldata<
         .calldata()
         .to_vec(),
     )
-}
-
-/// Builds update client calldata for an Ethereum attestor light client.
-///
-/// Fetches the latest state attestation from the aggregator and builds
-/// the ABI-encoded `updateClient` call for the ICS26 router.
-///
-/// # Errors
-/// Returns an error if fetching attestation fails.
-pub async fn build_eth_attestor_update_client_calldata(
-    aggregator: &Aggregator,
-    dst_client_id: String,
-) -> Result<Vec<u8>> {
-    let current_height = aggregator.get_latest_height().await?;
-    let state = aggregator.get_state_attestation(current_height).await?;
-
-    let proof = build_eth_attestor_proof(state.attested_data, state.signatures);
-    let call = updateClientCall {
-        clientId: dst_client_id,
-        updateMsg: Bytes::from(proof),
-    };
-
-    Ok(call.abi_encode())
 }
