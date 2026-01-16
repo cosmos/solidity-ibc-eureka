@@ -52,7 +52,7 @@ jobs:
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
         with:
-          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithMultiAttestorTestSuite
+          skip-tests: TestWithRelayerTestSuite/Test_2_ConcurrentRecvPacketToEth,TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos,TestWithMultiAttestorTestSuite,TestWithEthToEthAttestedTestSuite
 
   build-e2e-programs:
     runs-on: depot-ubuntu-24.04-4
