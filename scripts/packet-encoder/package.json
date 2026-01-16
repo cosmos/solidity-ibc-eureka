@@ -1,9 +1,0 @@
-{
-  "name": "ibc-packet-tools",
-  "version": "1.0.0",
-  "description": "Tools for converting IBC packet data to ABI format",
-  "main": "encoder.js",
-  "dependencies": {
-    "ethers": "^6.13.0"
-  }
-}
