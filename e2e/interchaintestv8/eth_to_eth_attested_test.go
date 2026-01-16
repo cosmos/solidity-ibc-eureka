@@ -40,11 +40,9 @@ const (
 	// ClientB is deployed on Chain B, tracks Chain A's state
 	ClientB = "eth-chain-a"
 
-	// Config path templates for eth-to-eth attestors
-	ethToEthAttestorAConfigTemplate = "/tmp/eth_to_eth_attestor_a_%d.toml"
-	ethToEthAttestorBConfigTemplate = "/tmp/eth_to_eth_attestor_b_%d.toml"
-	ethToEthKeystoreAPathTemplate   = "/tmp/eth_to_eth_keystore_a_%d"
-	ethToEthKeystoreBPathTemplate   = "/tmp/eth_to_eth_keystore_b_%d"
+	// Keystore path templates for eth-to-eth attestors
+	ethToEthKeystoreAPathTemplate = "/tmp/eth_to_eth_keystore_a_%d"
+	ethToEthKeystoreBPathTemplate = "/tmp/eth_to_eth_keystore_b_%d"
 )
 
 // EthToEthAttestedTestSuite tests IBC transfers between two Ethereum chains using attestation
@@ -67,10 +65,6 @@ type EthToEthAttestedTestSuite struct {
 	deployerB          *ecdsa.PrivateKey
 	userKeyB           *ecdsa.PrivateKey
 
-	// Attestor processes
-	attestorAProcess *os.Process
-	attestorBProcess *os.Process
-
 	// Relayer submitters
 	EthRelayerSubmitterA *ecdsa.PrivateKey
 	EthRelayerSubmitterB *ecdsa.PrivateKey
@@ -84,12 +78,12 @@ func TestWithEthToEthAttestedTestSuite(t *testing.T) {
 
 // EthChainA returns the first Ethereum chain
 func (s *EthToEthAttestedTestSuite) EthChainA() *ethereum.Ethereum {
-	return s.EthChains[chainAIndex]
+	return s.Eth.Chains[chainAIndex]
 }
 
 // EthChainB returns the second Ethereum chain
 func (s *EthToEthAttestedTestSuite) EthChainB() *ethereum.Ethereum {
-	return s.EthChains[chainBIndex]
+	return s.Eth.Chains[chainBIndex]
 }
 
 func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
@@ -100,8 +94,8 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 	}
 
 	// Configure for two Anvil chains
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypePoW)
-	s.AnvilCount = 2
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
+	os.Setenv(testvalues.EnvKeyEthAnvilCount, "2")
 
 	// Call the base SetupSuite which will create the chains
 	s.TestSuite.SetupSuite(ctx)
@@ -172,62 +166,61 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 	// Start attestor for Chain A (reads Chain A state)
 	var attestorAEndpoint string
 	var attestorAAddress string
-	s.Require().True(s.Run("Start attestor for Chain A", func() {
-		baseConfig := attestor.DefaultAttestorConfig()
-		basePort, err := baseConfig.GetServerPort()
-		s.Require().NoError(err)
-
-		result := attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-			NumAttestors:         1,
-			BasePort:             basePort,
-			ConfigPathTemplate:   ethToEthAttestorAConfigTemplate,
-			KeystorePathTemplate: ethToEthKeystoreAPathTemplate,
-			ChainType:            attestor.ChainTypeEvm,
-			AdapterURL:           s.EthChainA().RPC,
-			RouterAddress:        s.contractAddressesA.Ics26Router,
-		})
-		s.Require().Len(result.Processes, 1)
-		s.Require().Len(result.Endpoints, 1)
-		s.Require().Len(result.Addresses, 1)
-
-		s.attestorAProcess = result.Processes[0]
-		attestorAEndpoint = result.Endpoints[0]
-		attestorAAddress = result.Addresses[0]
-	}))
+	s.T().Log("Starting attestor for Chain A...")
+	attestorResultA := attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         1,
+		KeystorePathTemplate: ethToEthKeystoreAPathTemplate,
+		ChainType:            attestor.ChainTypeEvm,
+		AdapterURL:           s.EthChainA().DockerRPC, // Use Docker internal RPC for container-to-container communication
+		RouterAddress:        s.contractAddressesA.Ics26Router,
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
+	})
+	s.Require().Len(attestorResultA.Containers, 1)
+	s.Require().Len(attestorResultA.Endpoints, 1)
+	s.Require().Len(attestorResultA.Addresses, 1)
+	attestorAEndpoint = attestorResultA.Endpoints[0]
+	attestorAAddress = attestorResultA.Addresses[0]
 
 	// Start attestor for Chain B (reads Chain B state)
 	var attestorBEndpoint string
 	var attestorBAddress string
-	s.Require().True(s.Run("Start attestor for Chain B", func() {
-		baseConfig := attestor.DefaultAttestorConfig()
-		basePort, err := baseConfig.GetServerPort()
-		s.Require().NoError(err)
-
-		result := attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-			NumAttestors:         1,
-			BasePort:             basePort + 1, // Offset to avoid conflict with Chain A attestor
-			ConfigPathTemplate:   ethToEthAttestorBConfigTemplate,
-			KeystorePathTemplate: ethToEthKeystoreBPathTemplate,
-			ChainType:            attestor.ChainTypeEvm,
-			AdapterURL:           s.EthChainB().RPC,
-			RouterAddress:        s.contractAddressesB.Ics26Router,
-		})
-		s.Require().Len(result.Processes, 1)
-		s.Require().Len(result.Endpoints, 1)
-		s.Require().Len(result.Addresses, 1)
-
-		s.attestorBProcess = result.Processes[0]
-		attestorBEndpoint = result.Endpoints[0]
-		attestorBAddress = result.Addresses[0]
-	}))
-
-	s.T().Cleanup(func() {
-		attestor.CleanupProcesses(s.T(), []*os.Process{s.attestorAProcess, s.attestorBProcess})
+	s.T().Log("Starting attestor for Chain B...")
+	attestorResultB := attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         1,
+		KeystorePathTemplate: ethToEthKeystoreBPathTemplate,
+		ChainType:            attestor.ChainTypeEvm,
+		AdapterURL:           s.EthChainB().DockerRPC, // Use Docker internal RPC for container-to-container communication
+		RouterAddress:        s.contractAddressesB.Ics26Router,
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
 	})
+	s.Require().Len(attestorResultB.Containers, 1)
+	s.Require().Len(attestorResultB.Endpoints, 1)
+	s.Require().Len(attestorResultB.Addresses, 1)
+	attestorBEndpoint = attestorResultB.Endpoints[0]
+	attestorBAddress = attestorResultB.Addresses[0]
+
+	// Final verification that attestors are accessible before starting relayer
+	s.Require().True(s.Run("Verify attestors before relayer start", func() {
+		s.T().Logf("[pre-relayer] Verifying attestor A at %s", attestorAEndpoint)
+		err := attestor.CheckAttestorHealth(ctx, attestorAEndpoint)
+		s.Require().NoError(err, "Attestor A health check failed before relayer start")
+
+		s.T().Logf("[pre-relayer] Verifying attestor B at %s", attestorBEndpoint)
+		err = attestor.CheckAttestorHealth(ctx, attestorBEndpoint)
+		s.Require().NoError(err, "Attestor B health check failed before relayer start")
+
+		s.T().Log("[pre-relayer] Both attestors verified healthy before starting relayer")
+	}))
 
 	// Start relayer with eth-to-eth-attested modules
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
+		// Log the exact endpoints being used
+		s.T().Logf("[relayer-config] Attestor A endpoint: %s", attestorAEndpoint)
+		s.T().Logf("[relayer-config] Attestor B endpoint: %s", attestorBEndpoint)
+
 		// Create custom aggregator configs for each chain
 		config := relayer.NewConfigBuilder().
 			EthToEthAttested(relayer.EthToEthAttestedParams{
@@ -257,8 +250,16 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
 
+		// Log the generated config file for debugging
+		configContent, readErr := os.ReadFile(testvalues.RelayerConfigFilePath)
+		if readErr == nil {
+			s.T().Logf("[relayer-config] Generated config file:\n%s", string(configContent))
+		}
+
 		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
+
+		s.T().Logf("[relayer] Process started with PID: %d", relayerProcess.Pid)
 
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.RelayerConfigFilePath)
@@ -282,7 +283,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 		// Retry connecting to relayer with backoff
 		var info *relayertypes.InfoResponse
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			info, err = s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
 				SrcChain: s.EthChainA().ChainID.String(),
 				DstChain: s.EthChainB().ChainID.String(),
@@ -305,11 +306,13 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
+			attestorAddrForClient := ethcommon.HexToAddress(attestorBAddress).Hex()
+
 			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 				SrcChain: s.EthChainB().ChainID.String(),
 				DstChain: s.EthChainA().ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_AttestorAddresses: ethcommon.HexToAddress(attestorBAddress).Hex(),
+					testvalues.ParameterKey_AttestorAddresses: attestorAddrForClient,
 					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 					testvalues.ParameterKey_height:            strconv.FormatInt(chainBHeader.Number.Int64(), 10),
 					testvalues.ParameterKey_timestamp:         strconv.FormatUint(chainBHeader.Time, 10),
@@ -807,8 +810,13 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacketFromChainA() {
 	s.Require().True(s.Run("Broadcast timeout tx on Chain A", func() {
 		receipt, err := s.EthChainA().BroadcastTx(ctx, s.EthRelayerSubmitterA, 15_000_000, &ics26AddressA, timeoutRelayTx)
 		s.Require().NoError(err, "Failed to broadcast timeout tx")
+		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+			s.T().Logf("Timeout tx failed with status %d, gas used: %d, logs: %+v", receipt.Status, receipt.GasUsed, receipt.Logs)
+			// Try to get revert reason
+			s.T().Logf("Receipt block: %d, tx hash: %s", receipt.BlockNumber, receipt.TxHash.Hex())
+		}
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status,
-			"Timeout tx should succeed (currently fails because verifyNonMembership is not implemented)")
+			"Timeout tx failed - check logs above for details")
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded to user", func() {
@@ -827,6 +835,27 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacketFromChainA() {
 	}))
 
 	s.T().Log("Timeout packet from Chain A completed successfully")
+}
+
+func (s *EthToEthAttestedTestSuite) Test_UpdateClient() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	s.Require().True(s.Run("Update client on Chain B", func() {
+		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			SrcChain:    s.EthChainA().ChainID.String(),
+			DstChain:    s.EthChainB().ChainID.String(),
+			DstClientId: ClientB,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		// Broadcast the update client tx
+		ics26AddressB := ethcommon.HexToAddress(s.contractAddressesB.Ics26Router)
+		receipt, err := s.EthChainB().BroadcastTx(ctx, s.EthRelayerSubmitterB, 15_000_000, &ics26AddressB, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
 }
 
 // Test_TimeoutPacket_AsymmetricHeight tests timeout relay with asymmetric block heights
