@@ -82,10 +82,7 @@ pub enum TxBuilderMode {
     /// Mock mode for testing without real proofs.
     Mock,
     /// Attested mode using aggregator attestations.
-    Attested {
-        /// Aggregator configuration.
-        aggregator_config: AggregatorConfig,
-    },
+    Attested(AggregatorConfig),
 }
 
 impl EthToCosmosRelayerModuleService {
@@ -112,12 +109,13 @@ impl EthToCosmosRelayerModuleService {
                 tm_client,
                 config.signer_address,
             )),
-            TxBuilderMode::Attested { aggregator_config } => {
+            TxBuilderMode::Attested(aggregator_config) => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
                 EthToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
                     aggregator,
+                    tm_client,
                     config.ics26_address,
                     config.signer_address,
                 ))
@@ -172,7 +170,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids)?;
         let eth_txs = eth_tx_hashes.into_iter().map(TxHash::from).collect();
 
-        let timeout_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let eth_events = self
             .eth_listener
@@ -183,38 +181,23 @@ impl RelayerService for EthToCosmosRelayerModuleService {
         tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
         tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
 
-        let has_timeouts = !timeout_txs.is_empty();
-
-        let timeout_events = self
+        let cosmos_events = self
             .tm_listener
-            .fetch_tx_events(timeout_txs)
+            .fetch_tx_events(cosmos_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(timeout_events = ?timeout_events, "Fetched timeout events from Cosmos.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
-            "Fetched {} timeout eureka events from CosmosSDK.",
-            timeout_events.len()
+            "Fetched {} eureka events from CosmosSDK.",
+            cosmos_events.len()
         );
-
-        // For timeouts, get the current height from the source chain (Eth) where non-membership is proven
-        let timeout_relay_height = if has_timeouts {
-            Some(
-                self.eth_listener
-                    .get_block_number()
-                    .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
-            )
-        } else {
-            None
-        };
 
         let tx = self
             .tx_builder
             .relay_events(
                 eth_events,
-                timeout_events,
-                timeout_relay_height,
+                cosmos_events,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -302,7 +285,6 @@ impl EthToCosmosTxBuilder {
         &self,
         src_events: Vec<EurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
-        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -335,7 +317,6 @@ impl EthToCosmosTxBuilder {
                 tb.relay_events(
                     src_events,
                     target_events,
-                    timeout_relay_height,
                     &src_client_id,
                     &dst_client_id,
                     &src_packet_seqs,

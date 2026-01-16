@@ -7,7 +7,6 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
-use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
 use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
 use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
@@ -26,27 +25,25 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
+#[allow(dead_code)]
+enum SolanaToCosmosTxBuilder {
+    Real(),
+    Mock(tx_builder::MockTxBuilder),
+}
+
 /// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
 #[derive(Clone, Copy, Debug)]
 pub struct SolanaToCosmosRelayerModule;
 
 /// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
-struct SolanaToCosmosRelayerModuleService {
-    /// The Solana chain ID for identification.
-    solana_chain_id: String,
-    /// The source chain listener for Solana.
-    src_listener: solana::ChainListener,
-    /// The target chain listener for Cosmos SDK.
-    target_listener: cosmos_sdk::ChainListener,
-    /// The transaction builder from Solana to Cosmos.
-    tx_builder: SolanaToCosmosTxBuilder,
-}
-
 #[allow(dead_code)]
-enum SolanaToCosmosTxBuilder {
-    Real(),
-    Mock(tx_builder::MockTxBuilder),
-    Attested(tx_builder::AttestedTxBuilder),
+struct SolanaToCosmosRelayerModuleService {
+    /// The souce chain listener for Solana.
+    pub src_listener: solana::ChainListener,
+    /// The target chain listener for Cosmos SDK.
+    pub target_listener: cosmos_sdk::ChainListener,
+    /// The transaction builder from Solana to Cosmos.
+    pub tx_builder: SolanaToCosmosTxBuilder,
 }
 
 /// The configuration for the Solana to Cosmos relayer module.
@@ -59,30 +56,20 @@ pub struct SolanaToCosmosConfig {
     /// The target tendermint RPC URL.
     pub target_rpc_url: String,
     /// The address of the submitter on Cosmos.
+    /// Required since cosmos messages require a signer address.
     pub signer_address: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
-    /// Transaction builder mode.
+    /// Whether to use mock WASM client on Cosmos for testing.
     #[serde(default)]
-    pub mode: TxBuilderMode,
-}
-
-/// Transaction builder mode configuration.
-#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TxBuilderMode {
-    /// Mock mode for testing without real proofs.
-    #[default]
-    Mock,
-    /// Attested mode using aggregator attestations.
-    Attested {
-        /// Aggregator configuration.
-        aggregator_config: AggregatorConfig,
-    },
+    pub mock_wasm_client: bool,
+    /// Whether to use mock Solana light client updates for testing.
+    #[serde(default)]
+    pub mock_solana_client: bool,
 }
 
 impl SolanaToCosmosRelayerModuleService {
-    async fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
+    fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
@@ -91,29 +78,22 @@ impl SolanaToCosmosRelayerModuleService {
         let src_listener =
             solana::ChainListener::new(config.src_rpc_url.clone(), solana_ics26_program_id);
 
-        let tm_client = HttpClient::from_rpc_url(&config.target_rpc_url);
-        let target_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
+        let target_listener =
+            cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.target_rpc_url));
 
-        let tx_builder = match config.mode {
-            TxBuilderMode::Mock => SolanaToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+        let tx_builder = if config.mock_wasm_client {
+            SolanaToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
                 src_listener.client().clone(),
                 target_listener.client().clone(),
                 config.signer_address,
                 solana_ics26_program_id,
-            )),
-            TxBuilderMode::Attested { aggregator_config } => {
-                let aggregator = Aggregator::from_config(aggregator_config)
-                    .await
-                    .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
-                SolanaToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
-                    aggregator,
-                    config.signer_address,
-                ))
-            }
+            ))
+        } else {
+            // TODO: Implement once solana client for cosmos is ready
+            unimplemented!()
         };
 
         Ok(Self {
-            solana_chain_id: config.solana_chain_id,
             src_listener,
             target_listener,
             tx_builder,
@@ -140,7 +120,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             source_chain: Some(api::Chain {
-                chain_id: self.solana_chain_id.clone(),
+                chain_id: "solana-localnet".to_string(), // Solana doesn't have chain IDs like Cosmos
                 ibc_version: "2".to_string(),
                 ibc_contract: self.src_listener.ics26_program_id().to_string(),
             }),
@@ -159,13 +139,14 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
 
         let solana_tx_hashes = parse_solana_tx_hashes(inner_req.source_tx_ids)?;
-        let timeout_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
+
+        let cosmos_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let solana_events = self
             .src_listener
             .fetch_tx_events(solana_tx_hashes)
             .await
-            .map_err(to_tonic_status)?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::debug!(?solana_events, "Fetched source Solana events.");
         tracing::info!(
@@ -173,40 +154,30 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             solana_events.len()
         );
 
-        let has_timeouts = !timeout_txs.is_empty();
-
-        let timeout_events = self
+        let cosmos_events = self
             .target_listener
-            .fetch_tx_events(timeout_txs)
+            .fetch_tx_events(cosmos_txs)
             .await
-            .map_err(to_tonic_status)?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(?timeout_events, "Fetched timeout events from Cosmos.");
+        tracing::debug!(cosmos_events = ?cosmos_events, "Fetched Cosmos events.");
         tracing::info!(
-            "Fetched {} timeout eureka events from CosmosSDK.",
-            timeout_events.len()
+            "Fetched {} eureka events from CosmosSDK.",
+            cosmos_events.len()
         );
-
-        // For timeouts, get the current slot from the source chain (Solana) where non-membership is proven
-        let timeout_relay_height = if has_timeouts {
-            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
-        } else {
-            None
-        };
 
         let tx = self
             .tx_builder
             .relay_events(
                 solana_events,
-                timeout_events,
-                timeout_relay_height,
+                cosmos_events,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
                 inner_req.dst_packet_sequences,
             )
             .await
-            .map_err(to_tonic_status)?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Relay by tx request completed.");
 
@@ -227,7 +198,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .tx_builder
             .create_client(&inner_req.parameters)
             .await
-            .map_err(to_tonic_status)?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         Ok(Response::new(api::CreateClientResponse {
             tx,
@@ -246,7 +217,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .tx_builder
             .update_client(inner_req.dst_client_id)
             .await
-            .map_err(to_tonic_status)?;
+            .map_err(|e| tonic::Status::from_error(e.into()))?;
 
         tracing::info!("Update client request completed.");
 
@@ -268,7 +239,7 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config: SolanaToCosmosConfig = serde_json::from_value(config)?;
-        let service = SolanaToCosmosRelayerModuleService::new(config).await?;
+        let service = SolanaToCosmosRelayerModuleService::new(config)?;
         Ok(Box::new(service))
     }
 }
@@ -278,7 +249,6 @@ impl SolanaToCosmosTxBuilder {
         &self,
         src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
-        timeout_relay_height: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -297,18 +267,6 @@ impl SolanaToCosmosTxBuilder {
                 )
                 .await
             }
-            Self::Attested(tb) => {
-                tb.relay_events(
-                    src_events,
-                    target_events,
-                    timeout_relay_height,
-                    &src_client_id,
-                    &dst_client_id,
-                    &src_packet_seqs,
-                    &dst_packet_seqs,
-                )
-                .await
-            }
         }
     }
 
@@ -316,7 +274,6 @@ impl SolanaToCosmosTxBuilder {
         match self {
             Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.create_client(parameters).await,
-            Self::Attested(tb) => tb.create_client(parameters),
         }
     }
 
@@ -324,7 +281,6 @@ impl SolanaToCosmosTxBuilder {
         match self {
             Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
-            Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
     }
 }
