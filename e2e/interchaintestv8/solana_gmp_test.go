@@ -953,12 +953,25 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		})
 		s.Require().NoError(err)
 		s.Require().NotNil(accountInfo.Value, "GMP result account should exist")
+		s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
 
 		data := accountInfo.Value.Data.GetBinary()
-		s.Require().True(len(data) > 8, "Account data should have discriminator + fields")
-		s.T().Logf("GMP result account exists with %d bytes of data", len(data))
+		result, err := solana.DecodeGMPCallResultAccount(data)
+		s.Require().NoError(err, "Failed to decode GMP call result account")
 
-		s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
+		// Validate all fields
+		s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
+		s.Require().Equal(s.SolanaRelayer.PublicKey().String(), result.Sender, "Sender should match")
+		s.Require().Equal(baseSequence, result.Sequence, "Sequence should match base sequence")
+		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
+		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
+		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
+		s.Require().NotEmpty(result.Acknowledgement, "Acknowledgement data should not be empty")
+		s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
+		s.Require().True(result.Bump > 0, "Bump should be non-zero")
+
+		s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Acknowledgement, ack_len=%d",
+			result.Sender, result.Sequence, len(result.Acknowledgement))
 	}))
 }
 
@@ -1244,12 +1257,25 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				})
 				s.Require().NoError(err)
 				s.Require().NotNil(accountInfo.Value, "GMP result account should exist after timeout")
+				s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
 
 				data := accountInfo.Value.Data.GetBinary()
-				s.Require().True(len(data) > 8, "Account data should have discriminator + fields")
-				s.T().Logf("GMP result account (timeout) exists with %d bytes of data", len(data))
+				result, err := solana.DecodeGMPCallResultAccount(data)
+				s.Require().NoError(err, "Failed to decode GMP call result account")
 
-				s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
+				// Validate all fields
+				s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
+				s.Require().Equal(s.SolanaRelayer.PublicKey().String(), result.Sender, "Sender should match")
+				s.Require().Equal(baseSequence, result.Sequence, "Sequence should match base sequence")
+				s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
+				s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
+				s.Require().Equal(solana.CallResultStatusTimeout, result.Status, "Status should be Timeout")
+				s.Require().Empty(result.Acknowledgement, "Acknowledgement data should be empty for timeout")
+				s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
+				s.Require().True(result.Bump > 0, "Bump should be non-zero")
+
+				s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Timeout",
+					result.Sender, result.Sequence)
 			}))
 		}))
 	}))
