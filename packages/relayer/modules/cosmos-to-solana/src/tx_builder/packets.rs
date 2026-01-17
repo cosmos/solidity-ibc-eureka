@@ -204,7 +204,7 @@ impl super::TxBuilder {
         );
 
         // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
-        if let Some(result_pda) = gmp::compute_gmp_result_pda(
+        if let Some(result_pda) = gmp::find_gmp_result_pda(
             source_port,
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -239,7 +239,7 @@ impl super::TxBuilder {
 
         // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
         let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
-        if let Some(result_pda) = gmp::compute_gmp_result_pda(
+        if let Some(result_pda) = gmp::find_gmp_result_pda(
             &source_port,
             &msg.packet.source_client,
             msg.packet.sequence,

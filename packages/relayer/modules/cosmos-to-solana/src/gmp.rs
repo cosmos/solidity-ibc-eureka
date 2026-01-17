@@ -139,13 +139,14 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
     }
 }
 
-/// Compute the GMP call result PDA for a given source client and sequence.
+/// Find the GMP call result PDA for a given packet.
 ///
-/// This PDA stores the acknowledgement or timeout result of a GMP call.
+/// Returns `Some(pda)` if the packet is from the GMP port, where the PDA
+/// stores the acknowledgement or timeout result of a GMP call.
 ///
-/// Returns `None` if the port is not GMP port.
+/// Returns `None` for non-GMP ports.
 #[must_use]
-pub fn compute_gmp_result_pda(
+pub fn find_gmp_result_pda(
     source_port: &str,
     source_client: &str,
     sequence: u64,

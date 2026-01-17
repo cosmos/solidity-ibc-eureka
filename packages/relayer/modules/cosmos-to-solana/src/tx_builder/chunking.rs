@@ -299,7 +299,7 @@ impl super::TxBuilder {
             .first()
             .and_then(|payload| {
                 let gmp_program_id = self.resolve_port_program_id(&payload.source_port).ok()?;
-                gmp::compute_gmp_result_pda(
+                gmp::find_gmp_result_pda(
                     &payload.source_port,
                     &msg.packet.source_client,
                     msg.packet.sequence,
@@ -363,7 +363,7 @@ impl super::TxBuilder {
             .first()
             .and_then(|payload| {
                 let gmp_program_id = self.resolve_port_program_id(&payload.source_port).ok()?;
-                gmp::compute_gmp_result_pda(
+                gmp::find_gmp_result_pda(
                     &payload.source_port,
                     &msg.packet.source_client,
                     msg.packet.sequence,
