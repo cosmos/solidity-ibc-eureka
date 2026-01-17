@@ -1,7 +1,9 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::state::GMPAppState;
+use crate::events::GMPCallAcknowledged;
+use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
+use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -23,7 +25,16 @@ pub struct OnAckPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Relayer fee payer (passed by router but not used in acknowledgement handler)
+    /// Result account storing the acknowledgement
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + GMPCallResultAccount::INIT_SPACE,
+        seeds = [GMPCallResult::SEED, msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
+        bump,
+    )]
+    pub result_account: Account<'info, GMPCallResultAccount>,
+
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -32,15 +43,38 @@ pub struct OnAckPacket<'info> {
 
 pub fn on_acknowledgement_packet(
     ctx: Context<OnAckPacket>,
-    _msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+    msg: solana_ibc_types::OnAcknowledgementPacketMsg,
 ) -> Result<()> {
-    // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
         &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
+
+    let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
+        .map_err(|_| GMPError::InvalidPacketData)?;
+    let packet_data =
+        GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
+
+    let clock = Clock::get()?;
+    let sender = packet_data.sender.into_string();
+
+    let result = &mut ctx.accounts.result_account;
+    result.init_acknowledged(
+        msg,
+        sender.clone(),
+        clock.unix_timestamp,
+        ctx.bumps.result_account,
+    );
+
+    emit!(GMPCallAcknowledged {
+        source_client: result.source_client.clone(),
+        sequence: result.sequence,
+        sender,
+        result_pda: result.key(),
+        timestamp: result.result_timestamp,
+    });
 
     Ok(())
 }

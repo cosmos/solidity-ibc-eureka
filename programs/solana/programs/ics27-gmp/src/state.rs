@@ -67,3 +67,64 @@ pub struct SendCallMsg {
 pub use crate::proto::{
     GmpAcknowledgement, GmpSolanaPayload, GmpValidationError, SolanaAccountMeta,
 };
+
+pub use solana_ibc_types::{CallResultStatus, GMPCallResult};
+
+/// Stores result of a GMP call (ack or timeout) for sender queries
+#[account]
+#[derive(InitSpace)]
+pub struct GMPCallResultAccount {
+    pub version: AccountVersion,
+    #[max_len(128)]
+    pub sender: String,
+    pub sequence: u64,
+    #[max_len(64)]
+    pub source_client: String,
+    #[max_len(64)]
+    pub dest_client: String,
+    pub status: CallResultStatus,
+    #[max_len(1024)]
+    pub acknowledgement: Vec<u8>,
+    pub result_timestamp: i64,
+    pub bump: u8,
+}
+
+impl GMPCallResultAccount {
+    /// Initialize the account with acknowledgement data.
+    pub fn init_acknowledged(
+        &mut self,
+        msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+        sender: String,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::Acknowledgement;
+        self.acknowledgement = msg.acknowledgement;
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+
+    /// Initialize the account with timeout data.
+    pub fn init_timed_out(
+        &mut self,
+        msg: solana_ibc_types::OnTimeoutPacketMsg,
+        sender: String,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::Timeout;
+        self.acknowledgement = vec![];
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+}

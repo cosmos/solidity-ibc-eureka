@@ -13,6 +13,7 @@ import (
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
 	"github.com/stretchr/testify/suite"
+	googleproto "google.golang.org/protobuf/proto"
 
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
@@ -323,7 +324,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// First, update the Solana client to the latest height
 			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
+				DstChain:    testvalues.Solana.ChainID,
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err, "Relayer Update Client failed")
@@ -334,7 +335,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			// Now retrieve and relay the GMP packet
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
-				DstChain:    testvalues.SolanaChainID,
+				DstChain:    testvalues.Solana.ChainID,
 				SourceTxIds: [][]byte{cosmosGMPTxHash},
 				SrcClientId: CosmosClientID,
 				DstClientId: SolanaClientID,
@@ -445,7 +446,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			var ackRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
+					SrcChain:    testvalues.Solana.ChainID,
 					DstChain:    simd.Config().ChainID,
 					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0.String())},
 					SrcClientId: SolanaClientID,
@@ -469,7 +470,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			var ackRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
+					SrcChain:    testvalues.Solana.ChainID,
 					DstChain:    simd.Config().ChainID,
 					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0Second.String())},
 					SrcClientId: SolanaClientID,
@@ -493,7 +494,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			var ackRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
+					SrcChain:    testvalues.Solana.ChainID,
 					DstChain:    simd.Config().ChainID,
 					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser1.String())},
 					SrcClientId: SolanaClientID,
@@ -659,7 +660,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.Require().True(s.Run("Relay and Execute SPL Transfer on Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
+			DstChain:    testvalues.Solana.ChainID,
 			SourceTxIds: [][]byte{cosmosGMPTxHash},
 			SrcClientId: CosmosClientID,
 			DstClientId: SolanaClientID,
@@ -698,7 +699,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    testvalues.SolanaChainID,
+				SrcChain:    testvalues.Solana.ChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
 				SrcClientId: SolanaClientID,
@@ -873,7 +874,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			txHashBytes := []byte(solanaPacketTxHash)
 
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    testvalues.SolanaChainID,
+				SrcChain:    testvalues.Solana.ChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{txHashBytes},
 				SrcClientId: SolanaClientID,
@@ -917,10 +918,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 	}))
 
+	var gmpResultPDA solanago.PublicKey
 	s.Require().True(s.Run("Acknowledge packet in Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
+			DstChain:    testvalues.Solana.ChainID,
 			SourceTxIds: [][]byte{ackTxHash},
 			SrcClientId: CosmosClientID,
 			DstClientId: SolanaClientID,
@@ -928,11 +930,35 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
+		var batch relayertypes.SolanaRelayPacketBatch
+		err = googleproto.Unmarshal(resp.Tx, &batch)
+		s.Require().NoError(err)
+		s.Require().Len(batch.Packets, 1, "Should have exactly one ack packet")
+
+		gmpResultPdaBytes := batch.Packets[0].GetGmpResultPda()
+		s.Require().Len(gmpResultPdaBytes, 32, "Relayer should return 32-byte GMP result PDA")
+		gmpResultPDA = solanago.PublicKeyFromBytes(gmpResultPdaBytes)
+		s.T().Logf("Relayer returned GMP result PDA: %s", gmpResultPDA.String())
+
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 
 		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+	}))
+
+	s.Require().True(s.Run("Verify GMP call result PDA", func() {
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, gmpResultPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value, "GMP result account should exist")
+
+		data := accountInfo.Value.Data.GetBinary()
+		s.Require().True(len(data) > 8, "Account data should have discriminator + fields")
+		s.T().Logf("GMP result account exists with %d bytes of data", len(data))
+
+		s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
 	}))
 }
 
@@ -1148,7 +1174,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	var recvRelayTxBodyBz []byte
 	s.Require().True(s.Run("Retrieve recv relay tx before timeout", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-			SrcChain:    testvalues.SolanaChainID,
+			SrcChain:    testvalues.Solana.ChainID,
 			DstChain:    simd.Config().ChainID,
 			SourceTxIds: [][]byte{solanaPacketTxHash},
 			SrcClientId: SolanaClientID,
@@ -1166,13 +1192,23 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:     simd.Config().ChainID,
-			DstChain:     testvalues.SolanaChainID,
+			DstChain:     testvalues.Solana.ChainID,
 			TimeoutTxIds: [][]byte{solanaPacketTxHash},
 			SrcClientId:  CosmosClientID,
 			DstClientId:  SolanaClientID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		var batch relayertypes.SolanaRelayPacketBatch
+		err = googleproto.Unmarshal(resp.Tx, &batch)
+		s.Require().NoError(err)
+		s.Require().Len(batch.Packets, 1, "Should have exactly one timeout packet")
+
+		gmpResultPdaBytes := batch.Packets[0].GetGmpResultPda()
+		s.Require().Len(gmpResultPdaBytes, 32, "Relayer should return 32-byte GMP result PDA")
+		gmpResultPDA := solanago.PublicKeyFromBytes(gmpResultPdaBytes)
+		s.T().Logf("Relayer returned GMP result PDA: %s", gmpResultPDA.String())
 
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
@@ -1187,7 +1223,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			}))
 
 			s.Require().True(s.Run("Verify Cosmos account balance unchanged", func() {
-				// The MsgSend from ICS27 account never executed, so balance should remain the same
 				balanceResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
 					Address: computedAddress.String(),
 					Denom:   simd.Config().Denom,
@@ -1201,6 +1236,20 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().True(s.Run("Verify recvPacket fails on Cosmos after timeout", func() {
 				_, err := s.BroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 2_000_000, recvRelayTxBodyBz)
 				s.Require().Error(err)
+			}))
+
+			s.Require().True(s.Run("Verify GMP call result PDA shows timed out", func() {
+				accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, gmpResultPDA, &rpc.GetAccountInfoOpts{
+					Commitment: rpc.CommitmentConfirmed,
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(accountInfo.Value, "GMP result account should exist after timeout")
+
+				data := accountInfo.Value.Data.GetBinary()
+				s.Require().True(len(data) > 8, "Account data should have discriminator + fields")
+				s.T().Logf("GMP result account (timeout) exists with %d bytes of data", len(data))
+
+				s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
 			}))
 		}))
 	}))
@@ -1381,7 +1430,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.Require().True(s.Run("Retrieve recv relay txs before timeout", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
+			DstChain:    testvalues.Solana.ChainID,
 			SourceTxIds: [][]byte{cosmosGMPTxHash},
 			SrcClientId: CosmosClientID,
 			DstClientId: SolanaClientID,
@@ -1392,10 +1441,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		// Submit UpdateClient only (not packets) so we can verify packets fail after timeout
 		var batch relayertypes.SolanaRelayPacketBatch
-		err = proto.Unmarshal(resp.Tx, &batch)
+		err = googleproto.Unmarshal(resp.Tx, &batch)
 		s.Require().NoError(err)
 		if batch.UpdateClient != nil {
-			updateClientBytes, err := proto.Marshal(batch.UpdateClient)
+			updateClientBytes, err := googleproto.Marshal(batch.UpdateClient)
 			s.Require().NoError(err)
 			s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), &relayertypes.UpdateClientResponse{
 				Tx: updateClientBytes,
@@ -1410,7 +1459,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.Require().True(s.Run("Relay timeout back to Cosmos", func() {
 		s.Require().True(s.Run("Relay timeout transaction", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:     testvalues.SolanaChainID,
+				SrcChain:     testvalues.Solana.ChainID,
 				DstChain:     simd.Config().ChainID,
 				TimeoutTxIds: [][]byte{cosmosGMPTxHash},
 				SrcClientId:  SolanaClientID,
@@ -1644,7 +1693,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Relay and Execute on Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
+			DstChain:    testvalues.Solana.ChainID,
 			SourceTxIds: [][]byte{cosmosGMPTxHash},
 			SrcClientId: CosmosClientID,
 			DstClientId: SolanaClientID,
@@ -1830,7 +1879,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			txHashBytes := []byte(solanaPacketTxHash)
 
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-				SrcChain:    testvalues.SolanaChainID,
+				SrcChain:    testvalues.Solana.ChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{txHashBytes},
 				SrcClientId: SolanaClientID,
@@ -1863,7 +1912,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
-			DstChain:    testvalues.SolanaChainID,
+			DstChain:    testvalues.Solana.ChainID,
 			SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
 			SrcClientId: CosmosClientID,
 			DstClientId: SolanaClientID,
