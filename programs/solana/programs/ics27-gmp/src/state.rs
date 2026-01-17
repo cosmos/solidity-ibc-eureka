@@ -90,47 +90,7 @@ pub struct GMPCallResultAccount {
 }
 
 impl GMPCallResultAccount {
-    pub const fn new_acknowledged(
-        source_client: String,
-        sequence: u64,
-        sender: String,
-        acknowledgement: Vec<u8>,
-        timestamp: i64,
-        bump: u8,
-    ) -> Self {
-        Self {
-            version: AccountVersion::V1,
-            sender,
-            sequence,
-            source_client,
-            dest_client: String::new(),
-            status: CallResultStatus::Acknowledgement,
-            acknowledgement,
-            result_timestamp: timestamp,
-            bump,
-        }
-    }
-
-    pub const fn new_timed_out(
-        source_client: String,
-        sequence: u64,
-        sender: String,
-        timestamp: i64,
-        bump: u8,
-    ) -> Self {
-        Self {
-            version: AccountVersion::V1,
-            sender,
-            sequence,
-            source_client,
-            dest_client: String::new(),
-            status: CallResultStatus::Timeout,
-            acknowledgement: Vec::new(),
-            result_timestamp: timestamp,
-            bump,
-        }
-    }
-
+    /// Initialize the account with acknowledgement data.
     pub fn init_acknowledged(
         &mut self,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
@@ -149,6 +109,7 @@ impl GMPCallResultAccount {
         self.bump = bump;
     }
 
+    /// Initialize the account with timeout data.
     pub fn init_timed_out(
         &mut self,
         msg: solana_ibc_types::OnTimeoutPacketMsg,
