@@ -44,6 +44,7 @@ use ibc_eureka_relayer_lib::{
             build_eth_attestor_update_client_calldata,
         },
         eth_eureka::{self, inject_sp1_proof},
+        RelayEventsParams,
     },
 };
 
@@ -375,33 +376,10 @@ impl<P: Provider + Clone> AttestedTxBuilder<P> {
 
     /// Relay events from Cosmos to Ethereum using attestations.
     ///
-    /// # Arguments
-    /// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
-    ///   attestation. Required when processing timeouts.
-    ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
-    pub async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        timeout_relay_height: Option<u64>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> Result<Vec<u8>> {
-        build_eth_attestor_relay_events_tx(
-            &self.aggregator,
-            src_events,
-            target_events,
-            timeout_relay_height,
-            src_client_id,
-            dst_client_id,
-            src_packet_seqs,
-            dst_packet_seqs,
-        )
-        .await
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_eth_attestor_relay_events_tx(&self.aggregator, params).await
     }
 
     /// Create a client on Ethereum using attestations.

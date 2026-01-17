@@ -9,7 +9,7 @@ use crate::utils::attestor::{
     collect_send_and_ack_packets_with_height, collect_timeout_packets_with_timestamp,
     fetch_attestations, AttestationData,
 };
-use crate::utils::{eth_eureka, wait_for_condition};
+use crate::utils::{eth_eureka, wait_for_condition, RelayEventsParams};
 use alloy::{primitives::Address, primitives::Bytes, sol_types::SolCall, sol_types::SolValue};
 use anyhow::Result;
 use ibc_eureka_solidity_types::{
@@ -252,52 +252,41 @@ pub fn build_eth_multicall(input: MulticallInput) -> Result<Vec<u8>> {
 /// 2. Fetching attestations from the aggregator
 /// 3. Building the multicall transaction
 ///
-/// # Arguments
-/// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
-///   attestation. Required when processing timeouts. The caller should provide the current height
-///   from the source chain (where non-membership needs to be proven).
-///
 /// # Errors
 /// Returns an error if attestation fetching or transaction building fails.
-#[allow(clippy::too_many_arguments)]
 pub async fn build_eth_attestor_relay_events_tx(
     aggregator: &Aggregator,
-    src_events: Vec<EurekaEventWithHeight>,
-    target_events: Vec<EurekaEventWithHeight>,
-    timeout_relay_height: Option<u64>,
-    src_client_id: String,
-    dst_client_id: String,
-    src_packet_seqs: Vec<u64>,
-    dst_packet_seqs: Vec<u64>,
+    params: RelayEventsParams,
 ) -> Result<Vec<u8>> {
     tracing::info!(
         "Building relay transaction from aggregator for {} source events and {} timeout events",
-        src_events.len(),
-        target_events.len()
+        params.src_events.len(),
+        params.target_events.len()
     );
 
     let (send_packets, ack_packets, mut relay_height) = collect_send_and_ack_packets_with_height(
-        &src_events,
-        &src_client_id,
-        &dst_client_id,
-        &src_packet_seqs,
-        &dst_packet_seqs,
+        &params.src_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.src_packet_seqs,
+        &params.dst_packet_seqs,
     );
 
     let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
-        &target_events,
-        &src_client_id,
-        &dst_client_id,
-        &dst_packet_seqs,
+        &params.target_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.dst_packet_seqs,
     );
 
-    if !timeout_packets.is_empty() {
-        let timeout_height = timeout_relay_height
-            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
+    if timeout_packets.is_empty() {
+        tracing::debug!("No timeout packets collected");
+    } else {
+        let timeout_height = params.timeout_relay_height.ok_or_else(|| {
+            anyhow::anyhow!("timeout_relay_height required for timeout packets")
+        })?;
         // Use max of src_events height and timeout height
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
-    } else {
-        tracing::debug!("No timeout packets collected");
     }
 
     let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
@@ -322,12 +311,12 @@ pub async fn build_eth_attestor_relay_events_tx(
 
     build_eth_multicall(MulticallInput {
         attestations,
-        src_events,
-        target_events,
-        src_client_id,
-        dst_client_id,
-        src_packet_seqs,
-        dst_packet_seqs,
+        src_events: params.src_events,
+        target_events: params.target_events,
+        src_client_id: params.src_client_id,
+        dst_client_id: params.dst_client_id,
+        src_packet_seqs: params.src_packet_seqs,
+        dst_packet_seqs: params.dst_packet_seqs,
     })
 }
 

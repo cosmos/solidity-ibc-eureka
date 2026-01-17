@@ -17,6 +17,7 @@ use ibc_eureka_relayer_lib::{
             build_attestor_create_client_tx, build_attestor_relay_events_tx,
             build_attestor_update_client_tx,
         },
+        RelayEventsParams,
     },
 };
 use ibc_proto_eureka::{
@@ -170,38 +171,10 @@ impl AttestedTxBuilder {
 
     /// Relay events from Solana to Cosmos using attestations.
     ///
-    /// # Arguments
-    /// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
-    ///   attestation. Required when processing timeouts.
-    ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
-    pub async fn relay_events(
-        &self,
-        src_events: Vec<SolanaEurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        timeout_relay_height: Option<u64>,
-        src_client_id: &str,
-        dst_client_id: &str,
-        src_packet_seqs: &[u64],
-        dst_packet_seqs: &[u64],
-    ) -> Result<Vec<u8>> {
-        let src_events_as_eureka: Vec<EurekaEventWithHeight> = src_events
-            .into_iter()
-            .map(EurekaEventWithHeight::from)
-            .collect();
-        build_attestor_relay_events_tx(
-            &self.aggregator,
-            src_events_as_eureka,
-            target_events,
-            timeout_relay_height,
-            src_client_id,
-            dst_client_id,
-            src_packet_seqs,
-            dst_packet_seqs,
-            &self.signer_address,
-        )
-        .await
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_attestor_relay_events_tx(&self.aggregator, params, &self.signer_address).await
     }
 
     /// Create a client on Cosmos using attestations.

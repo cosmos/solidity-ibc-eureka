@@ -3,12 +3,11 @@
 use std::time::Duration;
 
 use crate::aggregator::{rpc::AggregatedAttestation, Aggregator};
-use crate::events::EurekaEventWithHeight;
 use crate::utils::attestor::{
     collect_send_and_ack_packets_with_height, collect_timeout_packets_with_timestamp,
     fetch_attestations,
 };
-use crate::utils::{cosmos, wait_for_condition};
+use crate::utils::{cosmos, wait_for_condition, RelayEventsParams};
 use alloy::primitives::Address as AttestorAddress;
 use anyhow::Result;
 use attestor_light_client::{
@@ -484,39 +483,21 @@ pub fn build_attestor_create_client_tx<S: std::hash::BuildHasher>(
 ///
 /// Automatically selects the appropriate proof builder based on the client ID prefix.
 ///
-/// # Arguments
-/// * `timeout_relay_height` - For timeout packets, the height from the source chain to use for
-///   attestation. Required when processing timeouts. The caller should provide the current height
-///   from the source chain (where non-membership needs to be proven).
-///
 /// # Errors
 /// Returns an error if attestation fetching or message encoding fails.
 ///
 /// # Panics
 /// Panics if the state attestation does not contain a timestamp.
-#[allow(clippy::too_many_arguments)]
 pub async fn build_attestor_relay_events_tx(
     aggregator: &Aggregator,
-    src_events: Vec<EurekaEventWithHeight>,
-    target_events: Vec<EurekaEventWithHeight>,
-    timeout_relay_height: Option<u64>,
-    src_client_id: &str,
-    dst_client_id: &str,
-    src_packet_seqs: &[u64],
-    dst_packet_seqs: &[u64],
+    params: RelayEventsParams,
     signer_address: &str,
 ) -> Result<Vec<u8>> {
-    match determine_attestor_client_type(dst_client_id) {
+    match determine_attestor_client_type(&params.dst_client_id) {
         AttestorClientType::Native => {
             build_attestor_relay_events_tx_with::<NativeAttestorProofBuilder>(
                 aggregator,
-                src_events,
-                target_events,
-                timeout_relay_height,
-                src_client_id,
-                dst_client_id,
-                src_packet_seqs,
-                dst_packet_seqs,
+                params,
                 signer_address,
             )
             .await
@@ -524,13 +505,7 @@ pub async fn build_attestor_relay_events_tx(
         AttestorClientType::Wasm => {
             build_attestor_relay_events_tx_with::<WasmAttestorProofBuilder>(
                 aggregator,
-                src_events,
-                target_events,
-                timeout_relay_height,
-                src_client_id,
-                dst_client_id,
-                src_packet_seqs,
-                dst_packet_seqs,
+                params,
                 signer_address,
             )
             .await
@@ -538,45 +513,40 @@ pub async fn build_attestor_relay_events_tx(
     }
 }
 
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[allow(clippy::too_many_lines)]
 async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>(
     aggregator: &Aggregator,
-    src_events: Vec<EurekaEventWithHeight>,
-    target_events: Vec<EurekaEventWithHeight>,
-    timeout_relay_height: Option<u64>,
-    src_client_id: &str,
-    dst_client_id: &str,
-    src_packet_seqs: &[u64],
-    dst_packet_seqs: &[u64],
+    params: RelayEventsParams,
     signer_address: &str,
 ) -> Result<Vec<u8>> {
     tracing::info!(
         "Building attested relay transaction for {} source events and {} target events",
-        src_events.len(),
-        target_events.len()
+        params.src_events.len(),
+        params.target_events.len()
     );
 
     let (send_packets, ack_packets, mut relay_height) = collect_send_and_ack_packets_with_height(
-        &src_events,
-        src_client_id,
-        dst_client_id,
-        src_packet_seqs,
-        dst_packet_seqs,
+        &params.src_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.src_packet_seqs,
+        &params.dst_packet_seqs,
     );
     let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
-        &target_events,
-        src_client_id,
-        dst_client_id,
-        dst_packet_seqs,
+        &params.target_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.dst_packet_seqs,
     );
 
-    if !timeout_packets.is_empty() {
-        let timeout_height = timeout_relay_height
-            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
+    if timeout_packets.is_empty() {
+        tracing::debug!("No timeout packets collected");
+    } else {
+        let timeout_height = params.timeout_relay_height.ok_or_else(|| {
+            anyhow::anyhow!("timeout_relay_height required for timeout packets")
+        })?;
         // Use max of src_events height and timeout height
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
-    } else {
-        tracing::debug!("No timeout packets collected");
     }
 
     let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
@@ -610,7 +580,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
 
     let timestamp = state.timestamp.expect("state attestation must contain ts");
     let update_msg = build_update_client_message::<ProofBuilder>(
-        dst_client_id,
+        &params.dst_client_id,
         signer_address,
         state.attested_data,
         state.signatures,
@@ -619,20 +589,20 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
     )?;
 
     let mut timeout_msgs = cosmos::target_events_to_timeout_msgs(
-        target_events,
-        src_client_id,
-        dst_client_id,
-        dst_packet_seqs,
+        params.target_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.dst_packet_seqs,
         signer_address,
         timestamp,
     );
 
     let (mut recv_msgs, mut ack_msgs) = cosmos::src_events_to_recv_and_ack_msgs(
-        src_events,
-        src_client_id,
-        dst_client_id,
-        src_packet_seqs,
-        dst_packet_seqs,
+        params.src_events,
+        &params.src_client_id,
+        &params.dst_client_id,
+        &params.src_packet_seqs,
+        &params.dst_packet_seqs,
         signer_address,
         timestamp,
     );

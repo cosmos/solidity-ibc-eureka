@@ -7,8 +7,7 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
-use ibc_eureka_relayer_lib::events::EurekaEventWithHeight;
-use ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight;
+use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -16,6 +15,7 @@ use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
+use ibc_eureka_relayer_lib::utils::RelayEventsParams;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -166,12 +166,14 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             timeout_events.len()
         );
 
-        // For timeouts, get the current slot from the source chain (Solana) where non-membership is proven
-        let timeout_relay_height = if !timeout_events.is_empty() {
-            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
-        } else {
-            None
-        };
+        // For timeouts in attested mode, get the current slot from the source chain (Solana)
+        // where non-membership is proven
+        let timeout_relay_height =
+            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+                Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
+            } else {
+                None
+            };
 
         let tx = self
             .tx_builder
@@ -253,9 +255,10 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
 }
 
 impl SolanaToCosmosTxBuilder {
+    #[allow(clippy::too_many_arguments)]
     async fn relay_events(
         &self,
-        src_events: Vec<SolanaEurekaEventWithHeight>,
+        solana_src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
         timeout_relay_height: Option<u64>,
         src_client_id: String,
@@ -267,7 +270,7 @@ impl SolanaToCosmosTxBuilder {
             Self::Real() => unreachable!(),
             Self::Mock(tb) => {
                 tb.relay_events(
-                    src_events,
+                    solana_src_events,
                     target_events,
                     src_client_id,
                     dst_client_id,
@@ -277,15 +280,19 @@ impl SolanaToCosmosTxBuilder {
                 .await
             }
             Self::Attested(tb) => {
-                tb.relay_events(
+                let src_events = solana_src_events
+                    .into_iter()
+                    .map(EurekaEventWithHeight::from)
+                    .collect();
+                tb.relay_events(RelayEventsParams {
                     src_events,
                     target_events,
                     timeout_relay_height,
-                    &src_client_id,
-                    &dst_client_id,
-                    &src_packet_seqs,
-                    &dst_packet_seqs,
-                )
+                    src_client_id,
+                    dst_client_id,
+                    src_packet_seqs,
+                    dst_packet_seqs,
+                })
                 .await
             }
         }
@@ -305,5 +312,9 @@ impl SolanaToCosmosTxBuilder {
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
+    }
+
+    const fn is_attested(&self) -> bool {
+        matches!(self, Self::Attested(_))
     }
 }

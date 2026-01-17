@@ -11,11 +11,13 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
-    events::EurekaEventWithHeight,
     listener::{eth_eureka, ChainListenerService},
-    utils::eth_attested::{
-        build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
-        build_eth_attestor_update_client_calldata,
+    utils::{
+        eth_attested::{
+            build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
+            build_eth_attestor_update_client_calldata,
+        },
+        RelayEventsParams,
     },
 };
 use tonic::{Request, Response};
@@ -196,29 +198,30 @@ impl RelayerService for EthToEthRelayerModuleService {
             timeout_txs.len()
         );
 
-        // For timeouts, get the current height from the source chain (where non-membership is proven)
-        let timeout_relay_height = if !timeout_txs.is_empty() {
+        // For timeouts in attested mode, get the current height from the source chain
+        // (where non-membership is proven). Note: eth-to-eth is always attested mode.
+        let timeout_relay_height = if timeout_txs.is_empty() {
+            None
+        } else {
             Some(
                 self.src_listener
                     .get_block_number()
                     .await
                     .map_err(to_tonic_status)?,
             )
-        } else {
-            None
         };
 
         let tx = self
             .tx_builder
-            .relay_events(
+            .relay_events(RelayEventsParams {
                 src_events,
-                timeout_txs,
+                target_events: timeout_txs,
                 timeout_relay_height,
-                inner_req.src_client_id,
-                inner_req.dst_client_id,
-                inner_req.src_packet_sequences,
-                inner_req.dst_packet_sequences,
-            )
+                src_client_id: inner_req.src_client_id,
+                dst_client_id: inner_req.dst_client_id,
+                src_packet_seqs: inner_req.src_packet_sequences,
+                dst_packet_seqs: inner_req.dst_packet_sequences,
+            })
             .await
             .map_err(to_tonic_status)?;
 
@@ -289,29 +292,10 @@ impl RelayerModule for EthToEthRelayerModule {
 }
 
 impl EthToEthTxBuilder {
-    async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        timeout_relay_height: Option<u64>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> anyhow::Result<Vec<u8>> {
+    async fn relay_events(&self, params: RelayEventsParams) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::Attested(tb) => {
-                build_eth_attestor_relay_events_tx(
-                    &tb.aggregator,
-                    src_events,
-                    target_events,
-                    timeout_relay_height,
-                    src_client_id,
-                    dst_client_id,
-                    src_packet_seqs,
-                    dst_packet_seqs,
-                )
-                .await
+                build_eth_attestor_relay_events_tx(&tb.aggregator, params).await
             }
         }
     }
