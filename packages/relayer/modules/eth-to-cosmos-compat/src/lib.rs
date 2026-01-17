@@ -227,7 +227,7 @@ impl RelayerModule for EthToCosmosCompatRelayerModule {
         let config = serde_json::from_value::<EthToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Ethereum to Cosmos bacwards compatible relayer server.");
+        tracing::info!("Starting Ethereum to Cosmos backwards compatible relayer server.");
         Ok(Box::new(EthToCosmosCompatRelayerModuleService::new(
             &config,
             old_service,

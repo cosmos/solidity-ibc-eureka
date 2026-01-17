@@ -82,7 +82,7 @@ func (g *SolidityFixtureGenerator) generateFixture(erc20Address string, msgBz []
 		return GenericSolidityFixture{}, err
 	}
 
-	packetBz, err := abiEncodePacket(packet)
+	packetBz, err := AbiEncodePacket(packet)
 	if err != nil {
 		return GenericSolidityFixture{}, err
 	}
@@ -125,7 +125,7 @@ func (g *SolidityFixtureGenerator) SetGenesisFixture(
 	}
 }
 
-func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
+func AbiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) {
 	structType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "sequence", Type: "uint64"},
 		{Name: "sourceClient", Type: "string"},
@@ -148,4 +148,64 @@ func abiEncodePacket(packet ics26router.IICS26RouterMsgsPacket) ([]byte, error) 
 	}
 
 	return args.Pack(packet)
+}
+
+// PacketCompact represents a compact packet with path and commitment
+type PacketCompact struct {
+	Path       [32]byte
+	Commitment [32]byte
+}
+
+// PacketAttestation represents the attested packet data
+type PacketAttestation struct {
+	Height  uint64
+	Packets []PacketCompact
+}
+
+// AbiDecodePacketAttestation decodes ABI-encoded PacketAttestation data
+func AbiDecodePacketAttestation(attestedData []byte) (*PacketAttestation, error) {
+	// Define the PacketAttestation struct type
+	packetAttestationType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "height", Type: "uint64"},
+		{Name: "packets", Type: "tuple[]", Components: []abi.ArgumentMarshaling{
+			{Name: "path", Type: "bytes32"},
+			{Name: "commitment", Type: "bytes32"},
+		}},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	args := abi.Arguments{
+		{Type: packetAttestationType},
+	}
+
+	// Unpack the data
+	unpacked, err := args.Unpack(attestedData)
+	if err != nil {
+		return nil, err
+	}
+
+	// Extract the decoded struct
+	decoded := unpacked[0].(struct {
+		Height  uint64 `json:"height"`
+		Packets []struct {
+			Path       [32]byte `json:"path"`
+			Commitment [32]byte `json:"commitment"`
+		} `json:"packets"`
+	})
+
+	// Convert to our PacketAttestation type
+	packets := make([]PacketCompact, len(decoded.Packets))
+	for i, p := range decoded.Packets {
+		packets[i] = PacketCompact{
+			Path:       p.Path,
+			Commitment: p.Commitment,
+		}
+	}
+
+	return &PacketAttestation{
+		Height:  decoded.Height,
+		Packets: packets,
+	}, nil
 }

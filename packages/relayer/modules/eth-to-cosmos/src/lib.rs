@@ -19,6 +19,7 @@ use alloy::{
     providers::{Provider, RootProvider},
 };
 use ibc_eureka_relayer_lib::{
+    aggregator::{Aggregator, Config as AggregatorConfig},
     events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     service_utils::{parse_cosmos_tx_hashes, parse_eth_tx_hashes, to_tonic_status},
@@ -50,6 +51,7 @@ struct EthToCosmosRelayerModuleService {
 enum EthToCosmosTxBuilder {
     Real(tx_builder::TxBuilder<RootProvider>),
     Mock(tx_builder::MockTxBuilder<RootProvider>),
+    Attested(tx_builder::AttestedTxBuilder),
 }
 
 /// The configuration for the Ethereum to Cosmos relayer module.
@@ -61,48 +63,70 @@ pub struct EthToCosmosConfig {
     pub tm_rpc_url: String,
     /// The EVM RPC URL.
     pub eth_rpc_url: String,
-    /// The Ethereum Beacon API URL
+    /// The Ethereum Beacon API URL (required for Real mode).
+    #[serde(default)]
     pub eth_beacon_api_url: String,
     /// The address of the submitter.
     /// Required since cosmos messages require a signer address.
     pub signer_address: String,
-    /// Whether to run in mock mode.
-    #[serde(default)]
-    pub mock: bool,
+    /// Transaction builder mode.
+    pub mode: TxBuilderMode,
+}
+
+/// Transaction builder mode configuration.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TxBuilderMode {
+    /// Real mode using Ethereum beacon chain proofs.
+    Real,
+    /// Mock mode for testing without real proofs.
+    Mock,
+    /// Attested mode using aggregator attestations.
+    Attested(AggregatorConfig),
 }
 
 impl EthToCosmosRelayerModuleService {
-    async fn new(config: EthToCosmosConfig) -> Self {
+    async fn new(config: EthToCosmosConfig) -> anyhow::Result<Self> {
         let provider = RootProvider::builder()
             .connect(&config.eth_rpc_url)
             .await
-            .unwrap_or_else(|e| panic!("failed to create provider: {e}"));
+            .map_err(|e| anyhow::anyhow!("failed to create provider: {e}"))?;
         let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider.clone());
 
         let tm_client = HttpClient::from_rpc_url(&config.tm_rpc_url);
         let tm_listener = cosmos_sdk::ChainListener::new(tm_client.clone());
 
-        let tx_builder = if config.mock {
-            EthToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
+        let tx_builder = match config.mode {
+            TxBuilderMode::Mock => EthToCosmosTxBuilder::Mock(tx_builder::MockTxBuilder::new(
                 config.ics26_address,
                 provider,
                 config.signer_address,
-            ))
-        } else {
-            EthToCosmosTxBuilder::Real(tx_builder::TxBuilder::new(
+            )),
+            TxBuilderMode::Real => EthToCosmosTxBuilder::Real(tx_builder::TxBuilder::new(
                 config.ics26_address,
                 provider,
                 config.eth_beacon_api_url,
                 tm_client,
                 config.signer_address,
-            ))
+            )),
+            TxBuilderMode::Attested(aggregator_config) => {
+                let aggregator = Aggregator::from_config(aggregator_config)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
+                EthToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
+                    aggregator,
+                    tm_client,
+                    config.ics26_address,
+                    config.signer_address,
+                ))
+            }
         };
 
-        Self {
+        Ok(Self {
             eth_listener,
             tm_listener,
             tx_builder,
-        }
+        })
     }
 }
 
@@ -250,7 +274,9 @@ impl RelayerModule for EthToCosmosRelayerModule {
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
         tracing::info!("Starting Ethereum to Cosmos relayer server.");
-        Ok(Box::new(EthToCosmosRelayerModuleService::new(config).await))
+        Ok(Box::new(
+            EthToCosmosRelayerModuleService::new(config).await?,
+        ))
     }
 }
 
@@ -287,6 +313,17 @@ impl EthToCosmosTxBuilder {
                 )
                 .await
             }
+            Self::Attested(tb) => {
+                tb.relay_events(
+                    src_events,
+                    target_events,
+                    &src_client_id,
+                    &dst_client_id,
+                    &src_packet_seqs,
+                    &dst_packet_seqs,
+                )
+                .await
+            }
         }
     }
 
@@ -294,6 +331,7 @@ impl EthToCosmosTxBuilder {
         match self {
             Self::Real(tb) => tb.create_client(parameters).await,
             Self::Mock(tb) => tb.create_client(parameters).await,
+            Self::Attested(tb) => tb.create_client(parameters),
         }
     }
 
@@ -301,6 +339,7 @@ impl EthToCosmosTxBuilder {
         match self {
             Self::Real(tb) => tb.update_client(dst_client_id).await,
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
+            Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
     }
 
@@ -308,6 +347,7 @@ impl EthToCosmosTxBuilder {
         match self {
             Self::Real(tb) => tb.ics26_router.address(),
             Self::Mock(tb) => tb.ics26_router.address(),
+            Self::Attested(tb) => tb.ics26_router(),
         }
     }
 }

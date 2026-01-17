@@ -277,6 +277,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cosmos-sdk-proto"
+version = "0.27.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95ac39be7373404accccaede7cc1ec942ccef14f0ca18d209967a756bf1dbb1f"
+dependencies = [
+ "prost",
+ "tendermint-proto",
+]
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -699,7 +709,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -719,7 +729,7 @@ dependencies = [
  "ibc-core-connection-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "sha2 0.10.8",
  "subtle-encoding",
@@ -768,7 +778,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -784,7 +794,7 @@ dependencies = [
  "displaydoc",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "ics23",
  "serde",
  "subtle-encoding",
@@ -802,7 +812,7 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -823,7 +833,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-core-router-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -872,7 +882,7 @@ dependencies = [
  "displaydoc",
  "ibc-core-host-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "serde",
  "subtle-encoding",
  "tendermint",
@@ -887,7 +897,7 @@ dependencies = [
  "ibc-client-tendermint-types",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
- "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
+ "ibc-proto 0.52.0",
  "sha2 0.10.8",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -903,7 +913,7 @@ checksum = "4ff3dab00855e9ab99fa7276814bd29b0350f2da70b3e9f67f1d86f4e269655b"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "prost",
  "serde",
  "time",
@@ -917,7 +927,7 @@ checksum = "9b70f517162e74e2d35875b8b94bf4d1e45f2c69ef3de452dc855944455d33ca"
 dependencies = [
  "base64 0.22.1",
  "bytes",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.26.1",
  "flex-error",
  "ics23",
  "informalsystems-pbjson",
@@ -929,12 +939,12 @@ dependencies = [
 
 [[package]]
 name = "ibc-proto"
-version = "0.51.1"
-source = "git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04#7074fb20c3a654e945e5ca46627c5a971d785e04"
+version = "0.52.0"
+source = "git+https://github.com/srdtrk/ibc-proto-rs?rev=3613891e18478811216cce02dc867b7c6ff8811b#3613891e18478811216cce02dc867b7c6ff8811b"
 dependencies = [
  "base64 0.22.1",
  "bytes",
- "cosmos-sdk-proto",
+ "cosmos-sdk-proto 0.27.0",
  "flex-error",
  "ics23",
  "prost",
@@ -1545,7 +1555,7 @@ dependencies = [
  "alloy-sol-types",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "sp1-zkvm",
  "tendermint-light-client-membership",
 ]
@@ -1560,7 +1570,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "sha2 0.10.8",
  "sp1-ics07-utils",
  "sp1-zkvm",
@@ -1576,7 +1586,7 @@ dependencies = [
  "ibc-client-tendermint",
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-membership",
@@ -1594,7 +1604,7 @@ dependencies = [
  "ibc-core-host-types",
  "ibc-eureka-solidity-types",
  "ibc-primitives",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1",
  "sha2 0.10.8",
  "sp1-ics07-utils",
  "sp1-zkvm",
@@ -1606,7 +1616,6 @@ dependencies = [
 name = "sp1-ics07-utils"
 version = "1.2.0"
 dependencies = [
- "alloy-sol-types",
  "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-eureka-solidity-types",
