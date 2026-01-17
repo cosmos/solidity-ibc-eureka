@@ -178,3 +178,26 @@ func (e *Ethereum) GetTxReciept(ctx context.Context, hash ethcommon.Hash) (*etht
 func (e *Ethereum) GetTransactOpts(key *ecdsa.PrivateKey) (*bind.TransactOpts, error) {
 	return GetTransactOpts(context.Background(), e.RPCClient, key)
 }
+
+// SetIntervalMining sets the interval (in seconds) at which Anvil mines new blocks.
+// Pass 0 to disable automatic mining (blocks won't be mined until manually triggered).
+// This is an Anvil-specific RPC method (evm_setIntervalMining).
+func (e *Ethereum) SetIntervalMining(ctx context.Context, intervalSeconds uint64) error {
+	var result interface{}
+	err := e.RPCClient.Client().CallContext(ctx, &result, "evm_setIntervalMining", intervalSeconds)
+	if err != nil {
+		return fmt.Errorf("failed to set interval mining: %w", err)
+	}
+	return nil
+}
+
+// MineBlock mines a single block.
+// This is an Anvil-specific RPC method (evm_mine).
+func (e *Ethereum) MineBlock(ctx context.Context) error {
+	var result interface{}
+	err := e.RPCClient.Client().CallContext(ctx, &result, "evm_mine")
+	if err != nil {
+		return fmt.Errorf("failed to mine block: %w", err)
+	}
+	return nil
+}

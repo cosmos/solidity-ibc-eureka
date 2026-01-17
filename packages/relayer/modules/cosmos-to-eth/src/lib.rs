@@ -20,10 +20,10 @@ use alloy::{
 };
 use ibc_eureka_relayer_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
-    events::EurekaEventWithHeight,
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
+    utils::RelayEventsParams,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_ics07_tendermint_prover::programs::{
@@ -293,7 +293,7 @@ impl RelayerService for CosmosToEthRelayerModuleService {
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
         let cosmos_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        let eth_txs = inner_req
+        let timeout_txs = inner_req
             .timeout_tx_ids
             .into_iter()
             .map(TryInto::<[u8; 32]>::try_into)
@@ -313,25 +313,40 @@ impl RelayerService for CosmosToEthRelayerModuleService {
             cosmos_events.len()
         );
 
-        let eth_events = self
+        let timeout_events = self
             .eth_listener
-            .fetch_tx_events(eth_txs)
+            .fetch_tx_events(timeout_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(eth_events = ?eth_events, "Fetched EVM events.");
-        tracing::info!("Fetched {} eureka events from EVM.", eth_events.len());
+        tracing::debug!(timeout_events = ?timeout_events, "Fetched timeout events from EVM.");
+        tracing::info!("Fetched {} timeout events from EVM.", timeout_events.len());
+
+        // For timeouts in attested mode, get the current height from the source chain (Cosmos)
+        // where non-membership is proven
+        let timeout_relay_height =
+            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+                Some(
+                    self.tm_listener
+                        .get_block_height()
+                        .await
+                        .map_err(|e| tonic::Status::from_error(e.into()))?,
+                )
+            } else {
+                None
+            };
 
         let multicall_tx = self
             .tx_builder
-            .relay_events(
-                cosmos_events,
-                eth_events,
-                inner_req.src_client_id,
-                inner_req.dst_client_id,
-                inner_req.src_packet_sequences,
-                inner_req.dst_packet_sequences,
-            )
+            .relay_events(RelayEventsParams {
+                src_events: cosmos_events,
+                target_events: timeout_events,
+                timeout_relay_height,
+                src_client_id: inner_req.src_client_id,
+                dst_client_id: inner_req.dst_client_id,
+                src_packet_seqs: inner_req.src_packet_sequences,
+                dst_packet_seqs: inner_req.dst_packet_sequences,
+            })
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -410,38 +425,20 @@ impl RelayerModule for CosmosToEthRelayerModule {
 }
 
 impl CosmosToEthTxBuilder {
-    async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        src_client_id: String,
-        dst_client_id: String,
-        src_packet_seqs: Vec<u64>,
-        dst_packet_seqs: Vec<u64>,
-    ) -> anyhow::Result<Vec<u8>> {
+    async fn relay_events(&self, params: RelayEventsParams) -> anyhow::Result<Vec<u8>> {
         match self {
             Self::SP1(tb) => {
                 tb.relay_events(
-                    src_events,
-                    target_events,
-                    src_client_id,
-                    dst_client_id,
-                    src_packet_seqs,
-                    dst_packet_seqs,
+                    params.src_events,
+                    params.target_events,
+                    params.src_client_id,
+                    params.dst_client_id,
+                    params.src_packet_seqs,
+                    params.dst_packet_seqs,
                 )
                 .await
             }
-            Self::Attested(tb) => {
-                tb.relay_events(
-                    src_events,
-                    target_events,
-                    src_client_id,
-                    dst_client_id,
-                    src_packet_seqs,
-                    dst_packet_seqs,
-                )
-                .await
-            }
+            Self::Attested(tb) => tb.relay_events(params).await,
         }
     }
 
@@ -471,5 +468,9 @@ impl CosmosToEthTxBuilder {
             Self::SP1(tb) => tb.metadata(),
             Self::Attested(_) => HashMap::default(),
         }
+    }
+
+    const fn is_attested(&self) -> bool {
+        matches!(self, Self::Attested(_))
     }
 }

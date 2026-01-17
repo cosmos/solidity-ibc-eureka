@@ -45,6 +45,13 @@ where
             .await?
             .to_string())
     }
+
+    /// Get the current block number.
+    /// # Errors
+    /// Returns an error if the block number cannot be fetched.
+    pub async fn get_block_number(&self) -> Result<u64> {
+        Ok(self.ics26_router.provider().get_block_number().await?)
+    }
 }
 
 #[async_trait::async_trait]

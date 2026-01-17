@@ -45,6 +45,22 @@ impl ChainListener {
             .chain_id
             .into())
     }
+
+    /// Get the latest block height.
+    ///
+    /// # Errors
+    /// Returns an error if the block height cannot be fetched.
+    #[instrument(skip(self), err)]
+    pub async fn get_block_height(&self) -> Result<u64> {
+        Ok(self
+            .client()
+            .latest_block()
+            .await?
+            .block
+            .header
+            .height
+            .value())
+    }
 }
 
 #[async_trait::async_trait]

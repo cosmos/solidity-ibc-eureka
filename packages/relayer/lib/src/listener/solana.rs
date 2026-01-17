@@ -53,6 +53,16 @@ impl ChainListener {
         &self.ics26_program_id
     }
 
+    /// Get the current slot number.
+    ///
+    /// # Errors
+    /// Returns an error if the slot cannot be fetched.
+    pub fn get_slot(&self) -> Result<u64> {
+        self.rpc_client
+            .get_slot()
+            .context("Failed to get current Solana slot")
+    }
+
     /// Parse IBC events from Solana transaction logs.
     fn parse_events_from_logs(
         meta: &solana_transaction_status::UiTransactionStatusMeta,
