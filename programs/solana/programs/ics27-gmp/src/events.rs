@@ -1,82 +1,96 @@
+//! Events emitted by the ICS27 GMP program.
+
 use anchor_lang::prelude::*;
 
-/// Event emitted when GMP app is initialized
+/// Event emitted when the GMP app is initialized.
 #[event]
 pub struct GMPAppInitialized {
-    /// Router program managing this app
+    /// Router program managing this app.
     pub router_program: Pubkey,
-    /// Port ID bound to this app
+    /// Port ID bound to this app.
     pub port_id: String,
-    /// App initialization timestamp
+    /// Timestamp when the app was initialized (Unix seconds).
     pub timestamp: i64,
 }
 
-/// Event emitted when a GMP call is sent
+/// Event emitted when a GMP call is sent cross-chain.
 #[event]
 pub struct GMPCallSent {
-    /// Packet sequence number
+    /// IBC packet sequence number.
     pub sequence: u64,
-    /// Sender of the call
+    /// Solana account that initiated the call.
     pub sender: Pubkey,
-    /// Target address to execute (destination chain format)
+    /// Target address on the destination chain.
     pub receiver: String,
-    /// Source client ID
+    /// Source client ID (light client tracking destination chain).
     pub client_id: String,
-    /// Account salt used
+    /// Salt used for GMP account PDA derivation.
     pub salt: Vec<u8>,
-    /// Payload size
+    /// Size of the payload in bytes.
     pub payload_size: u64,
-    /// Timeout timestamp
+    /// Timeout timestamp (Unix seconds).
     pub timeout_timestamp: i64,
 }
 
-/// Event emitted when app is paused
+/// Event emitted when the GMP app is paused.
 #[event]
 pub struct GMPAppPaused {
-    /// Admin who paused the app
+    /// Admin who paused the app.
     pub admin: Pubkey,
-    /// Pause timestamp
+    /// Timestamp when the app was paused (Unix seconds).
     pub timestamp: i64,
 }
 
-/// Event emitted when app is unpaused
+/// Event emitted when the GMP app is unpaused.
 #[event]
 pub struct GMPAppUnpaused {
-    /// Admin who unpaused the app
+    /// Admin who unpaused the app.
     pub admin: Pubkey,
-    /// Unpause timestamp
+    /// Timestamp when the app was unpaused (Unix seconds).
     pub timestamp: i64,
 }
 
-/// Event emitted for execution failures
+/// Event emitted when target program execution fails.
 #[event]
 pub struct GMPExecutionFailed {
-    /// Account that failed execution
+    /// GMP account PDA that attempted execution.
     pub account: Pubkey,
-    /// Target program that failed
+    /// Target program that failed to execute.
     pub target_program: Pubkey,
-    /// Error code
+    /// Error code returned by the target program.
     pub error_code: u32,
-    /// Error message
+    /// Human-readable error message.
     pub error_message: String,
-    /// Failure timestamp
+    /// Timestamp when the failure occurred (Unix seconds).
     pub timestamp: i64,
 }
 
+/// Event emitted when a GMP call receives an acknowledgement.
 #[event]
 pub struct GMPCallAcknowledged {
+    /// Source client ID (light client on Solana tracking the source chain).
     pub source_client: String,
+    /// IBC packet sequence number.
     pub sequence: u64,
+    /// Original sender address on the source chain.
     pub sender: String,
+    /// PDA where the result is stored.
     pub result_pda: Pubkey,
+    /// Timestamp when the acknowledgement was processed (Unix seconds).
     pub timestamp: i64,
 }
 
+/// Event emitted when a GMP call times out.
 #[event]
-pub struct GMPCallTimeout {
+pub struct GMPCallTimedOut {
+    /// Source client ID (light client on Solana tracking the source chain).
     pub source_client: String,
+    /// IBC packet sequence number.
     pub sequence: u64,
+    /// Original sender address on the source chain.
     pub sender: String,
+    /// PDA where the result is stored.
     pub result_pda: Pubkey,
+    /// Timestamp when the timeout was processed (Unix seconds).
     pub timestamp: i64,
 }

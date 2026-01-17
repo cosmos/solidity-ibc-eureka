@@ -112,22 +112,37 @@ impl GMPAppState {
     pub const SEED: &'static [u8] = b"app_state";
 }
 
-/// Status of a GMP call result
+/// Status of a GMP call result.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
 pub enum CallResultStatus {
-    Acknowledgment,
-    Timeout,
+    /// The call was acknowledged by the destination chain.
+    Acknowledged,
+    /// The call timed out before being processed.
+    TimedOut,
 }
 
-/// GMP call result PDA marker. Seeds: [b"gmp_result", source_client, sequence]
-pub struct GMPCallResult {
-    source_client: String,
-    sequence: u64,
-}
+/// GMP call result PDA derivation helper.
+///
+/// This type provides stateless PDA derivation for GMP call results.
+/// The PDA stores the acknowledgement or timeout result of a GMP call.
+///
+/// # PDA Seeds
+/// `["gmp_result", source_client, sequence (little-endian u64)]`
+pub struct GMPCallResult;
 
 impl GMPCallResult {
+    /// Seed prefix for GMP call result PDAs.
     pub const SEED: &'static [u8] = b"gmp_result";
 
+    /// Derive the PDA for a GMP call result.
+    ///
+    /// # Arguments
+    /// * `source_client` - The source client ID (light client on Solana tracking the source chain)
+    /// * `sequence` - The IBC packet sequence number
+    /// * `program_id` - The GMP program ID
+    ///
+    /// # Returns
+    /// A tuple of (PDA pubkey, bump seed)
     pub fn pda(source_client: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[
