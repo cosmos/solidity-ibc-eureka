@@ -144,7 +144,7 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
 /// Returns `Some(pda)` if the packet is from the GMP port, where the PDA
 /// stores the acknowledgement or timeout result of a GMP call.
 ///
-/// Returns `None` for non-GMP ports.
+/// Returns `None` for non-GMP ports or invalid sequence (0).
 #[must_use]
 pub fn find_gmp_result_pda(
     source_port: &str,
@@ -152,11 +152,39 @@ pub fn find_gmp_result_pda(
     sequence: u64,
     gmp_program_id: Pubkey,
 ) -> Option<Pubkey> {
-    if source_port != GMP_PORT_ID {
+    if source_port != GMP_PORT_ID || sequence == 0 {
         return None;
     }
 
     let (pda, _bump) =
         solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
     Some(pda)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn find_gmp_result_pda_returns_none_for_non_gmp_port() {
+        let program_id = Pubkey::new_unique();
+        assert!(find_gmp_result_pda("transfer", "client-0", 1, program_id).is_none());
+    }
+
+    #[test]
+    fn find_gmp_result_pda_returns_none_for_zero_sequence() {
+        let program_id = Pubkey::new_unique();
+        assert!(find_gmp_result_pda(GMP_PORT_ID, "client-0", 0, program_id).is_none());
+    }
+
+    #[test]
+    fn find_gmp_result_pda_returns_pda_for_valid_gmp_packet() {
+        let program_id = Pubkey::new_unique();
+        let result = find_gmp_result_pda(GMP_PORT_ID, "client-0", 1, program_id);
+        assert!(result.is_some());
+
+        // Verify deterministic derivation
+        let result2 = find_gmp_result_pda(GMP_PORT_ID, "client-0", 1, program_id);
+        assert_eq!(result, result2);
+    }
 }
