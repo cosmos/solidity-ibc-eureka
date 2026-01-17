@@ -115,10 +115,10 @@ impl GMPAppState {
 /// Status of a GMP call result.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
 pub enum CallResultStatus {
-    /// The call was acknowledged by the destination chain.
-    Acknowledged,
+    /// The call received an acknowledgement from the destination chain.
+    Acknowledgement,
     /// The call timed out before being processed.
-    TimedOut,
+    Timeout,
 }
 
 /// GMP call result PDA derivation helper.

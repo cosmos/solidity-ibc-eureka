@@ -104,7 +104,7 @@ impl GMPCallResultAccount {
             sequence,
             source_client,
             dest_client: String::new(),
-            status: CallResultStatus::Acknowledged,
+            status: CallResultStatus::Acknowledgement,
             acknowledgement,
             result_timestamp: timestamp,
             bump,
@@ -124,7 +124,7 @@ impl GMPCallResultAccount {
             sequence,
             source_client,
             dest_client: String::new(),
-            status: CallResultStatus::TimedOut,
+            status: CallResultStatus::Timeout,
             acknowledgement: Vec::new(),
             result_timestamp: timestamp,
             bump,
@@ -143,7 +143,7 @@ impl GMPCallResultAccount {
         self.sequence = msg.sequence;
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
-        self.status = CallResultStatus::Acknowledged;
+        self.status = CallResultStatus::Acknowledgement;
         self.acknowledgement = msg.acknowledgement;
         self.result_timestamp = timestamp;
         self.bump = bump;
@@ -161,7 +161,7 @@ impl GMPCallResultAccount {
         self.sequence = msg.sequence;
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
-        self.status = CallResultStatus::TimedOut;
+        self.status = CallResultStatus::Timeout;
         self.acknowledgement = vec![];
         self.result_timestamp = timestamp;
         self.bump = bump;
