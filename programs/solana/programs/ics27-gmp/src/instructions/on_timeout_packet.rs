@@ -25,7 +25,12 @@ pub struct OnTimeoutPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Result account storing the timeout
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+
+    /// Result account storing the timeout (passed as remaining account by router)
     #[account(
         init,
         payer = payer,
@@ -34,11 +39,6 @@ pub struct OnTimeoutPacket<'info> {
         bump,
     )]
     pub result_account: Account<'info, GMPCallResultAccount>,
-
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
-    pub system_program: Program<'info, System>,
 }
 
 pub fn on_timeout_packet(
@@ -137,9 +137,9 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-                AccountMeta::new(result_account_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_account_pda, false),
             ],
             data: instruction_data.data(),
         }
@@ -166,9 +166,9 @@ mod tests {
             ),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
-            create_uninitialized_account_for_pda(result_pda),
             create_payer_account(payer),
             create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
         ];
 
         let checks = vec![Check::err(ProgramError::Custom(
@@ -215,9 +215,9 @@ mod tests {
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
                 AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-                AccountMeta::new(result_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
             ],
             data: instruction_data.data(),
         };
@@ -232,9 +232,9 @@ mod tests {
             ),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
-            create_uninitialized_account_for_pda(result_pda),
             create_payer_account(payer),
             create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
         ];
 
         // Anchor ConstraintSeeds error (2006)
@@ -260,9 +260,9 @@ mod tests {
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
-            create_uninitialized_account_for_pda(result_pda),
             create_payer_account(payer),
             create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
         ];
 
         let checks = vec![Check::err(ProgramError::Custom(
@@ -290,9 +290,9 @@ mod tests {
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
-            create_uninitialized_account_for_pda(result_pda),
             create_payer_account(payer),
             create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
         ];
 
         let checks = vec![Check::err(ProgramError::Custom(
@@ -327,9 +327,9 @@ mod tests {
             create_router_program_account(router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),
-            create_uninitialized_account_for_pda(result_pda),
             create_payer_account(payer),
             create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
         ];
 
         // Should be rejected by Anchor's address constraint check
