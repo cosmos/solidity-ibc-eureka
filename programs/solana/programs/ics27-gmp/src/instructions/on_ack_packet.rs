@@ -82,8 +82,13 @@ pub fn on_acknowledgement_packet(
 #[cfg(test)]
 mod tests {
     use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
-    use crate::state::GMPAppState;
-    use crate::test_utils::*;
+    use crate::state::{GMPAppState, GMPCallResult};
+    use crate::test_utils::{
+        create_fake_instructions_sysvar_account, create_gmp_app_state_account,
+        create_instructions_sysvar_account_with_caller, create_payer_account,
+        create_router_program_account, create_system_program_account,
+        create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
+    };
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -93,11 +98,14 @@ mod tests {
         pubkey::Pubkey,
     };
 
+    const TEST_SOURCE_CLIENT: &str = "cosmoshub-1";
+    const TEST_SEQUENCE: u64 = 1;
+
     fn create_test_ack_msg() -> solana_ibc_types::OnAcknowledgementPacketMsg {
         solana_ibc_types::OnAcknowledgementPacketMsg {
-            source_client: "cosmoshub-1".to_string(),
+            source_client: TEST_SOURCE_CLIENT.to_string(),
             dest_client: "solana-1".to_string(),
-            sequence: 1,
+            sequence: TEST_SEQUENCE,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
@@ -110,9 +118,14 @@ mod tests {
         }
     }
 
+    fn derive_result_pda() -> (Pubkey, u8) {
+        GMPCallResult::pda(TEST_SOURCE_CLIENT, TEST_SEQUENCE, &crate::ID)
+    }
+
     fn create_ack_instruction(
         app_state_pda: Pubkey,
         router_program: Pubkey,
+        result_account_pda: Pubkey,
         payer: Pubkey,
     ) -> Instruction {
         let instruction_data = crate::instruction::OnAcknowledgementPacket {
@@ -125,6 +138,7 @@ mod tests {
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(result_account_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
@@ -140,14 +154,16 @@ mod tests {
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
 
-        let instruction = create_ack_instruction(app_state_pda, router_program, payer);
+        let instruction = create_ack_instruction(app_state_pda, router_program, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, true),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
-            create_authority_account(payer),
+            create_uninitialized_account_for_pda(result_pda),
+            create_payer_account(payer),
             create_system_program_account(),
         ];
 
@@ -165,6 +181,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let port_id = "gmpport".to_string();
+        let (result_pda, _) = derive_result_pda();
 
         let (_correct_app_state_pda, _correct_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
@@ -173,9 +190,9 @@ mod tests {
         let wrong_app_state_pda = Pubkey::new_unique();
 
         let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
-            source_client: "cosmoshub-1".to_string(),
+            source_client: TEST_SOURCE_CLIENT.to_string(),
             dest_client: "solana-1".to_string(),
-            sequence: 1,
+            sequence: TEST_SEQUENCE,
             payload: solana_ibc_types::Payload {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
@@ -195,6 +212,7 @@ mod tests {
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
                 AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(result_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
@@ -211,7 +229,8 @@ mod tests {
             ),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
-            create_authority_account(payer),
+            create_uninitialized_account_for_pda(result_pda),
+            create_payer_account(payer),
             create_system_program_account(),
         ];
 
@@ -229,14 +248,16 @@ mod tests {
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
 
-        let instruction = create_ack_instruction(app_state_pda, router_program, payer);
+        let instruction = create_ack_instruction(app_state_pda, router_program, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
-            create_authority_account(payer),
+            create_uninitialized_account_for_pda(result_pda),
+            create_payer_account(payer),
             create_system_program_account(),
         ];
 
@@ -255,15 +276,17 @@ mod tests {
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
 
-        let instruction = create_ack_instruction(app_state_pda, router_program, payer);
+        let instruction = create_ack_instruction(app_state_pda, router_program, result_pda, payer);
 
         let unauthorized_program = Pubkey::new_unique();
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
-            create_authority_account(payer),
+            create_uninitialized_account_for_pda(result_pda),
+            create_payer_account(payer),
             create_system_program_account(),
         ];
 
@@ -282,8 +305,10 @@ mod tests {
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
 
-        let mut instruction = create_ack_instruction(app_state_pda, router_program, payer);
+        let mut instruction =
+            create_ack_instruction(app_state_pda, router_program, result_pda, payer);
 
         // Simulate Wormhole attack: pass a completely different account with fake sysvar data
         let (fake_sysvar_pubkey, fake_sysvar_account) =
@@ -297,7 +322,8 @@ mod tests {
             create_router_program_account(router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),
-            create_authority_account(payer),
+            create_uninitialized_account_for_pda(result_pda),
+            create_payer_account(payer),
             create_system_program_account(),
         ];
 

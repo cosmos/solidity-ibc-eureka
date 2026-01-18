@@ -2219,12 +2219,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			resultAccountPDA,                  // result_account
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
@@ -2281,12 +2285,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			resultAccountPDA,                  // result_account
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
@@ -2346,12 +2354,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			resultAccountPDA,                  // result_account
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)
@@ -2407,12 +2419,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
+			resultAccountPDA,                  // result_account
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 		)

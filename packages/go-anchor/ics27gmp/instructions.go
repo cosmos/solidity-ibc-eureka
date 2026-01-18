@@ -209,6 +209,7 @@ func NewOnAcknowledgementPacketInstruction(
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	instructionSysvarAccount solanago.PublicKey,
+	resultAccountAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -240,10 +241,12 @@ func NewOnAcknowledgementPacketInstruction(
 		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for validating CPI caller
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 3 "payer": Writable, Signer, Required
-		// Relayer fee payer (passed by router but not used in acknowledgement handler)
+		// Account 3 "result_account": Writable, Non-signer, Required
+		// Result account storing the acknowledgement
+		accounts__.Append(solanago.NewAccountMeta(resultAccountAccount, true, false))
+		// Account 4 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -265,6 +268,7 @@ func NewOnTimeoutPacketInstruction(
 	appStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	instructionSysvarAccount solanago.PublicKey,
+	resultAccountAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -296,10 +300,12 @@ func NewOnTimeoutPacketInstruction(
 		// Account 2 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for validating CPI caller
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 3 "payer": Writable, Signer, Required
-		// Relayer fee payer (passed by router but not used in timeout handler)
+		// Account 3 "result_account": Writable, Non-signer, Required
+		// Result account storing the timeout
+		accounts__.Append(solanago.NewAccountMeta(resultAccountAccount, true, false))
+		// Account 4 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
