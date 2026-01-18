@@ -776,6 +776,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 	var solanaPacketTxHash string
 	var baseSequence uint64
+	var namespacedSequence uint64
 	s.Require().True(s.Run("Send call from Solana", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -811,7 +812,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			namespacedSequence := solana.CalculateNamespacedSequence(
+			namespacedSequence = solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
 				s.SolanaRelayer.PublicKey(),
@@ -962,7 +963,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		// Validate all fields
 		s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
 		s.Require().Equal(s.SolanaRelayer.PublicKey().String(), result.Sender, "Sender should match")
-		s.Require().Equal(baseSequence, result.Sequence, "Sequence should match base sequence")
+		s.Require().Equal(namespacedSequence, result.Sequence, "Sequence should match namespaced sequence")
 		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
 		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
@@ -2229,9 +2230,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			resultAccountPDA,                  // result_account
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 
@@ -2295,9 +2296,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			resultAccountPDA,                  // result_account
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 
