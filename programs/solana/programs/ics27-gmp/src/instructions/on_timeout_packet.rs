@@ -460,4 +460,105 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    /// Helper to test timeout packet with invalid GMP packet data (expects InvalidPacketData error)
+    fn assert_timeout_packet_invalid_gmp_data(packet_data: solana_ibc_proto::RawGmpPacketData) {
+        use solana_ibc_proto::ProstMessage;
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
+
+        let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: packet_data.encode_to_vec(),
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnTimeoutPacket { msg: timeout_msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
+            create_payer_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidPacketData as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_timeout_packet_empty_sender() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: String::new(),
+            receiver: "0x1234567890abcdef".to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            memo: String::new(),
+        });
+    }
+
+    #[test]
+    fn test_on_timeout_packet_empty_gmp_payload() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: Pubkey::new_unique().to_string(),
+            receiver: "0x1234567890abcdef".to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![],
+            memo: String::new(),
+        });
+    }
+
+    #[test]
+    fn test_on_timeout_packet_sender_too_long() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: "x".repeat(solana_ibc_proto::MAX_SENDER_LENGTH + 1),
+            receiver: "0x1234567890abcdef".to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            memo: String::new(),
+        });
+    }
+
+    #[test]
+    fn test_on_timeout_packet_memo_too_long() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: Pubkey::new_unique().to_string(),
+            receiver: "0x1234567890abcdef".to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            memo: "x".repeat(solana_ibc_proto::MAX_MEMO_LENGTH + 1),
+        });
+    }
 }
