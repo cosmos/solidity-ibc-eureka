@@ -857,3 +857,161 @@ func (s *EthToEthAttestedTestSuite) Test_UpdateClient() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
 }
+
+// Test_TimeoutPacket_AsymmetricHeight tests timeout relay with asymmetric block heights
+// where Chain A (destination) has a higher height than Chain B (source).
+func (s *EthToEthAttestedTestSuite) Test_TimeoutPacket_AsymmetricHeight() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	// Use a short timeout so we can quickly get past it
+	const timeoutOffsetSeconds = 10
+	// Number of extra blocks to mine on Chain A to create height asymmetry
+	const extraBlocksOnChainA = 50
+
+	transferAmount := big.NewInt(testvalues.TransferAmount)
+	userAddressB := crypto.PubkeyToAddress(s.userKeyB.PublicKey)
+	ics20AddressA := ethcommon.HexToAddress(s.contractAddressesA.Ics20Transfer)
+	erc20AddressA := ethcommon.HexToAddress(s.contractAddressesA.Erc20)
+
+	s.Require().True(s.Run("Approve ICS20 on Chain A", func() {
+		tx, err := s.erc20ContractA.Approve(s.GetTransactOpts(s.userKeyA, s.EthChainA()), ics20AddressA, transferAmount)
+		s.Require().NoError(err)
+
+		receipt, err := s.EthChainA().GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	packetTimeout := uint64(time.Now().Unix()) + timeoutOffsetSeconds
+
+	var sendTxHash []byte
+	s.Require().True(s.Run("Send transfer with short timeout", func() {
+		msgSendPacket := ics20transfer.IICS20TransferMsgsSendTransferMsg{
+			Denom:            erc20AddressA,
+			Amount:           transferAmount,
+			Receiver:         strings.ToLower(userAddressB.Hex()),
+			TimeoutTimestamp: packetTimeout,
+			SourceClient:     ClientA,
+			DestPort:         "transfer",
+			Memo:             "",
+		}
+
+		tx, err := s.ics20ContractA.SendTransfer(s.GetTransactOpts(s.userKeyA, s.EthChainA()), msgSendPacket)
+		s.Require().NoError(err)
+
+		receipt, err := s.EthChainA().GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		sendTxHash = tx.Hash().Bytes()
+		s.T().Logf("Send tx hash: %s, packet timeout: %d (%d seconds from chain time)",
+			tx.Hash().Hex(), packetTimeout, timeoutOffsetSeconds)
+	}))
+
+	s.Require().True(s.Run("Wait for timeout to pass on both chains", func() {
+		// Wait for both chains to naturally pass the timeout timestamp
+		// This ensures the packet is actually timed out
+		s.T().Logf("Waiting for timeout to pass naturally...")
+		time.Sleep(time.Duration(timeoutOffsetSeconds+5) * time.Second)
+
+		// Verify both chains are past timeout
+		headerA, err := s.EthChainA().RPCClient.HeaderByNumber(ctx, nil)
+		s.Require().NoError(err)
+		s.T().Logf("Chain A timestamp: %d (should be > timeout %d)", headerA.Time, packetTimeout)
+		s.Require().Greater(headerA.Time, packetTimeout, "Chain A should be past timeout")
+
+		headerB, err := s.EthChainB().RPCClient.HeaderByNumber(ctx, nil)
+		s.Require().NoError(err)
+		s.T().Logf("Chain B timestamp: %d (should be > timeout %d)", headerB.Time, packetTimeout)
+		s.Require().Greater(headerB.Time, packetTimeout, "Chain B should be past timeout")
+	}))
+
+	// First, demonstrate that RelayByTx works when chains are in sync
+	s.Require().True(s.Run("Attempt timeout relay with chains in sync - should succeed", func() {
+		// Both chains have similar heights at this point
+		chainAHeight, err := s.EthChainA().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		chainBHeight, err := s.EthChainB().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		s.T().Logf("Chains in sync - Chain A height: %d, Chain B height: %d", chainAHeight, chainBHeight)
+
+		// Wait for attestor to catch up
+		time.Sleep(3 * time.Second)
+
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		resp, err := s.RelayerClient.RelayByTx(ctxWithTimeout, &relayertypes.RelayByTxRequest{
+			SrcChain:     s.EthChainB().ChainID.String(),
+			DstChain:     s.EthChainA().ChainID.String(),
+			TimeoutTxIds: [][]byte{sendTxHash},
+			SrcClientId:  ClientB,
+			DstClientId:  ClientA,
+		})
+		s.Require().NoError(err, "RelayByTx should succeed when chains are in sync")
+		s.Require().NotEmpty(resp.Tx, "Timeout relay tx should not be empty")
+	}))
+
+	// Fast-forward Chain A to create height asymmetry
+	var chainAHeight, chainBHeight uint64
+	s.Require().True(s.Run("Pause Chain B and mine many blocks on Chain A to create asymmetry", func() {
+		// Get current heights
+		var err error
+		chainBHeight, err = s.EthChainB().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		chainAHeight, err = s.EthChainA().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		s.T().Logf("Before asymmetry - Chain A: %d, Chain B: %d", chainAHeight, chainBHeight)
+
+		// Pause Chain B's block production
+		err = s.EthChainB().SetIntervalMining(ctx, 0)
+		s.Require().NoError(err)
+		s.T().Log("Paused Chain B block production")
+
+		// Mine many blocks on Chain A to create height asymmetry
+		for i := 0; i < extraBlocksOnChainA; i++ {
+			err = s.EthChainA().MineBlock(ctx)
+			s.Require().NoError(err)
+		}
+
+		// Get new heights
+		newChainAHeight, err := s.EthChainA().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		newChainBHeight, err := s.EthChainB().RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+
+		s.T().Logf("After mining - Chain A: %d (+%d blocks), Chain B: %d (paused)",
+			newChainAHeight, newChainAHeight-chainAHeight, newChainBHeight)
+
+		s.Require().Greater(newChainAHeight, newChainBHeight+uint64(extraBlocksOnChainA-10),
+			"Chain A should have significantly more blocks than Chain B")
+
+		chainAHeight = newChainAHeight
+		chainBHeight = newChainBHeight
+	}))
+
+	s.Require().True(s.Run("Timeout relay with Chain A height >> Chain B height", func() {
+		s.T().Logf("Chain A height: %d, Chain B height: %d (difference: %d)",
+			chainAHeight, chainBHeight, chainAHeight-chainBHeight)
+
+		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
+		defer cancel()
+
+		resp, err := s.RelayerClient.RelayByTx(ctxWithTimeout, &relayertypes.RelayByTxRequest{
+			SrcChain:     s.EthChainB().ChainID.String(),
+			DstChain:     s.EthChainA().ChainID.String(),
+			TimeoutTxIds: [][]byte{sendTxHash},
+			SrcClientId:  ClientB,
+			DstClientId:  ClientA,
+		})
+
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+	}))
+}

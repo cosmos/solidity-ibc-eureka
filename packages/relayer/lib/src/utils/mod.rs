@@ -1,8 +1,33 @@
 //! This module contains the utilities for relayer implementations.
 
+use crate::events::EurekaEventWithHeight;
 use futures_timer::Delay;
 use std::future::Future;
 use std::time::{Duration, Instant};
+
+/// Parameters for relay events operations in attested mode.
+///
+/// This struct groups the common parameters needed for building relay transactions
+/// across different chain combinations.
+#[derive(Debug, Clone)]
+pub struct RelayEventsParams {
+    /// Events from the source chain containing send packets and acknowledgements.
+    pub src_events: Vec<EurekaEventWithHeight>,
+    /// Events from the target chain (used for timeout detection).
+    pub target_events: Vec<EurekaEventWithHeight>,
+    /// For timeout packets, the height from the source chain to use for attestation.
+    /// Required when processing timeouts. The caller should provide the current height
+    /// from the source chain (where non-membership needs to be proven).
+    pub timeout_relay_height: Option<u64>,
+    /// The client ID on the source chain.
+    pub src_client_id: String,
+    /// The client ID on the destination chain.
+    pub dst_client_id: String,
+    /// Packet sequences from the source chain to relay.
+    pub src_packet_seqs: Vec<u64>,
+    /// Packet sequences from the destination chain (for filtering).
+    pub dst_packet_seqs: Vec<u64>,
+}
 
 /// Retries an operation until the condition is met or a timeout occurs.
 ///
