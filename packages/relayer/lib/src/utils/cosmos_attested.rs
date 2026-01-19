@@ -4,8 +4,7 @@ use std::time::Duration;
 
 use crate::aggregator::{rpc::AggregatedAttestation, Aggregator};
 use crate::utils::attestor::{
-    collect_send_and_ack_packets_with_height, collect_timeout_packets_with_timestamp,
-    fetch_attestations,
+    collect_send_and_ack_packets_with_height, collect_timeout_packets, fetch_attestations,
 };
 use crate::utils::{cosmos, wait_for_condition, RelayEventsParams};
 use alloy::primitives::Address as AttestorAddress;
@@ -532,7 +531,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
         &params.src_packet_seqs,
         &params.dst_packet_seqs,
     );
-    let timeout_packets = collect_timeout_packets_with_timestamp(
+    let timeout_packets = collect_timeout_packets(
         &params.target_events,
         &params.src_client_id,
         &params.dst_client_id,

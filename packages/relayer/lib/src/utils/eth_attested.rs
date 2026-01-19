@@ -6,7 +6,7 @@ use crate::aggregator::rpc::AggregatedAttestation;
 use crate::aggregator::Aggregator;
 use crate::events::EurekaEventWithHeight;
 use crate::utils::attestor::{
-    collect_send_and_ack_packets_with_height, collect_timeout_packets_with_timestamp,
+    collect_send_and_ack_packets_with_height, collect_timeout_packets,
     fetch_attestations, AttestationData,
 };
 use crate::utils::{eth_eureka, wait_for_condition, RelayEventsParams};
@@ -272,7 +272,7 @@ pub async fn build_eth_attestor_relay_events_tx(
         &params.dst_packet_seqs,
     );
 
-    let timeout_packets = collect_timeout_packets_with_timestamp(
+    let timeout_packets = collect_timeout_packets(
         &params.target_events,
         &params.src_client_id,
         &params.dst_client_id,

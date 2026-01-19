@@ -175,19 +175,15 @@ pub fn collect_send_and_ack_packets_with_height(
 /// (dest client -> src client) indicating the original packet was sent from destination.
 /// Additionally, the packet's timeout timestamp must have elapsed.
 ///
-/// # Returns
-/// A tuple of (timeout packets, max timeout timestamp). The max timeout timestamp is the highest
-/// timeout timestamp among the collected packets, or `None` if no packets were collected.
-///
 /// # Panics
 /// Panics if the current system time cannot be determined.
 #[must_use]
-pub fn collect_timeout_packets_with_timestamp(
+pub fn collect_timeout_packets(
     events: &[EurekaEventWithHeight],
     src_client_id: &str,
     dst_client_id: &str,
     dst_packet_seqs: &[u64],
-) -> (Vec<Vec<u8>>, Option<u64>) {
+) -> Vec<Vec<u8>> {
     let now_since_unix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
@@ -199,13 +195,9 @@ pub fn collect_timeout_packets_with_timestamp(
                 if packet_matches(packet, dst_client_id, src_client_id, dst_packet_seqs)
                     && packet.timeoutTimestamp <= now_since_unix =>
             {
-                Some(packet)
+                Some(packet.abi_encode())
             }
             _ => None,
         })
-        .fold((Vec::new(), None), |(mut packets, mut max_time), packet| {
-            packets.push(packet.abi_encode());
-            max_time = max_time.max(Some(packet.timeoutTimestamp));
-            (packets, max_time)
-        })
+        .collect()
 }
