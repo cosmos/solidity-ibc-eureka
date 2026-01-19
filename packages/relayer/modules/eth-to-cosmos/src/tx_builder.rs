@@ -46,7 +46,7 @@ use ibc_eureka_relayer_lib::{
             build_attestor_create_client_tx, build_attestor_relay_events_tx,
             build_attestor_update_client_tx,
         },
-        wait_for_condition,
+        wait_for_condition, RelayEventsParams,
     },
 };
 
@@ -822,7 +822,6 @@ where
 /// Transaction builder for attested relay to Cosmos.
 pub struct AttestedTxBuilder {
     aggregator: Aggregator,
-    tm_client: HttpClient,
     ics26_router: Address,
     signer_address: String,
 }
@@ -832,13 +831,11 @@ impl AttestedTxBuilder {
     #[must_use]
     pub const fn new(
         aggregator: Aggregator,
-        tm_client: HttpClient,
         ics26_router: Address,
         signer_address: String,
     ) -> Self {
         Self {
             aggregator,
-            tm_client,
             ics26_router,
             signer_address,
         }
@@ -854,27 +851,8 @@ impl AttestedTxBuilder {
     ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
-    pub async fn relay_events(
-        &self,
-        src_events: Vec<EurekaEventWithHeight>,
-        target_events: Vec<EurekaEventWithHeight>,
-        src_client_id: &str,
-        dst_client_id: &str,
-        src_packet_seqs: &[u64],
-        dst_packet_seqs: &[u64],
-    ) -> Result<Vec<u8>> {
-        build_attestor_relay_events_tx(
-            &self.aggregator,
-            src_events,
-            target_events,
-            &self.tm_client,
-            src_client_id,
-            dst_client_id,
-            src_packet_seqs,
-            dst_packet_seqs,
-            &self.signer_address,
-        )
-        .await
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_attestor_relay_events_tx(&self.aggregator, params, &self.signer_address).await
     }
 
     /// Create a client on Cosmos using attestations.

@@ -7,10 +7,10 @@ use thiserror::Error;
 /// Errors that can occur when creating a client state
 #[derive(Debug, Error)]
 pub enum ClientStateError {
-    /// Returned when min_required_sigs is zero
+    /// Returned when `min_required_sigs` is zero
     #[error("min_required_sigs must be greater than 0")]
     ZeroMinRequiredSigs,
-    /// Returned when there are fewer attestors than required signatures
+    /// Returned when there are fewer attestors than `min_required_sigs`
     #[error("attestor_addresses length ({0}) must be >= min_required_sigs ({1})")]
     InsufficientAttestors(usize, u8),
 }
