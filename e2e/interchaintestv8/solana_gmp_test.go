@@ -967,12 +967,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
 		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
-		s.Require().NotEmpty(result.Acknowledgement, "Acknowledgement data should not be empty")
+		s.Require().NotEqual([32]byte{}, result.AckCommitment, "AckCommitment should not be empty for acknowledgement")
 		s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
 		s.Require().True(result.Bump > 0, "Bump should be non-zero")
 
-		s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Acknowledgement, ack_len=%d",
-			result.Sender, result.Sequence, len(result.Acknowledgement))
+		s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Acknowledgement, ack_commitment=%x",
+			result.Sender, result.Sequence, result.AckCommitment)
 	}))
 }
 
@@ -1272,7 +1272,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 				s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
 				s.Require().Equal(solana.CallResultStatusTimeout, result.Status, "Status should be Timeout")
-				s.Require().Empty(result.Acknowledgement, "Acknowledgement data should be empty for timeout")
+				s.Require().Equal([32]byte{}, result.AckCommitment, "AckCommitment should be zeros for timeout")
 				s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
 				s.Require().True(result.Bump > 0, "Bump should be non-zero")
 

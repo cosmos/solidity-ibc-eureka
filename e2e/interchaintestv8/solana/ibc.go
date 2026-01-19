@@ -82,7 +82,7 @@ type GMPCallResultAccount struct {
 	SourceClient    string           // Source client ID
 	DestClient      string           // Destination client ID
 	Status          CallResultStatus // Acknowledgement or Timeout
-	Acknowledgement []byte           // Acknowledgement data (empty for timeout)
+	AckCommitment   [32]byte         // SHA256 commitment of acknowledgement (zeros for timeout)
 	ResultTimestamp int64            // Timestamp when result was recorded (Unix seconds)
 	Bump            uint8            // PDA bump seed
 }
@@ -110,22 +110,6 @@ func DecodeGMPCallResultAccount(data []byte) (*GMPCallResultAccount, error) {
 		s := string(data[offset : offset+int(strLen)])
 		offset += int(strLen)
 		return s, nil
-	}
-
-	// Helper to read u32 length-prefixed bytes
-	readBytes := func() ([]byte, error) {
-		if offset+4 > len(data) {
-			return nil, fmt.Errorf("not enough data for bytes length at offset %d", offset)
-		}
-		bytesLen := binary.LittleEndian.Uint32(data[offset:])
-		offset += 4
-		if offset+int(bytesLen) > len(data) {
-			return nil, fmt.Errorf("not enough data for bytes of length %d at offset %d", bytesLen, offset)
-		}
-		b := make([]byte, bytesLen)
-		copy(b, data[offset:offset+int(bytesLen)])
-		offset += int(bytesLen)
-		return b, nil
 	}
 
 	result := &GMPCallResultAccount{}
@@ -170,11 +154,12 @@ func DecodeGMPCallResultAccount(data []byte) (*GMPCallResultAccount, error) {
 	result.Status = CallResultStatus(data[offset])
 	offset++
 
-	// Acknowledgement (Vec<u8>)
-	result.Acknowledgement, err = readBytes()
-	if err != nil {
-		return nil, fmt.Errorf("reading acknowledgement: %w", err)
+	// AckCommitment ([u8; 32])
+	if offset+32 > len(data) {
+		return nil, fmt.Errorf("not enough data for ack_commitment at offset %d", offset)
 	}
+	copy(result.AckCommitment[:], data[offset:offset+32])
+	offset += 32
 
 	// ResultTimestamp (i64)
 	if offset+8 > len(data) {

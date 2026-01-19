@@ -1,5 +1,6 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
+use solana_sha256_hasher::hash;
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
@@ -83,8 +84,8 @@ pub struct GMPCallResultAccount {
     #[max_len(64)]
     pub dest_client: String,
     pub status: CallResultStatus,
-    #[max_len(1024)]
-    pub acknowledgement: Vec<u8>,
+    /// SHA256 commitment of the acknowledgement
+    pub ack_commitment: [u8; 32],
     pub result_timestamp: i64,
     pub bump: u8,
 }
@@ -104,7 +105,7 @@ impl GMPCallResultAccount {
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
         self.status = CallResultStatus::Acknowledgement;
-        self.acknowledgement = msg.acknowledgement;
+        self.ack_commitment = hash(&msg.acknowledgement).to_bytes();
         self.result_timestamp = timestamp;
         self.bump = bump;
     }
@@ -123,8 +124,86 @@ impl GMPCallResultAccount {
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
         self.status = CallResultStatus::Timeout;
-        self.acknowledgement = vec![];
+        self.ack_commitment = [0u8; 32];
         self.result_timestamp = timestamp;
         self.bump = bump;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_ibc_types::Payload;
+
+    fn test_payload() -> Payload {
+        Payload {
+            source_port: "gmpport".to_string(),
+            dest_port: "gmpport".to_string(),
+            version: "ics27-2".to_string(),
+            encoding: "application/x-solidity-abi".to_string(),
+            value: vec![],
+        }
+    }
+
+    #[test]
+    fn test_ack_commitment_computation() {
+        let mut account = GMPCallResultAccount {
+            version: AccountVersion::V1,
+            sender: String::new(),
+            sequence: 0,
+            source_client: String::new(),
+            dest_client: String::new(),
+            status: CallResultStatus::Acknowledgement,
+            ack_commitment: [0u8; 32],
+            result_timestamp: 0,
+            bump: 0,
+        };
+
+        let ack_data = b"test acknowledgement data";
+        let msg = solana_ibc_types::OnAcknowledgementPacketMsg {
+            sequence: 42,
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
+            payload: test_payload(),
+            acknowledgement: ack_data.to_vec(),
+            relayer: Pubkey::default(),
+        };
+
+        account.init_acknowledged(msg, "sender".to_string(), 1234567890, 255);
+
+        let expected_commitment = hash(ack_data).to_bytes();
+        assert_eq!(account.ack_commitment, expected_commitment);
+        assert_ne!(account.ack_commitment, [0u8; 32]);
+        assert_eq!(account.status, CallResultStatus::Acknowledgement);
+        assert_eq!(account.sequence, 42);
+    }
+
+    #[test]
+    fn test_timeout_has_zero_commitment() {
+        let mut account = GMPCallResultAccount {
+            version: AccountVersion::V1,
+            sender: String::new(),
+            sequence: 0,
+            source_client: String::new(),
+            dest_client: String::new(),
+            status: CallResultStatus::Acknowledgement,
+            ack_commitment: [0u8; 32],
+            result_timestamp: 0,
+            bump: 0,
+        };
+
+        let msg = solana_ibc_types::OnTimeoutPacketMsg {
+            sequence: 42,
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
+            payload: test_payload(),
+            relayer: Pubkey::default(),
+        };
+
+        account.init_timed_out(msg, "sender".to_string(), 1234567890, 255);
+
+        assert_eq!(account.ack_commitment, [0u8; 32]);
+        assert_eq!(account.status, CallResultStatus::Timeout);
+        assert_eq!(account.sequence, 42);
     }
 }
