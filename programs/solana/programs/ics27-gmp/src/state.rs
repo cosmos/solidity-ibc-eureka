@@ -71,22 +71,36 @@ pub use crate::proto::{
 
 pub use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
-/// Stores result of a GMP call (ack or timeout) for sender queries
+/// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+///
+/// This account is created when a GMP packet is either acknowledged or times out,
+/// allowing the original sender to query the outcome of their cross-chain call.
+///
+/// # PDA Seeds
+/// `["gmp_result", source_client, sequence (little-endian u64)]`
 #[account]
 #[derive(InitSpace)]
 pub struct GMPCallResultAccount {
+    /// Account schema version for future upgrades.
     pub version: AccountVersion,
+    /// Original sender address (base58 pubkey string).
     #[max_len(128)]
     pub sender: String,
+    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
     pub sequence: u64,
+    /// Source client ID (light client on this chain tracking the destination).
     #[max_len(64)]
     pub source_client: String,
+    /// Destination client ID (light client on the destination chain).
     #[max_len(64)]
     pub dest_client: String,
+    /// Whether the call was acknowledged or timed out.
     pub status: CallResultStatus,
-    /// SHA256 commitment of the acknowledgement
+    /// SHA256 commitment of the acknowledgement bytes, or zeros for timeout.
     pub ack_commitment: [u8; 32],
+    /// Unix timestamp (seconds) when the result was recorded.
     pub result_timestamp: i64,
+    /// PDA bump seed.
     pub bump: u8,
 }
 
