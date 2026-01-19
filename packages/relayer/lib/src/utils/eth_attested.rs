@@ -272,7 +272,7 @@ pub async fn build_eth_attestor_relay_events_tx(
         &params.dst_packet_seqs,
     );
 
-    let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
+    let timeout_packets = collect_timeout_packets_with_timestamp(
         &params.target_events,
         &params.src_client_id,
         &params.dst_client_id,
@@ -282,9 +282,9 @@ pub async fn build_eth_attestor_relay_events_tx(
     if timeout_packets.is_empty() {
         tracing::debug!("No timeout packets collected");
     } else {
-        let timeout_height = params.timeout_relay_height.ok_or_else(|| {
-            anyhow::anyhow!("timeout_relay_height required for timeout packets")
-        })?;
+        let timeout_height = params
+            .timeout_relay_height
+            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
         // Use max of src_events height and timeout height
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     }
