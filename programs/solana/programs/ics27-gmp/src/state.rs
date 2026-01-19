@@ -183,7 +183,7 @@ mod tests {
             relayer: Pubkey::default(),
         };
 
-        account.init_acknowledged(msg, "sender".to_string(), 1234567890, 255);
+        account.init_acknowledged(msg, "sender".to_string(), 1_234_567_890, 255);
 
         let expected_commitment = hash(ack_data).to_bytes();
         assert_eq!(account.ack_commitment, expected_commitment);
@@ -214,7 +214,7 @@ mod tests {
             relayer: Pubkey::default(),
         };
 
-        account.init_timed_out(msg, "sender".to_string(), 1234567890, 255);
+        account.init_timed_out(msg, "sender".to_string(), 1_234_567_890, 255);
 
         assert_eq!(account.ack_commitment, [0u8; 32]);
         assert_eq!(account.status, CallResultStatus::Timeout);
