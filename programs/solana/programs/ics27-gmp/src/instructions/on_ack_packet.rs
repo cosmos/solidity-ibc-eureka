@@ -334,4 +334,127 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_on_ack_packet_invalid_packet_data() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
+
+        // Create msg with empty payload value (invalid packet data)
+        let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: vec![], // Empty - will fail to decode
+            },
+            acknowledgement: vec![1, 2, 3],
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnAcknowledgementPacket { msg: ack_msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
+            create_payer_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidPacketData as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_on_ack_packet_success() {
+        use crate::test_utils::create_gmp_packet_data;
+        use solana_ibc_proto::ProstMessage;
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
+
+        // Create valid GmpPacketData
+        let packet_data = create_gmp_packet_data(
+            &payer.to_string(),
+            "0x1234567890abcdef",
+            vec![1, 2, 3],
+            vec![4, 5, 6],
+        );
+        let packet_bytes = packet_data.encode_to_vec();
+
+        let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: packet_bytes,
+            },
+            acknowledgement: vec![1, 2, 3],
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnAcknowledgementPacket { msg: ack_msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(router_program, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_router_program_account(router_program),
+            create_instructions_sysvar_account_with_caller(router_program),
+            create_payer_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
+        ];
+
+        let checks = vec![Check::success()];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
