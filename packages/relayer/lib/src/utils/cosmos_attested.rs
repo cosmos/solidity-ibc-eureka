@@ -532,7 +532,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
         &params.src_packet_seqs,
         &params.dst_packet_seqs,
     );
-    let (timeout_packets, _) = collect_timeout_packets_with_timestamp(
+    let timeout_packets = collect_timeout_packets_with_timestamp(
         &params.target_events,
         &params.src_client_id,
         &params.dst_client_id,
