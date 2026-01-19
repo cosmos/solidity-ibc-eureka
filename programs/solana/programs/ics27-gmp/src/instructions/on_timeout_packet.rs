@@ -561,4 +561,26 @@ mod tests {
             memo: "x".repeat(solana_ibc_proto::MAX_MEMO_LENGTH + 1),
         });
     }
+
+    #[test]
+    fn test_on_timeout_packet_receiver_too_long() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: Pubkey::new_unique().to_string(),
+            receiver: "x".repeat(solana_ibc_proto::MAX_RECEIVER_LENGTH + 1),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            memo: String::new(),
+        });
+    }
+
+    #[test]
+    fn test_on_timeout_packet_salt_too_long() {
+        assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
+            sender: Pubkey::new_unique().to_string(),
+            receiver: "0x1234567890abcdef".to_string(),
+            salt: vec![0u8; solana_ibc_proto::MAX_SALT_LENGTH + 1],
+            payload: vec![4, 5, 6],
+            memo: String::new(),
+        });
+    }
 }
