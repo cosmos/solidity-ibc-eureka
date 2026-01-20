@@ -1,0 +1,27 @@
+[package]
+name = "ethereum-keys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[features]
+default = []
+signer = ["dep:alloy-signer"]
+signer-local = ["alloy-signer-local", "rand"]
+
+[dependencies]
+anyhow = { workspace = true, default-features = false }
+alloy-signer = { workspace = true, default-features = false, optional = true }
+alloy-primitives = { workspace = true, default-features = false, features = ["k256"] }
+sha2 = { workspace = true, default-features = false }
+hex = { workspace = true, features = ["alloc"] }
+
+# signer-local deps
+alloy-signer-local = { workspace = true, default-features = false, optional = true, features = ["keystore"] }
+rand = { version = "0.8.5", default-features = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true, default-features = true }
+

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package aggregator;
+
+option go_package = "types/aggregator";
+
+// The Aggregator service definition.
+service AggregatorService {
+  // Queries the attestor with a list of packets. Then used that attestation to
+  // get the state attestation.
+  rpc GetAttestations(GetAttestationsRequest) returns (GetAttestationsResponse);
+}
+
+// Request message for getting an attestation for a set of packets.
+message GetAttestationsRequest {
+  // The packets to attest to
+  repeated bytes packets = 1;
+  // The height to attest to the packets at
+  uint64 height = 2;
+}
+
+
+// One instance of an attestation with all signatures and public keys
+message AggregatedAttestation {
+  // The height of the attestation
+  uint64 height = 1;
+  // The timestamp of the block
+  optional uint64 timestamp = 2;
+  // The attested data
+  bytes attested_data = 3;
+  // The attestation signatures
+  repeated bytes signatures = 4;
+}
+
+// GetStateAttestationResponse is a response from the aggregator.
+message GetAttestationsResponse {
+  // The attestation of the blockchain state
+   AggregatedAttestation state_attestation = 1;
+  // The attestation of the packet membership at the attested state
+   AggregatedAttestation packet_attestation = 2;
+}

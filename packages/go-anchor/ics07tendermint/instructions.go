@@ -364,6 +364,7 @@ func NewCleanupIncompleteUploadInstruction(
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
+
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.

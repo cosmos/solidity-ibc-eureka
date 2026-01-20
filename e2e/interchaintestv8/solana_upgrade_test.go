@@ -70,7 +70,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 
 	s.Require().True(s.Run("Setup: Create upgrader wallet", func() {
 		var err error
-		s.UpgraderWallet, err = s.SolanaChain.CreateAndFundWallet()
+		s.UpgraderWallet, err = s.Solana.Chain.CreateAndFundWallet()
 		s.Require().NoError(err, "failed to create and fund upgrader wallet")
 	}))
 
@@ -86,13 +86,13 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 		)
 		s.Require().NoError(err, "failed to build grant ADMIN_ROLE instruction")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.SolanaRelayer.PublicKey(),
 			grantAdminRoleInstruction,
 		)
 		s.Require().NoError(err, "failed to create grant role transaction")
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err, "failed to grant ADMIN_ROLE")
 	}))
 
@@ -119,7 +119,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			targetProgramID,
 			upgradeAuthorityPDA,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to transfer program upgrade authority to AccessManager")
 	}))
@@ -135,7 +135,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			ctx,
 			programSoFile,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to write program buffer")
 		s.Require().NotEqual(solanago.PublicKey{}, bufferAccount, "buffer account should not be empty")
@@ -146,7 +146,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			bufferAccount,
 			upgradeAuthorityPDA,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to transfer buffer authority to upgrade authority PDA")
 	}))
@@ -172,27 +172,27 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 
 		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.UpgraderWallet.PublicKey(),
 			computeBudgetIx,
 			upgradeProgramInstruction,
 		)
 		s.Require().NoError(err, "failed to create upgrade transaction")
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
 		s.Require().NoError(err, "program upgrade should succeed with ADMIN_ROLE")
 		s.Require().NotEqual(solanago.Signature{}, sig, "upgrade signature should not be empty")
 	}))
 
 	s.Require().True(s.Run("Unauthorized account cannot upgrade program", func() {
-		unauthorizedWallet, err := s.SolanaChain.CreateAndFundWallet()
+		unauthorizedWallet, err := s.Solana.Chain.CreateAndFundWallet()
 		s.Require().NoError(err, "failed to create unauthorized wallet")
 
 		unauthorizedBuffer, err := solana.WriteProgramBuffer(
 			ctx,
 			programSoFile,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to write buffer for unauthorized test")
 
@@ -201,7 +201,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			unauthorizedBuffer,
 			upgradeAuthorityPDA,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to transfer buffer authority for unauthorized test")
 
@@ -225,7 +225,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 
 		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			unauthorizedWallet.PublicKey(),
 			computeBudgetIx,
 			upgradeProgramInstruction,
@@ -233,7 +233,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 		s.Require().NoError(err, "failed to create unauthorized upgrade transaction")
 
 		// Use SignAndBroadcastTxWithOpts for immediate failure without retry (this is a negative test)
-		_, err = s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, unauthorizedWallet)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, unauthorizedWallet)
 		s.Require().Error(err, "upgrade should fail without ADMIN_ROLE")
 		s.Require().Contains(err.Error(), "Custom", "should be Unauthorized error")
 	}))
@@ -247,7 +247,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			ctx,
 			programSoFile,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to write buffer for bypass test")
 
@@ -259,7 +259,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 			targetProgramID,
 			bypassBuffer,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		// The direct upgrade should fail because the program's upgrade authority is now the AccessManager PDA
 		s.Require().Error(err, "direct upgrade should fail - authority is now AccessManager PDA")
@@ -280,7 +280,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 
 	s.Require().True(s.Run("Setup: Create and grant ADMIN_ROLE to second admin", func() {
 		var err error
-		secondAdmin, err = s.SolanaChain.CreateAndFundWallet()
+		secondAdmin, err = s.Solana.Chain.CreateAndFundWallet()
 		s.Require().NoError(err)
 
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
@@ -294,13 +294,13 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.SolanaRelayer.PublicKey(),
 			grantInstruction,
 		)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 	}))
 
@@ -316,13 +316,13 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.SolanaRelayer.PublicKey(),
 			revokeInstruction,
 		)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err, "failed to revoke ADMIN_ROLE")
 	}))
 
@@ -342,7 +342,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 			ctx,
 			programSoFile,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err)
 
@@ -352,7 +352,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 			buffer,
 			upgradeAuthorityPDA,
 			deployerPath,
-			s.SolanaChain.RPCURL,
+			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err)
 
@@ -374,7 +374,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 
 		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			secondAdmin.PublicKey(),
 			computeBudgetIx,
 			upgradeInstruction,
@@ -382,7 +382,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 		s.Require().NoError(err)
 
 		// Should fail after role revocation
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, secondAdmin)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, secondAdmin)
 		s.Require().Error(err, "upgrade should fail after ADMIN_ROLE revocation")
 	}))
 }

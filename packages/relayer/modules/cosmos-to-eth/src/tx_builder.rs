@@ -34,10 +34,18 @@ use tendermint_rpc::HttpClient;
 use sp1_prover::components::SP1ProverComponents;
 
 use ibc_eureka_relayer_lib::{
+    aggregator::Aggregator,
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
     tx_builder::TxBuilderService,
-    utils::eth_eureka::{self, inject_sp1_proof},
+    utils::{
+        eth_attested::{
+            build_eth_attestor_create_client_calldata, build_eth_attestor_relay_events_tx,
+            build_eth_attestor_update_client_calldata,
+        },
+        eth_eureka::{self, inject_sp1_proof},
+        RelayEventsParams,
+    },
 };
 
 /// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
@@ -341,5 +349,53 @@ where
             updateMsg: update_msg.abi_encode().into(),
         }
         .abi_encode())
+    }
+}
+
+/// Transaction builder for attested relay from Cosmos to Ethereum.
+pub struct AttestedTxBuilder<P: Provider + Clone> {
+    aggregator: Aggregator,
+    ics26_address: Address,
+    provider: P,
+}
+
+impl<P: Provider + Clone> AttestedTxBuilder<P> {
+    /// Create a new [`AttestedTxBuilder`] instance.
+    pub const fn new(aggregator: Aggregator, ics26_address: Address, provider: P) -> Self {
+        Self {
+            aggregator,
+            ics26_address,
+            provider,
+        }
+    }
+
+    /// Returns the ICS26 router address.
+    pub const fn ics26_address(&self) -> &Address {
+        &self.ics26_address
+    }
+
+    /// Relay events from Cosmos to Ethereum using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if attestation retrieval or transaction building fails.
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_eth_attestor_relay_events_tx(&self.aggregator, params).await
+    }
+
+    /// Create a client on Ethereum using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if transaction building fails.
+    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
+    }
+
+    /// Update a client on Ethereum using attestations.
+    ///
+    /// # Errors
+    /// Returns an error when called (not yet implemented).
+    #[allow(clippy::unused_async)]
+    pub async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
+        build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id).await
     }
 }

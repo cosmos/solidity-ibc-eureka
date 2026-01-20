@@ -52,8 +52,12 @@ runs:
         mkdir -p programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
         cp -r e2e-artifacts/sp1-programs/* programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
 
+        # Install Solana programs
+        mkdir -p programs/solana/target/deploy/
+        cp -r e2e-artifacts/solana-programs/* programs/solana/target/deploy/
+
     - name: Setup Kurtosis
-      if: env.ETH_TESTNET_TYPE == 'pos'
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
       shell: bash
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
@@ -63,33 +67,18 @@ runs:
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
-    - name: Setup Solana Dependencies
-      if: steps.cache-solana.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config libudev-dev llvm libclang-dev protobuf-compiler libssl-dev
-
     - name: Setup Solana
-      if: steps.cache-solana.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        sh -c "$(curl -sSfL https://release.anza.xyz/v${SOLANA_VERSION}/install)"
+      uses: solana-developers/github-actions/setup-all@v0.2.5
+      with:
+        solana_version: ${{ env.SOLANA_VERSION }}
 
-    - name: Add Solana to PATH
-      shell: bash
-      run: |
-        echo "/home/runner/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
 
-    - name: Setup Anchor
-      if: steps.cache-solana.outputs.cache-hit != 'true'
+    - name: Pull attestor Docker image
       shell: bash
-      run: cargo install --git https://github.com/coral-xyz/anchor --tag v${ANCHOR_VERSION} anchor-cli
-
-    - name: Install just
-      uses: extractions/setup-just@v2
-
-    - name: Build Solana Programs
-      if: steps.cache-solana.outputs.cache-hit != 'true'
-      shell: bash
-      run: just build-solana
+      run: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0
