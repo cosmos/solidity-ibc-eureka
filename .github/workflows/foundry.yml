@@ -5,6 +5,9 @@ env:
   ETH_RPC_URL: https://ethereum-rpc.publicnode.com
   FOUNDRY_PROFILE: ci
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   pull_request:
