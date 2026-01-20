@@ -458,7 +458,7 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    /// Helper to test ack packet with invalid GMP packet data (expects InvalidPacketData error)
+    /// Helper to test ack packet with invalid GMP packet data (expects `InvalidPacketData` error)
     fn assert_ack_packet_invalid_gmp_data(packet_data: solana_ibc_proto::RawGmpPacketData) {
         use solana_ibc_proto::ProstMessage;
 
