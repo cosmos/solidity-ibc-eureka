@@ -27,11 +27,6 @@ const (
 	testExclusionsEnv = "TEST_EXCLUSIONS"
 )
 
-var (
-	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
-	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
-)
-
 type actionTestMatrix struct {
 	Include []testSuitePair `json:"include"`
 }
@@ -40,6 +35,11 @@ type testSuitePair struct {
 	Test       string `json:"test"`
 	EntryPoint string `json:"entrypoint"`
 }
+
+var (
+	ErrNoSuiteEntrypoint       = errors.New("no suite entrypoint found")
+	ErrMultipleSuiteEntrypoint = errors.New("multiple suite entrypoints found")
+)
 
 func main() {
 	var testDir string
@@ -78,6 +78,7 @@ func main() {
 
 func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems []string) (actionTestMatrix, error) {
 	testSuiteMapping := map[string][]string{}
+
 	fileSet := token.NewFileSet()
 	err := filepath.WalkDir(e2eRootDirectory, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {

@@ -14,4 +14,3 @@ tendermint                           = { version = "0.40", default-features = fa
 ibc-eureka-solidity-types          = { workspace = true }
 ibc-client-tendermint              = { workspace = true, features = ["serde"] }
 ibc-core-client-types              = { workspace = true }
-alloy-sol-types                    = { workspace = true }

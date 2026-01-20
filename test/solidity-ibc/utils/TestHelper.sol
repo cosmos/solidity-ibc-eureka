@@ -70,7 +70,7 @@ contract TestHelper is Test {
     }
 
     /// @dev Searches all the logs for the given event selector and returns the first value found
-    function getValueFromEvent(bytes32 eventSelector) public returns (bytes memory) {
+    function getValueFromEvent(bytes32 eventSelector) public view returns (bytes memory) {
         Vm.Log[] memory events = vm.getRecordedLogs();
         for (uint256 i = 0; i < events.length; ++i) {
             Vm.Log memory log = events[i];

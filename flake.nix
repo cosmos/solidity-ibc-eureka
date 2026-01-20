@@ -49,6 +49,7 @@
           nativeBuildInputs = with pkgs; [ perl pkg-config ];
 
           buildInputs = with pkgs; [ openssl ]
+            ++ pkgs.lib.optionals pkgs.stdenv.isLinux [ pkgs.systemd ]
             ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [ pkgs.apple-sdk_15 ];
 
           checkFlags = [
