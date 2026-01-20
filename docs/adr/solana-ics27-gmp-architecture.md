@@ -423,7 +423,7 @@ fn extract_payload_accounts(
 
 ### Problem
 
-When a GMP packet times out or receives a failure acknowledgement, the original sender program (e.g., IFT) needs notification to handle recovery (e.g., refund burned tokens).
+When a GMP packet times out or receives an acknowledgement, the original sender program (e.g., IFT) needs notification to handle recovery (e.g., refund burned tokens).
 
 ### Solution: Callback Forwarding
 
