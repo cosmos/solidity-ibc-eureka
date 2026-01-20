@@ -212,26 +212,6 @@ IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to r
 | **Storage per Bridge** | 308 bytes |
 | **Storage per Pending** | 198 bytes (reclaimed on completion) |
 
-## Alternatives Considered
-
-### 1. IFT as standalone IBC app vs GMP transport
-
-**Chosen**: IFT uses GMP as transport layer.
-
-**Alternative**: IFT registers its own port directly with Router. Rejected because it duplicates GMP's packet encoding/decoding logic and diverges from Solidity architecture where IFT uses GMP.
-
-### 2. Burn-and-mint vs escrow pattern
-
-**Chosen**: Burn tokens on source, mint on destination.
-
-**Alternative**: Escrow tokens on source (like ICS-20). Rejected because IFT assumes the same logical token exists on both chains with coordinated supply. Escrow adds complexity without benefit for this use case.
-
-### 3. Pending transfer tracking vs stateless refunds
-
-**Chosen**: Store pending transfers on-chain for refund processing.
-
-**Alternative**: Derive refund info from packet data alone. Rejected because packet data doesn't contain sender's token account or original amount after potential fee deductions. On-chain state ensures reliable refunds.
-
 ## Limitations
 
 1. **Pre-existing Mint Required**: Token must exist before IFT initialization
