@@ -1,11 +1,9 @@
 pub mod ack_packet;
 pub mod add_ibc_app;
-pub mod add_upstream_caller;
 pub mod cleanup_chunks;
 pub mod client;
 pub mod initialize;
 pub mod recv_packet;
-pub mod remove_upstream_caller;
 pub mod send_packet;
 pub mod set_access_manager;
 pub mod timeout_packet;
@@ -14,12 +12,10 @@ pub mod upload_proof_chunk;
 
 pub use ack_packet::*;
 pub use add_ibc_app::*;
-pub use add_upstream_caller::*;
 pub use cleanup_chunks::*;
 pub use client::*;
 pub use initialize::*;
 pub use recv_packet::*;
-pub use remove_upstream_caller::*;
 pub use send_packet::*;
 pub use set_access_manager::*;
 pub use timeout_packet::*;

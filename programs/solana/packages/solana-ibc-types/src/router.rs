@@ -193,9 +193,6 @@ pub struct MsgCleanupChunks {
     pub total_proof_chunks: u8,
 }
 
-/// Maximum number of upstream callers that can be registered for an IBC app
-pub const MAX_UPSTREAM_CALLERS: usize = 4;
-
 /// IBCApp mapping port IDs to IBC app program IDs
 /// This matches the on-chain account structure in the ICS26 router
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
@@ -208,8 +205,6 @@ pub struct IBCApp {
     pub app_program_id: Pubkey,
     /// Authority that registered this port
     pub authority: Pubkey,
-    /// Programs authorized to call through this IBC app (for layered architectures like IFT→GMP)
-    pub upstream_callers: Vec<Pubkey>,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }

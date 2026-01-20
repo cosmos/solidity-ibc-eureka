@@ -186,25 +186,26 @@ func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07Tendermin
 	return obj, nil
 }
 
-// Storage for Ed25519 signature verification results
+// Storage for Ed25519 signature verification results.
+// IMPORTANT: Field order matters: verifier reads `data[8]` for `is_valid`.
 type Ics07TendermintStateSignatureVerification struct {
-	// The submitter who created this verification
-	Submitter solanago.PublicKey `json:"submitter"`
-
 	// Whether the signature is valid
 	IsValid bool `json:"isValid"`
+
+	// The submitter who created this verification
+	Submitter solanago.PublicKey `json:"submitter"`
 }
 
 func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Submitter`:
-	err = encoder.Encode(obj.Submitter)
-	if err != nil {
-		return errors.NewField("Submitter", err)
-	}
 	// Serialize `IsValid`:
 	err = encoder.Encode(obj.IsValid)
 	if err != nil {
 		return errors.NewField("IsValid", err)
+	}
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
 	}
 	return nil
 }
@@ -220,15 +221,15 @@ func (obj Ics07TendermintStateSignatureVerification) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Submitter`:
-	err = decoder.Decode(&obj.Submitter)
-	if err != nil {
-		return errors.NewField("Submitter", err)
-	}
 	// Deserialize `IsValid`:
 	err = decoder.Decode(&obj.IsValid)
 	if err != nil {
 		return errors.NewField("IsValid", err)
+	}
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
 	}
 	return nil
 }

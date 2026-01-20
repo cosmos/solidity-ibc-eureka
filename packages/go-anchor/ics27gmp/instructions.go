@@ -101,6 +101,7 @@ func NewSendCallInstruction(
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// App state account - validated by Anchor PDA constraints
+		// This account will be signed when calling the router to prove GMP is the caller
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "sender": Read-only, Non-signer, Required
 		// Sender of the call - for direct calls must be a signer (user wallet),
@@ -121,7 +122,7 @@ func NewSendCallInstruction(
 		// Packet commitment account to be created
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 7 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for router CPI validation
+		// Instructions sysvar for detecting CPI vs direct call
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 8 "ibc_app": Read-only, Non-signer, Required
 		// IBC app registration account

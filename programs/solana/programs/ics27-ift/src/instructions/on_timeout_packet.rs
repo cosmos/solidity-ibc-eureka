@@ -55,13 +55,6 @@ pub struct OnTimeoutPacket<'info> {
     )]
     pub sender_token_account: Account<'info, TokenAccount>,
 
-    /// Router program calling this instruction
-    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
-
-    /// CHECK: Instructions sysvar for CPI validation
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
-
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -73,15 +66,6 @@ pub fn on_timeout_packet(
     ctx: Context<OnTimeoutPacket>,
     _msg: solana_ibc_types::OnTimeoutPacketMsg,
 ) -> Result<()> {
-    // Allow CPI from either Router (direct) or GMP (when IFT sends through GMP)
-    solana_ibc_types::validate_cpi_caller_with_upstream(
-        &ctx.accounts.instruction_sysvar,
-        &ctx.accounts.router_program.key(),
-        &[ics27_gmp::ID], // Allow GMP as upstream caller for IFT→GMP→Router flow
-        &crate::ID,
-    )
-    .map_err(IFTError::from)?;
-
     let pending = &ctx.accounts.pending_transfer;
     let clock = Clock::get()?;
 

@@ -154,7 +154,7 @@ fn build_ift_callback_accounts(
     pending_transfer: &PendingTransfer,
     client_id: &str,
     sequence: u64,
-    router_program_id: Pubkey,
+    _router_program_id: Pubkey,
     fee_payer: Pubkey,
 ) -> Vec<AccountMeta> {
     let mint = pending_transfer.mint;
@@ -177,7 +177,8 @@ fn build_ift_callback_accounts(
 
     let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
 
-    // Account order must match IFT's OnAckPacket struct
+    // Account order must match IFT's OnAckPacket/OnTimeoutPacket struct
+    // Note: router_program and instruction_sysvar removed - PDA-based auth used instead
     let accounts = vec![
         AccountMeta {
             pubkey: ift_program_id,
@@ -208,16 +209,6 @@ fn build_ift_callback_accounts(
             pubkey: sender_token_account,
             is_signer: false,
             is_writable: true,
-        },
-        AccountMeta {
-            pubkey: router_program_id,
-            is_signer: false,
-            is_writable: false,
-        },
-        AccountMeta {
-            pubkey: solana_sdk::sysvar::instructions::id(),
-            is_signer: false,
-            is_writable: false,
         },
         AccountMeta {
             pubkey: fee_payer,

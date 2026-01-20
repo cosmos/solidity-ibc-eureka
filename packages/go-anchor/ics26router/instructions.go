@@ -122,121 +122,6 @@ func NewAddIbcAppInstruction(
 	), nil
 }
 
-// Builds a "add_upstream_caller" instruction.
-func NewAddUpstreamCallerInstruction(
-	// Params:
-	portIdParam string,
-	upstreamCallerParam solanago.PublicKey,
-
-	// Accounts:
-	routerStateAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
-	ibcAppAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_AddUpstreamCaller[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `portIdParam`:
-		err = enc__.Encode(portIdParam)
-		if err != nil {
-			return nil, errors.NewField("portIdParam", err)
-		}
-		// Serialize `upstreamCallerParam`:
-		err = enc__.Encode(upstreamCallerParam)
-		if err != nil {
-			return nil, errors.NewField("upstreamCallerParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "router_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "ibc_app": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, true, false))
-		// Account 3 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 4 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "remove_upstream_caller" instruction.
-func NewRemoveUpstreamCallerInstruction(
-	// Params:
-	portIdParam string,
-	upstreamCallerParam solanago.PublicKey,
-
-	// Accounts:
-	routerStateAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
-	ibcAppAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_RemoveUpstreamCaller[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `portIdParam`:
-		err = enc__.Encode(portIdParam)
-		if err != nil {
-			return nil, errors.NewField("portIdParam", err)
-		}
-		// Serialize `upstreamCallerParam`:
-		err = enc__.Encode(upstreamCallerParam)
-		if err != nil {
-			return nil, errors.NewField("upstreamCallerParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "router_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 2 "ibc_app": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, true, false))
-		// Account 3 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 4 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
 // Builds a "send_packet" instruction.
 func NewSendPacketInstruction(
 	// Params:
@@ -247,7 +132,7 @@ func NewSendPacketInstruction(
 	ibcAppAccount solanago.PublicKey,
 	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
+	appSignerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
@@ -280,9 +165,10 @@ func NewSendPacketInstruction(
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
 		// Packet commitment account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 4 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for validating CPI caller
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 4 "app_signer": Read-only, Signer, Required
+		// App signer - PDA signed by the calling IBC app program.
+		// This cryptographically proves the registered app is the immediate CPI caller.
+		accounts__.Append(solanago.NewAccountMeta(appSignerAccount, false, true))
 		// Account 5 "payer": Writable, Signer, Required
 		// Allow payer to be separate from IBC app
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))

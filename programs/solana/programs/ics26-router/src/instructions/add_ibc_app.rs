@@ -62,7 +62,6 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     ibc_app.port_id = port_id;
     ibc_app.app_program_id = ctx.accounts.app_program.key();
     ibc_app.authority = ctx.accounts.authority.key();
-    ibc_app.upstream_callers = Vec::new();
     ibc_app._reserved = [0u8; 256];
 
     emit!(IBCAppAdded {

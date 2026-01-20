@@ -33,7 +33,6 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 └─────────────────────────────────────────────────────┘
 ```
 
-**Note on CPI Validation**: Due to Solana's instruction sysvar limitation (which only exposes the top-level program, not immediate CPI caller), IFT must be registered as an "upstream caller" for GMP's port in the Router. See [GMP ADR](./solana-ics27-gmp-architecture.md#cpi-caller-validation-limitation) for details.
 
 ## SPL Token Operations
 
@@ -188,6 +187,8 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 
 5. **Replay Protection**: Pending transfers use sequence numbers, closed after processing
 
+6. **Callback Authentication via PDA**: Timeout/ack handlers authenticate via `PendingTransfer` PDA existence rather than CPI caller validation. The PDA can only be created by IFT during a legitimate transfer, making it self-authenticating.
+
 ## Integration with ICS27-GMP
 
 IFT uses GMP as pure transport, not for account control:
@@ -198,9 +199,13 @@ IFT maintains its own mint authority and doesn't delegate token control to GMP P
 
 ### Callback Routing
 
-GMP routes timeout/ack callbacks to IFT via implicit sender detection (see [GMP ADR](./solana-ics27-gmp-architecture.md#packet-lifecycle-callbacks) for mechanism details).
+IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure.
 
-IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure. These handlers accept CPI calls from both Router (direct) and GMP (for forwarded callbacks):
+**Security Model**: These handlers do not require CPI caller validation. Instead, security is provided by the `PendingTransfer` PDA:
+- Only IFT can create valid `PendingTransfer` PDAs during `ift_transfer`
+- Callback handlers require a valid `PendingTransfer` PDA derived from `[mint, client_id, sequence]`
+- Without a matching PDA (which requires a prior legitimate transfer), callbacks cannot execute
+- This is more efficient and Solana-native than instruction sysvar inspection
 
 ## Performance (TODO: Update post testing)
 

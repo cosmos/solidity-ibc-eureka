@@ -383,8 +383,6 @@ func NewOnAcknowledgementPacketInstruction(
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
 	senderTokenAccountAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -422,16 +420,11 @@ func NewOnAcknowledgementPacketInstruction(
 		// Account 4 "sender_token_account": Writable, Non-signer, Required
 		// Original sender's token account (for refunds)
 		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
-		// Account 5 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program calling this instruction
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 6 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 7 "payer": Writable, Signer, Required
+		// Account 5 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 8 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 9 "system_program": Read-only, Non-signer, Required
+		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -455,8 +448,6 @@ func NewOnTimeoutPacketInstruction(
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
 	senderTokenAccountAccount solanago.PublicKey,
-	routerProgramAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -494,16 +485,11 @@ func NewOnTimeoutPacketInstruction(
 		// Account 4 "sender_token_account": Writable, Non-signer, Required
 		// Original sender's token account
 		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
-		// Account 5 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program calling this instruction
-		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 6 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 7 "payer": Writable, Signer, Required
+		// Account 5 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 8 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 9 "system_program": Read-only, Non-signer, Required
+		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

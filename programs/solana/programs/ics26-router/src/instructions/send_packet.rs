@@ -4,6 +4,7 @@ use crate::utils::ics24;
 use crate::utils::sequence;
 use anchor_lang::prelude::*;
 use solana_ibc_types::events::SendPacketEvent;
+use solana_ibc_types::IBCAppState;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]
@@ -32,10 +33,8 @@ pub struct SendPacket<'info> {
     #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
 
-    /// Instructions sysvar for validating CPI caller
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
+    /// App signer - PDA signed by the calling IBC app program
+    pub app_signer: Signer<'info>,
 
     /// Allow payer to be separate from IBC app
     #[account(mut)]
@@ -58,13 +57,14 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    solana_ibc_types::validate_cpi_caller_with_upstream(
-        &ctx.accounts.instruction_sysvar,
+    let (expected_app_signer, _) = Pubkey::find_program_address(
+        &[IBCAppState::SEED, ibc_app.port_id.as_bytes()],
         &ibc_app.app_program_id,
-        &ibc_app.upstream_callers,
-        &crate::ID,
-    )
-    .map_err(RouterError::from)?;
+    );
+    require!(
+        ctx.accounts.app_signer.key() == expected_app_signer,
+        RouterError::UnauthorizedSender
+    );
 
     let current_timestamp = clock.unix_timestamp;
     require!(
@@ -206,8 +206,8 @@ mod tests {
         client_id: &'static str,
         port_id: &'static str,
         app_program_id: Option<Pubkey>,
-        cpi_caller_program_id: Pubkey,
-        upstream_callers: Vec<Pubkey>,
+        /// If true, use correct app_signer PDA. If false, use wrong PDA to test rejection.
+        use_valid_app_signer: bool,
         active_client: bool,
         current_timestamp: i64,
         timeout_timestamp: i64,
@@ -221,8 +221,7 @@ mod tests {
                 client_id: "test-client",
                 port_id: "test-port",
                 app_program_id: Some(app_program_id),
-                cpi_caller_program_id: app_program_id,
-                upstream_callers: vec![],
+                use_valid_app_signer: true,
                 active_client: true,
                 current_timestamp: 1000,
                 timeout_timestamp: 2000,
@@ -244,8 +243,7 @@ mod tests {
         );
         let (client_sequence_pda, client_sequence_data) =
             setup_client_sequence(params.client_id, params.initial_sequence);
-        let (ibc_app_pda, ibc_app_data) =
-            setup_ibc_app_with_upstream(params.port_id, app_program_id, params.upstream_callers);
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(params.port_id, app_program_id);
 
         let msg = MsgSendPacket {
             source_client: params.client_id.to_string(),
@@ -276,6 +274,22 @@ mod tests {
             &crate::ID,
         );
 
+        // Derive the correct app_signer PDA from the registered app's program ID
+        let (correct_app_signer, _) = Pubkey::find_program_address(
+            &[
+                solana_ibc_types::IBCAppState::SEED,
+                params.port_id.as_bytes(),
+            ],
+            &app_program_id,
+        );
+
+        // Use correct or wrong app_signer based on test params
+        let app_signer = if params.use_valid_app_signer {
+            correct_app_signer
+        } else {
+            Pubkey::new_unique() // Wrong PDA
+        };
+
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
@@ -283,7 +297,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(app_signer, true), // app_signer must be a signer
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
@@ -296,7 +310,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda),
-            create_instructions_sysvar_account_with_caller(params.cpi_caller_program_id),
+            create_signer_account_with_pubkey(app_signer), // app_signer account
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
@@ -378,28 +392,10 @@ mod tests {
     }
 
     #[test]
-    fn test_send_packet_direct_call_rejected() {
-        // Test that direct calls (not via CPI) are rejected
+    fn test_send_packet_wrong_app_signer_rejected() {
+        // Test that a wrong app_signer PDA is rejected
         let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            cpi_caller_program_id: crate::ID,
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::DirectCallNotAllowed as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_unauthorized_app_caller() {
-        // Test that CPI from unauthorized program is rejected
-        let unauthorized_program = Pubkey::new_unique();
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            cpi_caller_program_id: unauthorized_program,
+            use_valid_app_signer: false, // Use wrong PDA
             ..Default::default()
         });
 
@@ -407,34 +403,6 @@ mod tests {
 
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_fake_sysvar_wormhole_attack() {
-        // Test that Wormhole-style fake sysvar attacks are rejected
-        let app_program_id = Pubkey::new_unique();
-        let mut ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: app_program_id,
-            ..Default::default()
-        });
-
-        // Simulate Wormhole attack: replace real sysvar with a completely different account
-        let (fake_sysvar_pubkey, fake_sysvar_account) =
-            create_fake_instructions_sysvar_account(app_program_id);
-
-        // Modify the instruction to reference the fake sysvar (simulating attacker control)
-        ctx.instruction.accounts[4] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
-        ctx.accounts[4] = (fake_sysvar_pubkey, fake_sysvar_account);
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        // Should be rejected by Anchor's address constraint check
-        let checks = vec![Check::err(ProgramError::Custom(
-            anchor_lang::error::ErrorCode::ConstraintAddress as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
@@ -529,6 +497,12 @@ mod tests {
         let (router_state_pda, router_state_data) = setup_router_state();
         let (ibc_app_pda, ibc_app_data) = setup_ibc_app(port_id, app_program_id);
 
+        // Derive the app_signer PDA from the registered app's program ID
+        let (app_signer, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED, port_id.as_bytes()],
+            &app_program_id,
+        );
+
         // Create first client with sequence 10
         let client_id_1 = "test-client-1";
         let (client_pda_1, client_data_1) = setup_client(
@@ -586,7 +560,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_1, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(app_signer, true), // app_signer must be a signer
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_1, false),
@@ -599,7 +573,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data.clone(), crate::ID),
             create_account(client_sequence_pda_1, client_sequence_data_1, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
-            create_instructions_sysvar_account_with_caller(app_program_id),
+            create_signer_account_with_pubkey(app_signer),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_1, client_data_1, crate::ID),
@@ -647,7 +621,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda, false),
                 AccountMeta::new(client_sequence_pda_2, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(app_signer, true), // app_signer must be a signer
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda_2, false),
@@ -660,7 +634,7 @@ mod tests {
             create_account(ibc_app_pda, ibc_app_data, crate::ID),
             create_account(client_sequence_pda_2, client_sequence_data_2, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
-            create_instructions_sysvar_account_with_caller(app_program_id),
+            create_signer_account_with_pubkey(app_signer),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda_2, client_data_2, crate::ID),
@@ -696,6 +670,16 @@ mod tests {
         let (ibc_app_pda_1, ibc_app_data_1) = setup_ibc_app(port_id_1, app_program_1);
         let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(port_id_2, app_program_2);
 
+        // Derive app_signer PDAs for each program
+        let (app_signer_1, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED, port_id_1.as_bytes()],
+            &app_program_1,
+        );
+        let (app_signer_2, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED, port_id_2.as_bytes()],
+            &app_program_2,
+        );
+
         // Program 1 sends first
         let msg_1 = MsgSendPacket {
             source_client: client_id.to_string(),
@@ -728,7 +712,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda_1, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda_1, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(app_signer_1, true), // app_signer must be a signer
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
@@ -741,7 +725,7 @@ mod tests {
             create_account(ibc_app_pda_1, ibc_app_data_1, crate::ID),
             create_account(client_sequence_pda, client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_1),
-            create_instructions_sysvar_account_with_caller(app_program_1),
+            create_signer_account_with_pubkey(app_signer_1),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data.clone(), crate::ID),
@@ -803,7 +787,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_app_pda_2, false),
                 AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new(packet_commitment_pda_2, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(app_signer_2, true), // app_signer must be a signer
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(client_pda, false),
@@ -816,7 +800,7 @@ mod tests {
             create_account(ibc_app_pda_2, ibc_app_data_2, crate::ID),
             create_account(client_sequence_pda, updated_client_sequence_data, crate::ID),
             create_uninitialized_commitment_account(packet_commitment_pda_2),
-            create_instructions_sysvar_account_with_caller(app_program_2),
+            create_signer_account_with_pubkey(app_signer_2),
             create_system_account(payer),
             create_program_account(system_program::ID),
             create_account(client_pda, client_data, crate::ID),
@@ -894,115 +878,5 @@ mod tests {
         let error_checks = vec![Check::err(ProgramError::Custom(0))]; // Anchor error code 0
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &error_checks);
-    }
-
-    #[test]
-    fn test_send_packet_upstream_caller_success() {
-        // Test that a whitelisted upstream caller can send packets
-        // This simulates: IFT (upstream) → GMP (registered app) → Router
-        let app_program_id = Pubkey::new_unique(); // GMP
-        let upstream_caller = Pubkey::new_unique(); // IFT
-
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: upstream_caller, // IFT is calling
-            upstream_callers: vec![upstream_caller], // IFT is whitelisted
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::success()];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_upstream_caller_one_of_many() {
-        // Test that any caller in the upstream_callers list can send packets
-        let app_program_id = Pubkey::new_unique(); // GMP
-        let upstream_caller_1 = Pubkey::new_unique(); // IFT
-        let upstream_caller_2 = Pubkey::new_unique(); // Some other upstream program
-        let upstream_caller_3 = Pubkey::new_unique(); // Yet another upstream program
-
-        // Test with caller 2 (not the first in the list)
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: upstream_caller_2, // Calling from second upstream caller
-            upstream_callers: vec![upstream_caller_1, upstream_caller_2, upstream_caller_3],
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::success()];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_upstream_caller_not_in_list() {
-        // Test that a caller NOT in the upstream_callers list is rejected
-        let app_program_id = Pubkey::new_unique(); // GMP
-        let whitelisted_upstream = Pubkey::new_unique(); // IFT (whitelisted)
-        let unauthorized_caller = Pubkey::new_unique(); // Attacker program (not whitelisted)
-
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: unauthorized_caller, // Not in whitelist
-            upstream_callers: vec![whitelisted_upstream], // Only IFT is whitelisted
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_registered_app_still_works_with_upstream_callers() {
-        // Test that the registered app itself can still send packets when upstream callers exist
-        // This ensures whitelisting upstream callers doesn't break the normal flow
-        let app_program_id = Pubkey::new_unique(); // GMP
-        let upstream_caller = Pubkey::new_unique(); // IFT
-
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: app_program_id, // GMP itself is calling
-            upstream_callers: vec![upstream_caller], // IFT is also whitelisted
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::success()];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-    }
-
-    #[test]
-    fn test_send_packet_empty_upstream_callers_requires_registered_app() {
-        // Test that with empty upstream_callers, only the registered app can send
-        let app_program_id = Pubkey::new_unique();
-        let unauthorized_caller = Pubkey::new_unique();
-
-        let ctx = setup_send_packet_test_with_params(SendPacketTestParams {
-            app_program_id: Some(app_program_id),
-            cpi_caller_program_id: unauthorized_caller, // Not the registered app
-            upstream_callers: vec![],                   // No upstream callers whitelisted
-            ..Default::default()
-        });
-
-        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
-
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

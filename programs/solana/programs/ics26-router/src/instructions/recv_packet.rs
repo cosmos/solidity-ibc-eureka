@@ -837,7 +837,6 @@ mod tests {
             port_id: "test-port".to_string(),
             app_program_id: MOCK_IBC_APP_PROGRAM_ID,
             authority: Pubkey::new_unique(),
-            upstream_callers: vec![],
             _reserved: [0; 256],
         };
 

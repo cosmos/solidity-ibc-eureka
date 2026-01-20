@@ -24,7 +24,7 @@ pub use router::{
     router_instructions, AccountVersion, Client, ClientAccount, ClientSequence, Commitment,
     CounterpartyInfo, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
     MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata,
-    ProofChunk, ProofMetadata, RouterState, MAX_UPSTREAM_CALLERS,
+    ProofChunk, ProofMetadata, RouterState,
 };
 
 // Re-export MAX_CLIENT_ID_LENGTH from solana-ibc-proto (single source of truth)
@@ -50,7 +50,6 @@ pub use ibc_app_interface::ibc_app_instructions;
 
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
-    reject_cpi, validate_cpi_caller, validate_cpi_caller_with_upstream,
-    validate_direct_or_whitelisted_cpi, CpiValidationError,
+    reject_cpi, validate_cpi_caller, validate_direct_or_whitelisted_cpi, CpiValidationError,
 };
 pub use utils::compute_discriminator;

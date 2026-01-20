@@ -101,14 +101,6 @@ pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Ve
 }
 
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
-    setup_ibc_app_with_upstream(port_id, app_program_id, vec![])
-}
-
-pub fn setup_ibc_app_with_upstream(
-    port_id: &str,
-    app_program_id: Pubkey,
-    upstream_callers: Vec<Pubkey>,
-) -> (Pubkey, Vec<u8>) {
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
     let ibc_app = IBCApp {
@@ -116,13 +108,9 @@ pub fn setup_ibc_app_with_upstream(
         port_id: port_id.to_string(),
         app_program_id,
         authority: Pubkey::new_unique(),
-        upstream_callers,
         _reserved: [0; 256],
     };
-    let mut ibc_app_data = create_account_data(&ibc_app);
-    // Pad to full INIT_SPACE to allow adding upstream callers
-    let full_size = ANCHOR_DISCRIMINATOR_SIZE + IBCApp::INIT_SPACE;
-    ibc_app_data.resize(full_size, 0);
+    let ibc_app_data = create_account_data(&ibc_app);
     (ibc_app_pda, ibc_app_data)
 }
 
@@ -804,7 +792,7 @@ pub fn build_instruction<T: anchor_lang::InstructionData>(
     }
 }
 
-/// Create signer account for tests
+/// Create signer account for tests (without pubkey - returns just the Account)
 pub fn create_signer_account() -> solana_sdk::account::Account {
     solana_sdk::account::Account {
         lamports: 1_000_000_000,
@@ -813,6 +801,11 @@ pub fn create_signer_account() -> solana_sdk::account::Account {
         executable: false,
         rent_epoch: 0,
     }
+}
+
+/// Create signer account with pubkey for tests (returns tuple for mollusk)
+pub fn create_signer_account_with_pubkey(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+    (pubkey, create_signer_account())
 }
 
 /// Setup mollusk for tests

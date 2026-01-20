@@ -101,15 +101,9 @@ pub struct SendTransfer<'info> {
     pub router_program: Program<'info, Ics26Router>,
 
     pub system_program: Program<'info, System>,
-
-    /// Instructions sysvar for router CPI validation
-    /// CHECK: Router validates this
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
 }
 
 pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result<()> {
-    let app_state = &mut ctx.accounts.app_state;
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
@@ -206,18 +200,26 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         ibc_app: ctx.accounts.ibc_app.to_account_info(),
         client_sequence: ctx.accounts.client_sequence.to_account_info(),
         packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
-        instruction_sysvar: ctx.accounts.instruction_sysvar.to_account_info(),
+        app_signer: ctx.accounts.app_state.to_account_info(),
         payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
         client: ctx.accounts.client.to_account_info(),
     };
 
-    // No PDA signing needed - router validates via instruction sysvar
-    let cpi_ctx = CpiContext::new(ctx.accounts.router_program.to_account_info(), cpi_accounts);
+    // Sign the app_state PDA to prove this app is the immediate caller
+    let bump = ctx.bumps.app_state;
+    let signer_seeds: &[&[u8]] = &[IBCAppState::SEED, TRANSFER_PORT.as_bytes(), &[bump]];
+    let seeds = [signer_seeds];
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.router_program.to_account_info(),
+        cpi_accounts,
+        &seeds,
+    );
     let sequence_result = router_cpi::send_packet(cpi_ctx, router_msg)?;
     let sequence = sequence_result.get();
 
     // Update app state - track packets sent
+    let app_state = &mut ctx.accounts.app_state;
     app_state.packets_sent = app_state.packets_sent.saturating_add(1);
 
     // Emit event for tracking

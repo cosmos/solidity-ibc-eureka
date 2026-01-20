@@ -121,30 +121,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeIFT(ctx context.Context, mint so
 	s.Require().NoError(err)
 }
 
-// registerIFTAsUpstreamCaller registers IFT as an upstream caller on the router
-func (s *IbcEurekaSolanaIFTTestSuite) registerIFTAsUpstreamCaller(ctx context.Context) {
-	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-	ibcAppAccount, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(IFTPortID))
-
-	addUpstreamCallerIx, err := ics26_router.NewAddUpstreamCallerInstruction(
-		IFTPortID,
-		ics27_ift.ProgramID,
-		routerStateAccount,
-		accessControlAccount,
-		ibcAppAccount,
-		s.SolanaRelayer.PublicKey(),
-		solanago.SysVarInstructionsPubkey,
-	)
-	s.Require().NoError(err)
-
-	tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), addUpstreamCallerIx)
-	s.Require().NoError(err)
-
-	_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
-	s.Require().NoError(err)
-}
-
 // Test_IFT_SolanaToCosmosTransfer tests sending IFT tokens from Solana to Cosmos
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	ctx := context.Background()
@@ -175,8 +151,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	}))
 
 	s.initializeIFT(ctx, s.IFTMint)
-	s.registerIFTAsUpstreamCaller(ctx)
-
 	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
@@ -436,8 +410,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	}))
 
 	s.initializeIFT(ctx, s.IFTMint)
-	s.registerIFTAsUpstreamCaller(ctx)
-
 	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
 
@@ -581,7 +553,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	}))
 
 	s.initializeIFT(ctx, s.IFTMint)
-	s.registerIFTAsUpstreamCaller(ctx)
 
 	cosmosUser := s.CosmosUsers[0]
 	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
