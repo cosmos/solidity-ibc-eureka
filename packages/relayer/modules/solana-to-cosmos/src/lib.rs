@@ -168,12 +168,11 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         // For timeouts in attested mode, get the current slot from the source chain (Solana)
         // where non-membership is proven
-        let timeout_relay_height =
-            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-                Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
-            } else {
-                None
-            };
+        let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
+        } else {
+            None
+        };
 
         let tx = self
             .tx_builder

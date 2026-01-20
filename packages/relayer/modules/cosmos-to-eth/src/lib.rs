@@ -324,17 +324,16 @@ impl RelayerService for CosmosToEthRelayerModuleService {
 
         // For timeouts in attested mode, get the current height from the source chain (Cosmos)
         // where non-membership is proven
-        let timeout_relay_height =
-            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-                Some(
-                    self.tm_listener
-                        .get_block_height()
-                        .await
-                        .map_err(|e| tonic::Status::from_error(e.into()))?,
-                )
-            } else {
-                None
-            };
+        let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+            Some(
+                self.tm_listener
+                    .get_block_height()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
 
         let multicall_tx = self
             .tx_builder
