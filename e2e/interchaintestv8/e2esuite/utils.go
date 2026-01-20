@@ -22,7 +22,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/client/grpc/cmtservice"
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -90,9 +89,14 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 	return &resp, nil
 }
 
-// CreateAndFundCosmosUser returns a new cosmos user with the given initial balance and funds it with the native chain denom.
+// CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
 func (s *TestSuite) CreateAndFundCosmosUser(ctx context.Context, chain *cosmos.CosmosChain) ibc.Wallet {
-	cosmosUserFunds := sdkmath.NewInt(testvalues.InitialBalance)
+	return s.CreateAndFundCosmosUserWithBalance(ctx, chain, testvalues.InitialBalance)
+}
+
+// CreateAndFundCosmosUserWithBalance returns a new cosmos user with the given balance and funds it with the native chain denom.
+func (s *TestSuite) CreateAndFundCosmosUserWithBalance(ctx context.Context, chain *cosmos.CosmosChain, balance int64) ibc.Wallet {
+	cosmosUserFunds := sdkmath.NewInt(balance)
 	cosmosUsers := interchaintest.GetAndFundTestUsers(s.T(), ctx, s.T().Name(), cosmosUserFunds, chain)
 
 	return cosmosUsers[0]
@@ -114,7 +118,7 @@ func GetEvmEvent[T any](receipt *ethtypes.Receipt, parseFn func(log ethtypes.Log
 	return event, err
 }
 
-func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain ethereum.Ethereum) *bind.TransactOpts {
+func (s *TestSuite) GetTransactOpts(key *ecdsa.PrivateKey, chain *ethereum.Ethereum) *bind.TransactOpts {
 	opts, err := chain.GetTransactOpts(key)
 	s.Require().NoError(err)
 	return opts
@@ -176,9 +180,9 @@ func (s *TestSuite) extractChecksumFromGzippedContent(zippedContent []byte) stri
 // ExecuteGovV1Proposal submits a v1 governance proposal using the provided user and message and uses all validators
 // to vote yes on the proposal.
 func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmosChain *cosmos.CosmosChain, user ibc.Wallet) error {
-	proposalID := s.proposalIDs[cosmosChain.Config().ChainID]
+	proposalID := s.Cosmos.proposalIDs[cosmosChain.Config().ChainID]
 	defer func() {
-		s.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
+		s.Cosmos.proposalIDs[cosmosChain.Config().ChainID] = proposalID + 1
 	}()
 
 	msgs := []sdk.Msg{msg}
@@ -381,23 +385,6 @@ func (s *TestSuite) GetTopLevelTestName() string {
 	return s.T().Name()
 }
 
-// FetchCosmosHeader fetches the latest header from the given chain.
-func (s *TestSuite) FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosChain) (*cmtservice.Header, error) {
-	latestHeight, err := chain.Height(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	headerResp, err := GRPCQuery[cmtservice.GetBlockByHeightResponse](ctx, chain, &cmtservice.GetBlockByHeightRequest{
-		Height: latestHeight,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &headerResp.SdkBlock.Header, nil
-}
-
 func (s *TestSuite) MustBroadcastSdkTxBody(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
 	resp, err := s.BroadcastSdkTxBody(ctx, chain, user, gas, txBodyBz)
 	s.Require().NoError(err)
@@ -422,4 +409,11 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+}
+
+// StripHTTPPrefix removes http:// or https:// prefix from an endpoint.
+func StripHTTPPrefix(endpoint string) string {
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	return endpoint
 }

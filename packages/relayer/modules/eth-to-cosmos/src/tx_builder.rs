@@ -36,10 +36,18 @@ use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
 use ibc_eureka_relayer_lib::{
+    aggregator::Aggregator,
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,
     tx_builder::TxBuilderService,
-    utils::{cosmos, wait_for_condition},
+    utils::{
+        cosmos,
+        cosmos_attested::{
+            build_attestor_create_client_tx, build_attestor_relay_events_tx,
+            build_attestor_update_client_tx,
+        },
+        wait_for_condition, RelayEventsParams,
+    },
 };
 
 /// The `TxBuilder` produces txs to [`CosmosSdk`] based on events from [`EthEureka`].
@@ -307,7 +315,7 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -453,15 +461,15 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Relay events summary: 
+            "Relay events summary:
                 client id: {},
-                recv events processed: #{}, 
-                ack events processed: #{}, 
-                timeout events processed: #{}, 
-                initial slot: {}, 
-                latest trusted slot (after updates): {}, 
-                initial period: {}, 
-                latest period: {}, 
+                recv events processed: #{},
+                ack events processed: #{},
+                timeout events processed: #{},
+                initial slot: {},
+                latest trusted slot (after updates): {},
+                initial period: {},
+                latest period: {},
                 number of headers: #{}",
             dst_client_id,
             recv_msgs.len(),
@@ -477,7 +485,7 @@ where
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         parameters
             .keys()
@@ -587,7 +595,7 @@ where
         .encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         let ethereum_client_state = self.ethereum_client_state(dst_client_id.clone()).await?;
         let finality_update = self.beacon_api_client.finality_update().await?;
@@ -649,12 +657,12 @@ where
             .compute_sync_committee_period_at_slot(ethereum_client_state.latest_slot);
         let latest_period = ethereum_client_state.compute_sync_committee_period_at_slot(proof_slot);
         tracing::info!(
-            "Update client summary: 
+            "Update client summary:
                 client id: {},
-                initial slot: {}, 
-                latest trusted slot (after updates): {}, 
-                initial period: {}, 
-                latest period: {}, 
+                initial slot: {},
+                latest trusted slot (after updates): {},
+                initial period: {},
+                latest period: {},
                 number of headers: #{}",
             dst_client_id,
             ethereum_client_state.latest_slot,
@@ -691,7 +699,7 @@ impl<P> TxBuilderService<EthEureka, CosmosSdk> for MockTxBuilder<P>
 where
     P: Provider + Clone,
 {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
         &self,
         src_events: Vec<EurekaEventWithHeight>,
@@ -747,7 +755,7 @@ where
         Ok(tx_body.encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         parameters
             .keys()
@@ -787,7 +795,7 @@ where
         .encode_to_vec())
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(&self, dst_client_id: String) -> Result<Vec<u8>> {
         tracing::info!(
             "Generating tx to update mock light client: {}",
@@ -808,5 +816,58 @@ where
             ..Default::default()
         }
         .encode_to_vec())
+    }
+}
+
+/// Transaction builder for attested relay to Cosmos.
+pub struct AttestedTxBuilder {
+    aggregator: Aggregator,
+    ics26_router: Address,
+    signer_address: String,
+}
+
+impl AttestedTxBuilder {
+    /// Create a new [`AttestedTxBuilder`] instance.
+    #[must_use]
+    pub const fn new(
+        aggregator: Aggregator,
+        ics26_router: Address,
+        signer_address: String,
+    ) -> Self {
+        Self {
+            aggregator,
+            ics26_router,
+            signer_address,
+        }
+    }
+
+    /// Returns the ICS26 router address.
+    #[must_use]
+    pub const fn ics26_router(&self) -> &Address {
+        &self.ics26_router
+    }
+
+    /// Relay events from source chain to Cosmos using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if attestation retrieval or transaction building fails.
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+        build_attestor_relay_events_tx(&self.aggregator, params, &self.signer_address).await
+    }
+
+    /// Create a client on Cosmos using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if transaction building fails.
+    pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
+        build_attestor_create_client_tx(parameters, &self.signer_address)
+    }
+
+    /// Update a client on Cosmos using attestations.
+    ///
+    /// # Errors
+    /// Returns an error if attestation retrieval or transaction building fails.
+    pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
+        build_attestor_update_client_tx(&self.aggregator, dst_client_id, &self.signer_address).await
     }
 }

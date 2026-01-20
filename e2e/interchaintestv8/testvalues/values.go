@@ -2,11 +2,14 @@ package testvalues
 
 import (
 	"math/big"
+	"os"
 	"time"
 
 	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/gagliardetto/solana-go"
 
 	"cosmossdk.io/math"
 
@@ -23,6 +26,12 @@ const (
 
 	// TransferAmount is the default transfer amount
 	TransferAmount int64 = 1_000_000_000
+
+	// NumAttestors is the number of attestor instances to start in tests
+	NumAttestors int = 1
+
+	// InitialSolBalance is the default amount of SOL to give a new user
+	InitialSolBalance uint64 = solana.LAMPORTS_PER_SOL * 1
 
 	// EnvKeyTendermintRPC Tendermint RPC URL.
 	EnvKeyTendermintRPC = "TENDERMINT_RPC_URL"
@@ -49,8 +58,14 @@ const (
 	// The log level for the Rust logger.
 	EnvKeyRustLog = "RUST_LOG"
 
+	// Enable local observability (Grafana stack under scripts/local-grafana-stack) for e2e runs.
+	// When set to "true", the relayer will emit OTLP traces to http://127.0.0.1:4317 and keep metrics enabled.
+	EnvKeyEnableLocalObservability = "ENABLE_LOCAL_OBSERVABILITY"
+
 	// Log level for the Rust logger.
 	EnvValueRustLog_Info = "info"
+	// Enable local observability flag value
+	EnvValueEnableLocalObservability_True = "true"
 	// EnvValueSp1Prover_Network is the prover type for the network prover.
 	EnvValueSp1Prover_Network = "network"
 	// EnvValueSp1Prover_PrivateCluster is the for running the network prover in a private cluster.
@@ -70,14 +85,33 @@ const (
 	// EnvValueWasmLightClientTag_Local is the value to set to use the local Wasm light client binary.
 	EnvValueWasmLightClientTag_Local = "local"
 
-	// EthTestnetTypePoW is the Ethereum testnet type for using a proof of work chain (anvil).
-	EthTestnetTypePoW = "pow"
-	// EthTestnetTypePoS is the Ethereum testnet type for using a proof of stake chain
+	// EthTestnetTypeAnvil uses local Anvil chain (supports dummy or attestor light client)
+	EthTestnetTypeAnvil = "anvil"
+
+	// EthTestnetTypePoS uses Kurtosis for full PoS infrastructure with beacon chain
 	EthTestnetTypePoS = "pos"
-	// EthTestnetTypeNone is the Ethereum testnet type for using no chain.
+
+	// EthTestnetTypeNone disables Ethereum chain setup
 	EthTestnetTypeNone = "none"
-	// EnvKeyEthTestnetType The Ethereum testnet type (pow|pos).
+
+	// Dummy light client (for Eth verification on Cosmos)
+	EthWasmTypeDummy = "dummy"
+	// Full light client (for Eth verification on Cosmos)
+	EthWasmTypeFull = "full"
+	// Wasm attestor light client (for Eth verification on Cosmos) - uses 08-wasm
+	EthWasmTypeAttestorWasm = "attestor-wasm"
+	// Native ibc-go attestor light client (for Eth verification on Cosmos) - uses attestations module
+	EthWasmTypeAttestorNative = "attestor-native"
+
+	// SP1 light client (for Cosmos verification on Ethereum)
+	CosmosLcTypeSp1 = "sp1"
+	// Attestor light client (for Cosmos verification on Ethereum)
+	CosmosLcTypeAttestor = "attestor"
+
+	// EnvKeyEthTestnetType The Ethereum testnet type (anvil|pos).
 	EnvKeyEthTestnetType = "ETH_TESTNET_TYPE"
+	// EnvKeyEthAnvilCount Number of Anvil chains to create (only when ETH_TESTNET_TYPE=anvil). Defaults to 1.
+	EnvKeyEthAnvilCount = "ETH_ANVIL_COUNT"
 	// EnvE2EFacuetAddress The address of the faucet
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
 	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
@@ -89,6 +123,40 @@ const (
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
+	// EnvKeyEthLcOnCosmos is the environment variable name to configure the Ethereum light client
+	// deployed on Cosmos (dummy|full|attestor-wasm|attestor-native)
+	EnvKeyEthLcOnCosmos = "ETH_LC_ON_COSMOS"
+	// EnvKeyCosmosLcOnEth is the environment variable name to configure the Cosmos light client
+	// deployed on Ethereum (sp1|attestor). Defaults to sp1.
+	EnvKeyCosmosLcOnEth = "COSMOS_LC_ON_ETH"
+
+	// EnvKeyMultiAttestorCount is the total number of attestor keys to generate and register
+	// in light clients as authorized signers.
+	EnvKeyMultiAttestorCount = "MULTI_ATTESTOR_COUNT"
+	// EnvKeyMultiAttestorQuorum is the minimum number of signatures required for valid attestation.
+	EnvKeyMultiAttestorQuorum = "MULTI_ATTESTOR_QUORUM"
+	// EnvKeyMultiAttestorActive is the number of attestor processes to actually run.
+	EnvKeyMultiAttestorActive = "MULTI_ATTESTOR_ACTIVE"
+
+	// EnvKeySolanaTestnetType is the environment variable name to configure the Solana testnet type.
+	EnvKeySolanaTestnetType = "SOLANA_TESTNET_TYPE"
+	// SolanaTestnetType_Localnet is the Solana testnet type for using a local testnet.
+	SolanaTestnetType_Localnet = "localnet"
+	// SolanaTestnetType_None is the Solana testnet type for using no chain.
+	SolanaTestnetType_None = "none"
+	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
+	SolanaChainID = "solana-localnet"
+	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
+	SolanaLocalnetRPC = "http://localhost:8899"
+	// SolanaGMPPortID is the port identifier for GMP (General Message Passing) application.
+	SolanaGMPPortID = "gmpport"
+
+	// Ics27Version is the ICS27 GMP protocol version.
+	Ics27Version = "ics27-2"
+	// Ics27AbiEncoding is the solidity abi encoding type for the ICS27 packets.
+	Ics27AbiEncoding = "application/x-solidity-abi"
+	// Ics27ProtobufEncoding is the protobuf encoding type for ICS27 packets (used for Solana).
+	Ics27ProtobufEncoding = "application/x-protobuf"
 
 	// Sp1GenesisFilePath is the path to the genesis file for the SP1 chain.
 	// This file is generated and then deleted by the test.
@@ -103,6 +171,8 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+	// SolanaLedgerDir is the path to the Solana ledger directory.
+	SolanaLedgerDir = "test-ledger"
 	// TendermintLightClientFixturesDir is the directory where the Tendermint light client fixtures are stored.
 	TendermintLightClientFixturesDir = "packages/tendermint-light-client/fixtures/"
 
@@ -111,6 +181,8 @@ const (
 
 	// FirstWasmClientID is the first wasm client ID. Used for testing.
 	FirstWasmClientID = "08-wasm-0"
+	// FirstAttestationsClientID is the first native ibc-go attestations client ID. Used for testing.
+	FirstAttestationsClientID = "attestations-0"
 	// FirstUniversalClientID is the first universal client ID. Used for testing.
 	FirstUniversalClientID = "client-0"
 	// SecondUniversalClientID is the second universal client ID. Used for testing.
@@ -128,6 +200,36 @@ const (
 	ParameterKey_RoleManager = "role_manager"
 	// Checksum hex parameter key for the relayer's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
+
+	// Min sigs parameter for the attestor light client creation.
+	ParameterKey_MinRequiredSigs = "min_required_sigs"
+	// Default minimum required signatures for attestor light client in tests.
+	DefaultMinRequiredSigs = 1
+	// Addresses parameter for the attestor light client creation.
+	ParameterKey_AttestorAddresses = "attestor_addresses"
+	// Height parameter for the attestor light client creation.
+	ParameterKey_height = "height"
+	// Timestamp parameter for the attestor light client creation.
+	ParameterKey_timestamp = "timestamp"
+	// The tmp path used for programatically generated attestor configs
+	AttestorConfigPath = "/tmp/attestor.toml"
+	// The tmp path template for multiple Ethereum attestor configs
+	EthAttestorConfigPathTemplate = "/tmp/eth_attestor_%d.toml"
+	// The tmp path template for multiple Cosmos attestor configs
+	CosmosAttestorConfigPathTemplate = "/tmp/cosmos_attestor_%d.toml"
+	// The tmp path template for multiple Solana attestor configs
+	SolanaAttestorConfigPathTemplate = "/tmp/solana_attestor_%d.toml"
+	// The tmp path template for attestor keystores
+	AttestorKeystorePathTemplate = "/tmp/attestor_keystore_%d"
+	// The tmp path used for programatically generated aggregator configs
+	AggregatorConfigPath = "/tmp/aggregator.toml"
+	// The RPC endpoint for the aggregator service
+	AggregatorRpcPath = "http://localhost:8080"
+
+	// Attestor chain type values
+	Attestor_ChainType_EVM    = "evm"
+	Attestor_ChainType_Cosmos = "cosmos"
+	Attestor_ChainType_Solana = "solana"
 )
 
 var (
@@ -148,6 +250,9 @@ var (
 	// 129600 seconds = 14 days
 	DefaultTrustPeriod = 1209600
 
+	// DefaultMaxClockDrift is the default maximum clock drift used by ICS07Tendermint (in seconds).
+	DefaultMaxClockDrift = 15
+
 	// MaxUint256 is the maximum value for a uint256.
 	MaxUint256 = uint256.MustFromHex("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 
@@ -163,3 +268,22 @@ var (
 		return role
 	}()
 )
+
+func EnvGet(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+
+	return value
+}
+
+func EnvEnsure(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+
+	os.Setenv(key, defaultValue)
+
+	return defaultValue
+}

@@ -18,48 +18,46 @@ runs:
         check-latest: true
         cache-dependency-path: e2e/interchaintestv8/go.sum
 
-    - name: Cache Relayer and Operator
-      id: cache-relayer
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: e2e-build-artifacts
+        path: e2e-artifacts/
+
+    - name: Cache Solana
+      id: cache-solana
       uses: actions/cache@v4
       with:
         path: |
-          ~/.cargo/bin/relayer
-          ~/.cargo/bin/operator
-          ./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
-        key: ${{ runner.os }}-relayer-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'packages/**', 'programs/**', 'abi/**') }}
-
-    - name: Install SP1 toolchain
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
-      shell: bash
-      run: |
-        curl -L https://sp1.succinct.xyz | bash
-        ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
-        ~/.sp1/bin/cargo-prove prove --version
-
-    - name: Install operator
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin operator --path programs/operator --locked
-
-    - name: Install relayer
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin relayer --path programs/relayer --locked
+          ~/.cache/solana/
+          ~/.local/share/solana/
+          ~/.cargo/bin/anchor
+          ./programs/solana/target/deploy/
+          ./programs/solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
 
     - name: Install just
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
       uses: extractions/setup-just@v2
-    - name: Build SP1 Programs
-      if: (steps.cache-relayer.outputs.cache-hit != 'true')
+
+    - name: Install artifacts
       shell: bash
-      run: just build-sp1-programs
+      run: |
+        # Install binaries
+        chmod +x e2e-artifacts/bin/*
+        mkdir -p ~/.cargo/bin
+        cp e2e-artifacts/bin/* ~/.cargo/bin/
+        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+        # Install SP1 programs
+        mkdir -p programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+        cp -r e2e-artifacts/sp1-programs/* programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+
+        # Install Solana programs
+        mkdir -p programs/solana/target/deploy/
+        cp -r e2e-artifacts/solana-programs/* programs/solana/target/deploy/
 
     - name: Setup Kurtosis
-      if: env.ETH_TESTNET_TYPE == 'pos'
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
       shell: bash
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
@@ -68,3 +66,19 @@ runs:
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
+
+    - name: Setup Solana
+      uses: solana-developers/github-actions/setup-all@v0.2.5
+      with:
+        solana_version: ${{ env.SOLANA_VERSION }}
+
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.github_token }}
+
+    - name: Pull attestor Docker image
+      shell: bash
+      run: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0

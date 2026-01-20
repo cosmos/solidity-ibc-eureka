@@ -11,40 +11,97 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/wasm"
 )
 
-// StoreEthereumLightClient stores the Ethereum light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
-func (s *TestSuite) StoreEthereumLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+// StoreLightClient stores the light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
+// For native attestor (attestor-native), returns empty string as no wasm binary is needed.
+func (s *TestSuite) StoreLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+	// Native attestor doesn't need a wasm binary
+	if s.config.cosmos.lightClientType == testvalues.EthWasmTypeAttestorNative {
+		s.T().Log("Using native attestor - no wasm storage needed")
+		return ""
+	}
+
 	wasmBinary := s.getWasmLightClientBinary()
+	if wasmBinary == nil {
+		return ""
+	}
 	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
 	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
 
-	s.T().Logf("Stored Ethereum light client with checksum %s", checksum)
+	s.T().Logf("Stored wasm light client with checksum %s", checksum)
+
+	return checksum
+}
+
+// StoreSolanaLightClient stores the Solana light client on the given Cosmos chain and returns the hex-encoded checksum of the light client.
+func (s *TestSuite) StoreSolanaLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+	// For Solana verification, we use the dummy light client for testing
+	s.T().Log("Using dummy Wasm light client for Solana verification")
+	wasmBinary, err := wasm.GetWasmDummyLightClient()
+	s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
+
+	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
+	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
+
+	s.T().Logf("Stored Solana light client with checksum %s", checksum)
+
+	return checksum
+}
+
+// StoreSolanaAttestedLightClient stores the attestor-based Solana light client on the given Cosmos chain
+// and returns the hex-encoded checksum of the light client.
+func (s *TestSuite) StoreSolanaAttestedLightClient(ctx context.Context, cosmosChain *cosmos.CosmosChain, simdRelayerUser ibc.Wallet) string {
+	s.T().Log("Using attestor Wasm light client for Solana verification")
+	wasmBinary, err := wasm.GetLocalWasmAttestationLightClient()
+	s.Require().NoError(err, "Failed to get attestor Wasm light client binary")
+
+	checksum := s.PushNewWasmClientProposal(ctx, cosmosChain, simdRelayerUser, wasmBinary)
+	s.Require().NotEmpty(checksum, "checksum was empty but should not have been")
+
+	s.T().Logf("Stored Solana attested light client with checksum %s", checksum)
 
 	return checksum
 }
 
 func (s *TestSuite) getWasmLightClientBinary() *os.File {
-	// For PoW testnets, we use the dummy light client
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		s.T().Log("Using dummy Wasm light client for PoW testnet")
+	lightClientType := s.config.cosmos.lightClientType
+	wasmTag := s.config.cosmos.wasmLightClientTag
+
+	// Native attestor doesn't need a wasm binary
+	if lightClientType == testvalues.EthWasmTypeAttestorNative {
+		s.T().Log("Using native attestor - no wasm binary needed")
+		return nil
+	}
+
+	// Dummy light client (only valid for Anvil testnets)
+	if lightClientType == testvalues.EthWasmTypeDummy {
+		s.T().Log("Using dummy Wasm light client")
 		file, err := wasm.GetWasmDummyLightClient()
-		s.Require().NoError(err, "Failed to get local Wasm light client binary")
+		s.Require().NoError(err, "Failed to get dummy Wasm light client binary")
 		return file
 	}
 
-	s.Require().Equal(s.ethTestnetType, testvalues.EthTestnetTypePoS, "Invalid Ethereum testnet type")
+	// Attestor light client
+	if lightClientType == testvalues.EthWasmTypeAttestorWasm {
+		s.T().Log("Using attestor Wasm light client")
+		file, err := wasm.GetLocalWasmAttestationLightClient()
+		s.Require().NoError(err, "Failed to get attestor Wasm light client binary")
+		return file
+	}
 
-	// If it is empty or set to "local", we use the local Wasm light client binary
-	if s.WasmLightClientTag == "" || s.WasmLightClientTag == testvalues.EnvValueWasmLightClientTag_Local {
-		s.T().Log("Using local Wasm light client binary")
+	// Full Ethereum light client (only valid for PoS testnets)
+	s.Require().Equal(testvalues.EthWasmTypeFull, lightClientType, "unexpected EthWasmType: %s", lightClientType)
+	s.Require().Equal(testvalues.EthTestnetTypePoS, s.config.ethereum.testnetType, "full light client requires PoS testnet")
+
+	if wasmTag == "" || wasmTag == testvalues.EnvValueWasmLightClientTag_Local {
+		s.T().Log("Using local Wasm Ethereum light client binary")
 		file, err := wasm.GetLocalWasmEthLightClient()
-		s.Require().NoError(err, "Failed to get local Wasm light client binary")
+		s.Require().NoError(err, "Failed to get local Wasm Ethereum light client binary")
 		return file
 	}
 
-	// Otherwise, we download the Wasm light client binary from the GitHub release of the given tag
-	s.T().Logf("Downloading Wasm light client binary for tag %s", s.WasmLightClientTag)
-	file, err := wasm.DownloadWasmEthLightClientRelease(wasm.Release{
-		TagName: s.WasmLightClientTag,
+	s.T().Logf("Downloading Wasm light client binary for tag %s", wasmTag)
+	file, err := wasm.DownloadWasmLightClientRelease(wasm.Release{
+		TagName: wasmTag,
 	})
 	s.Require().NoError(err, "Failed to download Wasm light client binary from release")
 	return file

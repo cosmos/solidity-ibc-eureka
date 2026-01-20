@@ -9,15 +9,31 @@ license    = { workspace = true }
 ibc-eureka-relayer-core                 = { workspace = true, default-features = false }
 ibc-eureka-relayer-eth-to-cosmos        = { workspace = true, default-features = false }
 ibc-eureka-relayer-cosmos-to-eth        = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-eth           = { workspace = true, default-features = false }
 ibc-eureka-relayer-cosmos-to-cosmos     = { workspace = true, default-features = false }
 ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features = false }
+ibc-eureka-relayer-solana-to-cosmos     = { workspace = true, default-features = false }
+ibc-eureka-relayer-cosmos-to-solana     = { workspace = true, default-features = false }
 
-tokio              = { workspace = true, default-features = true }
-prometheus         = { workspace = true, default-features = true }
-warp               = { workspace = true, default-features = true, features = ["server"] }
-tracing            = { workspace = true, default-features = true }
-tracing-subscriber = { workspace = true, default-features = true }
-clap               = { workspace = true, default-features = true }
-anyhow             = { workspace = true, default-features = true, features = ["backtrace"] }
+tokio      = { workspace = true, default-features = true }
+prometheus = { workspace = true, default-features = true }
+warp       = { workspace = true, default-features = true, features = ["server"] }
+clap       = { workspace = true, default-features = true }
+anyhow     = { workspace = true, default-features = true, features = ["backtrace"] }
 
 serde_json = { workspace = true, default-features = true }
+
+tracing            = { workspace = true, default-features = true, features = ["attributes", "std"] }
+tracing-subscriber = { workspace = true, default-features = true, features = ["env-filter", "fmt", "registry", "json"] }
+
+tracing-opentelemetry = { workspace = true, default-features = true }
+opentelemetry         = { workspace = true, default-features = true }
+opentelemetry-otlp    = { workspace = true, default-features = true, features = ["grpc-tonic", "logs"] }
+opentelemetry_sdk     = { workspace = true, default-features = true, features = ["experimental_async_runtime", "rt-tokio"] }
+
+uuid = { workspace = true, default-features = true, features = ["v4", "serde"] }
+
+# OTEL logs bridge for tracing events
+opentelemetry-appender-tracing = "0.30"
+# Bridge `log` crate records into `tracing`
+tracing-log = "0.2"

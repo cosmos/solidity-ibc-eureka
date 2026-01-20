@@ -14,6 +14,8 @@ import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessMa
 import { ICS26Router } from "../../contracts/ICS26Router.sol";
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
+import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
+import { ICS27Account } from "../../contracts/utils/ICS27Account.sol";
 import { DummyLightClient } from "./mocks/DummyLightClient.sol";
 import { DummyInitializable, ErroneousInitializable } from "./mocks/DummyInitializable.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -28,6 +30,7 @@ import { IBCRolesLib } from "../../contracts/utils/IBCRolesLib.sol";
 contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
     ICS26Router public ics26Router;
     ICS20Transfer public ics20Transfer;
+    ICS27GMP public ics27Gmp;
     AccessManager public accessManager;
 
     address public customizer = makeAddr("customizer");
@@ -46,8 +49,10 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         DummyLightClient lightClient = new DummyLightClient(ILightClientMsgs.UpdateResult.Update, 0, false);
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
+        address ics27AccountLogic = address(new ICS27Account());
         ICS26Router ics26RouterLogic = new ICS26Router();
         ICS20Transfer ics20TransferLogic = new ICS20Transfer();
+        ICS27GMP ics27GmpLogic = new ICS27GMP();
 
         // ============== Step 2: Deploy ERC1967 Proxies ==============
         accessManager = new AccessManager(address(this));
@@ -64,9 +69,17 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
             )
         );
 
+        ERC1967Proxy gmpProxy = new ERC1967Proxy(
+            address(ics27GmpLogic),
+            abi.encodeCall(
+                ICS27GMP.initialize, (address(routerProxy), address(ics27AccountLogic), address(accessManager))
+            )
+        );
+
         // ============== Step 3: Wire up the contracts ==============
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
+        ics27Gmp = ICS27GMP(address(gmpProxy));
 
         accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), false);
 
@@ -105,6 +118,29 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+    }
+
+    function test_success_ics27_upgrade() public {
+        // ============== Step 4: Migrate the contracts ==============
+        DummyInitializable newLogic = new DummyInitializable();
+
+        ics27Gmp.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+    }
+
+    function test_failure_ics27_upgrade() public {
+        // Case 1: Revert on failed initialization
+        ErroneousInitializable erroneousLogic = new ErroneousInitializable();
+
+        vm.expectRevert(abi.encodeWithSelector(ErroneousInitializable.InitializeFailed.selector));
+        ics27Gmp.upgradeToAndCall(address(erroneousLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
+
+        // Case 2: Revert on unauthorized upgrade
+        DummyInitializable newLogic = new DummyInitializable();
+
+        address unauthorized = makeAddr("unauthorized");
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        ics27Gmp.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
     function test_success_ics26_upgrade() public {
@@ -200,5 +236,22 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         vm.prank(unauthorized);
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         ics20Transfer.upgradeIBCERC20To(address(newLogic));
+    }
+
+    function test_success_ics27Account_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+
+        ics27Gmp.upgradeAccountTo(address(newLogic));
+        UpgradeableBeacon beacon = UpgradeableBeacon(ics27Gmp.getAccountBeacon());
+        assertEq(beacon.implementation(), address(newLogic));
+    }
+
+    function test_failure_ics27Account_upgrade() public {
+        DummyInitializable newLogic = new DummyInitializable();
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        ics27Gmp.upgradeAccountTo(address(newLogic));
     }
 }

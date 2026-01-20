@@ -1,23 +1,43 @@
 //! Relayer utilities for `CosmosSDK` chains.
 
+use std::collections::HashMap;
+use std::hash::BuildHasher;
+
 use alloy::{hex, primitives::U256, providers::Provider};
 use anyhow::Result;
 use ethereum_apis::{beacon_api::client::BeaconApiClient, eth_api::client::EthApiClient};
 use ethereum_light_client::membership::{evm_ics26_commitment_path, MembershipProof};
 use ethereum_types::execution::{account_proof::AccountProof, storage_proof::StorageProof};
 use futures::future;
+use ibc_client_tendermint_types::ConsensusState;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
+use ibc_eureka_utils::{light_block::LightBlockExt as _, rpc::TendermintRpcExt};
+use ibc_proto_eureka::google::protobuf::Duration;
 use ibc_proto_eureka::{
-    ibc::core::{
-        channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
-        client::v1::Height,
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{
+        core::{
+            channel::v2::{Acknowledgement, MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
+            client::v1::{Height, MsgCreateClient, MsgUpdateClient},
+        },
+        lightclients::tendermint::v1::{ClientState, Fraction},
+        lightclients::wasm::v1::{
+            ClientState as WasmClientState, ConsensusState as WasmConsensusState,
+        },
     },
     Protobuf,
 };
+use prost::Message;
 use tendermint_rpc::HttpClient;
 
-use crate::events::{EurekaEvent, EurekaEventWithHeight};
+use crate::{
+    events::{EurekaEvent, EurekaEventWithHeight},
+    tendermint_client::build_tendermint_client_state_with_trust_level,
+};
+
+/// The key for the checksum hex in the tendermint create client parameters map.
+pub const CHECKSUM_HEX: &str = "checksum_hex";
 
 /// Converts a list of [`EurekaEvent`]s to a list of [`MsgTimeout`]s.
 ///
@@ -129,11 +149,378 @@ pub fn src_events_to_recv_and_ack_msgs(
     (recv_msgs, ack_msgs)
 }
 
+/// Parameters for updating a Tendermint IBC light client.
+pub struct TmUpdateClientParams {
+    /// Height the client will be updated to (proof height for packet verification).
+    pub target_height: u64,
+    /// Current trusted height of the client.
+    pub trusted_height: u64,
+    /// Header proving valid transition from `trusted_height` to `target_height`.
+    pub proposed_header: ibc_proto::ibc::lightclients::tendermint::v1::Header,
+}
+
+/// Generates a Tendermint header for IBC client update from trusted height to height (latest if
+/// omitted).
+///
+/// # Errors
+/// - Failed light block retrieval from Tendermint node
+///
+/// # Panics
+/// - If validator voting power is negative (violates Tendermint protocol invariant)
+#[allow(clippy::cognitive_complexity, clippy::too_many_lines)]
+pub async fn tm_update_client_params(
+    trusted_height: u64,
+    src_tm_client: &HttpClient,
+    target_height: Option<u64>,
+) -> anyhow::Result<TmUpdateClientParams> {
+    let target_light_block = src_tm_client.get_light_block(target_height).await?;
+    let target_height = target_light_block.signed_header.header.height.value();
+
+    let trusted_light_block = src_tm_client.get_light_block(Some(trusted_height)).await?;
+
+    tracing::info!(
+        "Generating header to update from height: {} to height: {}",
+        trusted_light_block.height().value(),
+        target_light_block.height().value()
+    );
+
+    let proposed_header = target_light_block.into_header(&trusted_light_block);
+
+    // Log signature information and calculate voting power needed used only to print debug logs
+    if let (Some(signed_header), Some(validator_set)) = (
+        &proposed_header.signed_header,
+        &proposed_header.validator_set,
+    ) {
+        if let Some(commit) = &signed_header.commit {
+            let signature_count = commit.signatures.len();
+            let valid_signature_count = commit
+                .signatures
+                .iter()
+                .filter(|sig| sig.block_id_flag != 1) // Not BLOCK_ID_FLAG_ABSENT (1)
+                .count();
+
+            let total_voting_power: u64 = validator_set
+                .validators
+                .iter()
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
+                .sum();
+            let required_voting_power = total_voting_power / 3;
+
+            // Calculate cumulative voting power from validators with valid signatures
+            let mut cumulative_power = 0u64;
+            let mut validators_needed = 0usize;
+
+            tracing::debug!("=== RELAYER: Starting validator selection for threshold ===");
+            for (validator, signature) in validator_set
+                .validators
+                .iter()
+                .zip(commit.signatures.iter())
+            {
+                if signature.block_id_flag != 1 {
+                    // Not absent
+                    cumulative_power += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
+                    validators_needed += 1;
+                    tracing::debug!(
+                        "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
+                        validators_needed,
+                        validator.address,
+                        validator.voting_power,
+                        cumulative_power,
+                        required_voting_power,
+                        (cumulative_power * 100) / required_voting_power
+                    );
+                    if cumulative_power >= required_voting_power {
+                        tracing::debug!(
+                            "RELAYER: Threshold reached! Selected {} validators",
+                            validators_needed
+                        );
+                        break;
+                    }
+                }
+            }
+
+            tracing::info!(
+                "Header has {} total slots, {} valid signatures. Total voting power: {}, Required: {} (1/3), Need to verify {} validators to reach threshold",
+                signature_count,
+                valid_signature_count,
+                total_voting_power,
+                required_voting_power,
+                validators_needed
+            );
+        }
+    }
+
+    // Analyze trusted_validators for dual verification understanding
+    if let (Some(trusted_next_vs), Some(target_vs), Some(signed_header)) = (
+        &proposed_header.trusted_validators,
+        &proposed_header.validator_set,
+        &proposed_header.signed_header,
+    ) {
+        if let Some(commit) = &signed_header.commit {
+            tracing::debug!("=== RELAYER: Analyzing dual verification sets ===");
+            tracing::debug!(
+                "RELAYER: Trusted next validator set has {} validators",
+                trusted_next_vs.validators.len()
+            );
+            tracing::debug!(
+                "RELAYER: Target validator set has {} validators",
+                target_vs.validators.len()
+            );
+
+            // Find overlap between sets
+            let trusted_next_addrs: std::collections::HashSet<_> = trusted_next_vs
+                .validators
+                .iter()
+                .map(|v| &v.address)
+                .collect();
+            let target_addrs_with_sigs: Vec<_> = target_vs
+                .validators
+                .iter()
+                .zip(commit.signatures.iter())
+                .filter(|(_, sig)| sig.block_id_flag != 1) // Has signature
+                .map(|(v, _)| &v.address)
+                .collect();
+
+            let overlap_count = target_addrs_with_sigs
+                .iter()
+                .filter(|addr| trusted_next_addrs.contains(*addr))
+                .count();
+
+            tracing::debug!(
+                "RELAYER: {} validators with signatures in target are also in trusted_next",
+                overlap_count
+            );
+            tracing::debug!(
+                "RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
+                target_addrs_with_sigs.len() - overlap_count
+            );
+
+            // Calculate how many validators needed from trusted_next set
+            let trusted_next_total_power: u64 = trusted_next_vs
+                .validators
+                .iter()
+                .map(|v| u64::try_from(v.voting_power).expect("voting power must be non-negative"))
+                .sum();
+            let trusted_next_required = trusted_next_total_power / 3;
+
+            let mut trusted_next_cumulative = 0u64;
+            let mut trusted_next_needed = 0usize;
+            for (validator, signature) in target_vs.validators.iter().zip(commit.signatures.iter())
+            {
+                if signature.block_id_flag != 1 && trusted_next_addrs.contains(&validator.address) {
+                    trusted_next_cumulative += u64::try_from(validator.voting_power)
+                        .expect("voting power must be non-negative");
+                    trusted_next_needed += 1;
+                    if trusted_next_cumulative >= trusted_next_required {
+                        tracing::debug!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(TmUpdateClientParams {
+        target_height,
+        trusted_height,
+        proposed_header,
+    })
+}
+
+/// Parameters for creating a new Tendermint IBC light client.
+pub struct TmCreateClientParams {
+    /// Latest height
+    pub latest_height: u64,
+    /// Consensus state
+    pub client_state: ClientState,
+    /// Initial trusted consensus state
+    pub consensus_state: ConsensusState,
+}
+
+/// Generates parameters for creating a new Tendermint IBC light client.
+/// # Arguments
+/// * `src_tm_client` - HTTP client connected to the source Tendermint chain
+/// * `trust_level` - Optional trust level (defaults to 1/3 if None)
+///
+/// # Returns
+/// Client creation parameters with
+///
+/// # Errors
+/// - Missing unbonding time in staking parameters
+/// - Failed to fetch light block or chain parameters
+pub async fn tm_create_client_params(
+    src_tm_client: &HttpClient,
+    trust_level: Option<Fraction>,
+) -> anyhow::Result<TmCreateClientParams> {
+    let latest_light_block = src_tm_client.get_light_block(None).await?;
+    // NOTE: might cache
+    let chain_id = latest_light_block.chain_id()?;
+
+    let latest_height = latest_light_block.height().value();
+
+    tracing::info!("Creating client at height: {latest_height}",);
+
+    let height = Height {
+        revision_number: chain_id.revision_number(),
+        revision_height: latest_light_block.height().value(),
+    };
+    let unbonding_period = src_tm_client
+        .sdk_staking_params()
+        .await?
+        .unbonding_time
+        .ok_or_else(|| anyhow::anyhow!("No unbonding time found"))?;
+
+    // Defaults to the recommended 2/3 of the UnbondingPeriod
+    let trusting_period = Duration {
+        seconds: 2 * (unbonding_period.seconds / 3),
+        nanos: 0,
+    };
+
+    let client_state = build_tendermint_client_state_with_trust_level(
+        chain_id.to_string(),
+        height,
+        trusting_period,
+        unbonding_period,
+        vec![ics23::iavl_spec(), ics23::tendermint_spec()],
+        trust_level,
+    );
+
+    let consensus_state = latest_light_block.to_consensus_state();
+    Ok(TmCreateClientParams {
+        latest_height,
+        client_state,
+        consensus_state,
+    })
+}
+
+/// Creates a Cosmos transaction for creating an IBC client with WASM light client support.
+///
+/// # Arguments
+/// * `parameters` - Must contain `checksum_hex` key with the WASM code checksum
+/// * `client_state_bytes` - Serialized client state data
+/// * `consensus_state` - Serialized consensus state data
+/// * `height` - Height parameter (currently unused in implementation)
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes
+///
+/// # Errors
+/// * If parameters contains keys other than `checksum_hex`
+/// * If `checksum_hex` parameter is missing
+/// * If checksum hex decoding fails
+pub fn cosmos_create_client_tx<H: BuildHasher>(
+    parameters: &HashMap<String, String, H>,
+    client_state_bytes: Vec<u8>,
+    consensus_state: &WasmConsensusState,
+    height: Height,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    parameters
+        .keys()
+        .find(|k| k.as_str() != CHECKSUM_HEX)
+        .map_or(Ok(()), |param| {
+            Err(anyhow::anyhow!(
+                "Unexpected parameter: `{param}`, only `{CHECKSUM_HEX}` is allowed"
+            ))
+        })?;
+    let checksum = hex::decode(
+        parameters
+            .get(CHECKSUM_HEX)
+            .ok_or_else(|| anyhow::anyhow!("Missing `{CHECKSUM_HEX}` parameter"))?,
+    )?;
+
+    let client_state = WasmClientState {
+        data: client_state_bytes,
+        checksum,
+        latest_height: Some(height),
+    };
+
+    let msg = MsgCreateClient {
+        client_state: Some(Any::from_msg(&client_state)?),
+        consensus_state: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
+}
+
+/// Creates a Cosmos transaction for updating an IBC client with a new consensus state.
+///
+/// # Arguments
+/// * `dst_client_id` - The identifier of the client to update
+/// * `consensus_state` - The consensus state of update
+/// * `signer_address` - Address of the transaction signer
+///
+/// # Returns
+/// Encoded transaction body bytes ready for signing and submission
+///
+/// # Errors
+/// * If message encoding fails
+pub fn cosmos_update_client_tx(
+    dst_client_id: String,
+    consensus_state: &WasmConsensusState,
+    signer_address: String,
+) -> Result<Vec<u8>> {
+    tracing::info!(
+        "Generating tx to update light client on cosmos: {}",
+        dst_client_id
+    );
+
+    let msg = MsgUpdateClient {
+        client_id: dst_client_id,
+        client_message: Some(Any::from_msg(consensus_state)?),
+        signer: signer_address,
+    };
+
+    Ok(TxBody {
+        messages: vec![Any::from_msg(&msg)?],
+        ..Default::default()
+    }
+    .encode_to_vec())
+}
+/// Fetches the latest Tendermint height from the source chain while preserving the revision number.
+///
+/// # Arguments
+/// * `client_state` - The IBC client state containing the current revision number
+/// * `source_tm_client` - HTTP client for querying the source Tendermint chain
+///
+/// # Returns
+/// * `Height` with the latest block height from source chain and preserved revision number
+///
+/// # Errors
+/// * If the light block cannot be fetched from the source chain
+/// * If the client state has no latest height set
+pub async fn get_latest_tm_heigth(
+    client_state: ClientState,
+    source_tm_client: &HttpClient,
+) -> Result<Height> {
+    let target_light_block = source_tm_client.get_light_block(None).await?;
+    let revision_height = target_light_block.height().value();
+    let revision_number = client_state
+        .latest_height
+        .ok_or_else(|| anyhow::anyhow!("No latest height found"))?
+        .revision_number;
+
+    let latest_height = Height {
+        revision_number,
+        revision_height,
+    };
+
+    Ok(latest_height)
+}
+
 /// Generates and injects tendermint proofs for rec, ack and timeout messages.
 /// # Errors
 /// Returns an error a proof cannot be generated for any of the provided messages.
 /// # Panics
 /// Panics if the provided messages do not contain a valid packet.
+#[allow(clippy::too_many_lines)]
 pub async fn inject_tendermint_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
@@ -163,15 +550,91 @@ pub async fn inject_tendermint_proofs(
     future::try_join_all(ack_msgs.iter_mut().map(|msg| async {
         let packet: Packet = msg.packet.clone().unwrap().into();
         let ack_path = packet.ack_commitment_path();
-        let (value, proof) = source_tm_client
-            .prove_path(&[b"ibc".to_vec(), ack_path], target_height.revision_height)
+
+        tracing::info!("=== GENERATING ACK PROOF ===");
+        tracing::info!("  Packet sequence: {}", packet.sequence);
+        tracing::info!(
+            "  From: {} -> To: {}",
+            packet.sourceClient,
+            packet.destClient
+        );
+        tracing::info!(
+            "  Target height for proof: {}",
+            target_height.revision_height
+        );
+        tracing::info!(
+            "  prove_path will query Cosmos at: {} (target - 1)",
+            target_height.revision_height - 1
+        );
+        tracing::info!(
+            "  Proof will verify against app_hash from height: {}",
+            target_height.revision_height
+        );
+
+        // Log the exact path components
+        let path_component_0 = b"ibc".to_vec();
+        let path_component_1 = ack_path.clone();
+        tracing::info!(
+            "  Path component [0] (string): {}",
+            String::from_utf8_lossy(&path_component_0)
+        );
+        tracing::info!(
+            "  Path component [0] (hex): {}",
+            hex::encode(&path_component_0)
+        );
+        tracing::info!(
+            "  Path component [1] (hex): {}",
+            hex::encode(&path_component_1)
+        );
+        tracing::info!(
+            "  Path component [1] length: {} bytes",
+            path_component_1.len()
+        );
+
+        // Query Cosmos to get the app_hash at target height
+        let target_light_block = source_tm_client
+            .get_light_block(Some(target_height.revision_height))
             .await?;
+        let cosmos_app_hash = target_light_block.signed_header.header.app_hash;
+        tracing::info!(
+            "  Cosmos app_hash at height {}: {:?}",
+            target_height.revision_height,
+            cosmos_app_hash.as_bytes()
+        );
+        tracing::info!(
+            "  Cosmos app_hash (hex): {}",
+            hex::encode(cosmos_app_hash.as_bytes())
+        );
+
+        let (value, proof) = source_tm_client
+            .prove_path(
+                &[path_component_0, path_component_1],
+                target_height.revision_height,
+            )
+            .await?;
+
+        tracing::info!("=== ACK PROOF GENERATED ===");
+        tracing::info!("  Value length: {} bytes", value.len());
+        tracing::info!("  Value (ack commitment, hex): {}", hex::encode(&value));
+        tracing::info!("  Proof ops count: {}", proof.proofs.len());
+        tracing::info!(
+            "  Setting msg.proof_height = {}",
+            target_height.revision_height
+        );
+
         if value.is_empty() {
-            anyhow::bail!("Membership value is empty")
+            anyhow::bail!(
+                "Membership value is empty at height {}",
+                target_height.revision_height
+            )
         }
 
         msg.proof_acked = proof.encode_vec();
         msg.proof_height = Some(*target_height);
+
+        tracing::info!("  Proof encoded size: {} bytes", msg.proof_acked.len());
+        tracing::info!("  Final proof_height in message: {:?}", msg.proof_height);
+
         anyhow::Ok(())
     }))
     .await?;

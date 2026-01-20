@@ -8,16 +8,19 @@
     unused_crate_dependencies
 )]
 
+use ics23 as _;
+use tendermint as _;
+
 pub mod tx_builder;
 
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::{
     listener::{cosmos_sdk, ChainListenerService},
+    service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
 use ibc_eureka_utils::rpc::TendermintRpcExt;
-use tendermint::Hash;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
@@ -73,7 +76,7 @@ impl CosmosToCosmosRelayerModuleService {
 
 #[tonic::async_trait]
 impl RelayerService for CosmosToCosmosRelayerModuleService {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -85,7 +88,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
                     .target_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -94,7 +97,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
                     .src_listener
                     .chain_id()
                     .await
-                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+                    .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
                 ibc_contract: String::new(),
             }),
@@ -102,7 +105,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -112,19 +115,9 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         let inner_req = request.into_inner();
         tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
         tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
-        let src_txs = inner_req
-            .source_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
-        let target_txs = inner_req
-            .timeout_tx_ids
-            .into_iter()
-            .map(Hash::try_from)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| tonic::Status::from_error(e.into()))?;
+        let target_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let src_events = self
             .src_listener
@@ -171,7 +164,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
@@ -193,7 +186,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
         }))
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
@@ -222,7 +215,7 @@ impl RelayerModule for CosmosToCosmosRelayerModule {
         "cosmos_to_cosmos"
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_service(
         &self,
         config: serde_json::Value,

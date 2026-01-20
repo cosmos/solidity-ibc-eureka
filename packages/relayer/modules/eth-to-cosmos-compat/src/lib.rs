@@ -64,7 +64,7 @@ impl EthToCosmosCompatRelayerModuleService {
 
 #[tonic::async_trait]
 impl RelayerService for EthToCosmosCompatRelayerModuleService {
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
         request: Request<api::InfoRequest>,
@@ -72,7 +72,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
         self.new_service.info(request).await
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_by_tx(
         &self,
         request: Request<api::RelayByTxRequest>,
@@ -125,7 +125,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_client(
         &self,
         request: Request<api::CreateClientRequest>,
@@ -156,7 +156,7 @@ impl RelayerService for EthToCosmosCompatRelayerModuleService {
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn update_client(
         &self,
         request: Request<api::UpdateClientRequest>,
@@ -211,7 +211,7 @@ impl RelayerModule for EthToCosmosCompatRelayerModule {
         "eth_to_cosmos_compat"
     }
 
-    #[tracing::instrument(skip_all)]
+    #[tracing::instrument(skip_all, err(Debug))]
     async fn create_service(
         &self,
         config: serde_json::Value,
@@ -227,7 +227,7 @@ impl RelayerModule for EthToCosmosCompatRelayerModule {
         let config = serde_json::from_value::<EthToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Ethereum to Cosmos bacwards compatible relayer server.");
+        tracing::info!("Starting Ethereum to Cosmos backwards compatible relayer server.");
         Ok(Box::new(EthToCosmosCompatRelayerModuleService::new(
             &config,
             old_service,

@@ -24,16 +24,18 @@ contract TestHelper is Test {
 
     /// @notice The default merkle prefix used in cosmos chains
     bytes[] private _cosmosMerklePrefix = [bytes("ibc"), bytes("")];
-    /// @notice Empty merkle prefix used in the test
+    /// @notice Empty merkle prefix used for testing
     bytes[] private _emptyMerklePrefix = [bytes("")];
 
     bytes[] private _singleSuccessAck = [ICS20Lib.SUCCESSFUL_ACKNOWLEDGEMENT_JSON];
     bytes[] private _singleErrorAck = [ICS24Host.UNIVERSAL_ERROR_ACK];
 
+    /// @notice The default merkle prefix used in cosmos chains
     function COSMOS_MERKLE_PREFIX() external view returns (bytes[] memory) {
         return _cosmosMerklePrefix;
     }
 
+    /// @notice Empty merkle prefix used for testing
     function EMPTY_MERKLE_PREFIX() external view returns (bytes[] memory) {
         return _emptyMerklePrefix;
     }
@@ -44,6 +46,11 @@ contract TestHelper is Test {
 
     function SINGLE_ERROR_ACK() external view returns (bytes[] memory) {
         return _singleErrorAck;
+    }
+
+    /// @notice The default timeout timestamp for testing
+    function DEFAULT_TIMEOUT_TIMESTAMP() external view returns (uint64) {
+        return uint64(block.timestamp + 1000);
     }
 
     /// @dev retuns a random base64 string
@@ -63,7 +70,7 @@ contract TestHelper is Test {
     }
 
     /// @dev Searches all the logs for the given event selector and returns the first value found
-    function getValueFromEvent(bytes32 eventSelector) public returns (bytes memory) {
+    function getValueFromEvent(bytes32 eventSelector) public view returns (bytes memory) {
         Vm.Log[] memory events = vm.getRecordedLogs();
         for (uint256 i = 0; i < events.length; ++i) {
             Vm.Log memory log = events[i];

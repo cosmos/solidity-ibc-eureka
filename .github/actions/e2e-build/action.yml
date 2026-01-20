@@ -1,0 +1,118 @@
+name: e2e-build
+
+inputs:
+  github_token:
+    description: A Github PAT
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Set up foundry tooling
+      uses: ./.github/actions/foundry-setup
+
+    - name: Cache SP1 Toolchain
+      id: cache-sp1-toolchain
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.sp1
+          ~/.rustup/toolchains/succinct
+        key: ${{ runner.os }}-sp1-toolchain-v2
+
+    - name: Install SP1 toolchain
+      if: steps.cache-sp1-toolchain.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        curl -L https://sp1.succinct.xyz | bash
+        ~/.sp1/bin/sp1up --token ${{ inputs.github_token }}
+
+    - name: Cache SP1 Programs
+      id: cache-sp1-programs
+      uses: actions/cache@v4
+      with:
+        path: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
+        key: ${{ runner.os }}-sp1-programs-${{ hashFiles('programs/sp1-programs/**', 'Cargo.lock') }}
+
+    - name: Install just
+      if: steps.cache-sp1-programs.outputs.cache-hit != 'true'
+      uses: extractions/setup-just@v2
+
+    - name: Build SP1 Programs
+      if: steps.cache-sp1-programs.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-sp1-programs
+
+    - name: Cache Relayer
+      id: cache-relayer
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/relayer
+        key: ${{ runner.os }}-relayer-${{ hashFiles('programs/relayer/**', 'packages/**', 'Cargo.lock') }}
+
+    - name: Install relayer
+      if: steps.cache-relayer.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --bin relayer --path programs/relayer --locked
+
+    - name: Cache Operator
+      id: cache-operator
+      uses: actions/cache@v4
+      with:
+        path: ~/.cargo/bin/operator
+        key: ${{ runner.os }}-operator-${{ hashFiles('programs/operator/**', 'packages/**', 'Cargo.lock') }}
+
+    - name: Install operator
+      if: steps.cache-operator.outputs.cache-hit != 'true'
+      uses: actions-rs/cargo@v1
+      with:
+        command: install
+        args: --bin operator --path programs/operator --locked
+
+    - name: Cache Solana Programs
+      id: cache-solana
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/solana/
+          ~/.local/share/solana/
+          ~/.avm/
+          ./programs/solana/target/deploy/
+          ./programs/solana/target/sbpf-solana-solana/
+        key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
+
+    - name: Setup Solana and Anchor
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      uses: solana-developers/github-actions/setup-all@v0.2.5
+      with:
+        anchor_version: ${{ env.ANCHOR_VERSION }}
+        solana_version: ${{ env.SOLANA_VERSION }}
+
+    - name: Install just for Solana build
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      uses: extractions/setup-just@v2
+
+    - name: Build Solana Programs
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-solana
+
+    - name: Package artifacts
+      shell: bash
+      run: |
+        mkdir -p e2e-artifacts/bin
+        mkdir -p e2e-artifacts/sp1-programs
+        mkdir -p e2e-artifacts/solana-programs
+        cp ~/.cargo/bin/relayer e2e-artifacts/bin/
+        cp ~/.cargo/bin/operator e2e-artifacts/bin/
+        cp -r programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
+        cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-build-artifacts
+        path: e2e-artifacts/
+        retention-days: 1

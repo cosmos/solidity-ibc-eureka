@@ -9,80 +9,159 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-
 	interchaintest "github.com/cosmos/interchaintest/v10"
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	icfoundry "github.com/cosmos/interchaintest/v10/chain/ethereum/foundry"
 	"github.com/cosmos/interchaintest/v10/ibc"
 	"github.com/cosmos/interchaintest/v10/testreporter"
 
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
-
-const anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 // TestSuite is a suite of tests that require two chains and a relayer
 type TestSuite struct {
 	suite.Suite
 
-	EthChain       ethereum.Ethereum
-	ethTestnetType string
-	CosmosChains   []*cosmos.CosmosChain
-	CosmosUsers    []ibc.Wallet
-	dockerClient   *dockerclient.Client
-	network        string
-	logger         *zap.Logger
+	// Chain-specific state
+	Eth struct {
+		Chains []*ethereum.Ethereum
+	}
+	Cosmos struct {
+		Chains      []*cosmos.CosmosChain
+		Users       []ibc.Wallet
+		proposalIDs map[string]uint64
+	}
+	Solana struct {
+		Chain solana.Solana
+	}
 
-	// proposalIDs keeps track of the active proposal ID for cosmos chains
-	proposalIDs map[string]uint64
-	// WasmLightClientTag decides which version of the eth light client to use.
-	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
-	// otherwise, it will download the version from the github release with the given tag
-	WasmLightClientTag string
+	// Parsed configuration
+	config setupConfig
+
+	// Infrastructure
+	dockerClient *dockerclient.Client
+	network      string
+	logger       *zap.Logger
 }
 
 // SetupSuite sets up the chains, relayer, user accounts, clients, and connections
 func (s *TestSuite) SetupSuite(ctx context.Context) {
-	// To let the download version be overridden by a calling test
-	if s.WasmLightClientTag == "" {
-		s.WasmLightClientTag = os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag)
+	s.config = s.parseConfig()
+	if err := s.config.validate(); err != nil {
+		s.T().Fatalf("Configuration error: %v", err)
 	}
 
-	icChainSpecs := chainconfig.DefaultChainSpecs
-
-	s.ethTestnetType = os.Getenv(testvalues.EnvKeyEthTestnetType)
-	switch s.ethTestnetType {
-	case testvalues.EthTestnetTypePoW:
-		icChainSpecs = append(icChainSpecs, &interchaintest.ChainSpec{ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum")})
-	case testvalues.EthTestnetTypePoS:
-		kurtosisChain, err := chainconfig.SpinUpKurtosisPoS(ctx) // TODO: Run this in a goroutine and wait for it to be ready
-		s.Require().NoError(err)
-		s.EthChain, err = ethereum.NewEthereum(ctx, kurtosisChain.RPC, &kurtosisChain.BeaconApiClient, kurtosisChain.Faucet)
-		s.Require().NoError(err)
-		s.T().Cleanup(func() {
-			ctx := context.Background()
-			if s.T().Failed() {
-				_ = kurtosisChain.DumpLogs(ctx)
-			}
-			kurtosisChain.Destroy(ctx)
-		})
-	case testvalues.EthTestnetTypeNone:
-		// Do nothing
-	default:
-		s.T().Fatalf("Unknown Ethereum testnet type: %s", s.ethTestnetType)
+	if s.config.cosmos.lightClientType != "" {
+		s.T().Logf("wasm type %s", s.config.cosmos.lightClientType)
 	}
 
-	s.logger = zaptest.NewLogger(s.T())
+	chainSpecs := s.buildChainSpecs(s.config)
+	chains, dockerClient, network, logger := s.setupChainsInParallel(ctx, s.config, chainSpecs)
+
+	s.logger = logger
+	s.dockerClient = dockerClient
+	s.network = network
+
+	s.processChains(ctx, s.config, chains)
+}
+
+// GetEthLightClientType returns the Ethereum light client type on Cosmos (dummy, full, attestor-wasm, attestor-native).
+func (s *TestSuite) GetEthLightClientType() string {
+	return s.config.cosmos.lightClientType
+}
+
+// GetDockerClient returns the Docker client used for container management.
+// This is primarily used for setting up Docker-based attestors.
+func (s *TestSuite) GetDockerClient() *dockerclient.Client {
+	return s.dockerClient
+}
+
+// GetNetworkID returns the Docker network ID used for container networking.
+// This is primarily used for setting up Docker-based attestors.
+func (s *TestSuite) GetNetworkID() string {
+	return s.network
+}
+
+// SetupDocker initializes just the Docker client and network without starting any chains.
+// This is useful for lightweight tests that only need Docker resources.
+func (s *TestSuite) SetupDocker() {
+	if s.dockerClient != nil {
+		return // Already initialized
+	}
 	s.dockerClient, s.network = interchaintest.DockerSetup(s.T())
+}
 
-	cf := interchaintest.NewBuiltinChainFactory(s.logger, icChainSpecs)
+func (s *TestSuite) parseConfig() setupConfig {
+	return setupConfig{
+		ethereum: ethereumConfig{
+			testnetType: os.Getenv(testvalues.EnvKeyEthTestnetType),
+			anvilCount:  envInt(testvalues.EnvKeyEthAnvilCount, 1),
+		},
+		solana: solanaConfig{
+			testnetType: os.Getenv(testvalues.EnvKeySolanaTestnetType),
+		},
+		cosmos: cosmosConfig{
+			lightClientType:    os.Getenv(testvalues.EnvKeyEthLcOnCosmos),
+			wasmLightClientTag: os.Getenv(testvalues.EnvKeyE2EWasmLightClientTag),
+		},
+	}
+}
 
-	chains, err := cf.Chains(s.T().Name())
-	s.Require().NoError(err)
+func (s *TestSuite) setupChainsInParallel(
+	ctx context.Context,
+	cfg setupConfig,
+	chainSpecs []*interchaintest.ChainSpec,
+) ([]ibc.Chain, *dockerclient.Client, string, *zap.Logger) {
+	solanaCh := make(chan solanaSetupResult, 1)
+	interchainCh := make(chan interchainSetupResult, 1)
+	ethPosCh := make(chan ethPosSetupResult, 1)
+
+	go s.setupSolanaAsync(ctx, cfg, solanaCh)
+	go s.setupInterchainAsync(ctx, chainSpecs, interchainCh)
+
+	if cfg.ethereum.needsPoS() {
+		go s.setupEthereumPoSAsync(ctx, ethPosCh)
+	} else {
+		ethPosCh <- ethPosSetupResult{}
+	}
+
+	solanaRes := <-solanaCh
+	s.Require().NoError(solanaRes.err, "Solana chain setup failed")
+	s.processSolanaResult(solanaRes.chain)
+
+	interchainRes := <-interchainCh
+	s.Require().NoError(interchainRes.err, "Interchain setup failed")
+
+	ethPosRes := <-ethPosCh
+	s.Require().NoError(ethPosRes.err, "Ethereum PoS chain setup failed")
+	s.processEthereumPoSResult(ctx, ethPosRes.chain)
+
+	return interchainRes.chains, interchainRes.dockerClient, interchainRes.network, interchainRes.logger
+}
+
+func (s *TestSuite) setupInterchainAsync(
+	ctx context.Context,
+	chainSpecs []*interchaintest.ChainSpec,
+	resultCh chan<- interchainSetupResult,
+) {
+	var result interchainSetupResult
+	defer func() { resultCh <- result }()
+
+	testName := s.T().Name()
+	logger := zaptest.NewLogger(s.T())
+	dockerClient, network := interchaintest.DockerSetup(s.T())
+
+	result.logger = logger
+	result.dockerClient = dockerClient
+	result.network = network
+
+	cf := interchaintest.NewBuiltinChainFactory(logger, chainSpecs)
+	chains, err := cf.Chains(testName)
+	if err != nil {
+		result.err = err
+		return
+	}
 
 	ic := interchaintest.NewInterchain()
 	for _, chain := range chains {
@@ -90,42 +169,21 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	}
 
 	execRep := testreporter.NewNopReporter().RelayerExecReporter(s.T())
-
-	// TODO: Run this in a goroutine and wait for it to be ready
-	s.Require().NoError(ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
-		TestName:         s.T().Name(),
-		Client:           s.dockerClient,
-		NetworkID:        s.network,
+	err = ic.Build(ctx, execRep, interchaintest.InterchainBuildOptions{
+		TestName:         testName,
+		Client:           dockerClient,
+		NetworkID:        network,
 		SkipPathCreation: true,
-	}))
-
-	if s.ethTestnetType == testvalues.EthTestnetTypePoW {
-		anvil := chains[len(chains)-1].(*icfoundry.AnvilChain)
-		faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
-		s.Require().NoError(err)
-
-		s.EthChain, err = ethereum.NewEthereum(ctx, anvil.GetHostRPCAddress(), nil, faucet)
-		s.Require().NoError(err)
-
-		// Remove the Ethereum chain from the cosmos chains
-		chains = chains[:len(chains)-1]
+	})
+	if err != nil {
+		result.err = err
+		return
 	}
 
-	for _, chain := range chains {
-		cosmosChain := chain.(*cosmos.CosmosChain)
-		s.CosmosChains = append(s.CosmosChains, cosmosChain)
-	}
+	result.chains = chains
+}
 
-	// map all query request types to their gRPC method paths for cosmos chains
-	s.Require().NoError(populateQueryReqToPath(ctx, s.CosmosChains[0]))
-
-	// Fund user accounts
-	for _, chain := range chains {
-		s.CosmosUsers = append(s.CosmosUsers, s.CreateAndFundCosmosUser(ctx, chain.(*cosmos.CosmosChain)))
-	}
-
-	s.proposalIDs = make(map[string]uint64)
-	for _, chain := range s.CosmosChains {
-		s.proposalIDs[chain.Config().ChainID] = 1
-	}
+func (s *TestSuite) processChains(ctx context.Context, cfg setupConfig, chains []ibc.Chain) {
+	s.setupAnvilChains(ctx, chains)
+	s.setupCosmosChains(ctx, chains)
 }

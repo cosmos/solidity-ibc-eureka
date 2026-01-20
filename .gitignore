@@ -3,6 +3,7 @@ cache
 coverage
 node_modules
 out
+tmp
 
 # files
 *.env
@@ -18,6 +19,8 @@ config.json
 scripts/ethgenesis/client_state.json
 scripts/ethgenesis/consensus_state.json
 .envrc
+go.work
+nitro-testnode
 
 # broadcasts
 !broadcast
@@ -28,7 +31,12 @@ broadcast/*/31337/
 .idea/
 *.iml
 *.code-workspace
+.vscode
 CLAUDE.md
+*.code-workspace
+.vscode/
+.cursor/
+.linear.toml
 
 # Rust
 target
@@ -40,3 +48,10 @@ bacon.toml
 programs/relayer/config.json
 scripts/genesis.json
 network_params.yaml
+test-ledger
+
+# Solana keypairs - only localnet is tracked for E2E tests
+solana-keypairs/**/*
+!solana-keypairs/localnet/
+!solana-keypairs/localnet/**
+!solana-keypairs/**/.gitkeep

@@ -1,0 +1,156 @@
+[workspace]
+members = [
+  "programs/access-manager",
+  "programs/ics07-tendermint",
+  "programs/ics26-router",
+  "programs/ics27-gmp",
+  "programs/gmp-counter-app",
+  "programs/mock-light-client",
+  "programs/mock-ibc-app",
+  "programs/dummy-ibc-app",
+  "programs/malicious-caller",
+  "packages/solana-ibc-types",
+  "packages/solana-ibc-proto",
+  "packages/ics25-handler",
+  "packages/solana-ibc-constants",
+  "packages/solana-ibc-macros",
+]
+resolver = "2"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+cargo = { level = "warn", priority = -1 }
+
+implicit_return = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"
+missing_safety_doc = "allow"
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+similar_names = "allow"
+too_many_lines = "allow"
+cognitive_complexity = "allow"
+
+# Anchor-specific allows
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_possible_wrap = "allow"
+wildcard_imports = "allow"
+result_large_err = "allow"
+negative_feature_names = "allow"
+multiple_crate_versions = "allow"
+needless_pass_by_value = "allow"
+used_underscore_binding = "allow"
+pub_underscore_fields = "allow"
+
+[workspace.lints.rust]
+unexpected_cfgs = "allow"
+deprecated = "allow"
+dead_code = "allow"
+single_use_lifetimes = "allow"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/cosmos/solidity-ibc-eureka"
+keywords = [
+  "cosmos",
+  "ibc",
+  "solana",
+  "svm",
+  "tendermint",
+  "bridge",
+  "anchor",
+  "eureka",
+]
+
+[workspace.dependencies]
+anchor-lang = { version = "0.32.1", default-features = false }
+anchor-spl = { version = "0.32.1" }
+base64 = "0.22"
+
+# Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
+# This maintains independence between workspaces, allowing root to use borsh 1.x while Solana uses borsh 0.10.4
+tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
+tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
+tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
+tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
+tendermint-light-client-solana = { path = "../../packages/tendermint-light-client/solana", default-features = false }
+ibc-eureka-utils = { path = "../../packages/utils" }
+ibc-eureka-constrained-types = { path = "../../packages/constrained_types", default-features = false }
+
+# Solana-specific packages (local to this workspace)
+solana-ibc-types = { path = "./packages/solana-ibc-types", default-features = false }
+solana-ibc-proto = { path = "./packages/solana-ibc-proto", default-features = false }
+ics25-handler = { path = "./packages/ics25-handler", default-features = false }
+solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-features = false }
+solana-ibc-macros = { path = "./packages/solana-ibc-macros" }
+access-manager = { path = "./programs/access-manager", default-features = false }
+ics26-router = { path = "./programs/ics26-router", default-features = false }
+gmp-counter-app = { path = "./programs/gmp-counter-app", default-features = false }
+
+ibc-client-tendermint = { version = "0.57", default-features = false }
+ibc-core-client = { version = "0.57", default-features = false }
+ibc-core-client-types = { version = "0.57", default-features = false }
+ibc-core-host-types = { version = "0.57", default-features = false }
+ibc-core-commitment-types = { version = "0.57", default-features = false }
+ibc-primitives = { version = "0.57", default-features = false }
+ibc-proto = { version = "0.51", default-features = false }
+tendermint = { version = "0.40", default-features = false }
+tendermint-light-client-verifier = { version = "0.40", default-features = false }
+time = { version = "0.3", default-features = false }
+
+sha2 = { version = "0.10", default-features = false }
+thiserror = { version = "2.0", default-features = false }
+hex = { version = "0.4", default-features = false }
+prost = { version = "0.13", default-features = false }
+borsh = { version = "0.10.4", default-features = false }
+
+# Build dependencies
+prost-build = { version = "0.13", default-features = false }
+
+# Testing
+mollusk-svm = { version = "0.4.1", default-features = false }
+mollusk-svm-bencher = { version = "0.4.1", default-features = false }
+solana-sdk = { version = "2.3.1", default-features = false }
+solana-program = { version = "2.3.0", default-features = false }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+bincode = "1.3"
+
+solana-account-info = { version = "2.2", default-features = false }
+solana-pubkey = { version = "2.2", default-features = false, features = ["sha2", "curve25519"] }
+solana-sha256-hasher = { version = "2.2", default-features = false }
+solana-keccak-hasher = { version = "2.2", default-features = false }
+solana-msg = { version = "2.2", default-features = false }
+solana-sdk-ids = { version = "2.2", default-features = false }
+solana-define-syscall = { version = "2.2", default-features = false }
+
+[profile.dev]
+debug = 0
+debug-assertions = true
+overflow-checks = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+debug = 0
+strip = "symbols"
+[profile.release.build-override]
+opt-level = 3
+incremental = false
+codegen-units = 1
+
+[patch.crates-io]
+# Patch tendermint-rs crates to use fork with instance-based Verifier trait
+tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }

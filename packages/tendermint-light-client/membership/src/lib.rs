@@ -5,10 +5,14 @@
 use ibc_core_commitment_types::{
     commitment::CommitmentRoot,
     merkle::{MerklePath, MerkleProof},
-    proto::ics23::HostFunctionsManager,
     specs::ProofSpecs,
 };
 use ibc_core_host_types::path::PathBytes;
+
+#[cfg(feature = "solana")]
+type HostFunctions = tendermint_light_client_solana::SolanaHostFunctionsManager;
+#[cfg(not(feature = "solana"))]
+type HostFunctions = ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
 
 /// Key-value pair for membership/non-membership proofs
 #[derive(Clone, Debug)]
@@ -27,8 +31,10 @@ impl KVPair {
     }
 
     /// Check if this is a non-membership proof (empty value)
+    /// NOTE: supress clippy due to compilation not stable in every target
+    #[allow(clippy::missing_const_for_fn)]
     #[must_use]
-    pub const fn is_non_membership(&self) -> bool {
+    pub fn is_non_membership(&self) -> bool {
         self.value.is_empty()
     }
 
@@ -82,7 +88,7 @@ pub fn membership(
 
         if kv_pair.is_non_membership() {
             merkle_proof
-                .verify_non_membership::<HostFunctionsManager>(
+                .verify_non_membership::<HostFunctions>(
                     &ProofSpecs::cosmos(),
                     commitment_root.clone().into(),
                     merkle_path,
@@ -90,7 +96,7 @@ pub fn membership(
                 .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
         } else {
             merkle_proof
-                .verify_membership::<HostFunctionsManager>(
+                .verify_membership::<HostFunctions>(
                     &ProofSpecs::cosmos(),
                     commitment_root.clone().into(),
                     merkle_path,

@@ -9,6 +9,7 @@ use alloy::{
 use anyhow::{anyhow, Result};
 use futures::future;
 use ibc_eureka_solidity_types::ics26::router::routerInstance;
+use tracing::instrument;
 
 use crate::{chain::EthEureka, events::EurekaEventWithHeight};
 
@@ -44,6 +45,13 @@ where
             .await?
             .to_string())
     }
+
+    /// Get the current block number.
+    /// # Errors
+    /// Returns an error if the block number cannot be fetched.
+    pub async fn get_block_number(&self) -> Result<u64> {
+        Ok(self.ics26_router.provider().get_block_number().await?)
+    }
 }
 
 #[async_trait::async_trait]
@@ -51,6 +59,7 @@ impl<P> ChainListenerService<EthEureka> for ChainListener<P>
 where
     P: Provider,
 {
+    #[instrument(skip(self), fields(tx_count = tx_ids.len()), err(Debug))]
     async fn fetch_tx_events(&self, tx_ids: Vec<TxHash>) -> Result<Vec<EurekaEventWithHeight>> {
         Ok(
             future::try_join_all(tx_ids.into_iter().map(|tx_id| async move {
@@ -86,6 +95,7 @@ where
         )
     }
 
+    #[instrument(skip(self), fields(block_range = format!("{}..={}", start_height, end_height)), err(Debug))]
     async fn fetch_events(
         &self,
         start_height: u64,

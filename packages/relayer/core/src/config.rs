@@ -2,22 +2,24 @@
 
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::Level;
 
 /// The top level configuration for the relayer.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RelayerConfig {
     /// The configuration for the relayer modules.
     pub modules: Vec<ModuleConfig>,
     /// The configuration for the relayer server.
     pub server: ServerConfig,
+    /// The configuration for observability.
+    #[serde(default)]
+    pub observability: ObservabilityConfig,
 }
 
 /// The configuration for the relayer modules.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ModuleConfig {
     /// The name of the module.
     pub name: String,
@@ -35,16 +37,12 @@ pub struct ModuleConfig {
 }
 
 /// The configuration for the relayer server.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerConfig {
     /// The address to bind the server to.
     pub address: String,
     /// The port to bind the server to.
     pub port: u16,
-    /// The log level for the server.
-    #[serde(default)]
-    pub log_level: String,
 }
 
 /// Returns true, used as a default value for boolean fields.
@@ -52,10 +50,35 @@ const fn default_true() -> bool {
     true
 }
 
-impl ServerConfig {
-    /// Returns the log level for the server.
+/// Configuration for observability.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(default)]
+pub struct ObservabilityConfig {
+    /// The log level to use.
+    pub level: String,
+    /// Whether to use OpenTelemetry for distributed tracing.
+    pub use_otel: bool,
+    /// The service name to use for OpenTelemetry.
+    pub service_name: String,
+    /// The OpenTelemetry collector endpoint.
+    pub otel_endpoint: Option<String>,
+}
+
+impl Default for ObservabilityConfig {
+    fn default() -> Self {
+        Self {
+            level: "info".to_string(),
+            use_otel: false,
+            service_name: "ibc-eureka-relayer".to_string(),
+            otel_endpoint: None,
+        }
+    }
+}
+
+impl ObservabilityConfig {
+    /// Returns the log level as a `tracing::Level`.
     #[must_use]
-    pub fn log_level(&self) -> Level {
-        Level::from_str(&self.log_level).unwrap_or(Level::INFO)
+    pub fn level(&self) -> Level {
+        Level::from_str(&self.level).unwrap_or(Level::INFO)
     }
 }

@@ -10,6 +10,7 @@ anyhow                           = { workspace = true, features = ["std"] }
 async-trait                      = { workspace = true }
 prost                            = { workspace = true }
 ibc-proto                        = { workspace = true }
+ibc-proto-eureka                 = { workspace = true }
 cosmos-sdk-proto                 = { workspace = true }
 ibc-client-tendermint-types      = { workspace = true }
 ibc-eureka-solidity-types        = { workspace = true }
@@ -17,10 +18,8 @@ ibc-core-commitment-types        = { workspace = true }
 ibc-core-client-types            = { workspace = true }
 ibc-core-host-types              = { workspace = true, features = ["std"] }
 tendermint-light-client-verifier = { workspace = true }
-tendermint-rpc                   = { workspace = true }
+tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint                       = { workspace = true }
-alloy-signer-local               = { workspace = true }
-alloy-network                    = { workspace = true }
 # We need to use 0.11 until tendermint-rpc is updated to use 0.12
 reqwest_0_11                     = { workspace = true }
 
