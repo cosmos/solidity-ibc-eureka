@@ -66,6 +66,7 @@
 
   platformArchive = platformArchives.${system} or (throw "Unsupported platform: ${system}");
 
+  # Prebuilt LLVM toolchain for compiling Solana programs to SBF bytecode
   platformTools = stdenv.mkDerivation {
     pname = "platform-tools";
     version = platformToolsVersion;
@@ -81,6 +82,7 @@
     '';
   };
 
+  # Solana BPF SDK - runtime and build scripts for on-chain programs
   sbfSdk = stdenv.mkDerivation {
     pname = "sbf-sdk";
     inherit version;
@@ -150,6 +152,7 @@
       };
     };
 
+  # Wrapper script that uses platform-tools for building and rustIdl for IDL generation
   anchorNix = symlinkJoin {
     name = "anchor-nix";
     paths = [

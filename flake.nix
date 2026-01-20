@@ -27,38 +27,23 @@
           ];
         };
 
-        rust = import ./pkgs/rust.nix {inherit pkgs;};
-        go = import ./pkgs/go.nix {inherit pkgs;};
+        rust = import ./nix/rust.nix {inherit pkgs;};
+        go = import ./nix/go.nix {inherit pkgs;};
+        common = import ./nix/common.nix {inherit pkgs;};
+        solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
 
-        anchor = pkgs.callPackage ./pkgs/anchor.nix {};
-        solana-agave = pkgs.callPackage ./pkgs/agave.nix {
+        anchor = pkgs.callPackage ./nix/anchor.nix {};
+        solana-agave = pkgs.callPackage ./nix/agave.nix {
           inherit (pkgs) rust-bin;
           inherit anchor;
         };
-        anchor-go = pkgs.callPackage ./pkgs/anchor-go.nix {};
+        anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in {
         devShells = {
           default = pkgs.mkShell {
-            buildInputs =
-              rust.packages
-              ++ go.packages
-              ++ (with pkgs; [
-                foundry-bin
-                go-ethereum
-                solc_0_8_28
-                (inputs.solc.mkDefault pkgs solc_0_8_28)
-                bun
-                just
-                jq
-                parallel
-                slither-analyzer
-                quicktype
-                inputs.natlint.packages.${system}.default
-              ]);
-
+            buildInputs = rust.packages ++ go.packages ++ common.packages ++ solidity.packages;
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
-
             shellHook =
               rust.shellHook
               + go.shellHook
@@ -70,32 +55,21 @@
               '';
           };
 
+          # Everything needed to work on the Solana part of this project
           solana = pkgs.mkShell {
             buildInputs =
               rust.packages
               ++ go.packages
-              ++ [
-                pkgs.gawk
-                pkgs.just
-                solana-agave
-                anchor-go
-              ]
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-                pkgs.apple-sdk_15
-              ];
-
+              ++ common.packages
+              ++ [solana-agave anchor-go]
+              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [pkgs.apple-sdk_15];
             inherit (rust.env) RUST_SRC_PATH;
-
             shellHook =
               rust.shellHook
               + go.shellHook
               + ''
                 export PATH="${solana-agave}/bin:$PATH"
-                echo ""
-                echo "Solana development shell activated"
-                echo ""
-                echo "Commands: solana, anchor-nix (build|test|unit-test|keys|deploy)"
-                echo ""
+                echo "Solana shell: solana, anchor-nix (build|test|unit-test|keys|deploy)"
               '';
           };
         };

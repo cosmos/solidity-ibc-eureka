@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Anchor wrapper for Nix environments.
+#
+# Recreates anchor CLI build flow without downloading/installing toolchains
+# (not the Nix way). Solana programs must be built with platform-tools Rust
+# (for SBF bytecode), while IDL generation requires a separate Rust toolchain.
+# This script switches between them: platform-tools for `cargo build-sbf`,
+# rustIdl for IDL extraction.
+
 # Required environment variables (set by Nix wrapper):
 # shellcheck disable=SC2154
 : "${PLATFORM_TOOLS:?PLATFORM_TOOLS not set}"
