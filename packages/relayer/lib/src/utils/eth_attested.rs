@@ -6,8 +6,8 @@ use crate::aggregator::rpc::AggregatedAttestation;
 use crate::aggregator::Aggregator;
 use crate::events::EurekaEventWithHeight;
 use crate::utils::attestor::{
-    collect_send_and_ack_packets_with_height, collect_timeout_packets,
-    fetch_attestations, AttestationData,
+    collect_send_and_ack_packets_with_height, collect_timeout_packets, fetch_attestations,
+    AttestationData,
 };
 use crate::utils::{eth_eureka, wait_for_condition, RelayEventsParams};
 use alloy::{primitives::Address, primitives::Bytes, sol_types::SolCall, sol_types::SolValue};
