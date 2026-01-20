@@ -33,6 +33,7 @@ import (
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
+	ics07_tendermint_patches "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07_tendermint_patches"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
@@ -1526,7 +1527,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	}))
 
 	s.Require().True(s.Run("Call cleanup_chunks instruction", func() {
-		cleanupInstruction, err := ics07_tendermint.NewCleanupIncompleteUploadInstruction(
+		// Use the patched version due to anchor-go bug with no-argument instructions
+		// See packages/go-anchor/ics07_tendermint_patches/instructions.go for details
+		cleanupInstruction, err := ics07_tendermint_patches.NewCleanupIncompleteUploadInstruction(
 			submitter,
 		)
 		s.Require().NoError(err)
