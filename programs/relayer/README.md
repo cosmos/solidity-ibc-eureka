@@ -18,12 +18,14 @@ The gRPC service definition is in [`relayer/proto/relayer/relayer.proto`](https:
 
 Each module runs in one direction and specializes in how it builds proofs and transactions:
 
-- `cosmos_to_eth`: Extracts IBC packet events from a Cosmos SDK chain, generates proofs (SP1 or attested), and builds transactions for an EVM-based chain.
-- `eth_to_cosmos`: Extracts packet events from an EVM chain, prepares IBC messages for a Cosmos SDK chain, and packages the required proof data (real, mock, or attested).
-- `eth_to_eth`: Extracts packet events from an EVM chain and builds attested transactions for another EVM chain.
-- `cosmos_to_cosmos`: Extracts packet events from a Cosmos SDK chain and prepares IBC messages for another Cosmos SDK chain.
-- `cosmos_to_solana`: Extracts packet events from a Cosmos SDK chain and prepares IBC messages for Solana.
-- `solana_to_cosmos`: Extracts packet events from Solana and prepares IBC messages for a Cosmos SDK chain.
+| Module | Source | Target | Tasks | Proof Modes | Notes |
+| --- | --- | --- | --- | --- | --- |
+| `cosmos_to_eth` | Cosmos SDK | EVM | Parse Cosmos events, build EVM IBC txs | `sp1`, `attested` | SP1 program paths required for `sp1`.
+| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real`, `mock`, `attested` | `real` uses beacon API proofs for Eth Mainnet.
+| `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` | Requires attestor endpoints.
+| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | N/A (ICS-07) | Uses Cosmos RPCs for both sides.
+| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | N/A (ICS-07) | Uses ICS-07 Solana program.
+| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | N/A (attested) | Requires attestor endpoints.
 
 ## Build and Run
 
