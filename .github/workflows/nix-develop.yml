@@ -1,0 +1,32 @@
+name: nix
+
+on:
+  pull_request:
+    paths:
+      - '**/*.nix'
+      - 'flake.lock'
+
+jobs:
+  develop-default:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: install-nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: nix-develop-default
+        run: nix develop --command true
+
+  develop-solana:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: install-nix
+        uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+      - name: nix-develop-solana
+        run: nix develop .#solana --command true
