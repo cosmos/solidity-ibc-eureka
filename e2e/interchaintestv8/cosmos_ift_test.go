@@ -72,7 +72,7 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 
 	s.TestSuite.SetupSuite(ctx)
 
-	s.ChainA, s.ChainB = s.CosmosChains[0], s.CosmosChains[1]
+	s.ChainA, s.ChainB = s.Cosmos.Chains[0], s.Cosmos.Chains[1]
 	s.ChainASubmitter = s.CreateAndFundCosmosUser(ctx, s.ChainA)
 	s.ChainBSubmitter = s.CreateAndFundCosmosUser(ctx, s.ChainB)
 
@@ -81,16 +81,22 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		config := relayer.NewConfig(
-			relayer.CreateCosmosCosmosModules(relayer.CosmosToCosmosConfigInfo{
-				ChainAID:    s.ChainA.Config().ChainID,
-				ChainBID:    s.ChainB.Config().ChainID,
-				ChainATmRPC: s.ChainA.GetHostRPCAddress(),
-				ChainBTmRPC: s.ChainB.GetHostRPCAddress(),
-				ChainAUser:  s.ChainASubmitter.FormattedAddress(),
-				ChainBUser:  s.ChainBSubmitter.FormattedAddress(),
-			}),
-		)
+		config := relayer.NewConfigBuilder().
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    s.ChainA.Config().ChainID,
+				DstChainID:    s.ChainB.Config().ChainID,
+				SrcRPC:        s.ChainA.GetHostRPCAddress(),
+				DstRPC:        s.ChainB.GetHostRPCAddress(),
+				SignerAddress: s.ChainBSubmitter.FormattedAddress(),
+			}).
+			CosmosToCosmos(relayer.CosmosToCosmosParams{
+				SrcChainID:    s.ChainB.Config().ChainID,
+				DstChainID:    s.ChainA.Config().ChainID,
+				SrcRPC:        s.ChainB.GetHostRPCAddress(),
+				DstRPC:        s.ChainA.GetHostRPCAddress(),
+				SignerAddress: s.ChainASubmitter.FormattedAddress(),
+			}).
+			Build()
 
 		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -289,8 +295,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
-	userA := s.CosmosUsers[0]
-	userB := s.CosmosUsers[1]
+	userA := s.Cosmos.Users[0]
+	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	subdenom := iftTestDenom
 
@@ -491,7 +497,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
-	userA := s.CosmosUsers[0]
+	userA := s.Cosmos.Users[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	subdenom := iftTestDenom
 
@@ -646,7 +652,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
-	userA := s.CosmosUsers[0]
+	userA := s.Cosmos.Users[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	subdenom := iftTestDenom
 	invalidReceiver := "invalid-cosmos-address"
@@ -756,8 +762,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
-	userA := s.CosmosUsers[0]
-	userB := s.CosmosUsers[1]
+	userA := s.Cosmos.Users[0]
+	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	totalAmount := transferAmount.MulRaw(3)
 	subdenom := iftTestDenom
@@ -988,7 +994,7 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
-	user := s.CosmosUsers[0]
+	user := s.Cosmos.Users[0]
 
 	// Send a GMP packet directly from a user (not through IFT module).
 	// This simulates another application using GMP on the same chain.

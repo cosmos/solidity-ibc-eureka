@@ -92,8 +92,8 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 
 	s.TestSuite.SetupSuite(ctx)
 
-	eth := s.EthChain
-	s.Wfchain = s.CosmosChains[0]
+	eth := s.Eth.Chains[0]
+	s.Wfchain = s.Cosmos.Chains[0]
 
 	s.T().Logf("Setting up Cosmos-Ethereum IFT test suite with proof type: %s", proofType.String())
 
@@ -162,19 +162,27 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 
-		config := relayer.NewConfig(relayer.CreateEthCosmosModules(
-			relayer.EthCosmosConfigInfo{
-				EthChainID:     eth.ChainID.String(),
-				CosmosChainID:  s.Wfchain.Config().ChainID,
-				TmRPC:          s.Wfchain.GetHostRPCAddress(),
-				ICS26Address:   s.contractAddresses.Ics26Router,
-				EthRPC:         eth.RPC,
-				BeaconAPI:      beaconAPI,
-				SP1Config:      sp1Config,
-				SignerAddress:  s.CosmosRelayerSubmitter.FormattedAddress(),
-				MockWasmClient: os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypePoW,
-			}),
-		)
+		mockWasmClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil
+		config := relayer.NewConfigBuilder().
+			EthToCosmos(relayer.EthToCosmosParams{
+				EthChainID:    eth.ChainID.String(),
+				CosmosChainID: s.Wfchain.Config().ChainID,
+				TmRPC:         s.Wfchain.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				BeaconAPI:     beaconAPI,
+				SignerAddress: s.CosmosRelayerSubmitter.FormattedAddress(),
+				MockClient:    mockWasmClient,
+			}).
+			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+				CosmosChainID: s.Wfchain.Config().ChainID,
+				EthChainID:    eth.ChainID.String(),
+				TmRPC:         s.Wfchain.GetHostRPCAddress(),
+				ICS26Address:  s.contractAddresses.Ics26Router,
+				EthRPC:        eth.RPC,
+				Prover:        sp1Config,
+			}).
+			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
 		s.Require().NoError(err)
@@ -295,7 +303,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 	}))
 
 	s.Require().True(s.Run("Verify Ethereum chain is running", func() {
-		blockNum, err := s.EthChain.RPCClient.BlockNumber(ctx)
+		blockNum, err := s.Eth.Chains[0].RPCClient.BlockNumber(ctx)
 		s.Require().NoError(err)
 		s.Require().Greater(blockNum, uint64(0))
 		s.T().Logf("Ethereum block: %d", blockNum)
@@ -312,7 +320,7 @@ type iftTestContext struct {
 }
 
 func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context) iftTestContext {
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	tc := iftTestContext{
 		tmClientID:   testvalues.CustomClientID,
 		wasmClientID: testvalues.FirstWasmClientID,
@@ -345,7 +353,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 		}))
 
 		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {
-			checksumHex := s.StoreEthereumLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
+			checksumHex := s.StoreLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
 			s.Require().NotEmpty(checksumHex)
 
 			var createClientTxBodyBz []byte
@@ -484,7 +492,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
 
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tc := s.setupIFTInfrastructure(ctx)
@@ -672,7 +680,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
 
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tc := s.setupIFTInfrastructure(ctx)
@@ -758,7 +766,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
 
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tc := s.setupIFTInfrastructure(ctx)
@@ -873,7 +881,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
 
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tc := s.setupIFTInfrastructure(ctx)
@@ -1004,7 +1012,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
 
-	eth := s.EthChain
+	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tmClientID := testvalues.CustomClientID
@@ -1034,7 +1042,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 		}))
 
 		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {
-			checksumHex := s.StoreEthereumLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
+			checksumHex := s.StoreLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
 			s.Require().NotEmpty(checksumHex)
 
 			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
