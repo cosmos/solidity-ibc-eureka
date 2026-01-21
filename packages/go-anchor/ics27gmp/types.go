@@ -11,6 +11,504 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Event emitted when access manager is updated
+type Ics27GmpEventsAccessManagerUpdated struct {
+	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
+	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
+}
+
+func (obj Ics27GmpEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldAccessManager`:
+	err = encoder.Encode(obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Serialize `NewAccessManager`:
+	err = encoder.Encode(obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsAccessManagerUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsAccessManagerUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldAccessManager`:
+	err = decoder.Decode(&obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Deserialize `NewAccessManager`:
+	err = decoder.Decode(&obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsAccessManagerUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsAccessManagerUpdated(buf []byte) (*Ics27GmpEventsAccessManagerUpdated, error) {
+	obj := new(Ics27GmpEventsAccessManagerUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when GMP app is initialized
+type Ics27GmpEventsGmpAppInitialized struct {
+	// Router program managing this app
+	RouterProgram solanago.PublicKey `json:"routerProgram"`
+
+	// Port ID bound to this app
+	PortId string `json:"portId"`
+
+	// App initialization timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpAppInitialized) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `RouterProgram`:
+	err = encoder.Encode(obj.RouterProgram)
+	if err != nil {
+		return errors.NewField("RouterProgram", err)
+	}
+	// Serialize `PortId`:
+	err = encoder.Encode(obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpAppInitialized) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpAppInitialized: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpAppInitialized) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `RouterProgram`:
+	err = decoder.Decode(&obj.RouterProgram)
+	if err != nil {
+		return errors.NewField("RouterProgram", err)
+	}
+	// Deserialize `PortId`:
+	err = decoder.Decode(&obj.PortId)
+	if err != nil {
+		return errors.NewField("PortId", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpAppInitialized) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpAppInitialized: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpAppInitialized(buf []byte) (*Ics27GmpEventsGmpAppInitialized, error) {
+	obj := new(Ics27GmpEventsGmpAppInitialized)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when app is paused
+type Ics27GmpEventsGmpAppPaused struct {
+	// Admin who paused the app
+	Admin solanago.PublicKey `json:"admin"`
+
+	// Pause timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpAppPaused) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpAppPaused) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpAppPaused: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpAppPaused) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpAppPaused) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpAppPaused: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpAppPaused(buf []byte) (*Ics27GmpEventsGmpAppPaused, error) {
+	obj := new(Ics27GmpEventsGmpAppPaused)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when app is unpaused
+type Ics27GmpEventsGmpAppUnpaused struct {
+	// Admin who unpaused the app
+	Admin solanago.PublicKey `json:"admin"`
+
+	// Unpause timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpAppUnpaused) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpAppUnpaused) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpAppUnpaused: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpAppUnpaused) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpAppUnpaused) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpAppUnpaused: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpAppUnpaused(buf []byte) (*Ics27GmpEventsGmpAppUnpaused, error) {
+	obj := new(Ics27GmpEventsGmpAppUnpaused)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when a GMP call is sent
+type Ics27GmpEventsGmpCallSent struct {
+	// Packet sequence number
+	Sequence uint64 `json:"sequence"`
+
+	// Sender of the call
+	Sender solanago.PublicKey `json:"sender"`
+
+	// Target address to execute (destination chain format)
+	Receiver string `json:"receiver"`
+
+	// Source client ID
+	ClientId string `json:"clientId"`
+
+	// Account salt used
+	Salt []byte `json:"salt"`
+
+	// Payload size
+	PayloadSize uint64 `json:"payloadSize"`
+
+	// Timeout timestamp
+	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+}
+
+func (obj Ics27GmpEventsGmpCallSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Sender`:
+	err = encoder.Encode(obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Serialize `Receiver`:
+	err = encoder.Encode(obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Salt`:
+	err = encoder.Encode(obj.Salt)
+	if err != nil {
+		return errors.NewField("Salt", err)
+	}
+	// Serialize `PayloadSize`:
+	err = encoder.Encode(obj.PayloadSize)
+	if err != nil {
+		return errors.NewField("PayloadSize", err)
+	}
+	// Serialize `TimeoutTimestamp`:
+	err = encoder.Encode(obj.TimeoutTimestamp)
+	if err != nil {
+		return errors.NewField("TimeoutTimestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpCallSent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpCallSent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpCallSent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Sender`:
+	err = decoder.Decode(&obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Deserialize `Receiver`:
+	err = decoder.Decode(&obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Salt`:
+	err = decoder.Decode(&obj.Salt)
+	if err != nil {
+		return errors.NewField("Salt", err)
+	}
+	// Deserialize `PayloadSize`:
+	err = decoder.Decode(&obj.PayloadSize)
+	if err != nil {
+		return errors.NewField("PayloadSize", err)
+	}
+	// Deserialize `TimeoutTimestamp`:
+	err = decoder.Decode(&obj.TimeoutTimestamp)
+	if err != nil {
+		return errors.NewField("TimeoutTimestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpCallSent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpCallSent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpCallSent(buf []byte) (*Ics27GmpEventsGmpCallSent, error) {
+	obj := new(Ics27GmpEventsGmpCallSent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted for execution failures
+type Ics27GmpEventsGmpExecutionFailed struct {
+	// Account that failed execution
+	Account solanago.PublicKey `json:"account"`
+
+	// Target program that failed
+	TargetProgram solanago.PublicKey `json:"targetProgram"`
+
+	// Error code
+	ErrorCode uint32 `json:"errorCode"`
+
+	// Error message
+	ErrorMessage string `json:"errorMessage"`
+
+	// Failure timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpExecutionFailed) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Account`:
+	err = encoder.Encode(obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Serialize `TargetProgram`:
+	err = encoder.Encode(obj.TargetProgram)
+	if err != nil {
+		return errors.NewField("TargetProgram", err)
+	}
+	// Serialize `ErrorCode`:
+	err = encoder.Encode(obj.ErrorCode)
+	if err != nil {
+		return errors.NewField("ErrorCode", err)
+	}
+	// Serialize `ErrorMessage`:
+	err = encoder.Encode(obj.ErrorMessage)
+	if err != nil {
+		return errors.NewField("ErrorMessage", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpExecutionFailed) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpExecutionFailed: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpExecutionFailed) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Account`:
+	err = decoder.Decode(&obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Deserialize `TargetProgram`:
+	err = decoder.Decode(&obj.TargetProgram)
+	if err != nil {
+		return errors.NewField("TargetProgram", err)
+	}
+	// Deserialize `ErrorCode`:
+	err = decoder.Decode(&obj.ErrorCode)
+	if err != nil {
+		return errors.NewField("ErrorCode", err)
+	}
+	// Deserialize `ErrorMessage`:
+	err = decoder.Decode(&obj.ErrorMessage)
+	if err != nil {
+		return errors.NewField("ErrorMessage", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpExecutionFailed) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpExecutionFailed: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpExecutionFailed(buf []byte) (*Ics27GmpEventsGmpExecutionFailed, error) {
+	obj := new(Ics27GmpEventsGmpExecutionFailed)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Account schema version
 type Ics27GmpStateAccountVersion binary.BorshEnum
 
