@@ -10,9 +10,6 @@ pub enum ContractError {
     #[error("{0}")]
     Std(#[from] StdError),
 
-    #[error("unauthorized")]
-    Unauthorized,
-
     #[error("client state latest height and slot are not equal")]
     ClientStateSlotMismatch,
 

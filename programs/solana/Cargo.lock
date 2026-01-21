@@ -5627,6 +5627,7 @@ dependencies = [
  "ics23",
  "sha2 0.10.9",
  "solana-account-info",
+ "solana-ibc-types",
  "solana-keccak-hasher",
  "solana-msg",
  "solana-pubkey",
