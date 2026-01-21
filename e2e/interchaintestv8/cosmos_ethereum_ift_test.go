@@ -90,6 +90,9 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
 	}
 
+	// Set up Ethereum chain (use Anvil for local testing)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
+
 	s.TestSuite.SetupSuite(ctx)
 
 	eth := s.Eth.Chains[0]
