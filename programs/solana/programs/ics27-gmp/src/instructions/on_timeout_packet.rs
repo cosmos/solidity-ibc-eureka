@@ -58,15 +58,14 @@ pub fn on_timeout_packet(
         GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
 
     let clock = Clock::get()?;
-    let sender = packet_data.sender.into_string();
+    let sender: Pubkey = packet_data
+        .sender
+        .as_ref()
+        .parse()
+        .map_err(|_| GMPError::InvalidSender)?;
 
     let result = &mut ctx.accounts.result_account;
-    result.init_timed_out(
-        msg,
-        sender.clone(),
-        clock.unix_timestamp,
-        ctx.bumps.result_account,
-    );
+    result.init_timed_out(msg, sender, clock.unix_timestamp, ctx.bumps.result_account);
 
     emit!(GMPCallTimedOut {
         source_client: result.source_client.clone(),

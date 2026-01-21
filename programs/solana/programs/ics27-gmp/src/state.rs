@@ -83,9 +83,8 @@ pub use solana_ibc_types::{CallResultStatus, GMPCallResult};
 pub struct GMPCallResultAccount {
     /// Account schema version for future upgrades.
     pub version: AccountVersion,
-    /// Original sender address (base58 pubkey string).
-    #[max_len(128)]
-    pub sender: String,
+    /// Original sender pubkey.
+    pub sender: Pubkey,
     /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
@@ -110,7 +109,7 @@ impl GMPCallResultAccount {
     pub fn init_acknowledged(
         &mut self,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
-        sender: String,
+        sender: Pubkey,
         timestamp: i64,
         bump: u8,
     ) {
@@ -128,7 +127,7 @@ impl GMPCallResultAccount {
     pub fn init_timed_out(
         &mut self,
         msg: solana_ibc_types::OnTimeoutPacketMsg,
-        sender: String,
+        sender: Pubkey,
         timestamp: i64,
         bump: u8,
     ) {
@@ -162,7 +161,7 @@ mod tests {
     fn test_ack_commitment_computation() {
         let mut account = GMPCallResultAccount {
             version: AccountVersion::V1,
-            sender: String::new(),
+            sender: Pubkey::default(),
             sequence: 0,
             source_client: String::new(),
             dest_client: String::new(),
@@ -181,7 +180,8 @@ mod tests {
             relayer: Pubkey::default(),
         };
 
-        account.init_acknowledged(msg, "sender".to_string(), 1_234_567_890, 255);
+        let sender = Pubkey::new_unique();
+        account.init_acknowledged(msg, sender, 1_234_567_890, 255);
 
         let expected_commitment = ibc_ack_commitment(ack_data);
         assert_eq!(
@@ -189,13 +189,14 @@ mod tests {
             CallResultStatus::Acknowledgement(expected_commitment)
         );
         assert_eq!(account.sequence, 42);
+        assert_eq!(account.sender, sender);
     }
 
     #[test]
     fn test_timeout_status() {
         let mut account = GMPCallResultAccount {
             version: AccountVersion::V1,
-            sender: String::new(),
+            sender: Pubkey::default(),
             sequence: 0,
             source_client: String::new(),
             dest_client: String::new(),
@@ -212,9 +213,11 @@ mod tests {
             relayer: Pubkey::default(),
         };
 
-        account.init_timed_out(msg, "sender".to_string(), 1_234_567_890, 255);
+        let sender = Pubkey::new_unique();
+        account.init_timed_out(msg, sender, 1_234_567_890, 255);
 
         assert_eq!(account.status, CallResultStatus::Timeout);
         assert_eq!(account.sequence, 42);
+        assert_eq!(account.sender, sender);
     }
 }

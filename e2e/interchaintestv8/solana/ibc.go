@@ -77,7 +77,7 @@ const (
 // GMPCallResultAccount represents the on-chain data for a GMP call result.
 type GMPCallResultAccount struct {
 	Version         uint8            // Account schema version (0 = V1)
-	Sender          string           // Original sender address on the source chain
+	Sender          solana.PublicKey // Original sender pubkey
 	Sequence        uint64           // IBC packet sequence number
 	SourceClient    string           // Source client ID
 	DestClient      string           // Destination client ID
@@ -121,12 +121,12 @@ func DecodeGMPCallResultAccount(data []byte) (*GMPCallResultAccount, error) {
 	result.Version = data[offset]
 	offset++
 
-	// Sender (String)
-	var err error
-	result.Sender, err = readString()
-	if err != nil {
-		return nil, fmt.Errorf("reading sender: %w", err)
+	// Sender (Pubkey - 32 bytes)
+	if offset+32 > len(data) {
+		return nil, fmt.Errorf("not enough data for sender pubkey")
 	}
+	copy(result.Sender[:], data[offset:offset+32])
+	offset += 32
 
 	// Sequence (u64)
 	if offset+8 > len(data) {
@@ -136,6 +136,7 @@ func DecodeGMPCallResultAccount(data []byte) (*GMPCallResultAccount, error) {
 	offset += 8
 
 	// SourceClient (String)
+	var err error
 	result.SourceClient, err = readString()
 	if err != nil {
 		return nil, fmt.Errorf("reading source_client: %w", err)

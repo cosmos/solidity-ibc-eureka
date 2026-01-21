@@ -72,8 +72,8 @@ pub struct GMPCallAcknowledged {
     pub source_client: String,
     /// IBC packet sequence number.
     pub sequence: u64,
-    /// Original sender address on the source chain.
-    pub sender: String,
+    /// Original sender pubkey.
+    pub sender: Pubkey,
     /// PDA where the result is stored.
     pub result_pda: Pubkey,
     /// Timestamp when the acknowledgement was processed (Unix seconds).
@@ -87,8 +87,8 @@ pub struct GMPCallTimedOut {
     pub source_client: String,
     /// IBC packet sequence number.
     pub sequence: u64,
-    /// Original sender address on the source chain.
-    pub sender: String,
+    /// Original sender pubkey.
+    pub sender: Pubkey,
     /// PDA where the result is stored.
     pub result_pda: Pubkey,
     /// Timestamp when the timeout was processed (Unix seconds).
