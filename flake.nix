@@ -74,8 +74,12 @@
           inherit anchor;
         };
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
+        node-modules = pkgs.callPackage ./nix/node-modules.nix {};
       in
       {
+        packages = {
+          node-modules = node-modules;
+        };
         devShells = {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
@@ -112,6 +116,12 @@
               if [ -z "$(which cargo-prove)" ]; then
                 echo "SP1 toolchain is not installed. This is recommended to generate risc-v elfs. To install, please follow the instructions at"
                 echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
+              fi
+
+              if [ -d "${node-modules}/node_modules" ]; then
+                if [ ! -e node_modules ] || [ -L node_modules ]; then
+                  ln -sfn "${node-modules}/node_modules" node_modules
+                fi
               fi
 
               # WORKAROUND: Fix Darwin SDK conflicts (Oct 2025)
@@ -153,6 +163,13 @@
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
               export PATH="${solana-agave}/bin:$PATH"
+
+              if [ -d "${node-modules}/node_modules" ]; then
+                if [ ! -e node_modules ] || [ -L node_modules ]; then
+                  ln -sfn "${node-modules}/node_modules" node_modules
+                fi
+              fi
+
               echo ""
               echo "Solana development shell activated"
               echo ""
