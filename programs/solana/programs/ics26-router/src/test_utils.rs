@@ -1,7 +1,7 @@
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use access_manager::RoleData;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator, Space};
+use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
 use solana_ibc_types::roles;
 use solana_ibc_types::Payload;
 use solana_sdk::pubkey::Pubkey;

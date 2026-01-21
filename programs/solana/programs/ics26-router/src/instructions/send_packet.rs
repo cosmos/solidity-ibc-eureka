@@ -206,7 +206,7 @@ mod tests {
         client_id: &'static str,
         port_id: &'static str,
         app_program_id: Option<Pubkey>,
-        /// If true, use correct app_signer PDA. If false, use wrong PDA to test rejection.
+        /// If true, use correct `app_signer` PDA. If false, use wrong PDA to test rejection.
         use_valid_app_signer: bool,
         active_client: bool,
         current_timestamp: i64,
