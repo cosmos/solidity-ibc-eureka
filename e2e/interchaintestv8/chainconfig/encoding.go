@@ -28,6 +28,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestations"
 )
 
 // Codec returns the global E2E protobuf codec.
@@ -66,6 +68,7 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	ibctmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	ibcwasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	channeltypesv2.RegisterInterfaces(cfg.InterfaceRegistry)
+	attestations.RegisterInterfaces(cfg.InterfaceRegistry)
 	gmptypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	// all other types

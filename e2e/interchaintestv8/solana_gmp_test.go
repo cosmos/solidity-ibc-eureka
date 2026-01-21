@@ -103,10 +103,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeGMPCounterApp(ctx context.Context) 
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("GMP Counter app initialized")
 	}))
@@ -131,10 +131,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 
 		s.T().Logf("ICS27 GMP program initialized at: %s", s.ICS27GMPProgramID)
@@ -162,10 +162,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), registerInstruction)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), registerInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("ICS27 GMP registered with router on port: %s (using proper GMP port)", GMPPortID)
 	}))
@@ -182,13 +182,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 
 	// Create a second Cosmos user for multi-user testing
 	var cosmosUser1 ibc.Wallet
 	s.Require().True(s.Run("Create Second Cosmos User", func() {
 		cosmosUser1 = s.CreateAndFundCosmosUser(ctx, simd)
-		s.CosmosUsers = append(s.CosmosUsers, cosmosUser1)
+		s.Cosmos.Users = append(s.Cosmos.Users, cosmosUser1)
 		s.T().Logf("Created second Cosmos user: %s", cosmosUser1.FormattedAddress())
 	}))
 
@@ -227,7 +227,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			userCounterPDA, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
 			// Use confirmed commitment to match relay transaction confirmation level
-			account, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, userCounterPDA, &rpc.GetAccountInfoOpts{
+			account, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, userCounterPDA, &rpc.GetAccountInfoOpts{
 				Commitment: rpc.CommitmentConfirmed,
 			})
 			if err != nil || account.Value == nil {
@@ -244,7 +244,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		// Helper to send GMP increment from a Cosmos user
 		sendGMPIncrement = func(cosmosUser ibc.Wallet, amount uint64) []byte {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-			simd := s.CosmosChains[0]
+			simd := s.Cosmos.Chains[0]
 
 			// Derive the GMP account PDA for this Cosmos user
 			// This PDA is the authority that signs for the counter operations (stateless, no storage)
@@ -318,7 +318,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 		relayGMPPacket = func(cosmosGMPTxHash []byte, userLabel string) solanago.Signature {
 			var solanaRelayTxSig solanago.Signature
 
-			simd := s.CosmosChains[0]
+			simd := s.Cosmos.Chains[0]
 
 			// First, update the Solana client to the latest height
 			updateResp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
@@ -329,7 +329,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NoError(err, "Relayer Update Client failed")
 			s.Require().NotEmpty(updateResp.Tx, "Relayer Update client should return transaction")
 
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+			s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 
 			// Now retrieve and relay the GMP packet
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -343,21 +343,21 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
 			// Execute on Solana using chunked submission
-			solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+			solanaRelayTxSig, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.T().Logf("%s: GMP execution completed on Solana", userLabel)
 
 			return solanaRelayTxSig
 		}
 
-		s.T().Logf("Setup complete - User0 key: %s, User1 key: %s", s.CosmosUsers[0].FormattedAddress(), s.CosmosUsers[1].FormattedAddress())
+		s.T().Logf("Setup complete - User0 key: %s, User1 key: %s", s.Cosmos.Users[0].FormattedAddress(), s.Cosmos.Users[1].FormattedAddress())
 	}))
 
 	// Check initial counter states
 	var initialCounterUser0, initialCounterUser1 uint64
 	s.Require().True(s.Run("Check Initial Counter States", func() {
-		initialCounterUser0 = getCounterValue(s.CosmosUsers[0].FormattedAddress())
-		initialCounterUser1 = getCounterValue(s.CosmosUsers[1].FormattedAddress())
+		initialCounterUser0 = getCounterValue(s.Cosmos.Users[0].FormattedAddress())
+		initialCounterUser1 = getCounterValue(s.Cosmos.Users[1].FormattedAddress())
 		s.T().Logf("Initial counter for user0: %d", initialCounterUser0)
 		s.T().Logf("Initial counter for user1: %d", initialCounterUser1)
 	}))
@@ -365,7 +365,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	// Send increment from User 0
 	var cosmosGMPTxHashUser0 []byte
 	s.Require().True(s.Run("User0: Send GMP increment call from Cosmos", func() {
-		cosmosGMPTxHashUser0 = sendGMPIncrement(s.CosmosUsers[0], DefaultIncrementAmount)
+		cosmosGMPTxHashUser0 = sendGMPIncrement(s.Cosmos.Users[0], DefaultIncrementAmount)
 		s.Require().NotEmpty(cosmosGMPTxHashUser0)
 	}))
 
@@ -376,7 +376,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	}))
 
 	s.Require().True(s.Run("User0: Verify counter was incremented", func() {
-		newCounter := getCounterValue(s.CosmosUsers[0].FormattedAddress())
+		newCounter := getCounterValue(s.Cosmos.Users[0].FormattedAddress())
 		expectedCounter := initialCounterUser0 + DefaultIncrementAmount
 		s.Require().Equal(expectedCounter, newCounter)
 		s.T().Logf("User0: Counter successfully incremented from %d to %d", initialCounterUser0, newCounter)
@@ -385,7 +385,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	// User 0 increments again (to test that existing account works correctly)
 	var cosmosGMPTxHashUser0Second []byte
 	s.Require().True(s.Run("User0: Send second GMP increment call from Cosmos", func() {
-		cosmosGMPTxHashUser0Second = sendGMPIncrement(s.CosmosUsers[0], 7) // Increment by 7 for variety
+		cosmosGMPTxHashUser0Second = sendGMPIncrement(s.Cosmos.Users[0], 7) // Increment by 7 for variety
 		s.Require().NotEmpty(cosmosGMPTxHashUser0Second)
 	}))
 
@@ -396,7 +396,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 	var afterSecondIncrement uint64
 	s.Require().True(s.Run("User0: Verify counter was incremented again", func() {
-		afterSecondIncrement = getCounterValue(s.CosmosUsers[0].FormattedAddress())
+		afterSecondIncrement = getCounterValue(s.Cosmos.Users[0].FormattedAddress())
 		expectedCounter := initialCounterUser0 + DefaultIncrementAmount + 7
 		s.Require().Equal(expectedCounter, afterSecondIncrement)
 		s.T().Logf("User0: Counter successfully incremented from %d to %d (second increment by 7)", initialCounterUser0+DefaultIncrementAmount, afterSecondIncrement)
@@ -405,7 +405,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	// Now send increment from User 1
 	var cosmosGMPTxHashUser1 []byte
 	s.Require().True(s.Run("User1: Send GMP increment call from Cosmos", func() {
-		cosmosGMPTxHashUser1 = sendGMPIncrement(s.CosmosUsers[1], 3) // Increment by 3 for variety
+		cosmosGMPTxHashUser1 = sendGMPIncrement(s.Cosmos.Users[1], 3) // Increment by 3 for variety
 		s.Require().NotEmpty(cosmosGMPTxHashUser1)
 	}))
 
@@ -416,15 +416,15 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	}))
 
 	s.Require().True(s.Run("User1: Verify counter was incremented", func() {
-		newCounter := getCounterValue(s.CosmosUsers[1].FormattedAddress())
+		newCounter := getCounterValue(s.Cosmos.Users[1].FormattedAddress())
 		expectedCounter := initialCounterUser1 + 3 // We incremented by 3
 		s.Require().Equal(expectedCounter, newCounter)
 		s.T().Logf("User1: Counter successfully incremented from %d to %d", initialCounterUser1, newCounter)
 	}))
 
 	s.Require().True(s.Run("Verify final counter states for both users", func() {
-		finalCounterUser0 := getCounterValue(s.CosmosUsers[0].FormattedAddress())
-		finalCounterUser1 := getCounterValue(s.CosmosUsers[1].FormattedAddress())
+		finalCounterUser0 := getCounterValue(s.Cosmos.Users[0].FormattedAddress())
+		finalCounterUser1 := getCounterValue(s.Cosmos.Users[1].FormattedAddress())
 
 		// User 0 should have: initial + DefaultIncrementAmount (5) + 7
 		expectedFinalUser0 := initialCounterUser0 + DefaultIncrementAmount + 7
@@ -439,7 +439,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	}))
 
 	s.Require().True(s.Run("Relay acknowledgments back to Cosmos", func() {
-		simd := s.CosmosChains[0]
+		simd := s.Cosmos.Chains[0]
 
 		s.Require().True(s.Run("Relay User0 first acknowledgment", func() {
 			var ackRelayTxBodyBz []byte
@@ -459,7 +459,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			}))
 
 			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
+				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
 				s.T().Logf("User0 first GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
 					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 			}))
@@ -483,7 +483,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			}))
 
 			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
+				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
 				s.T().Logf("User0 second GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
 					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 			}))
@@ -507,7 +507,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			}))
 
 			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
+				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
 				s.T().Logf("User1 GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
 					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 			}))
@@ -530,8 +530,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
-	cosmosUser := s.CosmosUsers[0]
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
 
 	// Setup SPL token infrastructure
 	var tokenMint solanago.PublicKey
@@ -543,7 +543,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, 6)
+			tokenMint, err = s.Solana.Chain.CreateSPLTokenMint(ctx, s.SolanaRelayer, 6)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (6 decimals)", tokenMint.String())
 		}))
@@ -557,15 +557,15 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
 			// Create recipient wallet and destination token account
-			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
+			recipientWallet, err = s.Solana.Chain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
@@ -573,10 +573,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.Require().True(s.Run("Mint Tokens to ICS27 PDA", func() {
 			// Mint 10 tokens (10,000,000 with 6 decimals)
 			mintAmount := SPLTokenMintAmount
-			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, mintAmount)
+			err := s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, mintAmount)
 			s.Require().NoError(err)
 
-			balance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(mintAmount, balance)
 			s.T().Logf("Minted %d tokens to ICS27 PDA's token account", mintAmount)
@@ -645,10 +645,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	var initialDestBalance uint64
 	s.Require().True(s.Run("Record Initial Token Balances", func() {
 		var err error
-		initialSourceBalance, err = s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+		initialSourceBalance, err = s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 		s.Require().NoError(err)
 
-		initialDestBalance, err = s.SolanaChain.GetTokenBalance(ctx, destTokenAccount)
+		initialDestBalance, err = s.Solana.Chain.GetTokenBalance(ctx, destTokenAccount)
 		s.Require().NoError(err)
 
 		s.T().Logf("Initial balances - Source: %d, Dest: %d", initialSourceBalance, initialDestBalance)
@@ -667,17 +667,17 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-		solanaRelayTxSig, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		solanaRelayTxSig, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("SPL transfer executed on Solana: %s", solanaRelayTxSig)
 	}))
 
 	// Verify transfer completed
 	s.Require().True(s.Run("Verify SPL Token Transfer", func() {
-		finalSourceBalance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+		finalSourceBalance, err := s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 		s.Require().NoError(err)
 
-		finalDestBalance, err := s.SolanaChain.GetTokenBalance(ctx, destTokenAccount)
+		finalDestBalance, err := s.Solana.Chain.GetTokenBalance(ctx, destTokenAccount)
 		s.Require().NoError(err)
 
 		expectedSourceBalance := initialSourceBalance - transferAmount
@@ -731,7 +731,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
 	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
@@ -807,7 +807,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		var baseSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
 			namespacedSequence := solana.CalculateNamespacedSequence(
@@ -851,13 +851,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
-			tx, err := s.SolanaChain.NewTransactionFromInstructions(
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -887,7 +887,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Cosmos", func() {
-			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 2_000_000, recvRelayTx)
+			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 2_000_000, recvRelayTx)
 			s.T().Logf("Recv packet tx result: code=%d, log=%s, gas=%d", receipt.Code, receipt.RawLog, receipt.GasUsed)
 
 			s.Require().Equal(uint32(0), receipt.Code, "Tx should succeed")
@@ -928,11 +928,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 
-		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -1015,7 +1015,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
 	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
@@ -1078,7 +1078,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		var packetCommitmentPDA solanago.PublicKey
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
 			namespacedSequence := solana.CalculateNamespacedSequence(
@@ -1095,7 +1095,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		var sendCallInstruction solanago.Instruction
 		s.Require().True(s.Run("Build send_call instruction", func() {
-			solanaClockTime, err := s.SolanaChain.GetSolanaClockTime(ctx)
+			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 			s.Require().NoError(err)
 
 			// Using 35 seconds to provide buffer above the transaction execution delay
@@ -1129,13 +1129,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
-			tx, err := s.SolanaChain.NewTransactionFromInstructions(
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -1174,7 +1174,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Timeout transaction broadcasted: %s", sig)
 
@@ -1182,7 +1182,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		s.Require().True(s.Run("Verify timeout effects", func() {
 			s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
-				s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+				s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 				s.T().Logf("Packet commitment successfully deleted from Solana for base sequence %d", baseSequence)
 			}))
 
@@ -1199,7 +1199,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			}))
 
 			s.Require().True(s.Run("Verify recvPacket fails on Cosmos after timeout", func() {
-				_, err := s.BroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 2_000_000, recvRelayTxBodyBz)
+				_, err := s.BroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 2_000_000, recvRelayTxBodyBz)
 				s.Require().Error(err)
 			}))
 		}))
@@ -1282,8 +1282,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
-	cosmosUser := s.CosmosUsers[0]
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
 
 	// Create SPL token and accounts
 	var tokenMint solanago.PublicKey
@@ -1295,7 +1295,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
+			tokenMint, err = s.Solana.Chain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s", tokenMint.String())
 		}))
@@ -1307,10 +1307,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		s.Require().True(s.Run("Create and Fund Token Account", func() {
 			var err error
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 
-			err = s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, tokenAmount)
+			err = s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, tokenAmount)
 			s.Require().NoError(err)
 			s.T().Logf("Created and funded source token account: %s", sourceTokenAccount.String())
 		}))
@@ -1326,10 +1326,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		// Build SPL transfer instruction
 		var err error
-		recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
+		recipientWallet, err = s.Solana.Chain.CreateAndFundWallet()
 		s.Require().NoError(err)
 
-		destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
+		destTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 		s.Require().NoError(err)
 
 		splTransferInstruction := token.NewTransferInstruction(
@@ -1397,7 +1397,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		if batch.UpdateClient != nil {
 			updateClientBytes, err := proto.Marshal(batch.UpdateClient)
 			s.Require().NoError(err)
-			s.SolanaChain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), &relayertypes.UpdateClientResponse{
+			s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), &relayertypes.UpdateClientResponse{
 				Tx: updateClientBytes,
 			}, s.SolanaRelayer)
 		}
@@ -1419,7 +1419,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-			txResp, err := s.BroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 500_000, resp.Tx)
+			txResp, err := s.BroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 500_000, resp.Tx)
 			s.Require().NoError(err)
 			s.T().Logf("Timeout transaction broadcasted: %s", txResp.TxHash)
 
@@ -1439,20 +1439,20 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 			s.Require().True(s.Run("Verify SPL token balances unchanged", func() {
 				// Source account should still have all tokens (transfer never executed)
-				sourceBalance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+				sourceBalance, err := s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 				s.Require().NoError(err)
 				s.Require().Equal(tokenAmount, sourceBalance, "Source token account should retain all tokens after timeout")
 				s.T().Logf("Source token account balance: %d (unchanged)", sourceBalance)
 
 				// Destination account should have 0 tokens (never received)
-				destBalance, err := s.SolanaChain.GetTokenBalance(ctx, destTokenAccount)
+				destBalance, err := s.Solana.Chain.GetTokenBalance(ctx, destTokenAccount)
 				s.Require().NoError(err)
 				s.Require().Equal(uint64(0), destBalance, "Destination token account should have 0 tokens after timeout")
 				s.T().Logf("Destination token account balance: %d (no transfer occurred)", destBalance)
 			}))
 
 			s.Require().True(s.Run("Verify recvPacket fails on Solana after timeout", func() {
-				_, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), recvRelayTxs, s.SolanaRelayer)
+				_, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), recvRelayTxs, s.SolanaRelayer)
 				s.Require().Error(err)
 			}))
 		}))
@@ -1512,8 +1512,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
-	cosmosUser := s.CosmosUsers[0]
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
 
 	// Setup SPL token infrastructure with insufficient balance
 	var tokenMint solanago.PublicKey
@@ -1530,7 +1530,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
 		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
 			var err error
-			tokenMint, err = s.SolanaChain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
+			tokenMint, err = s.Solana.Chain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
 			s.Require().NoError(err)
 			s.T().Logf("Created test SPL token mint: %s (decimals: %d)", tokenMint.String(), SPLTokenDecimals)
 		}))
@@ -1544,25 +1544,25 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			var err error
 
 			// Create source token account (owned by ICS27 PDA)
-			sourceTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
+			sourceTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
 			s.Require().NoError(err)
 			s.T().Logf("Created source token account (owned by ICS27 PDA): %s", sourceTokenAccount.String())
 
 			// Create recipient wallet and destination token account
-			recipientWallet, err = s.SolanaChain.CreateAndFundWallet()
+			recipientWallet, err = s.Solana.Chain.CreateAndFundWallet()
 			s.Require().NoError(err)
 
-			destTokenAccount, err = s.SolanaChain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
+			destTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
 			s.Require().NoError(err)
 			s.T().Logf("Created destination token account (owned by recipient): %s", destTokenAccount.String())
 		}))
 
 		s.Require().True(s.Run("Mint Insufficient Tokens to ICS27 PDA", func() {
 			// CRITICAL: Mint ONLY 5 tokens (we'll try to transfer 10 later)
-			err := s.SolanaChain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, insufficientAmount)
+			err := s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, insufficientAmount)
 			s.Require().NoError(err)
 
-			balance, err := s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(insufficientAmount, balance)
 			s.T().Logf("Minted %d tokens to ICS27 PDA (intentionally insufficient)", insufficientAmount)
@@ -1575,11 +1575,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	s.Require().True(s.Run("Record Initial State", func() {
 		var err error
 
-		initialSourceBalance, err = s.SolanaChain.GetTokenBalance(ctx, sourceTokenAccount)
+		initialSourceBalance, err = s.Solana.Chain.GetTokenBalance(ctx, sourceTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(insufficientAmount, initialSourceBalance)
 
-		initialDestBalance, err = s.SolanaChain.GetTokenBalance(ctx, destTokenAccount)
+		initialDestBalance, err = s.Solana.Chain.GetTokenBalance(ctx, destTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(uint64(0), initialDestBalance)
 
@@ -1654,7 +1654,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 
 		// Transaction will fail due to CPI error (insufficient balance for SPL token transfer)
 		// Expected error: SPL Token program InstructionError with Custom error code 1 (InsufficientFunds)
-		_, err = s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().Error(err)
 		s.T().Logf("Received error: %v", err)
 		// Expected Solana error format: map[InstructionError:[%!s(float64=2) map[Custom:%!s(float64=1)]]]
@@ -1693,7 +1693,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	simd := s.CosmosChains[0]
+	simd := s.Cosmos.Chains[0]
 
 	// Create a test Cosmos user to receive the transfer (if it succeeds)
 	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
@@ -1764,7 +1764,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		var baseSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
-			baseSequence, err = s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
 			namespacedSequence := solana.CalculateNamespacedSequence(
@@ -1807,13 +1807,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Broadcast transaction", func() {
-			tx, err := s.SolanaChain.NewTransactionFromInstructions(
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 				s.SolanaRelayer.PublicKey(),
 				sendCallInstruction,
 			)
 			s.Require().NoError(err)
 
-			sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(sig)
 
@@ -1843,7 +1843,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Cosmos", func() {
-			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.CosmosUsers[0], 2_000_000, recvRelayTx)
+			receipt := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 2_000_000, recvRelayTx)
 			s.T().Logf("Recv packet tx result: code=%d, log=%s, gas=%d", receipt.Code, receipt.RawLog, receipt.GasUsed)
 
 			// The IBC packet should be received successfully (code=0)
@@ -1871,7 +1871,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
-		sig, err := s.SolanaChain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Error acknowledgment successfully relayed to Solana: %s", sig)
 	}))
@@ -1882,13 +1882,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 		// Get the base sequence we used (it was incremented after send)
-		currentBaseSequence, err := s.SolanaChain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		currentBaseSequence, err := s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 		s.Require().NoError(err)
 
 		// The base sequence we used was (current - 1)
 		usedBaseSequence := currentBaseSequence - 1
 
-		s.SolanaChain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedBaseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, usedBaseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 		s.T().Logf("Verified packet commitment deleted for base sequence %d", usedBaseSequence)
 	}))
 }
@@ -2018,10 +2018,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting direct call to on_recv_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_recv_packet should reject direct call")
@@ -2095,10 +2095,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_recv_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_recv_packet has instructions sysvar validation
 		s.Require().Error(err, "on_recv_packet should reject unauthorized CPI")
@@ -2157,10 +2157,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting direct call to on_ack_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_ack_packet should reject direct call")
@@ -2223,10 +2223,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_ack_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_ack_packet has instructions sysvar validation
 		s.Require().Error(err, "on_ack_packet should reject unauthorized CPI")
@@ -2284,10 +2284,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting direct call to on_timeout_packet (bypassing router)...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), gmpIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - validate_cpi_caller detects direct call via instructions sysvar
 		s.Require().Error(err, "on_timeout_packet should reject direct call")
@@ -2349,10 +2349,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 
 		s.T().Log("Attempting unauthorized CPI to on_timeout_packet...")
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proxyIx)
 		s.Require().NoError(err)
 
-		sig, err := s.SolanaChain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.SolanaRelayer)
 
 		// Should FAIL - on_timeout_packet has instructions sysvar validation
 		s.Require().Error(err, "on_timeout_packet should reject unauthorized CPI")

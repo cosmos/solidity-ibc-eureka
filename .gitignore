@@ -19,6 +19,8 @@ config.json
 scripts/ethgenesis/client_state.json
 scripts/ethgenesis/consensus_state.json
 .envrc
+go.work
+nitro-testnode
 
 # broadcasts
 !broadcast
@@ -31,6 +33,10 @@ broadcast/*/31337/
 *.code-workspace
 .vscode
 CLAUDE.md
+*.code-workspace
+.vscode/
+.cursor/
+.linear.toml
 
 # Rust
 target

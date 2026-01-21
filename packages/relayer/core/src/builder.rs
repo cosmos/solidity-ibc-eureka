@@ -1,5 +1,7 @@
 //! Defines the [`RelayerBuilder`] struct that is used to build the relayer server.
 
+use std::collections::HashMap;
+
 use super::modules::RelayerModule;
 use crate::{
     api::{
@@ -9,7 +11,6 @@ use crate::{
     config::RelayerConfig,
 };
 use ibc_eureka_relayer_lib::utils::tracing_layer::tracing_interceptor;
-use std::collections::HashMap;
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
 

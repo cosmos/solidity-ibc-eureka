@@ -708,6 +708,13 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
+# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+[group('build')]
+build-cw-ics08-wasm-attestor:
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
+	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
+	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
+
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
@@ -717,12 +724,12 @@ build-relayer-image:
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
-	cargo install --bin operator --path programs/operator --locked
+	cargo install --bin operator --path programs/operator --locked --force
 
 # Install the relayer using `cargo install`
 [group('install')]
 install-relayer:
-	cargo install --bin relayer --path programs/relayer --locked
+	cargo install --bin relayer --path programs/relayer --locked --force
 
 # Run all linters
 [group('lint')]
@@ -803,7 +810,7 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: generate-pda
+generate-solana-types: build-solana generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
@@ -855,7 +862,7 @@ generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
-# Generate go types for the e2e tests from the etheruem light client code
+# Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
@@ -978,6 +985,24 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+[group('test')]
+test-e2e-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
+
+# Run the e2e tests in the EthToEthAttestedTestSuite. For example, `just test-e2e-eth-to-eth Test_Deploy`
+[group('test')]
+test-e2e-eth-to-eth testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithEthToEthAttestedTestSuite/{{testname}}
+
+# Run the e2e tests in the MultiAttestorTestSuite. For example, `just test-e2e-multi-attestor Test_MultiAttestorDeploy`
+[group('test')]
+test-e2e-multi-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultiAttestorTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcEurekaSolanaTestSuite. For example, `just test-e2e-solana Test_Deploy`
 [group('test')]
 test-e2e-solana testname:
@@ -996,12 +1021,23 @@ test-e2e-solana-upgrade testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaUpgradeTestSuite/{{testname}}
 
-# Run the Solana Anchor e2e tests
+# Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
+[group('test')]
+test-e2e-solana-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcSolanaAttestorTestSuite/{{testname}}
+
+# Run the Solana Anchor tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Running Solana Client Anchor tests..."
-	@echo "🦀 Using {{anchor_cmd}}"
-	(cd programs/solana && {{anchor_cmd}} test {{ARGS}})
+	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
+	@if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor test {{ARGS}}); \
+	fi
 
 # Run Solana unit tests (mollusk + litesvm)
 [group('test')]
@@ -1015,12 +1051,6 @@ test-solana *ARGS:
 		echo "✅ Build successful, running cargo tests" && \
 		(cd programs/solana && cargo test {{ARGS}}); \
 	fi
-
-# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
-[group('test')]
-test-e2e-gmp testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]

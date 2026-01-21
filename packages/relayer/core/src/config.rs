@@ -2,12 +2,12 @@
 
 use std::str::FromStr;
 
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::Level;
 
 /// The top level configuration for the relayer.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RelayerConfig {
     /// The configuration for the relayer modules.
     pub modules: Vec<ModuleConfig>,
@@ -19,8 +19,7 @@ pub struct RelayerConfig {
 }
 
 /// The configuration for the relayer modules.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ModuleConfig {
     /// The name of the module.
     pub name: String,
@@ -38,8 +37,7 @@ pub struct ModuleConfig {
 }
 
 /// The configuration for the relayer server.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[allow(clippy::module_name_repetitions)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerConfig {
     /// The address to bind the server to.
     pub address: String,
@@ -53,7 +51,7 @@ const fn default_true() -> bool {
 }
 
 /// Configuration for observability.
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(default)]
 pub struct ObservabilityConfig {
     /// The log level to use.
