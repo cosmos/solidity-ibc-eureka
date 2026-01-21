@@ -1,6 +1,6 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
-use solana_sha256_hasher::hash;
+use solana_ibc_types::ibc_ack_commitment;
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
@@ -104,6 +104,9 @@ pub struct GMPCallResultAccount {
 
 impl GMPCallResultAccount {
     /// Initialize the account with acknowledgement data.
+    ///
+    /// The acknowledgement commitment is computed using the IBC commitment format:
+    /// `sha256(0x02 || sha256(ack))` where 0x02 is the IBC version byte.
     pub fn init_acknowledged(
         &mut self,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
@@ -116,7 +119,7 @@ impl GMPCallResultAccount {
         self.sequence = msg.sequence;
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
-        self.status = CallResultStatus::Acknowledgement(hash(&msg.acknowledgement).to_bytes());
+        self.status = CallResultStatus::Acknowledgement(ibc_ack_commitment(&msg.acknowledgement));
         self.result_timestamp = timestamp;
         self.bump = bump;
     }
@@ -180,7 +183,7 @@ mod tests {
 
         account.init_acknowledged(msg, "sender".to_string(), 1_234_567_890, 255);
 
-        let expected_commitment = hash(ack_data).to_bytes();
+        let expected_commitment = ibc_ack_commitment(ack_data);
         assert_eq!(
             account.status,
             CallResultStatus::Acknowledgement(expected_commitment)

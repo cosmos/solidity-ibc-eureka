@@ -116,7 +116,7 @@ impl GMPAppState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
 pub enum CallResultStatus {
     /// The call received an acknowledgement from the destination chain.
-    /// Contains the IBC acknowledgement commitment (sha256 hash).
+    /// Contains the IBC acknowledgement commitment: `sha256(0x02 || sha256(ack))`.
     Acknowledgement([u8; 32]),
     /// The call timed out before being processed.
     Timeout,
