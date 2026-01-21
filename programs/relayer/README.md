@@ -1,37 +1,87 @@
-# IBC Proof Relayer API Implementation
+# IBC Proof API
 
-This is an implementation of an IBC Proof Relayer API server for IBC v2 for EVM, SVM, and Cosmos SDK based chains.
+The proof API is a gRPC service that prepares IBC transactions and proofs for clients. It does not listen for events, sign, or submit transactions. Instead, clients provide transaction hashes and the service returns the corresponding IBC messages and proofs that must be signed and submitted elsewhere.
 
-This IBC Proof Relayer API neither listens to events nor submits transactions to any chain. Instead, it runs a gRPC server that can be queried by a client to get the transactions that need to be submitted to the chain to relay packets.
-
-The client submits the hashes of the transactions that need to be relayed to the relayer, and the relayer:
-1. Queries the chain for the transactions with the given hashes.
-2. Parses the transaction events to get the packet data.
-3. Generates the corresponding IBC transactions and proof into a single transaction.
-4. Does not sign nor submit the transaction to the chain, but returns it to the client.
-
-In essence, this relayer is meant to be used in a setup where the client is a front-end application, or a service that can sign and submit transactions to the chain.
+The proof API:
+1. Queries the source chain for the given transaction hashes.
+2. Parses transaction events to extract packet data.
+3. Builds IBC messages plus the required proof(s).
+4. Returns an unsigned transaction payload to the caller.
 
 ## Overview
 
-The relayer is composed of multiple one-sided relayer servers, each of which is responsible for relaying packets from one chain to another. A relayer module is a rust struct that implements the [`RelayerModule`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/src/core/modules.rs#L10) trait.
+The service is composed of one-sided modules, each responsible for a specific source and target chain combination. Each module is a Rust struct that implements the [`RelayerModule`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/src/core/modules.rs#L10) trait.
 
-You can see the protocol buffer definition for the gRPC service [here](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto).
+The gRPC service definition is in [`relayer/proto/relayer/relayer.proto`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto).
 
-This is a work-in-progress implementation, and the relayer is not yet usable. The relayer will only be able to relay IBC Eureka packets. There is a tracking issue for the relayer [here](https://github.com/cosmos/solidity-ibc-eureka/issues/121).
+## Modules
 
-| **Source Chain** | **Target Chain** | **Light Client** | **Development Status** |
-|:---:|:---:|:---:|:---:|
-| Cosmos SDK | EVM | `sp1-ics07-tendermint` | ✅ |
-| EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ✅ |
-| Cosmos SDK | Cosmos SDK | `07-tendermint` | ✅ |
+Each module runs in one direction and specializes in how it builds proofs and transactions:
 
-## Usage
+- `cosmos_to_eth`: Extracts IBC packet events from a Cosmos SDK chain, generates proofs with SP1 programs, and builds transactions for an EVM-based chain.
+- `eth_to_cosmos`: Extracts packet events from an EVM chain, prepares IBC messages for a Cosmos SDK chain, and packages the required proof data.
+- `cosmos_to_cosmos`: Extracts packet events from a Cosmos SDK chain and prepares IBC messages for another Cosmos SDK chain.
 
-To run the relayer binary, you need to write a configuration file. At the moment, there is a working example configuration file at [`config.example.json`](./config.example.json). You can copy this file and modify it to suit your needs.
+## Build and Run
 
-After building/installing the relayer binary, you can run the relayer with the following command:
+1. Build/install the binary.
 
-```sh
-relayer -c config.json
-```
+   ```sh
+   just install-relayer
+   ```
+
+2. Copy the example configuration and update it for your chains.
+
+   ```sh
+   cp programs/relayer/config.example.json config.json
+   ```
+
+3. Start the service.
+
+   ```sh
+   relayer -c config.json
+   ```
+
+The gRPC server listens on `server.address:server.port` and the gRPC-web endpoint listens on `server.grpc_web_port`.
+
+## Configuration
+
+Configuration is provided as JSON. See the example in [`programs/relayer/config.example.json`](./config.example.json).
+
+Key settings:
+
+- `server.address`: IP address to bind the gRPC server.
+- `server.port`: gRPC port.
+- `server.grpc_web_port`: gRPC-web port.
+- `observability.level`: Logging level (`trace`, `debug`, `info`, `warn`, `error`).
+- `observability.use_otel`: Enable OpenTelemetry export.
+- `observability.service_name`: Service name used in logs/traces.
+- `observability.otel_endpoint`: OpenTelemetry collector endpoint.
+- `modules`: List of modules to run, each with `name`, `src_chain`, `dst_chain`, and module-specific `config`.
+
+Module configuration varies by module type:
+
+- `cosmos_to_eth`:
+  - `tm_rpc_url`: Tendermint RPC endpoint for the source chain.
+  - `eth_rpc_url`: EVM RPC endpoint for the destination chain.
+  - `ics26_address`: IBC router contract address on the destination chain.
+  - `sp1_prover`: Proof generation settings (`type`, network fields if using a remote prover).
+  - `sp1_programs`: File paths for the SP1 programs used to generate proofs.
+- `eth_to_cosmos`:
+  - `eth_rpc_url`: EVM RPC endpoint for the source chain.
+  - `eth_beacon_api_url`: Ethereum beacon API endpoint for consensus data.
+  - `tm_rpc_url`: Tendermint RPC endpoint for the destination chain.
+  - `ics26_address`: IBC router contract address on the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+- `cosmos_to_cosmos`:
+  - `src_rpc_url`: RPC endpoint for the source chain.
+  - `target_rpc_url`: RPC endpoint for the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+
+## Using the gRPC API
+
+After the service is running, use the gRPC endpoints defined in [`relayer/proto/relayer/relayer.proto`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto) to submit transaction hashes and retrieve the unsigned IBC transactions plus proofs. Typical usage is:
+
+1. Submit transaction hash(es) to the proof API for the relevant module.
+2. Receive the unsigned transaction payload with proof data.
+3. Sign and submit the transaction using your own wallet or service.
