@@ -644,42 +644,39 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 }
 
 // Test_IFTTransferFailedReceive tests error acknowledgment handling when receive fails.
-// The test sends to an invalid bech32 address which causes the token factory mint to fail
-// on the destination chain. The IFT module catches this error and returns an error ack,
-// which triggers a refund of tokens to the sender on the source chain.
+// The test intentionally skips registering the IFT bridge on Chain B while registering it
+// on Chain A. When Chain A sends an IFT transfer, Chain B's IFT module fails because no
+// bridge is registered for the client ID. This generates an error ack that is relayed back
+// to Chain A to refund the sender.
 func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 	s.createLightClients(ctx)
 
 	userA := s.Cosmos.Users[0]
+	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	subdenom := iftTestDenom
-	invalidReceiver := "invalid-cosmos-address"
 
-	var denomA, denomB string
+	var denomA string
 
 	s.Require().True(s.Run("Create denom on Chain A", func() {
 		denomA = s.createTokenFactoryDenom(ctx, s.ChainA, s.ChainASubmitter, subdenom)
 	}))
 
-	s.Require().True(s.Run("Create denom on Chain B", func() {
-		denomB = s.createTokenFactoryDenom(ctx, s.ChainB, s.ChainBSubmitter, subdenom)
-	}))
+	// NOTE: We intentionally do NOT create denom or register bridge on Chain B
+	// This will cause the receive to fail
 
-	var iftModuleAddrA, iftModuleAddrB string
-	s.Require().True(s.Run("Get IFT module addresses", func() {
-		iftModuleAddrA = s.getIFTModuleAddress(ctx, s.ChainA)
+	var iftModuleAddrB string
+	s.Require().True(s.Run("Get IFT module address on Chain B", func() {
 		iftModuleAddrB = s.getIFTModuleAddress(ctx, s.ChainB)
 	}))
 
-	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
+	s.Require().True(s.Run("Register IFT bridge on Chain A only", func() {
 		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
 	}))
 
-	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
-	}))
+	// NOTE: Intentionally NOT registering the IFT bridge on Chain B
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
 		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
@@ -688,9 +685,9 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	var sendTxHash string
-	s.Require().True(s.Run("Send transfer to invalid address", func() {
+	s.Require().True(s.Run("Send transfer to Chain B", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, invalidReceiver, transferAmount, timeout)
+		sendTxHash = s.iftTransfer(ctx, s.ChainA, userA, denomA, ibctesting.FirstClientID, userB.FormattedAddress(), transferAmount, timeout)
 		s.Require().NotEmpty(sendTxHash)
 	}))
 
@@ -726,8 +723,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 		s.Require().NoError(err)
 	}))
 
-	// Note: We cannot query balance for invalid address, but we verify the error ack
-	// refunds tokens to the sender which confirms the receive failed
+	// Note: The receive fails on Chain B because no IFT bridge is registered.
+	// We verify the error ack refunds tokens to the sender.
 
 	s.Require().True(s.Run("Relay error ack to Chain A", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
