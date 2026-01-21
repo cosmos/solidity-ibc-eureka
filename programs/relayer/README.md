@@ -18,9 +18,12 @@ The gRPC service definition is in [`relayer/proto/relayer/relayer.proto`](https:
 
 Each module runs in one direction and specializes in how it builds proofs and transactions:
 
-- `cosmos_to_eth`: Extracts IBC packet events from a Cosmos SDK chain, generates proofs with SP1 programs, and builds transactions for an EVM-based chain.
-- `eth_to_cosmos`: Extracts packet events from an EVM chain, prepares IBC messages for a Cosmos SDK chain, and packages the required proof data.
+- `cosmos_to_eth`: Extracts IBC packet events from a Cosmos SDK chain, generates proofs (SP1 or attested), and builds transactions for an EVM-based chain.
+- `eth_to_cosmos`: Extracts packet events from an EVM chain, prepares IBC messages for a Cosmos SDK chain, and packages the required proof data (real, mock, or attested).
+- `eth_to_eth`: Extracts packet events from an EVM chain and builds attested transactions for another EVM chain.
 - `cosmos_to_cosmos`: Extracts packet events from a Cosmos SDK chain and prepares IBC messages for another Cosmos SDK chain.
+- `cosmos_to_solana`: Extracts packet events from a Cosmos SDK chain and prepares IBC messages for Solana.
+- `solana_to_cosmos`: Extracts packet events from Solana and prepares IBC messages for a Cosmos SDK chain.
 
 ## Build and Run
 
@@ -65,18 +68,43 @@ Module configuration varies by module type:
   - `tm_rpc_url`: Tendermint RPC endpoint for the source chain.
   - `eth_rpc_url`: EVM RPC endpoint for the destination chain.
   - `ics26_address`: IBC router contract address on the destination chain.
-  - `sp1_prover`: Proof generation settings (`type`, network fields if using a remote prover).
-  - `sp1_programs`: File paths for the SP1 programs used to generate proofs.
+  - `mode`: Proof mode (`sp1` or `attested`) and its settings.
 - `eth_to_cosmos`:
   - `eth_rpc_url`: EVM RPC endpoint for the source chain.
-  - `eth_beacon_api_url`: Ethereum beacon API endpoint for consensus data.
+  - `eth_beacon_api_url`: Ethereum beacon API endpoint for consensus data (required for `real`).
   - `tm_rpc_url`: Tendermint RPC endpoint for the destination chain.
   - `ics26_address`: IBC router contract address on the destination chain.
   - `signer_address`: Cosmos address used for message construction metadata.
+  - `mode`: Proof mode (`real`, `mock`, or `attested`).
+- `eth_to_cosmos_compat`:
+  - Same settings as `eth_to_cosmos`, but uses both the current and v1.2 handlers internally.
+- `eth_to_eth`:
+  - `src_chain_id`: Source chain ID string.
+  - `src_rpc_url`: Source EVM RPC endpoint.
+  - `src_ics26_address`: Source IBC router contract address.
+  - `dst_rpc_url`: Destination EVM RPC endpoint.
+  - `dst_ics26_address`: Destination IBC router contract address.
+  - `mode`: Attestation settings (`attested`).
 - `cosmos_to_cosmos`:
   - `src_rpc_url`: RPC endpoint for the source chain.
   - `target_rpc_url`: RPC endpoint for the destination chain.
   - `signer_address`: Cosmos address used for message construction metadata.
+- `cosmos_to_solana`:
+  - `source_rpc_url`: Tendermint RPC endpoint for the source chain.
+  - `target_rpc_url`: Solana RPC endpoint.
+  - `solana_ics26_program_id`: Solana ICS26 router program ID.
+  - `solana_fee_payer`: Solana fee payer address.
+  - `solana_alt_address`: Address lookup table address (optional).
+  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
+  - `skip_pre_verify_threshold`: Skip pre-verification when signatures are below this threshold. (default: 50)
+- `solana_to_cosmos`:
+  - `solana_chain_id`: Solana chain ID label.
+  - `src_rpc_url`: Solana RPC endpoint.
+  - `target_rpc_url`: Tendermint RPC endpoint for the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+  - `solana_ics26_program_id`: Solana ICS26 router program ID.
+  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
+  - `mock_solana_client`: Enable mock Solana client mode.
 
 ## Using the gRPC API
 
