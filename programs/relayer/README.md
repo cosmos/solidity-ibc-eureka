@@ -21,11 +21,11 @@ Each module runs in one direction and specializes in how it builds proofs and tr
 | Module | Source | Target | Tasks | Proof Modes | Notes |
 | --- | --- | --- | --- | --- | --- |
 | `cosmos_to_eth` | Cosmos SDK | EVM | Parse Cosmos events, build EVM IBC txs | `sp1`, `attested` | SP1 program paths required for `sp1`.
-| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real`, `mock`, `attested` | `real` uses beacon API proofs for Eth Mainnet.
+| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real`, `mock`, `attested` | `real` uses beacon API proofs.
 | `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` | Requires attestor endpoints.
-| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | N/A (ICS-07) | Uses Cosmos RPCs for both sides.
-| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | N/A (ICS-07) | Uses ICS-07 Solana program.
-| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | N/A (attested) | Requires attestor endpoints.
+| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | N/A | Uses Cosmos RPCs for both sides.
+| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | N/A | Uses Solana program + fee payer.
+| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | N/A | Mock client flags for testing.
 
 ## Build and Run
 
@@ -62,7 +62,9 @@ Key settings:
 - `observability.use_otel`: Enable OpenTelemetry export.
 - `observability.service_name`: Service name used in logs/traces.
 - `observability.otel_endpoint`: OpenTelemetry collector endpoint.
-- `modules`: List of modules to run, each with `name`, `src_chain`, `dst_chain`, and module-specific `config`.
+- `modules`: List of modules to run, each with `name`, `src_chain`, `dst_chain`, `config`, and optional `enabled` (defaults to true).
+
+Module configuration varies by module type. Mode-specific options are enumerated below.
 
 Module configuration varies by module type:
 
@@ -70,23 +72,59 @@ Module configuration varies by module type:
   - `tm_rpc_url`: Tendermint RPC endpoint for the source chain.
   - `eth_rpc_url`: EVM RPC endpoint for the destination chain.
   - `ics26_address`: IBC router contract address on the destination chain.
-  - `mode`: Proof mode (`sp1` or `attested`) and its settings.
+  - `mode`: Proof mode object.
+  - `mode.type`: `sp1` or `attested`.
+  - `mode.sp1_prover`: SP1 prover config when `type: sp1`.
+    - `mode.sp1_prover.type`: `mock`, `env`, `network`, `cpu`, `cuda`.
+    - `mode.sp1_prover.network_private_key`: Optional hex key for `network`.
+    - `mode.sp1_prover.network_rpc_url`: Optional RPC URL for `network`.
+    - `mode.sp1_prover.private_cluster`: Optional boolean for `network`.
+  - `mode.sp1_programs`: SP1 program paths when `type: sp1`.
+    - `mode.sp1_programs.update_client`.
+    - `mode.sp1_programs.membership`.
+    - `mode.sp1_programs.update_client_and_membership`.
+    - `mode.sp1_programs.misbehaviour`.
+  - `mode.attestor`: Attestor config when `type: attested`.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config when `type: attested`.
+    - `mode.cache.state_cache_max_entries`.
+    - `mode.cache.packet_cache_max_entries`.
+
 - `eth_to_cosmos`:
   - `eth_rpc_url`: EVM RPC endpoint for the source chain.
   - `eth_beacon_api_url`: Ethereum beacon API endpoint for consensus data (required for `real`).
   - `tm_rpc_url`: Tendermint RPC endpoint for the destination chain.
   - `ics26_address`: IBC router contract address on the destination chain.
   - `signer_address`: Cosmos address used for message construction metadata.
-  - `mode`: Proof mode (`real`, `mock`, or `attested`).
+  - `mode`: Proof mode (string or object).
+  - `mode`: `real`, `mock`, or `{ "type": "attested", ... }`.
+  - `mode.attestor`: Attestor config when `type: attested`.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config when `type: attested`.
+    - `mode.cache.state_cache_max_entries`.
+    - `mode.cache.packet_cache_max_entries`.
 - `eth_to_cosmos_compat`:
-  - Same settings as `eth_to_cosmos`, but uses both the current and v1.2 handlers internally.
+  - Same settings as `eth_to_cosmos`, but routes requests to the v1.2 or current handler based on the client state checksum.
+
 - `eth_to_eth`:
   - `src_chain_id`: Source chain ID string.
   - `src_rpc_url`: Source EVM RPC endpoint.
   - `src_ics26_address`: Source IBC router contract address.
   - `dst_rpc_url`: Destination EVM RPC endpoint.
   - `dst_ics26_address`: Destination IBC router contract address.
-  - `mode`: Attestation settings (`attested`).
+  - `mode`: Proof mode object.
+  - `mode.type`: `attested`.
+  - `mode.attestor`: Attestor config.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config.
+    - `mode.cache.state_cache_max_entries`. (default: 10000)
+    - `mode.cache.packet_cache_max_entries`. (default: 10000)
 - `cosmos_to_cosmos`:
   - `src_rpc_url`: RPC endpoint for the source chain.
   - `target_rpc_url`: RPC endpoint for the destination chain.
