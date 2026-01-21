@@ -77,9 +77,6 @@
         node-modules = pkgs.callPackage ./nix/node-modules.nix {};
       in
       {
-        packages = {
-          node-modules = node-modules;
-        };
         devShells = {
           default = pkgs.mkShell {
             buildInputs = with pkgs; [
@@ -91,6 +88,7 @@
               solc_0_8_28
               (inputs.solc.mkDefault pkgs solc_0_8_28)
               bun
+              node-modules
               just
               golangci-lint
               go
@@ -147,6 +145,7 @@
               pkg-config
               solana-agave
               anchor-go
+              node-modules
               protobuf
               buf
               protoc-gen-go
