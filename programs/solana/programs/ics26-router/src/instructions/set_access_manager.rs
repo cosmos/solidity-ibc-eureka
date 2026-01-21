@@ -1,6 +1,6 @@
+use crate::events::AccessManagerUpdatedEvent;
 use crate::state::RouterState;
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::AccessManagerUpdated;
 
 #[derive(Accounts)]
 pub struct SetAccessManager<'info> {
@@ -31,8 +31,6 @@ pub fn set_access_manager(
     ctx: Context<SetAccessManager>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    let old_access_manager = ctx.accounts.router_state.access_manager;
-
     // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -42,9 +40,11 @@ pub fn set_access_manager(
         &crate::ID,
     )?;
 
+    let old_access_manager = ctx.accounts.router_state.access_manager;
+
     ctx.accounts.router_state.access_manager = new_access_manager;
 
-    emit!(AccessManagerUpdated {
+    emit!(AccessManagerUpdatedEvent {
         old_access_manager,
         new_access_manager,
     });

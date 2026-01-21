@@ -31,6 +31,7 @@ import (
 	solomachine "github.com/cosmos/ibc-go/v10/modules/light-clients/06-solomachine"
 	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestations"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
@@ -71,6 +72,7 @@ func codecAndEncodingConfig() (*codec.ProtoCodec, sdktestutil.TestEncodingConfig
 	ibctmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	ibcwasmtypes.RegisterInterfaces(cfg.InterfaceRegistry)
 	channeltypesv2.RegisterInterfaces(cfg.InterfaceRegistry)
+	attestations.RegisterInterfaces(cfg.InterfaceRegistry)
 	gmptypes.RegisterInterfaces(cfg.InterfaceRegistry)
 
 	// all other types

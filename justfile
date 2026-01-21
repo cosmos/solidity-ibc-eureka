@@ -230,22 +230,14 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
   done
   echo ""
 
-  # Step 4: Grant UPGRADER_ROLE (8) to deployer
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "👤 Step 4/4: Granting UPGRADER_ROLE (8) to deployer"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  just grant-solana-role 8 "" {{cluster}}
-  echo ""
-
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "✅ Full deployment complete for cluster: {{cluster}}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   echo "Summary:"
   echo "  ✓ All programs deployed"
-  echo "  ✓ AccessManager initialized"
+  echo "  ✓ AccessManager initialized (deployer has ADMIN_ROLE)"
   echo "  ✓ Upgrade authorities set to AccessManager PDAs"
-  echo "  ✓ UPGRADER_ROLE granted to deployer"
   echo ""
   echo "Next steps:"
   echo "  • Use 'just upgrade-solana-program <program> {{cluster}}' to upgrade programs"
@@ -509,15 +501,15 @@ prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-s
   echo "   To complete the upgrade, call AccessManager.upgrade_program with:"
   echo "   - buffer: $BUFFER_ADDRESS"
   echo "   - target_program: <PROGRAM_ID>"
-  echo "   - authority: <ACCOUNT_WITH_UPGRADER_ROLE>"
+  echo "   - authority: <ACCOUNT_WITH_ADMIN_ROLE>"
   echo ""
   echo "   See e2e/interchaintestv8/solana_upgrade_test.go for implementation example"
 
 # Execute complete program upgrade (prepare buffer + execute upgrade instruction)
 # Usage: just upgrade-solana-program <program-name> [cluster] [upgrader-keypair]
 # Example: just upgrade-solana-program ics26_router
-# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/upgrader.json
-# Note: Requires UPGRADER_ROLE granted to the upgrader keypair (defaults to deployer)
+# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/admin.json
+# Note: Requires ADMIN_ROLE granted to the upgrader keypair (defaults to deployer)
 [group('solana')]
 upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validate-cluster cluster)
   #!/usr/bin/env bash
@@ -608,7 +600,7 @@ upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validat
   echo "Program Data Address: $PROGRAM_DATA_ADDR"
   echo ""
   echo "Step 4: Executing upgrade instruction..."
-  echo "(This requires UPGRADER_ROLE on the upgrader keypair)"
+  echo "(This requires ADMIN_ROLE on the upgrader keypair)"
   echo ""
 
   # Convert upgrader keypair to absolute path
@@ -708,6 +700,13 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
+# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
+[group('build')]
+build-cw-ics08-wasm-attestor:
+	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
+	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
+	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
+
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
@@ -717,12 +716,12 @@ build-relayer-image:
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
-	cargo install --bin operator --path programs/operator --locked
+	cargo install --bin operator --path programs/operator --locked --force
 
 # Install the relayer using `cargo install`
 [group('install')]
 install-relayer:
-	cargo install --bin relayer --path programs/relayer --locked
+	cargo install --bin relayer --path programs/relayer --locked --force
 
 # Run all linters
 [group('lint')]
@@ -808,7 +807,7 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: generate-pda
+generate-solana-types: build-solana generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
@@ -858,7 +857,7 @@ generate-fixtures-tendermint-light-client: install-relayer
 	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
 
-# Generate go types for the e2e tests from the etheruem light client code
+# Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
 generate-ethereum-types:
 	cargo run --bin generate_json_schema --features test-utils
@@ -983,6 +982,24 @@ test-e2e-multichain testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithMultichainTestSuite/{{testname}}
 
+# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
+[group('test')]
+test-e2e-gmp testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
+
+# Run the e2e tests in the EthToEthAttestedTestSuite. For example, `just test-e2e-eth-to-eth Test_Deploy`
+[group('test')]
+test-e2e-eth-to-eth testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithEthToEthAttestedTestSuite/{{testname}}
+
+# Run the e2e tests in the MultiAttestorTestSuite. For example, `just test-e2e-multi-attestor Test_MultiAttestorDeploy`
+[group('test')]
+test-e2e-multi-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithMultiAttestorTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcEurekaSolanaTestSuite. For example, `just test-e2e-solana Test_Deploy`
 [group('test')]
 test-e2e-solana testname:
@@ -1013,12 +1030,23 @@ test-e2e-cosmos-ethereum-ift testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithCosmosEthereumIFTTestSuite/{{testname}}
 
-# Run the Solana Anchor e2e tests
+# Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
+[group('test')]
+test-e2e-solana-attestor testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcSolanaAttestorTestSuite/{{testname}}
+
+# Run the Solana Anchor tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Running Solana Client Anchor tests..."
-	@echo "🦀 Using {{anchor_cmd}}"
-	(cd programs/solana && {{anchor_cmd}} test {{ARGS}})
+	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
+	@if command -v anchor-nix >/dev/null 2>&1; then \
+		echo "🦀 Using anchor-nix"; \
+		(cd programs/solana && anchor-nix test {{ARGS}}); \
+	else \
+		echo "🦀 Using anchor"; \
+		(cd programs/solana && anchor test {{ARGS}}); \
+	fi
 
 # Run Solana unit tests (mollusk + litesvm)
 [group('test')]
@@ -1032,12 +1060,6 @@ test-solana *ARGS:
 		echo "✅ Build successful, running cargo tests" && \
 		(cd programs/solana && cargo test {{ARGS}}); \
 	fi
-
-# Run any e2e test in the IbcEurekaGmpTestSuite. For example, `just test-e2e-multichain TestDeploy_Groth16`
-[group('test')]
-test-e2e-gmp testname:
-	@echo "Running {{testname}} test..."
-	just test-e2e TestWithIbcEurekaGmpTestSuite/{{testname}}
 
 # Clean up the foundry cache and out directories
 [group('clean')]

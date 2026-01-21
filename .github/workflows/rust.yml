@@ -1,5 +1,7 @@
 # Based on https://github.com/actions-rs/example/blob/master/.github/workflows/quickstart.yml
 name: rust
+permissions:
+  contents: read
 
 on:
   push:
@@ -75,7 +77,7 @@ jobs:
           command: build
           args: --bin operator --release --locked
 
-  build-08-wasm-eth:
+build-08-wasm-eth:
     name: build-08-wasm-eth
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
@@ -119,4 +121,46 @@ jobs:
             exit 1
           fi
 
+build-08-wasm-attestor:
+    name: build-08-wasm-attestor
+    runs-on: depot-ubuntu-22.04-4
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
 
+      # TODO: re-enable once cosmwasm-check is updated
+      # - name: Install cargo-run-script and cosmwasm-check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: install
+      #     args: cosmwasm-check
+
+      - name: Install just
+        uses: extractions/setup-just@v2
+
+      - name: Compute SHA-256 of commited binary
+        id: commited_sha256
+        run: |
+          echo "sha256=$(gunzip -c e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm.gz | sha256sum | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      - name: Build optimized wasm binary
+        run: just build-cw-ics08-wasm-attestor
+
+        # checks that the wasm binary is a proper cosmwasm smart contract
+        # it checks for things like memories, exports, imports, available capabilities, and non-determinism
+        # TODO: re-enable once cosmwasm-check is updated
+      # - name: Check cosmwasm file
+      #   run: cosmwasm-check artifacts/cw_ics08_wasm_eth.wasm
+
+      - name: Verify built binary matches commited
+        run: |
+          sha256_built=$(sha256sum artifacts/cw_ics08_wasm_attestor.wasm | awk '{print $1}')
+          if [ "$sha256_built" != "${{ steps.commited_sha256.outputs.sha256 }}" ]; then
+            echo "SHA-256 hashes do not match"
+            exit 1
+          fi

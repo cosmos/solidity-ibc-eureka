@@ -9,7 +9,12 @@ var (
 )
 
 // Event discriminators
-var ()
+var (
+	Event_AccessManagerEventsProgramExtendedEvent = [8]byte{159, 188, 199, 254, 187, 64, 46, 13}
+	Event_AccessManagerEventsProgramUpgradedEvent = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
+	Event_AccessManagerEventsRoleGrantedEvent     = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
+	Event_AccessManagerEventsRoleRevokedEvent     = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
+)
 
 // Instruction discriminators
 var (

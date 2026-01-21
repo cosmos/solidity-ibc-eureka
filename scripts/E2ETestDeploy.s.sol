@@ -62,7 +62,7 @@ contract TestIFT is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
     function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
 }
 
-/// @dev See the Solidity Scripting tutorial: https://book.getfoundry.sh/tutorials/solidity-scripting
+/// @dev See the Solidity Scripting tutorial: https://getfoundry.sh/guides/scripting-with-solidity
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
     using stdJson for string;
 

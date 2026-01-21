@@ -11,6 +11,301 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+type AccessManagerEventsProgramExtendedEvent struct {
+	Program         solanago.PublicKey `json:"program"`
+	Authority       solanago.PublicKey `json:"authority"`
+	AdditionalBytes uint32             `json:"additionalBytes"`
+	Timestamp       int64              `json:"timestamp"`
+}
+
+func (obj AccessManagerEventsProgramExtendedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `AdditionalBytes`:
+	err = encoder.Encode(obj.AdditionalBytes)
+	if err != nil {
+		return errors.NewField("AdditionalBytes", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsProgramExtendedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsProgramExtendedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsProgramExtendedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `AdditionalBytes`:
+	err = decoder.Decode(&obj.AdditionalBytes)
+	if err != nil {
+		return errors.NewField("AdditionalBytes", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsProgramExtendedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsProgramExtendedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsProgramExtendedEvent(buf []byte) (*AccessManagerEventsProgramExtendedEvent, error) {
+	obj := new(AccessManagerEventsProgramExtendedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsProgramUpgradedEvent struct {
+	Program   solanago.PublicKey `json:"program"`
+	Authority solanago.PublicKey `json:"authority"`
+	Timestamp int64              `json:"timestamp"`
+}
+
+func (obj AccessManagerEventsProgramUpgradedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsProgramUpgradedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsProgramUpgradedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsProgramUpgradedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsProgramUpgradedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsProgramUpgradedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsProgramUpgradedEvent(buf []byte) (*AccessManagerEventsProgramUpgradedEvent, error) {
+	obj := new(AccessManagerEventsProgramUpgradedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsRoleGrantedEvent struct {
+	RoleId    uint64             `json:"roleId"`
+	Account   solanago.PublicKey `json:"account"`
+	GrantedBy solanago.PublicKey `json:"grantedBy"`
+}
+
+func (obj AccessManagerEventsRoleGrantedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `RoleId`:
+	err = encoder.Encode(obj.RoleId)
+	if err != nil {
+		return errors.NewField("RoleId", err)
+	}
+	// Serialize `Account`:
+	err = encoder.Encode(obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Serialize `GrantedBy`:
+	err = encoder.Encode(obj.GrantedBy)
+	if err != nil {
+		return errors.NewField("GrantedBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsRoleGrantedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsRoleGrantedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsRoleGrantedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `RoleId`:
+	err = decoder.Decode(&obj.RoleId)
+	if err != nil {
+		return errors.NewField("RoleId", err)
+	}
+	// Deserialize `Account`:
+	err = decoder.Decode(&obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Deserialize `GrantedBy`:
+	err = decoder.Decode(&obj.GrantedBy)
+	if err != nil {
+		return errors.NewField("GrantedBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsRoleGrantedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsRoleGrantedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsRoleGrantedEvent(buf []byte) (*AccessManagerEventsRoleGrantedEvent, error) {
+	obj := new(AccessManagerEventsRoleGrantedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsRoleRevokedEvent struct {
+	RoleId    uint64             `json:"roleId"`
+	Account   solanago.PublicKey `json:"account"`
+	RevokedBy solanago.PublicKey `json:"revokedBy"`
+}
+
+func (obj AccessManagerEventsRoleRevokedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `RoleId`:
+	err = encoder.Encode(obj.RoleId)
+	if err != nil {
+		return errors.NewField("RoleId", err)
+	}
+	// Serialize `Account`:
+	err = encoder.Encode(obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Serialize `RevokedBy`:
+	err = encoder.Encode(obj.RevokedBy)
+	if err != nil {
+		return errors.NewField("RevokedBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsRoleRevokedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsRoleRevokedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsRoleRevokedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `RoleId`:
+	err = decoder.Decode(&obj.RoleId)
+	if err != nil {
+		return errors.NewField("RoleId", err)
+	}
+	// Deserialize `Account`:
+	err = decoder.Decode(&obj.Account)
+	if err != nil {
+		return errors.NewField("Account", err)
+	}
+	// Deserialize `RevokedBy`:
+	err = decoder.Decode(&obj.RevokedBy)
+	if err != nil {
+		return errors.NewField("RevokedBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsRoleRevokedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsRoleRevokedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsRoleRevokedEvent(buf []byte) (*AccessManagerEventsRoleRevokedEvent, error) {
+	obj := new(AccessManagerEventsRoleRevokedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerStateAccessManager struct {
 	Roles []AccessManagerTypesRoleData `json:"roles"`
 }

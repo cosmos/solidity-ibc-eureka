@@ -2,9 +2,13 @@ package relayer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math/rand"
+	"net"
 	"os"
 	"text/template"
+	"time"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
@@ -14,6 +18,7 @@ const (
 	ModuleCosmosToEth       = "cosmos_to_eth"
 	ModuleEthToCosmos       = "eth_to_cosmos"
 	ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
+	ModuleEthToEth          = "eth_to_eth"
 	ModuleSolanaToCosmos    = "solana_to_cosmos"
 	ModuleCosmosToSolana    = "cosmos_to_solana"
 )
@@ -63,15 +68,6 @@ type SP1ProgramPaths struct {
 	Misbehaviour              string `json:"misbehaviour"`
 }
 
-// CosmosToEthModuleConfig represents the configuration for cosmos_to_eth module
-type CosmosToEthModuleConfig struct {
-	TmRpcUrl     string          `json:"tm_rpc_url"`
-	Ics26Address string          `json:"ics26_address"`
-	EthRpcUrl    string          `json:"eth_rpc_url"`
-	Sp1Prover    SP1ProverConfig `json:"sp1_prover"`
-	Sp1Programs  SP1ProgramPaths `json:"sp1_programs"`
-}
-
 // CosmosToCosmosModuleConfig represents the configuration for cosmos_to_cosmos module
 type CosmosToCosmosModuleConfig struct {
 	SrcRpcUrl     string `json:"src_rpc_url"`
@@ -79,13 +75,38 @@ type CosmosToCosmosModuleConfig struct {
 	SignerAddress string `json:"signer_address"`
 }
 
+// GetAvailablePort returns a random available TCP port on localhost within a typical ephemeral range.
+// It tries up to maxAttempts times to find a free port by binding and immediately releasing it.
+func GetAvailablePort() (int, error) {
+	const (
+		minPort     = 20000
+		maxPort     = 40000
+		maxAttempts = 50
+	)
+	// Seed RNG once per process
+	rand.Seed(time.Now().UnixNano())
+	for i := 0; i < maxAttempts; i++ {
+		p := rand.Intn(maxPort-minPort+1) + minPort
+		ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
+		if err == nil {
+			_ = ln.Close()
+			return p, nil
+		}
+	}
+	return 0, errors.New("failed to find an available port")
+}
+
 // NewConfig creates a new Config with default values
 func NewConfig(modules []ModuleConfig) Config {
-	// Server defaults
-	server := ServerConfig{
-		Address: "127.0.0.1",
-		Port:    3000,
+	addr := "127.0.0.1"
+	port, err := GetAvailablePort()
+	if err != nil {
+		// Fallback to a sensible default if no port found; tests may still override via env
+		port = 3000
 	}
+
+	// Make the chosen address visible to tests that use DefaultRelayerGRPCAddress
+	_ = os.Setenv("RELAYER_GRPC_ADDR", fmt.Sprintf("%s:%d", addr, port))
 
 	// Observability configuration
 	rustLog := os.Getenv(testvalues.EnvKeyRustLog)
@@ -114,8 +135,11 @@ func NewConfig(modules []ModuleConfig) Config {
 	}
 
 	return Config{
-		Modules:       modules,
-		Server:        server,
+		Modules: modules,
+		Server: ServerConfig{
+			Address: addr,
+			Port:    port,
+		},
 		Observability: observability,
 	}
 }
@@ -159,12 +183,123 @@ func ModulesToJSON(modules []ModuleConfig) (string, error) {
 	return string(jsonBytes), nil
 }
 
-// ethToCosmosConfig represents the configuration for eth_to_cosmos module
-type ethToCosmosConfig struct {
-	TmRpcUrl        string `json:"tm_rpc_url"`
-	Ics26Address    string `json:"ics26_address"`
-	EthRpcUrl       string `json:"eth_rpc_url"`
-	EthBeaconApiUrl string `json:"eth_beacon_api_url"`
-	SignerAddress   string `json:"signer_address"`
-	Mock            bool   `json:"mock"`
+// ethToCosmosCompatConfig represents the configuration for eth_to_cosmos_compat module (beacon chain based)
+type ethToCosmosCompatConfig struct {
+	TmRpcUrl        string        `json:"tm_rpc_url"`
+	Ics26Address    string        `json:"ics26_address"`
+	EthRpcUrl       string        `json:"eth_rpc_url"`
+	EthBeaconApiUrl string        `json:"eth_beacon_api_url"`
+	SignerAddress   string        `json:"signer_address"`
+	Mode            TxBuilderMode `json:"mode"`
+}
+
+// EthToCosmosModuleConfig represents the configuration for eth_to_cosmos module
+type EthToCosmosModuleConfig struct {
+	Ics26Address  string        `json:"ics26_address"`
+	TmRpcUrl      string        `json:"tm_rpc_url"`
+	EthRpcUrl     string        `json:"eth_rpc_url"`
+	SignerAddress string        `json:"signer_address"`
+	Mode          TxBuilderMode `json:"mode"`
+}
+
+// TxBuilderMode serializes to Rust's externally tagged enum format.
+// Unit variants serialize as strings, tuple variants as {"variant": content}.
+type TxBuilderMode interface {
+	json.Marshaler
+}
+
+// RealMode uses Ethereum beacon chain proofs.
+type RealMode struct{}
+
+func (RealMode) MarshalJSON() ([]byte, error) { return json.Marshal("real") }
+
+// MockMode is for testing without real proofs.
+type MockMode struct{}
+
+func (MockMode) MarshalJSON() ([]byte, error) { return json.Marshal("mock") }
+
+// AttestedMode uses aggregator attestations.
+type AttestedMode struct {
+	Config AggregatorConfig
+}
+
+func (m AttestedMode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]AggregatorConfig{"attested": m.Config})
+}
+
+// SP1Mode uses zero-knowledge proofs.
+type SP1Mode struct {
+	Prover   SP1ProverConfig
+	Programs SP1ProgramPaths
+}
+
+func (m SP1Mode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"sp1": map[string]interface{}{
+			"sp1_prover":   m.Prover,
+			"sp1_programs": m.Programs,
+		},
+	})
+}
+
+// CosmosToEthModuleConfig represents the configuration for cosmos_to_eth module.
+type CosmosToEthModuleConfig struct {
+	TmRpcUrl     string        `json:"tm_rpc_url"`
+	Ics26Address string        `json:"ics26_address"`
+	EthRpcUrl    string        `json:"eth_rpc_url"`
+	Mode         TxBuilderMode `json:"mode"`
+}
+
+// EthToEthModuleConfig represents the configuration for eth_to_eth module
+type EthToEthModuleConfig struct {
+	SrcChainId      string        `json:"src_chain_id"`
+	SrcRpcUrl       string        `json:"src_rpc_url"`
+	SrcIcs26Address string        `json:"src_ics26_address"`
+	DstRpcUrl       string        `json:"dst_rpc_url"`
+	DstIcs26Address string        `json:"dst_ics26_address"`
+	Mode            TxBuilderMode `json:"mode"`
+}
+
+// AttestorConfig represents the attestor configuration section
+type AttestorConfig struct {
+	AttestorQueryTimeoutMs int      `json:"attestor_query_timeout_ms"`
+	QuorumThreshold        int      `json:"quorum_threshold"`
+	AttestorEndpoints      []string `json:"attestor_endpoints"`
+}
+
+// CacheConfig represents the cache configuration section
+type CacheConfig struct {
+	StateCacheMaxEntries  int `json:"state_cache_max_entries"`
+	PacketCacheMaxEntries int `json:"packet_cache_max_entries"`
+}
+
+// AggregatorConfig represents the full aggregator configuration
+type AggregatorConfig struct {
+	Attestor AttestorConfig `json:"attestor"`
+	Cache    CacheConfig    `json:"cache"`
+}
+
+// DefaultAggregatorConfig returns a config with sensible defaults
+func DefaultAggregatorConfig() AggregatorConfig {
+	return AggregatorConfig{
+		Attestor: AttestorConfig{
+			AttestorQueryTimeoutMs: 5000,
+			QuorumThreshold:        1,
+			AttestorEndpoints:      []string{"http://127.0.0.1:2025"},
+		},
+		Cache: CacheConfig{
+			StateCacheMaxEntries:  100000,
+			PacketCacheMaxEntries: 100000,
+		},
+	}
+}
+
+// DefaultSP1ProgramPaths returns the default paths for SP1 program ELF files
+func DefaultSP1ProgramPaths() SP1ProgramPaths {
+	return SP1ProgramPaths{
+		UpdateClient:              "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+		Membership:                "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+		UpdateClientAndMembership: "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+		Misbehaviour:              "./programs/sp1-programs//target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour",
+	}
 }

@@ -7,7 +7,6 @@
     unused_crate_dependencies
 )]
 
-pub mod eth;
 pub mod light_block;
 pub mod merkle;
 pub mod rpc;
