@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-01-04
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-01-21
 
 IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain messaging—no escrow accounts, minimal SPL token operations.
 
@@ -216,6 +216,19 @@ IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to r
 | **Accounts - mint** | 12 |
 | **Storage per Bridge** | 308 bytes |
 | **Storage per Pending** | 198 bytes (reclaimed on completion) |
+
+## Alternatives Considered
+
+### CPI caller validation for callbacks
+
+**Alternative**: Use instruction sysvar inspection with `upstream_callers` registry to validate that callback handlers (`on_ack_packet`, `on_timeout_packet`) are called by Router or GMP.
+
+**Rejected because**:
+- Requires maintaining `upstream_callers` Vec in Router's `IBCApp` account
+- Adds admin overhead for registering each upstream program
+- Instruction sysvar inspection is complex and gas-intensive
+- The `PendingTransfer` PDA already provides authentication—only IFT can create it during `ift_transfer`, so its existence proves the callback is for a legitimate transfer
+- PDA-based state authentication is the idiomatic Solana pattern for this use case
 
 ## Limitations
 
