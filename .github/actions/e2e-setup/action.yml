@@ -79,15 +79,6 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.github_token }}
 
-    - name: Install just
-      if: steps.cache-solana.outputs.cache-hit != 'true'
-      uses: extractions/setup-just@v2
-
-    - name: Build Solana Programs
-      if: steps.cache-solana.outputs.cache-hit != 'true'
-      shell: bash
-      run: just build-solana
-
     - name: Pull attestor Docker image
       shell: bash
       run: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0
