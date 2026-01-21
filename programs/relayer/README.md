@@ -1,6 +1,6 @@
 # IBC Proof Relayer API Implementation
 
-This is an implementation of an IBC Proof Relayer API server for `solidity-ibc-eureka` and Cosmos SDK based chains.
+This is an implementation of an IBC Proof Relayer API server for IBC v2 for EVM, SVM, and Cosmos SDK based chains.
 
 This IBC Proof Relayer API neither listens to events nor submits transactions to any chain. Instead, it runs a gRPC server that can be queried by a client to get the transactions that need to be submitted to the chain to relay packets.
 
