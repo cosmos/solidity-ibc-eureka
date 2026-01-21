@@ -1602,7 +1602,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
 
 		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
 		s.Require().NoError(err)
@@ -1646,7 +1646,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		)
 
 		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
-		accountInfo, err := s.SolanaChain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
 		s.Require().NoError(err)
