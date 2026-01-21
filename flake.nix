@@ -113,7 +113,7 @@
             ];
             shellHook = ''
               export RUST_SRC_PATH="${rust}/lib/rustlib/src/rust/library"
-              if [ -z "$(which cargo-prove)" ]; then
+              if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
                 echo "SP1 toolchain is not installed. This is recommended to generate risc-v elfs. To install, please follow the instructions at"
                 echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
               fi
