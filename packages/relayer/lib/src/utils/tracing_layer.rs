@@ -52,7 +52,8 @@ pub fn tracing_interceptor<T>(request: Request<T>) -> Result<Request<T>, Status>
         propagator.extract(&MetadataExtractor(request.metadata()))
     });
 
-    Span::current().set_parent(parent_context);
+    #[allow(clippy::let_unit_value, clippy::ignored_unit_patterns)]
+    let _ = Span::current().set_parent(parent_context);
 
     // Extract and record the trace ID
     let span = Span::current();
