@@ -94,10 +94,8 @@ pub struct GMPCallResultAccount {
     /// Destination client ID (light client on the destination chain).
     #[max_len(64)]
     pub dest_client: String,
-    /// Whether the call was acknowledged or timed out.
+    /// Result status: acknowledgement (with IBC commitment) or timeout.
     pub status: CallResultStatus,
-    /// SHA256 commitment of the acknowledgement bytes, or zeros for timeout.
-    pub ack_commitment: [u8; 32],
     /// Unix timestamp (seconds) when the result was recorded.
     pub result_timestamp: i64,
     /// PDA bump seed.
@@ -118,8 +116,7 @@ impl GMPCallResultAccount {
         self.sequence = msg.sequence;
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
-        self.status = CallResultStatus::Acknowledgement;
-        self.ack_commitment = hash(&msg.acknowledgement).to_bytes();
+        self.status = CallResultStatus::Acknowledgement(hash(&msg.acknowledgement).to_bytes());
         self.result_timestamp = timestamp;
         self.bump = bump;
     }
@@ -138,7 +135,6 @@ impl GMPCallResultAccount {
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
         self.status = CallResultStatus::Timeout;
-        self.ack_commitment = [0u8; 32];
         self.result_timestamp = timestamp;
         self.bump = bump;
     }
@@ -167,8 +163,7 @@ mod tests {
             sequence: 0,
             source_client: String::new(),
             dest_client: String::new(),
-            status: CallResultStatus::Acknowledgement,
-            ack_commitment: [0u8; 32],
+            status: CallResultStatus::Timeout, // Placeholder, overwritten by init_acknowledged
             result_timestamp: 0,
             bump: 0,
         };
@@ -186,22 +181,22 @@ mod tests {
         account.init_acknowledged(msg, "sender".to_string(), 1_234_567_890, 255);
 
         let expected_commitment = hash(ack_data).to_bytes();
-        assert_eq!(account.ack_commitment, expected_commitment);
-        assert_ne!(account.ack_commitment, [0u8; 32]);
-        assert_eq!(account.status, CallResultStatus::Acknowledgement);
+        assert_eq!(
+            account.status,
+            CallResultStatus::Acknowledgement(expected_commitment)
+        );
         assert_eq!(account.sequence, 42);
     }
 
     #[test]
-    fn test_timeout_has_zero_commitment() {
+    fn test_timeout_status() {
         let mut account = GMPCallResultAccount {
             version: AccountVersion::V1,
             sender: String::new(),
             sequence: 0,
             source_client: String::new(),
             dest_client: String::new(),
-            status: CallResultStatus::Acknowledgement,
-            ack_commitment: [0u8; 32],
+            status: CallResultStatus::Timeout,
             result_timestamp: 0,
             bump: 0,
         };
@@ -216,7 +211,6 @@ mod tests {
 
         account.init_timed_out(msg, "sender".to_string(), 1_234_567_890, 255);
 
-        assert_eq!(account.ack_commitment, [0u8; 32]);
         assert_eq!(account.status, CallResultStatus::Timeout);
         assert_eq!(account.sequence, 42);
     }

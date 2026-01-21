@@ -81,8 +81,8 @@ type GMPCallResultAccount struct {
 	Sequence        uint64           // IBC packet sequence number
 	SourceClient    string           // Source client ID
 	DestClient      string           // Destination client ID
-	Status          CallResultStatus // Acknowledgement or Timeout
-	AckCommitment   [32]byte         // SHA256 commitment of acknowledgement (zeros for timeout)
+	Status          CallResultStatus // Acknowledgement (with IBC commitment) or Timeout
+	AckCommitment   [32]byte         // IBC acknowledgement commitment (only valid when Status == Acknowledgement)
 	ResultTimestamp int64            // Timestamp when result was recorded (Unix seconds)
 	Bump            uint8            // PDA bump seed
 }
@@ -147,19 +147,24 @@ func DecodeGMPCallResultAccount(data []byte) (*GMPCallResultAccount, error) {
 		return nil, fmt.Errorf("reading dest_client: %w", err)
 	}
 
-	// Status (u8 enum)
+	// Status (Borsh enum: discriminant + optional data)
+	// Acknowledgement = 0 + [u8; 32] IBC commitment
+	// Timeout = 1 (no data)
 	if offset >= len(data) {
 		return nil, fmt.Errorf("not enough data for status")
 	}
 	result.Status = CallResultStatus(data[offset])
 	offset++
 
-	// AckCommitment ([u8; 32])
-	if offset+32 > len(data) {
-		return nil, fmt.Errorf("not enough data for ack_commitment at offset %d", offset)
+	// For Acknowledgement, read the 32-byte IBC commitment from the enum data
+	if result.Status == CallResultStatusAcknowledgement {
+		if offset+32 > len(data) {
+			return nil, fmt.Errorf("not enough data for ack_commitment at offset %d", offset)
+		}
+		copy(result.AckCommitment[:], data[offset:offset+32])
+		offset += 32
 	}
-	copy(result.AckCommitment[:], data[offset:offset+32])
-	offset += 32
+	// For Timeout, AckCommitment remains zero-initialized
 
 	// ResultTimestamp (i64)
 	if offset+8 > len(data) {
