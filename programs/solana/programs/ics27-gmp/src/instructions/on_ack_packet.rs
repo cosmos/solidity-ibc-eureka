@@ -393,8 +393,11 @@ mod tests {
 
     #[test]
     fn test_on_ack_packet_success() {
+        use crate::state::GMPCallResultAccount;
         use crate::test_utils::create_gmp_packet_data;
+        use anchor_lang::AnchorDeserialize;
         use solana_ibc_proto::ProstMessage;
+        use solana_ibc_types::CallResultStatus;
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
@@ -404,7 +407,6 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        // Create valid GmpPacketData
         let packet_data = create_gmp_packet_data(
             &payer.to_string(),
             "0x1234567890abcdef",
@@ -413,6 +415,7 @@ mod tests {
         );
         let packet_bytes = packet_data.encode_to_vec();
 
+        let ack_bytes = vec![1, 2, 3];
         let ack_msg = solana_ibc_types::OnAcknowledgementPacketMsg {
             source_client: TEST_SOURCE_CLIENT.to_string(),
             dest_client: "solana-1".to_string(),
@@ -424,7 +427,7 @@ mod tests {
                 encoding: ICS27_ENCODING.to_string(),
                 value: packet_bytes,
             },
-            acknowledgement: vec![1, 2, 3],
+            acknowledgement: ack_bytes.clone(),
             relayer: Pubkey::new_unique(),
         };
 
@@ -452,9 +455,27 @@ mod tests {
             create_uninitialized_account_for_pda(result_pda),
         ];
 
-        let checks = vec![Check::success()];
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "on_ack_packet should succeed: {:?}",
+            result.program_result
+        );
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        let result_account = result.get_account(&result_pda).unwrap();
+        let mut result_data = &result_account.data[crate::constants::DISCRIMINATOR_SIZE..];
+        let result_state = GMPCallResultAccount::deserialize(&mut result_data).unwrap();
+
+        assert_eq!(result_state.sender, payer);
+        assert_eq!(result_state.sequence, TEST_SEQUENCE);
+        assert_eq!(result_state.source_client, TEST_SOURCE_CLIENT);
+        assert_eq!(result_state.dest_client, "solana-1");
+
+        let expected_commitment = solana_ibc_types::ibc_ack_commitment(&ack_bytes);
+        assert_eq!(
+            result_state.status,
+            CallResultStatus::Acknowledgement(expected_commitment)
+        );
     }
 
     /// Helper to test ack packet with invalid GMP packet data (expects `InvalidPacketData` error)
