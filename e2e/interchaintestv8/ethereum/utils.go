@@ -38,6 +38,23 @@ type DeployedContracts struct {
 	EvmIftConstructor string `json:"evmIftConstructor,omitempty"`
 }
 
+// GetVerifierAddress returns the appropriate verifier address based on prover type and proof type.
+// proofType should be "groth16" or "plonk".
+func (c DeployedContracts) GetVerifierAddress(prover string, proofType string) (string, error) {
+	if prover == testvalues.EnvValueSp1Prover_Mock {
+		return c.VerifierMock, nil
+	}
+
+	switch proofType {
+	case testvalues.EnvValueProofType_Groth16:
+		return c.VerifierGroth16, nil
+	case testvalues.EnvValueProofType_Plonk:
+		return c.VerifierPlonk, nil
+	default:
+		return "", fmt.Errorf("invalid proof type: %s", proofType)
+	}
+}
+
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
 	// Remove everything above the JSON part
 	cutOff := "== Return =="

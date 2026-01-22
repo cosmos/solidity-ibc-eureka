@@ -257,19 +257,8 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 
 	s.Require().True(s.Run("Setup light clients", func() {
 		s.Require().True(s.Run("Create Tendermint light client on Ethereum", func() {
-			var verifierAddress string
-			if prover == testvalues.EnvValueSp1Prover_Mock {
-				verifierAddress = s.contractAddresses.VerifierMock
-			} else {
-				switch proofType {
-				case types.ProofTypeGroth16:
-					verifierAddress = s.contractAddresses.VerifierGroth16
-				case types.ProofTypePlonk:
-					verifierAddress = s.contractAddresses.VerifierPlonk
-				default:
-					s.Require().Fail("invalid proof type: %s", proofType)
-				}
-			}
+			verifierAddress, err := s.contractAddresses.GetVerifierAddress(prover, proofType.String())
+			s.Require().NoError(err)
 
 			var createClientTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve create client tx", func() {
@@ -975,19 +964,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 
 	s.Require().True(s.Run("Setup light clients", func() {
 		s.Require().True(s.Run("Create Tendermint light client on Ethereum", func() {
-			var verifierAddress string
-			if s.prover == testvalues.EnvValueSp1Prover_Mock {
-				verifierAddress = s.contractAddresses.VerifierMock
-			} else {
-				switch s.proofType {
-				case types.ProofTypeGroth16:
-					verifierAddress = s.contractAddresses.VerifierGroth16
-				case types.ProofTypePlonk:
-					verifierAddress = s.contractAddresses.VerifierPlonk
-				default:
-					s.Require().Fail("invalid proof type: %s", s.proofType)
-				}
-			}
+			verifierAddress, err := s.contractAddresses.GetVerifierAddress(s.prover, s.proofType.String())
+			s.Require().NoError(err)
 
 			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 				SrcChain: s.Wfchain.Config().ChainID,
