@@ -9,7 +9,14 @@ var (
 )
 
 // Event discriminators
-var ()
+var (
+	Event_Ics27GmpEventsAccessManagerUpdated = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
+	Event_Ics27GmpEventsGmpAppInitialized    = [8]byte{212, 236, 132, 161, 142, 153, 248, 176}
+	Event_Ics27GmpEventsGmpAppPaused         = [8]byte{85, 230, 80, 71, 172, 103, 11, 186}
+	Event_Ics27GmpEventsGmpAppUnpaused       = [8]byte{154, 224, 206, 7, 164, 216, 81, 181}
+	Event_Ics27GmpEventsGmpCallSent          = [8]byte{97, 205, 149, 75, 198, 28, 132, 141}
+	Event_Ics27GmpEventsGmpExecutionFailed   = [8]byte{78, 147, 179, 232, 5, 38, 127, 64}
+)
 
 // Instruction discriminators
 var (

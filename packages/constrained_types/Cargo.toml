@@ -8,11 +8,12 @@ description = "Generic constrained types for validated data with compile-time le
 keywords   = ["ibc", "validation", "types", "constraints"]
 
 [dependencies]
-# No dependencies - this package is dependency-free
+borsh = { version = "0.10.4", default-features = false, optional = true }
 
 [features]
 default = ["std"]
 std = []
+borsh = ["dep:borsh", "std"]
 
 [lib]
 crate-type = ["lib"]

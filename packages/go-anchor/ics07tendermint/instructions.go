@@ -6,6 +6,7 @@ package ics07_tendermint
 import (
 	"bytes"
 	"fmt"
+
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
@@ -461,6 +462,13 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		if err != nil {
 			return nil, errors.NewField("clientIdParam", err)
 		}
+		// Serialize `chunkCountParam`:
+		err = enc__.Encode(chunkCountParam)
+		if err != nil {
+			return nil, errors.NewField("chunkCountParam", err)
+		}
+	}
+	{
 		// Serialize `chunkCountParam`:
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {

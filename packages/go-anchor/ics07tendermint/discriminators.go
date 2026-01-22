@@ -14,7 +14,9 @@ var (
 )
 
 // Event discriminators
-var ()
+var (
+	Event_Ics07TendermintEventsAccessManagerUpdated = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
+)
 
 // Instruction discriminators
 var (

@@ -12,6 +12,8 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
+	ics26router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 )
 
 // EventDiscriminator calculates the 8-byte discriminator for an Anchor event.
@@ -58,7 +60,6 @@ func ParseSendPacketEvent(logs []string) (*SendPacketEvent, error) {
 	discriminator := SendPacketEventDiscriminator()
 
 	for _, log := range logs {
-		// Skip non-event logs
 		if !strings.HasPrefix(log, "Program data: ") {
 			continue
 		}
@@ -103,7 +104,7 @@ func GetTransactionLogs(ctx context.Context, rpcClient *rpc.Client, sig solana.S
 	return txDetails.Meta.LogMessages, nil
 }
 
-// Function that fetches transaction logs
+// GetSendPacketEventFromTransaction fetches transaction logs and parses SendPacketEvent.
 func GetSendPacketEventFromTransaction(ctx context.Context, rpcClient *rpc.Client, sig solana.Signature) (*SendPacketEvent, error) {
 	logs, err := GetTransactionLogs(ctx, rpcClient, sig)
 	if err != nil {
@@ -111,4 +112,35 @@ func GetSendPacketEventFromTransaction(ctx context.Context, rpcClient *rpc.Clien
 	}
 
 	return ParseSendPacketEvent(logs)
+}
+
+// ParseWriteAcknowledgementEventsFromLogs parses WriteAcknowledgementEvent from Solana transaction logs
+// using the auto-generated types from packages/go-anchor/ics26router.
+func ParseWriteAcknowledgementEventsFromLogs(logs []string) ([]*ics26router.Ics26RouterEventsWriteAcknowledgementEvent, error) {
+	var events []*ics26router.Ics26RouterEventsWriteAcknowledgementEvent
+
+	for _, log := range logs {
+		if !strings.HasPrefix(log, "Program data: ") {
+			continue
+		}
+
+		dataStr := strings.TrimPrefix(log, "Program data: ")
+		data, err := base64.StdEncoding.DecodeString(dataStr)
+		if err != nil {
+			continue
+		}
+
+		if len(data) < 8 {
+			continue
+		}
+
+		event, err := ics26router.ParseEvent_Ics26RouterEventsWriteAcknowledgementEvent(data)
+		if err != nil {
+			continue
+		}
+
+		events = append(events, event)
+	}
+
+	return events, nil
 }
