@@ -366,21 +366,30 @@ impl super::TxBuilder {
         )?;
 
         // TODO: Support multi-payload packets #602
-        let gmp_result_pda = msg
-            .packet
-            .payloads
-            .first()
-            .and_then(|payload| {
-                let gmp_program_id = self.resolve_port_program_id(&payload.source_port).ok()?;
-                gmp::find_gmp_result_pda(
-                    &payload.source_port,
-                    &msg.packet.source_client,
-                    msg.packet.sequence,
-                    gmp_program_id,
-                )
-            })
-            .map(|pda| pda.to_bytes().to_vec())
-            .unwrap_or_default();
+        let gmp_result_pda = match msg.payloads.as_slice() {
+            [payload] => self
+                .resolve_port_program_id(&payload.source_port)
+                .inspect_err(|err| {
+                    tracing::warn!(
+                        err = ?err,
+                        "Failed to resolve program id for port {}",
+                        &payload.source_port
+                    );
+                })
+                .ok()
+                .and_then(|gmp_program_id| {
+                    gmp::find_gmp_result_pda(
+                        &payload.source_port,
+                        &msg.packet.source_client,
+                        msg.packet.sequence,
+                        gmp_program_id,
+                    )
+                    .map(|pda| pda.to_bytes().to_vec())
+                })
+                .unwrap_or_default(),
+            [] => vec![],
+            _ => anyhow::bail!("Multi-payload is not yet supported"),
+        };
 
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
