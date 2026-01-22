@@ -34,7 +34,6 @@ ics25-handler.workspace = true
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 solana-keccak-hasher.workspace = true
-sha2 = "0.10"
 hex = "0.4"
 
 [build-dependencies]
