@@ -19,17 +19,20 @@
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "sp1_prover": {
-          "type": "network",
-          "network_private_key": "0x4242424242424242424242424242424242424242424242424242424242424242",
-          "network_rpc_url": "https://prover-url.com",
-          "private_cluster": true
-        },
-        "sp1_programs": {
-          "update_client": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
-          "membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
-          "update_client_and_membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
-          "misbehaviour": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+        "mode": {
+          "type": "sp1",
+          "sp1_prover": {
+            "type": "network",
+            "network_private_key": "0x4242424242424242424242424242424242424242424242424242424242424242",
+            "network_rpc_url": "https://prover-url.com",
+            "private_cluster": true
+          },
+          "sp1_programs": {
+            "update_client": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+            "membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+            "update_client_and_membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+            "misbehaviour": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+          }
         }
       }
     },
@@ -41,14 +44,17 @@
         "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
-        "sp1_prover": {
-          "type": "mock"
-        },
-        "sp1_programs": {
-          "update_client": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
-          "membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
-          "update_client_and_membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
-          "misbehaviour": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+        "mode": {
+          "type": "sp1",
+          "sp1_prover": {
+            "type": "mock"
+          },
+          "sp1_programs": {
+            "update_client": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client",
+            "membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership",
+            "update_client_and_membership": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership",
+            "misbehaviour": "./programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+          }
         }
       }
     },
@@ -61,7 +67,84 @@
         "ics26_address": "0x4242424242424242424242424242424242424242",
         "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
         "eth_beacon_api_url": "https://ethereum-holesky-beacon-api.publicnode.com",
-        "signer_address": "cosmos1abcdef1234567890abcdef1234567890"
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "mode": "real"
+      }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "src_chain": "0x2",
+      "dst_chain": "testnet-1",
+      "config": {
+        "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "mode": "mock"
+      }
+    },
+    {
+      "name": "eth_to_cosmos",
+      "src_chain": "0x3",
+      "dst_chain": "testnet-2",
+      "config": {
+        "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "mode": {
+          "type": "attested",
+          "attestor": {
+            "attestor_query_timeout_ms": 1500,
+            "quorum_threshold": 1,
+            "attestor_endpoints": [
+              "https://attestor-1.example.com"
+            ]
+          },
+          "cache": {
+            "state_cache_max_entries": 100000,
+            "packet_cache_max_entries": 100000
+          }
+        }
+      }
+    },
+    {
+      "name": "eth_to_eth",
+      "src_chain": "0x1",
+      "dst_chain": "0x2",
+      "config": {
+        "src_chain_id": "0x1",
+        "src_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "src_ics26_address": "0x4242424242424242424242424242424242424242",
+        "dst_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "dst_ics26_address": "0x4242424242424242424242424242424242424242",
+        "mode": {
+          "type": "attested",
+          "attestor": {
+            "attestor_query_timeout_ms": 1500,
+            "quorum_threshold": 1,
+            "attestor_endpoints": [
+              "https://attestor-1.example.com"
+            ]
+          },
+          "cache": {
+            "state_cache_max_entries": 100000,
+            "packet_cache_max_entries": 100000
+          }
+        }
+      }
+    },
+    {
+      "name": "eth_to_cosmos_compat",
+      "src_chain": "0x1",
+      "dst_chain": "cosmoshub-4",
+      "config": {
+        "tm_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "eth_beacon_api_url": "https://ethereum-holesky-beacon-api.publicnode.com",
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "mode": "real"
       }
     },
     {
@@ -72,6 +155,34 @@
         "src_rpc_url": "https://noble-testnet-rpc.polkachu.com:443",
         "target_rpc_url": "http://public-celestia-mocha5-consensus.numia.xyz/",
         "signer_address": "cosmos1abcdef1234567890abcdef1234567890"
+      }
+    },
+    {
+      "name": "cosmos_to_solana",
+      "src_chain": "cosmoshub-4",
+      "dst_chain": "solana-localnet",
+      "config": {
+        "source_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "target_rpc_url": "https://api.devnet.solana.com",
+        "solana_ics26_program_id": "11111111111111111111111111111111",
+        "solana_fee_payer": "11111111111111111111111111111111",
+        "solana_alt_address": "11111111111111111111111111111111",
+        "mock_wasm_client": true,
+        "skip_pre_verify_threshold": 50
+      }
+    },
+    {
+      "name": "solana_to_cosmos",
+      "src_chain": "solana-localnet",
+      "dst_chain": "cosmoshub-4",
+      "config": {
+        "solana_chain_id": "solana-localnet",
+        "src_rpc_url": "https://api.devnet.solana.com",
+        "target_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
+        "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
+        "solana_ics26_program_id": "11111111111111111111111111111111",
+        "mock_wasm_client": true,
+        "mock_solana_client": true
       }
     }
   ]
