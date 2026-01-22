@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::events::GMPCallAcknowledged;
+use crate::events::GMPCallAcknowledgment;
 use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
@@ -67,7 +67,7 @@ pub fn on_acknowledgement_packet(
     let result = &mut ctx.accounts.result_account;
     result.init_acknowledged(msg, sender, clock.unix_timestamp, ctx.bumps.result_account);
 
-    emit!(GMPCallAcknowledged {
+    emit!(GMPCallAcknowledgment {
         source_client: result.source_client.clone(),
         sequence: result.sequence,
         sender,

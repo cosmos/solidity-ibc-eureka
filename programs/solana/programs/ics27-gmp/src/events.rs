@@ -75,7 +75,7 @@ pub struct GMPExecutionFailed {
 
 /// Event emitted when a GMP call receives an acknowledgement.
 #[event]
-pub struct GMPCallAcknowledged {
+pub struct GMPCallAcknowledgment {
     /// Source client ID (light client on Solana tracking the source chain).
     pub source_client: String,
     /// IBC packet sequence number.
@@ -90,7 +90,7 @@ pub struct GMPCallAcknowledged {
 
 /// Event emitted when a GMP call times out.
 #[event]
-pub struct GMPCallTimedOut {
+pub struct GMPCallTimeout {
     /// Source client ID (light client on Solana tracking the source chain).
     pub source_client: String,
     /// IBC packet sequence number.
