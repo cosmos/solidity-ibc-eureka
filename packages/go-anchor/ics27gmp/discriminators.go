@@ -5,7 +5,8 @@ package ics27_gmp
 
 // Account discriminators
 var (
-	Account_Ics27GmpStateGmpAppState = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
+	Account_Ics27GmpStateGmpAppState          = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
+	Account_Ics27GmpStateGmpCallResultAccount = [8]byte{236, 115, 234, 143, 137, 175, 113, 32}
 )
 
 // Event discriminators
