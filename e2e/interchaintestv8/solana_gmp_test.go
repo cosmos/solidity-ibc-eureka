@@ -982,15 +982,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-		var batch relayertypes.SolanaRelayPacketBatch
-		err = googleproto.Unmarshal(resp.Tx, &batch)
-		s.Require().NoError(err)
-		s.Require().Len(batch.Packets, 1, "Should have exactly one ack packet")
-
-		gmpResultPdaBytes := batch.Packets[0].GetGmpResultPda()
-		s.Require().Len(gmpResultPdaBytes, 32, "Relayer should return 32-byte GMP result PDA")
-		gmpResultPDA = solanago.PublicKeyFromBytes(gmpResultPdaBytes)
-		s.T().Logf("Relayer returned GMP result PDA: %s", gmpResultPDA.String())
+		gmpResultPDA, _ = solana.GMPCallResultPDA(ics27_gmp.ProgramID, SolanaClientID, namespacedSequence)
 
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
@@ -1270,15 +1262,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
-		var batch relayertypes.SolanaRelayPacketBatch
-		err = googleproto.Unmarshal(resp.Tx, &batch)
-		s.Require().NoError(err)
-		s.Require().Len(batch.Packets, 1, "Should have exactly one timeout packet")
-
-		gmpResultPdaBytes := batch.Packets[0].GetGmpResultPda()
-		s.Require().Len(gmpResultPdaBytes, 32, "Relayer should return 32-byte GMP result PDA")
-		gmpResultPDA := solanago.PublicKeyFromBytes(gmpResultPdaBytes)
-		s.T().Logf("Relayer returned GMP result PDA: %s", gmpResultPDA.String())
+		gmpResultPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, SolanaClientID, namespacedSequence)
 
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
