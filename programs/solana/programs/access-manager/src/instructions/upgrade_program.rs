@@ -3,7 +3,7 @@ use crate::events::ProgramUpgradedEvent;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use solana_ibc_types::roles;
+use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
@@ -57,17 +57,26 @@ pub struct UpgradeProgram<'info> {
 
     pub rent: Sysvar<'info, Rent>,
 
+    /// Required by BPF Loader Upgradeable's upgrade instruction
     pub clock: Sysvar<'info, Clock>,
 }
 
 pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
-    crate::helpers::require_role(
-        &ctx.accounts.access_manager.to_account_info(),
-        roles::UPGRADER_ROLE,
-        &ctx.accounts.authority.to_account_info(),
+    // Validate caller
+    require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
+        crate::WHITELISTED_CPI_PROGRAMS,
         &crate::ID,
-    )?;
+    )
+    .map_err(AccessManagerError::from)?;
+
+    // Only admins can upgrade programs
+    require!(
+        ctx.accounts
+            .access_manager
+            .has_role(roles::ADMIN_ROLE, &ctx.accounts.authority.key()),
+        AccessManagerError::Unauthorized
+    );
 
     let (upgrade_authority_pda, bump) =
         AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
@@ -79,6 +88,8 @@ pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> 
         &ctx.accounts.spill.key(),
     );
 
+    // Using invoke_signed because BPF Loader Upgradeable is a native Solana program
+    // without Anchor CPI bindings (CpiContext requires typed Anchor accounts)
     anchor_lang::solana_program::program::invoke_signed(
         &upgrade_ix,
         &[
@@ -97,11 +108,10 @@ pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> 
         ]],
     )?;
 
-    let clock = Clock::get()?;
     emit!(ProgramUpgradedEvent {
         program: target_program,
         authority: ctx.accounts.authority.key(),
-        timestamp: clock.unix_timestamp,
+        timestamp: ctx.accounts.clock.unix_timestamp,
     });
 
     msg!(
@@ -122,7 +132,6 @@ mod tests {
 
     fn setup_upgrade_test(
         admin: Pubkey,
-        upgrader: Pubkey,
         target_program: Pubkey,
     ) -> (
         Pubkey,
@@ -133,14 +142,7 @@ mod tests {
         Pubkey,
         Vec<AccountMeta>,
     ) {
-        let (access_manager_pda, mut access_manager_account) =
-            create_initialized_access_manager(admin);
-
-        let mut access_manager_data = get_account_data::<AccessManager>(&access_manager_account);
-        access_manager_data
-            .grant_role(roles::UPGRADER_ROLE, upgrader)
-            .unwrap();
-        access_manager_account.data = serialize_account(&access_manager_data);
+        let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
 
         let (upgrade_authority_pda, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
@@ -156,7 +158,7 @@ mod tests {
             buffer,
             upgrade_authority_pda,
             spill,
-            upgrader,
+            admin,
         );
 
         (
@@ -311,7 +313,6 @@ mod tests {
     #[ignore = "Requires full integration test setup with BPF Loader"]
     fn test_upgrade_program_success() {
         let admin = Pubkey::new_unique();
-        let upgrader = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
 
         let (
@@ -322,7 +323,7 @@ mod tests {
             buffer,
             spill,
             account_metas,
-        ) = setup_upgrade_test(admin, upgrader, target_program);
+        ) = setup_upgrade_test(admin, target_program);
 
         let instruction = build_instruction(
             crate::instruction::UpgradeProgram { target_program },
@@ -336,7 +337,7 @@ mod tests {
             buffer,
             upgrade_authority_pda,
             spill,
-            upgrader,
+            admin,
         ));
         accounts.push(create_instructions_sysvar_account_with_caller(crate::ID));
 
@@ -346,9 +347,9 @@ mod tests {
     }
 
     #[test]
-    fn test_upgrade_program_not_upgrader() {
+    fn test_upgrade_program_not_admin() {
         let admin = Pubkey::new_unique();
-        let non_upgrader = Pubkey::new_unique();
+        let non_admin = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
 
         let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
@@ -367,7 +368,7 @@ mod tests {
             buffer,
             upgrade_authority_pda,
             spill,
-            non_upgrader,
+            non_admin,
             create_instructions_sysvar_account_with_caller(crate::ID),
         );
 
@@ -382,7 +383,6 @@ mod tests {
     #[test]
     fn test_upgrade_program_cpi_rejection() {
         let admin = Pubkey::new_unique();
-        let upgrader = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
 
         let (
@@ -393,7 +393,7 @@ mod tests {
             buffer,
             spill,
             account_metas,
-        ) = setup_upgrade_test(admin, upgrader, target_program);
+        ) = setup_upgrade_test(admin, target_program);
 
         let instruction = build_instruction(
             crate::instruction::UpgradeProgram { target_program },
@@ -410,7 +410,7 @@ mod tests {
             buffer,
             upgrade_authority_pda,
             spill,
-            upgrader,
+            admin,
         ));
         accounts.push(cpi_sysvar_account);
 
@@ -425,7 +425,6 @@ mod tests {
     #[test]
     fn test_upgrade_program_fake_sysvar_wormhole_attack() {
         let admin = Pubkey::new_unique();
-        let upgrader = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
 
         let (
@@ -436,7 +435,7 @@ mod tests {
             buffer,
             spill,
             account_metas,
-        ) = setup_upgrade_test(admin, upgrader, target_program);
+        ) = setup_upgrade_test(admin, target_program);
 
         let instruction = build_instruction(
             crate::instruction::UpgradeProgram { target_program },
@@ -452,7 +451,7 @@ mod tests {
             buffer,
             upgrade_authority_pda,
             spill,
-            upgrader,
+            admin,
         ));
         accounts.push(fake_sysvar_account);
 
@@ -467,17 +466,9 @@ mod tests {
     #[test]
     fn test_upgrade_program_wrong_pda() {
         let admin = Pubkey::new_unique();
-        let upgrader = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
 
-        let (access_manager_pda, mut access_manager_account) =
-            create_initialized_access_manager(admin);
-
-        let mut access_manager_data = get_account_data::<AccessManager>(&access_manager_account);
-        access_manager_data
-            .grant_role(roles::UPGRADER_ROLE, upgrader)
-            .unwrap();
-        access_manager_account.data = serialize_account(&access_manager_data);
+        let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
 
         let wrong_upgrade_authority = Pubkey::new_unique();
         let program_data_address = Pubkey::new_unique();
@@ -492,7 +483,7 @@ mod tests {
             buffer,
             wrong_upgrade_authority,
             spill,
-            upgrader,
+            admin,
             create_instructions_sysvar_account_with_caller(crate::ID),
         );
 

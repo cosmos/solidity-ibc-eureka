@@ -1,12 +1,17 @@
 name: solana
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
   pull_request:
     paths:
       - 'packages/tendermint-light-client/**'
+      - 'packages/relayer/**'
       - 'programs/solana/**'
+      - 'programs/relayer/**'
       - '.github/workflows/solana.yml'
       - 'justfile'
 
