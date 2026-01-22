@@ -471,7 +471,11 @@ mod tests {
         assert_eq!(result_state.source_client, TEST_SOURCE_CLIENT);
         assert_eq!(result_state.dest_client, "solana-1");
 
-        let expected_commitment = solana_ibc_types::ibc_ack_commitment(&ack_bytes);
+        let expected_commitment =
+            ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32(
+                std::slice::from_ref(&ack_bytes),
+            )
+            .unwrap();
         assert_eq!(
             result_state.status,
             CallResultStatus::Acknowledgement(expected_commitment)

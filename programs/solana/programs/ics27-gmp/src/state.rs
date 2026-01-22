@@ -1,6 +1,6 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
-use solana_ibc_types::ibc_ack_commitment;
+use ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32;
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
@@ -118,7 +118,10 @@ impl GMPCallResultAccount {
         self.sequence = msg.sequence;
         self.source_client = msg.source_client;
         self.dest_client = msg.dest_client;
-        self.status = CallResultStatus::Acknowledgement(ibc_ack_commitment(&msg.acknowledgement));
+        self.status = CallResultStatus::Acknowledgement(
+            packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&msg.acknowledgement))
+                .expect("single ack is never empty"),
+        );
         self.result_timestamp = timestamp;
         self.bump = bump;
     }
@@ -183,7 +186,9 @@ mod tests {
         let sender = Pubkey::new_unique();
         account.init_acknowledged(msg, sender, 1_234_567_890, 255);
 
-        let expected_commitment = ibc_ack_commitment(ack_data);
+        let expected_commitment =
+            packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&ack_data.to_vec()))
+                .unwrap();
         assert_eq!(
             account.status,
             CallResultStatus::Acknowledgement(expected_commitment)

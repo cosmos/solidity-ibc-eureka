@@ -1,12 +1,15 @@
 use crate::errors::RouterError;
 use crate::state::Packet;
 use anchor_lang::prelude::*;
-use sha2::{Digest, Sha256};
 use solana_ibc_types::Payload;
 use solana_keccak_hasher::hash as keccak256;
+use solana_sha256_hasher::{hash as sha256, hashv};
 
 // Include auto-generated constants from build.rs
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
+
+/// IBC commitment version byte.
+const IBC_VERSION: u8 = 0x02;
 
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
@@ -57,24 +60,22 @@ pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
         app_bytes.extend_from_slice(&payload_hash);
     }
 
-    let mut hasher = Sha256::new();
-    hasher.update([2u8]); // version byte
-    hasher.update(sha256(packet.dest_client.as_bytes()));
-    hasher.update(sha256(&packet.timeout_timestamp.to_be_bytes()));
-    hasher.update(sha256(&app_bytes));
+    let dest_client_hash = sha256(packet.dest_client.as_bytes()).to_bytes();
+    let timeout_hash = sha256(&packet.timeout_timestamp.to_be_bytes()).to_bytes();
+    let app_hash = sha256(&app_bytes).to_bytes();
 
-    hasher.finalize().into()
+    hashv(&[&[IBC_VERSION], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
 }
 
 fn hash_payload(payload: &Payload) -> [u8; 32] {
     let mut buf = Vec::new();
-    buf.extend_from_slice(&sha256(payload.source_port.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.version.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.encoding.as_bytes()));
-    buf.extend_from_slice(&sha256(&payload.value));
+    buf.extend_from_slice(&sha256(payload.source_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.version.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.encoding.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(&payload.value).to_bytes());
 
-    sha256(&buf)
+    sha256(&buf).to_bytes()
 }
 
 /// `sha256_hash(0x02` + `sha256_hash(ack1)` + `sha256_hash(ack2)`, ...)
@@ -83,14 +84,10 @@ pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8
 
     let mut ack_bytes = Vec::new();
     for ack in acks {
-        ack_bytes.extend_from_slice(&sha256(ack));
+        ack_bytes.extend_from_slice(&sha256(ack).to_bytes());
     }
 
-    let mut hasher = Sha256::new();
-    hasher.update([2u8]); // version byte
-    hasher.update(&ack_bytes);
-
-    Ok(hasher.finalize().into())
+    Ok(hashv(&[&[IBC_VERSION], &ack_bytes]).to_bytes())
 }
 
 // TODO: maybe remove
@@ -109,12 +106,6 @@ pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u
     result[last_idx].extend_from_slice(path);
 
     Ok(result)
-}
-
-fn sha256(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    hasher.finalize().into()
 }
 
 #[cfg(test)]
@@ -344,31 +335,31 @@ mod tests {
     #[test]
     fn test_sha256() {
         let data = b"hello world";
-        let hash = sha256(data);
+        let hash = sha256(data).to_bytes();
 
         // Verify it's a 32-byte hash
         assert_eq!(hash.len(), 32);
 
         // Verify it's deterministic
-        let hash2 = sha256(data);
+        let hash2 = sha256(data).to_bytes();
         assert_eq!(hash, hash2);
 
         // Verify different inputs produce different hashes
-        let hash3 = sha256(b"different data");
+        let hash3 = sha256(b"different data").to_bytes();
         assert_ne!(hash, hash3);
 
         // Test empty input
-        let hash_empty = sha256(b"");
+        let hash_empty = sha256(b"").to_bytes();
         assert_eq!(hash_empty.len(), 32);
     }
 
     #[test]
     fn test_universal_error_ack_is_sha256_of_string() {
         // Verify it's the SHA256 of "UNIVERSAL_ERROR_ACKNOWLEDGEMENT"
-        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT");
+        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT").to_bytes();
 
         assert_eq!(
-            UNIVERSAL_ERROR_ACK, &computed,
+            UNIVERSAL_ERROR_ACK, computed,
             "UNIVERSAL_ERROR_ACK must be sha256(\"UNIVERSAL_ERROR_ACKNOWLEDGEMENT\")"
         );
     }

@@ -1277,6 +1277,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			}))
 
 			s.Require().True(s.Run("Verify Cosmos account balance unchanged", func() {
+				// The MsgSend from ICS27 account never executed, so balance should remain the same
 				balanceResp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
 					Address: computedAddress.String(),
 					Denom:   simd.Config().Denom,

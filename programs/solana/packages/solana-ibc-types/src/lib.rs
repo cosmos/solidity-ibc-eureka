@@ -50,4 +50,4 @@ pub use access_manager::{roles, AccessManager};
 pub use cpi::{
     reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,
 };
-pub use utils::{compute_discriminator, ibc_ack_commitment};
+pub use utils::compute_discriminator;
