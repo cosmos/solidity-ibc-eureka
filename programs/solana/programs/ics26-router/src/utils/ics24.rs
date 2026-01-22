@@ -68,7 +68,7 @@ pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
 }
 
 fn hash_payload(payload: &Payload) -> [u8; 32] {
-    let mut buf = Vec::new();
+    let mut buf = Vec::with_capacity(5 * 32);
     buf.extend_from_slice(&sha256(payload.source_port.as_bytes()).to_bytes());
     buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()).to_bytes());
     buf.extend_from_slice(&sha256(payload.version.as_bytes()).to_bytes());
