@@ -205,89 +205,6 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 	}))
 }
 
-func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
-	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
-	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
-	s.Require().NoError(err)
-	return bech32Addr
-}
-
-func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context, user ibc.Wallet, denom string) string {
-	msg := &tokenfactorytypes.MsgCreateDenom{
-		Sender: user.FormattedAddress(),
-		Denom:  denom,
-	}
-
-	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
-	s.Require().NoError(err)
-
-	return denom
-}
-
-func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
-	msg := &tokenfactorytypes.MsgMint{
-		From:    user.FormattedAddress(),
-		Address: recipient,
-		Amount:  sdk.Coin{Denom: denom, Amount: amount},
-	}
-
-	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
-	s.Require().NoError(err)
-}
-
-func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
-	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
-	s.Require().NoError(err)
-
-	msg := &ifttypes.MsgRegisterIFTBridge{
-		Signer:                 govModuleAddr,
-		Denom:                  denom,
-		ClientId:               clientId,
-		CounterpartyIftAddress: counterpartyIftAddr,
-		IftSendCallConstructor: constructor,
-	}
-
-	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, user)
-	s.Require().NoError(err)
-}
-
-func (s *CosmosEthereumIFTTestSuite) iftTransferFromCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
-	msg := &ifttypes.MsgIFTTransfer{
-		Signer:           user.FormattedAddress(),
-		Denom:            denom,
-		ClientId:         clientId,
-		Receiver:         receiver,
-		Amount:           amount,
-		TimeoutTimestamp: timeoutTimestamp,
-	}
-
-	resp, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
-	s.Require().NoError(err)
-
-	return resp.TxHash
-}
-
-func (s *CosmosEthereumIFTTestSuite) queryCosmosBalance(ctx context.Context, address, denom string) sdkmath.Int {
-	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.Wfchain, &banktypes.QueryBalanceRequest{
-		Address: address,
-		Denom:   denom,
-	})
-	s.Require().NoError(err)
-	return resp.Balance.Amount
-}
-
-func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Context, denom, clientId string, sequence uint64) (*ifttypes.PendingTransfer, error) {
-	resp, err := e2esuite.GRPCQuery[ifttypes.QueryPendingTransferResponse](ctx, s.Wfchain, &ifttypes.QueryPendingTransferRequest{
-		Denom:    denom,
-		ClientId: clientId,
-		Sequence: sequence,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &resp.PendingTransfer, nil
-}
-
 func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx, types.ProofTypeGroth16)
@@ -1195,4 +1112,89 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 		_, err := s.queryPendingTransferOnCosmos(ctx, cosmosDenom, wasmClientID, 1)
 		s.Require().Error(err, "pending transfer should be cleared after error ack")
 	}))
+}
+
+// Helper functions
+
+func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
+	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
+	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
+	s.Require().NoError(err)
+	return bech32Addr
+}
+
+func (s *CosmosEthereumIFTTestSuite) createTokenFactoryDenom(ctx context.Context, user ibc.Wallet, denom string) string {
+	msg := &tokenfactorytypes.MsgCreateDenom{
+		Sender: user.FormattedAddress(),
+		Denom:  denom,
+	}
+
+	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
+	s.Require().NoError(err)
+
+	return denom
+}
+
+func (s *CosmosEthereumIFTTestSuite) mintTokensOnCosmos(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+	msg := &tokenfactorytypes.MsgMint{
+		From:    user.FormattedAddress(),
+		Address: recipient,
+		Amount:  sdk.Coin{Denom: denom, Amount: amount},
+	}
+
+	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
+	s.Require().NoError(err)
+}
+
+func (s *CosmosEthereumIFTTestSuite) registerIFTBridgeOnCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
+	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
+	s.Require().NoError(err)
+
+	msg := &ifttypes.MsgRegisterIFTBridge{
+		Signer:                 govModuleAddr,
+		Denom:                  denom,
+		ClientId:               clientId,
+		CounterpartyIftAddress: counterpartyIftAddr,
+		IftSendCallConstructor: constructor,
+	}
+
+	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, user)
+	s.Require().NoError(err)
+}
+
+func (s *CosmosEthereumIFTTestSuite) iftTransferFromCosmos(ctx context.Context, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
+	msg := &ifttypes.MsgIFTTransfer{
+		Signer:           user.FormattedAddress(),
+		Denom:            denom,
+		ClientId:         clientId,
+		Receiver:         receiver,
+		Amount:           amount,
+		TimeoutTimestamp: timeoutTimestamp,
+	}
+
+	resp, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
+	s.Require().NoError(err)
+
+	return resp.TxHash
+}
+
+func (s *CosmosEthereumIFTTestSuite) queryCosmosBalance(ctx context.Context, address, denom string) sdkmath.Int {
+	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.Wfchain, &banktypes.QueryBalanceRequest{
+		Address: address,
+		Denom:   denom,
+	})
+	s.Require().NoError(err)
+	return resp.Balance.Amount
+}
+
+func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Context, denom, clientId string, sequence uint64) (*ifttypes.PendingTransfer, error) {
+	resp, err := e2esuite.GRPCQuery[ifttypes.QueryPendingTransferResponse](ctx, s.Wfchain, &ifttypes.QueryPendingTransferRequest{
+		Denom:    denom,
+		ClientId: clientId,
+		Sequence: sequence,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &resp.PendingTransfer, nil
 }

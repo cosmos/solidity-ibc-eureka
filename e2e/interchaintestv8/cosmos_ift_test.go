@@ -184,87 +184,6 @@ func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
 	}))
 }
 
-func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string) string {
-	msg := &tokenfactorytypes.MsgCreateDenom{
-		Sender: user.FormattedAddress(),
-		Denom:  denom,
-	}
-
-	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
-	s.Require().NoError(err)
-
-	return denom
-}
-
-func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
-	msg := &tokenfactorytypes.MsgMint{
-		From:    user.FormattedAddress(),
-		Address: recipient,
-		Amount:  sdk.Coin{Denom: denom, Amount: amount},
-	}
-
-	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
-	s.Require().NoError(err)
-}
-
-func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
-	govModuleAddr, err := chain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
-	s.Require().NoError(err)
-
-	msg := &ifttypes.MsgRegisterIFTBridge{
-		Signer:                 govModuleAddr,
-		Denom:                  denom,
-		ClientId:               clientId,
-		CounterpartyIftAddress: counterpartyIftAddr,
-		IftSendCallConstructor: constructor,
-	}
-
-	err = s.ExecuteGovV1Proposal(ctx, msg, chain, user)
-	s.Require().NoError(err)
-}
-
-func (s *CosmosIFTTestSuite) iftTransfer(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
-	msg := &ifttypes.MsgIFTTransfer{
-		Signer:           user.FormattedAddress(),
-		Denom:            denom,
-		ClientId:         clientId,
-		Receiver:         receiver,
-		Amount:           amount,
-		TimeoutTimestamp: timeoutTimestamp,
-	}
-
-	resp, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
-	s.Require().NoError(err)
-
-	return resp.TxHash
-}
-
-func (s *CosmosIFTTestSuite) queryBalance(ctx context.Context, chain *cosmos.CosmosChain, address, denom string) sdkmath.Int {
-	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, chain, &banktypes.QueryBalanceRequest{
-		Address: address,
-		Denom:   denom,
-	})
-	s.Require().NoError(err)
-
-	return resp.Balance.Amount
-}
-
-func (s *CosmosIFTTestSuite) queryPendingTransfer(ctx context.Context, chain *cosmos.CosmosChain, denom, clientID string, sequence uint64) (*ifttypes.QueryPendingTransferResponse, error) {
-	return e2esuite.GRPCQuery[ifttypes.QueryPendingTransferResponse](ctx, chain, &ifttypes.QueryPendingTransferRequest{
-		Denom:    denom,
-		ClientId: clientID,
-		Sequence: sequence,
-	})
-}
-
-func (s *CosmosIFTTestSuite) getIFTModuleAddress(ctx context.Context, chain *cosmos.CosmosChain) string {
-	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
-	bech32Addr, err := sdk.Bech32ifyAddressBytes(chain.Config().Bech32Prefix, iftAddr)
-	s.Require().NoError(err)
-
-	return bech32Addr
-}
-
 func (s *CosmosIFTTestSuite) Test_Deploy() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -1055,4 +974,87 @@ func (s *CosmosIFTTestSuite) Test_GMPPacketNotBlockedByIFT() {
 		// The fact that it succeeds proves IFT gracefully ignores non-IFT packets.
 		_ = s.MustBroadcastSdkTxBody(ctx, s.ChainA, s.ChainASubmitter, 2_000_000, resp.Tx)
 	}))
+}
+
+// Helper functions
+
+func (s *CosmosIFTTestSuite) createTokenFactoryDenom(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string) string {
+	msg := &tokenfactorytypes.MsgCreateDenom{
+		Sender: user.FormattedAddress(),
+		Denom:  denom,
+	}
+
+	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
+	s.Require().NoError(err)
+
+	return denom
+}
+
+func (s *CosmosIFTTestSuite) mintTokens(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+	msg := &tokenfactorytypes.MsgMint{
+		From:    user.FormattedAddress(),
+		Address: recipient,
+		Amount:  sdk.Coin{Denom: denom, Amount: amount},
+	}
+
+	_, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
+	s.Require().NoError(err)
+}
+
+func (s *CosmosIFTTestSuite) registerIFTBridge(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, counterpartyIftAddr, constructor string) {
+	govModuleAddr, err := chain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
+	s.Require().NoError(err)
+
+	msg := &ifttypes.MsgRegisterIFTBridge{
+		Signer:                 govModuleAddr,
+		Denom:                  denom,
+		ClientId:               clientId,
+		CounterpartyIftAddress: counterpartyIftAddr,
+		IftSendCallConstructor: constructor,
+	}
+
+	err = s.ExecuteGovV1Proposal(ctx, msg, chain, user)
+	s.Require().NoError(err)
+}
+
+func (s *CosmosIFTTestSuite) iftTransfer(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, denom, clientId, receiver string, amount sdkmath.Int, timeoutTimestamp uint64) string {
+	msg := &ifttypes.MsgIFTTransfer{
+		Signer:           user.FormattedAddress(),
+		Denom:            denom,
+		ClientId:         clientId,
+		Receiver:         receiver,
+		Amount:           amount,
+		TimeoutTimestamp: timeoutTimestamp,
+	}
+
+	resp, err := s.BroadcastMessages(ctx, chain, user, 200_000, msg)
+	s.Require().NoError(err)
+
+	return resp.TxHash
+}
+
+func (s *CosmosIFTTestSuite) queryBalance(ctx context.Context, chain *cosmos.CosmosChain, address, denom string) sdkmath.Int {
+	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, chain, &banktypes.QueryBalanceRequest{
+		Address: address,
+		Denom:   denom,
+	})
+	s.Require().NoError(err)
+
+	return resp.Balance.Amount
+}
+
+func (s *CosmosIFTTestSuite) queryPendingTransfer(ctx context.Context, chain *cosmos.CosmosChain, denom, clientID string, sequence uint64) (*ifttypes.QueryPendingTransferResponse, error) {
+	return e2esuite.GRPCQuery[ifttypes.QueryPendingTransferResponse](ctx, chain, &ifttypes.QueryPendingTransferRequest{
+		Denom:    denom,
+		ClientId: clientID,
+		Sequence: sequence,
+	})
+}
+
+func (s *CosmosIFTTestSuite) getIFTModuleAddress(ctx context.Context, chain *cosmos.CosmosChain) string {
+	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
+	bech32Addr, err := sdk.Bech32ifyAddressBytes(chain.Config().Bech32Prefix, iftAddr)
+	s.Require().NoError(err)
+
+	return bech32Addr
 }
