@@ -914,6 +914,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 
 	var ackTxHash []byte
+	var ackBytes []byte
 	s.Require().True(s.Run("Receive packet in Cosmos", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
@@ -943,6 +944,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			var err error
 			ackTxHash, err = hex.DecodeString(receipt.TxHash)
 			s.Require().NoError(err)
+
+			// Extract acknowledgement bytes from write_acknowledgement event
+			ackHex, err := cosmos.GetEventValue(receipt.Events, channeltypesv2.EventTypeWriteAck, channeltypesv2.AttributeKeyEncodedAckHex)
+			s.Require().NoError(err, "Failed to get acknowledgement from write_acknowledgement event")
+			ackBytes, err = hex.DecodeString(ackHex)
+			s.Require().NoError(err, "Failed to decode acknowledgement hex")
+			s.T().Logf("Extracted acknowledgement bytes (len=%d): %x", len(ackBytes), ackBytes)
 		}))
 
 		s.Require().True(s.Run("Verify balance changed on Cosmos", func() {
@@ -1005,14 +1013,14 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		result, err := solana.DecodeGMPCallResultAccount(data)
 		s.Require().NoError(err, "Failed to decode GMP call result account")
 
-		// Validate all fields
 		s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
-		s.Require().Equal(s.SolanaRelayer.PublicKey().String(), result.Sender, "Sender should match")
+		s.Require().Equal(s.SolanaRelayer.PublicKey(), result.Sender, "Sender should match")
 		s.Require().Equal(namespacedSequence, result.Sequence, "Sequence should match namespaced sequence")
 		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
 		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
-		s.Require().NotEqual([32]byte{}, result.AckCommitment, "AckCommitment should not be empty for acknowledgement")
+		expectedCommitment := solana.IBCAckCommitment(ackBytes)
+		s.Require().Equal(expectedCommitment, result.AckCommitment, "AckCommitment should match IBC commitment")
 		s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
 		s.Require().True(result.Bump > 0, "Bump should be non-zero")
 
@@ -1312,7 +1320,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 				// Validate all fields
 				s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
-				s.Require().Equal(s.SolanaRelayer.PublicKey().String(), result.Sender, "Sender should match")
+				s.Require().Equal(s.SolanaRelayer.PublicKey(), result.Sender, "Sender should match")
 				s.Require().Equal(namespacedSequence, result.Sequence, "Sequence should match namespaced sequence")
 				s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 				s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")

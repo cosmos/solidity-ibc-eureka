@@ -64,6 +64,14 @@ func GMPCallResultPDA(programID solana.PublicKey, sourceClient string, sequence 
 	return pda, bump
 }
 
+// IBCAckCommitment computes the IBC acknowledgement commitment.
+// Format: sha256(0x02 || sha256(ack)) where 0x02 is the IBC version byte.
+func IBCAckCommitment(ack []byte) [32]byte {
+	ackHash := sha256.Sum256(ack)
+	combined := append([]byte{0x02}, ackHash[:]...)
+	return sha256.Sum256(combined)
+}
+
 // CallResultStatus represents the status of a GMP call result.
 type CallResultStatus uint8
 
