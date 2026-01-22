@@ -170,8 +170,9 @@ impl GMPCallResult {
             ],
             program_id,
         )
-  }
-  
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
