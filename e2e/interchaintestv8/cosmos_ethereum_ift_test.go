@@ -67,6 +67,10 @@ type CosmosEthereumIFTTestSuite struct {
 	// Relayer
 	RelayerClient relayertypes.RelayerServiceClient
 
+	// Prover config
+	prover    string
+	proofType types.SupportedProofType
+
 	// Fixture generators
 	solidityFixtureGenerator *types.SolidityFixtureGenerator
 	wasmFixtureGenerator     *types.WasmFixtureGenerator
@@ -90,10 +94,10 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 
 	eth := s.Eth.Chains[0]
 	s.Wfchain = s.Cosmos.Chains[0]
+	s.proofType = proofType
 
 	s.T().Logf("Setting up Cosmos-Ethereum IFT test suite with proof type: %s", proofType.String())
 
-	var prover string
 	s.Require().True(s.Run("Set up environment", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
@@ -113,17 +117,17 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		s.CosmosRelayerSubmitter = s.CreateAndFundCosmosUser(ctx, s.Wfchain)
 		s.CosmosUser = s.CreateAndFundCosmosUser(ctx, s.Wfchain)
 
-		prover = os.Getenv(testvalues.EnvKeySp1Prover)
-		switch prover {
+		s.prover = os.Getenv(testvalues.EnvKeySp1Prover)
+		switch s.prover {
 		case "", testvalues.EnvValueSp1Prover_Mock:
 			s.T().Logf("Using mock prover")
-			prover = testvalues.EnvValueSp1Prover_Mock
+			s.prover = testvalues.EnvValueSp1Prover_Mock
 			os.Setenv(testvalues.EnvKeySp1Prover, testvalues.EnvValueSp1Prover_Mock)
 			os.Setenv(testvalues.EnvKeyVerifier, testvalues.EnvValueVerifier_Mock)
 		case testvalues.EnvValueSp1Prover_Network:
 			s.Require().NotEmpty(os.Getenv(testvalues.EnvKeyNetworkPrivateKey))
 		default:
-			s.Require().Fail("invalid prover type: %s", prover)
+			s.Require().Fail("invalid prover type: %s", s.prover)
 		}
 
 		if os.Getenv(testvalues.EnvKeyRustLog) == "" {
@@ -131,7 +135,7 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		}
 		os.Setenv(testvalues.EnvKeyEthRPC, eth.RPC)
 		os.Setenv(testvalues.EnvKeyTendermintRPC, s.Wfchain.GetHostRPCAddress())
-		os.Setenv(testvalues.EnvKeySp1Prover, prover)
+		os.Setenv(testvalues.EnvKeySp1Prover, s.prover)
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 	}))
 
@@ -154,7 +158,7 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		}
 
 		sp1Config := relayer.SP1ProverConfig{
-			Type:           prover,
+			Type:           s.prover,
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 
@@ -243,7 +247,7 @@ type iftTestContext struct {
 	cosmosDenom     string
 }
 
-func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context) iftTestContext {
+func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context, prover string, proofType types.SupportedProofType) iftTestContext {
 	eth := s.Eth.Chains[0]
 	tc := iftTestContext{
 		tmClientID:   testvalues.CustomClientID,
@@ -253,14 +257,28 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 
 	s.Require().True(s.Run("Setup light clients", func() {
 		s.Require().True(s.Run("Create Tendermint light client on Ethereum", func() {
+			var verifierAddress string
+			if prover == testvalues.EnvValueSp1Prover_Mock {
+				verifierAddress = s.contractAddresses.VerifierMock
+			} else {
+				switch proofType {
+				case types.ProofTypeGroth16:
+					verifierAddress = s.contractAddresses.VerifierGroth16
+				case types.ProofTypePlonk:
+					verifierAddress = s.contractAddresses.VerifierPlonk
+				default:
+					s.Require().Fail("invalid proof type: %s", proofType)
+				}
+			}
+
 			var createClientTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve create client tx", func() {
 				resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 					SrcChain: s.Wfchain.Config().ChainID,
 					DstChain: eth.ChainID.String(),
 					Parameters: map[string]string{
-						testvalues.ParameterKey_Sp1Verifier: s.contractAddresses.VerifierMock,
-						testvalues.ParameterKey_ZkAlgorithm: types.ProofTypeGroth16.String(),
+						testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+						testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 					},
 				})
 				s.Require().NoError(err)
@@ -419,7 +437,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
-	tc := s.setupIFTInfrastructure(ctx)
+	tc := s.setupIFTInfrastructure(ctx, s.prover, s.proofType)
 
 	s.Require().True(s.Run("Mint tokens to user on Cosmos", func() {
 		s.mintTokensOnCosmos(ctx, s.CosmosRelayerSubmitter, tc.cosmosDenom, transferAmount, s.CosmosUser.FormattedAddress())
@@ -611,7 +629,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
-	tc := s.setupIFTInfrastructure(ctx)
+	tc := s.setupIFTInfrastructure(ctx, s.prover, s.proofType)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 
@@ -700,7 +718,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
-	tc := s.setupIFTInfrastructure(ctx)
+	tc := s.setupIFTInfrastructure(ctx, s.prover, s.proofType)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 
@@ -816,7 +834,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 	eth := s.Eth.Chains[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
 
-	tc := s.setupIFTInfrastructure(ctx)
+	tc := s.setupIFTInfrastructure(ctx, s.prover, s.proofType)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 	invalidCosmosAddr := "invalid-cosmos-address"
@@ -957,12 +975,26 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 
 	s.Require().True(s.Run("Setup light clients", func() {
 		s.Require().True(s.Run("Create Tendermint light client on Ethereum", func() {
+			var verifierAddress string
+			if s.prover == testvalues.EnvValueSp1Prover_Mock {
+				verifierAddress = s.contractAddresses.VerifierMock
+			} else {
+				switch s.proofType {
+				case types.ProofTypeGroth16:
+					verifierAddress = s.contractAddresses.VerifierGroth16
+				case types.ProofTypePlonk:
+					verifierAddress = s.contractAddresses.VerifierPlonk
+				default:
+					s.Require().Fail("invalid proof type: %s", s.proofType)
+				}
+			}
+
 			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 				SrcChain: s.Wfchain.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier: s.contractAddresses.VerifierMock,
-					testvalues.ParameterKey_ZkAlgorithm: types.ProofTypeGroth16.String(),
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
+					testvalues.ParameterKey_ZkAlgorithm: s.proofType.String(),
 				},
 			})
 			s.Require().NoError(err)
