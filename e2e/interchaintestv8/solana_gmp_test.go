@@ -945,12 +945,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			ackTxHash, err = hex.DecodeString(receipt.TxHash)
 			s.Require().NoError(err)
 
-			// Extract acknowledgement bytes from write_acknowledgement event
 			ackHex, err := cosmos.GetEventValue(receipt.Events, channeltypesv2.EventTypeWriteAck, channeltypesv2.AttributeKeyEncodedAckHex)
 			s.Require().NoError(err, "Failed to get acknowledgement from write_acknowledgement event")
 			ackBytes, err = hex.DecodeString(ackHex)
 			s.Require().NoError(err, "Failed to decode acknowledgement hex")
-			s.T().Logf("Extracted acknowledgement bytes (len=%d): %x", len(ackBytes), ackBytes)
 		}))
 
 		s.Require().True(s.Run("Verify balance changed on Cosmos", func() {
@@ -1019,7 +1017,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
 		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
 		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
-		expectedCommitment := solana.IBCAckCommitment(ackBytes)
+		var ibcAck channeltypesv2.Acknowledgement
+		err = proto.Unmarshal(ackBytes, &ibcAck)
+		s.Require().NoError(err, "Failed to unmarshal IBC Acknowledgement")
+		s.Require().Len(ibcAck.AppAcknowledgements, 1, "Should have exactly one app acknowledgement")
+		expectedCommitment := solana.IBCAckCommitment(ibcAck.AppAcknowledgements[0])
 		s.Require().Equal(expectedCommitment, result.AckCommitment, "AckCommitment should match IBC commitment")
 		s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
 		s.Require().True(result.Bump > 0, "Bump should be non-zero")
