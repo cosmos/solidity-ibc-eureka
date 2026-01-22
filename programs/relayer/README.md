@@ -18,14 +18,14 @@ The gRPC service definition is in [`relayer/proto/relayer/relayer.proto`](https:
 
 Each module runs in one direction and specializes in how it builds proofs and transactions:
 
-| Module | Source | Target | Tasks | Proof Modes | Notes |
-| --- | --- | --- | --- | --- | --- |
-| `cosmos_to_eth` | Cosmos SDK | EVM | Parse Cosmos events, build EVM IBC txs | `sp1` (ZK proofs via SP1), `attested` (multisig) | SP1 program paths required for `sp1`.
-| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real` (beacon API proofs), `mock` (dev-only), `attested` (multisig) | `real` uses beacon API proofs.
-| `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` (multisig) | Requires attestor endpoints.
-| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | N/A (only supports ICS-07 proofs) | Uses Cosmos RPCs for both sides.
-| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | N/A (only supports ICS-07 proofs) | Uses Solana program + fee payer.
-| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | N/A (only supports attested mode) | Mock client flags for testing.
+| Module | Source | Target | Tasks | Proof Modes |
+| --- | --- | --- | --- | --- |
+| `cosmos_to_eth` | Cosmos SDK | EVM | Parse Cosmos events, build EVM IBC txs | `sp1` — ZK proofs via SP1<br>`attested` — multisig attestations |
+| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real` — beacon API proofs<br>`mock` — dev/test mode<br>`attested` — multisig attestations |
+| `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` — multisig attestations |
+| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | ICS-07 proofs only |
+| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | ICS-07 proofs only |
+| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | `attested` only |
 
 ## Build and Run
 
