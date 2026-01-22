@@ -315,7 +315,7 @@ impl super::TxBuilder {
                 })
                 .unwrap_or_default(),
             [] => vec![],
-            _ => bail!("Multi-payload is not yet supported"),
+            _ => anyhow::bail!("Multi-payload is not yet supported"),
         };
 
         Ok(SolanaPacketTxs {
