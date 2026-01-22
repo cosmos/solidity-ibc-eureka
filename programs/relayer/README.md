@@ -25,7 +25,7 @@ Each module runs in one direction and specializes in how it builds proofs and tr
 | `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` — multisig attestations |
 | `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | ICS-07 light client proofs only (validator signatures and merkle proofs) |
 | `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | ICS-07 light client proofs only (validator signatures and merkle proofs) |
-| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | `attested` only |
+| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | multisig attestations only |
 
 ## Build and Run
 
