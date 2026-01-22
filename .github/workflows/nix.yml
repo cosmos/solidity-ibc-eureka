@@ -8,7 +8,10 @@ on:
 
 jobs:
   develop-default:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
       - name: install-nix
@@ -20,7 +23,10 @@ jobs:
         run: nix develop --command true
 
   develop-solana:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v5
       - name: install-nix
