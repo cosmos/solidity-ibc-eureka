@@ -13,7 +13,7 @@ const IBC_VERSION: u8 = 0x02;
 
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(1u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -21,7 +21,7 @@ pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
 }
 
 pub fn packet_acknowledgement_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(3u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -29,7 +29,7 @@ pub fn packet_acknowledgement_commitment_path(client_id: &str, sequence: u64) ->
 }
 
 pub fn packet_receipt_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(2u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -53,7 +53,7 @@ pub fn packet_receipt_commitment_key(client_id: &str, sequence: u64) -> [u8; 32]
 
 /// `sha256_hash(0x02` + `sha256_hash(destinationClient)` + `sha256_hash(timeout)` + `sha256_hash(payload)`)
 pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
-    let mut app_bytes = Vec::new();
+    let mut app_bytes = Vec::with_capacity(packet.payloads.len() * 32);
 
     for payload in &packet.payloads {
         let payload_hash = hash_payload(payload);
@@ -82,7 +82,7 @@ fn hash_payload(payload: &Payload) -> [u8; 32] {
 pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8; 32]> {
     require!(!acks.is_empty(), RouterError::NoAcknowledgements);
 
-    let mut ack_bytes = Vec::new();
+    let mut ack_bytes = Vec::with_capacity(acks.len() * 32);
     for ack in acks {
         ack_bytes.extend_from_slice(&sha256(ack).to_bytes());
     }
