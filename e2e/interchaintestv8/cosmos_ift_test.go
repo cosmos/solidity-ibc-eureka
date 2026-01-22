@@ -114,6 +114,17 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err)
 	}))
+
+	s.Require().True(s.Run("Verify Relayer Info", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.ChainA.Config().ChainID,
+			DstChain: s.ChainB.Config().ChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(s.ChainA.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(s.ChainB.Config().ChainID, info.TargetChain.ChainId)
+	}))
 }
 
 func (s *CosmosIFTTestSuite) createLightClients(ctx context.Context) {
