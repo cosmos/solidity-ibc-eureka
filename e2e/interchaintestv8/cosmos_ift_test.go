@@ -14,7 +14,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
@@ -257,13 +256,15 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	}))
 
 	s.Require().True(s.Run("Verify initial balance on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "expected %s, got %s", transferAmount, balance)
 		s.T().Logf("User balance on Chain A: %s", balance)
 	}))
 
 	s.Require().True(s.Run("Verify initial balance on Chain B is zero", func() {
-		balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+		balance, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 	}))
 
@@ -278,7 +279,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify balance burned on Chain A", func() {
-			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
 			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 		}))
 
@@ -302,7 +304,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify balance minted on Chain B", func() {
-			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balance, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(transferAmount), "expected %s, got %s", transferAmount, balance)
 		}))
 
@@ -335,8 +338,10 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify final balances", func() {
-			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
-			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balanceA, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
+			balanceB, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balanceA.IsZero(), "userA should have 0, got %s", balanceA)
 			s.Require().True(balanceB.Equal(transferAmount), "userB should have %s, got %s", transferAmount, balanceB)
 			s.T().Logf("After A->B: userA=%s, userB=%s", balanceA, balanceB)
@@ -355,7 +360,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify balance burned on Chain B", func() {
-			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balance, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 		}))
 
@@ -379,7 +385,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify balance minted on Chain A", func() {
-			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(transferAmount), "expected %s, got %s", transferAmount, balance)
 		}))
 
@@ -412,8 +419,10 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		}))
 
 		s.Require().True(s.Run("Verify final balances", func() {
-			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
-			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balanceA, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
+			balanceB, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balanceA.Equal(transferAmount), "userA should have %s, got %s", transferAmount, balanceA)
 			s.Require().True(balanceB.IsZero(), "userB should have 0, got %s", balanceB)
 			s.T().Logf("After B->A: userA=%s, userB=%s", balanceA, balanceB)
@@ -463,7 +472,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify initial balance on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "expected %s, got %s", transferAmount, balance)
 		s.T().Logf("User balance on Chain A: %s", balance)
 	}))
@@ -478,7 +488,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify balance burned on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 	}))
 
@@ -531,7 +542,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "expected %s (refunded), got %s", transferAmount, balance)
 		s.T().Logf("User balance after timeout refund: %s", balance)
 	}))
@@ -543,7 +555,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Verify no balance on Chain B", func() {
-		balance := s.queryBalance(ctx, s.ChainB, userA.FormattedAddress(), denomB)
+		balance, err := s.ChainB.GetBalance(ctx, userA.FormattedAddress(), denomB)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero(), "Chain B should have no tokens since transfer timed out, got %s", balance)
 		s.T().Logf("Chain B balance is zero as expected")
 	}))
@@ -609,7 +622,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
 		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, transferAmount, userA.FormattedAddress())
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount))
 	}))
 
@@ -621,7 +635,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Verify balance burned on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero())
 	}))
 
@@ -670,7 +685,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded on Chain A", func() {
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "expected %s (refunded), got %s", transferAmount, balance)
 	}))
 
@@ -717,7 +733,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
 		s.mintTokens(ctx, s.ChainA, s.ChainASubmitter, denomA, totalAmount, userA.FormattedAddress())
-		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+		balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(totalAmount))
 	}))
 
@@ -737,7 +754,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify all tokens burned on Chain A", func() {
-			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
 			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 		}))
 
@@ -777,7 +795,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify total balance minted on Chain B", func() {
-			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balance, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(totalAmount), "expected %s, got %s", totalAmount, balance)
 		}))
 
@@ -809,8 +828,10 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify balances after A to B transfers", func() {
-			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
-			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balanceA, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
+			balanceB, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balanceA.IsZero(), "Chain A user should have 0")
 			s.Require().True(balanceB.Equal(totalAmount), "Chain B user should have %s", totalAmount)
 		}))
@@ -832,7 +853,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify all tokens burned on Chain B", func() {
-			balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balance, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 		}))
 
@@ -872,7 +894,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify total balance minted on Chain A", func() {
-			balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
+			balance, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(totalAmount), "expected %s, got %s", totalAmount, balance)
 		}))
 
@@ -904,8 +927,10 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 		}))
 
 		s.Require().True(s.Run("Verify final balances", func() {
-			balanceA := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
-			balanceB := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+			balanceA, err := s.ChainA.GetBalance(ctx, userA.FormattedAddress(), denomA)
+			s.Require().NoError(err)
+			balanceB, err := s.ChainB.GetBalance(ctx, userB.FormattedAddress(), denomB)
+			s.Require().NoError(err)
 			s.Require().True(balanceA.Equal(totalAmount), "Chain A user should have %s", totalAmount)
 			s.Require().True(balanceB.IsZero(), "Chain B user should have 0")
 		}))
@@ -1042,16 +1067,6 @@ func (s *CosmosIFTTestSuite) iftTransfer(ctx context.Context, chain *cosmos.Cosm
 	s.Require().NoError(err)
 
 	return resp.TxHash
-}
-
-func (s *CosmosIFTTestSuite) queryBalance(ctx context.Context, chain *cosmos.CosmosChain, address, denom string) sdkmath.Int {
-	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, chain, &banktypes.QueryBalanceRequest{
-		Address: address,
-		Denom:   denom,
-	})
-	s.Require().NoError(err)
-
-	return resp.Balance.Amount
 }
 
 func (s *CosmosIFTTestSuite) queryPendingTransfer(ctx context.Context, chain *cosmos.CosmosChain, denom, clientID string, sequence uint64) (*ifttypes.QueryPendingTransferResponse, error) {

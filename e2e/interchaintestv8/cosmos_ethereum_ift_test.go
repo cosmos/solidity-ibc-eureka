@@ -18,7 +18,6 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
@@ -424,7 +423,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 
 	s.Require().True(s.Run("Mint tokens to user on Cosmos", func() {
 		s.mintTokensOnCosmos(ctx, s.CosmosRelayerSubmitter, tc.cosmosDenom, transferAmount, s.CosmosUser.FormattedAddress())
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount))
 	}))
 
@@ -447,7 +447,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 			)
 			s.Require().NotEmpty(cosmosSendTxHash)
 
-			balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			s.Require().NoError(err)
 			s.Require().True(balance.IsZero())
 		}))
 
@@ -552,7 +553,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Verify balance on Cosmos", func() {
-			balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(transferAmount), "Expected %s, got %s", transferAmount.String(), balance.String())
 		}))
 
@@ -586,7 +588,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 
 	s.Require().True(s.Run("Verify final balances", func() {
 		s.Require().True(s.Run("Cosmos user has tokens back", func() {
-			balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+			s.Require().NoError(err)
 			s.Require().True(balance.Equal(transferAmount), "Cosmos user should have tokens back after roundtrip")
 		}))
 
@@ -614,7 +617,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 
 	s.Require().True(s.Run("Mint tokens to user on Cosmos", func() {
 		s.mintTokensOnCosmos(ctx, s.CosmosRelayerSubmitter, tc.cosmosDenom, transferAmount, s.CosmosUser.FormattedAddress())
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount))
 	}))
 
@@ -634,7 +638,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 	}))
 
 	s.Require().True(s.Run("Verify balance burned on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero())
 	}))
 
@@ -668,7 +673,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
 	}))
 
@@ -793,7 +799,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 	}))
 
 	s.Require().True(s.Run("Verify no balance on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero(), "Cosmos should have no tokens")
 	}))
 }
@@ -887,7 +894,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 	}))
 
 	s.Require().True(s.Run("Verify no balance minted on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero(), "Cosmos user should have no tokens")
 	}))
 
@@ -1039,7 +1047,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 
 	s.Require().True(s.Run("Mint tokens to user on Cosmos", func() {
 		s.mintTokensOnCosmos(ctx, s.CosmosRelayerSubmitter, cosmosDenom, transferAmount, s.CosmosUser.FormattedAddress())
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount))
 	}))
 
@@ -1059,7 +1068,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	}))
 
 	s.Require().True(s.Run("Verify balance burned on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.IsZero())
 	}))
 
@@ -1115,7 +1125,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded on Cosmos", func() {
-		balance := s.queryCosmosBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().NoError(err)
 		s.Require().True(balance.Equal(transferAmount), "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
 	}))
 
@@ -1187,15 +1198,6 @@ func (s *CosmosEthereumIFTTestSuite) iftTransferFromCosmos(ctx context.Context, 
 	s.Require().NoError(err)
 
 	return resp.TxHash
-}
-
-func (s *CosmosEthereumIFTTestSuite) queryCosmosBalance(ctx context.Context, address, denom string) sdkmath.Int {
-	resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.Wfchain, &banktypes.QueryBalanceRequest{
-		Address: address,
-		Denom:   denom,
-	})
-	s.Require().NoError(err)
-	return resp.Balance.Amount
 }
 
 func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Context, denom, clientId string, sequence uint64) (*ifttypes.PendingTransfer, error) {
