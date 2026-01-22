@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/hex"
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -45,12 +44,6 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
-)
-
-const (
-	cosmosIFTDenom            = "testift"
-	cosmosIFTModuleName       = "ift"
-	iftSendCallConstructorEVM = "evm"
 )
 
 // CosmosEthereumIFTTestSuite tests IFT transfers between wfchain and Ethereum
@@ -213,7 +206,7 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 }
 
 func (s *CosmosEthereumIFTTestSuite) getIFTModuleAddress() string {
-	iftAddr := authtypes.NewModuleAddress(cosmosIFTModuleName)
+	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
 	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
 	s.Require().NoError(err)
 	return bech32Addr
@@ -423,7 +416,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 		}))
 
 		s.Require().True(s.Run("Create denom on Cosmos", func() {
-			tc.cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, cosmosIFTDenom)
+			tc.cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, testvalues.IFTTestDenom)
 		}))
 
 		s.Require().True(s.Run("Query and deploy CosmosIFTSendCallConstructor with correct ICS27 account", func() {
@@ -447,7 +440,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 				txOpts,
 				eth.RPCClient,
 				testvalues.WfchainIFTMintTypeURL,
-				cosmosIFTDenom,
+				testvalues.IFTTestDenom,
 				resp.AccountAddress,
 			)
 			s.Require().NoError(err)
@@ -484,7 +477,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context)
 				tc.cosmosDenom,
 				tc.wasmClientID,
 				tc.ethIFTAddress.Hex(),
-				iftSendCallConstructorEVM,
+				testvalues.IFTSendCallConstructorEVM,
 			)
 		}))
 	}))
@@ -563,7 +556,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 
 			balance, err := iftContract.BalanceOf(nil, ethReceiverAddr)
 			s.Require().NoError(err)
-			s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0)
+			s.Require().Equal(transferAmount.BigInt().String(), balance.String())
 		}))
 
 		s.Require().True(s.Run("Relay ack to Cosmos", func() {
@@ -613,7 +606,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 
 			balance, err := iftContract.BalanceOf(nil, ethReceiverAddr)
 			s.Require().NoError(err)
-			s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Ethereum sender should have 0 tokens after transfer")
+			s.Require().Equal("0", balance.String(), "Ethereum sender should have 0 tokens after transfer")
 		}))
 
 		s.Require().True(s.Run("Relay packet to Cosmos", func() {
@@ -675,7 +668,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 
 			balance, err := iftContract.BalanceOf(nil, ethReceiverAddr)
 			s.Require().NoError(err)
-			s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Ethereum user should have 0 tokens after roundtrip")
+			s.Require().Equal("0", balance.String(), "Ethereum user should have 0 tokens after roundtrip")
 		}))
 	}))
 }
@@ -762,7 +755,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Ethereum should have no tokens")
+		s.Require().Equal("0", balance.String(), "Ethereum should have no tokens")
 	}))
 }
 
@@ -793,7 +786,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0)
+		s.Require().Equal(transferAmount.BigInt().String(), balance.String())
 	}))
 
 	var sendTxHash []byte
@@ -820,7 +813,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Tokens should be burned")
+		s.Require().Equal("0", balance.String(), "Tokens should be burned")
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer exists on Ethereum", func() {
@@ -830,7 +823,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 		pending, err := iftContract.GetPendingTransfer(nil, tc.tmClientID, 1)
 		s.Require().NoError(err)
 		s.Require().Equal(ethUserAddr, pending.Sender)
-		s.Require().True(pending.Amount.Cmp(transferAmount.BigInt()) == 0)
+		s.Require().Equal(transferAmount.BigInt().String(), pending.Amount.String())
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
@@ -860,7 +853,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0, "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
+		s.Require().Equal(transferAmount.BigInt().String(), balance.String(), "tokens should be refunded")
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer cleared on Ethereum", func() {
@@ -909,7 +902,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0)
+		s.Require().Equal(transferAmount.BigInt().String(), balance.String())
 	}))
 
 	var sendTxHash []byte
@@ -936,7 +929,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Tokens should be burned")
+		s.Require().Equal("0", balance.String(), "Tokens should be burned")
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer exists on Ethereum", func() {
@@ -946,7 +939,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 		pending, err := iftContract.GetPendingTransfer(nil, tc.tmClientID, 1)
 		s.Require().NoError(err)
 		s.Require().Equal(ethUserAddr, pending.Sender)
-		s.Require().True(pending.Amount.Cmp(transferAmount.BigInt()) == 0)
+		s.Require().Equal(transferAmount.BigInt().String(), pending.Amount.String())
 	}))
 
 	var recvTxHash string
@@ -995,7 +988,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(transferAmount.BigInt()) == 0, "Expected %s (refunded), got %s", transferAmount.String(), balance.String())
+		s.Require().Equal(transferAmount.BigInt().String(), balance.String(), "tokens should be refunded")
 	}))
 
 	s.Require().True(s.Run("Verify pending transfer cleared on Ethereum", func() {
@@ -1098,7 +1091,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	var cosmosDenom string
 	s.Require().True(s.Run("Setup IFT bridge on Cosmos only", func() {
 		s.Require().True(s.Run("Create denom on Cosmos", func() {
-			cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, cosmosIFTDenom)
+			cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, testvalues.IFTTestDenom)
 		}))
 
 		s.Require().True(s.Run("Register IFT bridge on Cosmos", func() {
@@ -1108,7 +1101,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 				cosmosDenom,
 				wasmClientID,
 				ethIFTAddress.Hex(),
-				iftSendCallConstructorEVM,
+				testvalues.IFTSendCallConstructorEVM,
 			)
 		}))
 		// NOTE: Intentionally NOT registering the IFT bridge on Ethereum
@@ -1176,7 +1169,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 
 		balance, err := iftContract.BalanceOf(nil, ethReceiverAddr)
 		s.Require().NoError(err)
-		s.Require().True(balance.Cmp(big.NewInt(0)) == 0, "Ethereum should have no tokens")
+		s.Require().Equal("0", balance.String(), "Ethereum should have no tokens")
 	}))
 
 	s.Require().True(s.Run("Relay error ack to Cosmos", func() {

@@ -37,12 +37,6 @@ import (
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
 
-const (
-	iftSendCallConstructorCtx = "cosmos"
-	iftModuleName             = "ift"
-	iftTestDenom              = "testift"
-)
-
 // CosmosIFTTestSuite tests IFT transfers between two wfchain instances
 type CosmosIFTTestSuite struct {
 	e2esuite.TestSuite
@@ -67,7 +61,7 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		chainconfig.WfchainChainSpec("wfchain-2", "wfchain-2"),
 	}
 
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_None)
 
 	s.TestSuite.SetupSuite(ctx)
@@ -264,7 +258,7 @@ func (s *CosmosIFTTestSuite) queryPendingTransfer(ctx context.Context, chain *co
 }
 
 func (s *CosmosIFTTestSuite) getIFTModuleAddress(ctx context.Context, chain *cosmos.CosmosChain) string {
-	iftAddr := authtypes.NewModuleAddress(iftModuleName)
+	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
 	bech32Addr, err := sdk.Bech32ifyAddressBytes(chain.Config().Bech32Prefix, iftAddr)
 	s.Require().NoError(err)
 
@@ -298,7 +292,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	userA := s.Cosmos.Users[0]
 	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
-	subdenom := iftTestDenom
+	subdenom := testvalues.IFTTestDenom
 
 	var denomA, denomB string
 
@@ -321,11 +315,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
@@ -336,6 +330,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransfer() {
 		balance := s.queryBalance(ctx, s.ChainA, userA.FormattedAddress(), denomA)
 		s.Require().True(balance.Equal(transferAmount), "expected %s, got %s", transferAmount, balance)
 		s.T().Logf("User balance on Chain A: %s", balance)
+	}))
+
+	s.Require().True(s.Run("Verify initial balance on Chain B is zero", func() {
+		balance := s.queryBalance(ctx, s.ChainB, userB.FormattedAddress(), denomB)
+		s.Require().True(balance.IsZero(), "expected 0, got %s", balance)
 	}))
 
 	var ackTxHash []byte
@@ -499,7 +498,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 
 	userA := s.Cosmos.Users[0]
 	transferAmount := sdkmath.NewInt(1_000_000)
-	subdenom := iftTestDenom
+	subdenom := testvalues.IFTTestDenom
 
 	var denomA, denomB string
 
@@ -522,11 +521,11 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferTimeout() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain B", func() {
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {
@@ -656,7 +655,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	userA := s.Cosmos.Users[0]
 	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
-	subdenom := iftTestDenom
+	subdenom := testvalues.IFTTestDenom
 
 	var denomA string
 
@@ -673,7 +672,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferFailedReceive() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridge on Chain A only", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	// NOTE: Intentionally NOT registering the IFT bridge on Chain B
@@ -763,7 +762,7 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	userB := s.Cosmos.Users[1]
 	transferAmount := sdkmath.NewInt(1_000_000)
 	totalAmount := transferAmount.MulRaw(3)
-	subdenom := iftTestDenom
+	subdenom := testvalues.IFTTestDenom
 
 	var denomA, denomB string
 
@@ -782,8 +781,8 @@ func (s *CosmosIFTTestSuite) Test_IFTTransferMultipleSequential() {
 	}))
 
 	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, iftSendCallConstructorCtx)
-		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, iftSendCallConstructorCtx)
+		s.registerIFTBridge(ctx, s.ChainA, s.ChainASubmitter, denomA, ibctesting.FirstClientID, iftModuleAddrB, testvalues.IFTSendCallConstructorCosmos)
+		s.registerIFTBridge(ctx, s.ChainB, s.ChainBSubmitter, denomB, ibctesting.FirstClientID, iftModuleAddrA, testvalues.IFTSendCallConstructorCosmos)
 	}))
 
 	s.Require().True(s.Run("Mint tokens to user on Chain A", func() {

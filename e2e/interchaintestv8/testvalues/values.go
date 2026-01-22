@@ -91,8 +91,8 @@ const (
 	// EthTestnetTypePoS uses Kurtosis for full PoS infrastructure with beacon chain
 	EthTestnetTypePoS = "pos"
 
-	// EthTestnetTypeNone disables Ethereum chain setup
-	EthTestnetTypeNone = "none"
+	// EthTestnetType_None disables Ethereum chain setup
+	EthTestnetType_None = "none"
 
 	// Dummy light client (for Eth verification on Cosmos)
 	EthWasmTypeDummy = "dummy"
@@ -194,6 +194,15 @@ const (
 
 	// WfchainIFTMintTypeURL is the protobuf type URL for MsgIFTMint on wfchain.
 	WfchainIFTMintTypeURL = "/wfchain.ift.MsgIFTMint"
+
+	// IFTTestDenom is the default IFT test denom used in tests.
+	IFTTestDenom = "testift"
+	// IFTSendCallConstructorCosmos is the context for IFT send call constructor on Cosmos.
+	IFTSendCallConstructorCosmos = "cosmos"
+	// IFTSendCallConstructorEVM is the context for IFT send call constructor on EVM.
+	IFTSendCallConstructorEVM = "evm"
+	// IFTModuleName is the IFT module name.
+	IFTModuleName = "ift"
 
 	// Sp1 verifier address parameter key for the relayer's sp1 light client creation.
 	ParameterKey_Sp1Verifier = "sp1_verifier"
