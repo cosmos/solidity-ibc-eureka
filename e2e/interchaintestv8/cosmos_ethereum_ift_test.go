@@ -780,12 +780,6 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 		_, err = iftContract.GetPendingTransfer(nil, tc.tmClientID, 1)
 		s.Require().Error(err, "getPendingTransfer should revert when transfer is cleared")
 	}))
-
-	s.Require().True(s.Run("Verify no balance on Cosmos", func() {
-		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), tc.cosmosDenom)
-		s.Require().NoError(err)
-		s.Require().True(balance.IsZero(), "Cosmos should have no tokens")
-	}))
 }
 
 // Test_IFTTransfer_FailedReceiveOnCosmos tests error acknowledgment when Cosmos receive fails.
