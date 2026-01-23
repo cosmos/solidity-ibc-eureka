@@ -1244,4 +1244,3 @@ func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Co
 	}
 	return &resp.PendingTransfer, nil
 }
-
