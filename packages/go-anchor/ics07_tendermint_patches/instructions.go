@@ -12,6 +12,8 @@
 // instead of encoding the discriminator. This file provides a corrected version.
 //
 // Tracking: This should be removed once the anchor-go bug is fixed upstream.
+// See: https://github.com/gagliardetto/anchor-go/issues/50
+// See: https://github.com/gagliardetto/anchor-go/pull/52
 package ics07_tendermint_patches
 
 import (
