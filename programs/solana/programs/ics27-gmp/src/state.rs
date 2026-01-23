@@ -1,5 +1,6 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
+use ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32;
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
@@ -67,3 +68,161 @@ pub struct SendCallMsg {
 pub use crate::proto::{
     GmpAcknowledgement, GmpSolanaPayload, GmpValidationError, SolanaAccountMeta,
 };
+
+pub use solana_ibc_types::{CallResultStatus, GMPCallResult};
+
+/// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+///
+/// This account is created when a GMP packet is either acknowledged or times out,
+/// allowing the original sender to query the outcome of their cross-chain call.
+///
+/// # PDA Seeds
+/// `["gmp_result", source_client, sequence (little-endian u64)]`
+#[account]
+#[derive(InitSpace)]
+pub struct GMPCallResultAccount {
+    /// Account schema version for future upgrades.
+    pub version: AccountVersion,
+    /// Original sender pubkey.
+    pub sender: Pubkey,
+    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+    pub sequence: u64,
+    /// Source client ID (light client on this chain tracking the destination).
+    #[max_len(64)]
+    pub source_client: String,
+    /// Destination client ID (light client on the destination chain).
+    #[max_len(64)]
+    pub dest_client: String,
+    /// Result status: acknowledgement (with IBC commitment) or timeout.
+    pub status: CallResultStatus,
+    /// Unix timestamp (seconds) when the result was recorded.
+    pub result_timestamp: i64,
+    /// PDA bump seed.
+    pub bump: u8,
+}
+
+impl GMPCallResultAccount {
+    /// Initialize the account with acknowledgement data.
+    ///
+    /// The acknowledgement commitment is computed using the IBC commitment format:
+    /// `sha256(0x02 || sha256(ack))` where 0x02 is the IBC version byte.
+    pub fn init_acknowledged(
+        &mut self,
+        msg: solana_ibc_types::OnAcknowledgementPacketMsg,
+        sender: Pubkey,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::Acknowledgement(
+            packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&msg.acknowledgement))
+                .expect("single ack is never empty"),
+        );
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+
+    /// Initialize the account with timeout data.
+    pub fn init_timed_out(
+        &mut self,
+        msg: solana_ibc_types::OnTimeoutPacketMsg,
+        sender: Pubkey,
+        timestamp: i64,
+        bump: u8,
+    ) {
+        self.version = AccountVersion::V1;
+        self.sender = sender;
+        self.sequence = msg.sequence;
+        self.source_client = msg.source_client;
+        self.dest_client = msg.dest_client;
+        self.status = CallResultStatus::Timeout;
+        self.result_timestamp = timestamp;
+        self.bump = bump;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use solana_ibc_types::Payload;
+
+    fn test_payload() -> Payload {
+        Payload {
+            source_port: "gmpport".to_string(),
+            dest_port: "gmpport".to_string(),
+            version: "ics27-2".to_string(),
+            encoding: "application/x-solidity-abi".to_string(),
+            value: vec![],
+        }
+    }
+
+    #[test]
+    fn test_ack_commitment_computation() {
+        let mut account = GMPCallResultAccount {
+            version: AccountVersion::V1,
+            sender: Pubkey::default(),
+            sequence: 0,
+            source_client: String::new(),
+            dest_client: String::new(),
+            status: CallResultStatus::Timeout, // Placeholder, overwritten by init_acknowledged
+            result_timestamp: 0,
+            bump: 0,
+        };
+
+        let ack_data = b"test acknowledgement data";
+        let msg = solana_ibc_types::OnAcknowledgementPacketMsg {
+            sequence: 42,
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
+            payload: test_payload(),
+            acknowledgement: ack_data.to_vec(),
+            relayer: Pubkey::default(),
+        };
+
+        let sender = Pubkey::new_unique();
+        account.init_acknowledged(msg, sender, 1_234_567_890, 255);
+
+        let expected_commitment =
+            packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&ack_data.to_vec()))
+                .unwrap();
+        assert_eq!(
+            account.status,
+            CallResultStatus::Acknowledgement(expected_commitment)
+        );
+        assert_eq!(account.sequence, 42);
+        assert_eq!(account.sender, sender);
+    }
+
+    #[test]
+    fn test_timeout_status() {
+        let mut account = GMPCallResultAccount {
+            version: AccountVersion::V1,
+            sender: Pubkey::default(),
+            sequence: 0,
+            source_client: String::new(),
+            dest_client: String::new(),
+            status: CallResultStatus::Timeout,
+            result_timestamp: 0,
+            bump: 0,
+        };
+
+        let msg = solana_ibc_types::OnTimeoutPacketMsg {
+            sequence: 42,
+            source_client: "source-client".to_string(),
+            dest_client: "dest-client".to_string(),
+            payload: test_payload(),
+            relayer: Pubkey::default(),
+        };
+
+        let sender = Pubkey::new_unique();
+        account.init_timed_out(msg, sender, 1_234_567_890, 255);
+
+        assert_eq!(account.status, CallResultStatus::Timeout);
+        assert_eq!(account.sequence, 42);
+        assert_eq!(account.sender, sender);
+    }
+}

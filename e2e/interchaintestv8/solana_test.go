@@ -104,7 +104,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
 	s.TestSuite.SetupSuite(ctx)
 

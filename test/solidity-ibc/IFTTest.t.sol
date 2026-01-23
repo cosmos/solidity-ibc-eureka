@@ -23,6 +23,7 @@ import { IERC20Metadata } from "@openzeppelin-contracts/token/ERC20/extensions/I
 import { IFTOwnable } from "../../contracts/utils/IFTOwnable.sol";
 import { IFTAccessManaged } from "../../contracts/utils/IFTAccessManaged.sol";
 import { EVMIFTSendCallConstructor } from "../../contracts/utils/EVMIFTSendCallConstructor.sol";
+import { CosmosIFTSendCallConstructor } from "../../contracts/utils/CosmosIFTSendCallConstructor.sol";
 import { IIFTSendCallConstructor } from "../../contracts/interfaces/IIFTSendCallConstructor.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -912,5 +913,131 @@ contract IFTTest is Test {
         address caller;
         bool ownable;
         bytes expectedRevert;
+    }
+
+    // CosmosIFTSendCallConstructor Tests
+
+    function test_cosmosCallConstructor_constructor() public {
+        string memory typeUrl = "/wfchain.ift.MsgIFTMint";
+        string memory tokenDenom = "uatom";
+        string memory ica = "cosmos1abc123";
+
+        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
+
+        assertEq(constructor_.bridgeReceiveTypeUrl(), typeUrl);
+        assertEq(constructor_.denom(), tokenDenom);
+        assertEq(constructor_.icaAddress(), ica);
+    }
+
+    function test_cosmosCallConstructor_constructMintCall() public {
+        string memory typeUrl = "/wfchain.ift.MsgIFTMint";
+        string memory tokenDenom = "testift";
+        string memory ica = "wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63";
+
+        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
+
+        string memory receiver = "wf1receiver123";
+        uint256 amount = 1_000_000;
+
+        bytes memory callData = constructor_.constructMintCall(receiver, amount);
+
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"",
+            typeUrl,
+            "\",\"signer\":\"",
+            ica,
+            "\",\"denom\":\"",
+            tokenDenom,
+            "\",\"receiver\":\"",
+            receiver,
+            "\",\"amount\":\"",
+            Strings.toString(amount),
+            "\"}]}"
+        );
+
+        assertEq(callData, expected);
+    }
+
+    function testFuzz_cosmosCallConstructor_constructMintCall(uint256 amount) public {
+        string memory typeUrl = "/custom.module.MsgMint";
+        string memory tokenDenom = "ibc/ABC123";
+        string memory ica = "cosmos1ica456";
+
+        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
+
+        string memory receiver = "cosmos1receiver789";
+
+        bytes memory callData = constructor_.constructMintCall(receiver, amount);
+
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"",
+            typeUrl,
+            "\",\"signer\":\"",
+            ica,
+            "\",\"denom\":\"",
+            tokenDenom,
+            "\",\"receiver\":\"",
+            receiver,
+            "\",\"amount\":\"",
+            Strings.toString(amount),
+            "\"}]}"
+        );
+
+        assertEq(callData, expected);
+    }
+
+    function test_cosmosCallConstructor_constructMintCall_zeroAmount() public {
+        CosmosIFTSendCallConstructor constructor_ =
+            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
+
+        bytes memory callData = constructor_.constructMintCall("wf1receiver", 0);
+
+        assertTrue(callData.length > 0);
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"0\"}]}"
+        );
+        assertEq(callData, expected);
+    }
+
+    function test_cosmosCallConstructor_constructMintCall_largeAmount() public {
+        CosmosIFTSendCallConstructor constructor_ =
+            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
+
+        uint256 largeAmount = type(uint256).max;
+        bytes memory callData = constructor_.constructMintCall("wf1receiver", largeAmount);
+
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"",
+            Strings.toString(largeAmount),
+            "\"}]}"
+        );
+        assertEq(callData, expected);
+    }
+
+    function test_cosmosCallConstructor_emptyStrings() public {
+        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor("", "", "");
+
+        assertEq(constructor_.bridgeReceiveTypeUrl(), "");
+        assertEq(constructor_.denom(), "");
+        assertEq(constructor_.icaAddress(), "");
+
+        bytes memory callData = constructor_.constructMintCall("receiver", 100);
+        bytes memory expected = abi.encodePacked(
+            "{\"messages\":[{\"@type\":\"\",\"signer\":\"\",\"denom\":\"\",\"receiver\":\"receiver\",\"amount\":\"100\"}]}"
+        );
+        assertEq(callData, expected);
+    }
+
+    function test_cosmosCallConstructor_supportsInterface() public {
+        CosmosIFTSendCallConstructor constructor_ =
+            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
+
+        assertTrue(constructor_.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
+
+        bytes4 erc165Id = 0x01ffc9a7;
+        assertTrue(constructor_.supportsInterface(erc165Id));
+
+        bytes4 randomId = 0xdeadbeef;
+        assertFalse(constructor_.supportsInterface(randomId));
     }
 }

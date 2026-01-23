@@ -628,6 +628,144 @@ func UnmarshalIcs27GmpStateGmpAppState(buf []byte) (*Ics27GmpStateGmpAppState, e
 	return obj, nil
 }
 
+// Stores result of a GMP call (ack or timeout) for sender queries
+type Ics27GmpStateGmpCallResultAccount struct {
+	Version         Ics27GmpStateAccountVersion         `json:"version"`
+	Sender          string                              `json:"sender"`
+	Sequence        uint64                              `json:"sequence"`
+	SourceClient    string                              `json:"sourceClient"`
+	DestClient      string                              `json:"destClient"`
+	Status          SolanaIbcTypesIcs27CallResultStatus `json:"status"`
+	Acknowledgement []byte                              `json:"acknowledgement"`
+	ResultTimestamp int64                               `json:"resultTimestamp"`
+	Bump            uint8                               `json:"bump"`
+}
+
+func (obj Ics27GmpStateGmpCallResultAccount) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Sender`:
+	err = encoder.Encode(obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `DestClient`:
+	err = encoder.Encode(obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Serialize `Status`:
+	err = encoder.Encode(obj.Status)
+	if err != nil {
+		return errors.NewField("Status", err)
+	}
+	// Serialize `Acknowledgement`:
+	err = encoder.Encode(obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	// Serialize `ResultTimestamp`:
+	err = encoder.Encode(obj.ResultTimestamp)
+	if err != nil {
+		return errors.NewField("ResultTimestamp", err)
+	}
+	// Serialize `Bump`:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpStateGmpCallResultAccount) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpStateGmpCallResultAccount: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpStateGmpCallResultAccount) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Sender`:
+	err = decoder.Decode(&obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `DestClient`:
+	err = decoder.Decode(&obj.DestClient)
+	if err != nil {
+		return errors.NewField("DestClient", err)
+	}
+	// Deserialize `Status`:
+	err = decoder.Decode(&obj.Status)
+	if err != nil {
+		return errors.NewField("Status", err)
+	}
+	// Deserialize `Acknowledgement`:
+	err = decoder.Decode(&obj.Acknowledgement)
+	if err != nil {
+		return errors.NewField("Acknowledgement", err)
+	}
+	// Deserialize `ResultTimestamp`:
+	err = decoder.Decode(&obj.ResultTimestamp)
+	if err != nil {
+		return errors.NewField("ResultTimestamp", err)
+	}
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpStateGmpCallResultAccount) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpStateGmpCallResultAccount: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCallResultAccount, error) {
+	obj := new(Ics27GmpStateGmpCallResultAccount)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
@@ -1132,4 +1270,23 @@ func UnmarshalSolanaIbcTypesAppMsgsPayload(buf []byte) (*SolanaIbcTypesAppMsgsPa
 		return nil, err
 	}
 	return obj, nil
+}
+
+// Status of a GMP call result.
+type SolanaIbcTypesIcs27CallResultStatus binary.BorshEnum
+
+const (
+	SolanaIbcTypesIcs27CallResultStatus_Acknowledgement SolanaIbcTypesIcs27CallResultStatus = iota
+	SolanaIbcTypesIcs27CallResultStatus_Timeout
+)
+
+func (value SolanaIbcTypesIcs27CallResultStatus) String() string {
+	switch value {
+	case SolanaIbcTypesIcs27CallResultStatus_Acknowledgement:
+		return "Acknowledgement"
+	case SolanaIbcTypesIcs27CallResultStatus_Timeout:
+		return "Timeout"
+	default:
+		return ""
+	}
 }

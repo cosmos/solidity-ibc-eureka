@@ -11,6 +11,7 @@ abstract contract DeployAccessManagerWithRoles {
         IAccessManager accessManager,
         address ics26,
         address ics20,
+        address ics27Gmp,
         bool pubRelay
     )
         public
@@ -34,6 +35,7 @@ abstract contract DeployAccessManagerWithRoles {
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.beaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
 
         if (pubRelay) {
             accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26RelayerSelectors(), IBCRolesLib.PUBLIC_ROLE);
