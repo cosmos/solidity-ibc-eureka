@@ -290,7 +290,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 	eth := s.Eth.Chains[0]
 	tc := iftTestContext{
 		tmClientID:          testvalues.CustomClientID,
-		ethClientIDOnCosmos: s.getEthLcClientIDOnCosmos(),
+		ethClientIDOnCosmos: testvalues.FirstAttestationsClientID,
 		ics26Address:        ethcommon.HexToAddress(s.contractAddresses.Ics26Router),
 	}
 
@@ -1245,13 +1245,3 @@ func (s *CosmosEthereumIFTTestSuite) queryPendingTransferOnCosmos(ctx context.Co
 	return &resp.PendingTransfer, nil
 }
 
-func (s *CosmosEthereumIFTTestSuite) isNativeAttestor() bool {
-	return s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorNative
-}
-
-func (s *CosmosEthereumIFTTestSuite) getEthLcClientIDOnCosmos() string {
-	if s.isNativeAttestor() {
-		return testvalues.FirstAttestationsClientID
-	}
-	return testvalues.FirstWasmClientID
-}
