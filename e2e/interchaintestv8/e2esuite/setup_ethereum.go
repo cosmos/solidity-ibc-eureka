@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	interchaintest "github.com/cosmos/interchaintest/v10"
@@ -15,11 +14,11 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
 const (
-	anvilFaucetPrivateKey = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-	baseAnvilChainID      = 31337
+	baseAnvilChainID = 31337
 )
 
 func (s *TestSuite) buildChainSpecs(cfg setupConfig) []*interchaintest.ChainSpec {
@@ -85,7 +84,7 @@ func (s *TestSuite) processEthereumPoSResult(ctx context.Context, chain *chainco
 
 // setupAnvilChains detects and sets up any Anvil chains in the slice.
 func (s *TestSuite) setupAnvilChains(ctx context.Context, chains []ibc.Chain) {
-	faucet, err := crypto.ToECDSA(ethcommon.FromHex(anvilFaucetPrivateKey))
+	faucet, err := crypto.HexToECDSA(testvalues.E2EDeployerPrivateKeyHex)
 	s.Require().NoError(err)
 
 	for _, chain := range chains {

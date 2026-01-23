@@ -35,6 +35,8 @@ type DeployedContracts struct {
 	Erc20         string `json:"erc20"`
 	// IFT contract (optional)
 	Ift string `json:"ift,omitempty"`
+	// CosmosIFTSendCallConstructor (optional, deployed when IFT_ICA_ADDRESS is set)
+	CosmosIftConstructor string `json:"cosmosIftConstructor,omitempty"`
 }
 
 // GetVerifierAddress returns the appropriate verifier address based on prover type and proof type.

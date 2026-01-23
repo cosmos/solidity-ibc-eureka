@@ -20,7 +20,6 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
-	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
@@ -38,7 +37,6 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/cosmosiftconstructor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
@@ -111,7 +109,7 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 		operatorKey, err := eth.CreateAndFundUser()
 		s.Require().NoError(err)
 
-		s.ethDeployer, err = eth.CreateAndFundUser()
+		s.ethDeployer, err = eth.CreateAndFundUserFromKey(testvalues.E2EDeployerPrivateKeyHex)
 		s.Require().NoError(err)
 
 		s.CosmosRelayerSubmitter = s.CreateAndFundCosmosUser(ctx, s.Wfchain)
@@ -143,11 +141,17 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 	s.solidityFixtureGenerator = types.NewSolidityFixtureGenerator()
 
 	s.Require().True(s.Run("Deploy IBC contracts", func() {
+		// Set the ICA address for the CosmosIFTSendCallConstructor deployment
+		os.Setenv(testvalues.EnvKeyIFTICAAddress, testvalues.DeterministicICAAddress)
+
 		stdout, err := eth.ForgeScript(s.ethDeployer, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
 
 		s.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
+
+		// Log the IFT address (used to determine testvalues.DeterministicIFTAddress)
+		s.T().Logf("IFT contract address: %s", s.contractAddresses.Ift)
 	}))
 
 	var relayerProcess *os.Process
@@ -353,38 +357,10 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 			tc.cosmosDenom = s.createTokenFactoryDenom(ctx, s.CosmosRelayerSubmitter, testvalues.IFTTestDenom)
 		}))
 
-		s.Require().True(s.Run("Query and deploy CosmosIFTSendCallConstructor with correct ICS27 account", func() {
-			// Query the correct ICS27 account address for the Ethereum IFT contract
-			// The ICS27 account is derived from: wasm client ID + sender (IFT address) + salt (empty)
-			ethIftAddressChecksummed := ethcommon.HexToAddress(s.contractAddresses.Ift).Hex()
-			resp, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, s.Wfchain, &gmptypes.QueryAccountAddressRequest{
-				ClientId: tc.wasmClientID,
-				Sender:   ethIftAddressChecksummed,
-				Salt:     "",
-			})
-			s.Require().NoError(err)
-			s.Require().NotEmpty(resp.AccountAddress)
-			s.T().Logf("ICS27 account address for IFT: %s", resp.AccountAddress)
-
-			// Deploy new CosmosIFTSendCallConstructor with correct ICS27 account address
-			txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-			s.Require().NoError(err)
-
-			addr, deployTx, _, err := cosmosiftconstructor.DeployContract(
-				txOpts,
-				eth.RPCClient,
-				testvalues.WfchainIFTMintTypeURL,
-				testvalues.IFTTestDenom,
-				resp.AccountAddress,
-			)
-			s.Require().NoError(err)
-
-			receipt, err := eth.GetTxReciept(ctx, deployTx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-			cosmosIftConstructorAddr = addr
-			s.T().Logf("Deployed CosmosIFTSendCallConstructor at: %s", cosmosIftConstructorAddr.Hex())
+		s.Require().True(s.Run("Verify CosmosIFTSendCallConstructor deployment", func() {
+			s.Require().NotEmpty(s.contractAddresses.CosmosIftConstructor, "CosmosIFTSendCallConstructor should be deployed by the deploy script")
+			cosmosIftConstructorAddr = ethcommon.HexToAddress(s.contractAddresses.CosmosIftConstructor)
+			s.T().Logf("Using CosmosIFTSendCallConstructor at: %s", cosmosIftConstructorAddr.Hex())
 		}))
 
 		s.Require().True(s.Run("Register IFT bridge on Ethereum", func() {
