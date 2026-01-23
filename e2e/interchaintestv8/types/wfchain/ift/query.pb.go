@@ -4,11 +4,16 @@
 package types
 
 import (
+	context "context"
 	fmt "fmt"
 	_ "github.com/cosmos/cosmos-proto"
 	_ "github.com/cosmos/gogoproto/gogoproto"
+	grpc1 "github.com/cosmos/gogoproto/grpc"
 	proto "github.com/cosmos/gogoproto/proto"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -25,87 +30,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-type QueryICS27GMPRequest struct {
-}
-
-func (m *QueryICS27GMPRequest) Reset()         { *m = QueryICS27GMPRequest{} }
-func (m *QueryICS27GMPRequest) String() string { return proto.CompactTextString(m) }
-func (*QueryICS27GMPRequest) ProtoMessage()    {}
-func (*QueryICS27GMPRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{0}
-}
-func (m *QueryICS27GMPRequest) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *QueryICS27GMPRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_QueryICS27GMPRequest.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *QueryICS27GMPRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryICS27GMPRequest.Merge(m, src)
-}
-func (m *QueryICS27GMPRequest) XXX_Size() int {
-	return m.Size()
-}
-func (m *QueryICS27GMPRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryICS27GMPRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_QueryICS27GMPRequest proto.InternalMessageInfo
-
-type QueryICS27GMPResponse struct {
-	// The address of the ICS27-GMP module
-	Address string `protobuf:"bytes,1,opt,name=address,proto3" json:"address,omitempty"`
-}
-
-func (m *QueryICS27GMPResponse) Reset()         { *m = QueryICS27GMPResponse{} }
-func (m *QueryICS27GMPResponse) String() string { return proto.CompactTextString(m) }
-func (*QueryICS27GMPResponse) ProtoMessage()    {}
-func (*QueryICS27GMPResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{1}
-}
-func (m *QueryICS27GMPResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *QueryICS27GMPResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_QueryICS27GMPResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *QueryICS27GMPResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_QueryICS27GMPResponse.Merge(m, src)
-}
-func (m *QueryICS27GMPResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *QueryICS27GMPResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_QueryICS27GMPResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_QueryICS27GMPResponse proto.InternalMessageInfo
-
-func (m *QueryICS27GMPResponse) GetAddress() string {
-	if m != nil {
-		return m.Address
-	}
-	return ""
-}
-
 type QueryIFTBridgeRequest struct {
 	Denom    string `protobuf:"bytes,1,opt,name=denom,proto3" json:"denom,omitempty"`
 	ClientId string `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
@@ -115,7 +39,7 @@ func (m *QueryIFTBridgeRequest) Reset()         { *m = QueryIFTBridgeRequest{} }
 func (m *QueryIFTBridgeRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgeRequest) ProtoMessage()    {}
 func (*QueryIFTBridgeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{2}
+	return fileDescriptor_7e3be3129e14e12d, []int{0}
 }
 func (m *QueryIFTBridgeRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -166,7 +90,7 @@ func (m *QueryIFTBridgeResponse) Reset()         { *m = QueryIFTBridgeResponse{}
 func (m *QueryIFTBridgeResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgeResponse) ProtoMessage()    {}
 func (*QueryIFTBridgeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{3}
+	return fileDescriptor_7e3be3129e14e12d, []int{1}
 }
 func (m *QueryIFTBridgeResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -209,7 +133,7 @@ func (m *QueryIFTBridgesRequest) Reset()         { *m = QueryIFTBridgesRequest{}
 func (m *QueryIFTBridgesRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgesRequest) ProtoMessage()    {}
 func (*QueryIFTBridgesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{4}
+	return fileDescriptor_7e3be3129e14e12d, []int{2}
 }
 func (m *QueryIFTBridgesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -246,7 +170,7 @@ func (m *QueryIFTBridgesResponse) Reset()         { *m = QueryIFTBridgesResponse
 func (m *QueryIFTBridgesResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgesResponse) ProtoMessage()    {}
 func (*QueryIFTBridgesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{5}
+	return fileDescriptor_7e3be3129e14e12d, []int{3}
 }
 func (m *QueryIFTBridgesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -290,7 +214,7 @@ func (m *QueryIFTBridgesByDenomRequest) Reset()         { *m = QueryIFTBridgesBy
 func (m *QueryIFTBridgesByDenomRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgesByDenomRequest) ProtoMessage()    {}
 func (*QueryIFTBridgesByDenomRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{6}
+	return fileDescriptor_7e3be3129e14e12d, []int{4}
 }
 func (m *QueryIFTBridgesByDenomRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -334,7 +258,7 @@ func (m *QueryIFTBridgesByDenomResponse) Reset()         { *m = QueryIFTBridgesB
 func (m *QueryIFTBridgesByDenomResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryIFTBridgesByDenomResponse) ProtoMessage()    {}
 func (*QueryIFTBridgesByDenomResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{7}
+	return fileDescriptor_7e3be3129e14e12d, []int{5}
 }
 func (m *QueryIFTBridgesByDenomResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -380,7 +304,7 @@ func (m *QueryPendingTransferRequest) Reset()         { *m = QueryPendingTransfe
 func (m *QueryPendingTransferRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryPendingTransferRequest) ProtoMessage()    {}
 func (*QueryPendingTransferRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{8}
+	return fileDescriptor_7e3be3129e14e12d, []int{6}
 }
 func (m *QueryPendingTransferRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -438,7 +362,7 @@ func (m *QueryPendingTransferResponse) Reset()         { *m = QueryPendingTransf
 func (m *QueryPendingTransferResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryPendingTransferResponse) ProtoMessage()    {}
 func (*QueryPendingTransferResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{9}
+	return fileDescriptor_7e3be3129e14e12d, []int{7}
 }
 func (m *QueryPendingTransferResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -481,7 +405,7 @@ func (m *QueryParamsRequest) Reset()         { *m = QueryParamsRequest{} }
 func (m *QueryParamsRequest) String() string { return proto.CompactTextString(m) }
 func (*QueryParamsRequest) ProtoMessage()    {}
 func (*QueryParamsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{10}
+	return fileDescriptor_7e3be3129e14e12d, []int{8}
 }
 func (m *QueryParamsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -518,7 +442,7 @@ func (m *QueryParamsResponse) Reset()         { *m = QueryParamsResponse{} }
 func (m *QueryParamsResponse) String() string { return proto.CompactTextString(m) }
 func (*QueryParamsResponse) ProtoMessage()    {}
 func (*QueryParamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{11}
+	return fileDescriptor_7e3be3129e14e12d, []int{9}
 }
 func (m *QueryParamsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -564,7 +488,7 @@ func (m *DenomBridge) Reset()         { *m = DenomBridge{} }
 func (m *DenomBridge) String() string { return proto.CompactTextString(m) }
 func (*DenomBridge) ProtoMessage()    {}
 func (*DenomBridge) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7e3be3129e14e12d, []int{12}
+	return fileDescriptor_7e3be3129e14e12d, []int{10}
 }
 func (m *DenomBridge) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -608,8 +532,6 @@ func (m *DenomBridge) GetBridge() IFTBridge {
 }
 
 func init() {
-	proto.RegisterType((*QueryICS27GMPRequest)(nil), "wfchain.ift.QueryICS27GMPRequest")
-	proto.RegisterType((*QueryICS27GMPResponse)(nil), "wfchain.ift.QueryICS27GMPResponse")
 	proto.RegisterType((*QueryIFTBridgeRequest)(nil), "wfchain.ift.QueryIFTBridgeRequest")
 	proto.RegisterType((*QueryIFTBridgeResponse)(nil), "wfchain.ift.QueryIFTBridgeResponse")
 	proto.RegisterType((*QueryIFTBridgesRequest)(nil), "wfchain.ift.QueryIFTBridgesRequest")
@@ -626,109 +548,282 @@ func init() {
 func init() { proto.RegisterFile("wfchain/ift/query.proto", fileDescriptor_7e3be3129e14e12d) }
 
 var fileDescriptor_7e3be3129e14e12d = []byte{
-	// 777 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xcf, 0x4f, 0x13, 0x5b,
-	0x14, 0xee, 0x14, 0x28, 0x70, 0xfa, 0x12, 0xde, 0xbb, 0xf4, 0xd7, 0x1b, 0xca, 0x80, 0x23, 0xc6,
-	0xa2, 0xb1, 0x13, 0x8b, 0x88, 0xc1, 0x95, 0xd5, 0x88, 0xd5, 0x60, 0x6a, 0x21, 0x01, 0x0d, 0x09,
-	0x19, 0x3a, 0x3f, 0x98, 0x84, 0xce, 0x1d, 0x66, 0x6e, 0xa3, 0x84, 0xb0, 0x31, 0x71, 0x6f, 0x74,
-	0xed, 0x46, 0x57, 0xba, 0xf6, 0x8f, 0x20, 0xae, 0x88, 0x6e, 0x5c, 0x19, 0x53, 0x5c, 0xf9, 0x57,
-	0x98, 0xde, 0x7b, 0x67, 0xe8, 0x0c, 0x43, 0x43, 0xdc, 0xf5, 0x9e, 0xf3, 0xdd, 0xef, 0xfb, 0xce,
-	0xb9, 0xe7, 0x74, 0x20, 0xff, 0xdc, 0x68, 0x6e, 0xab, 0x96, 0xad, 0x58, 0x06, 0x51, 0x76, 0xdb,
-	0xba, 0xbb, 0x57, 0x76, 0x5c, 0x4c, 0x30, 0x4a, 0xf3, 0x44, 0xd9, 0x32, 0x88, 0xf8, 0x7f, 0x13,
-	0x7b, 0x2d, 0xec, 0x6d, 0xd2, 0x94, 0xc2, 0x0e, 0x0c, 0x27, 0x66, 0x4c, 0x6c, 0x62, 0x16, 0xef,
-	0xfe, 0xe2, 0xd1, 0xa2, 0x89, 0xb1, 0xb9, 0xa3, 0x2b, 0xaa, 0x63, 0x29, 0xaa, 0x6d, 0x63, 0xa2,
-	0x12, 0x0b, 0xdb, 0xfe, 0x9d, 0x6c, 0xaf, 0xa8, 0x65, 0x10, 0x16, 0x96, 0x73, 0x90, 0x79, 0xd2,
-	0x75, 0x50, 0xbb, 0xbb, 0x52, 0x59, 0x58, 0x5a, 0xae, 0x37, 0xf4, 0xdd, 0xb6, 0xee, 0x11, 0xf9,
-	0x11, 0x64, 0x23, 0x71, 0xcf, 0xc1, 0xb6, 0xa7, 0xa3, 0x0a, 0x0c, 0xab, 0x9a, 0xe6, 0xea, 0x9e,
-	0x57, 0x10, 0xa6, 0x85, 0xd2, 0x68, 0xb5, 0xf0, 0xf5, 0xf3, 0xb5, 0x0c, 0xb7, 0x77, 0x87, 0x65,
-	0x56, 0x88, 0x6b, 0xd9, 0x66, 0xc3, 0x07, 0xca, 0x0f, 0x7d, 0xb2, 0xfb, 0xab, 0x55, 0xd7, 0xd2,
-	0x4c, 0x9d, 0xab, 0xa0, 0x0c, 0x0c, 0x69, 0xba, 0x8d, 0x5b, 0x8c, 0xaa, 0xc1, 0x0e, 0x68, 0x02,
-	0x46, 0x9b, 0x3b, 0x96, 0x6e, 0x93, 0x4d, 0x4b, 0x2b, 0x24, 0x69, 0x66, 0x84, 0x05, 0x6a, 0x9a,
-	0xfc, 0x18, 0x72, 0x51, 0x2e, 0xee, 0xec, 0x06, 0xa4, 0xb6, 0x68, 0x84, 0xb2, 0xa5, 0x2b, 0xb9,
-	0x72, 0x4f, 0x3b, 0xcb, 0x01, 0xbe, 0x3a, 0x78, 0xf8, 0x63, 0x2a, 0xd1, 0xe0, 0x58, 0xb9, 0x10,
-	0xe5, 0xf3, 0xfc, 0x16, 0xac, 0x40, 0xfe, 0x54, 0x86, 0x4b, 0xdd, 0x82, 0x61, 0x76, 0xbd, 0xdb,
-	0x84, 0x81, 0x52, 0xba, 0x52, 0x08, 0x69, 0xdd, 0xeb, 0x96, 0x11, 0x52, 0xf3, 0xe1, 0xf2, 0x3c,
-	0x4c, 0x46, 0x48, 0xab, 0x7b, 0x14, 0xde, 0xb7, 0x25, 0xf2, 0x3a, 0x48, 0x67, 0x5d, 0xe3, 0x96,
-	0x6e, 0x46, 0x2d, 0xf5, 0x2f, 0x3f, 0x30, 0xb4, 0x03, 0x13, 0x94, 0xb9, 0xae, 0xdb, 0x9a, 0x65,
-	0x9b, 0xab, 0xae, 0x6a, 0x7b, 0x86, 0xee, 0xfe, 0xfd, 0x0b, 0x21, 0x11, 0x46, 0xbc, 0xee, 0x6d,
-	0xbb, 0xa9, 0x17, 0x06, 0xa6, 0x85, 0xd2, 0x60, 0x23, 0x38, 0xcb, 0x2d, 0x28, 0xc6, 0xab, 0xf1,
-	0x2a, 0x96, 0xe1, 0x5f, 0x87, 0xa5, 0x36, 0x09, 0xcf, 0xf1, 0xd7, 0x2c, 0x86, 0xca, 0x89, 0xdc,
-	0xe7, 0x45, 0x8d, 0x39, 0xe1, 0xb0, 0x9c, 0x01, 0xc4, 0xe4, 0x54, 0x57, 0x6d, 0x05, 0x0f, 0xfb,
-	0x00, 0xc6, 0x43, 0x51, 0xae, 0x7d, 0x1d, 0x52, 0x0e, 0x8d, 0x70, 0xc5, 0xf1, 0xb0, 0x22, 0x4d,
-	0xf9, 0xc3, 0xc3, 0x80, 0xf2, 0x53, 0x48, 0xf7, 0xbc, 0xf5, 0x19, 0xcd, 0x3a, 0x99, 0xcb, 0xe4,
-	0xf9, 0xe7, 0xb2, 0xf2, 0x2e, 0x05, 0x43, 0xd4, 0x25, 0x72, 0x60, 0xc4, 0xdf, 0x42, 0x74, 0x21,
-	0x74, 0x37, 0x6e, 0x73, 0x45, 0xb9, 0x1f, 0x84, 0x95, 0x2a, 0x4f, 0xbe, 0xfc, 0xf6, 0xeb, 0x6d,
-	0x32, 0x8f, 0xb2, 0x4a, 0xe8, 0x5f, 0xa1, 0xe9, 0x55, 0x16, 0xcc, 0x96, 0x83, 0x5e, 0x09, 0x30,
-	0x1a, 0xf8, 0x42, 0x71, 0x84, 0x91, 0x45, 0x16, 0x2f, 0xf6, 0xc5, 0x70, 0x55, 0x85, 0xaa, 0xce,
-	0xa2, 0xcb, 0x21, 0x55, 0x56, 0xaf, 0xb2, 0x4f, 0x9b, 0x75, 0xa0, 0xec, 0x07, 0x83, 0x75, 0x80,
-	0xda, 0x00, 0x27, 0x03, 0x8f, 0xfa, 0x69, 0xf8, 0x6f, 0x2b, 0xce, 0xf4, 0x07, 0x71, 0x27, 0x45,
-	0xea, 0x24, 0x87, 0x32, 0x31, 0x4e, 0x3c, 0xf4, 0x46, 0x80, 0xff, 0x4e, 0x2d, 0x1a, 0xba, 0xd2,
-	0x8f, 0x39, 0xbc, 0xc4, 0xe2, 0xd5, 0x73, 0x61, 0xb9, 0x99, 0x19, 0x6a, 0x46, 0x42, 0xc5, 0x38,
-	0x33, 0x7e, 0x5f, 0xd0, 0x07, 0x01, 0xc6, 0x22, 0x53, 0x8f, 0x4a, 0xa7, 0x65, 0xe2, 0xd7, 0x58,
-	0x9c, 0x3d, 0x07, 0x92, 0xdb, 0xb9, 0x4d, 0xed, 0xcc, 0xa3, 0xb9, 0x90, 0x1d, 0xbe, 0x59, 0x71,
-	0xcf, 0xa4, 0xec, 0xfb, 0xeb, 0x7d, 0x80, 0xb6, 0x21, 0xc5, 0x16, 0x05, 0x4d, 0xc5, 0x28, 0xf6,
-	0x6e, 0xa1, 0x38, 0x7d, 0x36, 0x80, 0x3b, 0x99, 0xa0, 0x4e, 0xb2, 0x68, 0x3c, 0xec, 0x84, 0x2d,
-	0xe2, 0x47, 0xe1, 0xb0, 0x23, 0x09, 0x47, 0x1d, 0x49, 0xf8, 0xd9, 0x91, 0x84, 0xd7, 0xc7, 0x52,
-	0xe2, 0xe8, 0x58, 0x4a, 0x7c, 0x3f, 0x96, 0x12, 0x30, 0xd6, 0xc4, 0xad, 0x5e, 0xf2, 0x2a, 0x30,
-	0xf6, 0xee, 0x07, 0xaf, 0x2e, 0x3c, 0xbb, 0x64, 0x5a, 0x64, 0xbb, 0xbd, 0x55, 0x6e, 0xe2, 0x16,
-	0xff, 0xac, 0x06, 0xfc, 0x2f, 0xa8, 0x02, 0xd9, 0x73, 0x74, 0xef, 0x7d, 0x72, 0x60, 0xad, 0xb6,
-	0xfe, 0x29, 0x99, 0x5e, 0xe3, 0x44, 0x35, 0x83, 0x7c, 0x09, 0x4e, 0x1b, 0x35, 0x83, 0x74, 0x92,
-	0xf9, 0x9e, 0xd3, 0xc6, 0x52, 0xbd, 0xba, 0xac, 0x13, 0x55, 0x53, 0x89, 0xfa, 0x3b, 0xf9, 0x0f,
-	0xcf, 0x2c, 0x2e, 0xd6, 0x0c, 0xb2, 0x95, 0xa2, 0xdf, 0xda, 0xb9, 0x3f, 0x01, 0x00, 0x00, 0xff,
-	0xff, 0x23, 0x35, 0x05, 0x74, 0xf9, 0x07, 0x00, 0x00,
+	// 633 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x55, 0xcd, 0x8e, 0xd2, 0x50,
+	0x14, 0xa6, 0xcc, 0x80, 0xc3, 0x61, 0x31, 0x7a, 0xf9, 0x99, 0x5a, 0xb0, 0x43, 0xea, 0x18, 0x19,
+	0x4d, 0x68, 0x64, 0x1c, 0x63, 0xe2, 0xc2, 0x84, 0x18, 0xe3, 0x98, 0x68, 0x14, 0x67, 0xa1, 0x6e,
+	0x48, 0x81, 0x4b, 0x69, 0x02, 0xbd, 0x9d, 0xb6, 0x44, 0x09, 0x61, 0x63, 0xe2, 0xde, 0xe8, 0x23,
+	0xb8, 0xf4, 0x45, 0x66, 0x39, 0x89, 0x1b, 0x57, 0xc6, 0x80, 0x0f, 0x62, 0xb8, 0xf7, 0xb6, 0x43,
+	0x4b, 0x69, 0x88, 0xbb, 0xde, 0x73, 0xbe, 0x73, 0xbe, 0xef, 0xfc, 0xa5, 0xb0, 0xf7, 0xa1, 0xd7,
+	0xe9, 0x6b, 0x86, 0xa9, 0x1a, 0x3d, 0x57, 0x3d, 0x1b, 0x61, 0x7b, 0x5c, 0xb3, 0x6c, 0xe2, 0x12,
+	0x94, 0xe5, 0x8e, 0x9a, 0xd1, 0x73, 0xa5, 0xeb, 0x1d, 0xe2, 0x0c, 0x89, 0xd3, 0xa2, 0x2e, 0x95,
+	0x3d, 0x18, 0x4e, 0xca, 0xeb, 0x44, 0x27, 0xcc, 0xbe, 0xf8, 0xe2, 0xd6, 0xb2, 0x4e, 0x88, 0x3e,
+	0xc0, 0xaa, 0x66, 0x19, 0xaa, 0x66, 0x9a, 0xc4, 0xd5, 0x5c, 0x83, 0x98, 0x5e, 0x4c, 0x61, 0x99,
+	0xd4, 0xe8, 0xb9, 0xcc, 0xac, 0x3c, 0x87, 0xc2, 0xeb, 0x85, 0x82, 0x93, 0xa7, 0xa7, 0x0d, 0xdb,
+	0xe8, 0xea, 0xb8, 0x89, 0xcf, 0x46, 0xd8, 0x71, 0x51, 0x1e, 0x52, 0x5d, 0x6c, 0x92, 0xa1, 0x28,
+	0x54, 0x84, 0x6a, 0xa6, 0xc9, 0x1e, 0xa8, 0x04, 0x99, 0xce, 0xc0, 0xc0, 0xa6, 0xdb, 0x32, 0xba,
+	0x62, 0x92, 0x7a, 0x76, 0x98, 0xe1, 0xa4, 0xab, 0xbc, 0x84, 0x62, 0x38, 0x97, 0x63, 0x11, 0xd3,
+	0xc1, 0xe8, 0x3e, 0xa4, 0xdb, 0xd4, 0x42, 0xb3, 0x65, 0xeb, 0xc5, 0xda, 0x52, 0xa5, 0x35, 0x1f,
+	0xdf, 0xd8, 0x3e, 0xff, 0xbd, 0x9f, 0x68, 0x72, 0xac, 0x22, 0x86, 0xf3, 0x39, 0x5c, 0x9c, 0xf2,
+	0x06, 0xf6, 0x56, 0x3c, 0x9c, 0xea, 0x21, 0x5c, 0x61, 0xe1, 0x8e, 0x28, 0x54, 0xb6, 0xaa, 0xd9,
+	0xba, 0x18, 0xe0, 0x7a, 0xb2, 0x28, 0x23, 0xc0, 0xe6, 0xc1, 0x95, 0x63, 0xb8, 0x11, 0x4a, 0xda,
+	0x18, 0x53, 0x78, 0x6c, 0x4b, 0x94, 0xb7, 0x20, 0xaf, 0x0b, 0xe3, 0x92, 0x1e, 0x84, 0x25, 0xc5,
+	0x97, 0xef, 0x0b, 0x1a, 0x40, 0x89, 0x66, 0x7e, 0x85, 0xcd, 0xae, 0x61, 0xea, 0xa7, 0xb6, 0x66,
+	0x3a, 0x3d, 0x6c, 0xff, 0xff, 0x84, 0x90, 0x04, 0x3b, 0xce, 0x22, 0xda, 0xec, 0x60, 0x71, 0xab,
+	0x22, 0x54, 0xb7, 0x9b, 0xfe, 0x5b, 0x19, 0x42, 0x39, 0x9a, 0x8d, 0x57, 0xf1, 0x02, 0xae, 0x5a,
+	0xcc, 0xd5, 0x72, 0xb9, 0x8f, 0x4f, 0xb3, 0x1c, 0x28, 0x27, 0x14, 0xcf, 0x8b, 0xda, 0xb5, 0x82,
+	0x66, 0x25, 0x0f, 0x88, 0xd1, 0x69, 0xb6, 0x36, 0xf4, 0x07, 0xfb, 0x0c, 0x72, 0x01, 0x2b, 0xe7,
+	0xbe, 0x07, 0x69, 0x8b, 0x5a, 0x38, 0x63, 0x2e, 0xc8, 0x48, 0x5d, 0xde, 0xf2, 0x30, 0xa0, 0xf2,
+	0x0e, 0xb2, 0x4b, 0xb3, 0x5e, 0xd3, 0xac, 0xcb, 0xbd, 0x4c, 0x6e, 0xbe, 0x97, 0xf5, 0x1f, 0x29,
+	0x48, 0x51, 0x95, 0xe8, 0xb3, 0x00, 0x19, 0x1f, 0x85, 0x94, 0x40, 0x74, 0xe4, 0x59, 0x49, 0x37,
+	0x63, 0x31, 0xac, 0x5c, 0x45, 0xfd, 0xf4, 0xf3, 0xef, 0xb7, 0xe4, 0x21, 0xba, 0xad, 0x2e, 0x1f,
+	0x2d, 0x63, 0x57, 0x27, 0x54, 0xfa, 0x54, 0x9d, 0xf8, 0x63, 0x9e, 0xa2, 0x11, 0xc0, 0xe5, 0xfa,
+	0xa1, 0x38, 0x0e, 0xaf, 0xd3, 0xd2, 0x41, 0x3c, 0x88, 0x2b, 0x29, 0x53, 0x25, 0x45, 0x94, 0x8f,
+	0x50, 0xe2, 0xa0, 0xaf, 0x02, 0x5c, 0x5b, 0x59, 0x7b, 0x74, 0x27, 0x2e, 0x73, 0xf0, 0xa4, 0xa4,
+	0xbb, 0x1b, 0x61, 0xb9, 0x98, 0x03, 0x2a, 0x46, 0x46, 0xe5, 0x28, 0x31, 0x5e, 0x5f, 0xd0, 0x77,
+	0x01, 0x76, 0x43, 0x3b, 0x88, 0xaa, 0xab, 0x34, 0xd1, 0x47, 0x25, 0x1d, 0x6e, 0x80, 0xe4, 0x72,
+	0x1e, 0x51, 0x39, 0xc7, 0xe8, 0x28, 0x20, 0x87, 0xef, 0x79, 0xd4, 0x98, 0xd4, 0x89, 0x77, 0x6c,
+	0x53, 0xd4, 0x87, 0x34, 0x5b, 0x5b, 0xb4, 0x1f, 0xc1, 0xb8, 0x7c, 0x13, 0x52, 0x65, 0x3d, 0x80,
+	0x2b, 0x29, 0x51, 0x25, 0x05, 0x94, 0x0b, 0x2a, 0x61, 0x67, 0xf1, 0xf8, 0x7c, 0x26, 0x0b, 0x17,
+	0x33, 0x59, 0xf8, 0x33, 0x93, 0x85, 0x2f, 0x73, 0x39, 0x71, 0x31, 0x97, 0x13, 0xbf, 0xe6, 0x72,
+	0xe2, 0xfd, 0x2d, 0xdd, 0x70, 0xfb, 0xa3, 0x76, 0xad, 0x43, 0x86, 0xfc, 0xff, 0xe2, 0xc7, 0x7f,
+	0xa4, 0x19, 0xdc, 0xb1, 0x85, 0x9d, 0x76, 0x9a, 0xfe, 0x29, 0x8e, 0xfe, 0x05, 0x00, 0x00, 0xff,
+	0xff, 0xa3, 0x04, 0x6c, 0xb2, 0xb7, 0x06, 0x00, 0x00,
 }
 
-func (m *QueryICS27GMPRequest) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// QueryClient is the client API for Query service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type QueryClient interface {
+	// IFTBridge queries the IFT bridge information for a specific denom and client_id
+	IFTBridge(ctx context.Context, in *QueryIFTBridgeRequest, opts ...grpc.CallOption) (*QueryIFTBridgeResponse, error)
+	// IFTBridges queries all IFT bridges
+	IFTBridges(ctx context.Context, in *QueryIFTBridgesRequest, opts ...grpc.CallOption) (*QueryIFTBridgesResponse, error)
+	// IFTBridgesByDenom queries all IFT bridges for a specific denom
+	IFTBridgesByDenom(ctx context.Context, in *QueryIFTBridgesByDenomRequest, opts ...grpc.CallOption) (*QueryIFTBridgesByDenomResponse, error)
+	// PendingTransfer queries a pending transfer
+	PendingTransfer(ctx context.Context, in *QueryPendingTransferRequest, opts ...grpc.CallOption) (*QueryPendingTransferResponse, error)
+	// Params queries the module parameters
+	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
+}
+
+type queryClient struct {
+	cc grpc1.ClientConn
+}
+
+func NewQueryClient(cc grpc1.ClientConn) QueryClient {
+	return &queryClient{cc}
+}
+
+func (c *queryClient) IFTBridge(ctx context.Context, in *QueryIFTBridgeRequest, opts ...grpc.CallOption) (*QueryIFTBridgeResponse, error) {
+	out := new(QueryIFTBridgeResponse)
+	err := c.cc.Invoke(ctx, "/wfchain.ift.Query/IFTBridge", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return dAtA[:n], nil
+	return out, nil
 }
 
-func (m *QueryICS27GMPRequest) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *QueryICS27GMPRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	return len(dAtA) - i, nil
-}
-
-func (m *QueryICS27GMPResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+func (c *queryClient) IFTBridges(ctx context.Context, in *QueryIFTBridgesRequest, opts ...grpc.CallOption) (*QueryIFTBridgesResponse, error) {
+	out := new(QueryIFTBridgesResponse)
+	err := c.cc.Invoke(ctx, "/wfchain.ift.Query/IFTBridges", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
-	return dAtA[:n], nil
+	return out, nil
 }
 
-func (m *QueryICS27GMPResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *QueryICS27GMPResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Address) > 0 {
-		i -= len(m.Address)
-		copy(dAtA[i:], m.Address)
-		i = encodeVarintQuery(dAtA, i, uint64(len(m.Address)))
-		i--
-		dAtA[i] = 0xa
+func (c *queryClient) IFTBridgesByDenom(ctx context.Context, in *QueryIFTBridgesByDenomRequest, opts ...grpc.CallOption) (*QueryIFTBridgesByDenomResponse, error) {
+	out := new(QueryIFTBridgesByDenomResponse)
+	err := c.cc.Invoke(ctx, "/wfchain.ift.Query/IFTBridgesByDenom", in, out, opts...)
+	if err != nil {
+		return nil, err
 	}
-	return len(dAtA) - i, nil
+	return out, nil
+}
+
+func (c *queryClient) PendingTransfer(ctx context.Context, in *QueryPendingTransferRequest, opts ...grpc.CallOption) (*QueryPendingTransferResponse, error) {
+	out := new(QueryPendingTransferResponse)
+	err := c.cc.Invoke(ctx, "/wfchain.ift.Query/PendingTransfer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error) {
+	out := new(QueryParamsResponse)
+	err := c.cc.Invoke(ctx, "/wfchain.ift.Query/Params", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// QueryServer is the server API for Query service.
+type QueryServer interface {
+	// IFTBridge queries the IFT bridge information for a specific denom and client_id
+	IFTBridge(context.Context, *QueryIFTBridgeRequest) (*QueryIFTBridgeResponse, error)
+	// IFTBridges queries all IFT bridges
+	IFTBridges(context.Context, *QueryIFTBridgesRequest) (*QueryIFTBridgesResponse, error)
+	// IFTBridgesByDenom queries all IFT bridges for a specific denom
+	IFTBridgesByDenom(context.Context, *QueryIFTBridgesByDenomRequest) (*QueryIFTBridgesByDenomResponse, error)
+	// PendingTransfer queries a pending transfer
+	PendingTransfer(context.Context, *QueryPendingTransferRequest) (*QueryPendingTransferResponse, error)
+	// Params queries the module parameters
+	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
+}
+
+// UnimplementedQueryServer can be embedded to have forward compatible implementations.
+type UnimplementedQueryServer struct {
+}
+
+func (*UnimplementedQueryServer) IFTBridge(ctx context.Context, req *QueryIFTBridgeRequest) (*QueryIFTBridgeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IFTBridge not implemented")
+}
+func (*UnimplementedQueryServer) IFTBridges(ctx context.Context, req *QueryIFTBridgesRequest) (*QueryIFTBridgesResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IFTBridges not implemented")
+}
+func (*UnimplementedQueryServer) IFTBridgesByDenom(ctx context.Context, req *QueryIFTBridgesByDenomRequest) (*QueryIFTBridgesByDenomResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IFTBridgesByDenom not implemented")
+}
+func (*UnimplementedQueryServer) PendingTransfer(ctx context.Context, req *QueryPendingTransferRequest) (*QueryPendingTransferResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PendingTransfer not implemented")
+}
+func (*UnimplementedQueryServer) Params(ctx context.Context, req *QueryParamsRequest) (*QueryParamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Params not implemented")
+}
+
+func RegisterQueryServer(s grpc1.Server, srv QueryServer) {
+	s.RegisterService(&_Query_serviceDesc, srv)
+}
+
+func _Query_IFTBridge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIFTBridgeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).IFTBridge(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wfchain.ift.Query/IFTBridge",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).IFTBridge(ctx, req.(*QueryIFTBridgeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_IFTBridges_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIFTBridgesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).IFTBridges(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wfchain.ift.Query/IFTBridges",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).IFTBridges(ctx, req.(*QueryIFTBridgesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_IFTBridgesByDenom_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryIFTBridgesByDenomRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).IFTBridgesByDenom(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wfchain.ift.Query/IFTBridgesByDenom",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).IFTBridgesByDenom(ctx, req.(*QueryIFTBridgesByDenomRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_PendingTransfer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPendingTransferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).PendingTransfer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wfchain.ift.Query/PendingTransfer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).PendingTransfer(ctx, req.(*QueryPendingTransferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_Params_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryParamsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).Params(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/wfchain.ift.Query/Params",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).Params(ctx, req.(*QueryParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var Query_serviceDesc = _Query_serviceDesc
+var _Query_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "wfchain.ift.Query",
+	HandlerType: (*QueryServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "IFTBridge",
+			Handler:    _Query_IFTBridge_Handler,
+		},
+		{
+			MethodName: "IFTBridges",
+			Handler:    _Query_IFTBridges_Handler,
+		},
+		{
+			MethodName: "IFTBridgesByDenom",
+			Handler:    _Query_IFTBridgesByDenom_Handler,
+		},
+		{
+			MethodName: "PendingTransfer",
+			Handler:    _Query_PendingTransfer_Handler,
+		},
+		{
+			MethodName: "Params",
+			Handler:    _Query_Params_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "wfchain/ift/query.proto",
 }
 
 func (m *QueryIFTBridgeRequest) Marshal() (dAtA []byte, err error) {
@@ -1110,28 +1205,6 @@ func encodeVarintQuery(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *QueryICS27GMPRequest) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	return n
-}
-
-func (m *QueryICS27GMPResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Address)
-	if l > 0 {
-		n += 1 + l + sovQuery(uint64(l))
-	}
-	return n
-}
-
 func (m *QueryIFTBridgeRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1283,138 +1356,6 @@ func sovQuery(x uint64) (n int) {
 }
 func sozQuery(x uint64) (n int) {
 	return sovQuery(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *QueryICS27GMPRequest) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowQuery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: QueryICS27GMPRequest: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryICS27GMPRequest: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		default:
-			iNdEx = preIndex
-			skippy, err := skipQuery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *QueryICS27GMPResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowQuery
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: QueryICS27GMPResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: QueryICS27GMPResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Address", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowQuery
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthQuery
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Address = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipQuery(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if (skippy < 0) || (iNdEx+skippy) < 0 {
-				return ErrInvalidLengthQuery
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *QueryIFTBridgeRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)

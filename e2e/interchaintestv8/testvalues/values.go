@@ -205,9 +205,6 @@ const (
 	// We must use a client ID of the form `type-n` due to the issue above.
 	CustomClientID = "cosmoshub-1"
 
-	// WfchainIFTMintTypeURL is the protobuf type URL for MsgIFTMint on wfchain.
-	WfchainIFTMintTypeURL = "/wfchain.ift.MsgIFTMint"
-
 	// IFTTestDenom is the default IFT test denom used in tests.
 	IFTTestDenom = "testift"
 	// IFTSendCallConstructorCosmos is the context for IFT send call constructor on Cosmos.

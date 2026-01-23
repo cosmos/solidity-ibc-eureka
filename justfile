@@ -914,10 +914,8 @@ generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
 # Generate the code from protobuf using `buf generate`
 [group('generate')]
 generate-buf:
-    @echo "Generating Protobuf files (non-wfchain)"
-    buf generate --template buf.gen.yaml --exclude-path proto/wfchain
-    @echo "Generating Protobuf files (wfchain with gogoproto)"
-    buf generate --template buf.gen.wfchain.yaml --path proto/wfchain
+    @echo "Generating Protobuf files"
+    buf generate --template buf.gen.yaml
 
 shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
 
