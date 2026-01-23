@@ -177,11 +177,11 @@ const (
 	// Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 	E2EDeployerPrivateKeyHex = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 	// DeterministicIFTAddress and DeterministicICAAddress are computed via:
-	// just compute-ift-addresses <E2EDeployerPrivateKeyHex> 18 08-wasm-0 wf
+	// just compute-ift-addresses <E2EDeployerPrivateKeyHex> 18 attestations-0 wf
 	// Nonce 18 is the deployment order of the IFT proxy in E2ETestDeploy.s.sol.
 	// If the deploy script changes, re-run the test with logging to find the new nonce.
 	DeterministicIFTAddress = "0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
-	DeterministicICAAddress = "wf1gjj772jd2hf20dswpnwrkfetmpkndak8w5smud99dtzwrynrut0qnetxqc"
+	DeterministicICAAddress = "wf1c98z43jf73erjp94y2nde4hpyyugtgvlcc9jwus8s25tpxc703pqfp60zh"
 	// EnvKeyIFTICAAddress is the env var for passing ICA address to the deploy script.
 	EnvKeyIFTICAAddress = "IFT_ICA_ADDRESS"
 	// SolanaLedgerDir is the path to the Solana ledger directory.
