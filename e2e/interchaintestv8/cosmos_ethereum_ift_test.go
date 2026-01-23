@@ -979,7 +979,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	transferAmount := sdkmath.NewInt(1_000_000)
 
 	tmClientID := testvalues.CustomClientID
-	ethClientIDOnCosmos := testvalues.FirstWasmClientID
+	ethClientIDOnCosmos := testvalues.FirstAttestationsClientID
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
 
@@ -1008,14 +1008,28 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 		}))
 
 		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {
-			checksumHex := s.StoreLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
-			s.Require().NotEmpty(checksumHex)
+			currentBlockHeader, err := eth.RPCClient.HeaderByNumber(ctx, nil)
+			s.Require().NoError(err)
+			clientHeight := currentBlockHeader.Number.Int64()
+			if clientHeight < 1 {
+				clientHeight = 1
+			}
+			blockHeader, err := eth.RPCClient.HeaderByNumber(ctx, big.NewInt(clientHeight))
+			s.Require().NoError(err)
+
+			attestorAddresses := s.ethAttestorResult.Addresses[0]
+			for i := 1; i < len(s.ethAttestorResult.Addresses); i++ {
+				attestorAddresses += "," + s.ethAttestorResult.Addresses[i]
+			}
 
 			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: s.Wfchain.Config().ChainID,
 				Parameters: map[string]string{
-					testvalues.ParameterKey_ChecksumHex: checksumHex,
+					testvalues.ParameterKey_AttestorAddresses: attestorAddresses,
+					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
+					testvalues.ParameterKey_height:            strconv.FormatInt(clientHeight, 10),
+					testvalues.ParameterKey_timestamp:         strconv.FormatUint(blockHeader.Time, 10),
 				},
 			})
 			s.Require().NoError(err)
