@@ -5,4 +5,4 @@ package malicious_caller
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("HGsqz23PD8uwFFpPXeX6Pkmjyi3veFTR88vbENPJjTsf")
+var ProgramID = solanago.MustPublicKeyFromBase58("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc")
