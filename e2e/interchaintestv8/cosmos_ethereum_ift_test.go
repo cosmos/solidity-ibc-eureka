@@ -275,6 +275,35 @@ func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 		s.Require().Greater(blockNum, uint64(0))
 		s.T().Logf("Ethereum block: %d", blockNum)
 	}))
+
+	s.Require().True(s.Run("Verify Relayer Info Cosmos->Eth", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.Wfchain.Config().ChainID,
+			DstChain: s.Eth.Chains[0].ChainID.String(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info Eth->Cosmos", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.Eth.Chains[0].ChainID.String(),
+			DstChain: s.Wfchain.Config().ChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify IFT module on Cosmos", func() {
+		resp, err := e2esuite.GRPCQuery[ifttypes.QueryParamsResponse](ctx, s.Wfchain, &ifttypes.QueryParamsRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+	}))
+
+	s.Require().True(s.Run("Verify IFT contract on Ethereum", func() {
+		s.Require().NotEmpty(s.contractAddresses.Ift)
+		s.T().Logf("IFT contract: %s", s.contractAddresses.Ift)
+	}))
 }
 
 type iftTestContext struct {

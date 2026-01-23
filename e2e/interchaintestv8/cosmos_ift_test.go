@@ -114,7 +114,7 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info", func() {
+	s.Require().True(s.Run("Verify Relayer Info A->B", func() {
 		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
 			SrcChain: s.ChainA.Config().ChainID,
 			DstChain: s.ChainB.Config().ChainID,
@@ -123,6 +123,17 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NotNil(info)
 		s.Require().Equal(s.ChainA.Config().ChainID, info.SourceChain.ChainId)
 		s.Require().Equal(s.ChainB.Config().ChainID, info.TargetChain.ChainId)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info B->A", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.ChainB.Config().ChainID,
+			DstChain: s.ChainA.Config().ChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+		s.Require().Equal(s.ChainB.Config().ChainID, info.SourceChain.ChainId)
+		s.Require().Equal(s.ChainA.Config().ChainID, info.TargetChain.ChainId)
 	}))
 }
 
@@ -210,6 +221,36 @@ func (s *CosmosIFTTestSuite) Test_Deploy() {
 		s.Require().NoError(err)
 		s.Require().Greater(height, int64(0))
 		s.T().Logf("Chain B height: %d", height)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info A->B", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.ChainA.Config().ChainID,
+			DstChain: s.ChainB.Config().ChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info B->A", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: s.ChainB.Config().ChainID,
+			DstChain: s.ChainA.Config().ChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify IFT module on Chain A", func() {
+		resp, err := e2esuite.GRPCQuery[ifttypes.QueryParamsResponse](ctx, s.ChainA, &ifttypes.QueryParamsRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
+	}))
+
+	s.Require().True(s.Run("Verify IFT module on Chain B", func() {
+		resp, err := e2esuite.GRPCQuery[ifttypes.QueryParamsResponse](ctx, s.ChainB, &ifttypes.QueryParamsRequest{})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp)
 	}))
 }
 
