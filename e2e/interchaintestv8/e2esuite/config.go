@@ -60,7 +60,7 @@ func (c *setupConfig) validate() error {
 	ethLcOnCosmos := c.cosmos.lightClientType
 
 	// Skip validation if no ethereum chain
-	if ethTestnetType == "" || ethTestnetType == testvalues.EthTestnetTypeNone {
+	if ethTestnetType == "" || ethTestnetType == testvalues.EthTestnetType_None {
 		return nil
 	}
 

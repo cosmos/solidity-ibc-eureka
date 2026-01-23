@@ -91,8 +91,8 @@ const (
 	// EthTestnetTypePoS uses Kurtosis for full PoS infrastructure with beacon chain
 	EthTestnetTypePoS = "pos"
 
-	// EthTestnetTypeNone disables Ethereum chain setup
-	EthTestnetTypeNone = "none"
+	// EthTestnetType_None disables Ethereum chain setup
+	EthTestnetType_None = "none"
 
 	// Dummy light client (for Eth verification on Cosmos)
 	EthWasmTypeDummy = "dummy"
@@ -171,6 +171,21 @@ const (
 	RelayerConfigFilePath = "programs/relayer/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
+
+	// E2EDeployerPrivateKeyHex is Anvil's default account 0 private key.
+	// Used as both the E2E deployer (for deterministic contract addresses) and the Anvil faucet.
+	// Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+	E2EDeployerPrivateKeyHex = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	// DeterministicIFTAddress is the IFT contract address deployed by E2EDeployerPrivateKeyHex at nonce 18.
+	// Nonce 18 is the deployment order of the IFT proxy in E2ETestDeploy.s.sol.
+	// If the deploy script changes, re-run the test with logging to find the new nonce.
+	// Recompute with: just compute-ift-addresses
+	DeterministicIFTAddress = "0x68B1D87F95878fE05B998F19b66F4baba5De1aed"
+	// DeterministicICAAddress is the Cosmos ICA address controlled by DeterministicIFTAddress.
+	// Recompute with: just compute-ift-addresses
+	DeterministicICAAddress = "wf1c98z43jf73erjp94y2nde4hpyyugtgvlcc9jwus8s25tpxc703pqfp60zh"
+	// EnvKeyIFTICAAddress is the env var for passing ICA address to the deploy script.
+	EnvKeyIFTICAAddress = "IFT_ICA_ADDRESS"
 	// SolanaLedgerDir is the path to the Solana ledger directory.
 	SolanaLedgerDir = "test-ledger"
 	// TendermintLightClientFixturesDir is the directory where the Tendermint light client fixtures are stored.
@@ -191,6 +206,15 @@ const (
 	// BUG: https://github.com/cosmos/ibc-go/issues/8145
 	// We must use a client ID of the form `type-n` due to the issue above.
 	CustomClientID = "cosmoshub-1"
+
+	// IFTTestDenom is the default IFT test denom used in tests.
+	IFTTestDenom = "testift"
+	// IFTSendCallConstructorCosmos is the context for IFT send call constructor on Cosmos.
+	IFTSendCallConstructorCosmos = "cosmos"
+	// IFTSendCallConstructorEVM is the context for IFT send call constructor on EVM.
+	IFTSendCallConstructorEVM = "evm"
+	// IFTModuleName is the IFT module name.
+	IFTModuleName = "ift"
 
 	// Sp1 verifier address parameter key for the relayer's sp1 light client creation.
 	ParameterKey_Sp1Verifier = "sp1_verifier"

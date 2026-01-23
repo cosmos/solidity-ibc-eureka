@@ -81,7 +81,9 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics20Transfer = ICS20Transfer(address(transferProxy));
         ics27Gmp = ICS27GMP(address(gmpProxy));
 
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), false);
+        accessManagerSetTargetRoles(
+            accessManager, address(routerProxy), address(transferProxy), address(gmpProxy), false
+        );
 
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, customizer, 0);
