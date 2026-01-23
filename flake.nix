@@ -9,7 +9,7 @@
     };
     foundry.url = "github:shazow/foundry.nix/main";
     rust-overlay.url = "github:oxalica/rust-overlay";
-    natlint.url = "github:srdtrk/natlint";
+    natlint.url = "github:srdtrk/natlint/9cfb3bef7357b4fc82681d6bf83956599fa93195";
   };
   outputs = inputs: inputs.flake-utils.lib.eachSystem
     [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ]
