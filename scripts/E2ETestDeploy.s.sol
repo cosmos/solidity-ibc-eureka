@@ -23,44 +23,11 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
-import { EVMIFTSendCallConstructor } from "../contracts/utils/EVMIFTSendCallConstructor.sol";
-import { IFTBaseUpgradeable } from "../contracts/utils/IFTBaseUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin-upgradeable/access/OwnableUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
+import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
-
-/// @title TestIFT - IFT implementation for e2e testing with mint capability
-contract TestIFT is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(
-        address owner_,
-        string calldata erc20Name,
-        string calldata erc20Symbol,
-        address ics27Gmp
-    )
-        external
-        initializer
-    {
-        __Ownable_init(owner_);
-        __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
-    }
-
-    function mint(address to, uint256 amount) external onlyOwner {
-        _mint(to, amount);
-    }
-
-    // solhint-disable-next-line no-empty-blocks
-    function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
-
-    // solhint-disable-next-line no-empty-blocks
-    function _authorizeUpgrade(address) internal view override(UUPSUpgradeable) onlyOwner { }
-}
 
 /// @dev See the Solidity Scripting tutorial: https://getfoundry.sh/guides/scripting-with-solidity
 contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithRoles {
@@ -75,7 +42,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address ics27Gmp;
         address erc20;
         address ift;
-        address evmIftConstructor;
     }
 
     function run() public returns (string memory) {
@@ -127,10 +93,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         d.ift = address(
             new ERC1967Proxy(iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, "Test IFT", "TIFT", d.ics27Gmp)))
         );
-        d.evmIftConstructor = address(new EVMIFTSendCallConstructor());
 
         // Wire up access control and apps
-        accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, true);
+        accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, d.ics27Gmp, true);
         accessManagerSetRoles(
             accessManager, new address[](0), new address[](0), new address[](0), msg.sender, msg.sender, msg.sender
         );
@@ -152,7 +117,6 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics20Transfer", Strings.toHexString(d.ics20Transfer));
         json.serialize("ics27Gmp", Strings.toHexString(d.ics27Gmp));
         json.serialize("erc20", Strings.toHexString(d.erc20));
-        json.serialize("ift", Strings.toHexString(d.ift));
-        return json.serialize("evmIftConstructor", Strings.toHexString(d.evmIftConstructor));
+        return json.serialize("ift", Strings.toHexString(d.ift));
     }
 }
