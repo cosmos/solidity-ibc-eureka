@@ -323,12 +323,6 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 		}))
 
 		s.Require().True(s.Run("Create Ethereum light client on Cosmos", func() {
-			// Store wasm binary if needed (not needed for native attestor)
-			checksumHex := s.StoreLightClient(ctx, s.Wfchain, s.CosmosRelayerSubmitter)
-			if !s.isNativeAttestor() {
-				s.Require().NotEmpty(checksumHex)
-			}
-
 			// Get current Ethereum block for attestor light client initialization
 			currentBlockHeader, err := eth.RPCClient.HeaderByNumber(ctx, nil)
 			s.Require().NoError(err)
@@ -348,7 +342,6 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 			var createClientTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve create client tx", func() {
 				parameters := map[string]string{
-					testvalues.ParameterKey_ChecksumHex:       checksumHex,
 					testvalues.ParameterKey_AttestorAddresses: attestorAddresses,
 					testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
 					testvalues.ParameterKey_height:            strconv.FormatInt(clientHeight, 10),
