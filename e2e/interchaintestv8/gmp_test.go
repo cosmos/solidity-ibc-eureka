@@ -207,19 +207,8 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 	}))
 
 	s.Require().True(s.Run("Deploy SP1 ICS07 contract", func() {
-		var verfierAddress string
-		if prover == testvalues.EnvValueSp1Prover_Mock {
-			verfierAddress = s.contractAddresses.VerifierMock
-		} else {
-			switch proofType {
-			case types.ProofTypeGroth16:
-				verfierAddress = s.contractAddresses.VerifierGroth16
-			case types.ProofTypePlonk:
-				verfierAddress = s.contractAddresses.VerifierPlonk
-			default:
-				s.Require().Fail("invalid proof type: %s", proofType)
-			}
-		}
+		verifierAddress, err := s.contractAddresses.GetVerifierAddress(prover, proofType.String())
+		s.Require().NoError(err)
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
@@ -227,7 +216,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 				},
 			})

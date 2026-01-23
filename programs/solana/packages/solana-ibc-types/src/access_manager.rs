@@ -13,7 +13,6 @@ pub mod roles {
     // pub const RATE_LIMITER_ROLE: u64 = 5;
     pub const ID_CUSTOMIZER_ROLE: u64 = 6;
     // pub const ERC20_CUSTOMIZER_ROLE: u64 = 7;
-    pub const UPGRADER_ROLE: u64 = 8;
 }
 
 /// Backwards-compatible helper struct for getting access manager PDA

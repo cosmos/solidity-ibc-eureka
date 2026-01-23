@@ -105,7 +105,7 @@ contract IntegrationTest is Test, DeployPermit2, PermitSignature, DeployAccessMa
         );
         ics20AddressStr = Strings.toHexString(address(ics20Transfer));
 
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), address(0), true);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
 
         vm.expectEmit();

@@ -82,7 +82,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
 	os.Setenv(testvalues.EnvKeyEthLcOnCosmos, testvalues.EthWasmTypeAttestorWasm)
 
@@ -207,7 +207,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 		routerStateAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
-		solanago.SysVarInstructionsPubkey,
 	)
 	s.Require().NoError(err)
 

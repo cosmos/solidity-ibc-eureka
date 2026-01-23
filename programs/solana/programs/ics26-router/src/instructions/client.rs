@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
+use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::{ClientAddedEvent, ClientUpdatedEvent};
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]

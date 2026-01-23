@@ -82,7 +82,9 @@ contract IbcImpl is Test, DeployAccessManagerWithRoles {
 
         // ============== Step 3: Wire up the contracts ==============
         vm.startPrank(msg.sender);
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+        accessManagerSetTargetRoles(
+            accessManager, address(routerProxy), address(transferProxy), address(gmpProxy), true
+        );
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, msg.sender, 0);
         accessManager.grantRole(IBCRolesLib.ERC20_CUSTOMIZER_ROLE, msg.sender, 0);
 

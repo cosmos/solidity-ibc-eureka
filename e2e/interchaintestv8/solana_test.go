@@ -32,6 +32,7 @@ import (
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
+	ics07_tendermint_patches "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07_tendermint_patches"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
@@ -103,7 +104,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
-	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeNone)
+	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
 	s.TestSuite.SetupSuite(ctx)
 
@@ -243,7 +244,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-		initInstruction, err := ics26_router.NewInitializeInstruction(access_manager.ProgramID, routerStateAccount, s.SolanaRelayer.PublicKey(), solanago.SystemProgramID, solanago.SysVarInstructionsPubkey)
+		initInstruction, err := ics26_router.NewInitializeInstruction(access_manager.ProgramID, routerStateAccount, s.SolanaRelayer.PublicKey(), solanago.SystemProgramID)
 		s.Require().NoError(err)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
@@ -1526,7 +1527,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	}))
 
 	s.Require().True(s.Run("Call cleanup_chunks instruction", func() {
-		cleanupInstruction, err := ics07_tendermint.NewCleanupIncompleteUploadInstruction(
+		// Use the patched version due to anchor-go bug with no-argument instructions
+		// See packages/go-anchor/ics07_tendermint_patches/instructions.go for details
+		cleanupInstruction, err := ics07_tendermint_patches.NewCleanupIncompleteUploadInstruction(
 			submitter,
 		)
 		s.Require().NoError(err)

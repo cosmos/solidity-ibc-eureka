@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
+use crate::events::SendPacketEvent;
 use crate::state::*;
 use crate::utils::ics24;
 use crate::utils::sequence;
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::SendPacketEvent;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]

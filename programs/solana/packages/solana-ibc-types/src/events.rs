@@ -1,6 +1,8 @@
 //! IBC event types for Solana programs
 //!
 //! These events are emitted by the ICS26 router and other IBC programs.
+//! Note: These types are duplicated in the program crates for IDL generation,
+//! but kept here for use by the relayer and other consumers.
 
 use crate::router::{ClientAccount, Packet};
 use anchor_lang::prelude::*;
