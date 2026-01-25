@@ -234,15 +234,23 @@ IFT uses GMP as pure transport, not for account control:
 
 IFT maintains its own mint authority and doesn't delegate token control to GMP PDAs.
 
-### Callback Routing
+### Refund Processing
 
-IFT implements `on_timeout_packet` and `on_acknowledgement_packet` handlers to refund burned tokens on failure.
+IFT uses a relayer-driven `claim_refund` instruction rather than CPI callbacks. This approach:
+- Separates concerns: GMP handles ack/timeout recording, IFT handles refund logic
+- Reduces CPI depth and compute budget requirements
+- Allows anyone to trigger refunds (permissionless)
 
-**Security Model**: These handlers do not require CPI caller validation. Instead, security is provided by the `PendingTransfer` PDA:
-- Only IFT can create valid `PendingTransfer` PDAs during `ift_transfer`
-- Callback handlers require a valid `PendingTransfer` PDA derived from `[mint, client_id, sequence]`
-- Without a matching PDA (which requires a prior legitimate transfer), callbacks cannot execute
-- This is more efficient and Solana-native than instruction sysvar inspection
+**Security Model**: Authentication is provided by two cross-program PDAs:
+1. **`GMPCallResultAccount` PDA** (owned by GMP program): Proves that an ack or timeout was processed
+2. **`PendingTransfer` PDA** (owned by IFT program): Proves a legitimate outbound transfer occurred
+
+The `claim_refund` instruction validates:
+- `GMPCallResultAccount.sender == IFT program ID` (our program initiated the GMP call)
+- `GMPCallResultAccount.source_client == pending_transfer.client_id` (same IBC client)
+- `GMPCallResultAccount.sequence == pending_transfer.sequence` (same packet)
+
+This PDA-based validation is more efficient and Solana-native than instruction sysvar inspection.
 
 ## Performance (TODO: Update post testing)
 
