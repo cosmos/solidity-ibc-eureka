@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-01-04
-**Last Updated**: 2026-01-21
+**Last Updated**: 2026-01-25
 
 IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain messaging—no escrow accounts, minimal SPL token operations.
 
@@ -40,12 +40,11 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 
 | Operation | Instruction | Usage |
 |-----------|-------------|-------|
-| **Burn** | `ift_transfer.rs` | Burn tokens when initiating cross-chain transfer |
-| **Mint** | `ift_mint.rs` | Mint tokens to receiver on incoming transfer |
-| **Mint** | `on_ack_packet.rs` | Refund on failed transfer (mint back to sender) |
-| **Mint** | `on_timeout_packet.rs` | Refund on timeout (mint back to sender) |
-| **Set Authority** | `initialize.rs` | Transfer mint authority to IFT PDA |
-| **Create ATA** | `ift_mint.rs` | Create receiver's token account if needed |
+| **Burn** | `ift_transfer` | Burn tokens when initiating cross-chain transfer |
+| **Mint** | `ift_mint` | Mint tokens to receiver on incoming transfer |
+| **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
+| **Set Authority** | `initialize` | Transfer mint authority to IFT PDA |
+| **Create ATA** | `ift_mint` | Create receiver's ATA if needed (relayer pays) |
 
 ### Operations Intentionally Not Used
 
@@ -140,19 +139,57 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 | Cosmos | Protojson `MsgIFTMint` |
 | Solana | Anchor discriminator + pubkey + amount |
 
-### Transfer Flow
+### Token Setup Flow
+
+```
+1. Admin creates SPL mint externally (spl-token create)
+2. Admin calls IFT::initialize(mint, access_manager, gmp_program)
+   - Current mint authority must sign
+   - Mint authority transferred to IFT PDA
+3. Admin calls register_ift_bridge(client_id, counterparty_ift_address)
+   - Registers destination chain's IFT contract
+```
+
+### Outbound Transfer (Solana → Other Chain)
 
 ```
 1. User calls ift_transfer(receiver, amount, client_id, timeout)
-   - Default timeout: 900 seconds (15 minutes) if not specified
-   - Max timeout: 86400 seconds (24 hours)
-2. IFT burns tokens from sender's account
-3. IFT constructs mint payload for destination chain type
-4. IFT calls GMP.send_call() with empty salt
-5. GMP creates IBC packet via router
-6. Relayer delivers packet to destination
-7. On success: destination IFT mints to receiver
-8. On failure/timeout: source IFT mints back to sender (refund)
+   - Timeout: default 900s, max 86400s
+2. IFT burns tokens from sender's token account
+3. IFT creates PendingTransfer PDA (tracks for refunds)
+4. IFT CPIs to GMP.send_call(payload, empty_salt)
+5. GMP CPIs to Router.send_packet()
+6. Router emits SendPacket event
+7. Relayer picks up event and submits to destination
+8. Destination IFT mints tokens to receiver
+```
+
+### Inbound Transfer (Other Chain → Solana)
+
+```
+1. Relayer calls Router.recv_packet()
+2. Router CPIs to GMP.on_recv_packet()
+3. GMP CPIs to IFT.ift_mint() with GMP account PDA as signer
+4. IFT validates GMP account matches registered bridge
+5. IFT creates receiver's ATA if needed (relayer pays)
+6. IFT mints tokens to receiver
+```
+
+### Refund Flow (Timeout or Error Ack)
+
+```
+Tx 1 - GMP records result:
+1. Relayer calls Router.timeout_packet() or Router.ack_packet()
+2. Router CPIs to GMP.on_timeout() or GMP.on_ack()
+3. GMP creates GMPCallResultAccount PDA (no CPI to IFT)
+
+Tx 2 - Anyone claims refund:
+1. Relayer (or anyone) calls IFT.claim_refund(client_id, sequence)
+2. IFT reads GMPCallResultAccount (cross-program PDA)
+3. IFT matches against PendingTransfer
+4. If timeout or error ack: mint tokens back to sender
+5. If success ack: emit completion event (no mint)
+6. Close PendingTransfer PDA (rent returned to caller)
 ```
 
 ## Security Model
