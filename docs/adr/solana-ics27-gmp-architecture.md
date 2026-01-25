@@ -440,32 +440,24 @@ fn extract_payload_accounts(
 
 ### Problem
 
-When a GMP packet times out or receives an acknowledgement, the original sender program (e.g., IFT) needs notification to handle recovery (e.g., refund burned tokens).
+Sender programs (e.g., IFT) need to handle packet timeouts and acknowledgements for recovery (e.g., refund burned tokens).
 
-### Solution: Callback Forwarding
+### Solution: Pull-Based Result Storage
 
-GMP forwards `on_timeout_packet` and `on_acknowledgement_packet` to the original sender program when `remaining_accounts` are provided by the relayer.
+GMP stores results in `GMPCallResultAccount` PDAs. Sender programs read these accounts via their own claim instructions.
 
-The sender program ID is extracted from `GMPPacketData.sender`. GMP constructs the callback using Anchor's discriminator convention (`sha256("global:<instruction>")[..8]`) and invokes the sender program.
-
-### Sender Program Requirements
-
-Programs sending GMP packets that need callbacks must implement:
-
-```rust
-pub fn on_timeout_packet(ctx: Context<...>, msg: OnTimeoutPacketMsg) -> Result<()>
-pub fn on_acknowledgement_packet(ctx: Context<...>, msg: OnAcknowledgementPacketMsg) -> Result<()>
-```
+1. Router calls GMP's `on_timeout_packet` or `on_ack_packet`
+2. GMP creates `GMPCallResultAccount` PDA with the result
+3. Anyone calls sender's claim instruction (e.g., `IFT.claim_refund`)
+4. Sender reads GMP's result PDA and processes accordingly
 
 ### Alternatives Considered
 
-**1. IFT registers as its own IBC app**: IFT could register directly with Router on its own port instead of using GMP. Rejected because it duplicates GMP's packet handling logic and diverges from the Solidity architecture where IFT uses GMP.
+**1. Push-based callback forwarding**: GMP forwards callbacks to sender programs via CPI. Rejected because it increases CPI depth and requires GMP to know sender interfaces.
 
-**2. Auto-registration of callback targets**: GMP could automatically track sender programs and route callbacks without relayer involvement. Rejected because it requires on-chain state for every unique sender, increasing costs and complexity.
+**2. IFT registers as its own IBC app**: Rejected because it duplicates GMP's packet handling logic.
 
-**3. Router calls sender directly**: Router could bypass GMP and call IFT directly. Rejected because Router doesn't know about GMP-specific packet encoding and would need port-specific callback logic.
-
-Callback forwarding was chosen because it aligns with the ICS27 specification where the IBC application (GMP) handles packet lifecycle events, is trustless, and uses existing CPI patterns.
+**3. Router calls sender directly**: Rejected because Router doesn't know GMP-specific packet encoding.
 
 ## CPI Caller Validation Limitation
 
