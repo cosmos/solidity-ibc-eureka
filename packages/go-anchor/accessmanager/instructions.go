@@ -271,6 +271,7 @@ func NewUpgradeProgramInstruction(
 		// Account 9 "rent": Read-only, Non-signer, Required, Address: SysvarRent111111111111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(rentAccount, false, false))
 		// Account 10 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
+		// Required by BPF Loader Upgradeable's upgrade instruction
 		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
 	}
 

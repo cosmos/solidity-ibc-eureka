@@ -1,12 +1,11 @@
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::AccessManagerUpdated;
+
+use crate::events::AccessManagerUpdated;
 
 pub fn set_access_manager(
     ctx: Context<crate::SetAccessManager>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    let old_access_manager = ctx.accounts.app_state.access_manager;
-
     // Performs: CPI rejection + signer verification + role check
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -15,6 +14,8 @@ pub fn set_access_manager(
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
+
+    let old_access_manager = ctx.accounts.app_state.access_manager;
 
     ctx.accounts.app_state.access_manager = new_access_manager;
 

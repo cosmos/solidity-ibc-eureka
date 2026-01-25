@@ -42,7 +42,8 @@ This gives target programs 2 additional CPI levels to work with - critical for c
 
 1. **PDA as Cross-Chain Identity**
 
-   - Each Cosmos user gets a deterministic PDA: `hash(client_id + sender + salt)`
+   - Each Cosmos user gets a deterministic PDA from `AccountIdentifier(client_id, sender, salt)`
+   - Uses Borsh serialization + SHA256 hashing for collision-resistant identifier derivation
    - PDA has no account data - only used for signing via `invoke_signed`
    - Can own SPL tokens and other assets (PDA acts as authority for token accounts)
    - Zero rent cost - address exists deterministically, no account creation needed
@@ -62,18 +63,34 @@ This gives target programs 2 additional CPI levels to work with - critical for c
 
 ### PDA Derivation
 
-Each Cosmos user gets a deterministic Solana address:
+Each Cosmos user gets a deterministic Solana address derived from an `AccountIdentifier`:
 
 ```rust
-// PDA seeds: [b"gmp_account", client_id, hash(sender), salt]
-let sender_hash = hash(sender.as_bytes()).to_bytes(); // Hash for >32 byte addresses
+// AccountIdentifier uniquely identifies a cross-chain account
+struct AccountIdentifier {
+    client_id: String,  // e.g., "07-tendermint-0"
+    sender: String,     // Cosmos address
+    salt: Vec<u8>,      // User-provided uniqueness
+}
+
+// The identifier is Borsh-serialized and hashed to produce a 32-byte seed.
+// Borsh encoding prevents collision attacks by length-prefixing each field:
+// - String: u32 length (little-endian) + UTF-8 bytes
+// - Vec<u8>: u32 length (little-endian) + bytes
+let identifier_hash = sha256(borsh::to_vec(&AccountIdentifier {
+    client_id,
+    sender,
+    salt,
+}));
+
+// PDA seeds: [b"gmp_account", identifier_hash]
 let (account_pda, bump) = Pubkey::find_program_address(&[
-    b"gmp_account",           // Constant seed
-    client_id.as_bytes(),     // e.g., "07-tendermint-0"
-    &sender_hash,             // Hashed Cosmos address
-    salt,                     // User-provided uniqueness
+    b"gmp_account",
+    &identifier_hash,
 ], &gmp_program_id);
 ```
+
+**Security Note**: Using Borsh serialization prevents hash collision attacks where malicious inputs with different field boundaries could produce identical hashes. For example, without length-prefixing, `client_id="ab", sender="cd"` would hash the same as `client_id="abc", sender="d"`.
 
 ### Account Layout and Execution Flow
 
@@ -89,7 +106,7 @@ The relayer constructs the transaction with carefully ordered accounts:
 invoke_signed(
     &target_instruction,
     &target_accounts,
-    &[&[b"gmp_account", client_id, &sender_hash, salt, &[bump]]]
+    &[&[b"gmp_account", &identifier_hash, &[bump]]]
 )?;
 ```
 
@@ -218,12 +235,12 @@ The relayer automatically adds protocol accounts and handles payer injection:
 
 ```rust
 // Relayer adds protocol accounts at the beginning:
-// [0] gmp_account_pda   - Derived: hash(client_id + cosmosUser + salt)
+// [0] gmp_account_pda   - Derived from Borsh-hashed AccountIdentifier
 // [1] target_program    - From GMPPacketData.receiver
 // [2+] user accounts    - From GMPSolanaPayload.accounts
 // [N] payer (injected)  - Injected at payer_position if specified
 
-let gmp_account_pda = derive_gmp_pda(client_id, sender, salt);
+let gmp_account_pda = derive_gmp_pda(client_id, sender, salt);  // Uses Borsh + SHA256
 accounts.insert(0, AccountMeta {
     pubkey: gmp_account_pda,
     is_signer: false,   // No keypair at transaction level
@@ -321,11 +338,11 @@ msg := &MsgSendCall{
 // [1] spl_token_program - From GMPPacketData.receiver
 // [2+] token accounts   - From GMPSolanaPayload.accounts
 
-// The ICS27 PDA signs for the transfer
+// The ICS27 PDA signs for the transfer using Borsh-hashed identifier
 invoke_signed(
     &spl_transfer_instruction,
     &[source_account, dest_account, authority],
-    &[&[b"gmp_account", client_id, &sender_hash, salt, &[bump]]]
+    &[&[b"gmp_account", &identifier_hash, &[bump]]]
 )?;
 ```
 
@@ -497,6 +514,32 @@ router.add_upstream_caller("gmpport", ift_program_id)?;
 **4. GMP passes "trusted" flag to Router**: GMP validates caller, tells Router to trust. Rejected because creates security vulnerability.
 
 The upstream caller whitelist was chosen for minimal changes, explicit security, and alignment with existing patterns.
+
+## Call Result Callbacks
+
+When a GMP packet is acknowledged or times out, the GMP program creates a `GMPCallResultAccount` PDA to store the result:
+
+```rust
+// PDA seeds: ["gmp_result", source_client, sequence]
+let (result_pda, bump) = Pubkey::find_program_address(&[
+    b"gmp_result",
+    source_client.as_bytes(),
+    &sequence.to_le_bytes(),
+], &gmp_program_id);
+```
+
+The account stores:
+- `status` (Acknowledged/TimedOut)
+- `sender` (original sender address)
+- `sequence` (namespaced: `base_sequence * 10000 + hash(app_program, sender) % 10000`)
+- `source_client` / `dest_client` (client IDs)
+- `ack_commitment` (SHA256 hash of acknowledgement bytes, or zeros for timeout)
+- `result_timestamp` (Unix seconds)
+
+See [Namespaced Sequence Calculation](solana-storage-architecture.md#namespaced-sequence-calculation) for details on sequence namespacing.
+
+**Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
+
 
 ## Security Model
 

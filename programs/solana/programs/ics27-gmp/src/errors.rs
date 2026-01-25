@@ -137,6 +137,9 @@ pub enum GMPError {
 
     #[msg("Sender must sign for direct calls")]
     SenderMustSign,
+
+    #[msg("Result account PDA mismatch")]
+    ResultAccountPDAMismatch,
 }
 
 /// Convert GMP validation errors to GMP errors

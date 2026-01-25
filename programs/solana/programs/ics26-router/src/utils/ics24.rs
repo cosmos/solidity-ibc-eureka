@@ -8,9 +8,12 @@ use solana_sha256_hasher::{hash as sha256_single, hashv as sha256_multi};
 // Include auto-generated constants from build.rs
 include!(concat!(env!("OUT_DIR"), "/constants.rs"));
 
+/// IBC commitment version byte.
+const IBC_VERSION: u8 = 0x02;
+
 // TODO: move to a shared crate
 pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(1u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -18,7 +21,7 @@ pub fn packet_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
 }
 
 pub fn packet_acknowledgement_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(3u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -26,7 +29,7 @@ pub fn packet_acknowledgement_commitment_path(client_id: &str, sequence: u64) ->
 }
 
 pub fn packet_receipt_commitment_path(client_id: &str, sequence: u64) -> Vec<u8> {
-    let mut path = Vec::new();
+    let mut path = Vec::with_capacity(client_id.len() + 1 + 8);
     path.extend_from_slice(client_id.as_bytes());
     path.push(2u8);
     path.extend_from_slice(&sequence.to_be_bytes());
@@ -50,41 +53,40 @@ pub fn packet_receipt_commitment_key(client_id: &str, sequence: u64) -> [u8; 32]
 
 /// `sha256_hash(0x02` + `sha256_hash(destinationClient)` + `sha256_hash(timeout)` + `sha256_hash(payload)`)
 pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
-    let mut app_bytes = Vec::new();
+    let mut app_bytes = Vec::with_capacity(packet.payloads.len() * 32);
 
     for payload in &packet.payloads {
         let payload_hash = hash_payload(payload);
         app_bytes.extend_from_slice(&payload_hash);
     }
 
-    let dest_client_hash = sha256(packet.dest_client.as_bytes());
-    let timeout_hash = sha256(&packet.timeout_timestamp.to_be_bytes());
-    let app_hash = sha256(&app_bytes);
-
-    sha256_multi(&[&[2u8], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
+    let dest_client_hash = sha256_single(packet.dest_client.as_bytes());
+    let timeout_hash = sha256_single(&packet.timeout_timestamp.to_be_bytes());
+    let app_hash = sha256_single(&app_bytes);
+    sha256_multi(&[&[IBC_VERSION], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
 }
 
 fn hash_payload(payload: &Payload) -> [u8; 32] {
-    let mut buf = Vec::new();
-    buf.extend_from_slice(&sha256(payload.source_port.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.version.as_bytes()));
-    buf.extend_from_slice(&sha256(payload.encoding.as_bytes()));
-    buf.extend_from_slice(&sha256(&payload.value));
+    let mut buf = Vec::with_capacity(5 * 32);
+    buf.extend_from_slice(&sha256(payload.source_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.version.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.encoding.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(&payload.value).to_bytes());
 
-    sha256(&buf)
+    sha256(&buf).to_bytes()
 }
 
 /// `sha256_hash(0x02` + `sha256_hash(ack1)` + `sha256_hash(ack2)`, ...)
 pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Result<[u8; 32]> {
     require!(!acks.is_empty(), RouterError::NoAcknowledgements);
 
-    let mut ack_bytes = Vec::new();
+    let mut ack_bytes = Vec::with_capacity(acks.len() * 32);
     for ack in acks {
-        ack_bytes.extend_from_slice(&sha256(ack));
+        ack_bytes.extend_from_slice(&sha256(ack).to_bytes());
     }
 
-    Ok(sha256_multi(&[&[2u8], &ack_bytes]).to_bytes())
+    Ok(sha256_multi(&[&[IBC_VERSION], &ack_bytes]).to_bytes())
 }
 
 // TODO: maybe remove
@@ -103,10 +105,6 @@ pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u
     result[last_idx].extend_from_slice(path);
 
     Ok(result)
-}
-
-fn sha256(data: &[u8]) -> [u8; 32] {
-    sha256_single(data).to_bytes()
 }
 
 #[cfg(test)]
@@ -336,31 +334,31 @@ mod tests {
     #[test]
     fn test_sha256() {
         let data = b"hello world";
-        let hash = sha256(data);
+        let hash = sha256(data).to_bytes();
 
         // Verify it's a 32-byte hash
         assert_eq!(hash.len(), 32);
 
         // Verify it's deterministic
-        let hash2 = sha256(data);
+        let hash2 = sha256(data).to_bytes();
         assert_eq!(hash, hash2);
 
         // Verify different inputs produce different hashes
-        let hash3 = sha256(b"different data");
+        let hash3 = sha256(b"different data").to_bytes();
         assert_ne!(hash, hash3);
 
         // Test empty input
-        let hash_empty = sha256(b"");
+        let hash_empty = sha256(b"").to_bytes();
         assert_eq!(hash_empty.len(), 32);
     }
 
     #[test]
     fn test_universal_error_ack_is_sha256_of_string() {
         // Verify it's the SHA256 of "UNIVERSAL_ERROR_ACKNOWLEDGEMENT"
-        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT");
+        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT").to_bytes();
 
         assert_eq!(
-            UNIVERSAL_ERROR_ACK, &computed,
+            UNIVERSAL_ERROR_ACK, computed,
             "UNIVERSAL_ERROR_ACK must be sha256(\"UNIVERSAL_ERROR_ACKNOWLEDGEMENT\")"
         );
     }

@@ -19,6 +19,8 @@ use solana_ibc_types::{
 
 use super::transaction::derive_alt_address;
 
+use crate::gmp;
+
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
 
@@ -29,6 +31,39 @@ const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
 impl super::TxBuilder {
+    /// Derives the GMP result PDA bytes for a single-payload packet.
+    /// Returns empty vec for empty payloads, errors on multi-payload.
+    fn derive_gmp_result_pda_bytes(
+        &self,
+        payloads: &[solana_ibc_types::PayloadMetadata],
+        source_client: &str,
+        sequence: u64,
+    ) -> Result<Vec<u8>> {
+        match payloads {
+            [payload] => Ok(self
+                .resolve_port_program_id(&payload.source_port)
+                .inspect_err(|err| {
+                    tracing::warn!(
+                        err = ?err,
+                        "Failed to resolve program id for port {}",
+                        &payload.source_port
+                    );
+                })
+                .ok()
+                .and_then(|gmp_program_id| {
+                    gmp::find_gmp_result_pda(
+                        &payload.source_port,
+                        source_client,
+                        sequence,
+                        gmp_program_id,
+                    )
+                    .map(|pda| pda.to_bytes().to_vec())
+                })
+                .unwrap_or_default()),
+            [] => Ok(vec![]),
+            _ => anyhow::bail!("Multi-payload is not yet supported"),
+        }
+    }
     /// Helper function to split data into chunks
     pub(crate) fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
         data.chunks(CHUNK_DATA_SIZE).map(<[u8]>::to_vec).collect()
@@ -256,12 +291,14 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: recv_tx,
             cleanup_tx,
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
+            gmp_result_pda: Vec::new(),
         })
     }
 
@@ -324,12 +361,19 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        let gmp_result_pda = self.derive_gmp_result_pda_bytes(
+            &msg.payloads,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+        )?;
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: ack_tx,
             cleanup_tx,
             alt_create_tx,
             alt_extend_txs,
+            gmp_result_pda,
         })
     }
 
@@ -450,12 +494,19 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
+        let gmp_result_pda = self.derive_gmp_result_pda_bytes(
+            &msg.payloads,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+        )?;
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: timeout_tx,
             cleanup_tx,
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
+            gmp_result_pda,
         })
     }
 

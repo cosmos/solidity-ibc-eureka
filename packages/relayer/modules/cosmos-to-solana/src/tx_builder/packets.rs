@@ -222,6 +222,16 @@ impl super::TxBuilder {
         );
         accounts.extend(ift_accounts);
 
+        // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
+        if let Some(result_pda) = gmp::find_gmp_result_pda(
+            source_port,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            ibc_app_program,
+        ) {
+            accounts.push(AccountMeta::new(result_pda, false));
+        }
+
         let mut data = router_instructions::ack_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
 
@@ -271,6 +281,17 @@ impl super::TxBuilder {
             msg.packet.sequence
         );
         accounts.extend(ift_accounts);
+
+        // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
+        let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
+        if let Some(result_pda) = gmp::find_gmp_result_pda(
+            &source_port,
+            &msg.packet.source_client,
+            msg.packet.sequence,
+            ibc_app_program_id,
+        ) {
+            accounts.push(AccountMeta::new(result_pda, false));
+        }
 
         let data = Self::build_timeout_instruction_data(msg)?;
 

@@ -207,7 +207,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 		routerStateAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
-		solanago.SysVarInstructionsPubkey,
 	)
 	s.Require().NoError(err)
 

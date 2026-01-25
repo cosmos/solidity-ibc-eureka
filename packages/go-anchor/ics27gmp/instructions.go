@@ -21,7 +21,6 @@ func NewInitializeInstruction(
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -48,9 +47,6 @@ func NewInitializeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 2 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -213,6 +209,7 @@ func NewOnAcknowledgementPacketInstruction(
 	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	resultAccountAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -243,10 +240,12 @@ func NewOnAcknowledgementPacketInstruction(
 		// Instructions sysvar for validating CPI caller
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 3 "payer": Writable, Signer, Required
-		// Relayer fee payer (passed by router but not used in acknowledgement handler)
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 5 "result_account": Writable, Non-signer, Required
+		// Result account storing the acknowledgement (passed as remaining account by router)
+		accounts__.Append(solanago.NewAccountMeta(resultAccountAccount, true, false))
 	}
 
 	// Create the instruction.
@@ -269,6 +268,7 @@ func NewOnTimeoutPacketInstruction(
 	instructionSysvarAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	resultAccountAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -299,10 +299,12 @@ func NewOnTimeoutPacketInstruction(
 		// Instructions sysvar for validating CPI caller
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 3 "payer": Writable, Signer, Required
-		// Relayer fee payer (passed by router but not used in timeout handler)
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 5 "result_account": Writable, Non-signer, Required
+		// Result account storing the timeout (passed as remaining account by router)
+		accounts__.Append(solanago.NewAccountMeta(resultAccountAccount, true, false))
 	}
 
 	// Create the instruction.

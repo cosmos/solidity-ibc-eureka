@@ -210,7 +210,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 			routerStateAccount,
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
-			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 

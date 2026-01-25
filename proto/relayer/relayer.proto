@@ -73,6 +73,10 @@ message SolanaPacketTxs {
     bytes alt_create_tx = 4;
     // ALT extension transactions (optional, adds accounts to ALT in batches, submit sequentially after creation)
     repeated bytes alt_extend_txs = 5;
+    // GMP result PDA address (32 bytes) - present for ack/timeout packets on GMP port
+    // This PDA stores the acknowledgement or timeout result of a GMP call
+    // Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
+    bytes gmp_result_pda = 6;
 }
 
 // Batch of packet transactions for relay operations

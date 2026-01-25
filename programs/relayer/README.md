@@ -1,37 +1,155 @@
-# IBC Proof Relayer API Implementation
+# IBC Proof API
 
-This is an implementation of an IBC Proof Relayer API server for `solidity-ibc-eureka` and Cosmos SDK based chains.
+The proof API is a gRPC service that prepares IBC transactions and proofs for clients. It does not listen for events, sign, or submit transactions. Instead, clients provide transaction hashes and the service returns the corresponding IBC messages and proofs that must be signed and submitted elsewhere.
 
-This IBC Proof Relayer API neither listens to events nor submits transactions to any chain. Instead, it runs a gRPC server that can be queried by a client to get the transactions that need to be submitted to the chain to relay packets.
-
-The client submits the hashes of the transactions that need to be relayed to the relayer, and the relayer:
-1. Queries the chain for the transactions with the given hashes.
-2. Parses the transaction events to get the packet data.
-3. Generates the corresponding IBC transactions and proof into a single transaction.
-4. Does not sign nor submit the transaction to the chain, but returns it to the client.
-
-In essence, this relayer is meant to be used in a setup where the client is a front-end application, or a service that can sign and submit transactions to the chain.
+The proof API:
+1. Queries the source chain for the given transaction hashes.
+2. Parses transaction events to extract packet data.
+3. Builds IBC messages plus the required proof(s).
+4. Returns an unsigned transaction payload to the caller.
 
 ## Overview
 
-The relayer is composed of multiple one-sided relayer servers, each of which is responsible for relaying packets from one chain to another. A relayer module is a rust struct that implements the [`RelayerModule`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/src/core/modules.rs#L10) trait.
+The service is composed of one-sided modules, each responsible for a specific source and target chain combination. Each module is a Rust struct that implements the [`RelayerModule`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/src/core/modules.rs#L10) trait.
 
-You can see the protocol buffer definition for the gRPC service [here](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto).
+The gRPC service definition is in [`relayer/proto/relayer/relayer.proto`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto).
 
-This is a work-in-progress implementation, and the relayer is not yet usable. The relayer will only be able to relay IBC Eureka packets. There is a tracking issue for the relayer [here](https://github.com/cosmos/solidity-ibc-eureka/issues/121).
+## Modules
 
-| **Source Chain** | **Target Chain** | **Light Client** | **Development Status** |
-|:---:|:---:|:---:|:---:|
-| Cosmos SDK | EVM | `sp1-ics07-tendermint` | ✅ |
-| EVM | Cosmos SDK | `cw-ics08-wasm-eth` | ✅ |
-| Cosmos SDK | Cosmos SDK | `07-tendermint` | ✅ |
+Each module runs in one direction and specializes in how it builds proofs and transactions:
 
-## Usage
+| Module | Source | Target | Tasks | Proof Modes |
+| --- | --- | --- | --- | --- |
+| `cosmos_to_eth` | Cosmos SDK | EVM | Parse Cosmos events, build EVM IBC txs | `sp1` — ZK proofs via SP1<br>`attested` — multisig attestations |
+| `eth_to_cosmos` | EVM | Cosmos SDK | Parse EVM events, build Cosmos IBC txs | `real` — ethereum mainnet beacon API proofs<br>`mock` — dev/test mode<br>`attested` — multisig attestations |
+| `eth_to_eth` | EVM | EVM | Parse EVM events, build attested txs | `attested` — multisig attestations |
+| `cosmos_to_cosmos` | Cosmos SDK | Cosmos SDK | Parse Cosmos events, build Cosmos IBC txs | ICS-07 light client proofs only (validator signatures and merkle proofs) |
+| `cosmos_to_solana` | Cosmos SDK | Solana | Parse Cosmos events, build Solana IBC txs | ICS-07 light client proofs only (validator signatures and merkle proofs) |
+| `solana_to_cosmos` | Solana | Cosmos SDK | Parse Solana events, build Cosmos IBC txs | multisig attestations only |
 
-To run the relayer binary, you need to write a configuration file. At the moment, there is a working example configuration file at [`config.example.json`](./config.example.json). You can copy this file and modify it to suit your needs.
+## Build and Run
 
-After building/installing the relayer binary, you can run the relayer with the following command:
+1. Build/install the binary.
 
-```sh
-relayer -c config.json
-```
+   ```sh
+   just install-relayer
+   ```
+
+2. Copy the example configuration and update it for your chains.
+
+   ```sh
+   cp programs/relayer/config.example.json config.json
+   ```
+
+3. Start the service.
+
+   ```sh
+   relayer -c config.json
+   ```
+
+The gRPC server listens on `server.address:server.port` and the gRPC-web endpoint listens on `server.grpc_web_port`.
+
+## Configuration
+
+Configuration is provided as JSON. See the example in [`programs/relayer/config.example.json`](./config.example.json).
+
+Key settings:
+
+- `server.address`: IP address to bind the gRPC server.
+- `server.port`: gRPC port.
+- `server.grpc_web_port`: gRPC-web port.
+- `observability.level`: Logging level (`trace`, `debug`, `info`, `warn`, `error`).
+- `observability.use_otel`: Enable OpenTelemetry export.
+- `observability.service_name`: Service name used in logs/traces.
+- `observability.otel_endpoint`: OpenTelemetry collector endpoint.
+- `modules`: List of modules to run, each with `name`, `src_chain`, `dst_chain`, `config`, and optional `enabled` (defaults to true).
+
+Module configuration varies by module type. Mode-specific options are enumerated below.
+
+Module configuration varies by module type:
+
+- `cosmos_to_eth`:
+  - `tm_rpc_url`: Tendermint RPC endpoint for the source chain.
+  - `eth_rpc_url`: EVM RPC endpoint for the destination chain.
+  - `ics26_address`: IBC router contract address on the destination chain.
+  - `mode`: Proof mode object.
+  - `mode.type`: `sp1` or `attested`.
+  - `mode.sp1_prover`: SP1 prover config when `type: sp1`.
+    - `mode.sp1_prover.type`: `mock`, `env`, `network`, `cpu`, `cuda`.
+    - `mode.sp1_prover.network_private_key`: Optional hex key for `network`.
+    - `mode.sp1_prover.network_rpc_url`: Optional RPC URL for `network`.
+    - `mode.sp1_prover.private_cluster`: Optional boolean for `network`.
+  - `mode.sp1_programs`: SP1 program paths when `type: sp1`.
+    - `mode.sp1_programs.update_client`.
+    - `mode.sp1_programs.membership`.
+    - `mode.sp1_programs.update_client_and_membership`.
+    - `mode.sp1_programs.misbehaviour`.
+  - `mode.attestor`: Attestor config when `type: attested`.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config when `type: attested`.
+    - `mode.cache.state_cache_max_entries`.
+    - `mode.cache.packet_cache_max_entries`.
+
+- `eth_to_cosmos`:
+  - `eth_rpc_url`: EVM RPC endpoint for the source chain.
+  - `eth_beacon_api_url`: Ethereum beacon API endpoint for consensus data (required for `real`).
+  - `tm_rpc_url`: Tendermint RPC endpoint for the destination chain.
+  - `ics26_address`: IBC router contract address on the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+  - `mode`: Proof mode (string or object).
+  - `mode`: `real`, `mock`, or `{ "type": "attested", ... }`.
+  - `mode.attestor`: Attestor config when `type: attested`.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config when `type: attested`.
+    - `mode.cache.state_cache_max_entries`.
+    - `mode.cache.packet_cache_max_entries`.
+- `eth_to_cosmos_compat`:
+  - Same settings as `eth_to_cosmos`, but routes requests to the v1.2 or current handler based on the client state checksum.
+
+- `eth_to_eth`:
+  - `src_chain_id`: Source chain ID string.
+  - `src_rpc_url`: Source EVM RPC endpoint.
+  - `src_ics26_address`: Source IBC router contract address.
+  - `dst_rpc_url`: Destination EVM RPC endpoint.
+  - `dst_ics26_address`: Destination IBC router contract address.
+  - `mode`: Proof mode object.
+  - `mode.type`: `attested`.
+  - `mode.attestor`: Attestor config.
+    - `mode.attestor.attestor_query_timeout_ms`.
+    - `mode.attestor.quorum_threshold`.
+    - `mode.attestor.attestor_endpoints`.
+  - `mode.cache`: Optional cache config.
+    - `mode.cache.state_cache_max_entries`. (default: 10000)
+    - `mode.cache.packet_cache_max_entries`. (default: 10000)
+- `cosmos_to_cosmos`:
+  - `src_rpc_url`: RPC endpoint for the source chain.
+  - `target_rpc_url`: RPC endpoint for the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+- `cosmos_to_solana`:
+  - `source_rpc_url`: Tendermint RPC endpoint for the source chain.
+  - `target_rpc_url`: Solana RPC endpoint.
+  - `solana_ics26_program_id`: Solana ICS26 router program ID.
+  - `solana_fee_payer`: Solana fee payer address.
+  - `solana_alt_address`: Address lookup table address (optional).
+  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
+  - `skip_pre_verify_threshold`: Skip pre-verification when signatures are below this threshold. (default: 50)
+- `solana_to_cosmos`:
+  - `solana_chain_id`: Solana chain ID label.
+  - `src_rpc_url`: Solana RPC endpoint.
+  - `target_rpc_url`: Tendermint RPC endpoint for the destination chain.
+  - `signer_address`: Cosmos address used for message construction metadata.
+  - `solana_ics26_program_id`: Solana ICS26 router program ID.
+  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
+  - `mock_solana_client`: Enable mock Solana client mode.
+
+## Using the gRPC API
+
+After the service is running, use the gRPC endpoints defined in [`relayer/proto/relayer/relayer.proto`](https://github.com/cosmos/solidity-ibc-eureka/blob/debc0ad73acab0cd0a827a1a35a7ae4c1c65feb1/relayer/proto/relayer/relayer.proto) to submit transaction hashes and retrieve the unsigned IBC transactions plus proofs. Typical usage is:
+
+1. Submit transaction hash(es) to the proof API for the relevant module.
+2. Receive the unsigned transaction payload with proof data.
+3. Sign and submit the transaction using your own wallet or service.

@@ -1,5 +1,8 @@
 name: solana
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
