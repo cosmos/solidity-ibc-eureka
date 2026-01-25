@@ -67,4 +67,9 @@ pub mod ics27_ift {
     ) -> Result<()> {
         instructions::set_access_manager(ctx, new_access_manager)
     }
+
+    /// Revoke mint authority from IFT and transfer it to a new authority.
+    pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
+        instructions::revoke_mint_authority(ctx)
+    }
 }

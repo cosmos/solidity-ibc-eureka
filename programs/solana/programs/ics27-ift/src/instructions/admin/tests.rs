@@ -1,5 +1,3 @@
-//! Tests for admin instructions (`set_access_manager`)
-
 use anchor_lang::InstructionData;
 use mollusk_svm::Mollusk;
 use solana_sdk::{
@@ -118,5 +116,66 @@ fn test_set_access_manager_unauthorized_fails() {
     assert!(
         result.program_result.is_err(),
         "set_access_manager should fail for unauthorized user"
+    );
+}
+
+#[test]
+fn test_revoke_mint_authority_unauthorized_fails() {
+    let mollusk = setup_test_mollusk();
+
+    let mint = Pubkey::new_unique();
+    let admin = Pubkey::new_unique();
+    let unauthorized = Pubkey::new_unique();
+    let payer = Pubkey::new_unique();
+    let new_mint_authority = Pubkey::new_unique();
+    let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+    let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+    let (access_manager_pda, access_manager_account) =
+        create_access_manager_account_with_admin(admin);
+    let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+    let (token_program_id, token_program_account) = create_token_program_account();
+
+    let app_state_account = create_ift_app_state_account(
+        mint,
+        app_state_bump,
+        mint_authority_bump,
+        access_manager::ID,
+        Pubkey::new_unique(),
+    );
+
+    let mint_account = create_mint_account(mint_authority_pda, 6);
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(mint, false),
+            AccountMeta::new_readonly(mint_authority_pda, false),
+            AccountMeta::new_readonly(new_mint_authority, false),
+            AccountMeta::new_readonly(access_manager_pda, false),
+            AccountMeta::new_readonly(unauthorized, true), // Not an admin
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(instructions_sysvar, false),
+            AccountMeta::new_readonly(token_program_id, false),
+        ],
+        data: crate::instruction::RevokeMintAuthority {}.data(),
+    };
+
+    let accounts = vec![
+        (app_state_pda, app_state_account),
+        (mint, mint_account),
+        (mint_authority_pda, create_signer_account()),
+        (new_mint_authority, create_signer_account()),
+        (access_manager_pda, access_manager_account),
+        (unauthorized, create_signer_account()),
+        (payer, create_signer_account()),
+        (instructions_sysvar, instructions_account),
+        (token_program_id, token_program_account),
+    ];
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert!(
+        result.program_result.is_err(),
+        "revoke_mint_authority should fail for unauthorized user"
     );
 }

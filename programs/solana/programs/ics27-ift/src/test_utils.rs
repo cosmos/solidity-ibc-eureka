@@ -318,6 +318,47 @@ pub fn create_gmp_program_account() -> SolanaAccount {
     }
 }
 
+/// Create a mock SPL Token mint account with specified mint authority
+pub fn create_mint_account(mint_authority: Pubkey, decimals: u8) -> SolanaAccount {
+    use anchor_spl::token::spl_token;
+    use solana_sdk::program_pack::Pack;
+
+    let mint = spl_token::state::Mint {
+        mint_authority: solana_sdk::program_option::COption::Some(mint_authority),
+        supply: 1_000_000_000,
+        decimals,
+        is_initialized: true,
+        freeze_authority: solana_sdk::program_option::COption::None,
+    };
+
+    let mut data = vec![0u8; spl_token::state::Mint::LEN];
+    mint.pack_into_slice(&mut data);
+
+    SolanaAccount {
+        lamports: 1_000_000,
+        data,
+        owner: spl_token::ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Create token program account
+pub fn create_token_program_account() -> (Pubkey, SolanaAccount) {
+    use anchor_spl::token::spl_token;
+
+    (
+        spl_token::ID,
+        SolanaAccount {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn get_gmp_result_pda(client_id: &str, sequence: u64, gmp_program: &Pubkey) -> (Pubkey, u8) {
     use solana_ibc_types::GMPCallResult;
     Pubkey::find_program_address(

@@ -123,3 +123,14 @@ pub enum RefundReason {
     /// Transfer failed on destination
     Failed,
 }
+
+/// Event emitted when mint authority is revoked and transferred back
+#[event]
+pub struct MintAuthorityRevoked {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// New mint authority that received ownership
+    pub new_authority: Pubkey,
+    /// Revocation timestamp
+    pub timestamp: i64,
+}
