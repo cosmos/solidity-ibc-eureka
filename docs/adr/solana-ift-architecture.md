@@ -36,8 +36,6 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 
 ## SPL Token Operations
 
-### Operations Used
-
 | Operation | Instruction | Usage |
 |-----------|-------------|-------|
 | **Burn** | `ift_transfer` | Burn tokens when initiating cross-chain transfer |
@@ -45,31 +43,6 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 | **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
 | **Set Authority** | `initialize` | Transfer mint authority to IFT PDA |
 | **Create ATA** | `ift_mint` | Create receiver's ATA if needed (relayer pays) |
-
-### Operations Intentionally Not Used
-
-| Operation | Reason |
-|-----------|--------|
-| **Transfer** | Burn-and-mint eliminates need for escrow transfers |
-| **Approve/Revoke Delegate** | Users burn directly with their signature |
-| **Freeze/Thaw** | No escrow accounts to freeze |
-| **Close Account** | Token accounts remain for future transfers |
-| **Sync Native (WSOL)** | See WSOL section below |
-| **Create Mint** | Mint must exist before IFT initialization |
-
-### Why No WSOL Support
-
-WSOL (Wrapped SOL) is intentionally not supported because:
-
-1. **Semantic Mismatch**: IFT assumes the same logical token exists on both chains. SOL on Solana ≠ any token on Ethereum.
-
-2. **Cannot Burn Native Currency**: You cannot truly "burn" SOL - it would need to be escrowed, which contradicts the burn-and-mint pattern.
-
-3. **Correct Solution**: Use ICS-20 (lock/unlock) for native currency bridging:
-   ```
-   ICS-20: Lock SOL → Mint wrapped-SOL on destination
-   IFT:    Burn USDC → Mint USDC on destination
-   ```
 
 ## Implementation Details
 
