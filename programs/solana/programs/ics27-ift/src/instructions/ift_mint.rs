@@ -113,15 +113,22 @@ fn validate_gmp_account(
     gmp_program: &Pubkey,
     bump: u8,
 ) -> Result<()> {
-    let sender_hash = solana_sha256_hasher::hash(counterparty_address.as_bytes()).to_bytes();
+    use solana_ibc_types::ics27::{AccountIdentifier, GMPAccount, Salt};
+
+    let account_id = AccountIdentifier::new(
+        client_id
+            .to_string()
+            .try_into()
+            .map_err(|_| IFTError::InvalidGmpAccount)?,
+        counterparty_address
+            .to_string()
+            .try_into()
+            .map_err(|_| IFTError::InvalidGmpAccount)?,
+        Salt::empty(),
+    );
+
     let expected_pda = Pubkey::create_program_address(
-        &[
-            b"gmp_account",
-            client_id.as_bytes(),
-            &sender_hash,
-            &[], // Salt
-            &[bump],
-        ],
+        &[GMPAccount::SEED, &account_id.digest(), &[bump]],
         gmp_program,
     )
     .map_err(|_| IFTError::InvalidGmpAccount)?;

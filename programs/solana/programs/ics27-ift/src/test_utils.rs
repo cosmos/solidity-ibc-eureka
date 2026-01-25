@@ -289,17 +289,24 @@ pub fn deserialize_bridge(account: &SolanaAccount) -> IFTBridge {
 }
 
 /// Get the expected GMP account PDA for IFT validation
-/// Seeds: `["gmp_account", client_id, sha256(counterparty_address), empty_salt]`
+/// Seeds: `["gmp_account", sha256(Borsh(AccountIdentifier))]`
 pub fn get_gmp_account_pda(
     client_id: &str,
     counterparty_address: &str,
     gmp_program: &Pubkey,
 ) -> (Pubkey, u8) {
-    let sender_hash = solana_sha256_hasher::hash(counterparty_address.as_bytes()).to_bytes();
-    Pubkey::find_program_address(
-        &[b"gmp_account", client_id.as_bytes(), &sender_hash, &[]],
+    use solana_ibc_types::ics27::{GMPAccount, Salt};
+
+    let gmp_account = GMPAccount::new(
+        client_id.to_string().try_into().expect("valid client_id"),
+        counterparty_address
+            .to_string()
+            .try_into()
+            .expect("valid sender"),
+        Salt::empty(),
         gmp_program,
-    )
+    );
+    gmp_account.pda()
 }
 
 /// Create a GMP program account

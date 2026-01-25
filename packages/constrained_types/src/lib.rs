@@ -172,6 +172,13 @@ impl<T, const MIN: usize, const MAX: usize> ConstrainedVec<T, MIN, MAX> {
     }
 }
 
+impl<T, const MAX: usize> ConstrainedVec<T, 0, MAX> {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+}
+
 impl<T, const MIN: usize, const MAX: usize> AsRef<[T]> for ConstrainedVec<T, MIN, MAX> {
     fn as_ref(&self) -> &[T] {
         &self.0
@@ -239,6 +246,13 @@ impl<const MIN: usize, const MAX: usize> ConstrainedBytes<MIN, MAX> {
     /// Consume and return the inner `Vec<u8>`
     pub fn into_vec(self) -> Vec<u8> {
         self.0.into_vec()
+    }
+}
+
+impl<const MAX: usize> ConstrainedBytes<0, MAX> {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self(ConstrainedVec::empty())
     }
 }
 
@@ -361,6 +375,24 @@ mod tests {
         type MaybeEmpty = ConstrainedVec<u8, 0, 10>;
 
         let empty = MaybeEmpty::new(vec![]).unwrap();
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_constrained_vec_empty_method() {
+        type MaybeEmpty = ConstrainedVec<u8, 0, 10>;
+
+        let empty = MaybeEmpty::empty();
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_constrained_bytes_empty_method() {
+        type Salt = ConstrainedBytes<0, 32>;
+
+        let empty = Salt::empty();
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
     }
