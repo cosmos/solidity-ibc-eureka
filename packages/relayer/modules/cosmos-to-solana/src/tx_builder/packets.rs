@@ -201,28 +201,8 @@ impl super::TxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        let ift_accounts =
-            crate::ift::extract_ift_callback_accounts(&crate::ift::IftCallbackParams {
-                source_port,
-                encoding: &payload.encoding,
-                payload_value: &payload.value,
-                source_client: &msg.packet.source_client,
-                sequence: msg.packet.sequence,
-                solana_client: &self.target_solana_client,
-                router_program_id: self.solana_ics26_program_id,
-                fee_payer: self.fee_payer,
-            });
-
-        tracing::debug!(
-            "IFT callback: {} accounts for port={}, client={}, seq={}",
-            ift_accounts.len(),
-            source_port,
-            msg.packet.source_client,
-            msg.packet.sequence
-        );
-        accounts.extend(ift_accounts);
-
         // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
+        // Note: IFT claim_refund is handled as a separate transaction after ack completes
         if let Some(result_pda) = gmp::find_gmp_result_pda(
             source_port,
             &msg.packet.source_client,
@@ -260,32 +240,11 @@ impl super::TxBuilder {
             chunk_accounts,
         )?;
 
-        // Add IFT callback accounts if this is an IFT transfer timeout
-        let ift_accounts =
-            crate::ift::extract_ift_callback_accounts(&crate::ift::IftCallbackParams {
-                source_port,
-                encoding: &payload.encoding,
-                payload_value: &payload.value,
-                source_client: &msg.packet.source_client,
-                sequence: msg.packet.sequence,
-                solana_client: &self.target_solana_client,
-                router_program_id: self.solana_ics26_program_id,
-                fee_payer: self.fee_payer,
-            });
-
-        tracing::debug!(
-            "IFT timeout callback: {} accounts for port={}, client={}, seq={}",
-            ift_accounts.len(),
-            source_port,
-            msg.packet.source_client,
-            msg.packet.sequence
-        );
-        accounts.extend(ift_accounts);
-
         // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
-        let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
+        // Note: IFT claim_refund is handled as a separate transaction after timeout completes
+        let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         if let Some(result_pda) = gmp::find_gmp_result_pda(
-            &source_port,
+            source_port,
             &msg.packet.source_client,
             msg.packet.sequence,
             ibc_app_program_id,

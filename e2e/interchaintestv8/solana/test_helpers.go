@@ -432,6 +432,32 @@ func (s *Solana) SubmitChunkedRelayPackets(
 					}
 				}(pktIdx, pkt.CleanupTx)
 			}
+
+			// Phase 4: Submit IFT claim_refund transaction (async, after final_tx confirmed)
+			// This processes refunds for IFT transfers on ack/timeout
+			if len(pkt.IftClaimRefundTx) > 0 {
+				go func(pktIdx int, claimRefundTxBytes []byte) {
+					claimRefundTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(claimRefundTxBytes))
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to decode IFT claim_refund tx: %v", pktIdx+1, err)
+						return
+					}
+
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to get blockhash for IFT claim_refund tx: %v", pktIdx+1, err)
+						return
+					}
+					claimRefundTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					claimRefundSig, err := s.SignAndBroadcastTxWithOpts(ctx, claimRefundTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						t.Logf("⚠ Packet %d: IFT claim_refund tx failed: %v", pktIdx+1, err)
+					} else {
+						t.Logf("✓ Packet %d: IFT claim_refund tx completed - tx: %s", pktIdx+1, claimRefundSig)
+					}
+				}(pktIdx, pkt.IftClaimRefundTx)
+			}
 		}(packetIdx, packet)
 	}
 

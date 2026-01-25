@@ -3,6 +3,7 @@
 //! Generates:
 //! - EVM function selectors (keccak256 of Solidity signatures)
 //! - Anchor discriminators (sha256 of instruction names)
+//! - IBC commitment constants
 
 use sha2::{Digest, Sha256};
 use std::env;
@@ -15,6 +16,9 @@ const EVM_SELECTORS: &[(&str, &str)] = &[("IFT_MINT_SELECTOR", "iftMint(address,
 
 /// Anchor discriminators: `(constant_name, instruction_name)`
 const ANCHOR_DISCRIMINATORS: &[(&str, &str)] = &[("IFT_MINT_DISCRIMINATOR", "global:ift_mint")];
+
+/// IBC version byte for commitment computation
+const IBC_VERSION: u8 = 0x02;
 
 fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
@@ -53,6 +57,35 @@ fn main() {
         .unwrap();
         writeln!(f).unwrap();
     }
+
+    // Generate ERROR_ACK_COMMITMENT constant
+    // UNIVERSAL_ERROR_ACK = sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")
+    // ERROR_ACK_COMMITMENT = sha256(0x02 || sha256(UNIVERSAL_ERROR_ACK))
+    let universal_error_ack = Sha256::digest(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT");
+    let inner_hash = Sha256::digest(universal_error_ack);
+    let mut commitment_input = vec![IBC_VERSION];
+    commitment_input.extend_from_slice(&inner_hash);
+    let error_ack_commitment = Sha256::digest(&commitment_input);
+
+    writeln!(
+        f,
+        "/// IBC commitment for the universal error acknowledgement."
+    )
+    .unwrap();
+    writeln!(
+        f,
+        "/// Computed as: `sha256(0x02 || sha256(sha256(\"UNIVERSAL_ERROR_ACKNOWLEDGEMENT\")))`"
+    )
+    .unwrap();
+    write!(f, "pub const ERROR_ACK_COMMITMENT: [u8; 32] = [").unwrap();
+    for (i, byte) in error_ack_commitment.iter().enumerate() {
+        if i > 0 {
+            write!(f, ", ").unwrap();
+        }
+        write!(f, "0x{byte:02x}").unwrap();
+    }
+    writeln!(f, "];").unwrap();
+    writeln!(f).unwrap();
 
     println!("cargo:rerun-if-changed=build.rs");
 }

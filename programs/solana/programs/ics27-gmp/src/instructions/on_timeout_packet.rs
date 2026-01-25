@@ -5,8 +5,6 @@ use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
-use super::callback_helper::forward_callback;
-
 /// Process IBC packet timeout (called by router via CPI)
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnTimeoutPacketMsg)]
@@ -53,13 +51,6 @@ pub fn on_timeout_packet(
         &crate::ID,
     )
     .map_err(GMPError::from)?;
-
-    forward_callback(
-        ctx.remaining_accounts,
-        &msg.payload.value,
-        b"global:on_timeout_packet",
-        &msg,
-    )?;
 
     let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
         .map_err(|_| GMPError::InvalidPacketData)?;

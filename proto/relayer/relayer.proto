@@ -77,6 +77,10 @@ message SolanaPacketTxs {
     // This PDA stores the acknowledgement or timeout result of a GMP call
     // Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
     bytes gmp_result_pda = 6;
+    // IFT claim_refund transaction (optional) - present for ack/timeout packets from IFT
+    // Submit AFTER final_tx is confirmed and gmp_result_pda is initialized
+    // This reclaims tokens for the sender on timeout/failed ack, or closes PendingTransfer on success
+    bytes ift_claim_refund_tx = 7;
 }
 
 // Batch of packet transactions for relay operations

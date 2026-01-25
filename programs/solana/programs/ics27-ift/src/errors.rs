@@ -68,6 +68,15 @@ pub enum IFTError {
 
     #[msg("Mint decimals mismatch")]
     DecimalsMismatch,
+
+    #[msg("GMP result client ID mismatch")]
+    GmpResultClientMismatch,
+
+    #[msg("GMP result sequence mismatch")]
+    GmpResultSequenceMismatch,
+
+    #[msg("GMP result sender mismatch")]
+    GmpResultSenderMismatch,
 }
 
 /// Convert CPI validation errors to IFT errors

@@ -19,7 +19,7 @@ use solana_ibc_types::{
 
 use super::transaction::derive_alt_address;
 
-use crate::gmp;
+use crate::{gmp, ift};
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
@@ -64,6 +64,71 @@ impl super::TxBuilder {
             _ => anyhow::bail!("Multi-payload is not yet supported"),
         }
     }
+
+    /// Builds IFT `claim_refund` transaction for ack/timeout packets.
+    ///
+    /// Returns `None` if not applicable (non-IFT packet, no pending transfer).
+    /// Logs warnings for unexpected failures but continues - tokens are safe in
+    /// `PendingTransfer` and user can manually claim later.
+    fn build_ift_claim_refund_tx(
+        &self,
+        payloads: &[solana_ibc_types::PayloadMetadata],
+        payload_data: &[Vec<u8>],
+        source_client: &str,
+        sequence: u64,
+    ) -> Option<Vec<u8>> {
+        // Only single-payload packets supported for IFT
+        let [payload] = payloads else {
+            return None;
+        };
+
+        let [data] = payload_data else {
+            return None;
+        };
+
+        let gmp_program_id = match self.resolve_port_program_id(&payload.source_port) {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!(
+                    source_port = %payload.source_port,
+                    error = ?e,
+                    "IFT: Failed to resolve port program ID for claim_refund"
+                );
+                return None;
+            }
+        };
+
+        let params = ift::ClaimRefundParams {
+            source_port: &payload.source_port,
+            encoding: &payload.encoding,
+            payload_value: data,
+            source_client,
+            sequence,
+            solana_client: &self.target_solana_client,
+            gmp_program_id,
+            fee_payer: self.fee_payer,
+        };
+
+        // build_claim_refund_instruction logs internally for unexpected failures
+        let instruction = ift::build_claim_refund_instruction(&params)?;
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        match self.create_tx_bytes(&instructions) {
+            Ok(tx_bytes) => Some(tx_bytes),
+            Err(e) => {
+                tracing::warn!(
+                    source_client = %source_client,
+                    sequence = sequence,
+                    error = ?e,
+                    "IFT: Failed to create claim_refund transaction"
+                );
+                None
+            }
+        }
+    }
+
     /// Helper function to split data into chunks
     pub(crate) fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
         data.chunks(CHUNK_DATA_SIZE).map(<[u8]>::to_vec).collect()
@@ -292,6 +357,7 @@ impl super::TxBuilder {
         )?;
 
         // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
+        // No claim_refund needed for recv packets (only for ack/timeout on source chain)
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: recv_tx,
@@ -299,6 +365,7 @@ impl super::TxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda: Vec::new(),
+            ift_claim_refund_tx: vec![],
         })
     }
 
@@ -367,6 +434,15 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
+        let ift_claim_refund_tx = self
+            .build_ift_claim_refund_tx(
+                &msg.payloads,
+                payload_data,
+                &msg.packet.source_client,
+                msg.packet.sequence,
+            )
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: ack_tx,
@@ -374,6 +450,7 @@ impl super::TxBuilder {
             alt_create_tx,
             alt_extend_txs,
             gmp_result_pda,
+            ift_claim_refund_tx,
         })
     }
 
@@ -500,6 +577,15 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
+        let ift_claim_refund_tx = self
+            .build_ift_claim_refund_tx(
+                &msg.payloads,
+                payload_data,
+                &msg.packet.source_client,
+                msg.packet.sequence,
+            )
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: timeout_tx,
@@ -507,6 +593,7 @@ impl super::TxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda,
+            ift_claim_refund_tx,
         })
     }
 

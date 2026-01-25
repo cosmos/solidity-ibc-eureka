@@ -55,20 +55,11 @@ pub mod ics27_ift {
         instructions::ift_mint(ctx, msg)
     }
 
-    /// Handle acknowledgement packet (called by router via CPI)
-    pub fn on_acknowledgement_packet(
-        ctx: Context<OnAckPacket>,
-        msg: solana_ibc_types::OnAcknowledgementPacketMsg,
-    ) -> Result<()> {
-        instructions::on_acknowledgement_packet(ctx, msg)
-    }
-
-    /// Handle timeout packet (called by router via CPI)
-    pub fn on_timeout_packet(
-        ctx: Context<OnTimeoutPacket>,
-        msg: solana_ibc_types::OnTimeoutPacketMsg,
-    ) -> Result<()> {
-        instructions::on_timeout_packet(ctx, msg)
+    /// Claim refund for a pending transfer after GMP result is recorded.
+    /// Anyone can call this - the GMP result PDA proves ack/timeout happened,
+    /// tokens only go to the original sender, and `PendingTransfer` closure prevents double-claim.
+    pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64) -> Result<()> {
+        instructions::claim_refund(ctx, client_id, sequence)
     }
 
     /// Set the access manager program (admin only)
