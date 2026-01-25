@@ -40,6 +40,7 @@ fn test_remove_ift_bridge_success() {
         client_id,
         "0x1234",
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,
@@ -122,6 +123,7 @@ fn test_remove_ift_bridge_unauthorized_fails() {
         client_id,
         "0x1234",
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,
@@ -191,6 +193,7 @@ fn test_remove_ift_bridge_mint_mismatch_fails() {
         client_id,
         "0x1234",
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,

@@ -149,6 +149,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         ctx.accounts.ift_bridge.counterparty_chain_type,
         &ctx.accounts.ift_bridge.counterparty_ift_address,
         &ctx.accounts.ift_bridge.counterparty_denom,
+        &ctx.accounts.ift_bridge.cosmos_type_url,
         &msg.receiver,
         msg.amount,
     )?;
@@ -206,12 +207,14 @@ fn construct_mint_call(
     chain_type: CounterpartyChainType,
     _counterparty_address: &str,
     counterparty_denom: &str,
+    cosmos_type_url: &str,
     receiver: &str,
     amount: u64,
 ) -> Result<Vec<u8>> {
     match chain_type {
         CounterpartyChainType::Evm => construct_evm_mint_call(receiver, amount),
         CounterpartyChainType::Cosmos => Ok(construct_cosmos_mint_call(
+            cosmos_type_url,
             counterparty_denom,
             receiver,
             amount,
@@ -248,11 +251,13 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
-/// Construct protojson-encoded `MsgIFTMint` for Cosmos chains
-fn construct_cosmos_mint_call(denom: &str, receiver: &str, amount: u64) -> Vec<u8> {
-    // Build protojson for Cosmos SDK's MsgIFTMint
+/// Construct protojson-encoded `CosmosTx` with `MsgIFTMint` for Cosmos chains
+fn construct_cosmos_mint_call(type_url: &str, denom: &str, receiver: &str, amount: u64) -> Vec<u8> {
+    // Build protojson CosmosTx wrapper with MsgIFTMint message
+    // The signer field is left empty as the GMP module on the receiving chain handles authorization
+    // TODO: maybe worth having a fallback cosmos ift typeurl...
     let msg = format!(
-        r#"{{"@type":"/cosmos.ift.v1.MsgIFTMint","denom":"{denom}","receiver":"{receiver}","amount":"{amount}"}}"#
+        r#"{{"messages":[{{"@type":"{type_url}","signer":"","denom":"{denom}","receiver":"{receiver}","amount":"{amount}"}}]}}"#
     );
     msg.into_bytes()
 }

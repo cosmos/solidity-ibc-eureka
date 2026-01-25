@@ -42,6 +42,7 @@ fn test_ift_mint_zero_amount_fails() {
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -174,6 +175,7 @@ fn test_ift_mint_receiver_mismatch_fails() {
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -306,6 +308,7 @@ fn test_ift_mint_gmp_not_signer_fails() {
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -438,6 +441,7 @@ fn test_ift_mint_bridge_not_active_fails() {
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         false, // not active
@@ -568,6 +572,7 @@ fn test_ift_mint_invalid_gmp_account_fails() {
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
+        "", // cosmos_type_url not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,

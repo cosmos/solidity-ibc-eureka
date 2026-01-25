@@ -162,8 +162,7 @@ func NewSendPacketInstruction(
 		// Packet commitment account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "app_signer": Read-only, Signer, Required
-		// App signer - PDA signed by the calling IBC app program.
-		// This cryptographically proves the registered app is the immediate CPI caller.
+		// App signer - PDA signed by the calling IBC app program
 		accounts__.Append(solanago.NewAccountMeta(appSignerAccount, false, true))
 		// Account 5 "payer": Writable, Signer, Required
 		// Allow payer to be separate from IBC app
