@@ -23,4 +23,5 @@ var (
 	Instruction_OnAcknowledgementPacket = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
 	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
 	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
 )

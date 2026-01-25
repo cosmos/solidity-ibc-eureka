@@ -551,3 +551,57 @@ func NewSetAccessManagerInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "revoke_mint_authority" instruction.
+// Revoke mint authority from IFT and transfer it to a new authority.
+func NewRevokeMintAuthorityInstruction(
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	mintAccount solanago.PublicKey,
+	mintAuthorityAccount solanago.PublicKey,
+	newMintAuthorityAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+	tokenProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_RevokeMintAuthority[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required (will be closed)
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "mint": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
+		// Account 2 "mint_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
+		// Account 3 "new_mint_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(newMintAuthorityAccount, false, false))
+		// Account 4 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 5 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 6 "payer": Writable, Signer, Required (receives rent from closed app_state)
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+		// Account 8 "token_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

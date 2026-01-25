@@ -981,6 +981,57 @@ func (s *Solana) VerifyMintAuthority(
 	t.Logf("✓ Mint %s has correct authority: %s", mint.String(), expectedAuthority.String())
 }
 
+// VerifyIftAppStateExists verifies that an IFT app state PDA exists
+func (s *Solana) VerifyIftAppStateExists(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+) {
+	t.Helper()
+
+	appStatePDA, _ := Ics27Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "IFT app state PDA should exist")
+	require.NotNil(accountInfo.Value, "IFT app state PDA account should have data")
+	require.True(accountInfo.Value.Lamports > 0, "IFT app state PDA should have lamports")
+
+	t.Logf("✓ IFT app state exists: %s", appStatePDA.String())
+}
+
+// VerifyIftAppStateClosed verifies that an IFT app state PDA has been closed
+func (s *Solana) VerifyIftAppStateClosed(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+) {
+	t.Helper()
+
+	appStatePDA, _ := Ics27Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		t.Logf("✓ IFT app state closed (account not found): %s", appStatePDA.String())
+		return
+	}
+
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		t.Logf("✓ IFT app state closed (account zeroed): %s", appStatePDA.String())
+		return
+	}
+
+	require.Fail("IFT app state should have been closed after revoke",
+		"Account %s still exists with %d lamports", appStatePDA.String(), accountInfo.Value.Lamports)
+}
+
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {
 	t.Helper()
 	commonAccounts := s.CreateIBCAddressLookupTableAccounts(cosmosChainID, gmpPortID, clientID, user.PublicKey())

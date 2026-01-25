@@ -622,6 +622,89 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 	}))
 }
 
+// Test_IFT_RevokeMintAuthority tests that admin can revoke mint authority from IFT
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	var mint solanago.PublicKey
+	var initialMintAuthority solanago.PublicKey
+
+	s.Require().True(s.Run("Create SPL Token Mint", func() {
+		var err error
+		mint, err = s.Solana.Chain.CreateSPLTokenMint(ctx, s.SolanaRelayer, IFTTokenDecimals)
+		s.Require().NoError(err)
+		s.IFTMint = mint
+
+		initialMintAuthority = s.SolanaRelayer.PublicKey()
+		s.Solana.Chain.VerifyMintAuthority(ctx, s.T(), s.Require(), mint, initialMintAuthority)
+	}))
+
+	var iftMintAuthorityPDA solanago.PublicKey
+	s.Require().True(s.Run("Initialize IFT", func() {
+		s.initializeIFT(ctx, mint)
+
+		iftMintAuthorityPDA, _ = solana.Ics27Ift.IftMintAuthorityPDA(ics27_ift.ProgramID, mint[:])
+		s.Solana.Chain.VerifyMintAuthority(ctx, s.T(), s.Require(), mint, iftMintAuthorityPDA)
+		s.T().Logf("IFT initialized - mint authority: %s", iftMintAuthorityPDA)
+	}))
+
+	// Create new wallet to receive mint authority
+	newAuthorityWallet, err := s.Solana.Chain.CreateAndFundWallet()
+	s.Require().NoError(err)
+
+	s.Require().True(s.Run("Verify app state exists before revoke", func() {
+		s.Solana.Chain.VerifyIftAppStateExists(ctx, s.T(), s.Require(), ics27_ift.ProgramID, mint)
+	}))
+
+	s.Require().True(s.Run("Revoke mint authority", func() {
+		accessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		revokeIx, err := ics27_ift.NewRevokeMintAuthorityInstruction(
+			s.IFTAppState,
+			mint,
+			iftMintAuthorityPDA,
+			newAuthorityWallet.PublicKey(),
+			accessManagerPDA,
+			s.SolanaRelayer.PublicKey(), // admin
+			s.SolanaRelayer.PublicKey(), // payer
+			solanago.SysVarInstructionsPubkey,
+			token.ProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), revokeIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Revoke mint authority tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify mint authority transferred", func() {
+		s.Solana.Chain.VerifyMintAuthority(ctx, s.T(), s.Require(), mint, newAuthorityWallet.PublicKey())
+		s.T().Logf("✓ Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
+	}))
+
+	s.Require().True(s.Run("Verify IFT app state closed", func() {
+		s.Solana.Chain.VerifyIftAppStateClosed(ctx, s.T(), s.Require(), ics27_ift.ProgramID, mint)
+	}))
+
+	s.Require().True(s.Run("Verify new authority can mint tokens", func() {
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, newAuthorityWallet, mint, newAuthorityWallet.PublicKey())
+		s.Require().NoError(err)
+
+		err = s.Solana.Chain.MintTokensTo(ctx, newAuthorityWallet, mint, tokenAccount, IFTMintAmount)
+		s.Require().NoError(err)
+
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, tokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(IFTMintAmount, balance)
+		s.T().Logf("✓ New authority minted %d tokens", IFTMintAmount)
+	}))
+}
+
 // Test_IFT_TimeoutRefund tests that tokens are refunded on timeout
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	ctx := context.Background()
