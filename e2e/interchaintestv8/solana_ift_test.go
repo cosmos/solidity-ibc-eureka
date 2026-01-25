@@ -289,7 +289,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
-		receipt := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosSubmitter, 2_000_000, resp.Tx)
+		receipt := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.Cosmos.Users[0], 2_000_000, resp.Tx)
 		cosmosRecvTxHash = receipt.TxHash
 		s.T().Logf("Packet relayed to wfchain: %s", cosmosRecvTxHash)
 	}))
@@ -401,7 +401,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 
-			_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosSubmitter, 2_000_000, resp.Tx)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.Cosmos.Users[0], 2_000_000, resp.Tx)
 		}))
 	}))
 }
@@ -984,7 +984,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		}))
 
 		s.Require().True(s.Run("Submit relay tx to Cosmos", func() {
-			receipt := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosSubmitter, 2_000_000, recvRelayTx)
+			receipt := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.Cosmos.Users[0], 2_000_000, recvRelayTx)
 			s.Require().Equal(uint32(0), receipt.Code, "IBC layer should succeed even if app fails")
 			cosmosRecvTxHash = receipt.TxHash
 		}))
