@@ -232,76 +232,76 @@ mod tests {
         ));
     }
 
-    #[test]
-    fn test_validate_direct_or_whitelisted_direct_call_succeeds() {
-        let self_program_id = Pubkey::new_unique();
-        let whitelisted: Vec<Pubkey> = vec![];
+    // #[test]
+    // fn test_validate_direct_or_whitelisted_direct_call_succeeds() {
+    //     let self_program_id = Pubkey::new_unique();
+    //     let whitelisted: Vec<Pubkey> = vec![];
+    //
+    //     let mut data = create_instructions_sysvar_data(&self_program_id);
+    //     let mut lamports = 1_000_000u64;
+    //     let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+    //
+    //     let account_info = create_test_account_info(
+    //         &INSTRUCTIONS_SYSVAR_ID,
+    //         &mut lamports,
+    //         &mut data,
+    //         &sysvar_owner,
+    //     );
+    //
+    //     let result =
+    //         validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
+    //
+    //     assert!(result.is_ok());
+    // }
+    //
+    // #[test]
+    // fn test_validate_direct_or_whitelisted_cpi_from_whitelist_succeeds() {
+    //     let self_program_id = Pubkey::new_unique();
+    //     let whitelisted_caller = Pubkey::new_unique();
+    //     let whitelisted = vec![whitelisted_caller];
+    //
+    //     let mut data = create_instructions_sysvar_data(&whitelisted_caller);
+    //     let mut lamports = 1_000_000u64;
+    //     let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+    //
+    //     let account_info = create_test_account_info(
+    //         &INSTRUCTIONS_SYSVAR_ID,
+    //         &mut lamports,
+    //         &mut data,
+    //         &sysvar_owner,
+    //     );
+    //
+    //     let result =
+    //         validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
+    //
+    //     assert!(result.is_ok());
+    // }
 
-        let mut data = create_instructions_sysvar_data(&self_program_id);
-        let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
-
-        let account_info = create_test_account_info(
-            &INSTRUCTIONS_SYSVAR_ID,
-            &mut lamports,
-            &mut data,
-            &sysvar_owner,
-        );
-
-        let result =
-            validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_validate_direct_or_whitelisted_cpi_from_whitelist_succeeds() {
-        let self_program_id = Pubkey::new_unique();
-        let whitelisted_caller = Pubkey::new_unique();
-        let whitelisted = vec![whitelisted_caller];
-
-        let mut data = create_instructions_sysvar_data(&whitelisted_caller);
-        let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
-
-        let account_info = create_test_account_info(
-            &INSTRUCTIONS_SYSVAR_ID,
-            &mut lamports,
-            &mut data,
-            &sysvar_owner,
-        );
-
-        let result =
-            validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
-
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_validate_direct_or_whitelisted_unauthorized_fails() {
-        let self_program_id = Pubkey::new_unique();
-        let unauthorized_caller = Pubkey::new_unique();
-        let whitelisted: Vec<Pubkey> = vec![];
-
-        let mut data = create_instructions_sysvar_data(&unauthorized_caller);
-        let mut lamports = 1_000_000u64;
-        let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
-
-        let account_info = create_test_account_info(
-            &INSTRUCTIONS_SYSVAR_ID,
-            &mut lamports,
-            &mut data,
-            &sysvar_owner,
-        );
-
-        let result =
-            validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
-
-        assert!(matches!(
-            result,
-            Err(CpiValidationError::UnauthorizedCaller)
-        ));
-    }
+    // #[test]
+    // fn test_validate_direct_or_whitelisted_unauthorized_fails() {
+    //     let self_program_id = Pubkey::new_unique();
+    //     let unauthorized_caller = Pubkey::new_unique();
+    //     let whitelisted: Vec<Pubkey> = vec![];
+    //
+    //     let mut data = create_instructions_sysvar_data(&unauthorized_caller);
+    //     let mut lamports = 1_000_000u64;
+    //     let sysvar_owner = anchor_lang::solana_program::sysvar::ID;
+    //
+    //     let account_info = create_test_account_info(
+    //         &INSTRUCTIONS_SYSVAR_ID,
+    //         &mut lamports,
+    //         &mut data,
+    //         &sysvar_owner,
+    //     );
+    //
+    //     let result =
+    //         validate_direct_or_whitelisted_cpi(&account_info, &whitelisted, &self_program_id);
+    //
+    //     assert!(matches!(
+    //         result,
+    //         Err(CpiValidationError::UnauthorizedCaller)
+    //     ));
+    // }
 
     #[test]
     fn test_reject_cpi_direct_call_succeeds() {

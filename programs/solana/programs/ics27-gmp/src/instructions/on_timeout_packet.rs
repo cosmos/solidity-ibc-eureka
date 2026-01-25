@@ -83,6 +83,8 @@ pub fn on_timeout_packet(
         result_pda: result.key(),
         timestamp: result.result_timestamp,
     });
+
+    Ok(())
 }
 
 #[cfg(test)]
