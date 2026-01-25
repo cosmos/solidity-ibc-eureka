@@ -308,6 +308,17 @@ func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.P
 	return pda, bump
 }
 
+func (ics27GmpPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("gmp_result"), sourceClient, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.GmpResultWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics27IftPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state"), []byte("gmpport")},
@@ -363,13 +374,13 @@ func (ics27IftPDAs) IftMintAuthorityWithAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
-func (ics27IftPDAs) PendingTransferWithAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+func (ics27IftPDAs) PendingTransferWithArgAndAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("pending_transfer"), mint, clientId, sequence},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Ift.PendingTransferWithAccountSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ics27Ift.PendingTransferWithArgAndAccountSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
