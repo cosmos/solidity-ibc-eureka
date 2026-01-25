@@ -157,28 +157,4 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32;
-
-    #[test]
-    fn test_error_ack_commitment_matches_runtime_computation() {
-        // Verify the precomputed constant matches runtime computation
-        let error_ack = ics26_router::utils::ics24::UNIVERSAL_ERROR_ACK;
-        let computed =
-            packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&error_ack.to_vec()))
-                .expect("single ack is never empty");
-
-        assert_eq!(
-            ERROR_ACK_COMMITMENT, computed,
-            "Precomputed ERROR_ACK_COMMITMENT must match runtime computation"
-        );
-    }
-
-    #[test]
-    fn test_error_ack_commitment_is_valid() {
-        // The commitment should be 32 bytes and not all zeros
-        assert_eq!(ERROR_ACK_COMMITMENT.len(), 32);
-        assert!(ERROR_ACK_COMMITMENT.iter().any(|&b| b != 0));
-    }
-}
+mod tests;

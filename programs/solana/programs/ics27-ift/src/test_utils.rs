@@ -317,3 +317,49 @@ pub fn create_gmp_program_account() -> SolanaAccount {
         rent_epoch: 0,
     }
 }
+
+pub fn get_gmp_result_pda(client_id: &str, sequence: u64, gmp_program: &Pubkey) -> (Pubkey, u8) {
+    use solana_ibc_types::GMPCallResult;
+    Pubkey::find_program_address(
+        &[
+            GMPCallResult::SEED,
+            client_id.as_bytes(),
+            &sequence.to_le_bytes(),
+        ],
+        gmp_program,
+    )
+}
+
+pub fn create_gmp_result_account(
+    sender: Pubkey,
+    sequence: u64,
+    source_client: &str,
+    dest_client: &str,
+    status: solana_ibc_types::CallResultStatus,
+    bump: u8,
+    gmp_program: &Pubkey,
+) -> SolanaAccount {
+    use ics27_gmp::state::{AccountVersion, GMPCallResultAccount};
+
+    let gmp_result = GMPCallResultAccount {
+        version: AccountVersion::V1,
+        sender,
+        sequence,
+        source_client: source_client.to_string(),
+        dest_client: dest_client.to_string(),
+        status,
+        result_timestamp: 1_700_000_000,
+        bump,
+    };
+
+    let mut data = GMPCallResultAccount::DISCRIMINATOR.to_vec();
+    gmp_result.serialize(&mut data).unwrap();
+
+    SolanaAccount {
+        lamports: 1_000_000,
+        data,
+        owner: *gmp_program,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
