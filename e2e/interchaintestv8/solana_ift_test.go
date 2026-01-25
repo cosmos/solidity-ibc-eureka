@@ -82,14 +82,15 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.CosmosSubmitter = s.CreateAndFundCosmosUser(ctx, s.Wfchain)
 }
 
-func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, denom string) string {
+// createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
+func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, subdenom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
 		Sender: s.CosmosSubmitter.FormattedAddress(),
-		Denom:  denom,
+		Denom:  subdenom,
 	}
 	_, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosSubmitter, 200_000, msg)
 	s.Require().NoError(err)
-	return denom
+	return subdenom
 }
 
 func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr string) {
@@ -115,7 +116,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) getCosmosIFTModuleAddress() string {
 }
 
 // registerIFTBridge registers an IFT bridge for the Cosmos counterparty
-func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, clientID string, counterpartyAddress string) {
+func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, clientID, counterpartyAddress, counterpartyDenom string) {
 	s.Require().True(s.Run("Register IFT Bridge", func() {
 		bridgePDA, _ := solana.Ics27Ift.IftBridgePDA(ics27_ift.ProgramID, s.IFTMint[:], []byte(clientID))
 		s.IFTBridge = bridgePDA
@@ -125,6 +126,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 		registerMsg := ics27_ift.Ics27IftStateRegisterIftBridgeMsg{
 			ClientId:               clientID,
 			CounterpartyIftAddress: counterpartyAddress,
+			CounterpartyDenom:      counterpartyDenom,
 			CounterpartyChainType:  ics27_ift.Ics27IftStateCounterpartyChainType_Cosmos,
 		}
 
@@ -149,6 +151,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 		s.T().Logf("IFT Bridge registered for client %s", clientID)
 		s.T().Logf("  Bridge PDA: %s", bridgePDA)
 		s.T().Logf("  Counterparty: %s (Cosmos)", counterpartyAddress)
+		s.T().Logf("  Counterparty Denom: %s", counterpartyDenom)
 	}))
 }
 
@@ -188,12 +191,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	s.initializeICS27GMP(ctx)
 
 	cosmosUser := s.Cosmos.Users[0]
-	iftModuleAddr := s.getCosmosIFTModuleAddress()
 
 	// Setup wfchain IFT (tokenfactory denom + bridge registration)
 	var cosmosDenom string
 	s.Require().True(s.Run("Setup wfchain IFT", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
+		s.T().Logf("Created tokenfactory denom: %s", cosmosDenom)
+
+		// IFT module gets mint permission when bridge is registered
 		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String())
 		s.T().Logf("wfchain IFT bridge registered: denom=%s, counterparty=%s", cosmosDenom, ics27_ift.ProgramID)
 	}))
@@ -218,7 +223,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	}))
 
 	s.initializeIFT(ctx, s.IFTMint)
-	s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr)
+	iftModuleAddr := s.getCosmosIFTModuleAddress()
+	s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 
 	initialBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
@@ -421,7 +427,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 	s.initializeIFT(ctx, s.IFTMint)
 
 	cosmosUser := s.Cosmos.Users[0]
-	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
+	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
 
 	var receiverTokenAccount solanago.PublicKey
 	receiverPubkey := s.SolanaRelayer.PublicKey()
@@ -604,7 +610,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 	var bridgePDA solanago.PublicKey
 	cosmosCounterpartyAddress := "cosmos1test123456789" // Mock counterparty
 	s.Require().True(s.Run("Register IFT Bridge", func() {
-		s.registerIFTBridge(ctx, SolanaClientID, cosmosCounterpartyAddress)
+		s.registerIFTBridge(ctx, SolanaClientID, cosmosCounterpartyAddress, testvalues.IFTTestDenom)
 		bridgePDA = s.IFTBridge
 		s.T().Logf("IFT Bridge registered: %s", bridgePDA.String())
 	}))
@@ -727,7 +733,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 	s.initializeIFT(ctx, s.IFTMint)
 	cosmosUser := s.Cosmos.Users[0]
-	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
+	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
 
 	initialBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)
@@ -883,7 +889,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	s.initializeIFT(ctx, s.IFTMint)
 
 	cosmosUser := s.Cosmos.Users[0]
-	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress())
+	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
 
 	initialBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
 	s.Require().NoError(err)

@@ -148,6 +148,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let mint_call_payload = construct_mint_call(
         ctx.accounts.ift_bridge.counterparty_chain_type,
         &ctx.accounts.ift_bridge.counterparty_ift_address,
+        &ctx.accounts.ift_bridge.counterparty_denom,
         &msg.receiver,
         msg.amount,
     )?;
@@ -203,14 +204,15 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
 fn construct_mint_call(
     chain_type: CounterpartyChainType,
-    counterparty_address: &str,
+    _counterparty_address: &str,
+    counterparty_denom: &str,
     receiver: &str,
     amount: u64,
 ) -> Result<Vec<u8>> {
     match chain_type {
         CounterpartyChainType::Evm => construct_evm_mint_call(receiver, amount),
         CounterpartyChainType::Cosmos => Ok(construct_cosmos_mint_call(
-            counterparty_address,
+            counterparty_denom,
             receiver,
             amount,
         )),

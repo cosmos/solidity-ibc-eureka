@@ -41,6 +41,7 @@ fn test_ift_mint_zero_amount_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -172,6 +173,7 @@ fn test_ift_mint_receiver_mismatch_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -303,6 +305,7 @@ fn test_ift_mint_gmp_not_signer_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -434,6 +437,7 @@ fn test_ift_mint_bridge_not_active_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         false, // not active
@@ -563,6 +567,7 @@ fn test_ift_mint_invalid_gmp_account_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,

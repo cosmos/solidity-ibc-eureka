@@ -54,6 +54,12 @@ pub enum IFTError {
     #[msg("Invalid counterparty address length")]
     InvalidCounterpartyAddressLength,
 
+    #[msg("Counterparty denom cannot be empty for Cosmos chains")]
+    CosmosEmptyCounterpartyDenom,
+
+    #[msg("Invalid counterparty denom length")]
+    InvalidCounterpartyDenomLength,
+
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
 

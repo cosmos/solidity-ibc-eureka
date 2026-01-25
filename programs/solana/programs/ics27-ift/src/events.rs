@@ -26,6 +26,8 @@ pub struct IFTBridgeRegistered {
     pub client_id: String,
     /// Counterparty IFT contract address
     pub counterparty_ift_address: String,
+    /// Token denom on counterparty chain
+    pub counterparty_denom: String,
     /// Counterparty chain type
     pub counterparty_chain_type: CounterpartyChainType,
     /// Registration timestamp

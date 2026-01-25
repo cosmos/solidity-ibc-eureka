@@ -371,15 +371,17 @@ func NewIftMintInstruction(
 	), nil
 }
 
-// Builds a "on_acknowledgement_packet" instruction.
-// Handle acknowledgement packet (called by router via CPI)
-func NewOnAcknowledgementPacketInstruction(
+// Builds a "claim_refund" instruction.
+// Claim refund for a pending transfer after GMP result is recorded and proved ack/timeout.
+func NewClaimRefundInstruction(
 	// Params:
-	msgParam SolanaIbcTypesAppMsgsOnAcknowledgementPacketMsg,
+	clientIdParam string,
+	sequenceParam uint64,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	pendingTransferAccount solanago.PublicKey,
+	gmpResultAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
 	senderTokenAccountAccount solanago.PublicKey,
@@ -391,105 +393,51 @@ func NewOnAcknowledgementPacketInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnAcknowledgementPacket[:], false)
+	err := enc__.WriteBytes(Instruction_ClaimRefund[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
+		// Serialize `clientIdParam`:
+		err = enc__.Encode(clientIdParam)
 		if err != nil {
-			return nil, errors.NewField("msgParam", err)
+			return nil, errors.NewField("clientIdParam", err)
+		}
+		// Serialize `sequenceParam`:
+		err = enc__.Encode(sequenceParam)
+		if err != nil {
+			return nil, errors.NewField("sequenceParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 0 "app_state": Read-only, Non-signer, Required
+		// IFT app state
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "pending_transfer": Writable, Non-signer, Required
 		// Pending transfer to process
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
-		// Account 2 "mint": Writable, Non-signer, Required
-		// SPL Token mint (for refunds on failure)
-		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
-		// Account 3 "mint_authority": Read-only, Non-signer, Required
-		// Mint authority PDA (for refunds)
-		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 4 "sender_token_account": Writable, Non-signer, Required
-		// Original sender's token account (for refunds)
-		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
-		// Account 5 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
-		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 7 "system_program": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-	}
-
-	// Create the instruction.
-	return solanago.NewInstruction(
-		ProgramID,
-		accounts__,
-		buf__.Bytes(),
-	), nil
-}
-
-// Builds a "on_timeout_packet" instruction.
-// Handle timeout packet (called by router via CPI)
-func NewOnTimeoutPacketInstruction(
-	// Params:
-	msgParam SolanaIbcTypesAppMsgsOnTimeoutPacketMsg,
-
-	// Accounts:
-	appStateAccount solanago.PublicKey,
-	pendingTransferAccount solanago.PublicKey,
-	mintAccount solanago.PublicKey,
-	mintAuthorityAccount solanago.PublicKey,
-	senderTokenAccountAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
-	tokenProgramAccount solanago.PublicKey,
-	systemProgramAccount solanago.PublicKey,
-) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_OnTimeoutPacket[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
-	{
-		// Serialize `msgParam`:
-		err = enc__.Encode(msgParam)
-		if err != nil {
-			return nil, errors.NewField("msgParam", err)
-		}
-	}
-	accounts__ := solanago.AccountMetaSlice{}
-
-	// Add the accounts to the instruction.
-	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "pending_transfer": Writable, Non-signer, Required
-		// Pending transfer to refund
-		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
-		// Account 2 "mint": Writable, Non-signer, Required
+		// Account 2 "gmp_result": Read-only, Non-signer, Required
+		// GMP result account - proves the ack/timeout happened
+		// This is a cross-program account owned by the GMP program
+		accounts__.Append(solanago.NewAccountMeta(gmpResultAccount, false, false))
+		// Account 3 "mint": Writable, Non-signer, Required
 		// SPL Token mint
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
-		// Account 3 "mint_authority": Read-only, Non-signer, Required
+		// Account 4 "mint_authority": Read-only, Non-signer, Required
 		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 4 "sender_token_account": Writable, Non-signer, Required
-		// Original sender's token account
+		// Account 5 "sender_token_account": Writable, Non-signer, Required
+		// Original sender's token account (for refunds)
 		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
-		// Account 5 "payer": Writable, Signer, Required
+		// Account 6 "payer": Writable, Signer, Required
+		// Payer receives rent from closed `PendingTransfer` account
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 7 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 7 "system_program": Read-only, Non-signer, Required
+		// Account 8 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -555,7 +503,6 @@ func NewSetAccessManagerInstruction(
 // Builds a "revoke_mint_authority" instruction.
 // Revoke mint authority from IFT and transfer it to a new authority.
 func NewRevokeMintAuthorityInstruction(
-	// Accounts:
 	appStateAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
@@ -566,35 +513,34 @@ func NewRevokeMintAuthorityInstruction(
 	instructionsSysvarAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_RevokeMintAuthority[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Writable, Non-signer, Required (will be closed)
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// IFT app state (will be closed)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "mint": Writable, Non-signer, Required
+		// SPL Token mint - authority will be transferred
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
 		// Account 2 "mint_authority": Read-only, Non-signer, Required
+		// Current mint authority PDA (IFT's)
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
 		// Account 3 "new_mint_authority": Read-only, Non-signer, Required
+		// New mint authority to receive ownership
 		accounts__.Append(solanago.NewAccountMeta(newMintAuthorityAccount, false, false))
 		// Account 4 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 5 "admin": Read-only, Signer, Required
+		// Admin signer (must have ADMIN_ROLE)
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
-		// Account 6 "payer": Writable, Signer, Required (receives rent from closed app_state)
+		// Account 6 "payer": Writable, Signer, Required
+		// Payer receives rent from closed app_state
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required
+		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for access manager verification
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-		// Account 8 "token_program": Read-only, Non-signer, Required
+		// Account 8 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 	}
 
@@ -602,6 +548,6 @@ func NewRevokeMintAuthorityInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }

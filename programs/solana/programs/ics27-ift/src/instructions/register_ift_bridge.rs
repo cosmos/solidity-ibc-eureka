@@ -3,7 +3,9 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTBridgeRegistered;
-use crate::state::{AccountVersion, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
+use crate::state::{
+    AccountVersion, CounterpartyChainType, IFTAppState, IFTBridge, RegisterIFTBridgeMsg,
+};
 
 #[derive(Accounts)]
 #[instruction(msg: RegisterIFTBridgeMsg)]
@@ -73,6 +75,17 @@ pub fn register_ift_bridge(
         IFTError::InvalidCounterpartyAddressLength
     );
 
+    if msg.counterparty_chain_type == CounterpartyChainType::Cosmos {
+        require!(
+            !msg.counterparty_denom.is_empty(),
+            IFTError::CosmosEmptyCounterpartyDenom
+        );
+    }
+    require!(
+        msg.counterparty_denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+        IFTError::InvalidCounterpartyDenomLength
+    );
+
     let bridge = &mut ctx.accounts.ift_bridge;
     bridge.version = AccountVersion::V1;
     bridge.bump = ctx.bumps.ift_bridge;
@@ -81,6 +94,9 @@ pub fn register_ift_bridge(
     bridge
         .counterparty_ift_address
         .clone_from(&msg.counterparty_ift_address);
+    bridge
+        .counterparty_denom
+        .clone_from(&msg.counterparty_denom);
     bridge.counterparty_chain_type = msg.counterparty_chain_type;
     bridge.active = true;
 
@@ -89,6 +105,7 @@ pub fn register_ift_bridge(
         mint: ctx.accounts.app_state.mint,
         client_id: msg.client_id,
         counterparty_ift_address: msg.counterparty_ift_address,
+        counterparty_denom: msg.counterparty_denom,
         counterparty_chain_type: msg.counterparty_chain_type,
         timestamp: clock.unix_timestamp,
     });

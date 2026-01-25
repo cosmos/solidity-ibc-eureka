@@ -39,6 +39,7 @@ fn test_remove_ift_bridge_success() {
         mint,
         client_id,
         "0x1234",
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,
@@ -120,6 +121,7 @@ fn test_remove_ift_bridge_unauthorized_fails() {
         mint,
         client_id,
         "0x1234",
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,
@@ -188,6 +190,7 @@ fn test_remove_ift_bridge_mint_mismatch_fails() {
         wrong_mint, // Mismatched mint
         client_id,
         "0x1234",
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         bridge_bump,
         true,

@@ -65,7 +65,6 @@ impl IFTAppState {
 }
 
 /// IFT Bridge configuration for a counterparty chain
-/// PDA Seeds: [`IFT_BRIDGE_SEED`, `mint.as_ref()`, `client_id.as_bytes()`]
 #[account]
 #[derive(InitSpace)]
 pub struct IFTBridge {
@@ -83,6 +82,11 @@ pub struct IFTBridge {
     #[max_len(128)]
     pub counterparty_ift_address: String,
 
+    /// Token denom on counterparty chain (Cosmos SDK max: 128 chars)
+    /// For EVM chains, this can be empty as the address is used directly
+    #[max_len(128)]
+    pub counterparty_denom: String,
+
     /// Counterparty chain type (for call constructor logic)
     pub counterparty_chain_type: CounterpartyChainType,
 
@@ -93,7 +97,6 @@ pub struct IFTBridge {
 }
 
 impl IFTBridge {
-    /// Get PDA seeds for bridge
     pub fn seeds(mint: &Pubkey, client_id: &str) -> Vec<Vec<u8>> {
         vec![
             IFT_BRIDGE_SEED.to_vec(),
@@ -104,7 +107,6 @@ impl IFTBridge {
 }
 
 /// Pending transfer tracking for ack/timeout handling
-/// PDA Seeds: [`PENDING_TRANSFER_SEED`, `mint.as_ref()`, `client_id.as_bytes()`, `sequence.to_le_bytes()`]
 #[account]
 #[derive(InitSpace)]
 pub struct PendingTransfer {
@@ -134,7 +136,6 @@ pub struct PendingTransfer {
 }
 
 impl PendingTransfer {
-    /// Get PDA seeds for pending transfer
     pub fn seeds(mint: &Pubkey, client_id: &str, sequence: u64) -> Vec<Vec<u8>> {
         vec![
             PENDING_TRANSFER_SEED.to_vec(),
@@ -152,6 +153,8 @@ pub struct RegisterIFTBridgeMsg {
     pub client_id: String,
     /// Counterparty IFT contract address
     pub counterparty_ift_address: String,
+    /// Token denom on counterparty chain (required for Cosmos, optional for EVM)
+    pub counterparty_denom: String,
     /// Counterparty chain type
     pub counterparty_chain_type: CounterpartyChainType,
 }

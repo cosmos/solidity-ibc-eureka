@@ -5,23 +5,32 @@ package ics27_ift
 
 // Account discriminators
 var (
-	Account_Ics27IftStateIftAppState     = [8]byte{108, 253, 111, 191, 49, 100, 45, 183}
-	Account_Ics27IftStateIftBridge       = [8]byte{161, 157, 28, 24, 241, 204, 4, 61}
-	Account_Ics27IftStatePendingTransfer = [8]byte{136, 107, 78, 115, 95, 81, 142, 155}
+	Account_Ics27GmpStateGmpCallResultAccount = [8]byte{236, 115, 234, 143, 137, 175, 113, 32}
+	Account_Ics27IftStateIftAppState          = [8]byte{108, 253, 111, 191, 49, 100, 45, 183}
+	Account_Ics27IftStateIftBridge            = [8]byte{161, 157, 28, 24, 241, 204, 4, 61}
+	Account_Ics27IftStatePendingTransfer      = [8]byte{136, 107, 78, 115, 95, 81, 142, 155}
 )
 
 // Event discriminators
-var ()
+var (
+	Event_Ics27IftEventsIftAppInitialized    = [8]byte{120, 205, 79, 155, 124, 190, 160, 201}
+	Event_Ics27IftEventsIftBridgeRegistered  = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
+	Event_Ics27IftEventsIftBridgeRemoved     = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
+	Event_Ics27IftEventsIftMintReceived      = [8]byte{231, 237, 212, 47, 70, 180, 189, 161}
+	Event_Ics27IftEventsIftTransferCompleted = [8]byte{108, 70, 78, 147, 62, 29, 217, 203}
+	Event_Ics27IftEventsIftTransferInitiated = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
+	Event_Ics27IftEventsIftTransferRefunded  = [8]byte{108, 165, 124, 162, 135, 70, 80, 210}
+	Event_Ics27IftEventsMintAuthorityRevoked = [8]byte{2, 222, 125, 58, 108, 126, 254, 121}
+)
 
 // Instruction discriminators
 var (
-	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_RegisterIftBridge       = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
-	Instruction_RemoveIftBridge         = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
-	Instruction_IftTransfer             = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
-	Instruction_IftMint                 = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
-	Instruction_OnAcknowledgementPacket = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
-	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
-	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
-	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
+	Instruction_Initialize          = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_RegisterIftBridge   = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
+	Instruction_RemoveIftBridge     = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
+	Instruction_IftTransfer         = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
+	Instruction_IftMint             = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
+	Instruction_ClaimRefund         = [8]byte{15, 16, 30, 161, 255, 228, 97, 60}
+	Instruction_SetAccessManager    = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_RevokeMintAuthority = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
 )

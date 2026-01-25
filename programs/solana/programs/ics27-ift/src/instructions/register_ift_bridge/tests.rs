@@ -48,6 +48,7 @@ fn test_register_ift_bridge_success() {
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
         counterparty_ift_address: counterparty_address.to_string(),
+        counterparty_denom: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -132,6 +133,7 @@ fn test_register_ift_bridge_empty_client_id_fails() {
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
         counterparty_ift_address: "0x1234".to_string(),
+        counterparty_denom: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -202,6 +204,7 @@ fn test_register_ift_bridge_empty_counterparty_fails() {
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
         counterparty_ift_address: String::new(), // Empty!
+        counterparty_denom: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -273,6 +276,7 @@ fn test_register_ift_bridge_unauthorized_fails() {
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
         counterparty_ift_address: "0x1234".to_string(),
+        counterparty_denom: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -346,6 +350,7 @@ fn test_register_ift_bridge_client_id_too_long_fails() {
     let msg = RegisterIFTBridgeMsg {
         client_id: long_client_id,
         counterparty_ift_address: "0x1234".to_string(),
+        counterparty_denom: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -418,6 +423,7 @@ fn test_register_ift_bridge_counterparty_too_long_fails() {
     let msg = RegisterIFTBridgeMsg {
         client_id: client_id.to_string(),
         counterparty_ift_address: counterparty_address,
+        counterparty_denom: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 

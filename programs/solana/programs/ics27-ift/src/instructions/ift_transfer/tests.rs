@@ -106,6 +106,7 @@ fn test_construct_mint_call_evm() {
     let result = construct_mint_call(
         CounterpartyChainType::Evm,
         "ignored",
+        "", // denom not used for EVM
         "0x1234567890abcdef1234567890abcdef12345678",
         100,
     );
@@ -117,13 +118,15 @@ fn test_construct_mint_call_evm() {
 fn test_construct_mint_call_cosmos() {
     let result = construct_mint_call(
         CounterpartyChainType::Cosmos,
-        "uatom",
+        "cosmos1iftmodule", // counterparty_ift_address (not used in payload)
+        "uatom",            // counterparty_denom (used as denom in MsgIFTMint)
         "cosmos1receiver",
         100,
     );
     assert!(result.is_ok());
     let json = String::from_utf8(result.unwrap()).unwrap();
     assert!(json.contains("MsgIFTMint"));
+    assert!(json.contains("uatom")); // Verify denom is in payload
 }
 
 #[test]
@@ -132,6 +135,7 @@ fn test_construct_mint_call_solana() {
     let result = construct_mint_call(
         CounterpartyChainType::Solana,
         "ignored",
+        "", // denom not used for Solana
         "11111111111111111111111111111111",
         100,
     );
@@ -214,6 +218,7 @@ fn build_ift_transfer_test_setup(
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         bridge_active,
@@ -351,6 +356,7 @@ fn test_ift_transfer_zero_amount_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -471,6 +477,7 @@ fn test_ift_transfer_empty_receiver_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -591,6 +598,7 @@ fn test_ift_transfer_sender_not_signer_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -712,6 +720,7 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -833,6 +842,7 @@ fn test_ift_transfer_wrong_token_mint_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -953,6 +963,7 @@ fn test_ift_transfer_timeout_in_past_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -1074,6 +1085,7 @@ fn test_ift_transfer_timeout_too_long_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -1195,6 +1207,7 @@ fn test_ift_transfer_receiver_too_long_fails() {
         mint,
         TEST_CLIENT_ID,
         TEST_COUNTERPARTY_ADDRESS,
+        "", // denom not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,

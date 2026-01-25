@@ -1,5 +1,4 @@
-{ pkgs }:
-
+{pkgs}:
 pkgs.buildGoModule rec {
   pname = "anchor-go";
   version = "1.0.0";
@@ -13,6 +12,10 @@ pkgs.buildGoModule rec {
 
   vendorHash = "sha256-C8Ne0aHe3GW130tasJ7+x4eq8Yp2zo2GK0AbWEi93dE=";
 
+  patches = [
+    ./anchor-go-fix-complex-enum.patch
+  ];
+
   # optionally you can enable tests if needed
   doCheck = false;
 
@@ -20,6 +23,6 @@ pkgs.buildGoModule rec {
     description = "Golang Anchor client";
     homepage = "https://github.com/gagliardetto/anchor-go";
     license = licenses.mit;
-    maintainers = with maintainers; [ ];
+    maintainers = with maintainers; [];
   };
 }
