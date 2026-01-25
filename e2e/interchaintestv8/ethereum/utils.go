@@ -33,6 +33,27 @@ type DeployedContracts struct {
 	Ics20Transfer string `json:"ics20Transfer"`
 	Ics27Gmp      string `json:"ics27Gmp"`
 	Erc20         string `json:"erc20"`
+	// IFT contract (optional)
+	Ift string `json:"ift,omitempty"`
+	// CosmosIFTSendCallConstructor (optional, deployed when IFT_ICA_ADDRESS is set)
+	CosmosIftConstructor string `json:"cosmosIftConstructor,omitempty"`
+}
+
+// GetVerifierAddress returns the appropriate verifier address based on prover type and proof type.
+// proofType should be "groth16" or "plonk".
+func (c DeployedContracts) GetVerifierAddress(prover string, proofType string) (string, error) {
+	if prover == testvalues.EnvValueSp1Prover_Mock {
+		return c.VerifierMock, nil
+	}
+
+	switch proofType {
+	case testvalues.EnvValueProofType_Groth16:
+		return c.VerifierGroth16, nil
+	case testvalues.EnvValueProofType_Plonk:
+		return c.VerifierPlonk, nil
+	default:
+		return "", fmt.Errorf("invalid proof type: %s", proofType)
+	}
 }
 
 func GetEthContractsFromDeployOutput(stdout string) (DeployedContracts, error) {
