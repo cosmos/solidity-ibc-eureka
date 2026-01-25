@@ -57,7 +57,7 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
 
         vm.startPrank(timelockedAdmin);
         // Grant basic roles
-        accessManagerSetTargetRoles(accessManager, address(ics26Proxy), address(ics20Proxy), false);
+        accessManagerSetTargetRoles(accessManager, address(ics26Proxy), address(ics20Proxy), address(0), false);
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
 
         // Upgrade all the contracts (ics20 must be upgraded first)

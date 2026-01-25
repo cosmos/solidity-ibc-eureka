@@ -5,4 +5,4 @@ package mock_light_client
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("ByQXJnBRtXTH9jQydzWXLCcN8FU6iX5tWEpUB3pVQcP7")
+var ProgramID = solanago.MustPublicKeyFromBase58("CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ")
