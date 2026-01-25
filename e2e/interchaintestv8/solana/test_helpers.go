@@ -83,6 +83,9 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	// Process all packets in parallel
 	packetResults := make(chan packetResult, len(batch.Packets))
 
+	// Track IFT claim_refund goroutines so we can wait for them before returning
+	var claimRefundWg sync.WaitGroup
+
 	for packetIdx, packet := range batch.Packets {
 		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
 			packetStart := time.Now()
@@ -433,10 +436,13 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				}(pktIdx, pkt.CleanupTx)
 			}
 
-			// Phase 4: Submit IFT claim_refund transaction (async, after final_tx confirmed)
+			// Phase 4: Submit IFT claim_refund transaction (tracked, waits before function returns)
 			// This processes refunds for IFT transfers on ack/timeout
 			if len(pkt.IftClaimRefundTx) > 0 {
+				claimRefundWg.Add(1)
 				go func(pktIdx int, claimRefundTxBytes []byte) {
+					defer claimRefundWg.Done()
+
 					claimRefundTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(claimRefundTxBytes))
 					if err != nil {
 						t.Logf("⚠ Packet %d: Failed to decode IFT claim_refund tx: %v", pktIdx+1, err)
@@ -477,6 +483,10 @@ func (s *Solana) SubmitChunkedRelayPackets(
 		totalFinalsDuration += result.finalDuration
 	}
 	close(packetResults)
+
+	// Wait for all IFT claim_refund transactions to complete before returning
+	// This ensures tests can verify PendingTransfer PDA closure after relay completes
+	claimRefundWg.Wait()
 
 	totalDuration := time.Since(totalStart)
 	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
@@ -873,6 +883,102 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 
 	require.Fail("Packet commitment should have been deleted after acknowledgment",
 		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
+}
+
+// VerifyPendingTransferExists verifies that an IFT PendingTransfer PDA exists (was created during transfer)
+func (s *Solana) VerifyPendingTransferExists(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+	clientID string,
+	sequence uint64,
+) {
+	t.Helper()
+
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+
+	pendingTransferPDA, _ := Ics27Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "PendingTransfer PDA should exist")
+	require.NotNil(accountInfo.Value, "PendingTransfer PDA account should have data")
+	require.True(accountInfo.Value.Lamports > 0, "PendingTransfer PDA should have lamports")
+
+	t.Logf("✓ PendingTransfer PDA exists: %s (mint: %s, client: %s, sequence: %d)",
+		pendingTransferPDA.String(), mint.String(), clientID, sequence)
+}
+
+// VerifyPendingTransferClosed verifies that an IFT PendingTransfer PDA has been closed after claim_refund
+func (s *Solana) VerifyPendingTransferClosed(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+	clientID string,
+	sequence uint64,
+) {
+	t.Helper()
+
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+
+	pendingTransferPDA, _ := Ics27Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		t.Logf("✓ PendingTransfer PDA closed (account not found) for mint %s, client %s, sequence %d",
+			mint.String(), clientID, sequence)
+		return
+	}
+
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		t.Logf("✓ PendingTransfer PDA closed (account zeroed) for mint %s, client %s, sequence %d",
+			mint.String(), clientID, sequence)
+		return
+	}
+
+	require.Fail("PendingTransfer PDA should have been closed after claim_refund",
+		"Account %s still exists with %d lamports (mint: %s, client: %s, sequence: %d)",
+		pendingTransferPDA.String(), accountInfo.Value.Lamports, mint.String(), clientID, sequence)
+}
+
+// VerifyMintAuthority verifies that a token mint has the expected mint authority
+func (s *Solana) VerifyMintAuthority(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	mint solana.PublicKey,
+	expectedAuthority solana.PublicKey,
+) {
+	t.Helper()
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, mint, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "Failed to get mint account info")
+	require.NotNil(accountInfo.Value, "Mint account not found")
+
+	// Parse mint account data (SPL Token mint layout)
+	// Layout: 4 bytes COption (0=None, 1=Some) + 32 bytes authority if Some
+	data := accountInfo.Value.Data.GetBinary()
+	require.True(len(data) >= 36, "Mint account data too short")
+
+	hasAuthority := binary.LittleEndian.Uint32(data[0:4]) == 1
+	require.True(hasAuthority, "Mint has no authority set")
+
+	actualAuthority := solana.PublicKeyFromBytes(data[4:36])
+	require.Equal(expectedAuthority, actualAuthority,
+		"Mint authority mismatch: expected %s, got %s", expectedAuthority.String(), actualAuthority.String())
+
+	t.Logf("✓ Mint %s has correct authority: %s", mint.String(), expectedAuthority.String())
 }
 
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {
