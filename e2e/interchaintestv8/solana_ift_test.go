@@ -21,7 +21,6 @@ import (
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
 
 	interchaintest "github.com/cosmos/interchaintest/v10"
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
@@ -195,7 +194,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	var cosmosDenom string
 	s.Require().True(s.Run("Setup wfchain IFT", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, ibctesting.FirstClientID, ics27_ift.ProgramID.String())
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String())
 		s.T().Logf("wfchain IFT bridge registered: denom=%s, counterparty=%s", cosmosDenom, ics27_ift.ProgramID)
 	}))
 
@@ -348,7 +347,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 			resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
 				Signer:           cosmosUser.FormattedAddress(),
 				Denom:            cosmosDenom,
-				ClientId:         ibctesting.FirstClientID,
+				ClientId:         testvalues.FirstWasmClientID,
 				Receiver:         receiverPubkey.String(),
 				Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 				TimeoutTimestamp: timeout,
