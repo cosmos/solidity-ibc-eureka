@@ -288,8 +288,6 @@ pub fn deserialize_bridge(account: &SolanaAccount) -> IFTBridge {
         .expect("Failed to deserialize IFTBridge")
 }
 
-/// Get the expected GMP account PDA for IFT validation
-/// Seeds: `["gmp_account", sha256(Borsh(AccountIdentifier))]`
 pub fn get_gmp_account_pda(
     client_id: &str,
     counterparty_address: &str,
