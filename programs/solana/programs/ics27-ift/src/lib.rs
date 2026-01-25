@@ -55,9 +55,7 @@ pub mod ics27_ift {
         instructions::ift_mint(ctx, msg)
     }
 
-    /// Claim refund for a pending transfer after GMP result is recorded.
-    /// Anyone can call this - the GMP result PDA proves ack/timeout happened,
-    /// tokens only go to the original sender, and `PendingTransfer` closure prevents double-claim.
+    /// Claim refund for a pending transfer after GMP result is recorded and proved ack/timeout.
     pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64) -> Result<()> {
         instructions::claim_refund(ctx, client_id, sequence)
     }
