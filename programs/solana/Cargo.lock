@@ -2126,6 +2126,7 @@ dependencies = [
  "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
+ "test-case",
 ]
 
 [[package]]
