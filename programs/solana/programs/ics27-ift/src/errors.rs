@@ -66,6 +66,12 @@ pub enum IFTError {
     #[msg("Invalid Cosmos type URL length")]
     InvalidCosmosTypeUrlLength,
 
+    #[msg("Cosmos ICA address cannot be empty for Cosmos chains")]
+    CosmosEmptyIcaAddress,
+
+    #[msg("Invalid Cosmos ICA address length")]
+    InvalidCosmosIcaAddressLength,
+
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
 

@@ -30,6 +30,8 @@ pub struct IFTBridgeRegistered {
     pub counterparty_denom: String,
     /// Protobuf type URL for Cosmos MsgIFTMint
     pub cosmos_type_url: String,
+    /// ICS27-GMP interchain account address on Cosmos (signer for MsgIFTMint)
+    pub cosmos_ica_address: String,
     /// Counterparty chain type
     pub counterparty_chain_type: CounterpartyChainType,
     /// Registration timestamp

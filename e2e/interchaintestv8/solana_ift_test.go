@@ -32,6 +32,7 @@ import (
 	ics27_ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27ift"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
@@ -123,10 +124,25 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 
 		accessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
+		// Query the ICA address on Cosmos for the sender (SolanaRelayer)
+		// The ICA address is derived from (clientId, sender, salt) on the Cosmos GMP module
+		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
+		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, s.Wfchain, &gmptypes.QueryAccountAddressRequest{
+			ClientId: CosmosClientID, // The wasm client on Cosmos (dest client)
+			Sender:   solanaUserAddress,
+			Salt:     "",
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(res.AccountAddress)
+		cosmosIcaAddress := res.AccountAddress
+		s.T().Logf("Computed Cosmos ICA address: %s (for sender: %s)", cosmosIcaAddress, solanaUserAddress)
+
 		registerMsg := ics27_ift.Ics27IftStateRegisterIftBridgeMsg{
 			ClientId:               clientID,
 			CounterpartyIftAddress: counterpartyAddress,
 			CounterpartyDenom:      counterpartyDenom,
+			CosmosTypeUrl:          "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+			CosmosIcaAddress:       cosmosIcaAddress,
 			CounterpartyChainType:  ics27_ift.Ics27IftStateCounterpartyChainType_Cosmos,
 		}
 
@@ -152,6 +168,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 		s.T().Logf("  Bridge PDA: %s", bridgePDA)
 		s.T().Logf("  Counterparty: %s (Cosmos)", counterpartyAddress)
 		s.T().Logf("  Counterparty Denom: %s", counterpartyDenom)
+		s.T().Logf("  Cosmos ICA Address: %s", cosmosIcaAddress)
 	}))
 }
 

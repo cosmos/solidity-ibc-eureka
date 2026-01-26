@@ -300,6 +300,9 @@ type Ics27IftEventsIftBridgeRegistered struct {
 	// Protobuf type URL for Cosmos MsgIFTMint
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
+	// ICS27-GMP interchain account address on Cosmos (signer for MsgIFTMint)
+	CosmosIcaAddress string `json:"cosmosIcaAddress"`
+
 	// Counterparty chain type
 	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
 
@@ -332,6 +335,11 @@ func (obj Ics27IftEventsIftBridgeRegistered) MarshalWithEncoder(encoder *binary.
 	err = encoder.Encode(obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Serialize `CosmosIcaAddress`:
+	err = encoder.Encode(obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Serialize `CounterpartyChainType`:
 	err = encoder.Encode(obj.CounterpartyChainType)
@@ -381,6 +389,11 @@ func (obj *Ics27IftEventsIftBridgeRegistered) UnmarshalWithDecoder(decoder *bina
 	err = decoder.Decode(&obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Deserialize `CosmosIcaAddress`:
+	err = decoder.Decode(&obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Deserialize `CounterpartyChainType`:
 	err = decoder.Decode(&obj.CounterpartyChainType)
@@ -1260,6 +1273,10 @@ type Ics27IftStateIftBridge struct {
 	// For non-Cosmos chains, this can be empty
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
+	// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+	// Required for Cosmos chains, empty for EVM/Solana
+	CosmosIcaAddress string `json:"cosmosIcaAddress"`
+
 	// Counterparty chain type (for call constructor logic)
 	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
 
@@ -1303,6 +1320,11 @@ func (obj Ics27IftStateIftBridge) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Serialize `CosmosIcaAddress`:
+	err = encoder.Encode(obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Serialize `CounterpartyChainType`:
 	err = encoder.Encode(obj.CounterpartyChainType)
@@ -1367,6 +1389,11 @@ func (obj *Ics27IftStateIftBridge) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Deserialize `CosmosIcaAddress`:
+	err = decoder.Decode(&obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Deserialize `CounterpartyChainType`:
 	err = decoder.Decode(&obj.CounterpartyChainType)
@@ -1748,6 +1775,10 @@ type Ics27IftStateRegisterIftBridgeMsg struct {
 	// Required for Cosmos chains, ignored for EVM/Solana
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
+	// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+	// Required for Cosmos chains, ignored for EVM/Solana
+	CosmosIcaAddress string `json:"cosmosIcaAddress"`
+
 	// Counterparty chain type
 	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
 }
@@ -1772,6 +1803,11 @@ func (obj Ics27IftStateRegisterIftBridgeMsg) MarshalWithEncoder(encoder *binary.
 	err = encoder.Encode(obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Serialize `CosmosIcaAddress`:
+	err = encoder.Encode(obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Serialize `CounterpartyChainType`:
 	err = encoder.Encode(obj.CounterpartyChainType)
@@ -1811,6 +1847,11 @@ func (obj *Ics27IftStateRegisterIftBridgeMsg) UnmarshalWithDecoder(decoder *bina
 	err = decoder.Decode(&obj.CosmosTypeUrl)
 	if err != nil {
 		return errors.NewField("CosmosTypeUrl", err)
+	}
+	// Deserialize `CosmosIcaAddress`:
+	err = decoder.Decode(&obj.CosmosIcaAddress)
+	if err != nil {
+		return errors.NewField("CosmosIcaAddress", err)
 	}
 	// Deserialize `CounterpartyChainType`:
 	err = decoder.Decode(&obj.CounterpartyChainType)

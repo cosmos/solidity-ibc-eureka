@@ -50,6 +50,7 @@ fn test_register_ift_bridge_success() {
         counterparty_ift_address: counterparty_address.to_string(),
         counterparty_denom: String::new(), // Optional for EVM
         cosmos_type_url: String::new(),    // Optional for EVM
+        cosmos_ica_address: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -136,6 +137,7 @@ fn test_register_ift_bridge_empty_client_id_fails() {
         counterparty_ift_address: "0x1234".to_string(),
         counterparty_denom: String::new(), // Optional for EVM
         cosmos_type_url: String::new(),    // Optional for EVM
+        cosmos_ica_address: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -208,6 +210,7 @@ fn test_register_ift_bridge_empty_counterparty_fails() {
         counterparty_ift_address: String::new(), // Empty!
         counterparty_denom: String::new(),
         cosmos_type_url: String::new(),
+        cosmos_ica_address: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -281,6 +284,7 @@ fn test_register_ift_bridge_unauthorized_fails() {
         counterparty_ift_address: "0x1234".to_string(),
         counterparty_denom: String::new(), // Optional for EVM
         cosmos_type_url: String::new(),    // Optional for EVM
+        cosmos_ica_address: String::new(), // Optional for EVM
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -356,6 +360,7 @@ fn test_register_ift_bridge_client_id_too_long_fails() {
         counterparty_ift_address: "0x1234".to_string(),
         counterparty_denom: String::new(),
         cosmos_type_url: String::new(),
+        cosmos_ica_address: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 
@@ -430,6 +435,7 @@ fn test_register_ift_bridge_counterparty_too_long_fails() {
         counterparty_ift_address: counterparty_address,
         counterparty_denom: String::new(),
         cosmos_type_url: String::new(),
+        cosmos_ica_address: String::new(),
         counterparty_chain_type: CounterpartyChainType::Evm,
     };
 

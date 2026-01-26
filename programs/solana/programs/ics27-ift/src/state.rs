@@ -92,6 +92,11 @@ pub struct IFTBridge {
     #[max_len(128)]
     pub cosmos_type_url: String,
 
+    /// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+    /// Required for Cosmos chains, empty for EVM/Solana
+    #[max_len(128)]
+    pub cosmos_ica_address: String,
+
     /// Counterparty chain type (for call constructor logic)
     pub counterparty_chain_type: CounterpartyChainType,
 
@@ -163,6 +168,9 @@ pub struct RegisterIFTBridgeMsg {
     /// Protobuf type URL for MsgIFTMint on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
     /// Required for Cosmos chains, ignored for EVM/Solana
     pub cosmos_type_url: String,
+    /// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+    /// Required for Cosmos chains, ignored for EVM/Solana
+    pub cosmos_ica_address: String,
     /// Counterparty chain type
     pub counterparty_chain_type: CounterpartyChainType,
 }

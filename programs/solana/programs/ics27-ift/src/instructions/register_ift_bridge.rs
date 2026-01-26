@@ -84,6 +84,10 @@ pub fn register_ift_bridge(
             !msg.cosmos_type_url.is_empty(),
             IFTError::CosmosEmptyTypeUrl
         );
+        require!(
+            !msg.cosmos_ica_address.is_empty(),
+            IFTError::CosmosEmptyIcaAddress
+        );
     }
     require!(
         msg.counterparty_denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
@@ -92,6 +96,10 @@ pub fn register_ift_bridge(
     require!(
         msg.cosmos_type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
         IFTError::InvalidCosmosTypeUrlLength
+    );
+    require!(
+        msg.cosmos_ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+        IFTError::InvalidCosmosIcaAddressLength
     );
 
     let bridge = &mut ctx.accounts.ift_bridge;
@@ -106,6 +114,9 @@ pub fn register_ift_bridge(
         .counterparty_denom
         .clone_from(&msg.counterparty_denom);
     bridge.cosmos_type_url.clone_from(&msg.cosmos_type_url);
+    bridge
+        .cosmos_ica_address
+        .clone_from(&msg.cosmos_ica_address);
     bridge.counterparty_chain_type = msg.counterparty_chain_type;
     bridge.active = true;
 
@@ -116,6 +127,7 @@ pub fn register_ift_bridge(
         counterparty_ift_address: msg.counterparty_ift_address,
         counterparty_denom: msg.counterparty_denom,
         cosmos_type_url: msg.cosmos_type_url,
+        cosmos_ica_address: msg.cosmos_ica_address,
         counterparty_chain_type: msg.counterparty_chain_type,
         timestamp: clock.unix_timestamp,
     });

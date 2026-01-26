@@ -64,6 +64,7 @@ fn test_construct_evm_mint_call_short_address() {
 fn test_construct_cosmos_mint_call() {
     let payload = construct_cosmos_mint_call(
         "/cosmos.ift.v1.MsgIFTMint",
+        "cosmos1icaaddress",
         "uatom",
         "cosmos1abc123",
         1_000_000,
@@ -73,7 +74,7 @@ fn test_construct_cosmos_mint_call() {
     // Should be wrapped in CosmosTx format with messages array
     assert!(json_str.contains("\"messages\":["));
     assert!(json_str.contains("\"@type\":\"/cosmos.ift.v1.MsgIFTMint\""));
-    assert!(json_str.contains("\"signer\":\"\""));
+    assert!(json_str.contains("\"signer\":\"cosmos1icaaddress\""));
     assert!(json_str.contains("\"denom\":\"uatom\""));
     assert!(json_str.contains("\"receiver\":\"cosmos1abc123\""));
     assert!(json_str.contains("\"amount\":\"1000000\""));
@@ -81,11 +82,17 @@ fn test_construct_cosmos_mint_call() {
 
 #[test]
 fn test_construct_cosmos_mint_call_with_ibc_denom() {
-    let payload =
-        construct_cosmos_mint_call("/wfchain.ift.MsgIFTMint", "ibc/ABC123", "cosmos1xyz", 42);
+    let payload = construct_cosmos_mint_call(
+        "/wfchain.ift.MsgIFTMint",
+        "wf1icaaddress",
+        "ibc/ABC123",
+        "cosmos1xyz",
+        42,
+    );
     let json_str = String::from_utf8(payload).unwrap();
     assert!(json_str.contains("\"denom\":\"ibc/ABC123\""));
     assert!(json_str.contains("\"@type\":\"/wfchain.ift.MsgIFTMint\""));
+    assert!(json_str.contains("\"signer\":\"wf1icaaddress\""));
 }
 
 #[test]
@@ -118,6 +125,7 @@ fn test_construct_mint_call_evm() {
         "ignored",
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         "0x1234567890abcdef1234567890abcdef12345678",
         100,
     );
@@ -132,6 +140,7 @@ fn test_construct_mint_call_cosmos() {
         "cosmos1iftmodule", // counterparty_ift_address (not used in payload)
         "uatom",            // counterparty_denom (used as denom in MsgIFTMint)
         "/cosmos.ift.v1.MsgIFTMint", // cosmos_type_url
+        "cosmos1icaaddress", // cosmos_ica_address (used as signer in MsgIFTMint)
         "cosmos1receiver",
         100,
     );
@@ -139,6 +148,7 @@ fn test_construct_mint_call_cosmos() {
     let json = String::from_utf8(result.unwrap()).unwrap();
     assert!(json.contains("/cosmos.ift.v1.MsgIFTMint"));
     assert!(json.contains("uatom")); // Verify denom is in payload
+    assert!(json.contains("cosmos1icaaddress")); // Verify signer is in payload
 }
 
 #[test]
@@ -149,6 +159,7 @@ fn test_construct_mint_call_solana() {
         "ignored",
         "", // denom not used for Solana
         "", // cosmos_type_url not used for Solana
+        "", // cosmos_ica_address not used for Solana
         "11111111111111111111111111111111",
         100,
     );
@@ -233,6 +244,7 @@ fn build_ift_transfer_test_setup(
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         bridge_active,
@@ -372,6 +384,7 @@ fn test_ift_transfer_zero_amount_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -494,6 +507,7 @@ fn test_ift_transfer_empty_receiver_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -616,6 +630,7 @@ fn test_ift_transfer_sender_not_signer_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -739,6 +754,7 @@ fn test_ift_transfer_wrong_token_account_owner_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -862,6 +878,7 @@ fn test_ift_transfer_wrong_token_mint_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -984,6 +1001,7 @@ fn test_ift_transfer_timeout_in_past_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -1107,6 +1125,7 @@ fn test_ift_transfer_timeout_too_long_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
@@ -1230,6 +1249,7 @@ fn test_ift_transfer_receiver_too_long_fails() {
         TEST_COUNTERPARTY_ADDRESS,
         "", // denom not used for EVM
         "", // cosmos_type_url not used for EVM
+        "", // cosmos_ica_address not used for EVM
         CounterpartyChainType::Evm,
         ift_bridge_bump,
         true,
