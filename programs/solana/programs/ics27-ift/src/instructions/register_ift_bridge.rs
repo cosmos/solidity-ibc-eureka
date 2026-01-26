@@ -138,12 +138,12 @@ pub fn register_ift_bridge(
 #[cfg(test)]
 mod tests {
     use anchor_lang::{InstructionData, Space};
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
         rent::Rent,
     };
-    use test_case::test_case;
 
     use crate::state::{CounterpartyChainType, IFTBridge, RegisterIFTBridgeMsg};
     use crate::test_utils::*;
@@ -374,12 +374,13 @@ mod tests {
         assert!(result.program_result.is_err());
     }
 
-    #[test_case(RegisterBridgeErrorCase::EmptyClientId ; "empty_client_id")]
-    #[test_case(RegisterBridgeErrorCase::EmptyCounterparty ; "empty_counterparty")]
-    #[test_case(RegisterBridgeErrorCase::Unauthorized ; "unauthorized")]
-    #[test_case(RegisterBridgeErrorCase::ClientIdTooLong ; "client_id_too_long")]
-    #[test_case(RegisterBridgeErrorCase::CounterpartyTooLong ; "counterparty_too_long")]
-    fn test_register_ift_bridge_validation(case: RegisterBridgeErrorCase) {
+    #[rstest]
+    #[case::empty_client_id(RegisterBridgeErrorCase::EmptyClientId)]
+    #[case::empty_counterparty(RegisterBridgeErrorCase::EmptyCounterparty)]
+    #[case::unauthorized(RegisterBridgeErrorCase::Unauthorized)]
+    #[case::client_id_too_long(RegisterBridgeErrorCase::ClientIdTooLong)]
+    #[case::counterparty_too_long(RegisterBridgeErrorCase::CounterpartyTooLong)]
+    fn test_register_ift_bridge_validation(#[case] case: RegisterBridgeErrorCase) {
         run_register_bridge_error_test(case);
     }
 }

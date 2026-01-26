@@ -229,6 +229,7 @@ mod tests {
     use gmp_counter_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use rstest::rstest;
     use solana_ibc_proto::ProstMessage;
     use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
@@ -239,7 +240,6 @@ mod tests {
         pubkey::Pubkey,
         system_program,
     };
-    use test_case::test_case;
 
     /// Helper function to create a `GMPAccount` from test data
     fn create_test_gmp_account(
@@ -797,11 +797,12 @@ mod tests {
         assert!(result.program_result.is_err());
     }
 
-    #[test_case(PayloadOverrides { version: Some("wrong-version"), ..Default::default() } ; "invalid_version")]
-    #[test_case(PayloadOverrides { source_port: Some("transfer"), ..Default::default() } ; "invalid_source_port")]
-    #[test_case(PayloadOverrides { encoding: Some("application/json"), ..Default::default() } ; "invalid_encoding")]
-    #[test_case(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() } ; "invalid_dest_port")]
-    fn test_on_recv_packet_payload_validation(overrides: PayloadOverrides) {
+    #[rstest]
+    #[case::invalid_version(PayloadOverrides { version: Some("wrong-version"), ..Default::default() })]
+    #[case::invalid_source_port(PayloadOverrides { source_port: Some("transfer"), ..Default::default() })]
+    #[case::invalid_encoding(PayloadOverrides { encoding: Some("application/json"), ..Default::default() })]
+    #[case::invalid_dest_port(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() })]
+    fn test_on_recv_packet_payload_validation(#[case] overrides: PayloadOverrides) {
         run_invalid_payload_test(overrides);
     }
 

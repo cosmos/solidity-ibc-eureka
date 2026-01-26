@@ -40,4 +40,4 @@ mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
 gmp-counter-app = { workspace = true, features = ["cpi"] }
-test-case.workspace = true
+rstest.workspace = true

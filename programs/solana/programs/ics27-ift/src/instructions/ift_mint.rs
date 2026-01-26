@@ -139,11 +139,11 @@ fn validate_gmp_account(
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
     };
-    use test_case::test_case;
 
     use crate::state::{CounterpartyChainType, IFTMintMsg};
     use crate::test_utils::*;
@@ -363,12 +363,13 @@ mod tests {
         assert!(result.program_result.is_err());
     }
 
-    #[test_case(MintErrorCase::ZeroAmount ; "zero_amount")]
-    #[test_case(MintErrorCase::ReceiverMismatch ; "receiver_mismatch")]
-    #[test_case(MintErrorCase::GmpNotSigner ; "gmp_not_signer")]
-    #[test_case(MintErrorCase::BridgeNotActive ; "bridge_not_active")]
-    #[test_case(MintErrorCase::InvalidGmpAccount ; "invalid_gmp_account")]
-    fn test_ift_mint_validation(case: MintErrorCase) {
+    #[rstest]
+    #[case::zero_amount(MintErrorCase::ZeroAmount)]
+    #[case::receiver_mismatch(MintErrorCase::ReceiverMismatch)]
+    #[case::gmp_not_signer(MintErrorCase::GmpNotSigner)]
+    #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
+    #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
+    fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);
     }
 }

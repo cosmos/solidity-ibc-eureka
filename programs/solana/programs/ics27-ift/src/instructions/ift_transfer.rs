@@ -367,11 +367,11 @@ mod tests {
     use crate::state::IFTTransferMsg;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
     };
-    use test_case::test_case;
 
     const TEST_CLIENT_ID: &str = "07-tendermint-0";
     const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
@@ -772,16 +772,17 @@ mod tests {
         assert!(result.program_result.is_err());
     }
 
-    #[test_case(TransferErrorCase::InactiveBridge ; "inactive_bridge")]
-    #[test_case(TransferErrorCase::ZeroAmount ; "zero_amount")]
-    #[test_case(TransferErrorCase::EmptyReceiver ; "empty_receiver")]
-    #[test_case(TransferErrorCase::SenderNotSigner ; "sender_not_signer")]
-    #[test_case(TransferErrorCase::WrongTokenAccountOwner ; "wrong_token_account_owner")]
-    #[test_case(TransferErrorCase::WrongTokenMint ; "wrong_token_mint")]
-    #[test_case(TransferErrorCase::TimeoutInPast ; "timeout_in_past")]
-    #[test_case(TransferErrorCase::TimeoutTooLong ; "timeout_too_long")]
-    #[test_case(TransferErrorCase::ReceiverTooLong ; "receiver_too_long")]
-    fn test_ift_transfer_validation(case: TransferErrorCase) {
+    #[rstest]
+    #[case::inactive_bridge(TransferErrorCase::InactiveBridge)]
+    #[case::zero_amount(TransferErrorCase::ZeroAmount)]
+    #[case::empty_receiver(TransferErrorCase::EmptyReceiver)]
+    #[case::sender_not_signer(TransferErrorCase::SenderNotSigner)]
+    #[case::wrong_token_account_owner(TransferErrorCase::WrongTokenAccountOwner)]
+    #[case::wrong_token_mint(TransferErrorCase::WrongTokenMint)]
+    #[case::timeout_in_past(TransferErrorCase::TimeoutInPast)]
+    #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
+    #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
+    fn test_ift_transfer_validation(#[case] case: TransferErrorCase) {
         run_transfer_error_test(case);
     }
 }
