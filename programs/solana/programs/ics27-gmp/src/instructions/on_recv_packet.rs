@@ -239,6 +239,7 @@ mod tests {
         pubkey::Pubkey,
         system_program,
     };
+    use test_case::test_case;
 
     /// Helper function to create a `GMPAccount` from test data
     fn create_test_gmp_account(
@@ -744,61 +745,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_version() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid version
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: "wrong-version".to_string(), // Invalid version!
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid version"
-        );
+    /// Payload field overrides for testing invalid packet validation
+    #[derive(Default)]
+    struct PayloadOverrides {
+        source_port: Option<&'static str>,
+        dest_port: Option<&'static str>,
+        version: Option<&'static str>,
+        encoding: Option<&'static str>,
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_source_port() {
+    fn run_invalid_payload_test(overrides: PayloadOverrides) {
         let ctx = create_gmp_test_context();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
@@ -811,16 +767,15 @@ mod tests {
 
         let packet_data_bytes = packet_data.encode_to_vec();
 
-        // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
             dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: "transfer".to_string(), // Invalid source port!
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                source_port: overrides.source_port.unwrap_or(GMP_PORT_ID).to_string(),
+                dest_port: overrides.dest_port.unwrap_or(GMP_PORT_ID).to_string(),
+                version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
+                encoding: overrides.encoding.unwrap_or(ICS27_ENCODING).to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -829,131 +784,25 @@ mod tests {
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
             create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda),
+            create_dummy_target_program_account(),
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid source port"
-        );
+        assert!(result.program_result.is_err());
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_encoding() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid encoding
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: "application/json".to_string(), // Invalid encoding!
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid encoding"
-        );
-    }
-
-    #[test]
-    fn test_on_recv_packet_invalid_dest_port() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid dest port
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: "transfer".to_string(), // Invalid dest port!
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid dest port"
-        );
+    #[test_case(PayloadOverrides { version: Some("wrong-version"), ..Default::default() } ; "invalid_version")]
+    #[test_case(PayloadOverrides { source_port: Some("transfer"), ..Default::default() } ; "invalid_source_port")]
+    #[test_case(PayloadOverrides { encoding: Some("application/json"), ..Default::default() } ; "invalid_encoding")]
+    #[test_case(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() } ; "invalid_dest_port")]
+    fn test_on_recv_packet_payload_validation(overrides: PayloadOverrides) {
+        run_invalid_payload_test(overrides);
     }
 
     #[test]
