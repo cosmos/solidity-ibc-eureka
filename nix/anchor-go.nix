@@ -14,15 +14,15 @@ pkgs.buildGoModule rec {
 
   patches = [
     ./anchor-go-fix-complex-enum.patch
+    ./anchor-go-fix-no-args-discriminator.patch
   ];
 
-  # optionally you can enable tests if needed
   doCheck = false;
 
   meta = with pkgs.lib; {
     description = "Golang Anchor client";
     homepage = "https://github.com/gagliardetto/anchor-go";
     license = licenses.mit;
-    maintainers = with maintainers; [];
+    maintainers = with maintainers; [vaporif];
   };
 }
