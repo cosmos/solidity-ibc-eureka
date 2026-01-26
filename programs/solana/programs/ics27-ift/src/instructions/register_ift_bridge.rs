@@ -249,12 +249,37 @@ mod tests {
         Unauthorized,
         ClientIdTooLong,
         CounterpartyTooLong,
+        CosmosEmptyDenom,
+        CosmosEmptyTypeUrl,
+        CosmosEmptyIcaAddress,
+        CounterpartyDenomTooLong,
+        CosmosTypeUrlTooLong,
+        CosmosIcaAddressTooLong,
     }
 
+    #[derive(Clone)]
     struct RegisterBridgeTestConfig {
         client_id: String,
         counterparty_address: String,
+        counterparty_denom: String,
+        cosmos_type_url: String,
+        cosmos_ica_address: String,
+        chain_type: CounterpartyChainType,
         use_unauthorized_signer: bool,
+    }
+
+    impl Default for RegisterBridgeTestConfig {
+        fn default() -> Self {
+            Self {
+                client_id: TEST_CLIENT_ID.to_string(),
+                counterparty_address: "0x1234".to_string(),
+                counterparty_denom: String::new(),
+                cosmos_type_url: String::new(),
+                cosmos_ica_address: String::new(),
+                chain_type: CounterpartyChainType::Evm,
+                use_unauthorized_signer: false,
+            }
+        }
     }
 
     impl From<RegisterBridgeErrorCase> for RegisterBridgeTestConfig {
@@ -262,29 +287,60 @@ mod tests {
             match case {
                 RegisterBridgeErrorCase::EmptyClientId => Self {
                     client_id: String::new(),
-                    counterparty_address: "0x1234".to_string(),
-                    use_unauthorized_signer: false,
+                    ..Default::default()
                 },
                 RegisterBridgeErrorCase::EmptyCounterparty => Self {
-                    client_id: TEST_CLIENT_ID.to_string(),
                     counterparty_address: String::new(),
-                    use_unauthorized_signer: false,
+                    ..Default::default()
                 },
                 RegisterBridgeErrorCase::Unauthorized => Self {
-                    client_id: TEST_CLIENT_ID.to_string(),
-                    counterparty_address: "0x1234".to_string(),
                     use_unauthorized_signer: true,
+                    ..Default::default()
                 },
                 RegisterBridgeErrorCase::ClientIdTooLong => Self {
                     client_id: "x".repeat(crate::constants::MAX_CLIENT_ID_LENGTH + 1),
-                    counterparty_address: "0x1234".to_string(),
-                    use_unauthorized_signer: false,
+                    ..Default::default()
                 },
                 RegisterBridgeErrorCase::CounterpartyTooLong => Self {
-                    client_id: TEST_CLIENT_ID.to_string(),
                     counterparty_address: "x"
                         .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
-                    use_unauthorized_signer: false,
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosEmptyDenom => Self {
+                    chain_type: CounterpartyChainType::Cosmos,
+                    counterparty_denom: String::new(),
+                    cosmos_type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                    cosmos_ica_address: "cosmos1abc".to_string(),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosEmptyTypeUrl => Self {
+                    chain_type: CounterpartyChainType::Cosmos,
+                    counterparty_denom: "uatom".to_string(),
+                    cosmos_type_url: String::new(),
+                    cosmos_ica_address: "cosmos1abc".to_string(),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosEmptyIcaAddress => Self {
+                    chain_type: CounterpartyChainType::Cosmos,
+                    counterparty_denom: "uatom".to_string(),
+                    cosmos_type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                    cosmos_ica_address: String::new(),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CounterpartyDenomTooLong => Self {
+                    counterparty_denom: "x"
+                        .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosTypeUrlTooLong => Self {
+                    cosmos_type_url: "x"
+                        .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosIcaAddressTooLong => Self {
+                    cosmos_ica_address: "x"
+                        .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+                    ..Default::default()
                 },
             }
         }
@@ -334,10 +390,10 @@ mod tests {
         let msg = RegisterIFTBridgeMsg {
             client_id: config.client_id,
             counterparty_ift_address: config.counterparty_address,
-            counterparty_denom: String::new(),
-            cosmos_type_url: String::new(),
-            cosmos_ica_address: String::new(),
-            counterparty_chain_type: CounterpartyChainType::Evm,
+            counterparty_denom: config.counterparty_denom,
+            cosmos_type_url: config.cosmos_type_url,
+            cosmos_ica_address: config.cosmos_ica_address,
+            counterparty_chain_type: config.chain_type,
         };
 
         let signer = if config.use_unauthorized_signer {
@@ -380,6 +436,12 @@ mod tests {
     #[case::unauthorized(RegisterBridgeErrorCase::Unauthorized)]
     #[case::client_id_too_long(RegisterBridgeErrorCase::ClientIdTooLong)]
     #[case::counterparty_too_long(RegisterBridgeErrorCase::CounterpartyTooLong)]
+    #[case::cosmos_empty_denom(RegisterBridgeErrorCase::CosmosEmptyDenom)]
+    #[case::cosmos_empty_type_url(RegisterBridgeErrorCase::CosmosEmptyTypeUrl)]
+    #[case::cosmos_empty_ica_address(RegisterBridgeErrorCase::CosmosEmptyIcaAddress)]
+    #[case::counterparty_denom_too_long(RegisterBridgeErrorCase::CounterpartyDenomTooLong)]
+    #[case::cosmos_type_url_too_long(RegisterBridgeErrorCase::CosmosTypeUrlTooLong)]
+    #[case::cosmos_ica_address_too_long(RegisterBridgeErrorCase::CosmosIcaAddressTooLong)]
     fn test_register_ift_bridge_validation(#[case] case: RegisterBridgeErrorCase) {
         run_register_bridge_error_test(case);
     }
