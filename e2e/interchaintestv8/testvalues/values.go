@@ -316,15 +316,18 @@ func EnvEnsure(key, defaultValue string) string {
 }
 
 type SolanaIFTConfig struct {
-	GMPProgramID string `json:"gmp_program_id"`
-	Mint         string `json:"mint"`
+	GMPProgramID         string `json:"gmp_program_id"`
+	Mint                 string `json:"mint"`
+	CounterpartyClientId string `json:"counterparty_client_id"`
 }
 
-// BuildSolanaIFTConstructor returns "solana:{\"gmp_program_id\":\"...\",\"mint\":\"...\"}"
-func BuildSolanaIFTConstructor(gmpProgramID, mint string) string {
+// BuildSolanaIFTConstructor returns "solana:{\"gmp_program_id\":\"...\",\"mint\":\"...\",\"counterparty_client_id\":\"...\"}"
+// counterpartyClientId is the client ID on Solana that tracks the Cosmos chain (needed for gmp_account_pda derivation)
+func BuildSolanaIFTConstructor(gmpProgramID, mint, counterpartyClientId string) string {
 	cfg := SolanaIFTConfig{
-		GMPProgramID: gmpProgramID,
-		Mint:         mint,
+		GMPProgramID:         gmpProgramID,
+		Mint:                 mint,
+		CounterpartyClientId: counterpartyClientId,
 	}
 	jsonBytes, _ := json.Marshal(cfg)
 	return IFTSendCallConstructorSolana + ":" + string(jsonBytes)

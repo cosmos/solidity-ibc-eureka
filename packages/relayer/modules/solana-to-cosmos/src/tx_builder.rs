@@ -71,10 +71,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
         src_packet_seqs: Vec<u64>,
         dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
-        tracing::info!(
-            "Relaying events from Solana to Cosmos for client {}",
-            dst_client_id
-        );
+        tracing::debug!("Relaying to Cosmos client {}", dst_client_id);
 
         let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
 
@@ -121,7 +118,7 @@ impl TxBuilderService<SolanaEureka, CosmosSdk> for MockTxBuilder {
     }
 
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
-        tracing::info!("Creating Solana light client on Cosmos");
+        tracing::debug!("Creating Solana light client on Cosmos");
 
         let client_state = b"test".to_vec();
         let consensus_state = WasmConsensusState {

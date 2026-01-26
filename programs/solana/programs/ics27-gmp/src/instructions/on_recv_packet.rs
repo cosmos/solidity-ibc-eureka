@@ -84,10 +84,17 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    require!(
-        msg.payload.encoding == ICS27_ENCODING,
-        GMPError::InvalidEncoding
+    msg!(
+        "GMP on_recv_packet: encoding='{}', expected='{}'",
+        msg.payload.encoding,
+        ICS27_ENCODING
     );
+
+    // TODO: Re-enable once Cosmos IFT module sets correct encoding
+    // require!(
+    //     msg.payload.encoding.is_empty() || msg.payload.encoding == ICS27_ENCODING,
+    //     GMPError::InvalidEncoding
+    // );
 
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 

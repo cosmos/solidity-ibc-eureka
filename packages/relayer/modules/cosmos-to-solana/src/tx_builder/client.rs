@@ -269,7 +269,7 @@ impl super::TxBuilder {
         let mut seen_hashes = std::collections::HashSet::new();
         let mut duplicates_skipped = 0;
 
-        for (idx, commit_sig) in commit.signatures.iter().enumerate() {
+        for (_idx, commit_sig) in commit.signatures.iter().enumerate() {
             let (validator_address, timestamp, signature_opt) = match commit_sig {
                 tendermint::block::CommitSig::BlockIdFlagCommit {
                     validator_address,
@@ -327,11 +327,6 @@ impl super::TxBuilder {
 
             if !seen_hashes.insert(signature_hash) {
                 duplicates_skipped += 1;
-                tracing::info!(
-                    "Skipping duplicate signature at index {} with hash {:?}",
-                    idx,
-                    &signature_hash[..8]
-                );
                 continue;
             }
 
@@ -343,10 +338,9 @@ impl super::TxBuilder {
             });
         }
 
-        tracing::info!(
-            "Extracted {} signatures for pre-verification (out of {} total, {} duplicates skipped)",
+        tracing::debug!(
+            "Extracted {} signatures ({} dups skipped)",
             signature_data_vec.len(),
-            commit.signatures.len(),
             duplicates_skipped
         );
 
@@ -367,7 +361,7 @@ impl super::TxBuilder {
         let mut accumulated_power = 0u64;
         let mut selected = Vec::new();
 
-        for (val_idx, validator) in untrusted_validator_set.validators().iter().enumerate() {
+        for (_val_idx, validator) in untrusted_validator_set.validators().iter().enumerate() {
             let pubkey_bytes = validator.pub_key.to_bytes();
 
             if let Some(sig_data) = signature_data.iter().find(|sig| pubkey_bytes == sig.pubkey) {
@@ -375,12 +369,7 @@ impl super::TxBuilder {
                 selected.push(sig_data.clone());
 
                 if accumulated_power >= untrusted_required_power {
-                    tracing::info!(
-                        "Selected {} signatures reaching 2/3 at validator {}/{}",
-                        selected.len(),
-                        val_idx + 1,
-                        untrusted_validator_set.validators().len()
-                    );
+                    tracing::debug!("Selected {} sigs for 2/3 threshold", selected.len());
                     break;
                 }
             }

@@ -94,11 +94,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Contex
 	return subdenom
 }
 
-func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr string, gmpProgramID, mint solanago.PublicKey) {
+func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr, counterpartyClientId string, gmpProgramID, mint solanago.PublicKey) {
 	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
 
-	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String())
+	// counterpartyClientId is the client on Solana that tracks Cosmos - needed for gmp_account_pda derivation
+	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String(), counterpartyClientId)
 	s.T().Logf("IFT constructor: %s", constructor)
 
 	msg := &ifttypes.MsgRegisterIFTBridge{
@@ -240,10 +241,13 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	s.initializeIFT(ctx, s.IFTMint)
 
 	s.Require().True(s.Run("Register Cosmos IFT Bridge", func() {
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), ics27_gmp.ProgramID, s.IFTMint)
+		// SolanaClientID is the client on Solana tracking Cosmos - needed for gmp_account_pda derivation
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, s.IFTMint)
 	}))
 
 	iftModuleAddr := s.getCosmosIFTModuleAddress()
+	s.T().Logf("DEBUG: iftModuleAddr (registered on Solana) = %s", iftModuleAddr)
+	s.T().Logf("DEBUG: Compare with GMP packet sender in relayer logs above")
 	s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 
 	initialBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)

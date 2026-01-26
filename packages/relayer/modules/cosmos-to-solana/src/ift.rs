@@ -70,8 +70,10 @@ pub struct ClaimRefundParams<'a> {
 /// Build IFT `claim_refund` instruction if this packet is from IFT.
 /// Returns None if the packet is not an IFT transfer or no pending transfer exists.
 pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<Instruction> {
-    // Only process GMP port packets with protobuf encoding
-    if params.source_port != GMP_PORT_ID || params.encoding != PROTOBUF_ENCODING {
+    // Only process GMP port packets - accept empty encoding for Cosmos compatibility
+    if params.source_port != GMP_PORT_ID
+        || !(params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING)
+    {
         return None;
     }
 
@@ -114,12 +116,10 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         }
     };
 
-    tracing::info!(
-        "Building IFT claim_refund: mint={}, sender={}, amount={}, client={}, seq={}",
+    tracing::debug!(
+        "IFT claim_refund: mint={}, amount={}, seq={}",
         pending_transfer.mint,
-        pending_transfer.sender,
         pending_transfer.amount,
-        params.source_client,
         params.sequence
     );
 

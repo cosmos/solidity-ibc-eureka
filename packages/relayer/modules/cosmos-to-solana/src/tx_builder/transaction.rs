@@ -79,11 +79,7 @@ impl super::TxBuilder {
         let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
 
-        tracing::info!(
-            "Resolved port '{}' to program ID: {}",
-            port_id,
-            ibc_app.app_program_id
-        );
+        tracing::debug!("Resolved port '{}' → {}", port_id, ibc_app.app_program_id);
 
         Ok(ibc_app.app_program_id)
     }
@@ -110,10 +106,7 @@ impl super::TxBuilder {
         let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
 
-        tracing::info!(
-            "Resolved client '{client_id}' to light client program ID: {}",
-            client.client_program_id
-        );
+        tracing::debug!("Resolved client '{}' → {}", client_id, client.client_program_id);
 
         Ok(client.client_program_id)
     }
@@ -203,7 +196,7 @@ impl super::TxBuilder {
     ) -> Result<Vec<u8>> {
         // Debug: log instruction account counts before compilation
         for (i, ix) in instructions.iter().enumerate() {
-            tracing::info!(
+            tracing::debug!(
                 "create_v0_tx: instruction[{}] program={} accounts={}",
                 i,
                 ix.program_id,
@@ -223,13 +216,13 @@ impl super::TxBuilder {
         };
 
         // Debug: log v0 message account count after compilation
-        tracing::info!(
+        tracing::debug!(
             "create_v0_tx: v0_message compiled with {} static accounts, {} instructions",
             v0_message.account_keys.len(),
             v0_message.instructions.len()
         );
         for (i, key) in v0_message.account_keys.iter().enumerate() {
-            tracing::info!("create_v0_tx: v0_message account[{}]: {}", i, key);
+            tracing::debug!("create_v0_tx: v0_message account[{}]: {}", i, key);
         }
 
         Self::serialize_v0_transaction(v0_message)
@@ -249,25 +242,14 @@ impl super::TxBuilder {
                 all_accounts.insert(acc.pubkey);
             }
         }
-        tracing::info!(
-            "compile_v0_message: {} unique accounts across {} instructions (fee_payer + programs + accounts)",
+        tracing::debug!(
+            "compile_v0_message: {} unique accounts, {} instructions",
             all_accounts.len(),
             instructions.len()
         );
 
-        let result = v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash);
-        match &result {
-            Ok(msg) => {
-                tracing::info!(
-                    "compile_v0_message: SUCCESS - {} account_keys in message",
-                    msg.account_keys.len()
-                );
-            }
-            Err(e) => {
-                tracing::error!("compile_v0_message: FAILED - {}", e);
-            }
-        }
-        result.map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
+        v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash)
+            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
     }
 
     pub(crate) fn compile_v0_message_with_alt(

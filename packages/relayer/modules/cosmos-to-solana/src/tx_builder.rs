@@ -206,7 +206,7 @@ impl TxBuilder {
         )
         .await?;
 
-        tracing::info!("Building update client for {dst_client_id} to height {target_height}");
+        tracing::debug!("Building update client: {} → height {}", dst_client_id, target_height);
 
         let header = TmHeader::try_from(proposed_header)
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
@@ -234,11 +234,10 @@ impl TxBuilder {
             .is_some_and(|threshold| signature_data.len() <= threshold && can_skip_alt);
 
         if use_optimized_path {
-            tracing::info!(
-                "Using optimized path: {} signatures <= threshold, {} accounts <= {}, skipping pre-verify and ALT",
+            tracing::debug!(
+                "Optimized path: {} sigs, {} accounts (no ALT)",
                 signature_data.len(),
-                optimized_accounts,
-                MAX_ACCOUNTS_WITHOUT_ALT
+                optimized_accounts
             );
 
             let chunk_txs = self.build_chunk_transactions(
@@ -276,10 +275,7 @@ impl TxBuilder {
             });
         }
 
-        tracing::info!(
-            "Using full path: {} signatures > threshold, using pre-verify and ALT",
-            signature_data.len()
-        );
+        tracing::debug!("Full path: {} sigs, using pre-verify + ALT", signature_data.len());
 
         let mut prep_txs: Vec<Vec<u8>> = signature_data
             .iter()
@@ -596,11 +592,7 @@ impl TxBuilder {
         );
 
         if needs_timestamp_update {
-            tracing::info!(
-                "Client update needed for timeout: consensus_ts={:?} < timeout_ts={:?}",
-                current_consensus_timestamp_secs,
-                max_timeout_ts
-            );
+            tracing::debug!("Client update needed for timeout");
         }
 
         if needs_height_update || needs_timestamp_update {

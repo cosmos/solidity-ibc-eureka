@@ -402,8 +402,8 @@ impl super::TxBuilder {
         // Count unique accounts across all instructions
         let unique_accounts = Self::count_unique_accounts(&instructions, self.fee_payer);
 
-        tracing::info!(
-            "build_ack_packet_chunked: {} unique accounts (threshold: {})",
+        tracing::debug!(
+            "ack_packet: {} unique accounts (threshold {})",
             unique_accounts,
             MAX_ACCOUNTS_WITHOUT_ALT
         );
@@ -411,11 +411,7 @@ impl super::TxBuilder {
         // Build final transaction with or without ALT based on account count
         let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT
         {
-            tracing::info!(
-                "Using ALT for ack_packet: {} accounts exceeds threshold of {}",
-                unique_accounts,
-                MAX_ACCOUNTS_WITHOUT_ALT
-            );
+            tracing::debug!("Using ALT: {} accounts exceeds {}", unique_accounts, MAX_ACCOUNTS_WITHOUT_ALT);
             self.build_tx_with_alt(&instructions)?
         } else {
             (self.create_tx_bytes(&instructions)?, vec![], vec![])
@@ -510,8 +506,8 @@ impl super::TxBuilder {
             }
         }
 
-        tracing::info!(
-            "Building ALT with {} accounts at address {} (slot {})",
+        tracing::debug!(
+            "Building ALT: {} accounts, address={}, slot={}",
             alt_accounts.len(),
             alt_address,
             slot

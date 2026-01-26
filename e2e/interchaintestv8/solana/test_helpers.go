@@ -304,15 +304,8 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			}
 			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
 
-			// Debug: log transaction accounts
-			t.Logf("DEBUG Packet %d final tx: %d account keys", pktIdx+1, len(finalTx.Message.AccountKeys))
-			for i, key := range finalTx.Message.AccountKeys {
-				t.Logf("  Account[%d]: %s", i, key.String())
-			}
-
 			// If ALT was used, resolve addresses from on-chain ALT and check all accounts exist
 			if hasAlt {
-				t.Logf("DEBUG Packet %d: Checking ALT and account existence...", pktIdx+1)
 
 				// Get static addresses from the message
 				allAddresses := make([]solana.PublicKey, 0)
@@ -322,17 +315,12 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				lookups := finalTx.Message.GetAddressTableLookups()
 				if len(lookups) > 0 {
 					for _, lookup := range lookups {
-						t.Logf("DEBUG Packet %d: ALT %s - %d writable, %d readonly indices",
-							pktIdx+1, lookup.AccountKey.String(),
-							len(lookup.WritableIndexes), len(lookup.ReadonlyIndexes))
-
-						// Fetch ALT content from chain (use confirmed commitment to match what we used for submission)
+						// Fetch ALT content from chain
 						altInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, lookup.AccountKey, &rpc.GetAccountInfoOpts{
 							Commitment: rpc.CommitmentConfirmed,
 						})
 						if err != nil || altInfo == nil || altInfo.Value == nil {
-							t.Logf("ERROR Packet %d: ALT %s NOT FOUND or error (will cause MissingAccount): %v", pktIdx+1, lookup.AccountKey.String(), err)
-							t.Logf("ERROR Packet %d: The ALT creation may have failed - check tx %s for errors", pktIdx+1, lookup.AccountKey.String())
+							t.Logf("ERROR Packet %d: ALT %s NOT FOUND: %v", pktIdx+1, lookup.AccountKey.String(), err)
 							continue
 						}
 
@@ -341,12 +329,9 @@ func (s *Solana) SubmitChunkedRelayPackets(
 						if len(altData) > 56 { // Header is 56 bytes
 							addressesData := altData[56:]
 							numAddresses := len(addressesData) / 32
-							t.Logf("DEBUG Packet %d: ALT has %d addresses stored", pktIdx+1, numAddresses)
-
 							for i := 0; i < numAddresses && i*32+32 <= len(addressesData); i++ {
 								addrBytes := addressesData[i*32 : i*32+32]
 								addr := solana.PublicKeyFromBytes(addrBytes)
-								t.Logf("DEBUG Packet %d: ALT[%d] = %s", pktIdx+1, i, addr.String())
 								allAddresses = append(allAddresses, addr)
 							}
 						}
@@ -354,7 +339,6 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				}
 
 				// Check if each address exists on-chain (skip system accounts)
-				t.Logf("DEBUG Packet %d: Checking existence of %d unique accounts...", pktIdx+1, len(allAddresses))
 				seenAddrs := make(map[string]bool)
 				for _, addr := range allAddresses {
 					addrStr := addr.String()
