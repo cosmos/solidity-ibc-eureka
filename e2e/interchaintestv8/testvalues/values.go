@@ -213,6 +213,8 @@ const (
 	IFTSendCallConstructorCosmos = "cosmos"
 	// IFTSendCallConstructorEVM is the context for IFT send call constructor on EVM.
 	IFTSendCallConstructorEVM = "evm"
+	// IFTSendCallConstructorSolana is the context for IFT send call constructor on Solana.
+	IFTSendCallConstructorSolana = "solana"
 	// IFTModuleName is the IFT module name.
 	IFTModuleName = "ift"
 

@@ -103,7 +103,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Contex
 		Denom:                  denom,
 		ClientId:               clientId,
 		CounterpartyIftAddress: counterpartyIftAddr,
-		IftSendCallConstructor: testvalues.IFTSendCallConstructorCosmos,
+		IftSendCallConstructor: testvalues.IFTSendCallConstructorSolana,
 	}
 	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
 	s.Require().NoError(err)
