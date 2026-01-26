@@ -27,7 +27,7 @@ struct RecvPayloadInfo<'a> {
 
 /// Extract source_port from either inline payloads or chunked metadata.
 fn extract_source_port<'a>(
-    packet_payloads: &'a [solana_ibc_types::router::Payload],
+    packet_payloads: &'a [solana_ibc_types::Payload],
     metadata_payloads: &'a [solana_ibc_types::router::PayloadMetadata],
     context: &str,
 ) -> Result<&'a str> {
@@ -164,30 +164,7 @@ impl super::TxBuilder {
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        // Get source_port from either inline payloads or chunked metadata
-        // - Inline mode: payload data is in msg.packet.payloads
-        // - Chunked mode: payload data is separate, metadata is in msg.payloads
-        let source_port = if !msg.packet.payloads.is_empty() {
-            // Inline mode
-            let [payload] = msg.packet.payloads.as_slice() else {
-                anyhow::bail!(
-                    "Expected exactly one ack packet payload element, got {}",
-                    msg.packet.payloads.len()
-                );
-            };
-            &payload.source_port
-        } else if !msg.payloads.is_empty() {
-            // Chunked mode
-            let [payload_meta] = msg.payloads.as_slice() else {
-                anyhow::bail!(
-                    "Expected exactly one ack packet payload metadata element, got {}",
-                    msg.payloads.len()
-                );
-            };
-            &payload_meta.source_port
-        } else {
-            anyhow::bail!("No payload data found in either packet.payloads or payloads metadata");
-        };
+        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "ack")?;
 
         let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let (ibc_app_pda, _) = IBCApp::pda(source_port, self.solana_ics26_program_id);
@@ -275,26 +252,7 @@ impl super::TxBuilder {
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        // Get source_port from either inline payloads or chunked metadata
-        let source_port = if !msg.packet.payloads.is_empty() {
-            let [payload] = msg.packet.payloads.as_slice() else {
-                anyhow::bail!(
-                    "Expected exactly one timeout packet payload element, got {}",
-                    msg.packet.payloads.len()
-                );
-            };
-            &payload.source_port
-        } else if !msg.payloads.is_empty() {
-            let [payload_meta] = msg.payloads.as_slice() else {
-                anyhow::bail!(
-                    "Expected exactly one timeout packet payload metadata element, got {}",
-                    msg.payloads.len()
-                );
-            };
-            &payload_meta.source_port
-        } else {
-            anyhow::bail!("No payload data found in either packet.payloads or payloads metadata");
-        };
+        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
 
         let mut accounts = self.build_timeout_accounts_with_derived_keys(
             chain_id,
