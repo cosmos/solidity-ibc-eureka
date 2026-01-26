@@ -124,18 +124,19 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 
 		accessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
-		// Query the ICA address on Cosmos for the sender (SolanaRelayer)
-		// The ICA address is derived from (clientId, sender, salt) on the Cosmos GMP module
-		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
+		// Query the ICA address on Cosmos for the IFT program
+		// When IFT calls GMP via CPI, the sender is the IFT program ID (not the user)
+		// This is similar to Ethereum where the IFT contract address is the sender
+		iftProgramAddress := ics27_ift.ProgramID.String()
 		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, s.Wfchain, &gmptypes.QueryAccountAddressRequest{
 			ClientId: CosmosClientID, // The wasm client on Cosmos (dest client)
-			Sender:   solanaUserAddress,
+			Sender:   iftProgramAddress,
 			Salt:     "",
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(res.AccountAddress)
 		cosmosIcaAddress := res.AccountAddress
-		s.T().Logf("Computed Cosmos ICA address: %s (for sender: %s)", cosmosIcaAddress, solanaUserAddress)
+		s.T().Logf("Computed Cosmos ICA address: %s (for IFT program: %s)", cosmosIcaAddress, iftProgramAddress)
 
 		registerMsg := ics27_ift.Ics27IftStateRegisterIftBridgeMsg{
 			ClientId:               clientID,
