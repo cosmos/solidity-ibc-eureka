@@ -206,7 +206,11 @@ impl TxBuilder {
         )
         .await?;
 
-        tracing::debug!("Building update client: {} → height {}", dst_client_id, target_height);
+        tracing::debug!(
+            "Building update client: {} → height {}",
+            dst_client_id,
+            target_height
+        );
 
         let header = TmHeader::try_from(proposed_header)
             .context("Failed to convert protobuf Header to ibc-rs Header")?;
@@ -275,7 +279,10 @@ impl TxBuilder {
             });
         }
 
-        tracing::debug!("Full path: {} sigs, using pre-verify + ALT", signature_data.len());
+        tracing::debug!(
+            "Full path: {} sigs, using pre-verify + ALT",
+            signature_data.len()
+        );
 
         let mut prep_txs: Vec<Vec<u8>> = signature_data
             .iter()

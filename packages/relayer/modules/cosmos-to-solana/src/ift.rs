@@ -80,7 +80,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
     let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
         Ok(packet) => packet,
         Err(e) => {
-            tracing::warn!("IFT: Failed to decode GMP packet: {e:?}");
+            tracing::warn!(error = ?e, "IFT: Failed to decode GMP packet");
             return None;
         }
     };
@@ -89,7 +89,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
     let ift_program_id = match Pubkey::from_str(&gmp_packet.sender) {
         Ok(pk) => pk,
         Err(e) => {
-            tracing::warn!("IFT: GMP sender is not a valid Pubkey: {e:?}");
+            tracing::warn!(error = ?e, sender = %gmp_packet.sender, "IFT: GMP sender is not a valid Pubkey");
             return None;
         }
     };
@@ -104,23 +104,23 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         Ok(Some(pt)) => pt,
         Ok(None) => {
             tracing::debug!(
-                "IFT: No pending transfer for client={}, seq={}",
-                params.source_client,
-                params.sequence
+                client_id = params.source_client,
+                sequence = params.sequence,
+                "IFT: No pending transfer found"
             );
             return None;
         }
         Err(e) => {
-            tracing::error!("IFT: Error searching for pending transfer: {e:?}");
+            tracing::error!(error = ?e, "IFT: Error searching for pending transfer");
             return None;
         }
     };
 
     tracing::debug!(
-        "IFT claim_refund: mint={}, amount={}, seq={}",
-        pending_transfer.mint,
-        pending_transfer.amount,
-        params.sequence
+        mint = %pending_transfer.mint,
+        amount = pending_transfer.amount,
+        sequence = params.sequence,
+        "IFT: Building claim_refund instruction"
     );
 
     Some(build_claim_refund_ix(
@@ -160,7 +160,7 @@ fn find_pending_transfer(
         let pending = match PendingTransfer::deserialize(&mut data) {
             Ok(p) => p,
             Err(e) => {
-                tracing::debug!("IFT: Failed to deserialize account {pubkey}: {e:?}");
+                tracing::debug!(error = ?e, account = %pubkey, "IFT: Failed to deserialize account");
                 continue;
             }
         };

@@ -172,10 +172,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(
-            "Fetched {} target events",
-            target_events.len()
-        );
+        tracing::debug!("Fetched {} target events", target_events.len());
 
         // Use the combined method that includes update client if needed
         let (packet_txs, update_client) = self
@@ -194,7 +191,11 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         tracing::debug!(
             "Relay completed: {} packets{}",
             packet_txs.len(),
-            if update_client.is_some() { " +update" } else { "" }
+            if update_client.is_some() {
+                " +update"
+            } else {
+                ""
+            }
         );
 
         let batch = api::SolanaRelayPacketBatch {

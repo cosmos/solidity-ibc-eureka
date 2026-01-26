@@ -304,67 +304,6 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			}
 			finalTx.Message.RecentBlockhash = recent.Value.Blockhash
 
-			// If ALT was used, resolve addresses from on-chain ALT and check all accounts exist
-			if hasAlt {
-
-				// Get static addresses from the message
-				allAddresses := make([]solana.PublicKey, 0)
-				allAddresses = append(allAddresses, finalTx.Message.AccountKeys...)
-
-				// Check for address table lookups (v0 messages)
-				lookups := finalTx.Message.GetAddressTableLookups()
-				if len(lookups) > 0 {
-					for _, lookup := range lookups {
-						// Fetch ALT content from chain
-						altInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, lookup.AccountKey, &rpc.GetAccountInfoOpts{
-							Commitment: rpc.CommitmentConfirmed,
-						})
-						if err != nil || altInfo == nil || altInfo.Value == nil {
-							t.Logf("ERROR Packet %d: ALT %s NOT FOUND: %v", pktIdx+1, lookup.AccountKey.String(), err)
-							continue
-						}
-
-						// Parse ALT to get addresses
-						altData := altInfo.Value.Data.GetBinary()
-						if len(altData) > 56 { // Header is 56 bytes
-							addressesData := altData[56:]
-							numAddresses := len(addressesData) / 32
-							for i := 0; i < numAddresses && i*32+32 <= len(addressesData); i++ {
-								addrBytes := addressesData[i*32 : i*32+32]
-								addr := solana.PublicKeyFromBytes(addrBytes)
-								allAddresses = append(allAddresses, addr)
-							}
-						}
-					}
-				}
-
-				// Check if each address exists on-chain (skip system accounts)
-				seenAddrs := make(map[string]bool)
-				for _, addr := range allAddresses {
-					addrStr := addr.String()
-					if seenAddrs[addrStr] {
-						continue
-					}
-					seenAddrs[addrStr] = true
-
-					// Skip well-known system accounts
-					if addr.Equals(solana.SystemProgramID) ||
-						addr.Equals(solana.SysVarInstructionsPubkey) ||
-						addr.Equals(solana.TokenProgramID) ||
-						addr.Equals(solana.SPLAssociatedTokenAccountProgramID) {
-						continue
-					}
-
-					// Use confirmed commitment to match what we used for tx submission
-					accInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, addr, &rpc.GetAccountInfoOpts{
-						Commitment: rpc.CommitmentConfirmed,
-					})
-					if err != nil || accInfo == nil || accInfo.Value == nil {
-						t.Logf("WARNING Packet %d: Account %s DOES NOT EXIST or error: %v", pktIdx+1, addrStr, err)
-					}
-				}
-			}
-
 			// Use confirmed commitment - relayer and verification both read with confirmed commitment
 			sig, err := s.SignAndBroadcastTxWithOpts(ctx, finalTx, rpc.ConfirmationStatusConfirmed, user)
 			finalDuration := time.Since(finalStart)

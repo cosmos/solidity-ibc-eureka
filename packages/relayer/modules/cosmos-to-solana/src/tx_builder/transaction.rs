@@ -106,7 +106,11 @@ impl super::TxBuilder {
         let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
 
-        tracing::debug!("Resolved client '{}' → {}", client_id, client.client_program_id);
+        tracing::debug!(
+            "Resolved client '{}' → {}",
+            client_id,
+            client.client_program_id
+        );
 
         Ok(client.client_program_id)
     }

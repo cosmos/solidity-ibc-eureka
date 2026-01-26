@@ -239,11 +239,14 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_bytes =
         hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    // Pad receiver address to 32 bytes (left-padded with zeros)
+    // Validate EVM address is exactly 20 bytes
+    if receiver_bytes.len() != 20 {
+        return Err(error!(IFTError::InvalidReceiver));
+    }
+
+    // Pad receiver address to 32 bytes (left-padded with zeros for ABI encoding)
     let mut padded_receiver = [0u8; 32];
-    let start = 32 - receiver_bytes.len().min(20);
-    padded_receiver[start..start + receiver_bytes.len().min(20)]
-        .copy_from_slice(&receiver_bytes[..receiver_bytes.len().min(20)]);
+    padded_receiver[12..32].copy_from_slice(&receiver_bytes);
     payload.extend_from_slice(&padded_receiver);
 
     // Amount as u256 (32 bytes, big-endian, left-padded)
