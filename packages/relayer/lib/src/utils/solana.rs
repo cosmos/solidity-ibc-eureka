@@ -282,10 +282,19 @@ pub fn target_events_to_timeout_msgs(
 
                 let sequence = event.packet.sequence;
 
-                // Build metadata using helper function
                 let payloads_metadata =
                     build_metadata_from_solana_payloads(&event.packet.payloads, sequence)
                         .expect("Failed to build payload metadata");
+
+                let is_chunked = payloads_metadata.iter().any(|m| m.total_chunks > 0);
+                let packet = if is_chunked {
+                    Packet {
+                        payloads: vec![],
+                        ..event.packet
+                    }
+                } else {
+                    event.packet
+                };
 
                 tracing::info!(
                     "timeout_packet seq={}: metadata.len()={}, proof will be filled later",
@@ -295,7 +304,7 @@ pub fn target_events_to_timeout_msgs(
 
                 TimeoutPacketWithChunks {
                     msg: MsgTimeoutPacket {
-                        packet: event.packet,
+                        packet,
                         payloads: payloads_metadata,
                         proof: ProofMetadata {
                             height: target_height,
