@@ -67,6 +67,9 @@ pub struct IFTBridge {
     pub mint: Pubkey,
     pub client_id: String,               // IBC client (max 64)
     pub counterparty_ift_address: String,// IFT contract on destination (max 128)
+    pub counterparty_denom: String,      // Token denom on counterparty (max 128)
+    pub cosmos_type_url: String,         // Protobuf type URL for Cosmos MsgIFTMint (max 128)
+    pub cosmos_ica_address: String,      // ICS27-GMP ICA address on Cosmos (max 128)
     pub counterparty_chain_type: CounterpartyChainType,
     pub active: bool,
     pub _reserved: [u8; 64],
@@ -175,6 +178,7 @@ Tx 2 - Anyone claims refund:
 | `register_ift_bridge` | Register counterparty IFT contract for a destination chain |
 | `remove_ift_bridge` | Deactivate/remove a registered bridge |
 | `set_access_manager` | Update access manager program |
+| `revoke_mint_authority` | Reclaim mint authority from IFT PDA (closes app state) |
 
 ### Access Control
 
@@ -251,7 +255,7 @@ This PDA-based validation is more efficient and Solana-native than instruction s
 ## Limitations
 
 1. **Pre-existing Mint Required**: Token must exist before IFT initialization
-2. **Mint Authority Transfer**: Original authority loses control permanently
+2. **Mint Authority Transfer**: Authority transferred to IFT PDA (recoverable via `revoke_mint_authority`)
 3. **No WSOL**: Native currency bridging requires ICS-20
 
 ## References
