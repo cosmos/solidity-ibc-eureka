@@ -94,16 +94,19 @@ func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Contex
 	return subdenom
 }
 
-func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr string) {
+func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr string, gmpProgramID, mint solanago.PublicKey) {
 	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
 	s.Require().NoError(err)
+
+	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String())
+	s.T().Logf("IFT constructor: %s", constructor)
 
 	msg := &ifttypes.MsgRegisterIFTBridge{
 		Signer:                 govModuleAddr,
 		Denom:                  denom,
 		ClientId:               clientId,
 		CounterpartyIftAddress: counterpartyIftAddr,
-		IftSendCallConstructor: testvalues.IFTSendCallConstructorSolana,
+		IftSendCallConstructor: constructor,
 	}
 	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
 	s.Require().NoError(err)
@@ -210,15 +213,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 
 	cosmosUser := s.Cosmos.Users[0]
 
-	// Setup wfchain IFT (tokenfactory denom + bridge registration)
 	var cosmosDenom string
-	s.Require().True(s.Run("Setup wfchain IFT", func() {
+	s.Require().True(s.Run("Create tokenfactory denom", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
-		s.T().Logf("Created tokenfactory denom: %s", cosmosDenom)
-
-		// IFT module gets mint permission when bridge is registered
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String())
-		s.T().Logf("wfchain IFT bridge registered: denom=%s, counterparty=%s", cosmosDenom, ics27_ift.ProgramID)
 	}))
 
 	var senderTokenAccount solanago.PublicKey
@@ -241,6 +238,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	}))
 
 	s.initializeIFT(ctx, s.IFTMint)
+
+	s.Require().True(s.Run("Register Cosmos IFT Bridge", func() {
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), ics27_gmp.ProgramID, s.IFTMint)
+	}))
+
 	iftModuleAddr := s.getCosmosIFTModuleAddress()
 	s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 

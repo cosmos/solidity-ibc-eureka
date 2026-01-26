@@ -1,6 +1,7 @@
 package testvalues
 
 import (
+	"encoding/json"
 	"math/big"
 	"os"
 	"time"
@@ -312,4 +313,19 @@ func EnvEnsure(key, defaultValue string) string {
 	os.Setenv(key, defaultValue)
 
 	return defaultValue
+}
+
+type SolanaIFTConfig struct {
+	GMPProgramID string `json:"gmp_program_id"`
+	Mint         string `json:"mint"`
+}
+
+// BuildSolanaIFTConstructor returns "solana:{\"gmp_program_id\":\"...\",\"mint\":\"...\"}"
+func BuildSolanaIFTConstructor(gmpProgramID, mint string) string {
+	cfg := SolanaIFTConfig{
+		GMPProgramID: gmpProgramID,
+		Mint:         mint,
+	}
+	jsonBytes, _ := json.Marshal(cfg)
+	return IFTSendCallConstructorSolana + ":" + string(jsonBytes)
 }
