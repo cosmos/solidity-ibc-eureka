@@ -41,7 +41,9 @@ type MsgRegisterIFTBridge struct {
 	ClientId string `protobuf:"bytes,3,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`
 	// The address of the IFT on the counterparty chain
 	CounterpartyIftAddress string `protobuf:"bytes,4,opt,name=counterparty_ift_address,json=counterpartyIftAddress,proto3" json:"counterparty_ift_address,omitempty"`
-	// The identifier of the IFTSendCall constructor to use (e.g., "evm" or "cosmos")
+	// The identifier of the IFTSendCall constructor to use.
+	// For simple constructors: "evm" or "cosmos"
+	// For Solana: JSON format "solana:{\"gmp_program_id\":\"...\",\"mint\":\"...\"}"
 	IftSendCallConstructor string `protobuf:"bytes,5,opt,name=ift_send_call_constructor,json=iftSendCallConstructor,proto3" json:"ift_send_call_constructor,omitempty"`
 }
 
