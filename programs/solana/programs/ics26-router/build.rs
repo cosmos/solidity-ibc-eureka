@@ -2,11 +2,11 @@
 //!
 //! This generates:
 //! 1. `UNIVERSAL_ERROR_ACK` constant to match Solidity's ICS24Host.sol
-//! 2. `events.rs` copied from solana_ibc_types for Anchor IDL generation
+//! 2. `events.rs` copied from `solana_ibc_types` for Anchor IDL generation
 //!
 //! WHY EVENTS ARE COPIED:
 //! Anchor's IDL generation only includes events defined with #[event] in the
-//! same crate. Events in solana_ibc_types are used at runtime, but anchor-go
+//! same crate. Events in `solana_ibc_types` are used at runtime, but anchor-go
 //! needs them in the IDL to generate Go types for event parsing.
 
 use sha2::{Digest as _, Sha256};
@@ -73,8 +73,7 @@ fn generate_events() {
          // anchor-go needs these definitions in the IDL to generate Go event parsers.\n\
          //\n\
          // See build.rs for the generation logic.\n\n\
-         {}",
-        modified_content
+         {modified_content}"
     );
 
     fs::write(&dest_path, final_content).expect("Failed to write events.rs");

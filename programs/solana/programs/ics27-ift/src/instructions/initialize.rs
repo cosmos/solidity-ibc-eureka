@@ -31,6 +31,7 @@ pub struct Initialize<'info> {
     )]
     pub mint_authority: AccountInfo<'info>,
 
+    // TODO: IFT creates the mint during init, there's no need for current_mint_authority - the mint would be created with IFT's PDA as authority from the start
     /// Current mint authority (must sign to transfer authority)
     pub current_mint_authority: Signer<'info>,
 
