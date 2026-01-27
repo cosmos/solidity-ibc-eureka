@@ -321,7 +321,7 @@ type SolanaIFTConfig struct {
 	CounterpartyClientId string `json:"counterparty_client_id"`
 }
 
-// BuildSolanaIFTConstructor returns "solana:{\"gmp_program_id\":\"...\",\"mint\":\"...\",\"counterparty_client_id\":\"...\"}"
+// BuildSolanaIFTConstructor returns "{\"solana\":{\"gmp_program_id\":\"...\",\"mint\":\"...\",\"counterparty_client_id\":\"...\"}}"
 // counterpartyClientId is the client ID on Solana that tracks the Cosmos chain (needed for gmp_account_pda derivation)
 func BuildSolanaIFTConstructor(gmpProgramID, mint, counterpartyClientId string) string {
 	cfg := SolanaIFTConfig{
@@ -329,6 +329,7 @@ func BuildSolanaIFTConstructor(gmpProgramID, mint, counterpartyClientId string) 
 		Mint:                 mint,
 		CounterpartyClientId: counterpartyClientId,
 	}
-	jsonBytes, _ := json.Marshal(cfg)
-	return IFTSendCallConstructorSolana + ":" + string(jsonBytes)
+	wrapper := map[string]SolanaIFTConfig{IFTSendCallConstructorSolana: cfg}
+	jsonBytes, _ := json.Marshal(wrapper)
+	return string(jsonBytes)
 }
