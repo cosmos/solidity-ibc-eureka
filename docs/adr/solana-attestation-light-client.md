@@ -326,7 +326,7 @@ set_return_data(&timestamp_bytes);
 | Aspect | Solidity | Solana |
 |--------|----------|--------|
 | Implementation | OpenZeppelin AccessControl | Separate `access_manager` program |
-| Role | `PROOF_SUBMITTER_ROLE` | `RELAYER_ROLE` |
+| Role | `PROOF_SUBMITTER_ROLE` | `PROOF_SUBMITTER_ROLE` (ID=8) |
 | Optional | If `roleManager == address(0)`, anyone can submit | Always requires role |
 
 ### Error Mapping

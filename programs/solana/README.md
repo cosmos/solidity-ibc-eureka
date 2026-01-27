@@ -146,16 +146,26 @@ The AccessManager provides role-based access control across all IBC programs.
 
 ### Role Definitions
 
-| Role ID    | Name                 | Purpose                                 |
-| ---------- | -------------------- | --------------------------------------- |
-| `0`        | `ADMIN_ROLE`         | Root administrator with all permissions |
-| `1`        | `RELAYER_ROLE`       | Submit IBC packets and client updates   |
-| `2`        | `PAUSER_ROLE`        | Pause operations during emergencies     |
-| `3`        | `UNPAUSER_ROLE`      | Resume operations after emergency       |
-| `6`        | `ID_CUSTOMIZER_ROLE` | Customize client and connection IDs     |
-| `u64::MAX` | `PUBLIC_ROLE`        | Anyone (unrestricted access)            |
+| Role ID    | Name                    | Purpose                                       |
+| ---------- | ----------------------- | --------------------------------------------- |
+| `0`        | `ADMIN_ROLE`            | Root administrator with all permissions       |
+| `1`        | `RELAYER_ROLE`          | Submit IBC packets (recv, ack, timeout)       |
+| `2`        | `PAUSER_ROLE`           | Pause operations during emergencies           |
+| `3`        | `UNPAUSER_ROLE`         | Resume operations after emergency             |
+| `6`        | `ID_CUSTOMIZER_ROLE`    | Customize client and connection IDs           |
+| `8`        | `PROOF_SUBMITTER_ROLE`  | Submit light client proofs (updateClient, misbehaviour) |
+| `u64::MAX` | `PUBLIC_ROLE`           | Anyone (unrestricted access)                  |
 
 **Note:** Some role IDs (4, 5, 7) are reserved for future use and Ethereum compatibility but not currently implemented on Solana.
+
+#### Role Separation: RELAYER vs PROOF_SUBMITTER
+
+The IBC implementation separates packet relay operations from light client proof operations:
+
+- **`RELAYER_ROLE`**: Used by ICS26 Router for packet operations (`recvPacket`, `ackPacket`, `timeoutPacket`)
+- **`PROOF_SUBMITTER_ROLE`**: Used by light clients (ICS07 Tendermint, Attestation LC) for proof submission (`updateClient`, `misbehaviour`)
+
+This matches the Solidity implementation where light clients use a separate `PROOF_SUBMITTER_ROLE` for `updateClient` and `misbehaviour` operations, allowing different access control for proof submission vs packet relay.
 
 ### Role Management
 
