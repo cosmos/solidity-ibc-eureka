@@ -42,6 +42,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// NOTE: Init is called per SLP TOKEN, not once
 pub fn initialize(
     ctx: Context<Initialize>,
     decimals: u8,
