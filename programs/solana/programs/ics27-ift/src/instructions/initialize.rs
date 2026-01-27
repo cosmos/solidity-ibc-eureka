@@ -31,6 +31,7 @@ pub struct Initialize<'info> {
     /// CHECK: Derived PDA set as mint authority
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        // TODO: doublecheck 
         bump
     )]
     pub mint_authority: AccountInfo<'info>,
@@ -42,7 +43,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// TODO: spl token
+// TODO: we will nee t
 pub fn initialize(
     ctx: Context<Initialize>,
     decimals: u8,

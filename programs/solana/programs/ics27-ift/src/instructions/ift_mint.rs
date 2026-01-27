@@ -40,6 +40,7 @@ pub struct IFTMint<'info> {
     /// CHECK: Derived PDA that signs for minting
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        // TODO: doublecheck 
         bump = app_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,

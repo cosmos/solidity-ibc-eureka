@@ -18,6 +18,7 @@ use crate::state::{
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
+        // TODO: shouldnt be mut
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
@@ -26,6 +27,7 @@ pub struct IFTTransfer<'info> {
 
     /// IFT bridge for the destination
     #[account(
+        // TODO: shouldnt be mut
         mut,
         seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
@@ -54,6 +56,7 @@ pub struct IFTTransfer<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    // TODO: add reason why here
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 
@@ -114,6 +117,7 @@ pub struct IFTTransfer<'info> {
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
+    // TODO: optimize
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
@@ -204,6 +208,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     Ok(sequence)
 }
 
+// TODO: cpi call
 fn construct_mint_call(
     chain_type: CounterpartyChainType,
     _counterparty_address: &str,
