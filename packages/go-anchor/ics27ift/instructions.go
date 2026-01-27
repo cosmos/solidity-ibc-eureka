@@ -145,6 +145,10 @@ func NewRegisterIftBridgeInstruction(
 // Builds a "remove_ift_bridge" instruction.
 // Remove an IFT bridge
 func NewRemoveIftBridgeInstruction(
+	// Params:
+	clientIdParam string,
+
+	// Accounts:
 	appStateAccount solanago.PublicKey,
 	iftBridgeAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
@@ -160,6 +164,13 @@ func NewRemoveIftBridgeInstruction(
 	err := enc__.WriteBytes(Instruction_RemoveIftBridge[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `clientIdParam`:
+		err = enc__.Encode(clientIdParam)
+		if err != nil {
+			return nil, errors.NewField("clientIdParam", err)
+		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
 

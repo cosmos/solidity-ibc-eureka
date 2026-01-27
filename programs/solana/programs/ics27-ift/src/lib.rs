@@ -40,8 +40,8 @@ pub mod ics27_ift {
     }
 
     /// Remove an IFT bridge
-    pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
-        instructions::remove_ift_bridge(ctx)
+    pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Result<()> {
+        instructions::remove_ift_bridge(ctx, client_id)
     }
 
     /// Initiate an IFT transfer to another chain

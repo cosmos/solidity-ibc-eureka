@@ -1259,9 +1259,6 @@ type Ics27IftStateIftBridge struct {
 	// Mint this bridge is associated with
 	Mint solanago.PublicKey `json:"mint"`
 
-	// IBC client identifier on local chain
-	ClientId string `json:"clientId"`
-
 	// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
 	CounterpartyIftAddress string `json:"counterpartyIftAddress"`
 
@@ -1300,11 +1297,6 @@ func (obj Ics27IftStateIftBridge) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.Mint)
 	if err != nil {
 		return errors.NewField("Mint", err)
-	}
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
 	}
 	// Serialize `CounterpartyIftAddress`:
 	err = encoder.Encode(obj.CounterpartyIftAddress)
@@ -1369,11 +1361,6 @@ func (obj *Ics27IftStateIftBridge) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.Mint)
 	if err != nil {
 		return errors.NewField("Mint", err)
-	}
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
 	}
 	// Deserialize `CounterpartyIftAddress`:
 	err = decoder.Decode(&obj.CounterpartyIftAddress)

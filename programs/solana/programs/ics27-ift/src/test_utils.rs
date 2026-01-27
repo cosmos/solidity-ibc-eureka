@@ -56,7 +56,6 @@ pub fn create_ift_app_state_account(
 #[allow(clippy::too_many_arguments)]
 pub fn create_ift_bridge_account(
     mint: Pubkey,
-    client_id: &str,
     counterparty_ift_address: &str,
     counterparty_denom: &str,
     cosmos_type_url: &str,
@@ -69,7 +68,6 @@ pub fn create_ift_bridge_account(
         version: AccountVersion::V1,
         bump,
         mint,
-        client_id: client_id.to_string(),
         counterparty_ift_address: counterparty_ift_address.to_string(),
         counterparty_denom: counterparty_denom.to_string(),
         cosmos_type_url: cosmos_type_url.to_string(),

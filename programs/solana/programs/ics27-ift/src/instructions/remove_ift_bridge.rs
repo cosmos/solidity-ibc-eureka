@@ -6,6 +6,7 @@ use crate::events::IFTBridgeRemoved;
 use crate::state::{IFTAppState, IFTBridge};
 
 #[derive(Accounts)]
+#[instruction(client_id: String)]
 pub struct RemoveIFTBridge<'info> {
     #[account(
         mut,
@@ -18,7 +19,7 @@ pub struct RemoveIFTBridge<'info> {
     #[account(
         mut,
         close = payer,
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), ift_bridge.client_id.as_bytes()],
+        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_state.mint @ IFTError::BridgeNotFound
     )]
@@ -46,7 +47,7 @@ pub struct RemoveIFTBridge<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
+pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ADMIN_ROLE,
@@ -54,8 +55,6 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>) -> Result<()> {
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
-
-    let client_id = ctx.accounts.ift_bridge.client_id.clone();
 
     let clock = Clock::get()?;
     emit!(IFTBridgeRemoved {
@@ -105,7 +104,6 @@ mod tests {
 
         let bridge_account = create_ift_bridge_account(
             mint,
-            client_id,
             "0x1234",
             "",
             "",
@@ -126,7 +124,10 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::RemoveIftBridge {}.data(),
+            data: crate::instruction::RemoveIftBridge {
+                client_id: client_id.to_string(),
+            }
+            .data(),
         };
 
         let accounts = vec![
@@ -188,7 +189,6 @@ mod tests {
 
         let bridge_account = create_ift_bridge_account(
             mint,
-            client_id,
             "0x1234",
             "",
             "",
@@ -209,7 +209,10 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::RemoveIftBridge {}.data(),
+            data: crate::instruction::RemoveIftBridge {
+                client_id: client_id.to_string(),
+            }
+            .data(),
         };
 
         let accounts = vec![
@@ -257,7 +260,6 @@ mod tests {
 
         let bridge_account = create_ift_bridge_account(
             wrong_mint,
-            client_id,
             "0x1234",
             "",
             "",
@@ -278,7 +280,10 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::RemoveIftBridge {}.data(),
+            data: crate::instruction::RemoveIftBridge {
+                client_id: client_id.to_string(),
+            }
+            .data(),
         };
 
         let accounts = vec![

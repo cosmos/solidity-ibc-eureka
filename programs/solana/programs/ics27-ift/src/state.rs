@@ -75,12 +75,6 @@ pub struct IFTBridge {
     /// Mint this bridge is associated with
     pub mint: Pubkey,
 
-    /// IBC client identifier on local chain
-    // TODO: Remove - redundant since client_id is already the PDA seed key.
-    // Pass via instruction message instead (requires adding arg to RemoveIFTBridge).
-    #[max_len(64)]
-    pub client_id: String,
-
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
     #[max_len(128)]
     pub counterparty_ift_address: String,

@@ -80,7 +80,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     require!(msg.amount > 0, IFTError::ZeroAmount);
     validate_gmp_account(
         &ctx.accounts.gmp_account.key(),
-        &ctx.accounts.ift_bridge.client_id,
+        &msg.client_id,
         &ctx.accounts.ift_bridge.counterparty_ift_address,
         &ctx.accounts.gmp_program.key(),
         msg.gmp_account_bump,
@@ -98,7 +98,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let clock = Clock::get()?;
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),
-        client_id: ctx.accounts.ift_bridge.client_id.clone(),
+        client_id: msg.client_id,
         receiver: msg.receiver,
         amount: msg.amount,
         gmp_account: ctx.accounts.gmp_account.key(),
@@ -242,7 +242,6 @@ mod tests {
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
-            TEST_CLIENT_ID,
             TEST_COUNTERPARTY_ADDRESS,
             "",
             "",

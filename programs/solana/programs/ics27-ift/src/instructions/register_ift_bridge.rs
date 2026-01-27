@@ -106,7 +106,6 @@ pub fn register_ift_bridge(
     bridge.version = AccountVersion::V1;
     bridge.bump = ctx.bumps.ift_bridge;
     bridge.mint = ctx.accounts.app_state.mint;
-    bridge.client_id.clone_from(&msg.client_id);
     bridge
         .counterparty_ift_address
         .clone_from(&msg.counterparty_ift_address);
@@ -237,7 +236,6 @@ mod tests {
             "Bridge should be owned by IFT program"
         );
         let bridge = deserialize_bridge(&bridge_account);
-        assert_eq!(bridge.client_id, TEST_CLIENT_ID);
         assert_eq!(bridge.counterparty_ift_address, TEST_COUNTERPARTY_ADDRESS);
         assert!(bridge.active);
     }
