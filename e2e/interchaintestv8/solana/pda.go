@@ -14,6 +14,7 @@ import (
 )
 
 type accessManagerPDAs struct{}
+type attestationLightClientPDAs struct{}
 type dummyIbcAppPDAs struct{}
 type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
@@ -23,6 +24,7 @@ type mockLightClientPDAs struct{}
 
 var (
 	AccessManager = accessManagerPDAs{}
+	AttestationLightClient = attestationLightClientPDAs{}
 	DummyIbcApp = dummyIbcAppPDAs{}
 	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
@@ -49,6 +51,39 @@ func (accessManagerPDAs) UpgradeAuthorityPDA(programID solanago.PublicKey, targe
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive AccessManager.UpgradeAuthorityPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationLightClientPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AttestationLightClient.AppStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationLightClientPDAs) ClientPDA(programID solanago.PublicKey, clientId []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client"), clientId},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AttestationLightClient.ClientPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationLightClientPDAs) ConsensusStateWithAccountSeedPDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AttestationLightClient.ConsensusStateWithAccountSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }

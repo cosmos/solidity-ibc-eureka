@@ -5,11 +5,16 @@
 /// Anchor default discriminator length in bytes
 pub const ANCHOR_DISCRIMINATOR_LEN: usize = 8;
 
+// TODO: Should we load these IDs from ENV variables?
+
 /// ICS26 Router Program ID on Solana
 pub const ICS26_ROUTER_ID: &str = "FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx";
 
 /// ICS07 Tendermint Light Client Program ID on Solana
 pub const ICS07_TENDERMINT_ID: &str = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD";
+
+/// Attestation Light Client Program ID on Solana
+pub const ATTESTATION_LIGHT_CLIENT_ID: &str = "F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe";
 
 /// Maximum size of chunk data for multi-transaction uploads.
 /// Used by ics07-tendermint (header chunks) and ics26-router (payload/proof chunks).

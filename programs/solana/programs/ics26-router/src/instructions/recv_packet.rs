@@ -26,8 +26,12 @@ pub struct RecvPacket<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    // Note: Port validation is done in the handler function to avoid Anchor macro issues
-    pub ibc_app: Account<'info, IBCApp>,
+    // NOTE: Using AccountInfo instead of Account<IBCApp> to reduce stack usage
+    // in try_accounts (BPF 4KB limit). IBCApp has a 256-byte reserved array.
+    // Port validation and deserialization done in handler.
+    /// CHECK: Seeds validated manually in handler, owner checked by Anchor
+    #[account(owner = crate::ID)]
+    pub ibc_app: AccountInfo<'info>,
 
     #[account(
         init_if_needed,
@@ -56,10 +60,8 @@ pub struct RecvPacket<'info> {
     pub packet_ack: Account<'info, Commitment>,
 
     // IBC app accounts for CPI
-    /// CHECK: IBC app program, validated against `IBCApp` account
-    #[account(
-        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
-    )]
+    // NOTE: Program ID validation moved to handler (ibc_app is now AccountInfo)
+    /// CHECK: Validated in handler against deserialized IBCApp.app_program_id
     pub ibc_app_program: AccountInfo<'info>,
 
     /// CHECK: IBC app state account, owned by IBC app program
@@ -80,13 +82,15 @@ pub struct RecvPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 
-    // Client for light client lookup
+    // NOTE: Using AccountInfo instead of Account<Client> to reduce stack usage
+    // in try_accounts (BPF 4KB limit). Client has strings and reserved space (~425 bytes).
+    // Seeds and active status validated in handler.
+    /// CHECK: Seeds validated manually in handler
     #[account(
         seeds = [Client::SEED, msg.packet.dest_client.as_bytes()],
         bump,
-        constraint = client.active @ RouterError::ClientNotActive,
     )]
-    pub client: Account<'info, Client>,
+    pub client: AccountInfo<'info>,
 
     // Light client verification accounts
     /// CHECK: Light client program, validated against client registry
@@ -113,7 +117,29 @@ pub fn recv_packet<'info>(
 
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
-    let client = &ctx.accounts.client;
+
+    // Manually deserialize Client from AccountInfo (moved from try_accounts to reduce stack)
+    let client = {
+        let data = ctx.accounts.client.try_borrow_data()?;
+        Client::try_deserialize(&mut &data[..])?
+    };
+
+    // Validate client is active (moved from constraint to reduce stack)
+    require!(client.active, RouterError::ClientNotActive);
+
+    // Manually deserialize IBCApp from AccountInfo (moved from try_accounts to reduce stack)
+    let ibc_app = {
+        let data = ctx.accounts.ibc_app.try_borrow_data()?;
+        IBCApp::try_deserialize(&mut &data[..])?
+    };
+
+    // Validate ibc_app_program matches the registered app (moved from constraint)
+    require_keys_eq!(
+        ctx.accounts.ibc_app_program.key(),
+        ibc_app.app_program_id,
+        RouterError::IbcAppNotFound
+    );
+
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
@@ -181,7 +207,7 @@ pub fn recv_packet<'info>(
         value: expected_commitment.to_vec(),
     };
 
-    let light_client_cpi = LightClientCpi::new(client);
+    let light_client_cpi = LightClientCpi::new(&client);
     light_client_cpi.verify_membership(
         &ctx.accounts.light_client_program,
         &ctx.accounts.client_state,

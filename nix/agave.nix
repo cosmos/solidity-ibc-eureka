@@ -40,7 +40,7 @@ let
 
   versions = {
     agave = "2.2.17";
-    platformTools = "v1.48";
+    platformTools = "v1.52";
   };
 
   # Create nightly toolchain from rust-bin (used for IDL generation)
@@ -51,19 +51,19 @@ let
   platformConfig = {
     x86_64-darwin = {
       archive = "platform-tools-osx-x86_64.tar.bz2";
-      sha256 = "sha256-vLTtCmUkxxkd8KKQa8qpQ7kb5S52EI/DVllgtu8zM2I=";
+      sha256 = "";  # v1.51 - needs update
     };
     aarch64-darwin = {
       archive = "platform-tools-osx-aarch64.tar.bz2";
-      sha256 = "sha256-eZ5M/O444icVXIP7IpT5b5SoQ9QuAcA1n7cSjiIW0t0=";
+      sha256 = "sha256-Fyffsx6DPOd30B5wy0s869JrN2vwnYBSfwJFfUz2/QA=";
     };
     x86_64-linux = {
       archive = "platform-tools-linux-x86_64.tar.bz2";
-      sha256 = "sha256-qdMVf5N9X2+vQyGjWoA14PgnEUpmOwFQ20kuiT7CdZc=";
+      sha256 = "";  # v1.51 - needs update
     };
     aarch64-linux = {
       archive = "platform-tools-linux-aarch64.tar.bz2";
-      sha256 = "sha256-rsYCIiL3ueJHkDZkhLzGz59mljd7uY9UHIhp4vMecPI=";
+      sha256 = "";  # v1.51 - needs update
     };
   };
 

@@ -35,12 +35,13 @@ tracing-opentelemetry = { workspace = true, default-features = true }
 tendermint                       = { workspace = true, features = ["std"] }
 tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
-anchor-lang = { workspace = true }
-solana-sdk = { workspace = true }
-solana-client = { workspace = true }
-solana-transaction-status = { workspace = true }
-solana-ibc-types = { path = "../../../programs/solana/packages/solana-ibc-types" }
-solana-ibc-constants = { path = "../../../programs/solana/packages/solana-ibc-constants" }
+anchor-lang                      = { workspace = true }
+borsh                            = { workspace = true }
+solana-sdk                       = { workspace = true }
+solana-client                    = { workspace = true }
+solana-transaction-status        = { workspace = true }
+solana-ibc-types                 = { path = "../../../programs/solana/packages/solana-ibc-types" }
+solana-ibc-constants             = { path = "../../../programs/solana/packages/solana-ibc-constants" }
 
 ibc-proto                   = { workspace = true }
 ibc-proto-eureka            = { workspace = true }

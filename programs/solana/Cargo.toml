@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "programs/access-manager",
+  "programs/attestation-light-client",
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/ics27-gmp",
@@ -102,6 +103,10 @@ ibc-proto = { version = "0.51", default-features = false }
 tendermint = { version = "0.40", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 time = { version = "0.3", default-features = false }
+
+# Alloy for ABI encoding/decoding
+alloy-sol-types = { version = "1.1", default-features = false }
+ibc-eureka-solidity-types = { path = "../../packages/solidity", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
 thiserror = { version = "2.0", default-features = false }
