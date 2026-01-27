@@ -32,11 +32,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt, clippy
-
       - name: Cache Rust dependencies
         uses: actions/cache@v4
         with:
@@ -54,6 +49,17 @@ jobs:
         with:
           anchor_version: ${{ env.ANCHOR_VERSION }}
           solana_version: ${{ env.SOLANA_VERSION }}
+
+      # Re-setup Rust after Solana setup (which overrides with older bundled version)
+      - name: Setup Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Rust stable (default for builds)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
 
       - name: Install just
         uses: extractions/setup-just@v2
