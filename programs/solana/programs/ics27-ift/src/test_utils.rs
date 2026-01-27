@@ -53,6 +53,7 @@ pub fn create_ift_app_state_account(
 }
 
 /// Create a serialized IFT bridge account
+#[allow(clippy::too_many_arguments)]
 pub fn create_ift_bridge_account(
     mint: Pubkey,
     client_id: &str,

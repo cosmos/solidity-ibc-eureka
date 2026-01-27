@@ -87,12 +87,12 @@ pub struct IFTBridge {
     #[max_len(128)]
     pub counterparty_denom: String,
 
-    /// Protobuf type URL for MsgIFTMint on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
+    /// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
     /// For non-Cosmos chains, this can be empty
     #[max_len(128)]
     pub cosmos_type_url: String,
 
-    /// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+    /// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
     /// Required for Cosmos chains, empty for EVM/Solana
     #[max_len(128)]
     pub cosmos_ica_address: String,
@@ -165,10 +165,10 @@ pub struct RegisterIFTBridgeMsg {
     pub counterparty_ift_address: String,
     /// Token denom on counterparty chain (required for Cosmos, optional for EVM)
     pub counterparty_denom: String,
-    /// Protobuf type URL for MsgIFTMint on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
+    /// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
     /// Required for Cosmos chains, ignored for EVM/Solana
     pub cosmos_type_url: String,
-    /// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+    /// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
     /// Required for Cosmos chains, ignored for EVM/Solana
     pub cosmos_ica_address: String,
     /// Counterparty chain type

@@ -87,10 +87,10 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// Admin signer (must have ADMIN_ROLE)
+    /// Admin signer (must have `ADMIN_ROLE`)
     pub admin: Signer<'info>,
 
-    /// Payer receives rent from closed app_state
+    /// Payer receives rent from closed `app_state`
     #[account(mut)]
     pub payer: Signer<'info>,
 
