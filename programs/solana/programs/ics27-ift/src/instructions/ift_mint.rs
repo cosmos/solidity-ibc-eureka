@@ -54,6 +54,7 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_token_account: Account<'info, TokenAccount>,
 
+    // TODO: make just a receiver
     /// CHECK: The receiver owner pubkey (must match msg.receiver)
     #[account(
         constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
