@@ -42,9 +42,6 @@ pub enum IFTError {
     #[msg("Invalid GMP program")]
     InvalidGmpProgram,
 
-    #[msg("Invalid mint authority")]
-    InvalidMintAuthority,
-
     #[msg("GMP call failed")]
     GmpCallFailed,
 
@@ -83,9 +80,6 @@ pub enum IFTError {
 
     #[msg("Invalid pending transfer account")]
     InvalidPendingTransfer,
-
-    #[msg("Mint decimals mismatch")]
-    DecimalsMismatch,
 
     #[msg("GMP result client ID mismatch")]
     GmpResultClientMismatch,

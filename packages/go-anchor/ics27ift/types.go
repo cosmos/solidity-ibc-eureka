@@ -297,10 +297,10 @@ type Ics27IftEventsIftBridgeRegistered struct {
 	// Token denom on counterparty chain
 	CounterpartyDenom string `json:"counterpartyDenom"`
 
-	// Protobuf type URL for Cosmos MsgIFTMint
+	// Protobuf type URL for Cosmos `MsgIFTMint`
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
-	// ICS27-GMP interchain account address on Cosmos (signer for MsgIFTMint)
+	// ICS27-GMP interchain account address on Cosmos (signer for `MsgIFTMint`)
 	CosmosIcaAddress string `json:"cosmosIcaAddress"`
 
 	// Counterparty chain type
@@ -1269,11 +1269,11 @@ type Ics27IftStateIftBridge struct {
 	// For EVM chains, this can be empty as the address is used directly
 	CounterpartyDenom string `json:"counterpartyDenom"`
 
-	// Protobuf type URL for MsgIFTMint on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
+	// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
 	// For non-Cosmos chains, this can be empty
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
-	// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+	// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
 	// Required for Cosmos chains, empty for EVM/Solana
 	CosmosIcaAddress string `json:"cosmosIcaAddress"`
 
@@ -1771,11 +1771,11 @@ type Ics27IftStateRegisterIftBridgeMsg struct {
 	// Token denom on counterparty chain (required for Cosmos, optional for EVM)
 	CounterpartyDenom string `json:"counterpartyDenom"`
 
-	// Protobuf type URL for MsgIFTMint on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
+	// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
 	// Required for Cosmos chains, ignored for EVM/Solana
 	CosmosTypeUrl string `json:"cosmosTypeUrl"`
 
-	// ICS27-GMP interchain account address on Cosmos chain (the signer for MsgIFTMint)
+	// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
 	// Required for Cosmos chains, ignored for EVM/Solana
 	CosmosIcaAddress string `json:"cosmosIcaAddress"`
 
