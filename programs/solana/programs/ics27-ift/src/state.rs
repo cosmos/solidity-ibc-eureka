@@ -167,6 +167,8 @@ pub struct RegisterIFTBridgeMsg {
     pub counterparty_ift_address: String,
 
     // TODO: parameters with json same as with constructor
+    // separate program id to do it
+    // ift sendcall constructor
     /// Token denom on counterparty chain (required for Cosmos, optional for EVM)
     pub counterparty_denom: String,
     /// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
