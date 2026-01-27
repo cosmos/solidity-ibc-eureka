@@ -2,9 +2,9 @@ use anchor_lang::prelude::*;
 
 use crate::state::CounterpartyChainType;
 
-/// Event emitted when IFT app is initialized
+/// Event emitted when a new SPL token is created for IFT
 #[event]
-pub struct IFTAppInitialized {
+pub struct SplTokenCreated {
     /// SPL Token mint address
     pub mint: Pubkey,
     /// Token decimals

@@ -2,12 +2,12 @@ use anchor_lang::prelude::*;
 use anchor_spl::token::{Mint, Token};
 
 use crate::constants::*;
-use crate::events::IFTAppInitialized;
+use crate::events::SplTokenCreated;
 use crate::state::{AccountVersion, IFTAppState};
 
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
-pub struct Initialize<'info> {
+pub struct CreateSplToken<'info> {
     /// IFT app state PDA (to be created)
     #[account(
         init,
@@ -43,9 +43,8 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-// TODO: we will nee t
-pub fn initialize(
-    ctx: Context<Initialize>,
+pub fn create_spl_token(
+    ctx: Context<CreateSplToken>,
     decimals: u8,
     access_manager: Pubkey,
     gmp_program: Pubkey,
@@ -59,7 +58,7 @@ pub fn initialize(
     app_state.gmp_program = gmp_program;
 
     let clock = Clock::get()?;
-    emit!(IFTAppInitialized {
+    emit!(SplTokenCreated {
         mint: ctx.accounts.mint.key(),
         decimals,
         access_manager,
@@ -93,7 +92,7 @@ mod tests {
     }
 
     #[test]
-    fn test_initialize_wrong_pda_fails() {
+    fn test_create_spl_token_wrong_pda_fails() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
@@ -141,7 +140,7 @@ mod tests {
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::Initialize {
+            data: crate::instruction::CreateSplToken {
                 decimals: 6,
                 access_manager,
                 gmp_program,
@@ -161,7 +160,7 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
-            "initialize should fail with wrong PDA seeds"
+            "create_spl_token should fail with wrong PDA seeds"
         );
     }
 }

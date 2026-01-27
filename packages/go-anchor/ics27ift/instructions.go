@@ -11,9 +11,9 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Builds a "initialize" instruction.
-// Initialize the IFT application with a new SPL token mint
-func NewInitializeInstruction(
+// Builds a "create_spl_token" instruction.
+// Create a new SPL token mint for IFT
+func NewCreateSplTokenInstruction(
 	// Params:
 	decimalsParam uint8,
 	accessManagerParam solanago.PublicKey,
@@ -31,7 +31,7 @@ func NewInitializeInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_Initialize[:], false)
+	err := enc__.WriteBytes(Instruction_CreateSplToken[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}

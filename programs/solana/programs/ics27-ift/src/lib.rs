@@ -21,14 +21,14 @@ declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 pub mod ics27_ift {
     use super::*;
 
-    /// Initialize the IFT application with a new SPL token mint
-    pub fn initialize(
-        ctx: Context<Initialize>,
+    /// Create a new SPL token mint for IFT
+    pub fn create_spl_token(
+        ctx: Context<CreateSplToken>,
         decimals: u8,
         access_manager: Pubkey,
         gmp_program: Pubkey,
     ) -> Result<()> {
-        instructions::initialize(ctx, decimals, access_manager, gmp_program)
+        instructions::create_spl_token(ctx, decimals, access_manager, gmp_program)
     }
 
     /// Register an IFT bridge to a counterparty chain

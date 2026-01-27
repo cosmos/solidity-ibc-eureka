@@ -199,9 +199,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 	}))
 }
 
-// initializeIFT initializes the IFT program with a new mint
+// createIFTSplToken creates a new SPL token for IFT
 // The mint keypair is passed because IFT creates the mint during initialization
-func (s *IbcEurekaSolanaIFTTestSuite) initializeIFT(ctx context.Context, mintWallet *solanago.Wallet) {
+func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
 	mint := mintWallet.PublicKey()
 	appStatePDA, _ := solana.Ics27Ift.IftAppStatePDA(ics27_ift.ProgramID, mint[:])
 	mintAuthorityPDA, _ := solana.Ics27Ift.IftMintAuthorityPDA(ics27_ift.ProgramID, mint[:])
@@ -209,7 +209,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeIFT(ctx context.Context, mintWal
 	s.IFTAppState = appStatePDA
 	s.IFTMintAuthority = mintAuthorityPDA
 
-	initIx, err := ics27_ift.NewInitializeInstruction(
+	initIx, err := ics27_ift.NewCreateSplTokenInstruction(
 		IFTTokenDecimals,
 		access_manager.ProgramID,
 		ics27_gmp.ProgramID,
@@ -250,10 +250,10 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	}))
 
 	var senderTokenAccount solanago.PublicKey
-	s.Require().True(s.Run("Initialize IFT and create mint", func() {
+	s.Require().True(s.Run("Create IFT SPL token", func() {
 		// Generate mint keypair - IFT will create the mint during initialization
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		// Create sender's associated token account
 		mint := s.IFTMintWallet.PublicKey()
@@ -517,9 +517,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	s.Require().True(s.Run("Initialize IFT", func() {
+	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 	}))
 
 	cosmosUser := s.Cosmos.Users[0]
@@ -661,9 +661,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
-	s.Require().True(s.Run("Initialize IFT (creates mint)", func() {
+	s.Require().True(s.Run("Create IFT SPL token (creates mint)", func() {
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
 		s.T().Logf("SPL Token mint created by IFT: %s", mint.String())
@@ -703,9 +703,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 	s.initializeICS27GMP(ctx)
 
 	var iftMintAuthorityPDA solanago.PublicKey
-	s.Require().True(s.Run("Initialize IFT", func() {
+	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
 		iftMintAuthorityPDA, _ = solana.Ics27Ift.IftMintAuthorityPDA(ics27_ift.ProgramID, mint[:])
@@ -784,11 +784,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), cosmosUser.FormattedAddress())
 	}))
 
-	// Initialize IFT and create sender token account
+	// Create IFT SPL token and create sender token account
 	var senderTokenAccount solanago.PublicKey
-	s.Require().True(s.Run("Initialize IFT", func() {
+	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
 		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
@@ -982,11 +982,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), cosmosUser.FormattedAddress())
 	}))
 
-	// Initialize IFT and create sender token account
+	// Create IFT SPL token and create sender token account
 	var senderTokenAccount solanago.PublicKey
-	s.Require().True(s.Run("Initialize IFT", func() {
+	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
-		s.initializeIFT(ctx, s.IFTMintWallet)
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
 		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())

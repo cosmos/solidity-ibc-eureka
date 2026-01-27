@@ -15,13 +15,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
-	case Event_Ics27IftEventsIftAppInitialized:
-		value := new(Ics27IftEventsIftAppInitialized)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics27IftEventsIftAppInitialized: %w", err)
-		}
-		return value, nil
 	case Event_Ics27IftEventsIftBridgeRegistered:
 		value := new(Ics27IftEventsIftBridgeRegistered)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -71,26 +64,16 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics27IftEventsMintAuthorityRevoked: %w", err)
 		}
 		return value, nil
+	case Event_Ics27IftEventsSplTokenCreated:
+		value := new(Ics27IftEventsSplTokenCreated)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Ics27IftEventsSplTokenCreated: %w", err)
+		}
+		return value, nil
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
-}
-
-func ParseEvent_Ics27IftEventsIftAppInitialized(eventData []byte) (*Ics27IftEventsIftAppInitialized, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_Ics27IftEventsIftAppInitialized {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics27IftEventsIftAppInitialized, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(Ics27IftEventsIftAppInitialized)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics27IftEventsIftAppInitialized: %w", err)
-	}
-	return event, nil
 }
 
 func ParseEvent_Ics27IftEventsIftBridgeRegistered(eventData []byte) (*Ics27IftEventsIftBridgeRegistered, error) {
@@ -208,6 +191,23 @@ func ParseEvent_Ics27IftEventsMintAuthorityRevoked(eventData []byte) (*Ics27IftE
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type Ics27IftEventsMintAuthorityRevoked: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_Ics27IftEventsSplTokenCreated(eventData []byte) (*Ics27IftEventsSplTokenCreated, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Ics27IftEventsSplTokenCreated {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics27IftEventsSplTokenCreated, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Ics27IftEventsSplTokenCreated)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics27IftEventsSplTokenCreated: %w", err)
 	}
 	return event, nil
 }

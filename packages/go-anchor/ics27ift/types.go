@@ -180,109 +180,6 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
-// Event emitted when IFT app is initialized
-type Ics27IftEventsIftAppInitialized struct {
-	// SPL Token mint address
-	Mint solanago.PublicKey `json:"mint"`
-
-	// Token decimals
-	Decimals uint8 `json:"decimals"`
-
-	// Access manager program
-	AccessManager solanago.PublicKey `json:"accessManager"`
-
-	// GMP program for cross-chain calls
-	GmpProgram solanago.PublicKey `json:"gmpProgram"`
-
-	// Initialization timestamp
-	Timestamp int64 `json:"timestamp"`
-}
-
-func (obj Ics27IftEventsIftAppInitialized) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Mint`:
-	err = encoder.Encode(obj.Mint)
-	if err != nil {
-		return errors.NewField("Mint", err)
-	}
-	// Serialize `Decimals`:
-	err = encoder.Encode(obj.Decimals)
-	if err != nil {
-		return errors.NewField("Decimals", err)
-	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `GmpProgram`:
-	err = encoder.Encode(obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
-	}
-	// Serialize `Timestamp`:
-	err = encoder.Encode(obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj Ics27IftEventsIftAppInitialized) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics27IftEventsIftAppInitialized: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics27IftEventsIftAppInitialized) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Mint`:
-	err = decoder.Decode(&obj.Mint)
-	if err != nil {
-		return errors.NewField("Mint", err)
-	}
-	// Deserialize `Decimals`:
-	err = decoder.Decode(&obj.Decimals)
-	if err != nil {
-		return errors.NewField("Decimals", err)
-	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
-	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `GmpProgram`:
-	err = decoder.Decode(&obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
-	}
-	// Deserialize `Timestamp`:
-	err = decoder.Decode(&obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj *Ics27IftEventsIftAppInitialized) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics27IftEventsIftAppInitialized: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs27IftEventsIftAppInitialized(buf []byte) (*Ics27IftEventsIftAppInitialized, error) {
-	obj := new(Ics27IftEventsIftAppInitialized)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Event emitted when an IFT bridge is registered
 type Ics27IftEventsIftBridgeRegistered struct {
 	// SPL Token mint address
@@ -1086,6 +983,109 @@ func (value Ics27IftEventsRefundReason) String() string {
 	default:
 		return ""
 	}
+}
+
+// Event emitted when a new SPL token is created for IFT
+type Ics27IftEventsSplTokenCreated struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// Token decimals
+	Decimals uint8 `json:"decimals"`
+
+	// Access manager program
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// GMP program for cross-chain calls
+	GmpProgram solanago.PublicKey `json:"gmpProgram"`
+
+	// Initialization timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27IftEventsSplTokenCreated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `Decimals`:
+	err = encoder.Encode(obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `GmpProgram`:
+	err = encoder.Encode(obj.GmpProgram)
+	if err != nil {
+		return errors.NewField("GmpProgram", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27IftEventsSplTokenCreated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27IftEventsSplTokenCreated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27IftEventsSplTokenCreated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `Decimals`:
+	err = decoder.Decode(&obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `GmpProgram`:
+	err = decoder.Decode(&obj.GmpProgram)
+	if err != nil {
+		return errors.NewField("GmpProgram", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27IftEventsSplTokenCreated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27IftEventsSplTokenCreated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27IftEventsSplTokenCreated(buf []byte) (*Ics27IftEventsSplTokenCreated, error) {
+	obj := new(Ics27IftEventsSplTokenCreated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 // Account schema version for upgrades

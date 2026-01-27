@@ -13,7 +13,6 @@ var (
 
 // Event discriminators
 var (
-	Event_Ics27IftEventsIftAppInitialized    = [8]byte{120, 205, 79, 155, 124, 190, 160, 201}
 	Event_Ics27IftEventsIftBridgeRegistered  = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
 	Event_Ics27IftEventsIftBridgeRemoved     = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
 	Event_Ics27IftEventsIftMintReceived      = [8]byte{231, 237, 212, 47, 70, 180, 189, 161}
@@ -21,11 +20,12 @@ var (
 	Event_Ics27IftEventsIftTransferInitiated = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
 	Event_Ics27IftEventsIftTransferRefunded  = [8]byte{108, 165, 124, 162, 135, 70, 80, 210}
 	Event_Ics27IftEventsMintAuthorityRevoked = [8]byte{2, 222, 125, 58, 108, 126, 254, 121}
+	Event_Ics27IftEventsSplTokenCreated      = [8]byte{178, 160, 51, 0, 206, 211, 237, 25}
 )
 
 // Instruction discriminators
 var (
-	Instruction_Initialize          = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_CreateSplToken      = [8]byte{206, 61, 13, 166, 215, 118, 38, 2}
 	Instruction_RegisterIftBridge   = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
 	Instruction_RemoveIftBridge     = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
 	Instruction_IftTransfer         = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
