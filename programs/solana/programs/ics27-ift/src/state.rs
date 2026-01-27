@@ -75,6 +75,8 @@ pub struct IFTBridge {
     pub mint: Pubkey,
 
     /// IBC client identifier on local chain
+    // TODO: Remove - redundant since client_id is already the PDA seed key.
+    // Pass via instruction message instead (requires adding arg to RemoveIFTBridge).
     #[max_len(64)]
     pub client_id: String,
 
