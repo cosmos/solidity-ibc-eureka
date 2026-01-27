@@ -42,6 +42,7 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// TODO: spl token
 pub fn initialize(
     ctx: Context<Initialize>,
     decimals: u8,
