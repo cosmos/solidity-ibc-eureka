@@ -36,6 +36,7 @@ pub struct IFTAppState {
     /// SPL Token mint address (this IFT controls this mint)
     pub mint: Pubkey,
 
+    // TODO: do we need it???
     /// Mint authority PDA bump (for signing mint operations)
     pub mint_authority_bump: u8,
 

@@ -31,7 +31,7 @@ pub struct Initialize<'info> {
     /// CHECK: Derived PDA set as mint authority
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        // TODO: doublecheck 
+        // TODO: doublecheck , where is it initialized
         bump
     )]
     pub mint_authority: AccountInfo<'info>,
