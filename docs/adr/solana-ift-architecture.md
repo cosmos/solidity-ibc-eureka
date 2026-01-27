@@ -41,7 +41,7 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 | **Burn** | `ift_transfer` | Burn tokens when initiating cross-chain transfer |
 | **Mint** | `ift_mint` | Mint tokens to receiver on incoming transfer |
 | **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
-| **Set Authority** | `initialize` | Transfer mint authority to IFT PDA |
+| **Create Mint** | `create_spl_token` | Create SPL token mint with IFT PDA as authority |
 | **Create ATA** | `ift_mint` | Create receiver's ATA if needed (relayer pays) |
 
 ## Implementation Details
@@ -118,11 +118,10 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 ### Token Setup Flow
 
 ```
-1. Admin creates SPL mint externally (spl-token create)
-2. Admin calls IFT::initialize(mint, access_manager, gmp_program)
-   - Current mint authority must sign
-   - Mint authority transferred to IFT PDA
-3. Admin calls register_ift_bridge(client_id, counterparty_ift_address)
+1. Admin calls IFT::create_spl_token(decimals, access_manager, gmp_program)
+   - Creates new SPL token mint with IFT PDA as authority
+   - Mint keypair must sign (passed as signer)
+2. Admin calls register_ift_bridge(client_id, counterparty_ift_address)
    - Registers destination chain's IFT contract
 ```
 
@@ -174,7 +173,7 @@ Tx 2 - Anyone claims refund:
 
 | Instruction | Purpose |
 |-------------|---------|
-| `initialize` | Set up IFT for an existing token, transfer mint authority to PDA |
+| `create_spl_token` | Create new SPL token mint with IFT PDA as authority |
 | `register_ift_bridge` | Register counterparty IFT contract for a destination chain |
 | `remove_ift_bridge` | Deactivate/remove a registered bridge |
 | `set_access_manager` | Update access manager program |
