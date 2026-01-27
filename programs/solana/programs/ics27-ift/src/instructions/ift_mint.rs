@@ -160,10 +160,7 @@ mod tests {
         InvalidGmpAccount,
     }
 
-    #[allow(
-        clippy::struct_excessive_bools,
-        reason = "test config uses bools for clarity"
-    )]
+    #[allow(clippy::struct_excessive_bools)]
     struct MintTestConfig {
         amount: u64,
         use_wrong_receiver: bool,

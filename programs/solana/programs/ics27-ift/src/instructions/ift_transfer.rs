@@ -572,10 +572,7 @@ mod tests {
         ReceiverTooLong,
     }
 
-    #[allow(
-        clippy::struct_excessive_bools,
-        reason = "test config uses bools for clarity"
-    )]
+    #[allow(clippy::struct_excessive_bools)]
     struct TransferTestConfig {
         bridge_active: bool,
         amount: u64,
