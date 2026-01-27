@@ -23,7 +23,6 @@ func NewInitializeInstruction(
 	appStateAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
-	currentMintAuthorityAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -60,20 +59,17 @@ func NewInitializeInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// IFT app state PDA (to be created)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "mint": Writable, Non-signer, Required
-		// SPL Token mint (must already exist, IFT will take mint authority)
-		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
+		// Account 1 "mint": Writable, Signer, Required
+		// SPL Token mint (created by IFT with PDA as authority)
+		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, true))
 		// Account 2 "mint_authority": Read-only, Non-signer, Required
-		// Mint authority PDA - will become the mint authority
+		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 3 "current_mint_authority": Read-only, Signer, Required
-		// Current mint authority (must sign to transfer authority)
-		accounts__.Append(solanago.NewAccountMeta(currentMintAuthorityAccount, false, true))
-		// Account 4 "payer": Writable, Signer, Required
+		// Account 3 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 5 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 4 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -157,14 +153,6 @@ func NewRemoveIftBridgeInstruction(
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_RemoveIftBridge[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -192,7 +180,7 @@ func NewRemoveIftBridgeInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }
 
@@ -521,14 +509,6 @@ func NewRevokeMintAuthorityInstruction(
 	instructionsSysvarAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
-	buf__ := new(bytes.Buffer)
-	enc__ := binary.NewBorshEncoder(buf__)
-
-	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_RevokeMintAuthority[:], false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
@@ -548,10 +528,10 @@ func NewRevokeMintAuthorityInstruction(
 		// Account 4 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 5 "admin": Read-only, Signer, Required
-		// Admin signer (must have ADMIN_ROLE)
+		// Admin signer (must have `ADMIN_ROLE`)
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 6 "payer": Writable, Signer, Required
-		// Payer receives rent from closed app_state
+		// Payer receives rent from closed `app_state`
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for access manager verification
@@ -564,6 +544,6 @@ func NewRevokeMintAuthorityInstruction(
 	return solanago.NewInstruction(
 		ProgramID,
 		accounts__,
-		buf__.Bytes(),
+		nil,
 	), nil
 }
