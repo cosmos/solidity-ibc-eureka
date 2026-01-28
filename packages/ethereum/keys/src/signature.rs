@@ -16,7 +16,6 @@ pub fn sign<T: SignerSync>(signer: &T, message: &[u8]) -> Result<Signature, anyh
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

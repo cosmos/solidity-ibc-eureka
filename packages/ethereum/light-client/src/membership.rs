@@ -154,7 +154,6 @@ pub fn evm_ics26_commitment_path(ibc_path: &[u8], slot: U256) -> U256 {
     hasher.finalize().into()
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use crate::{

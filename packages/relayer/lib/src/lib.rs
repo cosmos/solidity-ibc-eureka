@@ -1,4 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![doc = include_str!("../README.md")]
 #![deny(
     clippy::nursery,

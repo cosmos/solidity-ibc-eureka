@@ -42,9 +42,6 @@ license    = "MIT"
 repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
-[workspace.lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
-
 [workspace.dependencies]
 ibc-eureka-solidity-types               = { path = "packages/solidity", default-features = false }
 ibc-eureka-relayer-lib                  = { path = "packages/relayer/lib", default-features = false }

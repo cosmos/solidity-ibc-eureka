@@ -1,5 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-
 pub mod impls;
 mod merkle_hasher;
 mod merkleize_padded;
@@ -187,7 +185,6 @@ macro_rules! tree_hash_ssz_encoding_as_list {
     };
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use sha256::hash;

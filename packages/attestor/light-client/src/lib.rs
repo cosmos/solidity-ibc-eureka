@@ -1,4 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![doc = "Attestor light client for IBC"]
 #![deny(
     clippy::nursery,

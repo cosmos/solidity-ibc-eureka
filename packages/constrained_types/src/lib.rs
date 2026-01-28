@@ -1,4 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -291,7 +290,6 @@ impl<const MIN: usize, const MAX: usize> core::convert::TryFrom<&[u8]>
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -521,7 +519,6 @@ impl TryFrom<String> for NonEmpty<String> {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod non_empty_tests {
     use super::*;

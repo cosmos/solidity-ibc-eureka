@@ -216,7 +216,6 @@ fn next_even_number(n: usize) -> usize {
     n + n % 2
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use super::*;

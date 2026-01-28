@@ -112,7 +112,6 @@ pub fn normalize_merkle_branch(branch: &[B256], gindex: u64) -> Vec<B256> {
         .collect()
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use alloy_primitives::{hex::FromHex, B256};

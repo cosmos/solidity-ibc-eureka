@@ -50,7 +50,6 @@ pub fn compute_domain(
     FixedBytes(domain)
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use hex::FromHex;
