@@ -9,8 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "protobuf"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
 
 [dependencies]
 prost = { workspace = true, features = ["prost-derive"] }
@@ -24,3 +22,6 @@ prost-build.workspace = true
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

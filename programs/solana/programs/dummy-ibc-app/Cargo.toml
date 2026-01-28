@@ -21,8 +21,6 @@ cpi = ["no-entrypoint"]
 idl-build = ["anchor-lang/idl-build"]
 default = []
 
-[lints]
-workspace = true
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
@@ -31,3 +29,6 @@ solana-ibc-macros.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 prost = { workspace = true }
 ibc-proto = { workspace = true }
+
+[lints]
+workspace = true

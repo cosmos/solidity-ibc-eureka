@@ -21,10 +21,11 @@ no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build"]
 
-[lints]
-workspace = true
 
 [dependencies]
 anchor-lang.workspace = true
 ics25-handler.workspace = true
 solana-ibc-types.workspace = true
+
+[lints]
+workspace = true

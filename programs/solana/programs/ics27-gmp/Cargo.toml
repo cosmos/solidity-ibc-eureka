@@ -31,8 +31,6 @@ ics26-router = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 
-[lints]
-workspace = true
 
 [dev-dependencies]
 mollusk-svm.workspace = true
@@ -41,3 +39,6 @@ solana-sdk.workspace = true
 bincode.workspace = true
 gmp-counter-app = { workspace = true, features = ["cpi"] }
 rstest.workspace = true
+
+[lints]
+workspace = true

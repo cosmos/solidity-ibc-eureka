@@ -21,8 +21,6 @@ no-idl = []
 no-log-ix-name = []
 idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 
-[lints]
-workspace = true
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
@@ -34,3 +32,6 @@ mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
+
+[lints]
+workspace = true

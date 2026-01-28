@@ -12,8 +12,9 @@ categories = ["cryptography", "blockchain"]
 [lib]
 crate-type = ["cdylib", "lib"]
 
-[lints]
-workspace = true
 
 [dependencies]
 # No dependencies needed - just constants
+
+[lints]
+workspace = true
