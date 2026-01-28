@@ -223,6 +223,7 @@ fn construct_mint_call(
     }
 }
 
+// TODO: use alloy
 /// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains
 fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let mut payload = Vec::with_capacity(68);
