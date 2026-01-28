@@ -52,7 +52,7 @@ pub struct IFTTransfer<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    // TODO: add reason why here
+    /// Required for burning tokens from sender's account
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
 
