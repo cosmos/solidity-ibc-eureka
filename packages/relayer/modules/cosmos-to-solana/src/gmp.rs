@@ -172,7 +172,6 @@ pub fn find_gmp_result_pda(
     Some(pda)
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

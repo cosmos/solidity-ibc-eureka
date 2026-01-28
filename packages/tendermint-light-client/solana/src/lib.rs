@@ -1,5 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
-
 //! Solana-optimized Tendermint light client verifier using precompiled Ed25519Program and brine-ed25519
 //!
 //! TODO: Additional optimizations - for upstream PR to ibc-rs/tendermint-rs:
@@ -221,7 +219,6 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;
