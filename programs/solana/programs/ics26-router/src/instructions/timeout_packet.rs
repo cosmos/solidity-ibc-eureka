@@ -6,7 +6,6 @@ use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::NonMembershipMsg;
 use solana_ibc_types::ibc_app::{on_timeout_packet, OnTimeoutPacket, OnTimeoutPacketMsg};
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
 use solana_ibc_types::{NoopEvent, TimeoutPacketEvent};
