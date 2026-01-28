@@ -2145,6 +2145,8 @@ dependencies = [
  "mollusk-svm",
  "mollusk-svm-bencher",
  "rstest",
+ "serde",
+ "serde_json",
  "sha2 0.10.9",
  "solana-ibc-proto",
  "solana-ibc-types",

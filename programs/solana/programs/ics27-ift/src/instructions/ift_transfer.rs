@@ -4,6 +4,7 @@ use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Space;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 use ics27_gmp::constants::GMP_PORT_ID;
+use serde::Serialize;
 
 use crate::constants::*;
 use crate::errors::IFTError;
@@ -175,17 +176,17 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
-    create_pending_transfer_account(
-        &ctx.accounts.app_state.mint,
-        &msg.client_id,
+    create_pending_transfer_account(CreatePendingTransferParams {
+        mint: &ctx.accounts.app_state.mint,
+        client_id: &msg.client_id,
         sequence,
-        &ctx.accounts.sender.key(),
-        msg.amount,
-        &ctx.accounts.pending_transfer,
-        &ctx.accounts.payer.to_account_info(),
-        &ctx.accounts.system_program.to_account_info(),
-        &clock,
-    )?;
+        sender: &ctx.accounts.sender.key(),
+        amount: msg.amount,
+        pending_transfer: &ctx.accounts.pending_transfer,
+        payer: &ctx.accounts.payer.to_account_info(),
+        system_program: &ctx.accounts.system_program.to_account_info(),
+        clock: &clock,
+    })?;
 
     emit!(IFTTransferInitiated {
         mint: ctx.accounts.app_state.mint,
@@ -254,6 +255,23 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
+/// Protojson representation of `MsgIFTMint` for Cosmos chains
+#[derive(Serialize)]
+struct MsgIFTMint<'a> {
+    #[serde(rename = "@type")]
+    type_url: &'a str,
+    signer: &'a str,
+    denom: &'a str,
+    receiver: &'a str,
+    amount: String,
+}
+
+/// Protojson representation of `CosmosTx` wrapper
+#[derive(Serialize)]
+struct CosmosTx<'a> {
+    messages: Vec<MsgIFTMint<'a>>,
+}
+
 /// Construct protojson-encoded `CosmosTx` with `MsgIFTMint` for Cosmos chains
 fn construct_cosmos_mint_call(
     type_url: &str,
@@ -262,12 +280,17 @@ fn construct_cosmos_mint_call(
     receiver: &str,
     amount: u64,
 ) -> Vec<u8> {
-    // Build protojson CosmosTx wrapper with MsgIFTMint message
     // The signer is the ICS27-GMP interchain account on the Cosmos chain that controls the IFT mint
-    let msg = format!(
-        r#"{{"messages":[{{"@type":"{type_url}","signer":"{signer}","denom":"{denom}","receiver":"{receiver}","amount":"{amount}"}}]}}"#
-    );
-    msg.into_bytes()
+    let tx = CosmosTx {
+        messages: vec![MsgIFTMint {
+            type_url,
+            signer,
+            denom,
+            receiver,
+            amount: amount.to_string(),
+        }],
+    };
+    serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
 }
 
 fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
@@ -282,21 +305,36 @@ fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     Ok(payload)
 }
 
-/// Creates pending transfer PDA (sequence is runtime-computed, can't use Anchor's `init`)
-#[allow(clippy::too_many_arguments)]
-fn create_pending_transfer_account<'info>(
-    mint: &Pubkey,
-    client_id: &str,
+/// Parameters for creating a pending transfer account
+struct CreatePendingTransferParams<'a, 'info> {
+    mint: &'a Pubkey,
+    client_id: &'a str,
     sequence: u64,
-    sender: &Pubkey,
+    sender: &'a Pubkey,
     amount: u64,
-    pending_transfer_info: &UncheckedAccount<'info>,
-    payer: &AccountInfo<'info>,
-    system_program: &AccountInfo<'info>,
-    clock: &Clock,
-) -> Result<()> {
+    pending_transfer: &'a UncheckedAccount<'info>,
+    payer: &'a AccountInfo<'info>,
+    system_program: &'a AccountInfo<'info>,
+    clock: &'a Clock,
+}
+
+/// Creates pending transfer PDA (sequence is runtime-computed, can't use Anchor's `init`)
+fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Result<()> {
+    let CreatePendingTransferParams {
+        mint,
+        client_id,
+        sequence,
+        sender,
+        amount,
+        pending_transfer: pending_transfer_info,
+        payer,
+        system_program,
+        clock,
+    } = params;
     let sequence_bytes = sequence.to_le_bytes();
 
+    // TODO: `find_program_address` is O(n) ~10k CUs. Consider accepting bump as parameter
+    // (client computes off-chain via simulation) and using `create_program_address` ~1.5k CUs.
     let (expected_pda, bump) = Pubkey::find_program_address(
         &[
             PENDING_TRANSFER_SEED,
