@@ -77,6 +77,8 @@ pub struct IFTMint<'info> {
 }
 
 pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
+    let clock = Clock::get()?;
+
     require!(msg.amount > 0, IFTError::ZeroAmount);
     validate_gmp_account(
         &ctx.accounts.gmp_account.key(),
@@ -95,7 +97,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         msg.amount,
     )?;
 
-    let clock = Clock::get()?;
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),
         client_id: msg.client_id,
@@ -108,6 +109,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     Ok(())
 }
 
+// TODO: drop bump
 fn validate_gmp_account(
     gmp_account: &Pubkey,
     client_id: &str,
