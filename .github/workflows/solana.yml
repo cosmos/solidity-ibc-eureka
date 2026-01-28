@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SOLANA_VERSION: "2.1.17"
+  SOLANA_VERSION: "2.2.17"
   ANCHOR_VERSION: "0.32.1"
 
 jobs:
@@ -31,11 +31,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt, clippy
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -55,6 +50,17 @@ jobs:
           anchor_version: ${{ env.ANCHOR_VERSION }}
           solana_version: ${{ env.SOLANA_VERSION }}
 
+      # Re-setup Rust after Solana setup (which overrides with older bundled version)
+      - name: Setup Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, clippy
+
+      - name: Setup Rust stable (default for builds)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
       - name: Install just
         uses: extractions/setup-just@v2
 
@@ -67,13 +73,28 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           protoc --version
 
+      # Hide Solana's bundled cargo so system cargo (1.93+) is always used
+      # Solana's cargo 1.84 doesn't support edition 2024 required by some deps
+      - name: Use system Cargo for edition 2024 support
+        run: |
+          SOLANA_CARGO=$(find ~/.local/share/solana -name "cargo" -type f 2>/dev/null | head -1)
+          if [ -n "$SOLANA_CARGO" ]; then
+            echo "Hiding Solana's bundled cargo: $SOLANA_CARGO"
+            mv "$SOLANA_CARGO" "${SOLANA_CARGO}.bak"
+          fi
+          echo "System cargo version:"
+          cargo --version
+
       - name: Build Solana programs
         run: just build-solana
+        env:
+          RUSTUP_TOOLCHAIN: stable
 
       - name: Run Solana unit tests
         run: just test-solana
         env:
           RUST_BACKTRACE: 1
+          RUSTUP_TOOLCHAIN: stable
 
       # Exclude test programs
       - name: Run coverage
@@ -85,6 +106,8 @@ jobs:
           EXCLUDE+='|mock-light-client)/'
           cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "$EXCLUDE"
         working-directory: programs/solana
+        env:
+          RUSTUP_TOOLCHAIN: stable
 
       - uses: codecov/codecov-action@v5
         with:
@@ -95,4 +118,6 @@ jobs:
 
       - name: Run Solana linting
         run: just lint-solana
+        env:
+          RUSTUP_TOOLCHAIN: stable
 

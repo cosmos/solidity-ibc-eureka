@@ -13,6 +13,9 @@ pub mod roles {
     // pub const RATE_LIMITER_ROLE: u64 = 5;
     pub const ID_CUSTOMIZER_ROLE: u64 = 6;
     // pub const ERC20_CUSTOMIZER_ROLE: u64 = 7;
+    /// Role for light client proof submission (updateClient, misbehaviour).
+    /// Matches Solidity light clients' PROOF_SUBMITTER_ROLE.
+    pub const PROOF_SUBMITTER_ROLE: u64 = 8;
 }
 
 /// Backwards-compatible helper struct for getting access manager PDA

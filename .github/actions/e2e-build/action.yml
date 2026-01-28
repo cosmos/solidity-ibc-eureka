@@ -94,10 +94,35 @@ runs:
       if: steps.cache-solana.outputs.cache-hit != 'true'
       uses: extractions/setup-just@v2
 
+    # Re-setup Rust stable after Solana setup (which overrides with older bundled version)
+    - name: Setup Rust stable for Solana build
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      uses: dtolnay/rust-toolchain@stable
+
+    # Hide Solana's bundled cargo so system cargo (1.93+) is always used
+    # Solana's cargo 1.84 doesn't support edition 2024 required by some deps
+    - name: Use system Cargo for edition 2024 support
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # Find and rename Solana's bundled cargo to force using system cargo
+        SOLANA_CARGO=$(find ~/.local/share/solana -name "cargo" -type f 2>/dev/null | head -1)
+        if [ -n "$SOLANA_CARGO" ]; then
+          echo "Hiding Solana's bundled cargo: $SOLANA_CARGO"
+          mv "$SOLANA_CARGO" "${SOLANA_CARGO}.bak"
+        fi
+        echo "System cargo version:"
+        cargo --version
+
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: just build-solana
+      env:
+        # Force cargo to use stable toolchain for native builds
+        # This prevents anchor's internal cargo test from using the solana toolchain's Cargo 1.84
+        # which doesn't support edition 2024 required by some dependencies (alloy, syn-solidity)
+        RUSTUP_TOOLCHAIN: stable
 
     - name: Package artifacts
       shell: bash

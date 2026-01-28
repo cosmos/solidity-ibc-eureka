@@ -13,7 +13,7 @@ pub fn assemble_and_submit_misbehaviour<'info>(
 ) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
-        solana_ibc_types::roles::RELAYER_ROLE,
+        solana_ibc_types::roles::PROOF_SUBMITTER_ROLE,
         &ctx.accounts.submitter,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,

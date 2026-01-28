@@ -38,6 +38,11 @@ ibc-proto.workspace = true
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true
 prost.workspace = true
+
+# For attestation mode (ABI encoding)
+alloy.workspace = true
+ibc-eureka-solidity-types.workspace = true
+tokio.workspace = true
 solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
 solana-ibc-constants = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
 solana-ibc-proto = { path = "../../../../programs/solana/packages/solana-ibc-proto" }

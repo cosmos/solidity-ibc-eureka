@@ -798,7 +798,7 @@ pub mod access_control {
 
         if !relayers.is_empty() {
             roles.push(RoleData {
-                role_id: solana_ibc_types::roles::RELAYER_ROLE,
+                role_id: solana_ibc_types::roles::PROOF_SUBMITTER_ROLE,
                 members: relayers,
             });
         }
