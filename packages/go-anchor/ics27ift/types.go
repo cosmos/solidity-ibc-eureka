@@ -180,6 +180,122 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Event emitted when IFT is initialized for an existing SPL token
+type Ics27IftEventsExistingTokenInitialized struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// Token decimals
+	Decimals uint8 `json:"decimals"`
+
+	// Previous mint authority that transferred ownership
+	PreviousAuthority solanago.PublicKey `json:"previousAuthority"`
+
+	// Access manager program
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// GMP program for cross-chain calls
+	GmpProgram solanago.PublicKey `json:"gmpProgram"`
+
+	// Initialization timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27IftEventsExistingTokenInitialized) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `Decimals`:
+	err = encoder.Encode(obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Serialize `PreviousAuthority`:
+	err = encoder.Encode(obj.PreviousAuthority)
+	if err != nil {
+		return errors.NewField("PreviousAuthority", err)
+	}
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `GmpProgram`:
+	err = encoder.Encode(obj.GmpProgram)
+	if err != nil {
+		return errors.NewField("GmpProgram", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27IftEventsExistingTokenInitialized) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27IftEventsExistingTokenInitialized: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27IftEventsExistingTokenInitialized) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `Decimals`:
+	err = decoder.Decode(&obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Deserialize `PreviousAuthority`:
+	err = decoder.Decode(&obj.PreviousAuthority)
+	if err != nil {
+		return errors.NewField("PreviousAuthority", err)
+	}
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `GmpProgram`:
+	err = decoder.Decode(&obj.GmpProgram)
+	if err != nil {
+		return errors.NewField("GmpProgram", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27IftEventsExistingTokenInitialized) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27IftEventsExistingTokenInitialized: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27IftEventsExistingTokenInitialized(buf []byte) (*Ics27IftEventsExistingTokenInitialized, error) {
+	obj := new(Ics27IftEventsExistingTokenInitialized)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when an IFT bridge is registered
 type Ics27IftEventsIftBridgeRegistered struct {
 	// SPL Token mint address
@@ -1228,7 +1344,9 @@ type Ics27IftStateIftAppState struct {
 	// SPL Token mint address (this IFT controls this mint)
 	Mint solanago.PublicKey `json:"mint"`
 
-	// Mint authority PDA bump (for signing mint operations)
+	// Mint authority PDA bump for signing mint/refund operations.
+	// Stored to use `create_program_address` (~1.5k CUs) instead of
+	// `find_program_address` (~10k CUs) on each mint/refund.
 	MintAuthorityBump uint8 `json:"mintAuthorityBump"`
 
 	// Access manager program ID for role-based access control
@@ -1352,6 +1470,9 @@ type Ics27IftStateIftBridge struct {
 	// Mint this bridge is associated with
 	Mint solanago.PublicKey `json:"mint"`
 
+	// IBC client identifier for this bridge
+	ClientId string `json:"clientId"`
+
 	// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
 	CounterpartyIftAddress string `json:"counterpartyIftAddress"`
 
@@ -1378,6 +1499,11 @@ func (obj Ics27IftStateIftBridge) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.Mint)
 	if err != nil {
 		return errors.NewField("Mint", err)
+	}
+	// Serialize `ClientId`:
+	err = encoder.Encode(obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
 	}
 	// Serialize `CounterpartyIftAddress`:
 	err = encoder.Encode(obj.CounterpartyIftAddress)
@@ -1430,6 +1556,11 @@ func (obj *Ics27IftStateIftBridge) UnmarshalWithDecoder(decoder *binary.Decoder)
 	if err != nil {
 		return errors.NewField("Mint", err)
 	}
+	// Deserialize `ClientId`:
+	err = decoder.Decode(&obj.ClientId)
+	if err != nil {
+		return errors.NewField("ClientId", err)
+	}
 	// Deserialize `CounterpartyIftAddress`:
 	err = decoder.Decode(&obj.CounterpartyIftAddress)
 	if err != nil {
@@ -1480,12 +1611,6 @@ type Ics27IftStateIftMintMsg struct {
 
 	// Amount to mint
 	Amount uint64 `json:"amount"`
-
-	// IBC client identifier (for bridge lookup and GMP validation)
-	ClientId string `json:"clientId"`
-
-	// GMP account PDA bump (for efficient validation with `create_program_address`)
-	GmpAccountBump uint8 `json:"gmpAccountBump"`
 }
 
 func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1498,16 +1623,6 @@ func (obj Ics27IftStateIftMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (
 	err = encoder.Encode(obj.Amount)
 	if err != nil {
 		return errors.NewField("Amount", err)
-	}
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Serialize `GmpAccountBump`:
-	err = encoder.Encode(obj.GmpAccountBump)
-	if err != nil {
-		return errors.NewField("GmpAccountBump", err)
 	}
 	return nil
 }
@@ -1532,16 +1647,6 @@ func (obj *Ics27IftStateIftMintMsg) UnmarshalWithDecoder(decoder *binary.Decoder
 	err = decoder.Decode(&obj.Amount)
 	if err != nil {
 		return errors.NewField("Amount", err)
-	}
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
-	// Deserialize `GmpAccountBump`:
-	err = decoder.Decode(&obj.GmpAccountBump)
-	if err != nil {
-		return errors.NewField("GmpAccountBump", err)
 	}
 	return nil
 }

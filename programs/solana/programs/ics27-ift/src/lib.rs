@@ -59,7 +59,7 @@ pub mod ics27_ift {
         instructions::ift_transfer(ctx, msg)
     }
 
-    /// Mint IFT tokens (called by GMP when receiving cross-chain transfer)
+    /// Mint IFT tokens (called by GMP when receiving cross-chain transfer).
     pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         instructions::ift_mint(ctx, msg)
     }

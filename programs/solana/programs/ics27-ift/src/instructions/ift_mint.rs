@@ -10,7 +10,7 @@ use crate::events::IFTMintReceived;
 use crate::helpers::mint_to_account;
 use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 
-/// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request
+/// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request.
 #[derive(Accounts)]
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
@@ -20,10 +20,11 @@ pub struct IFTMint<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    /// IFT bridge - provides counterparty info for GMP account validation
+    /// IFT bridge - provides counterparty info for GMP account validation.
+    /// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
+    /// Security: Anchor verifies ownership, `validate_gmp_account` verifies (`client_id`, counterparty) match.
     #[account(
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
-        bump = ift_bridge.bump,
+        constraint = ift_bridge.mint == app_state.mint @ IFTError::InvalidBridge,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
@@ -78,14 +79,17 @@ pub struct IFTMint<'info> {
 
 pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let clock = Clock::get()?;
+    let bridge = &ctx.accounts.ift_bridge;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
+
+    // Validate GMP account matches the bridge's (client_id, counterparty_ift_address).
+    // This ensures the relayer passed the correct bridge for this GMP call.
     validate_gmp_account(
         &ctx.accounts.gmp_account.key(),
-        &msg.client_id,
-        &ctx.accounts.ift_bridge.counterparty_ift_address,
+        &bridge.client_id,
+        &bridge.counterparty_ift_address,
         &ctx.accounts.gmp_program.key(),
-        msg.gmp_account_bump,
     )?;
 
     mint_to_account(
@@ -99,7 +103,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
 
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),
-        client_id: msg.client_id,
+        client_id: bridge.client_id.clone(),
         receiver: msg.receiver,
         amount: msg.amount,
         gmp_account: ctx.accounts.gmp_account.key(),
@@ -109,17 +113,15 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     Ok(())
 }
 
-// TODO: drop bump
 fn validate_gmp_account(
     gmp_account: &Pubkey,
     client_id: &str,
     counterparty_address: &str,
     gmp_program: &Pubkey,
-    bump: u8,
 ) -> Result<()> {
-    use solana_ibc_types::ics27::{AccountIdentifier, Salt};
+    use solana_ibc_types::ics27::{GMPAccount, Salt};
 
-    let account_id = AccountIdentifier::new(
+    let gmp = GMPAccount::new(
         client_id
             .to_string()
             .try_into()
@@ -129,12 +131,10 @@ fn validate_gmp_account(
             .try_into()
             .map_err(|_| IFTError::InvalidGmpAccount)?,
         Salt::empty(),
+        gmp_program,
     );
 
-    require!(
-        account_id.verify_pda(gmp_account, gmp_program, bump),
-        IFTError::InvalidGmpAccount
-    );
+    require!(gmp.pda == *gmp_account, IFTError::InvalidGmpAccount);
     Ok(())
 }
 
@@ -227,7 +227,7 @@ mod tests {
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-        let (gmp_account_pda, gmp_account_bump) =
+        let (gmp_account_pda, _) =
             get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
         let wrong_gmp_account = Pubkey::new_unique();
         let (system_program, system_account) = create_system_program_account();
@@ -242,6 +242,7 @@ mod tests {
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
+            TEST_CLIENT_ID,
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
             ift_bridge_bump,
@@ -298,10 +299,10 @@ mod tests {
             rent_epoch: 0,
         };
 
-        let (gmp_account_key, gmp_bump) = if config.use_wrong_gmp_account {
-            (wrong_gmp_account, 255)
+        let gmp_account_key = if config.use_wrong_gmp_account {
+            wrong_gmp_account
         } else {
-            (gmp_account_pda, gmp_account_bump)
+            gmp_account_pda
         };
 
         let receiver_owner_key = if config.use_wrong_receiver {
@@ -313,8 +314,6 @@ mod tests {
         let msg = IFTMintMsg {
             receiver,
             amount: config.amount,
-            client_id: TEST_CLIENT_ID.to_string(),
-            gmp_account_bump: gmp_bump,
         };
 
         let instruction = Instruction {

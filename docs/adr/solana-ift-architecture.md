@@ -62,11 +62,11 @@ pub struct IFTAppState {
 }
 
 // IFT Bridge - one per (token, destination chain) pair
-// client_id is part of PDA seeds, not stored in struct
 pub struct IFTBridge {
     pub version: AccountVersion,
     pub bump: u8,
     pub mint: Pubkey,
+    pub client_id: String,
     pub counterparty_ift_address: String,
     pub chain_options: ChainOptions,
     pub active: bool,

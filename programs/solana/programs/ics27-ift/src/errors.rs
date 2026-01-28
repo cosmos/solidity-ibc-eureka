@@ -18,6 +18,9 @@ pub enum IFTError {
     #[msg("IFT bridge not found for client")]
     BridgeNotFound,
 
+    #[msg("IFT bridge mint does not match app state mint")]
+    InvalidBridge,
+
     #[msg("IFT bridge is not active")]
     BridgeNotActive,
 

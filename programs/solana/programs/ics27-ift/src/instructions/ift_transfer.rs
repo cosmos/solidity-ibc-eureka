@@ -690,6 +690,7 @@ mod tests {
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
+            TEST_CLIENT_ID,
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
             ift_bridge_bump,

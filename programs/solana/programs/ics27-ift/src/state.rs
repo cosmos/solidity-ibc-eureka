@@ -113,6 +113,10 @@ pub struct IFTBridge {
     /// Mint this bridge is associated with
     pub mint: Pubkey,
 
+    /// IBC client identifier for this bridge
+    #[max_len(64)]
+    pub client_id: String,
+
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
     #[max_len(128)]
     pub counterparty_ift_address: String,
@@ -207,10 +211,6 @@ pub struct IFTMintMsg {
     pub receiver: Pubkey,
     /// Amount to mint
     pub amount: u64,
-    /// IBC client identifier (for bridge lookup and GMP validation)
-    pub client_id: String,
-    /// GMP account PDA bump (for efficient validation with `create_program_address`)
-    pub gmp_account_bump: u8,
 }
 
 #[cfg(test)]
