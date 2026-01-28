@@ -134,3 +134,20 @@ pub struct MintAuthorityRevoked {
     /// Revocation timestamp
     pub timestamp: i64,
 }
+
+/// Event emitted when IFT is initialized for an existing SPL token
+#[event]
+pub struct ExistingTokenInitialized {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// Token decimals
+    pub decimals: u8,
+    /// Previous mint authority that transferred ownership
+    pub previous_authority: Pubkey,
+    /// Access manager program
+    pub access_manager: Pubkey,
+    /// GMP program for cross-chain calls
+    pub gmp_program: Pubkey,
+    /// Initialization timestamp
+    pub timestamp: i64,
+}

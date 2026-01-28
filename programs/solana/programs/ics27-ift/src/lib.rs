@@ -31,6 +31,15 @@ pub mod ics27_ift {
         instructions::create_spl_token(ctx, decimals, access_manager, gmp_program)
     }
 
+    /// Initialize IFT for an existing SPL token by transferring mint authority
+    pub fn initialize_existing_token(
+        ctx: Context<InitializeExistingToken>,
+        access_manager: Pubkey,
+        gmp_program: Pubkey,
+    ) -> Result<()> {
+        instructions::initialize_existing_token(ctx, access_manager, gmp_program)
+    }
+
     /// Register an IFT bridge to a counterparty chain
     pub fn register_ift_bridge(
         ctx: Context<RegisterIFTBridge>,

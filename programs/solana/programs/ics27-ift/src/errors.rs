@@ -89,6 +89,12 @@ pub enum IFTError {
 
     #[msg("GMP result sender mismatch")]
     GmpResultSenderMismatch,
+
+    #[msg("Mint authority is not set on the token")]
+    MintAuthorityNotSet,
+
+    #[msg("Invalid mint authority - signer does not match current authority")]
+    InvalidMintAuthority,
 }
 
 /// Convert CPI validation errors to IFT errors
