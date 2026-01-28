@@ -41,7 +41,8 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 | **Burn** | `ift_transfer` | Burn tokens when initiating cross-chain transfer |
 | **Mint** | `ift_mint` | Mint tokens to receiver on incoming transfer |
 | **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
-| **Create Mint** | `create_spl_token` | Create SPL token mint with IFT PDA as authority |
+| **Create Mint** | `create_spl_token` | Create new SPL token mint with IFT PDA as authority |
+| **Transfer Authority** | `initialize_existing_token` | Transfer existing token's mint authority to IFT PDA |
 | **Create ATA** | `ift_mint` | Create receiver's ATA if needed (relayer pays) |
 
 ## Implementation Details
@@ -120,11 +121,18 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 
 ### Token Setup Flow
 
+**Option A: New Token**
 ```
-1. Admin calls IFT::create_spl_token(decimals, access_manager, gmp_program)
-   - Creates SPL token mint with IFT PDA as authority
+1. Admin calls create_spl_token(decimals, access_manager, gmp_program)
+   - Creates new SPL token mint with IFT PDA as authority
 2. Admin calls register_ift_bridge(client_id, counterparty_ift_address, chain_options)
-   - Registers destination chain's IFT contract
+```
+
+**Option B: Existing Token**
+```
+1. Current mint authority calls initialize_existing_token(access_manager, gmp_program)
+   - Transfers mint authority to IFT PDA (requires current authority signature)
+2. Admin calls register_ift_bridge(client_id, counterparty_ift_address, chain_options)
 ```
 
 ### Outbound Transfer (Solana → Other Chain)
@@ -176,6 +184,7 @@ Tx 2 - Anyone claims refund:
 | Instruction | Purpose |
 |-------------|---------|
 | `create_spl_token` | Create new SPL token mint with IFT PDA as authority |
+| `initialize_existing_token` | Initialize IFT for existing token (transfers mint authority to IFT PDA) |
 | `register_ift_bridge` | Register counterparty IFT contract for a destination chain |
 | `remove_ift_bridge` | Deactivate/remove a registered bridge |
 | `set_access_manager` | Update access manager program |
@@ -255,9 +264,8 @@ This PDA-based validation is more efficient and Solana-native than instruction s
 
 ## Limitations
 
-1. **Pre-existing Mint Required**: Token must exist before IFT initialization
-2. **Mint Authority Transfer**: Authority transferred to IFT PDA (recoverable via `revoke_mint_authority`)
-3. **No WSOL**: Native currency bridging requires ICS-20
+1. **Mint Authority Transfer**: For existing tokens, authority must be transferred to IFT PDA (recoverable via `revoke_mint_authority`)
+2. **No WSOL**: Native SOL bridging requires ICS-20
 
 ## References
 
