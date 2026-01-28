@@ -18,8 +18,6 @@ use crate::state::{
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
-        // TODO: shouldnt be mut
-        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -27,8 +25,6 @@ pub struct IFTTransfer<'info> {
 
     /// IFT bridge for the destination
     #[account(
-        // TODO: shouldnt be mut
-        mut,
         seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive

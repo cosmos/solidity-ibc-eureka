@@ -15,7 +15,6 @@ use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
     #[account(
-        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -40,7 +39,8 @@ pub struct IFTMint<'info> {
     /// CHECK: Derived PDA that signs for minting
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        // TODO: doublecheck 
+        // Use stored bump to avoid expensive `find_program_address` computation.
+        // The bump is needed for PDA signing during the mint CPI call.
         bump = app_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
