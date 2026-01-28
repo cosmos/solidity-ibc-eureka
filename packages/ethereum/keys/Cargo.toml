@@ -25,6 +25,3 @@ rand = { version = "0.8.5", default-features = true, optional = true }
 [dev-dependencies]
 tempfile = { workspace = true, default-features = true }
 
-
-[lints]
-workspace = true

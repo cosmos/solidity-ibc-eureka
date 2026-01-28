@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "test", "mock"]
 categories = ["development-tools::testing"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "mock_ibc_app"

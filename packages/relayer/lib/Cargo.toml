@@ -60,6 +60,3 @@ sha2  = { workspace = true, default-features = true }
 
 [build-dependencies]
 tonic-build = { workspace = true, default-features = true }
-
-[lints]
-workspace = true

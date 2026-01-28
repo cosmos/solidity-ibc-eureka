@@ -28,6 +28,3 @@ alloy-signer-local = { workspace = true }
 alloy-signer = { workspace = true }
 alloy-sol-types = { workspace = true }
 sha2 = { workspace = true }
-
-[lints]
-workspace = true

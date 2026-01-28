@@ -48,6 +48,3 @@ spl-associated-token-account = "7.0"
 
 # Encoding
 base64.workspace = true
-
-[lints]
-workspace = true

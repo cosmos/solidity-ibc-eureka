@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "test", "anchor"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "dummy_ibc_app"

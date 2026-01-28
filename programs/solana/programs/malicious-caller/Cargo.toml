@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "test", "security"]
 categories = ["development-tools::testing"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "malicious_caller"

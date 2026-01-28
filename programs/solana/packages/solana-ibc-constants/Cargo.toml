@@ -14,5 +14,3 @@ crate-type = ["cdylib", "lib"]
 
 [dependencies]
 # No dependencies needed - just constants
-[lints]
-workspace = true
