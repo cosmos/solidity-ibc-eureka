@@ -24,7 +24,7 @@ pub struct AccountIdentifier {
 
 impl AccountIdentifier {
     /// Create a new account identifier
-    pub fn new(client_id: ClientId, sender: Sender, salt: Salt) -> Self {
+    pub const fn new(client_id: ClientId, sender: Sender, salt: Salt) -> Self {
         Self {
             client_id,
             sender,
@@ -55,7 +55,7 @@ impl AccountIdentifier {
 /// GMP account for PDA derivation and signing
 ///
 /// This type provides stateless PDA derivation for cross-chain account abstraction.
-/// Each unique `AccountIdentifier` (client_id, sender, salt) derives a unique GMP account PDA.
+/// Each unique `AccountIdentifier` (`client_id`, sender, salt) derives a unique GMP account PDA.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GMPAccount {
     pub account_id: AccountIdentifier,
@@ -67,10 +67,10 @@ impl GMPAccount {
     /// Seed for individual account PDAs in the GMP program
     pub const SEED: &'static [u8] = b"gmp_account";
 
-    /// Create a new GMPAccount with PDA derivation
+    /// Create a new `GMPAccount` with PDA derivation
     ///
     /// Accepts validated types, so no validation needed - construction cannot fail.
-    /// The PDA is derived using the sha256 hash of the AccountIdentifier.
+    /// The PDA is derived using the sha256 hash of the `AccountIdentifier`.
     pub fn new(client_id: ClientId, sender: Sender, salt: Salt, program_id: &Pubkey) -> Self {
         let account_id = AccountIdentifier::new(client_id, sender, salt);
         let (pda, account_bump) =
@@ -84,11 +84,11 @@ impl GMPAccount {
     }
 
     /// Get the derived PDA and bump
-    pub fn pda(&self) -> (Pubkey, u8) {
+    pub const fn pda(&self) -> (Pubkey, u8) {
         (self.pda, self.account_bump)
     }
 
-    /// Create signer seeds for use with invoke_signed
+    /// Create signer seeds for use with `invoke_signed`
     pub fn to_signer_seeds(&self) -> SignerSeeds {
         SignerSeeds {
             account_id_hash: self.account_id.digest(),
@@ -109,19 +109,19 @@ impl GMPAccount {
             account_infos,
             &[&seeds_slices],
         )
-        .map_err(|e| e.into())
+        .map_err(Into::into)
     }
 }
 
-/// Signer seeds wrapper for invoke_signed
+/// Signer seeds wrapper for `invoke_signed`
 pub struct SignerSeeds {
     account_id_hash: [u8; 32],
     bump: u8,
 }
 
 impl SignerSeeds {
-    /// Get seeds as slices for invoke_signed
-    pub fn as_slices(&self) -> [&[u8]; 3] {
+    /// Get seeds as slices for `invoke_signed`
+    pub const fn as_slices(&self) -> [&[u8]; 3] {
         [
             GMPAccount::SEED,
             &self.account_id_hash,
@@ -187,7 +187,7 @@ impl GMPCallResult {
 mod tests {
     use super::*;
 
-    /// Test that different client_id/sender boundaries produce different hashes.
+    /// Test that different `client_id`/`sender` boundaries produce different hashes.
     /// This verifies the length-prefix fix prevents collision attacks.
     #[test]
     fn test_no_collision_different_boundaries() {

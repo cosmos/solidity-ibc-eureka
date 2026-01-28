@@ -193,7 +193,7 @@ pub struct MsgCleanupChunks {
     pub total_proof_chunks: u8,
 }
 
-/// IBCApp mapping port IDs to IBC app program IDs
+/// `IBCApp` mapping port IDs to IBC app program IDs
 /// This matches the on-chain account structure in the ICS26 router
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct IBCApp {

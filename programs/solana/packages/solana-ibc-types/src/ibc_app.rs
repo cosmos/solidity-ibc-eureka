@@ -73,7 +73,7 @@ impl OnTimeoutPacket<'_> {
     pub const DISCRIMINATOR: [u8; 8] = discriminator!("on_timeout_packet");
 }
 
-impl<'info> anchor_lang::ToAccountMetas for OnRecvPacket<'info> {
+impl anchor_lang::ToAccountMetas for OnRecvPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),
@@ -97,7 +97,7 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnRecvPacket<'info> {
     }
 }
 
-impl<'info> anchor_lang::ToAccountMetas for OnAcknowledgementPacket<'info> {
+impl anchor_lang::ToAccountMetas for OnAcknowledgementPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),
@@ -121,7 +121,7 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnAcknowledgementPacket<'info
     }
 }
 
-impl<'info> anchor_lang::ToAccountMetas for OnTimeoutPacket<'info> {
+impl anchor_lang::ToAccountMetas for OnTimeoutPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),

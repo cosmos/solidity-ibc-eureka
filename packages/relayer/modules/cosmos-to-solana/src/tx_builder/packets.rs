@@ -25,7 +25,7 @@ struct RecvPayloadInfo<'a> {
     value: &'a [u8],
 }
 
-/// Extract source_port from either inline payloads or chunked metadata.
+/// Extract `source_port` from either inline payloads or chunked metadata.
 fn extract_source_port<'a>(
     packet_payloads: &'a [solana_ibc_types::Payload],
     metadata_payloads: &'a [solana_ibc_types::router::PayloadMetadata],

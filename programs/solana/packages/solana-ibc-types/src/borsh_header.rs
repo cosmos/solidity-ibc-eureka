@@ -1,6 +1,6 @@
 //! Borsh-serializable wrapper types for Tendermint Header
 //!
-//! These types mirror ibc-client-tendermint::types::Header and related types,
+//! These types mirror `ibc-client-tendermint::types::Header` and related types,
 //! but use Borsh serialization for efficient memory usage on Solana.
 //!
 //! Memory comparison:
@@ -14,16 +14,16 @@
 //!
 //! ## Direct Deserialization Optimization
 //!
-//! The HeaderWrapper type provides direct BorshDeserialize implementation for
-//! ibc_client_tendermint::types::Header, eliminating the costly conversion step
-//! from BorshHeader → Header (saves ~300k compute units).
+//! The `HeaderWrapper` type provides direct `BorshDeserialize` implementation for
+//! `ibc_client_tendermint::types::Header`, eliminating the costly conversion step
+//! from `BorshHeader` → Header (saves ~300k compute units).
 
 use borsh::{BorshDeserialize, BorshSerialize};
 
 #[cfg(feature = "light-client")]
 use std::io::{self, Read};
 
-/// Borsh-serializable wrapper for ibc_client_tendermint::types::Header
+/// Borsh-serializable wrapper for `ibc_client_tendermint::types::Header`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshHeader {
     pub signed_header: BorshSignedHeader,
@@ -32,14 +32,14 @@ pub struct BorshHeader {
     pub trusted_next_validator_set: BorshValidatorSet,
 }
 
-/// Borsh-serializable wrapper for tendermint::block::signed_header::SignedHeader
+/// Borsh-serializable wrapper for `tendermint::block::signed_header::SignedHeader`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshSignedHeader {
     pub header: BorshBlockHeader,
     pub commit: BorshCommit,
 }
 
-/// Borsh-serializable wrapper for tendermint::block::Header
+/// Borsh-serializable wrapper for `tendermint::block::Header`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshBlockHeader {
     pub version: BorshConsensusVersion,
@@ -82,7 +82,7 @@ pub struct BorshPartSetHeader {
     pub hash: Vec<u8>,
 }
 
-/// Borsh-serializable wrapper for tendermint::block::Commit
+/// Borsh-serializable wrapper for `tendermint::block::Commit`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshCommit {
     pub height: u64,
@@ -91,7 +91,7 @@ pub struct BorshCommit {
     pub signatures: Vec<BorshCommitSig>,
 }
 
-/// Borsh-serializable wrapper for tendermint::block::CommitSig
+/// Borsh-serializable wrapper for `tendermint::block::CommitSig`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub enum BorshCommitSig {
     BlockIdFlagAbsent,
@@ -107,7 +107,7 @@ pub enum BorshCommitSig {
     },
 }
 
-/// Borsh-serializable wrapper for tendermint::validator::Set
+/// Borsh-serializable wrapper for `tendermint::validator::Set`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshValidatorSet {
     pub validators: Vec<BorshValidator>,
@@ -115,7 +115,7 @@ pub struct BorshValidatorSet {
     pub total_voting_power: u64,
 }
 
-/// Borsh-serializable wrapper for tendermint::validator::Info
+/// Borsh-serializable wrapper for `tendermint::validator::Info`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshValidator {
     pub address: [u8; 20],
@@ -124,21 +124,21 @@ pub struct BorshValidator {
     pub proposer_priority: i64,
 }
 
-/// Borsh-serializable wrapper for tendermint::public_key::PublicKey
+/// Borsh-serializable wrapper for `tendermint::public_key::PublicKey`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub enum BorshPublicKey {
     Ed25519([u8; 32]),
     Secp256k1([u8; 33]),
 }
 
-/// Borsh-serializable wrapper for ibc_core_client_types::Height
+/// Borsh-serializable wrapper for `ibc_core_client_types::Height`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshHeight {
     pub revision_number: u64,
     pub revision_height: u64,
 }
 
-/// Borsh-serializable wrapper for ibc_client_tendermint::types::Misbehaviour
+/// Borsh-serializable wrapper for `ibc_client_tendermint::types::Misbehaviour`
 #[derive(Clone, Debug, BorshSerialize, BorshDeserialize)]
 pub struct BorshMisbehaviour {
     pub client_id: String,
@@ -161,8 +161,8 @@ mod direct_deser {
 
     /// Zero-copy wrapper for direct deserialization of Header
     ///
-    /// This wrapper implements BorshDeserialize to convert bytes directly into
-    /// ibc_client_tendermint::types::Header, bypassing the intermediate BorshHeader
+    /// This wrapper implements `BorshDeserialize` to convert bytes directly into
+    /// `ibc_client_tendermint::types::Header`, bypassing the intermediate `BorshHeader`
     /// representation. This saves ~300k compute units by eliminating redundant
     /// type conversions and allocations.
     #[repr(transparent)]
@@ -194,7 +194,7 @@ mod direct_deser {
             let trusted_height = deserialize_height(reader)?;
             let trusted_next_validator_set = deserialize_validator_set(reader)?;
 
-            Ok(HeaderWrapper(Header {
+            Ok(Self(Header {
                 signed_header,
                 validator_set,
                 trusted_height,
@@ -205,8 +205,8 @@ mod direct_deser {
 
     /// Zero-copy wrapper for direct deserialization of Misbehaviour
     ///
-    /// This wrapper implements BorshDeserialize to convert bytes directly into
-    /// ibc_client_tendermint::types::Misbehaviour, bypassing the intermediate BorshMisbehaviour
+    /// This wrapper implements `BorshDeserialize` to convert bytes directly into
+    /// `ibc_client_tendermint::types::Misbehaviour`, bypassing the intermediate `BorshMisbehaviour`
     /// representation. This saves ~300k compute units by eliminating redundant
     /// type conversions and allocations.
     #[repr(transparent)]
@@ -240,9 +240,7 @@ mod direct_deser {
             let header1 = deserialize_header(reader)?;
             let header2 = deserialize_header(reader)?;
 
-            Ok(MisbehaviourWrapper(Misbehaviour::new(
-                client_id, header1, header2,
-            )))
+            Ok(Self(Misbehaviour::new(client_id, header1, header2)))
         }
     }
 
@@ -279,7 +277,7 @@ mod direct_deser {
         if len != 32 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!("Invalid hash length: expected 32, got {}", len),
+                format!("Invalid hash length: expected 32, got {len}"),
             ));
         }
 
@@ -523,10 +521,7 @@ mod direct_deser {
         if proposer_len != 20 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
-                format!(
-                    "Invalid proposer address length: expected 20, got {}",
-                    proposer_len
-                ),
+                format!("Invalid proposer address length: expected 20, got {proposer_len}"),
             ));
         }
         let mut proposer_bytes = [0u8; 20];
@@ -560,9 +555,9 @@ mod direct_deser {
     }
 }
 
-/// Conversion functions from ibc-rs types to BorshHeader types
+/// Conversion functions from ibc-rs types to `BorshHeader` types
 ///
-/// These conversions are used to convert Header to BorshHeader for efficient
+/// These conversions are used to convert Header to `BorshHeader` for efficient
 /// serialization before uploading to Solana.
 #[cfg(feature = "light-client")]
 pub mod conversions {
@@ -656,9 +651,9 @@ pub mod conversions {
                     .as_bytes()
                     .try_into()
                     .expect("Validator address must be 20 bytes");
-                let sig_array: [u8; 64] = signature
-                    .map(|s| s.as_bytes().try_into().expect("Signature must be 64 bytes"))
-                    .unwrap_or([0u8; 64]);
+                let sig_array: [u8; 64] = signature.map_or([0u8; 64], |s| {
+                    s.as_bytes().try_into().expect("Signature must be 64 bytes")
+                });
 
                 BorshCommitSig::BlockIdFlagCommit {
                     validator_address: address_array,
@@ -675,9 +670,9 @@ pub mod conversions {
                     .as_bytes()
                     .try_into()
                     .expect("Validator address must be 20 bytes");
-                let sig_array: [u8; 64] = signature
-                    .map(|s| s.as_bytes().try_into().expect("Signature must be 64 bytes"))
-                    .unwrap_or([0u8; 64]);
+                let sig_array: [u8; 64] = signature.map_or([0u8; 64], |s| {
+                    s.as_bytes().try_into().expect("Signature must be 64 bytes")
+                });
 
                 BorshCommitSig::BlockIdFlagNil {
                     validator_address: address_array,
@@ -695,6 +690,7 @@ pub mod conversions {
         let mut signatures: Vec<BorshCommitSig> =
             c.signatures.into_iter().map(commit_sig_to_borsh).collect();
 
+        #[allow(clippy::match_same_arms)]
         signatures.sort_unstable_by(|a, b| match (a, b) {
             (
                 BorshCommitSig::BlockIdFlagCommit {
@@ -705,8 +701,8 @@ pub mod conversions {
                     validator_address: addr_b,
                     ..
                 },
-            ) => addr_a.cmp(addr_b),
-            (
+            )
+            | (
                 BorshCommitSig::BlockIdFlagNil {
                     validator_address: addr_a,
                     ..
@@ -715,8 +711,8 @@ pub mod conversions {
                     validator_address: addr_b,
                     ..
                 },
-            ) => addr_a.cmp(addr_b),
-            (
+            )
+            | (
                 BorshCommitSig::BlockIdFlagCommit {
                     validator_address: addr_a,
                     ..
@@ -725,8 +721,8 @@ pub mod conversions {
                     validator_address: addr_b,
                     ..
                 },
-            ) => addr_a.cmp(addr_b),
-            (
+            )
+            | (
                 BorshCommitSig::BlockIdFlagNil {
                     validator_address: addr_a,
                     ..
@@ -751,7 +747,7 @@ pub mod conversions {
         }
     }
 
-    pub fn consensus_version_to_borsh(
+    pub const fn consensus_version_to_borsh(
         v: tendermint::block::header::Version,
     ) -> BorshConsensusVersion {
         BorshConsensusVersion {
