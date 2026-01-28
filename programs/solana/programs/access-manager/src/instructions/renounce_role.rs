@@ -60,7 +60,6 @@ pub fn renounce_role(ctx: Context<RenounceRole>, role_id: u64) -> Result<()> {
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

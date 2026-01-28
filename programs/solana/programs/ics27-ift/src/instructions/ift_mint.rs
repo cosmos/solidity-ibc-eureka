@@ -138,7 +138,6 @@ fn validate_gmp_account(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;

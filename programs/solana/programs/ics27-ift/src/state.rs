@@ -213,6 +213,5 @@ pub struct IFTMintMsg {
     pub gmp_account_bump: u8,
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

@@ -1,4 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use anchor_lang::prelude::*;
 
@@ -7,7 +6,6 @@ pub mod events;
 pub mod helpers;
 pub mod instructions;
 pub mod state;
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 pub mod test_utils;
 pub mod types;

@@ -242,7 +242,6 @@ pub fn ack_packet<'info>(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

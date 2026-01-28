@@ -44,7 +44,6 @@ pub fn upload_payload_chunk(ctx: Context<UploadPayloadChunk>, msg: MsgUploadChun
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

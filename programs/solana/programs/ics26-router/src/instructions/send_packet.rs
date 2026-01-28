@@ -180,7 +180,6 @@ fn create_packet_commitment_account<'info>(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

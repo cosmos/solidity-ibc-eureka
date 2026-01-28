@@ -175,7 +175,6 @@ impl ProofChunk {
     pub const SEED: &'static [u8] = solana_ibc_types::ProofChunk::SEED;
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;

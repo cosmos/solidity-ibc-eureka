@@ -196,7 +196,6 @@ impl TryFrom<IbcConsensusState> for ConsensusState {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;

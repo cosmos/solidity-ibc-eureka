@@ -63,7 +63,6 @@ pub fn revoke_role(ctx: Context<RevokeRole>, role_id: u64, account: Pubkey) -> R
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

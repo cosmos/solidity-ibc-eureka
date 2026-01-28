@@ -197,6 +197,5 @@ fn cleanup_chunks(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

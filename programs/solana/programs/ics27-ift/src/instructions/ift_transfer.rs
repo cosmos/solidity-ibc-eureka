@@ -395,7 +395,6 @@ fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Resul
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -68,7 +68,6 @@ pub fn create_spl_token(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::{InstructionData, Space};

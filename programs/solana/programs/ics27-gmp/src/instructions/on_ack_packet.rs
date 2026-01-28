@@ -78,7 +78,6 @@ pub fn on_acknowledgement_packet(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};

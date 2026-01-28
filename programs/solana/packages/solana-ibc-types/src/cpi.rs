@@ -130,7 +130,6 @@ pub fn reject_cpi(
     require_direct_call_or_whitelisted_caller(instruction_sysvar, &[], self_program_id)
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

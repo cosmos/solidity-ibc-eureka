@@ -97,7 +97,6 @@ pub fn register_ift_bridge(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::{InstructionData, Space};

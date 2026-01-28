@@ -80,7 +80,6 @@ pub fn initialize_existing_token(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;

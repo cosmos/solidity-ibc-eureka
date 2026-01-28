@@ -48,6 +48,5 @@ pub(crate) fn is_owned_by_submitter(account: &AccountInfo, submitter: Pubkey) ->
     Ok(false)
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

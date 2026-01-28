@@ -593,7 +593,6 @@ pub mod fixtures {
     }
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 pub mod chunk_test_utils {
     use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};

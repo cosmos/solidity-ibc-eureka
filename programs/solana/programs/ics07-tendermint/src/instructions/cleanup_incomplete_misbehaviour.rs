@@ -38,6 +38,5 @@ pub fn cleanup_incomplete_misbehaviour(
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

@@ -1,4 +1,3 @@
-#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 //! IBC types and utilities for Solana programs
 //!

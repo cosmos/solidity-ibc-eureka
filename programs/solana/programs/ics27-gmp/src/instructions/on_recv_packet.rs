@@ -212,7 +212,6 @@ pub fn on_recv_packet<'info>(
     Ok(GmpAcknowledgement::new(result).encode_to_vec())
 }
 
-#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;
