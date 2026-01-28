@@ -38,6 +38,7 @@ pub mod accounts {
 
     pub fn create_app_state_account(access_manager: Pubkey) -> Account {
         let app_state = AppState {
+            version: crate::types::AccountVersion::V1,
             access_manager,
             _reserved: [0; 256],
         };
@@ -122,6 +123,7 @@ pub mod fixtures {
 
     pub fn default_client_state(client_id: &str, height: u64) -> ClientState {
         ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: client_id.to_string(),
             attestor_addresses: vec![[1u8; 20]],
             min_required_sigs: 1,
@@ -144,6 +146,7 @@ pub mod fixtures {
         latest_height: u64,
     ) -> ClientState {
         ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: client_id.to_string(),
             attestor_addresses,
             min_required_sigs,

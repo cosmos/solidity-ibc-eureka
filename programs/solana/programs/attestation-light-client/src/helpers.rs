@@ -216,6 +216,7 @@ mod tests {
         min_required_sigs: u8,
     ) -> ClientState {
         ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: "test-client".to_string(),
             attestor_addresses,
             min_required_sigs,

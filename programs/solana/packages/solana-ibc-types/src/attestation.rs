@@ -4,9 +4,16 @@
 
 use anchor_lang::prelude::*;
 
+/// Account schema version for upgrades
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub enum AccountVersion {
+    V1,
+}
+
 /// Client state for the attestation light client
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ClientState {
+    pub version: AccountVersion,
     pub client_id: String,
     /// Ethereum addresses of trusted attestors (20 bytes each)
     pub attestor_addresses: Vec<[u8; 20]>,
@@ -47,6 +54,7 @@ impl ConsensusState {
 /// App state for the attestation light client
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
+    pub version: AccountVersion,
     pub access_manager: Pubkey,
     pub _reserved: [u8; 256],
 }

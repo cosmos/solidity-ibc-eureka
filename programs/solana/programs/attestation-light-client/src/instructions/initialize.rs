@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::types::ConsensusState;
+use crate::types::{AccountVersion, ConsensusState};
 use crate::Initialize;
 use anchor_lang::prelude::*;
 
@@ -24,6 +24,7 @@ pub fn initialize(
     require!(latest_height > 0, ErrorCode::InvalidHeight);
 
     let client_state_account = &mut ctx.accounts.client_state;
+    client_state_account.version = AccountVersion::V1;
     client_state_account.client_id = client_id;
     client_state_account.attestor_addresses = attestor_addresses;
     client_state_account.min_required_sigs = min_required_sigs;
@@ -38,6 +39,7 @@ pub fn initialize(
     };
 
     let app_state = &mut ctx.accounts.app_state;
+    app_state.version = AccountVersion::V1;
     app_state.access_manager = access_manager;
     app_state._reserved = [0; 256];
 

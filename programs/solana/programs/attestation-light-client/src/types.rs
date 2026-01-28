@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
+pub use solana_ibc_types::attestation::AccountVersion;
 
 /// Client state for the attestation light client
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {
+    pub version: AccountVersion,
     #[max_len(64)]
     pub client_id: String,
     /// Ethereum addresses of trusted attestors (20 bytes each)
@@ -34,6 +36,7 @@ pub struct ConsensusState {
 #[account]
 #[derive(InitSpace)]
 pub struct AppState {
+    pub version: AccountVersion,
     pub access_manager: Pubkey,
     pub _reserved: [u8; 256],
 }

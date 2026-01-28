@@ -252,6 +252,7 @@ mod tests {
     #[test]
     fn test_update_client_too_few_signatures() {
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses: vec![[1u8; 20], [2u8; 20]],
             min_required_sigs: 2,
@@ -285,6 +286,7 @@ mod tests {
     #[test]
     fn test_update_client_duplicate_signatures() {
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses: vec![[1u8; 20], [2u8; 20]],
             min_required_sigs: 2,
@@ -384,6 +386,7 @@ mod tests {
     fn test_update_client_max_attestors() {
         let attestor_addresses: Vec<[u8; 20]> = (0..10).map(|i| [i as u8; 20]).collect();
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses,
             min_required_sigs: 7,

@@ -274,6 +274,7 @@ mod tests {
     #[test]
     fn test_verify_non_membership_empty_attestation() {
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses: vec![],
             min_required_sigs: 0,
@@ -315,6 +316,7 @@ mod tests {
     #[test]
     fn test_verify_non_membership_too_few_signatures() {
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses: vec![[1u8; 20], [2u8; 20]],
             min_required_sigs: 2,
@@ -357,6 +359,7 @@ mod tests {
     #[test]
     fn test_verify_non_membership_duplicate_signatures() {
         let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses: vec![[1u8; 20], [2u8; 20]],
             min_required_sigs: 2,
