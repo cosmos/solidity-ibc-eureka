@@ -88,9 +88,6 @@ jobs:
       - name: Build Solana programs
         run: just build-solana
         env:
-          # Force cargo to use stable toolchain for native builds
-          # This prevents anchor's internal cargo test from using the solana toolchain's Cargo 1.84
-          # which doesn't support edition 2024 required by some dependencies (alloy, syn-solidity)
           RUSTUP_TOOLCHAIN: stable
 
       - name: Run Solana unit tests
