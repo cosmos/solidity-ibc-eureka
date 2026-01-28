@@ -32,7 +32,7 @@ pub struct InitializeExistingToken<'info> {
     pub mint_authority: AccountInfo<'info>,
 
     #[account(
-        constraint = mint.mint_authority.is_some_and(|a| a == current_authority.key()) @ IFTError::InvalidMintAuthority
+        constraint = mint.mint_authority.unwrap() == current_authority.key() @ IFTError::InvalidMintAuthority
     )]
     pub current_authority: Signer<'info>,
 
