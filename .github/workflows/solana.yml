@@ -73,17 +73,23 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           protoc --version
 
-      - name: Build Solana programs
+      # Hide Solana's bundled cargo so system cargo (1.93+) is always used
+      # Solana's cargo 1.84 doesn't support edition 2024 required by some deps
+      - name: Use system Cargo for edition 2024 support
         run: |
-          # Ensure rustup's cargo is first in PATH (1.93+ supports edition 2024)
-          export PATH="$HOME/.cargo/bin:$PATH"
+          SOLANA_CARGO=$(find ~/.local/share/solana -name "cargo" -type f 2>/dev/null | head -1)
+          if [ -n "$SOLANA_CARGO" ]; then
+            echo "Hiding Solana's bundled cargo: $SOLANA_CARGO"
+            mv "$SOLANA_CARGO" "${SOLANA_CARGO}.bak"
+          fi
+          echo "System cargo version:"
           cargo --version
-          just build-solana
+
+      - name: Build Solana programs
+        run: just build-solana
 
       - name: Run Solana unit tests
-        run: |
-          export PATH="$HOME/.cargo/bin:$PATH"
-          just test-solana
+        run: just test-solana
         env:
           RUST_BACKTRACE: 1
 

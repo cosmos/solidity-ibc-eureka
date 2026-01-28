@@ -99,15 +99,25 @@ runs:
       if: steps.cache-solana.outputs.cache-hit != 'true'
       uses: dtolnay/rust-toolchain@stable
 
-    - name: Build Solana Programs
+    # Hide Solana's bundled cargo so system cargo (1.93+) is always used
+    # Solana's cargo 1.84 doesn't support edition 2024 required by some deps
+    - name: Use system Cargo for edition 2024 support
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        # Ensure rustup's cargo is first in PATH (1.93+ supports edition 2024)
-        # Solana's bundled cargo (1.84) doesn't support edition 2024
-        export PATH="$HOME/.cargo/bin:$PATH"
+        # Find and rename Solana's bundled cargo to force using system cargo
+        SOLANA_CARGO=$(find ~/.local/share/solana -name "cargo" -type f 2>/dev/null | head -1)
+        if [ -n "$SOLANA_CARGO" ]; then
+          echo "Hiding Solana's bundled cargo: $SOLANA_CARGO"
+          mv "$SOLANA_CARGO" "${SOLANA_CARGO}.bak"
+        fi
+        echo "System cargo version:"
         cargo --version
-        just build-solana
+
+    - name: Build Solana Programs
+      if: steps.cache-solana.outputs.cache-hit != 'true'
+      shell: bash
+      run: just build-solana
 
     - name: Package artifacts
       shell: bash
