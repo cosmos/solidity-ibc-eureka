@@ -996,17 +996,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.SenderTokenAccount = tokenAccount
 	}))
 
-	// Register bridge on Solana only (not on Cosmos - to trigger error ack)
-	// We also need to seed Solana with tokens first
-	s.Require().True(s.Run("Register Solana bridge and seed tokens", func() {
-		// Register on Solana
+	s.Require().True(s.Run("Register bridges and seed tokens", func() {
 		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, s.IFTMint())
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
-
-		// Register on Cosmos side for seeding (we'll test ack failure separately)
 		s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 
-		// Seed Solana with tokens
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 		resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
 			Signer:           cosmosUser.FormattedAddress(),
@@ -1030,12 +1024,35 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		})
 		s.Require().NoError(err)
 
-		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
+		solanaRecvSig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
 		s.Require().NoError(err)
 
 		balance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(IFTMintAmount, balance, "Tokens should be minted on Solana")
+
+		// Relay ack back to Cosmos to clear pending transfer
+		ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    testvalues.SolanaChainID,
+			DstChain:    s.Wfchain.Config().ChainID,
+			SourceTxIds: [][]byte{[]byte(solanaRecvSig.String())},
+			SrcClientId: SolanaClientID,
+			DstClientId: CosmosClientID,
+		})
+		s.Require().NoError(err)
+		s.MustBroadcastSdkTxBody(ctx, s.Wfchain, cosmosUser, 2_000_000, ackResp.Tx)
+		s.T().Log("Seeding ack relayed back to Cosmos")
+	}))
+
+	s.Require().True(s.Run("Unregister Cosmos bridge to trigger error ack", func() {
+		govModuleAddr := authtypes.NewModuleAddress(govtypes.ModuleName).String()
+		msg := &ifttypes.MsgRemoveIFTBridge{
+			Signer:   govModuleAddr,
+			Denom:    cosmosDenom,
+			ClientId: testvalues.FirstWasmClientID,
+		}
+		err := s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
+		s.Require().NoError(err)
 	}))
 
 	initialBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
