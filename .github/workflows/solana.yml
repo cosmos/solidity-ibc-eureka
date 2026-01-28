@@ -74,10 +74,16 @@ jobs:
           protoc --version
 
       - name: Build Solana programs
-        run: just build-solana
+        run: |
+          # Ensure rustup's cargo is first in PATH (1.93+ supports edition 2024)
+          export PATH="$HOME/.cargo/bin:$PATH"
+          cargo --version
+          just build-solana
 
       - name: Run Solana unit tests
-        run: just test-solana
+        run: |
+          export PATH="$HOME/.cargo/bin:$PATH"
+          just test-solana
         env:
           RUST_BACKTRACE: 1
 

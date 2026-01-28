@@ -102,7 +102,12 @@ runs:
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
-      run: just build-solana
+      run: |
+        # Ensure rustup's cargo is first in PATH (1.93+ supports edition 2024)
+        # Solana's bundled cargo (1.84) doesn't support edition 2024
+        export PATH="$HOME/.cargo/bin:$PATH"
+        cargo --version
+        just build-solana
 
     - name: Package artifacts
       shell: bash
