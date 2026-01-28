@@ -459,53 +459,48 @@ GMP stores results in `GMPCallResultAccount` PDAs. Sender programs read these ac
 
 **3. Router calls sender directly**: Rejected because Router doesn't know GMP-specific packet encoding.
 
-## CPI Caller Validation Limitation
+## CPI Authorization via PDA Signing
 
 ### The Problem
 
-Solana's instruction sysvar only exposes the **top-level transaction instruction**, not the immediate CPI caller. This creates an issue for layered architectures like IFT → GMP → Router:
+Solana's instruction sysvar only exposes the **top-level transaction instruction**, not the immediate CPI caller. For layered architectures like IFT → GMP → Router, we need a way for Router to verify that GMP (the registered IBC app) authorized the call.
 
-- When IFT calls GMP, and GMP calls Router
-- Router's `send_packet` validates: "Is the caller the registered IBC app for this port?"
-- Router sees IFT (top-level) instead of GMP (immediate caller)
-- Validation fails because IFT ≠ GMP
+### Solution: App Signer PDA
 
-This differs from EVM where `msg.sender` always returns the immediate caller.
-
-### Solution: Upstream Caller Whitelisting
-
-The Router's `IBCApp` registration supports an `upstream_callers` list - programs authorized to call through a registered IBC app:
+Instead of tracking CPI callers, Router validates that the registered app **signed** the request using its app state PDA:
 
 ```rust
-pub struct IBCApp {
-    pub app_program_id: Pubkey,      // The registered app (e.g., GMP)
-    pub upstream_callers: Vec<Pubkey>, // Programs allowed to call through this app (e.g., IFT)
-    // ...
-}
+// Router's send_packet validation
+let (expected_app_signer, _) = Pubkey::find_program_address(
+    &[b"ibc_app_state", ibc_app.port_id.as_bytes()],
+    &ibc_app.app_program_id,  // e.g., GMP program ID
+);
+require!(
+    ctx.accounts.app_signer.key() == expected_app_signer,
+    RouterError::UnauthorizedSender
+);
 ```
 
-When validating `send_packet`, Router accepts if:
-1. Top-level program == registered app, OR
-2. Top-level program ∈ upstream_callers
+### How It Works
 
-### Usage
+1. **Registration**: GMP registers as the IBC app for "gmp" port
+2. **PDA Derivation**: GMP's app state PDA is `["ibc_app_state", "gmp"]` + GMP program ID
+3. **CPI Chain**: When IFT calls GMP's `send_call`, GMP signs with its app state PDA via `invoke_signed`
+4. **Validation**: Router verifies the signer matches the expected PDA for the registered app
 
-After registering GMP as an IBC app, register IFT as an upstream caller:
-```rust
-router.add_upstream_caller("gmpport", ift_program_id)?;
-```
+This approach:
+- Works regardless of CPI depth (IFT → GMP → Router all works)
+- Only the registered app can sign with its PDA (cryptographic guarantee)
+- No need to track or whitelist upstream callers
+- Follows Solana's idiomatic PDA-based authorization pattern
 
 ### Alternatives Considered
 
-**1. IFT registers its own port**: IFT could register as `iftport` directly with Router. Rejected because it duplicates GMP's packet handling logic and diverges from Solidity architecture.
+**1. Upstream caller whitelisting**: Maintain a list of authorized upstream programs (e.g., IFT) in the `IBCApp` account. Router would accept calls if top-level program is in the whitelist. Rejected because it adds admin overhead, requires storage for the whitelist, and PDA signing is more elegant.
 
-**2. Custom CPI caller tracking**: Pass caller info through accounts. Rejected because no Solana runtime support and requires invasive changes across all programs.
+**2. Instruction sysvar inspection**: Walk the instruction sysvar to find the immediate CPI caller. Rejected because Solana's sysvar doesn't expose the CPI call stack, only top-level instructions.
 
-**3. Walk instruction sysvar for CPI stack**: Use introspection to find immediate caller. Rejected because Solana's sysvar doesn't expose CPI call stack.
-
-**4. GMP passes "trusted" flag to Router**: GMP validates caller, tells Router to trust. Rejected because creates security vulnerability.
-
-The upstream caller whitelist was chosen for minimal changes, explicit security, and alignment with existing patterns.
+**3. Pass "trusted" flag from GMP**: GMP validates its caller and passes a flag to Router. Rejected because it creates a security vulnerability—any program could pass the flag.
 
 ## Call Result Callbacks
 

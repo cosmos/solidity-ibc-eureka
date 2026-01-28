@@ -253,12 +253,11 @@ This PDA-based validation is more efficient and Solana-native than instruction s
 
 ### CPI caller validation for callbacks
 
-**Alternative**: Use instruction sysvar inspection with `upstream_callers` registry to validate that callback handlers (`on_ack_packet`, `on_timeout_packet`) are called by Router or GMP.
+**Alternative**: Use instruction sysvar inspection to validate that callback handlers (`on_ack_packet`, `on_timeout_packet`) are called by Router or GMP.
 
 **Rejected because**:
-- Requires maintaining `upstream_callers` Vec in Router's `IBCApp` account
-- Adds admin overhead for registering each upstream program
-- Instruction sysvar inspection is complex and gas-intensive
+- Instruction sysvar inspection is complex and compute-intensive
+- Solana's sysvar doesn't expose the CPI call stack, only top-level instructions
 - The `PendingTransfer` PDA already provides authentication—only IFT can create it during `ift_transfer`, so its existence proves the callback is for a legitimate transfer
 - PDA-based state authentication is the idiomatic Solana pattern for this use case
 
