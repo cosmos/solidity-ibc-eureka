@@ -47,8 +47,7 @@ impl AccountIdentifier {
     /// `find_program_address` (~10k CUs) for efficient on-chain verification.
     pub fn verify_pda(&self, pubkey: &Pubkey, program_id: &Pubkey, bump: u8) -> bool {
         Pubkey::create_program_address(&[GMPAccount::SEED, &self.digest(), &[bump]], program_id)
-            .map(|expected| expected == *pubkey)
-            .unwrap_or(false)
+            .is_ok_and(|expected| expected == *pubkey)
     }
 }
 
