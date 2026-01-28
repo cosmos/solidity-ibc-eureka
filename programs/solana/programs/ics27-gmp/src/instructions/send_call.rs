@@ -22,9 +22,9 @@ pub struct SendCall<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Sender of the call - for direct calls must be a signer (user wallet),
-    /// for CPI calls this is the calling program ID (callback target)
-    /// CHECK: Validated in instruction logic based on call type (CPI vs direct)
+    /// Only used for direct calls (must sign). For CPI calls, this account is ignored
+    /// and the calling program ID is extracted from instruction sysvar instead.
+    /// CHECK: UncheckedAccount because validation depends on runtime call type.
     pub sender: UncheckedAccount<'info>,
 
     #[account(mut)]
@@ -70,23 +70,16 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
 
-    // Determine sender based on call type (direct vs CPI)
-    // Stack height of 1 means this is a direct call from a transaction
-    // Stack height > 1 means this is called via CPI from another program
+    // Direct call: sender signs. CPI call: use calling program ID for callback routing.
     let stack_height = get_stack_height();
     let sender_pubkey = if stack_height <= 1 {
-        // Direct call - sender must be a signer (user wallet)
         require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
         ctx.accounts.sender.key()
     } else {
-        // CPI call - get calling program ID for callback routing.
-        // Index 0 = current top-level instruction (the CPI caller, e.g. IFT).
-        // Index -1 would be previous instruction (e.g. ComputeBudget) - wrong.
         let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
-        let current_instruction =
-            sysvar_instructions::get_instruction_relative(0, &instruction_sysvar)
-                .map_err(|_| GMPError::InvalidSysvar)?;
-        current_instruction.program_id
+        sysvar_instructions::get_instruction_relative(0, &instruction_sysvar)
+            .map_err(|_| GMPError::InvalidSysvar)?
+            .program_id
     };
 
     // Validate IBC routing fields
