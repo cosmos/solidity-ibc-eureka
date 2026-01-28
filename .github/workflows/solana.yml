@@ -87,11 +87,17 @@ jobs:
 
       - name: Build Solana programs
         run: just build-solana
+        env:
+          # Force cargo to use stable toolchain for native builds
+          # This prevents anchor's internal cargo test from using the solana toolchain's Cargo 1.84
+          # which doesn't support edition 2024 required by some dependencies (alloy, syn-solidity)
+          RUSTUP_TOOLCHAIN: stable
 
       - name: Run Solana unit tests
         run: just test-solana
         env:
           RUST_BACKTRACE: 1
+          RUSTUP_TOOLCHAIN: stable
 
       # Exclude test programs
       - name: Run coverage
@@ -103,6 +109,8 @@ jobs:
           EXCLUDE+='|mock-light-client)/'
           cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "$EXCLUDE"
         working-directory: programs/solana
+        env:
+          RUSTUP_TOOLCHAIN: stable
 
       - uses: codecov/codecov-action@v5
         with:
@@ -113,4 +121,6 @@ jobs:
 
       - name: Run Solana linting
         run: just lint-solana
+        env:
+          RUSTUP_TOOLCHAIN: stable
 

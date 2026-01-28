@@ -117,15 +117,12 @@ runs:
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
-      run: |
-        echo "=== Debug: PATH ==="
-        echo $PATH | tr ':' '\n' | head -10
-        echo "=== Debug: which cargo ==="
-        which -a cargo
-        echo "=== Debug: cargo version ==="
-        cargo --version
-        echo "=== Debug: Starting build ==="
-        just build-solana
+      run: just build-solana
+      env:
+        # Force cargo to use stable toolchain for native builds
+        # This prevents anchor's internal cargo test from using the solana toolchain's Cargo 1.84
+        # which doesn't support edition 2024 required by some dependencies (alloy, syn-solidity)
+        RUSTUP_TOOLCHAIN: stable
 
     - name: Package artifacts
       shell: bash
