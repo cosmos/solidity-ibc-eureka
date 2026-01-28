@@ -86,12 +86,6 @@ fn test_pending_transfer_seeds_sequence_max() {
 }
 
 #[test]
-fn test_counterparty_chain_type_default() {
-    let chain_type = CounterpartyChainType::default();
-    assert_eq!(chain_type, CounterpartyChainType::Evm);
-}
-
-#[test]
 fn test_account_version_default() {
     let version = AccountVersion::default();
     assert_eq!(version, AccountVersion::V1);

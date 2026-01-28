@@ -11,7 +11,7 @@ use crate::events::IFTTransferInitiated;
 use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
-    AccountVersion, CounterpartyChainType, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
+    AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
 };
 
 #[derive(Accounts)]
@@ -150,11 +150,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     token::burn(burn_ctx, msg.amount)?;
 
     let mint_call_payload = construct_mint_call(
-        ctx.accounts.ift_bridge.counterparty_chain_type,
-        &ctx.accounts.ift_bridge.counterparty_ift_address,
-        &ctx.accounts.ift_bridge.counterparty_denom,
-        &ctx.accounts.ift_bridge.cosmos_type_url,
-        &ctx.accounts.ift_bridge.cosmos_ica_address,
+        &ctx.accounts.ift_bridge.chain_options,
         &msg.receiver,
         msg.amount,
     )?;
@@ -210,24 +206,24 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
 // TODO: cpi call
 fn construct_mint_call(
-    chain_type: CounterpartyChainType,
-    _counterparty_address: &str,
-    counterparty_denom: &str,
-    cosmos_type_url: &str,
-    cosmos_ica_address: &str,
+    chain_options: &ChainOptions,
     receiver: &str,
     amount: u64,
 ) -> Result<Vec<u8>> {
-    match chain_type {
-        CounterpartyChainType::Evm => construct_evm_mint_call(receiver, amount),
-        CounterpartyChainType::Cosmos => Ok(construct_cosmos_mint_call(
-            cosmos_type_url,
-            cosmos_ica_address,
-            counterparty_denom,
+    match chain_options {
+        ChainOptions::Evm => construct_evm_mint_call(receiver, amount),
+        ChainOptions::Cosmos {
+            denom,
+            type_url,
+            ica_address,
+        } => Ok(construct_cosmos_mint_call(
+            type_url,
+            ica_address,
+            denom,
             receiver,
             amount,
         )),
-        CounterpartyChainType::Solana => construct_solana_mint_call(receiver, amount),
+        ChainOptions::Solana => construct_solana_mint_call(receiver, amount),
     }
 }
 
@@ -481,11 +477,7 @@ mod tests {
     #[test]
     fn test_construct_mint_call_evm() {
         let result = construct_mint_call(
-            CounterpartyChainType::Evm,
-            "ignored",
-            "",
-            "",
-            "",
+            &ChainOptions::Evm,
             "0x1234567890abcdef1234567890abcdef12345678",
             100,
         );
@@ -496,11 +488,11 @@ mod tests {
     #[test]
     fn test_construct_mint_call_cosmos() {
         let result = construct_mint_call(
-            CounterpartyChainType::Cosmos,
-            "cosmos1iftmodule",
-            "uatom",
-            "/cosmos.ift.v1.MsgIFTMint",
-            "cosmos1icaaddress",
+            &ChainOptions::Cosmos {
+                denom: "uatom".to_string(),
+                type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+                ica_address: "cosmos1icaaddress".to_string(),
+            },
             "cosmos1receiver",
             100,
         );
@@ -514,11 +506,7 @@ mod tests {
     #[test]
     fn test_construct_mint_call_solana() {
         let result = construct_mint_call(
-            CounterpartyChainType::Solana,
-            "ignored",
-            "",
-            "",
-            "",
+            &ChainOptions::Solana,
             "11111111111111111111111111111111",
             100,
         );
@@ -669,10 +657,7 @@ mod tests {
         let ift_bridge_account = create_ift_bridge_account(
             mint,
             TEST_COUNTERPARTY_ADDRESS,
-            "",
-            "",
-            "",
-            CounterpartyChainType::Evm,
+            ChainOptions::Evm,
             ift_bridge_bump,
             config.bridge_active,
         );

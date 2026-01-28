@@ -7,9 +7,7 @@ use mollusk_svm::Mollusk;
 use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey, system_program};
 
 use crate::constants::*;
-use crate::state::{
-    AccountVersion, CounterpartyChainType, IFTAppState, IFTBridge, PendingTransfer,
-};
+use crate::state::{AccountVersion, ChainOptions, IFTAppState, IFTBridge, PendingTransfer};
 
 /// Path to the compiled IFT program binary
 pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ics27_ift";
@@ -53,14 +51,10 @@ pub fn create_ift_app_state_account(
 }
 
 /// Create a serialized IFT bridge account
-#[allow(clippy::too_many_arguments)]
 pub fn create_ift_bridge_account(
     mint: Pubkey,
     counterparty_ift_address: &str,
-    counterparty_denom: &str,
-    cosmos_type_url: &str,
-    cosmos_ica_address: &str,
-    counterparty_chain_type: CounterpartyChainType,
+    chain_options: ChainOptions,
     bump: u8,
     active: bool,
 ) -> SolanaAccount {
@@ -69,10 +63,7 @@ pub fn create_ift_bridge_account(
         bump,
         mint,
         counterparty_ift_address: counterparty_ift_address.to_string(),
-        counterparty_denom: counterparty_denom.to_string(),
-        cosmos_type_url: cosmos_type_url.to_string(),
-        cosmos_ica_address: cosmos_ica_address.to_string(),
-        counterparty_chain_type,
+        chain_options,
         active,
         _reserved: [0; 64],
     };

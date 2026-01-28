@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::state::CounterpartyChainType;
+use crate::state::ChainOptions;
 
 /// Event emitted when a new SPL token is created for IFT
 #[event]
@@ -26,14 +26,8 @@ pub struct IFTBridgeRegistered {
     pub client_id: String,
     /// Counterparty IFT contract address
     pub counterparty_ift_address: String,
-    /// Token denom on counterparty chain
-    pub counterparty_denom: String,
-    /// Protobuf type URL for Cosmos `MsgIFTMint`
-    pub cosmos_type_url: String,
-    /// ICS27-GMP interchain account address on Cosmos (signer for `MsgIFTMint`)
-    pub cosmos_ica_address: String,
-    /// Counterparty chain type
-    pub counterparty_chain_type: CounterpartyChainType,
+    /// Chain-specific options
+    pub chain_options: ChainOptions,
     /// Registration timestamp
     pub timestamp: i64,
 }

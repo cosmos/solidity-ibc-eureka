@@ -11,16 +11,23 @@ pub enum AccountVersion {
     V1,
 }
 
-/// Counterparty chain type for constructing mint calls
-#[derive(
-    AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug, Default,
-)]
-pub enum CounterpartyChainType {
+/// Chain-specific options for counterparty chain configuration
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, InitSpace)]
+pub enum ChainOptions {
     /// EVM chain - encode as ABI call to iftMint(address, uint256)
-    #[default]
     Evm,
     /// Cosmos chain - encode as protojson `MsgIFTMint`
-    Cosmos,
+    Cosmos {
+        /// Token denom on counterparty chain (Cosmos SDK max: 128 chars)
+        #[max_len(128)]
+        denom: String,
+        /// Protobuf type URL for `MsgIFTMint` (e.g., "/cosmos.ift.v1.MsgIFTMint")
+        #[max_len(128)]
+        type_url: String,
+        /// ICS27-GMP interchain account address (the signer for `MsgIFTMint`)
+        #[max_len(128)]
+        ica_address: String,
+    },
     /// Solana chain - encode as Solana instruction data
     Solana,
 }
@@ -79,23 +86,8 @@ pub struct IFTBridge {
     #[max_len(128)]
     pub counterparty_ift_address: String,
 
-    /// Token denom on counterparty chain (Cosmos SDK max: 128 chars)
-    /// For EVM chains, this can be empty as the address is used directly
-    #[max_len(128)]
-    pub counterparty_denom: String,
-
-    /// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
-    /// For non-Cosmos chains, this can be empty
-    #[max_len(128)]
-    pub cosmos_type_url: String,
-
-    /// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
-    /// Required for Cosmos chains, empty for EVM/Solana
-    #[max_len(128)]
-    pub cosmos_ica_address: String,
-
-    /// Counterparty chain type (for call constructor logic)
-    pub counterparty_chain_type: CounterpartyChainType,
+    /// Chain-specific options for constructing mint calls
+    pub chain_options: ChainOptions,
 
     /// Whether bridge is active
     pub active: bool,
@@ -160,20 +152,8 @@ pub struct RegisterIFTBridgeMsg {
     pub client_id: String,
     /// Counterparty IFT contract address
     pub counterparty_ift_address: String,
-
-    // TODO: parameters with json same as with constructor
-    // separate program id to do it
-    // ift sendcall constructor
-    /// Token denom on counterparty chain (required for Cosmos, optional for EVM)
-    pub counterparty_denom: String,
-    /// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
-    /// Required for Cosmos chains, ignored for EVM/Solana
-    pub cosmos_type_url: String,
-    /// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
-    /// Required for Cosmos chains, ignored for EVM/Solana
-    pub cosmos_ica_address: String,
-    /// Counterparty chain type
-    pub counterparty_chain_type: CounterpartyChainType,
+    /// Chain-specific options
+    pub chain_options: ChainOptions,
 }
 
 /// Message for initiating an IFT transfer

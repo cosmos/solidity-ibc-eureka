@@ -167,10 +167,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, cli
 		registerMsg := ics27_ift.Ics27IftStateRegisterIftBridgeMsg{
 			ClientId:               clientID,
 			CounterpartyIftAddress: counterpartyAddress,
-			CounterpartyDenom:      counterpartyDenom,
-			CosmosTypeUrl:          "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
-			CosmosIcaAddress:       cosmosIcaAddress,
-			CounterpartyChainType:  ics27_ift.Ics27IftStateCounterpartyChainType_Cosmos,
+			ChainOptions: &ics27_ift.Ics27IftStateChainOptions_Cosmos{
+				Denom:      counterpartyDenom,
+				TypeUrl:    "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+				IcaAddress: cosmosIcaAddress,
+			},
 		}
 
 		registerIx, err := ics27_ift.NewRegisterIftBridgeInstruction(

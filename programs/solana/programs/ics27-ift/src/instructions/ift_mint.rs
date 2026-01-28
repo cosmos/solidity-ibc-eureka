@@ -147,7 +147,7 @@ mod tests {
         pubkey::Pubkey,
     };
 
-    use crate::state::{CounterpartyChainType, IFTMintMsg};
+    use crate::state::{ChainOptions, IFTMintMsg};
     use crate::test_utils::*;
 
     const TEST_CLIENT_ID: &str = "07-tendermint-0";
@@ -243,10 +243,7 @@ mod tests {
         let ift_bridge_account = create_ift_bridge_account(
             mint,
             TEST_COUNTERPARTY_ADDRESS,
-            "",
-            "",
-            "",
-            CounterpartyChainType::Evm,
+            ChainOptions::Evm,
             ift_bridge_bump,
             config.bridge_active,
         );

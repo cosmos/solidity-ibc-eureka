@@ -191,17 +191,8 @@ type Ics27IftEventsIftBridgeRegistered struct {
 	// Counterparty IFT contract address
 	CounterpartyIftAddress string `json:"counterpartyIftAddress"`
 
-	// Token denom on counterparty chain
-	CounterpartyDenom string `json:"counterpartyDenom"`
-
-	// Protobuf type URL for Cosmos `MsgIFTMint`
-	CosmosTypeUrl string `json:"cosmosTypeUrl"`
-
-	// ICS27-GMP interchain account address on Cosmos (signer for `MsgIFTMint`)
-	CosmosIcaAddress string `json:"cosmosIcaAddress"`
-
-	// Counterparty chain type
-	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
+	// Chain-specific options
+	ChainOptions Ics27IftStateChainOptions `json:"chainOptions"`
 
 	// Registration timestamp
 	Timestamp int64 `json:"timestamp"`
@@ -223,25 +214,12 @@ func (obj Ics27IftEventsIftBridgeRegistered) MarshalWithEncoder(encoder *binary.
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Serialize `CounterpartyDenom`:
-	err = encoder.Encode(obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Serialize `CosmosTypeUrl`:
-	err = encoder.Encode(obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Serialize `CosmosIcaAddress`:
-	err = encoder.Encode(obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Serialize `CounterpartyChainType`:
-	err = encoder.Encode(obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Serialize `ChainOptions`:
+	{
+		err := EncodeIcs27IftStateChainOptions(encoder, obj.ChainOptions)
+		if err != nil {
+			return errors.NewField("ChainOptions", err)
+		}
 	}
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
@@ -277,25 +255,13 @@ func (obj *Ics27IftEventsIftBridgeRegistered) UnmarshalWithDecoder(decoder *bina
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Deserialize `CounterpartyDenom`:
-	err = decoder.Decode(&obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Deserialize `CosmosTypeUrl`:
-	err = decoder.Decode(&obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Deserialize `CosmosIcaAddress`:
-	err = decoder.Decode(&obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Deserialize `CounterpartyChainType`:
-	err = decoder.Decode(&obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Deserialize `ChainOptions`:
+	{
+		var err error
+		obj.ChainOptions, err = DecodeIcs27IftStateChainOptions(decoder)
+		if err != nil {
+			return err
+		}
 	}
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)
@@ -1104,27 +1070,154 @@ func (value Ics27IftStateAccountVersion) String() string {
 	}
 }
 
-// Counterparty chain type for constructing mint calls
-type Ics27IftStateCounterpartyChainType binary.BorshEnum
+// Chain-specific options for counterparty chain configuration
+// The "isIcs27IftStateChainOptions" interface for the "Ics27IftStateChainOptions" complex enum.
+type Ics27IftStateChainOptions interface {
+	isIcs27IftStateChainOptions()
+}
 
-const (
-	Ics27IftStateCounterpartyChainType_Evm Ics27IftStateCounterpartyChainType = iota
-	Ics27IftStateCounterpartyChainType_Cosmos
-	Ics27IftStateCounterpartyChainType_Solana
-)
+type ics27IftStateChainOptionsEnumContainer struct {
+	Enum   binary.BorshEnum `bin:"enum"`
+	Evm    Ics27IftStateChainOptions_Evm
+	Cosmos Ics27IftStateChainOptions_Cosmos
+	Solana Ics27IftStateChainOptions_Solana
+}
 
-func (value Ics27IftStateCounterpartyChainType) String() string {
-	switch value {
-	case Ics27IftStateCounterpartyChainType_Evm:
-		return "Evm"
-	case Ics27IftStateCounterpartyChainType_Cosmos:
-		return "Cosmos"
-	case Ics27IftStateCounterpartyChainType_Solana:
-		return "Solana"
-	default:
-		return ""
+func DecodeIcs27IftStateChainOptions(decoder *binary.Decoder) (Ics27IftStateChainOptions, error) {
+	{
+		tmp := new(ics27IftStateChainOptionsEnumContainer)
+		err := decoder.Decode(tmp)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing Ics27IftStateChainOptions: %w", err)
+		}
+		switch tmp.Enum {
+		case 0:
+			return (*Ics27IftStateChainOptions_Evm)(&tmp.Enum), nil
+		case 1:
+			return &tmp.Cosmos, nil
+		case 2:
+			return (*Ics27IftStateChainOptions_Solana)(&tmp.Enum), nil
+		default:
+			return nil, fmt.Errorf("Ics27IftStateChainOptions: unknown enum index: %v", tmp.Enum)
+		}
 	}
 }
+
+func EncodeIcs27IftStateChainOptions(encoder *binary.Encoder, value Ics27IftStateChainOptions) error {
+	{
+		tmp := ics27IftStateChainOptionsEnumContainer{}
+		switch realvalue := value.(type) {
+		case *Ics27IftStateChainOptions_Evm:
+			tmp.Enum = 0
+			tmp.Evm = *realvalue
+		case *Ics27IftStateChainOptions_Cosmos:
+			tmp.Enum = 1
+			tmp.Cosmos = *realvalue
+		case *Ics27IftStateChainOptions_Solana:
+			tmp.Enum = 2
+			tmp.Solana = *realvalue
+		}
+		return encoder.Encode(tmp)
+	}
+}
+
+type Ics27IftStateChainOptions_Evm uint8
+
+func (obj Ics27IftStateChainOptions_Evm) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj *Ics27IftStateChainOptions_Evm) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (_ *Ics27IftStateChainOptions_Evm) isIcs27IftStateChainOptions() {}
+
+// Variant "Cosmos" of enum "Ics27IftStateChainOptions"
+type Ics27IftStateChainOptions_Cosmos struct {
+	Denom      string `json:"denom"`
+	TypeUrl    string `json:"typeUrl"`
+	IcaAddress string `json:"icaAddress"`
+}
+
+func (obj Ics27IftStateChainOptions_Cosmos) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Denom`:
+	err = encoder.Encode(obj.Denom)
+	if err != nil {
+		return errors.NewField("Denom", err)
+	}
+	// Serialize `TypeUrl`:
+	err = encoder.Encode(obj.TypeUrl)
+	if err != nil {
+		return errors.NewField("TypeUrl", err)
+	}
+	// Serialize `IcaAddress`:
+	err = encoder.Encode(obj.IcaAddress)
+	if err != nil {
+		return errors.NewField("IcaAddress", err)
+	}
+	return nil
+}
+
+func (obj Ics27IftStateChainOptions_Cosmos) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27IftStateChainOptions_Cosmos: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27IftStateChainOptions_Cosmos) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Denom`:
+	err = decoder.Decode(&obj.Denom)
+	if err != nil {
+		return errors.NewField("Denom", err)
+	}
+	// Deserialize `TypeUrl`:
+	err = decoder.Decode(&obj.TypeUrl)
+	if err != nil {
+		return errors.NewField("TypeUrl", err)
+	}
+	// Deserialize `IcaAddress`:
+	err = decoder.Decode(&obj.IcaAddress)
+	if err != nil {
+		return errors.NewField("IcaAddress", err)
+	}
+	return nil
+}
+
+func (obj *Ics27IftStateChainOptions_Cosmos) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27IftStateChainOptions_Cosmos: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27IftStateChainOptions_Cosmos(buf []byte) (*Ics27IftStateChainOptions_Cosmos, error) {
+	obj := new(Ics27IftStateChainOptions_Cosmos)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *Ics27IftStateChainOptions_Cosmos) isIcs27IftStateChainOptions() {}
+
+type Ics27IftStateChainOptions_Solana uint8
+
+func (obj Ics27IftStateChainOptions_Solana) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj *Ics27IftStateChainOptions_Solana) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (_ *Ics27IftStateChainOptions_Solana) isIcs27IftStateChainOptions() {}
 
 // Main IFT application state
 // PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
@@ -1262,20 +1355,8 @@ type Ics27IftStateIftBridge struct {
 	// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
 	CounterpartyIftAddress string `json:"counterpartyIftAddress"`
 
-	// Token denom on counterparty chain (Cosmos SDK max: 128 chars)
-	// For EVM chains, this can be empty as the address is used directly
-	CounterpartyDenom string `json:"counterpartyDenom"`
-
-	// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
-	// For non-Cosmos chains, this can be empty
-	CosmosTypeUrl string `json:"cosmosTypeUrl"`
-
-	// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
-	// Required for Cosmos chains, empty for EVM/Solana
-	CosmosIcaAddress string `json:"cosmosIcaAddress"`
-
-	// Counterparty chain type (for call constructor logic)
-	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
+	// Chain-specific options for constructing mint calls
+	ChainOptions Ics27IftStateChainOptions `json:"chainOptions"`
 
 	// Whether bridge is active
 	Active   bool      `json:"active"`
@@ -1303,25 +1384,12 @@ func (obj Ics27IftStateIftBridge) MarshalWithEncoder(encoder *binary.Encoder) (e
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Serialize `CounterpartyDenom`:
-	err = encoder.Encode(obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Serialize `CosmosTypeUrl`:
-	err = encoder.Encode(obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Serialize `CosmosIcaAddress`:
-	err = encoder.Encode(obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Serialize `CounterpartyChainType`:
-	err = encoder.Encode(obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Serialize `ChainOptions`:
+	{
+		err := EncodeIcs27IftStateChainOptions(encoder, obj.ChainOptions)
+		if err != nil {
+			return errors.NewField("ChainOptions", err)
+		}
 	}
 	// Serialize `Active`:
 	err = encoder.Encode(obj.Active)
@@ -1367,25 +1435,13 @@ func (obj *Ics27IftStateIftBridge) UnmarshalWithDecoder(decoder *binary.Decoder)
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Deserialize `CounterpartyDenom`:
-	err = decoder.Decode(&obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Deserialize `CosmosTypeUrl`:
-	err = decoder.Decode(&obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Deserialize `CosmosIcaAddress`:
-	err = decoder.Decode(&obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Deserialize `CounterpartyChainType`:
-	err = decoder.Decode(&obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Deserialize `ChainOptions`:
+	{
+		var err error
+		obj.ChainOptions, err = DecodeIcs27IftStateChainOptions(decoder)
+		if err != nil {
+			return err
+		}
 	}
 	// Deserialize `Active`:
 	err = decoder.Decode(&obj.Active)
@@ -1755,19 +1811,8 @@ type Ics27IftStateRegisterIftBridgeMsg struct {
 	// Counterparty IFT contract address
 	CounterpartyIftAddress string `json:"counterpartyIftAddress"`
 
-	// Token denom on counterparty chain (required for Cosmos, optional for EVM)
-	CounterpartyDenom string `json:"counterpartyDenom"`
-
-	// Protobuf type URL for `MsgIFTMint` on Cosmos chains (e.g., "/cosmos.ift.v1.MsgIFTMint")
-	// Required for Cosmos chains, ignored for EVM/Solana
-	CosmosTypeUrl string `json:"cosmosTypeUrl"`
-
-	// ICS27-GMP interchain account address on Cosmos chain (the signer for `MsgIFTMint`)
-	// Required for Cosmos chains, ignored for EVM/Solana
-	CosmosIcaAddress string `json:"cosmosIcaAddress"`
-
-	// Counterparty chain type
-	CounterpartyChainType Ics27IftStateCounterpartyChainType `json:"counterpartyChainType"`
+	// Chain-specific options
+	ChainOptions Ics27IftStateChainOptions `json:"chainOptions"`
 }
 
 func (obj Ics27IftStateRegisterIftBridgeMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1781,25 +1826,12 @@ func (obj Ics27IftStateRegisterIftBridgeMsg) MarshalWithEncoder(encoder *binary.
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Serialize `CounterpartyDenom`:
-	err = encoder.Encode(obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Serialize `CosmosTypeUrl`:
-	err = encoder.Encode(obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Serialize `CosmosIcaAddress`:
-	err = encoder.Encode(obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Serialize `CounterpartyChainType`:
-	err = encoder.Encode(obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Serialize `ChainOptions`:
+	{
+		err := EncodeIcs27IftStateChainOptions(encoder, obj.ChainOptions)
+		if err != nil {
+			return errors.NewField("ChainOptions", err)
+		}
 	}
 	return nil
 }
@@ -1825,25 +1857,13 @@ func (obj *Ics27IftStateRegisterIftBridgeMsg) UnmarshalWithDecoder(decoder *bina
 	if err != nil {
 		return errors.NewField("CounterpartyIftAddress", err)
 	}
-	// Deserialize `CounterpartyDenom`:
-	err = decoder.Decode(&obj.CounterpartyDenom)
-	if err != nil {
-		return errors.NewField("CounterpartyDenom", err)
-	}
-	// Deserialize `CosmosTypeUrl`:
-	err = decoder.Decode(&obj.CosmosTypeUrl)
-	if err != nil {
-		return errors.NewField("CosmosTypeUrl", err)
-	}
-	// Deserialize `CosmosIcaAddress`:
-	err = decoder.Decode(&obj.CosmosIcaAddress)
-	if err != nil {
-		return errors.NewField("CosmosIcaAddress", err)
-	}
-	// Deserialize `CounterpartyChainType`:
-	err = decoder.Decode(&obj.CounterpartyChainType)
-	if err != nil {
-		return errors.NewField("CounterpartyChainType", err)
+	// Deserialize `ChainOptions`:
+	{
+		var err error
+		obj.ChainOptions, err = DecodeIcs27IftStateChainOptions(decoder)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

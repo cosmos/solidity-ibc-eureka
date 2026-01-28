@@ -74,7 +74,7 @@ mod tests {
         pubkey::Pubkey,
     };
 
-    use crate::state::CounterpartyChainType;
+    use crate::state::ChainOptions;
     use crate::test_utils::*;
 
     #[test]
@@ -102,16 +102,8 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account = create_ift_bridge_account(
-            mint,
-            "0x1234",
-            "",
-            "",
-            "",
-            CounterpartyChainType::Evm,
-            bridge_bump,
-            true,
-        );
+        let bridge_account =
+            create_ift_bridge_account(mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -187,16 +179,8 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account = create_ift_bridge_account(
-            mint,
-            "0x1234",
-            "",
-            "",
-            "",
-            CounterpartyChainType::Evm,
-            bridge_bump,
-            true,
-        );
+        let bridge_account =
+            create_ift_bridge_account(mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -258,16 +242,8 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account = create_ift_bridge_account(
-            wrong_mint,
-            "0x1234",
-            "",
-            "",
-            "",
-            CounterpartyChainType::Evm,
-            bridge_bump,
-            true,
-        );
+        let bridge_account =
+            create_ift_bridge_account(wrong_mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
 
         let instruction = Instruction {
             program_id: crate::ID,
