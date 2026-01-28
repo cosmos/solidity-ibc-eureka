@@ -48,6 +48,9 @@ ibc-proto.workspace = true
 tendermint.workspace = true
 time = { workspace = true, features = ["macros"] }
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true

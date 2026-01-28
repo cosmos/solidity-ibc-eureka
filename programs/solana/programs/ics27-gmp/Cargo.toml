@@ -31,6 +31,9 @@ ics26-router = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true

@@ -9,6 +9,9 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "protobuf"]
 categories = ["cryptography", "blockchain"]
 
+[lints]
+workspace = true
+
 [dependencies]
 prost = { workspace = true, features = ["prost-derive"] }
 anchor-lang = { workspace = true }

@@ -9,6 +9,9 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "light-client", "merkle"]
 categories = ["cryptography", "blockchain"]
 
+[lints]
+workspace = true
+
 [dependencies]
 anchor-lang.workspace = true
 

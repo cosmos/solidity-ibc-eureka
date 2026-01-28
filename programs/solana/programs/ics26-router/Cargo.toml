@@ -36,6 +36,9 @@ hex = "0.4"
 [build-dependencies]
 sha2 = "0.10"
 
+[lints]
+workspace = true
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
