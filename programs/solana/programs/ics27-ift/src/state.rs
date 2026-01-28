@@ -32,6 +32,10 @@ pub enum ChainOptions {
     Solana,
 }
 
+// impl ChainOptions {
+//     fn validate
+// }
+
 /// Main IFT application state
 /// PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
 #[account]
