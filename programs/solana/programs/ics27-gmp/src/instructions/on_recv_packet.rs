@@ -84,12 +84,6 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    msg!(
-        "GMP on_recv_packet: encoding='{}', expected='{}'",
-        msg.payload.encoding,
-        ICS27_ENCODING
-    );
-
     require!(
         msg.payload.encoding.is_empty() || msg.payload.encoding == ICS27_ENCODING,
         GMPError::InvalidEncoding

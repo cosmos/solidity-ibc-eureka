@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-01-04
-**Last Updated**: 2026-01-25
+**Last Updated**: 2026-01-28
 
 IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain messaging—no escrow accounts, minimal SPL token operations.
 
@@ -53,26 +53,29 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 pub struct IFTAppState {
     pub version: AccountVersion,
     pub bump: u8,
-    pub mint: Pubkey,                    // Token mint address
-    pub mint_authority_bump: u8,         // PDA bump for signing
-    pub access_manager: Pubkey,          // Role-based access control
-    pub gmp_program: Pubkey,             // ICS27-GMP program
+    pub mint: Pubkey,
+    pub mint_authority_bump: u8,
+    pub access_manager: Pubkey,
+    pub gmp_program: Pubkey,
     pub _reserved: [u8; 128],
 }
 
-// IFT Bridge - one per destination chain
+// IFT Bridge - one per (token, destination chain) pair
+// client_id is part of PDA seeds, not stored in struct
 pub struct IFTBridge {
     pub version: AccountVersion,
     pub bump: u8,
     pub mint: Pubkey,
-    pub client_id: String,               // IBC client (max 64)
-    pub counterparty_ift_address: String,// IFT contract on destination (max 128)
-    pub counterparty_denom: String,      // Token denom on counterparty (max 128)
-    pub cosmos_type_url: String,         // Protobuf type URL for Cosmos MsgIFTMint (max 128)
-    pub cosmos_ica_address: String,      // ICS27-GMP ICA address on Cosmos (max 128)
-    pub counterparty_chain_type: CounterpartyChainType,
+    pub counterparty_ift_address: String,
+    pub chain_options: ChainOptions,
     pub active: bool,
     pub _reserved: [u8; 64],
+}
+
+pub enum ChainOptions {
+    Evm,
+    Cosmos { denom: String, type_url: String, ica_address: String },
+    Solana,
 }
 
 // Pending Transfer - tracks in-flight transfers for refunds
@@ -80,10 +83,10 @@ pub struct PendingTransfer {
     pub version: AccountVersion,
     pub bump: u8,
     pub mint: Pubkey,
-    pub client_id: String,               // max 64
+    pub client_id: String,
     pub sequence: u64,
-    pub sender: Pubkey,                  // Original sender (for refunds)
-    pub amount: u64,                     // Amount transferred (for refunds)
+    pub sender: Pubkey,
+    pub amount: u64,
     pub timestamp: i64,
     pub _reserved: [u8; 32],
 }
@@ -119,9 +122,8 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 
 ```
 1. Admin calls IFT::create_spl_token(decimals, access_manager, gmp_program)
-   - Creates new SPL token mint with IFT PDA as authority
-   - Mint keypair must sign (passed as signer)
-2. Admin calls register_ift_bridge(client_id, counterparty_ift_address)
+   - Creates SPL token mint with IFT PDA as authority
+2. Admin calls register_ift_bridge(client_id, counterparty_ift_address, chain_options)
    - Registers destination chain's IFT contract
 ```
 

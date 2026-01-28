@@ -114,7 +114,6 @@ pub struct IFTTransfer<'info> {
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
-    // TODO: optimize
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
