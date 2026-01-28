@@ -54,8 +54,8 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_token_account: Account<'info, TokenAccount>,
 
-    // TODO: make just a receiver
-    /// CHECK: The receiver owner pubkey (must match msg.receiver)
+    /// CHECK: Receiver who will own the minted tokens.
+    /// Constraint prevents relayer from substituting a different receiver than specified in cross-chain message.
     #[account(
         constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
     )]

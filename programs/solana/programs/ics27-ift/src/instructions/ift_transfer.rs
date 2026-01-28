@@ -200,7 +200,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     Ok(sequence)
 }
 
-// TODO: cpi call
+/// Construct chain-specific mint call payload for the counterparty.
 fn construct_mint_call(
     chain_options: &ChainOptions,
     receiver: &str,
