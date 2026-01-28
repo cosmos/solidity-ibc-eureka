@@ -43,8 +43,9 @@ pub struct IFTAppState {
     /// SPL Token mint address (this IFT controls this mint)
     pub mint: Pubkey,
 
-    // TODO: do we need it???
-    /// Mint authority PDA bump (for signing mint operations)
+    /// Mint authority PDA bump for signing mint/refund operations.
+    /// Stored to use `create_program_address` (~1.5k CUs) instead of
+    /// `find_program_address` (~10k CUs) on each mint/refund.
     pub mint_authority_bump: u8,
 
     /// Access manager program ID for role-based access control
