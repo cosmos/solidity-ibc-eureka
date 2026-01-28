@@ -45,7 +45,7 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/wfchain",
-					Version:    "vaporif/solana-msg-simplification",
+					Version:    "vaporif-solana-msg-simplification",
 					UIDGID:     "1025:1025",
 				},
 			},
