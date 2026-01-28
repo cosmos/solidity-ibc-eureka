@@ -115,7 +115,7 @@ fn validate_gmp_account(
     gmp_program: &Pubkey,
     bump: u8,
 ) -> Result<()> {
-    use solana_ibc_types::ics27::{AccountIdentifier, GMPAccount, Salt};
+    use solana_ibc_types::ics27::{AccountIdentifier, Salt};
 
     let account_id = AccountIdentifier::new(
         client_id
@@ -129,12 +129,10 @@ fn validate_gmp_account(
         Salt::empty(),
     );
 
-    let expected_pda = Pubkey::create_program_address(
-        &[GMPAccount::SEED, &account_id.digest(), &[bump]],
-        gmp_program,
-    )
-    .map_err(|_| IFTError::InvalidGmpAccount)?;
-    require!(*gmp_account == expected_pda, IFTError::InvalidGmpAccount);
+    require!(
+        account_id.verify_pda(gmp_account, gmp_program, bump),
+        IFTError::InvalidGmpAccount
+    );
     Ok(())
 }
 

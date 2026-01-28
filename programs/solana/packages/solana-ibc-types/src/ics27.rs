@@ -40,6 +40,16 @@ impl AccountIdentifier {
         let data = borsh::to_vec(self).expect("borsh serialization cannot fail");
         solana_sha256_hasher::hash(&data).to_bytes()
     }
+
+    /// Verify a pubkey matches the expected GMP account PDA.
+    ///
+    /// Uses `create_program_address` with provided bump (~1.5k CUs) instead of
+    /// `find_program_address` (~10k CUs) for efficient on-chain verification.
+    pub fn verify_pda(&self, pubkey: &Pubkey, program_id: &Pubkey, bump: u8) -> bool {
+        Pubkey::create_program_address(&[GMPAccount::SEED, &self.digest(), &[bump]], program_id)
+            .map(|expected| expected == *pubkey)
+            .unwrap_or(false)
+    }
 }
 
 /// GMP account for PDA derivation and signing
