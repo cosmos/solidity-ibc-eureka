@@ -278,5 +278,6 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
     Ok(UpdateResult::UpdateSuccess)
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

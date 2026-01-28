@@ -25,5 +25,6 @@ pub fn upload_header_chunk(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

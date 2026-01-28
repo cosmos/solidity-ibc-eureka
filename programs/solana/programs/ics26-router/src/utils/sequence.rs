@@ -24,6 +24,7 @@ pub fn calculate_namespaced_sequence(
         .ok_or_else(|| error!(crate::errors::RouterError::ArithmeticOverflow))
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

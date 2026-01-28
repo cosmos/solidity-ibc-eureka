@@ -76,6 +76,7 @@ pub fn validate_merkle_branch(
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 #[allow(clippy::pedantic)]
 mod test {

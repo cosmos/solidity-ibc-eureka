@@ -23,6 +23,7 @@ pub fn write_to_keystore<P: AsRef<Path>>(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

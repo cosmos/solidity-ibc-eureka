@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 use anchor_lang::prelude::*;
 
 pub mod constants;
@@ -6,6 +8,7 @@ pub mod events;
 pub mod instructions;
 pub mod router_cpi;
 pub mod state;
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 pub mod test_utils;
 pub mod utils;

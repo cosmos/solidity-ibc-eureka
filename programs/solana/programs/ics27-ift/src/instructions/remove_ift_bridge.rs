@@ -66,6 +66,7 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Re
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;

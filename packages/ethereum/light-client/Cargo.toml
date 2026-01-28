@@ -30,3 +30,6 @@ milagro_bls = { workspace = true, optional = true }
 ibc-proto-eureka = { workspace = true, optional = true }
 prost = { workspace = true, optional = true }
 ibc-eureka-solidity-types = { workspace = true, optional = true }
+
+[lints]
+workspace = true

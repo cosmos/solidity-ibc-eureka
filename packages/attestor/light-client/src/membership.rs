@@ -163,6 +163,7 @@ pub fn verify_non_membership(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod verify_membership_tests {
     use alloy_sol_types::SolValue;
@@ -347,6 +348,7 @@ mod verify_membership_tests {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod verify_non_membership_tests {
     use alloy_sol_types::SolValue;

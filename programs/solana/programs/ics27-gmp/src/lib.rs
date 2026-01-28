@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 
@@ -9,6 +11,7 @@ pub mod proto;
 pub mod router_cpi;
 pub mod state;
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 pub mod test_utils;
 
@@ -17,6 +20,7 @@ use state::SendCallMsg;
 
 declare_id!("3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi");
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 pub fn get_gmp_program_path() -> &'static str {
     use std::sync::OnceLock;

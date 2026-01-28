@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 //! This is a one-sided relayer module from a Cosmos SDK chain to Solana.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]

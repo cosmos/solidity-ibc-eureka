@@ -113,6 +113,7 @@ fn cleanup_single_chunk<'info>(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

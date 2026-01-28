@@ -81,6 +81,7 @@ pub fn verify_header(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod verify_header {
     use alloy_sol_types::SolValue;

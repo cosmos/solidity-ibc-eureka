@@ -32,6 +32,7 @@ pub fn verify_non_membership(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

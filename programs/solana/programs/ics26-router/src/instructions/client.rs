@@ -234,6 +234,7 @@ pub fn validate_custom_ibc_identifier(custom_id: &str) -> bool {
     true
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -61,6 +61,7 @@ const _: () = assert!(
     SignatureVerification::DISCRIMINATOR.len() == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN
 );
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;

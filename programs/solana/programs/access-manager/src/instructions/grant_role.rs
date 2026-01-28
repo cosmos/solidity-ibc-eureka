@@ -62,6 +62,7 @@ pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Res
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

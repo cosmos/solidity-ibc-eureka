@@ -156,6 +156,7 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;

@@ -19,6 +19,7 @@ fn recover_address_from_prehash(
         .map_err(|_| anyhow::anyhow!("signature recovery failed"))
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

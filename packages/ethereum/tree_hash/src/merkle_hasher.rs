@@ -359,6 +359,7 @@ impl MerkleHasher {
     }
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use alloy_primitives::U256;

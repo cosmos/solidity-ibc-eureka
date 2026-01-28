@@ -123,6 +123,7 @@ pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> 
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

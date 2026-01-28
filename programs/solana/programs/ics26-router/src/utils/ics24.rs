@@ -107,6 +107,7 @@ pub fn prefixed_path(merkle_prefix: &[Vec<u8>], path: &[u8]) -> Result<Vec<Vec<u
     Ok(result)
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

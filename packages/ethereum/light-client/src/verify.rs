@@ -355,6 +355,7 @@ pub fn validate_light_client_update<V: BlsVerify>(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod test {
     use ibc_proto_eureka::ibc::lightclients::wasm::v1::ClientMessage;

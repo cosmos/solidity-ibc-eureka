@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::*;
+use crate::{constants::*, errors::IFTError};
 
 /// Account schema version for upgrades
 #[derive(
@@ -32,9 +32,35 @@ pub enum ChainOptions {
     Solana,
 }
 
-// impl ChainOptions {
-//     fn validate
-// }
+impl ChainOptions {
+    /// Validate Chain Options params
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Cosmos {
+            ref denom,
+            ref type_url,
+            ref ica_address,
+        } = self
+        {
+            require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
+            require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
+            require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
+            require!(
+                denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCounterpartyDenomLength
+            );
+            require!(
+                type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCosmosTypeUrlLength
+            );
+            require!(
+                ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCosmosIcaAddressLength
+            );
+        }
+
+        Ok(())
+    }
+}
 
 /// Main IFT application state
 /// PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
@@ -187,5 +213,6 @@ pub struct IFTMintMsg {
     pub gmp_account_bump: u8,
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests;

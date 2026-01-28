@@ -20,3 +20,6 @@ ethereum_ssz_derive = { workspace = true }
 
 [features]
 arbitrary = ["alloy-primitives/arbitrary"]
+
+[lints]
+workspace = true

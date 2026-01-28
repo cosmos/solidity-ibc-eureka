@@ -17,3 +17,6 @@ borsh = ["dep:borsh", "std"]
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

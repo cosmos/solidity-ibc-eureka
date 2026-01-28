@@ -37,6 +37,7 @@ pub enum QuorumError {
     InsufficientResponses { received: usize, required: usize },
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

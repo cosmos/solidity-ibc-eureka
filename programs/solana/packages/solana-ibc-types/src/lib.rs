@@ -1,3 +1,5 @@
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
+
 //! IBC types and utilities for Solana programs
 //!
 //! This crate provides all the types, messages, and utilities needed for

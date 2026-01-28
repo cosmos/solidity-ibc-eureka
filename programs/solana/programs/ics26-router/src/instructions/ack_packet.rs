@@ -8,6 +8,7 @@ use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{
     on_acknowledgement_packet, OnAcknowledgementPacket, OnAcknowledgementPacketMsg,
 };
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
 use solana_ibc_types::{AckPacketEvent, NoopEvent};
@@ -242,6 +243,7 @@ pub fn ack_packet<'info>(
     Ok(())
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;

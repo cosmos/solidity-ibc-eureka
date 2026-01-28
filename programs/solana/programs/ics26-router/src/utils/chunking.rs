@@ -378,6 +378,7 @@ pub fn validate_and_reconstruct_packet(
     })
 }
 
+#[cfg_attr(coverage_nightly, coverage(off))]
 #[cfg(test)]
 mod tests {
     use super::*;
