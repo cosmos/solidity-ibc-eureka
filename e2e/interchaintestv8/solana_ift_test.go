@@ -121,7 +121,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Contex
 	s.Require().NoError(err)
 
 	// counterpartyClientId is the client on Solana that tracks Cosmos - needed for gmp_account_pda derivation
-	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String(), counterpartyClientId)
+	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String())
 	s.T().Logf("IFT constructor: %s", constructor)
 
 	msg := &ifttypes.MsgRegisterIFTBridge{
