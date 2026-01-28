@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "router", "anchor"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "ics26_router"
@@ -39,6 +36,7 @@ hex = "0.4"
 [build-dependencies]
 sha2 = "0.10"
 
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
@@ -47,3 +45,6 @@ bincode.workspace = true
 mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }
 dummy-ibc-app = { path = "../dummy-ibc-app" }
+
+[lints]
+workspace = true

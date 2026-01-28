@@ -192,7 +192,12 @@ func (p *PDAPattern) buildSignature() string {
 
 	for _, seed := range p.Seeds {
 		if seed.Kind == seedKindConst {
-			parts = append(parts, string(seed.Value))
+			// Use hex encoding for binary data to ensure valid signature
+			if isPrintableASCII(seed.Value) {
+				parts = append(parts, string(seed.Value))
+			} else {
+				parts = append(parts, fmt.Sprintf("0x%x", seed.Value))
+			}
 		} else {
 			parts = append(parts, seed.Kind)
 		}
@@ -218,7 +223,16 @@ func (b *funcNameBuilder) build() string {
 	nameParts := b.extractNameParts()
 	baseName := b.pattern.ProgramName + strings.Join(nameParts, "")
 
-	if b.hasAccountSeed() {
+	// Add suffix based on dynamic seed types to differentiate patterns
+	hasArg := b.hasArgSeed()
+	hasAccount := b.hasAccountSeed()
+
+	switch {
+	case hasArg && hasAccount:
+		baseName += "WithArgAndAccountSeed"
+	case hasArg:
+		baseName += "WithArgSeed"
+	case hasAccount:
 		baseName += "WithAccountSeed"
 	}
 
@@ -230,11 +244,14 @@ func (b *funcNameBuilder) extractNameParts() []string {
 
 	for _, seed := range b.pattern.Seeds {
 		if seed.Kind == seedKindConst {
-			parts = append(parts, toPascalCase(string(seed.Value)))
+			// Only use const seeds that are printable ASCII for function names
+			if isPrintableASCII(seed.Value) {
+				parts = append(parts, toPascalCase(string(seed.Value)))
+			}
 		}
 	}
 
-	// Use account name if no const seeds found
+	// Use account name if no printable const seeds found
 	if len(parts) == 0 {
 		parts = append(parts, toPascalCase(b.pattern.Name))
 	}
@@ -245,6 +262,15 @@ func (b *funcNameBuilder) extractNameParts() []string {
 func (b *funcNameBuilder) hasAccountSeed() bool {
 	for _, seed := range b.pattern.Seeds {
 		if seed.Kind == seedKindAccount {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *funcNameBuilder) hasArgSeed() bool {
+	for _, seed := range b.pattern.Seeds {
+		if seed.Kind == seedKindArg {
 			return true
 		}
 	}
@@ -421,7 +447,7 @@ func (fg *functionGenerator) buildSeedsCode() []string {
 	for _, seed := range fg.pattern.Seeds {
 		switch seed.Kind {
 		case seedKindConst:
-			seeds = append(seeds, fmt.Sprintf("[]byte(\"%s\")", string(seed.Value)))
+			seeds = append(seeds, formatBytesLiteral(seed.Value))
 		case seedKindArg, seedKindAccount:
 			seeds = append(seeds, extractParamName(seed.Path))
 		}
@@ -441,6 +467,31 @@ func (fg *functionGenerator) generateErrorHandling() string {
 }
 
 // String manipulation utilities
+
+// isPrintableASCII checks if all bytes in the slice are printable ASCII characters
+func isPrintableASCII(data []byte) bool {
+	for _, b := range data {
+		// Only allow printable ASCII (space to tilde: 0x20-0x7E)
+		if b < 0x20 || b > 0x7E {
+			return false
+		}
+	}
+	return len(data) > 0
+}
+
+// formatBytesLiteral formats a byte slice as Go code
+func formatBytesLiteral(data []byte) string {
+	if isPrintableASCII(data) {
+		return fmt.Sprintf("[]byte(\"%s\")", string(data))
+	}
+	// Format as byte slice literal for binary data
+	parts := make([]string, len(data))
+	for i, b := range data {
+		parts[i] = fmt.Sprintf("0x%02x", b)
+	}
+	return fmt.Sprintf("[]byte{%s}", strings.Join(parts, ", "))
+}
+
 func toPascalCase(s string) string {
 	s = strings.ReplaceAll(s, "-", "_")
 	parts := strings.Split(s, "_")

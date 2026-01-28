@@ -20,12 +20,13 @@ mod errors;
 pub use errors::{GMPPacketError, GmpValidationError};
 
 // Generated protobuf modules
-#[allow(clippy::all)]
 mod ibc_applications_gmp_v1 {
+    #![allow(clippy::all, clippy::doc_markdown, clippy::use_self)]
     include!(concat!(env!("OUT_DIR"), "/ibc.applications.gmp.v1.rs"));
 }
 
 pub mod solana {
+    #![allow(clippy::all, clippy::doc_markdown, clippy::use_self)]
     include!(concat!(env!("OUT_DIR"), "/solana.rs"));
 }
 
@@ -149,7 +150,7 @@ pub struct GmpSolanaPayload {
 }
 
 impl GmpSolanaPayload {
-    /// Convert accounts to Anchor AccountMeta format
+    /// Convert accounts to Anchor `AccountMeta` format
     pub fn to_account_metas(&self) -> Vec<anchor_lang::prelude::AccountMeta> {
         self.accounts.iter().map(Into::into).collect()
     }
@@ -204,7 +205,7 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
 }
 
 // GmpAcknowledgement is a simple protobuf type that doesn't need validation
-impl Protobuf<GmpAcknowledgement> for GmpAcknowledgement {}
+impl Protobuf<Self> for GmpAcknowledgement {}
 
 impl GmpAcknowledgement {
     /// Create new acknowledgement with result data

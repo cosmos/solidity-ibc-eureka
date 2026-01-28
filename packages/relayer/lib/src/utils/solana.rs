@@ -282,10 +282,19 @@ pub fn target_events_to_timeout_msgs(
 
                 let sequence = event.packet.sequence;
 
-                // Build metadata using helper function
                 let payloads_metadata =
                     build_metadata_from_solana_payloads(&event.packet.payloads, sequence)
                         .expect("Failed to build payload metadata");
+
+                let is_chunked = payloads_metadata.iter().any(|m| m.total_chunks > 0);
+                let packet = if is_chunked {
+                    Packet {
+                        payloads: vec![],
+                        ..event.packet
+                    }
+                } else {
+                    event.packet
+                };
 
                 tracing::info!(
                     "timeout_packet seq={}: metadata.len()={}, proof will be filled later",
@@ -295,7 +304,7 @@ pub fn target_events_to_timeout_msgs(
 
                 TimeoutPacketWithChunks {
                     msg: MsgTimeoutPacket {
-                        packet: event.packet,
+                        packet,
                         payloads: payloads_metadata,
                         proof: ProofMetadata {
                             height: target_height,
@@ -371,13 +380,11 @@ fn build_metadata_from_solana_payloads(
     let is_inline = total_payload_size < INLINE_THRESHOLD;
 
     let mode_str = if is_inline { "INLINE" } else { "CHUNKED" };
-    tracing::info!(
-        "packet seq={}: {} mode (total_size={}, threshold={}, num_payloads={})",
+    tracing::debug!(
+        "packet seq={}: {} mode, {} bytes",
         sequence,
         mode_str,
-        total_payload_size,
-        INLINE_THRESHOLD,
-        payloads.len()
+        total_payload_size
     );
 
     if is_inline {
@@ -434,8 +441,8 @@ fn build_chunked_packet(
         .map(|p| {
             let total_chunks = u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE).max(1))
                 .context("payload too big to fit in u8")?;
-            tracing::info!(
-                "packet seq={}: payload size={}, chunks={}",
+            tracing::debug!(
+                "packet seq={}: {} bytes, {} chunks",
                 sequence,
                 p.value.len(),
                 total_chunks
@@ -476,13 +483,11 @@ fn build_packet_with_payloads(
     let is_inline = total_payload_size < INLINE_THRESHOLD;
 
     let mode_str = if is_inline { "INLINE" } else { "CHUNKED" };
-    tracing::info!(
-        "packet seq={}: {} mode (total_size={}, threshold={}, num_payloads={})",
+    tracing::debug!(
+        "packet seq={}: {} mode, {} bytes",
         sequence,
         mode_str,
-        total_payload_size,
-        INLINE_THRESHOLD,
-        payloads.len()
+        total_payload_size
     );
 
     let (packet, payloads_metadata) = if is_inline {
@@ -503,8 +508,8 @@ fn build_packet_with_payloads(
         )?
     };
 
-    tracing::info!(
-        "packet seq={}: built with {} payloads in packet, {} metadata entries",
+    tracing::debug!(
+        "packet seq={}: {} payloads, {} metadata",
         sequence,
         packet.payloads.len(),
         payloads_metadata.len()
@@ -560,11 +565,10 @@ pub fn ibc_to_solana_recv_packet(value: IbcMsgRecvPacket) -> anyhow::Result<Recv
     )
     .context("proof too big to fit in u8")?;
 
-    tracing::info!(
-        "recv_packet seq={}: proof_size={}, proof_chunks={}",
+    tracing::debug!(
+        "recv_packet seq={}: proof {} bytes",
         packet.sequence,
-        value.proof_commitment.len(),
-        proof_total_chunks
+        value.proof_commitment.len()
     );
 
     let proof_metadata = ProofMetadata {
@@ -635,27 +639,17 @@ pub fn ibc_to_solana_ack_packet(
     let proof_total_chunks = u8::try_from(value.proof_acked.len().div_ceil(CHUNK_DATA_SIZE).max(1))
         .context("proof too big")?;
 
-    tracing::info!("=== CONVERTING TO SOLANA FORMAT ===");
-    tracing::info!("  Packet sequence: {}", packet.sequence);
-    tracing::info!("  IBC proof_height from message: {:?}", proof_height);
-    tracing::info!(
-        "  IBC proof_height.revision_height: {}",
+    tracing::debug!(
+        "ack_packet seq={}: proof {} bytes, height {}",
+        packet.sequence,
+        value.proof_acked.len(),
         proof_height.revision_height
     );
-    tracing::info!(
-        "  Setting Solana proof.height = {}",
-        proof_height.revision_height
-    );
-    tracing::info!("  Proof size: {} bytes", value.proof_acked.len());
-    tracing::info!("  Proof chunks: {}", proof_total_chunks);
-    tracing::info!("  Ack size: {} bytes", acknowledgement_data.len());
 
     let proof_metadata = ProofMetadata {
         height: proof_height.revision_height,
         total_chunks: proof_total_chunks,
     };
-
-    tracing::info!("  Final ProofMetadata.height = {}", proof_metadata.height);
 
     Ok(AckPacketWithChunks {
         msg: SolanaAckPacket {

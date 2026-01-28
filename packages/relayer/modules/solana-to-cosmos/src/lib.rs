@@ -108,7 +108,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Handling info request for Solana to Cosmos...");
+        tracing::debug!("Handling info request");
 
         Ok(Response::new(api::InfoResponse {
             target_chain: Some(api::Chain {
@@ -133,11 +133,12 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for Solana to Cosmos...");
-
         let inner_req = request.into_inner();
-        tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
-        tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
+        tracing::debug!(
+            "Relay request: {} source txs, {} timeout txs",
+            inner_req.source_tx_ids.len(),
+            inner_req.timeout_tx_ids.len()
+        );
 
         let solana_tx_hashes = parse_solana_tx_hashes(inner_req.source_tx_ids)?;
         let timeout_txs = parse_cosmos_tx_hashes(inner_req.timeout_tx_ids)?;
@@ -148,11 +149,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::debug!(?solana_events, "Fetched source Solana events.");
-        tracing::info!(
-            "Fetched {} source eureka events from Solana.",
-            solana_events.len()
-        );
+        tracing::debug!("Fetched {} src events", solana_events.len());
 
         let timeout_events = self
             .target_listener
@@ -160,11 +157,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::debug!(?timeout_events, "Fetched timeout events from Cosmos.");
-        tracing::info!(
-            "Fetched {} timeout eureka events from CosmosSDK.",
-            timeout_events.len()
-        );
+        tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
         // For timeouts in attested mode, get the current slot from the source chain (Solana)
         // where non-membership is proven
@@ -188,7 +181,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::info!("Relay by tx request completed.");
+        tracing::debug!("Relay completed");
 
         Ok(Response::new(api::RelayByTxResponse {
             tx,
@@ -200,7 +193,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::info!("Handling create client request for Solana to Cosmos...");
+        tracing::debug!("Handling create client request");
 
         let inner_req = request.into_inner();
         let tx = self
@@ -219,16 +212,12 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        tracing::info!("Handling update client request for Solana to Cosmos...");
-
         let inner_req = request.into_inner();
         let tx = self
             .tx_builder
             .update_client(inner_req.dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        tracing::info!("Update client request completed.");
 
         Ok(Response::new(api::UpdateClientResponse {
             tx,

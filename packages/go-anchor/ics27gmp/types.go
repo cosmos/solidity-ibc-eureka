@@ -72,15 +72,15 @@ func UnmarshalIcs27GmpEventsAccessManagerUpdated(buf []byte) (*Ics27GmpEventsAcc
 	return obj, nil
 }
 
-// Event emitted when GMP app is initialized
+// Event emitted when the GMP app is initialized.
 type Ics27GmpEventsGmpAppInitialized struct {
-	// Router program managing this app
+	// Router program managing this app.
 	RouterProgram solanago.PublicKey `json:"routerProgram"`
 
-	// Port ID bound to this app
+	// Port ID bound to this app.
 	PortId string `json:"portId"`
 
-	// App initialization timestamp
+	// Timestamp when the app was initialized (Unix seconds).
 	Timestamp int64 `json:"timestamp"`
 }
 
@@ -149,12 +149,12 @@ func UnmarshalIcs27GmpEventsGmpAppInitialized(buf []byte) (*Ics27GmpEventsGmpApp
 	return obj, nil
 }
 
-// Event emitted when app is paused
+// Event emitted when the GMP app is paused.
 type Ics27GmpEventsGmpAppPaused struct {
-	// Admin who paused the app
+	// Admin who paused the app.
 	Admin solanago.PublicKey `json:"admin"`
 
-	// Pause timestamp
+	// Timestamp when the app was paused (Unix seconds).
 	Timestamp int64 `json:"timestamp"`
 }
 
@@ -213,12 +213,12 @@ func UnmarshalIcs27GmpEventsGmpAppPaused(buf []byte) (*Ics27GmpEventsGmpAppPause
 	return obj, nil
 }
 
-// Event emitted when app is unpaused
+// Event emitted when the GMP app is unpaused.
 type Ics27GmpEventsGmpAppUnpaused struct {
-	// Admin who unpaused the app
+	// Admin who unpaused the app.
 	Admin solanago.PublicKey `json:"admin"`
 
-	// Unpause timestamp
+	// Timestamp when the app was unpaused (Unix seconds).
 	Timestamp int64 `json:"timestamp"`
 }
 
@@ -277,27 +277,130 @@ func UnmarshalIcs27GmpEventsGmpAppUnpaused(buf []byte) (*Ics27GmpEventsGmpAppUnp
 	return obj, nil
 }
 
-// Event emitted when a GMP call is sent
-type Ics27GmpEventsGmpCallSent struct {
-	// Packet sequence number
+// Event emitted when a GMP call receives an acknowledgement.
+type Ics27GmpEventsGmpCallAcknowledgment struct {
+	// Source client ID (light client on Solana tracking the source chain).
+	SourceClient string `json:"sourceClient"`
+
+	// IBC packet sequence number.
 	Sequence uint64 `json:"sequence"`
 
-	// Sender of the call
+	// Original sender pubkey.
 	Sender solanago.PublicKey `json:"sender"`
 
-	// Target address to execute (destination chain format)
+	// PDA where the result is stored.
+	ResultPda solanago.PublicKey `json:"resultPda"`
+
+	// Timestamp when the acknowledgement was processed (Unix seconds).
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpCallAcknowledgment) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Sender`:
+	err = encoder.Encode(obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Serialize `ResultPda`:
+	err = encoder.Encode(obj.ResultPda)
+	if err != nil {
+		return errors.NewField("ResultPda", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpCallAcknowledgment) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpCallAcknowledgment: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpCallAcknowledgment) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Sender`:
+	err = decoder.Decode(&obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Deserialize `ResultPda`:
+	err = decoder.Decode(&obj.ResultPda)
+	if err != nil {
+		return errors.NewField("ResultPda", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpCallAcknowledgment) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpCallAcknowledgment: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpCallAcknowledgment(buf []byte) (*Ics27GmpEventsGmpCallAcknowledgment, error) {
+	obj := new(Ics27GmpEventsGmpCallAcknowledgment)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when a GMP call is sent cross-chain.
+type Ics27GmpEventsGmpCallSent struct {
+	// IBC packet sequence number.
+	Sequence uint64 `json:"sequence"`
+
+	// Solana account that initiated the call.
+	Sender solanago.PublicKey `json:"sender"`
+
+	// Target address on the destination chain.
 	Receiver string `json:"receiver"`
 
-	// Source client ID
+	// Source client ID (light client tracking destination chain).
 	ClientId string `json:"clientId"`
 
-	// Account salt used
+	// Salt used for GMP account PDA derivation.
 	Salt []byte `json:"salt"`
 
-	// Payload size
+	// Size of the payload in bytes.
 	PayloadSize uint64 `json:"payloadSize"`
 
-	// Timeout timestamp
+	// Timeout timestamp (Unix seconds).
 	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
 }
 
@@ -406,21 +509,124 @@ func UnmarshalIcs27GmpEventsGmpCallSent(buf []byte) (*Ics27GmpEventsGmpCallSent,
 	return obj, nil
 }
 
-// Event emitted for execution failures
+// Event emitted when a GMP call times out.
+type Ics27GmpEventsGmpCallTimeout struct {
+	// Source client ID (light client on Solana tracking the source chain).
+	SourceClient string `json:"sourceClient"`
+
+	// IBC packet sequence number.
+	Sequence uint64 `json:"sequence"`
+
+	// Original sender pubkey.
+	Sender solanago.PublicKey `json:"sender"`
+
+	// PDA where the result is stored.
+	ResultPda solanago.PublicKey `json:"resultPda"`
+
+	// Timestamp when the timeout was processed (Unix seconds).
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj Ics27GmpEventsGmpCallTimeout) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourceClient`:
+	err = encoder.Encode(obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Serialize `Sender`:
+	err = encoder.Encode(obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Serialize `ResultPda`:
+	err = encoder.Encode(obj.ResultPda)
+	if err != nil {
+		return errors.NewField("ResultPda", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpEventsGmpCallTimeout) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpEventsGmpCallTimeout: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpEventsGmpCallTimeout) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourceClient`:
+	err = decoder.Decode(&obj.SourceClient)
+	if err != nil {
+		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
+	}
+	// Deserialize `Sender`:
+	err = decoder.Decode(&obj.Sender)
+	if err != nil {
+		return errors.NewField("Sender", err)
+	}
+	// Deserialize `ResultPda`:
+	err = decoder.Decode(&obj.ResultPda)
+	if err != nil {
+		return errors.NewField("ResultPda", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpEventsGmpCallTimeout) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpEventsGmpCallTimeout: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpEventsGmpCallTimeout(buf []byte) (*Ics27GmpEventsGmpCallTimeout, error) {
+	obj := new(Ics27GmpEventsGmpCallTimeout)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when target program execution fails.
 type Ics27GmpEventsGmpExecutionFailed struct {
-	// Account that failed execution
+	// GMP account PDA that attempted execution.
 	Account solanago.PublicKey `json:"account"`
 
-	// Target program that failed
+	// Target program that failed to execute.
 	TargetProgram solanago.PublicKey `json:"targetProgram"`
 
-	// Error code
+	// Error code returned by the target program.
 	ErrorCode uint32 `json:"errorCode"`
 
-	// Error message
+	// Human-readable error message.
 	ErrorMessage string `json:"errorMessage"`
 
-	// Failure timestamp
+	// Timestamp when the failure occurred (Unix seconds).
 	Timestamp int64 `json:"timestamp"`
 }
 
@@ -628,17 +834,37 @@ func UnmarshalIcs27GmpStateGmpAppState(buf []byte) (*Ics27GmpStateGmpAppState, e
 	return obj, nil
 }
 
-// Stores result of a GMP call (ack or timeout) for sender queries
+// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+//
+// This account is created when a GMP packet is either acknowledged or times out,
+// allowing the original sender to query the outcome of their cross-chain call.
+//
+// # PDA Seeds
+// `["gmp_result", source_client, sequence (little-endian u64)]`
 type Ics27GmpStateGmpCallResultAccount struct {
-	Version         Ics27GmpStateAccountVersion         `json:"version"`
-	Sender          string                              `json:"sender"`
-	Sequence        uint64                              `json:"sequence"`
-	SourceClient    string                              `json:"sourceClient"`
-	DestClient      string                              `json:"destClient"`
-	Status          SolanaIbcTypesIcs27CallResultStatus `json:"status"`
-	Acknowledgement []byte                              `json:"acknowledgement"`
-	ResultTimestamp int64                               `json:"resultTimestamp"`
-	Bump            uint8                               `json:"bump"`
+	// Account schema version for future upgrades.
+	Version Ics27GmpStateAccountVersion `json:"version"`
+
+	// Original sender pubkey.
+	Sender solanago.PublicKey `json:"sender"`
+
+	// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+	Sequence uint64 `json:"sequence"`
+
+	// Source client ID (light client on this chain tracking the destination).
+	SourceClient string `json:"sourceClient"`
+
+	// Destination client ID (light client on the destination chain).
+	DestClient string `json:"destClient"`
+
+	// Result status: acknowledgement (with IBC commitment) or timeout.
+	Status SolanaIbcTypesIcs27CallResultStatus `json:"status"`
+
+	// Unix timestamp (seconds) when the result was recorded.
+	ResultTimestamp int64 `json:"resultTimestamp"`
+
+	// PDA bump seed.
+	Bump uint8 `json:"bump"`
 }
 
 func (obj Ics27GmpStateGmpCallResultAccount) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -668,14 +894,11 @@ func (obj Ics27GmpStateGmpCallResultAccount) MarshalWithEncoder(encoder *binary.
 		return errors.NewField("DestClient", err)
 	}
 	// Serialize `Status`:
-	err = encoder.Encode(obj.Status)
-	if err != nil {
-		return errors.NewField("Status", err)
-	}
-	// Serialize `Acknowledgement`:
-	err = encoder.Encode(obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
+	{
+		err := EncodeSolanaIbcTypesIcs27CallResultStatus(encoder, obj.Status)
+		if err != nil {
+			return errors.NewField("Status", err)
+		}
 	}
 	// Serialize `ResultTimestamp`:
 	err = encoder.Encode(obj.ResultTimestamp)
@@ -727,14 +950,12 @@ func (obj *Ics27GmpStateGmpCallResultAccount) UnmarshalWithDecoder(decoder *bina
 		return errors.NewField("DestClient", err)
 	}
 	// Deserialize `Status`:
-	err = decoder.Decode(&obj.Status)
-	if err != nil {
-		return errors.NewField("Status", err)
-	}
-	// Deserialize `Acknowledgement`:
-	err = decoder.Decode(&obj.Acknowledgement)
-	if err != nil {
-		return errors.NewField("Acknowledgement", err)
+	{
+		var err error
+		obj.Status, err = DecodeSolanaIbcTypesIcs27CallResultStatus(decoder)
+		if err != nil {
+			return err
+		}
 	}
 	// Deserialize `ResultTimestamp`:
 	err = decoder.Decode(&obj.ResultTimestamp)
@@ -1273,20 +1494,111 @@ func UnmarshalSolanaIbcTypesAppMsgsPayload(buf []byte) (*SolanaIbcTypesAppMsgsPa
 }
 
 // Status of a GMP call result.
-type SolanaIbcTypesIcs27CallResultStatus binary.BorshEnum
+// The "isSolanaIbcTypesIcs27CallResultStatus" interface for the "SolanaIbcTypesIcs27CallResultStatus" complex enum.
+type SolanaIbcTypesIcs27CallResultStatus interface {
+	isSolanaIbcTypesIcs27CallResultStatus()
+}
 
-const (
-	SolanaIbcTypesIcs27CallResultStatus_Acknowledgement SolanaIbcTypesIcs27CallResultStatus = iota
-	SolanaIbcTypesIcs27CallResultStatus_Timeout
-)
+type solanaIbcTypesIcs27CallResultStatusEnumContainer struct {
+	Enum            binary.BorshEnum `bin:"enum"`
+	Acknowledgement SolanaIbcTypesIcs27CallResultStatus_Acknowledgement
+	Timeout         SolanaIbcTypesIcs27CallResultStatus_Timeout
+}
 
-func (value SolanaIbcTypesIcs27CallResultStatus) String() string {
-	switch value {
-	case SolanaIbcTypesIcs27CallResultStatus_Acknowledgement:
-		return "Acknowledgement"
-	case SolanaIbcTypesIcs27CallResultStatus_Timeout:
-		return "Timeout"
-	default:
-		return ""
+func DecodeSolanaIbcTypesIcs27CallResultStatus(decoder *binary.Decoder) (SolanaIbcTypesIcs27CallResultStatus, error) {
+	{
+		tmp := new(solanaIbcTypesIcs27CallResultStatusEnumContainer)
+		err := decoder.Decode(tmp)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing SolanaIbcTypesIcs27CallResultStatus: %w", err)
+		}
+		switch tmp.Enum {
+		case 0:
+			return &tmp.Acknowledgement, nil
+		case 1:
+			return (*SolanaIbcTypesIcs27CallResultStatus_Timeout)(&tmp.Enum), nil
+		default:
+			return nil, fmt.Errorf("SolanaIbcTypesIcs27CallResultStatus: unknown enum index: %v", tmp.Enum)
+		}
 	}
 }
+
+func EncodeSolanaIbcTypesIcs27CallResultStatus(encoder *binary.Encoder, value SolanaIbcTypesIcs27CallResultStatus) error {
+	{
+		tmp := solanaIbcTypesIcs27CallResultStatusEnumContainer{}
+		switch realvalue := value.(type) {
+		case *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement:
+			tmp.Enum = 0
+			tmp.Acknowledgement = *realvalue
+		case *SolanaIbcTypesIcs27CallResultStatus_Timeout:
+			tmp.Enum = 1
+			tmp.Timeout = *realvalue
+		}
+		return encoder.Encode(tmp)
+	}
+}
+
+// Variant "Acknowledgement" of enum "SolanaIbcTypesIcs27CallResultStatus"
+type SolanaIbcTypesIcs27CallResultStatus_Acknowledgement struct {
+	V0 [32]uint8 `json:"v0"`
+}
+
+func (obj SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
+	if err != nil {
+		return errors.NewField("V0", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs27CallResultStatus_Acknowledgement: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
+	if err != nil {
+		return errors.NewField("V0", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs27CallResultStatus_Acknowledgement: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesIcs27CallResultStatus_Acknowledgement(buf []byte) (*SolanaIbcTypesIcs27CallResultStatus_Acknowledgement, error) {
+	obj := new(SolanaIbcTypesIcs27CallResultStatus_Acknowledgement)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) isSolanaIbcTypesIcs27CallResultStatus() {
+}
+
+type SolanaIbcTypesIcs27CallResultStatus_Timeout uint8
+
+func (obj SolanaIbcTypesIcs27CallResultStatus_Timeout) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj *SolanaIbcTypesIcs27CallResultStatus_Timeout) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (_ *SolanaIbcTypesIcs27CallResultStatus_Timeout) isSolanaIbcTypesIcs27CallResultStatus() {}

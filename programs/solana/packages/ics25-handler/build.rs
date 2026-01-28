@@ -1,7 +1,7 @@
 //! Build script for generating discriminators for light client instructions
 //!
 //! This generates standard discriminators that all light clients must use
-//! for their verify_membership and verify_non_membership instructions.
+//! for their `verify_membership` and `verify_non_membership` instructions.
 
 use sha2::{Digest as _, Sha256};
 use std::env;

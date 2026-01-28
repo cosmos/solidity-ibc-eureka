@@ -3,6 +3,8 @@ use crate::errors::GMPError;
 use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::get_stack_height;
+use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
@@ -11,6 +13,7 @@ use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 #[instruction(msg: SendCallMsg)]
 pub struct SendCall<'info> {
     /// App state account - validated by Anchor PDA constraints
+    /// This account will be signed when calling the router to prove GMP is the caller
     #[account(
         mut,
         seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
@@ -19,8 +22,10 @@ pub struct SendCall<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Sender of the call
-    pub sender: Signer<'info>,
+    /// Only used for direct calls (must sign). For CPI calls, this account is ignored
+    /// and the calling program ID is extracted from instruction sysvar instead.
+    /// CHECK: `UncheckedAccount` because validation depends on runtime call type.
+    pub sender: UncheckedAccount<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -43,8 +48,8 @@ pub struct SendCall<'info> {
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
-    /// Instructions sysvar for router CPI validation
-    /// CHECK: Router program validates this
+    /// Instructions sysvar for detecting CPI vs direct call
+    /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
@@ -65,6 +70,18 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
 
+    // Direct call: sender signs. CPI call: use calling program ID for callback routing.
+    let stack_height = get_stack_height();
+    let sender_pubkey = if stack_height <= 1 {
+        require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
+        ctx.accounts.sender.key()
+    } else {
+        let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
+        sysvar_instructions::get_instruction_relative(0, &instruction_sysvar)
+            .map_err(|_| GMPError::InvalidSysvar)?
+            .program_id
+    };
+
     // Validate IBC routing fields
     let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
         .map_err(|_| GMPError::InvalidClientId)?;
@@ -79,9 +96,9 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::TimeoutTooLong
     );
 
-    // Create raw GMP packet
+    // Create raw GMP packet - sender is used for callback routing on timeout/ack
     let raw_packet_data = RawGmpPacketData {
-        sender: ctx.accounts.sender.key().to_string(),
+        sender: sender_pubkey.to_string(),
         receiver: msg.receiver.clone(),
         salt: msg.salt.clone(),
         payload: msg.payload.clone(),
@@ -113,13 +130,19 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         payload: ibc_payload,
     };
 
+    // Get signer seeds for the app_state PDA to prove GMP is the caller
+    let app_state = &ctx.accounts.app_state;
+    let signer_seeds: &[&[u8]] = &[GMPAppState::SEED, GMP_PORT_ID.as_bytes(), &[app_state.bump]];
+
     // Call router via CPI to actually send the packet
+    // GMP signs its app_state PDA to cryptographically prove it's the caller
     let sequence = crate::router_cpi::send_packet_cpi(
         &ctx.accounts.router_program,
         &ctx.accounts.router_state,
         &ctx.accounts.client_sequence,
         &ctx.accounts.packet_commitment,
-        &ctx.accounts.instruction_sysvar,
+        &ctx.accounts.app_state.to_account_info(),
+        signer_seeds,
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.ibc_app,
         &ctx.accounts.client,
@@ -130,7 +153,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     // Emit event
     emit!(GMPCallSent {
         sequence,
-        sender: ctx.accounts.sender.key(),
+        sender: sender_pubkey,
         receiver: msg.receiver.clone(),
         client_id: source_client.to_string(),
         salt: msg.salt.clone(),
@@ -140,7 +163,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
 
     msg!(
         "GMP call sent: sender={}, receiver={}, sequence={}",
-        ctx.accounts.sender.key(),
+        sender_pubkey,
         &msg.receiver,
         sequence
     );

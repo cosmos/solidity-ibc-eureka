@@ -277,7 +277,7 @@ fn log_payload_list(payloads: &[solana_ibc_types::Payload]) {
 }
 
 fn log_event_details(event: &SolanaEurekaEvent) {
-    tracing::info!(?event, "parsed event");
+    tracing::debug!(?event, "parsed event");
 
     match event {
         SolanaEurekaEvent::SendPacket(send_event) => {

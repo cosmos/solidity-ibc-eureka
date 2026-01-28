@@ -5,7 +5,7 @@ use solana_sha256_hasher::hash as sha256;
 
 /// Compute Anchor instruction discriminator
 ///
-/// This computes the first 8 bytes of SHA256("global:{instruction_name}")
+/// This computes the first 8 bytes of `SHA256("global:{instruction_name}")`
 /// following Anchor's discriminator calculation formula.
 pub fn compute_discriminator(instruction_name: &str) -> [u8; ANCHOR_DISCRIMINATOR_LEN] {
     let preimage = format!("global:{instruction_name}");

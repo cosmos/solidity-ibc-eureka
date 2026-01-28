@@ -61,7 +61,7 @@ message SolanaUpdateClient {
 }
 
 // Transactions for a single packet (chunks + final instruction + cleanup)
-// Submission order: chunks (parallel) -> final_tx -> cleanup_tx
+// Submission order: alt_create_tx (if present) -> alt_extend_txs (sequential) -> chunks (parallel) -> final_tx -> cleanup_tx
 message SolanaPacketTxs {
     // Chunk upload transactions (can be submitted in parallel)
     repeated bytes chunks = 1;
@@ -69,10 +69,18 @@ message SolanaPacketTxs {
     bytes final_tx = 2;
     // Cleanup transaction (reclaims rent from chunks)
     bytes cleanup_tx = 3;
+    // ALT creation transaction (optional, must be submitted first if present)
+    bytes alt_create_tx = 4;
+    // ALT extension transactions (optional, adds accounts to ALT in batches, submit sequentially after creation)
+    repeated bytes alt_extend_txs = 5;
     // GMP result PDA address (32 bytes) - present for ack/timeout packets on GMP port
     // This PDA stores the acknowledgement or timeout result of a GMP call
     // Seeds: ["gmp_result", source_client, sequence (little-endian u64)]
-    bytes gmp_result_pda = 4;
+    bytes gmp_result_pda = 6;
+    // IFT claim_refund transaction (optional) - present for ack/timeout packets from IFT
+    // Submit AFTER final_tx is confirmed and gmp_result_pda is initialized
+    // This reclaims tokens for the sender on timeout/failed ack, or closes PendingTransfer on success
+    bytes ift_claim_refund_tx = 7;
 }
 
 // Batch of packet transactions for relay operations

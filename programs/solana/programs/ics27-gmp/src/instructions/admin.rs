@@ -125,10 +125,6 @@ mod tests {
         system_program,
     };
 
-    // ========================================================================
-    // Initialize Tests
-    // ========================================================================
-
     #[test]
     fn test_initialize_success() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -162,10 +158,6 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(!result.program_result.is_err(), "Initialize should succeed");
     }
-
-    // ========================================================================
-    // Pause/Unpause App Tests
-    // ========================================================================
 
     #[test]
     fn test_pause_app_success() {

@@ -804,7 +804,7 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: build-solana generate-pda
+generate-solana-types: (sync-solana-keys "localnet") build-solana generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
@@ -815,6 +815,8 @@ generate-solana-types: build-solana generate-pda
 	anchor-go --idl ./programs/solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
 	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	rm -rf packages/go-anchor/ics27ift
+	anchor-go --idl ./programs/solana/target/idl/ics27_ift.json --output packages/go-anchor/ics27ift --no-go-mod
 	# Dummy apps for testing
 	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod

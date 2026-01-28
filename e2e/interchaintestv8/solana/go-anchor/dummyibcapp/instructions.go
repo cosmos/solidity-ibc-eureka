@@ -75,7 +75,6 @@ func NewSendTransferInstruction(
 	clientAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -123,9 +122,6 @@ func NewSendTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 11 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for router CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -152,7 +148,6 @@ func NewSendPacketInstruction(
 	clientAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -194,9 +189,6 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 8 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 9 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for router CPI validation
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

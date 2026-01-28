@@ -43,11 +43,25 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics27GmpEventsGmpAppUnpaused: %w", err)
 		}
 		return value, nil
+	case Event_Ics27GmpEventsGmpCallAcknowledgment:
+		value := new(Ics27GmpEventsGmpCallAcknowledgment)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Ics27GmpEventsGmpCallAcknowledgment: %w", err)
+		}
+		return value, nil
 	case Event_Ics27GmpEventsGmpCallSent:
 		value := new(Ics27GmpEventsGmpCallSent)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics27GmpEventsGmpCallSent: %w", err)
+		}
+		return value, nil
+	case Event_Ics27GmpEventsGmpCallTimeout:
+		value := new(Ics27GmpEventsGmpCallTimeout)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Ics27GmpEventsGmpCallTimeout: %w", err)
 		}
 		return value, nil
 	case Event_Ics27GmpEventsGmpExecutionFailed:
@@ -130,6 +144,23 @@ func ParseEvent_Ics27GmpEventsGmpAppUnpaused(eventData []byte) (*Ics27GmpEventsG
 	return event, nil
 }
 
+func ParseEvent_Ics27GmpEventsGmpCallAcknowledgment(eventData []byte) (*Ics27GmpEventsGmpCallAcknowledgment, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Ics27GmpEventsGmpCallAcknowledgment {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics27GmpEventsGmpCallAcknowledgment, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Ics27GmpEventsGmpCallAcknowledgment)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics27GmpEventsGmpCallAcknowledgment: %w", err)
+	}
+	return event, nil
+}
+
 func ParseEvent_Ics27GmpEventsGmpCallSent(eventData []byte) (*Ics27GmpEventsGmpCallSent, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
@@ -143,6 +174,23 @@ func ParseEvent_Ics27GmpEventsGmpCallSent(eventData []byte) (*Ics27GmpEventsGmpC
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type Ics27GmpEventsGmpCallSent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_Ics27GmpEventsGmpCallTimeout(eventData []byte) (*Ics27GmpEventsGmpCallTimeout, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Ics27GmpEventsGmpCallTimeout {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics27GmpEventsGmpCallTimeout, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Ics27GmpEventsGmpCallTimeout)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics27GmpEventsGmpCallTimeout: %w", err)
 	}
 	return event, nil
 }

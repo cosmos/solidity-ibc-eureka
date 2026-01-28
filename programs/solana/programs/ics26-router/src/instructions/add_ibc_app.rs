@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
-use crate::events::IBCAppAddedEvent;
 use crate::state::{AccountVersion, IBCApp, RouterState};
 use anchor_lang::prelude::*;
+use solana_ibc_types::IBCAppAdded;
 
 #[derive(Accounts)]
 #[instruction(port_id: String)]
@@ -64,7 +64,7 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     ibc_app.authority = ctx.accounts.authority.key();
     ibc_app._reserved = [0u8; 256];
 
-    emit!(IBCAppAddedEvent {
+    emit!(IBCAppAdded {
         port_id: ibc_app.port_id.clone(),
         app_program_id: ibc_app.app_program_id,
     });

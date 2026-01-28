@@ -792,7 +792,7 @@ pub fn build_instruction<T: anchor_lang::InstructionData>(
     }
 }
 
-/// Create signer account for tests
+/// Create signer account for tests (without pubkey - returns just the Account)
 pub fn create_signer_account() -> solana_sdk::account::Account {
     solana_sdk::account::Account {
         lamports: 1_000_000_000,
@@ -801,6 +801,11 @@ pub fn create_signer_account() -> solana_sdk::account::Account {
         executable: false,
         rent_epoch: 0,
     }
+}
+
+/// Create signer account with pubkey for tests (returns tuple for mollusk)
+pub fn create_signer_account_with_pubkey(pubkey: Pubkey) -> (Pubkey, solana_sdk::account::Account) {
+    (pubkey, create_signer_account())
 }
 
 /// Setup mollusk for tests

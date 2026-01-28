@@ -1,0 +1,44 @@
+--- a/generator/types.go
++++ b/generator/types.go
+@@ -170,9 +170,8 @@ func (g *Generator) gen_complexEnum(name string, docs []string, typ idl.IdlTypeD
+
+ 					argBody.Switch(Id("tmp").Dot("Enum")).
+ 						BlockFunc(func(switchGroup *Group) {
+-							interfaceType := g.idl.Types.ByName(enumName)
+-
+-							for variantIndex, variant := range interfaceType.Ty.(*idl.IdlTypeDefTyEnum).Variants {
++							// Use typ.Variants directly - ByName lookup fails for external types
++							for variantIndex, variant := range typ.Variants {
+ 								variantTypeNameComplex := formatComplexEnumVariantTypeName(enumName, variant.Name)
+
+ 								if variant.IsSimple() {
+@@ -226,9 +225,8 @@ func (g *Generator) gen_complexEnum(name string, docs []string, typ idl.IdlTypeD
+ 					argBody.List(Id("tmp")).Op(":=").Id(formatEnumContainerName(enumTypeName)).Block()
+ 					argBody.Switch(Id("realvalue").Op(":=").Id("value").Op(".").Parens(Type())).
+ 						BlockFunc(func(switchGroup *Group) {
+-							// TODO: maybe it's from idl.Accounts ???
+-							interfaceType := g.idl.Types.ByName(enumTypeName)
+-							for variantIndex, variant := range interfaceType.Ty.(*idl.IdlTypeDefTyEnum).Variants {
++							// Use typ.Variants directly - ByName lookup fails for external types
++							for variantIndex, variant := range typ.Variants {
+ 								variantTypeNameStruct := formatComplexEnumVariantTypeName(enumTypeName, variant.Name)
+
+ 								switchGroup.Case(Op("*").Id(variantTypeNameStruct)).
+--- a/generator/unmarshal.go
++++ b/generator/unmarshal.go
+@@ -64,11 +64,13 @@ func formatEnumContainerName(enumTypeName string) string {
+ }
+
+ func formatEnumParserName(enumTypeName string) string {
+-	return "Decode" + enumTypeName
++	// Convert to CamelCase to handle external types with :: in name
++	return "Decode" + tools.ToCamelUpper(enumTypeName)
+ }
+
+ func formatEnumEncoderName(enumTypeName string) string {
+-	return "Encode" + enumTypeName
++	// Convert to CamelCase to handle external types with :: in name
++	return "Encode" + tools.ToCamelUpper(enumTypeName)
+ }
+
+ func gen_UnmarshalWithDecoder_struct(

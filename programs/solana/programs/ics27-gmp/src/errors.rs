@@ -135,6 +135,9 @@ pub enum GMPError {
     #[msg("Failed to decode protobuf message")]
     DecodeError,
 
+    #[msg("Sender must sign for direct calls")]
+    SenderMustSign,
+
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
 }

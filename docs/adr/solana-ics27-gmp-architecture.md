@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2025-11-07
+**Last Updated**: 2026-01-08
 
 ## Executive Summary
 
@@ -436,6 +436,72 @@ fn extract_payload_accounts(
 }
 ```
 
+## Packet Lifecycle Callbacks
+
+### Problem
+
+Sender programs (e.g., IFT) need to handle packet timeouts and acknowledgements for recovery (e.g., refund burned tokens).
+
+### Solution: Pull-Based Result Storage
+
+GMP stores results in `GMPCallResultAccount` PDAs. Sender programs read these accounts via their own claim instructions.
+
+1. Router calls GMP's `on_timeout_packet` or `on_ack_packet`
+2. GMP creates `GMPCallResultAccount` PDA with the result
+3. Anyone calls sender's claim instruction (e.g., `IFT.claim_refund`)
+4. Sender reads GMP's result PDA and processes accordingly
+
+### Alternatives Considered
+
+**1. Push-based callback forwarding**: GMP forwards callbacks to sender programs via CPI. Rejected because it increases CPI depth and requires GMP to know sender interfaces.
+
+**2. IFT registers as its own IBC app**: Rejected because it duplicates GMP's packet handling logic.
+
+**3. Router calls sender directly**: Rejected because Router doesn't know GMP-specific packet encoding.
+
+## CPI Authorization via PDA Signing
+
+### The Problem
+
+Solana's instruction sysvar only exposes the **top-level transaction instruction**, not the immediate CPI caller. For layered architectures like IFT → GMP → Router, we need a way for Router to verify that GMP (the registered IBC app) authorized the call.
+
+### Solution: App Signer PDA
+
+Instead of tracking CPI callers, Router validates that the registered app **signed** the request using its app state PDA:
+
+```rust
+// Router's send_packet validation
+let (expected_app_signer, _) = Pubkey::find_program_address(
+    &[b"ibc_app_state", ibc_app.port_id.as_bytes()],
+    &ibc_app.app_program_id,  // e.g., GMP program ID
+);
+require!(
+    ctx.accounts.app_signer.key() == expected_app_signer,
+    RouterError::UnauthorizedSender
+);
+```
+
+### How It Works
+
+1. **Registration**: GMP registers as the IBC app for "gmp" port
+2. **PDA Derivation**: GMP's app state PDA is `["ibc_app_state", "gmp"]` + GMP program ID
+3. **CPI Chain**: When IFT calls GMP's `send_call`, GMP signs with its app state PDA via `invoke_signed`
+4. **Validation**: Router verifies the signer matches the expected PDA for the registered app
+
+This approach:
+- Works regardless of CPI depth (IFT → GMP → Router all works)
+- Only the registered app can sign with its PDA (cryptographic guarantee)
+- No need to track or whitelist upstream callers
+- Follows Solana's idiomatic PDA-based authorization pattern
+
+### Alternatives Considered
+
+**1. Upstream caller whitelisting**: Maintain a list of authorized upstream programs (e.g., IFT) in the `IBCApp` account. Router would accept calls if top-level program is in the whitelist. Rejected because it adds admin overhead, requires storage for the whitelist, and PDA signing is more elegant.
+
+**2. Instruction sysvar inspection**: Walk the instruction sysvar to find the immediate CPI caller. Rejected because Solana's sysvar doesn't expose the CPI call stack, only top-level instructions.
+
+**3. Pass "trusted" flag from GMP**: GMP validates its caller and passes a flag to Router. Rejected because it creates a security vulnerability—any program could pass the flag.
+
 ## Call Result Callbacks
 
 When a GMP packet is acknowledged or times out, the GMP program creates a `GMPCallResultAccount` PDA to store the result:
@@ -460,6 +526,7 @@ The account stores:
 See [Namespaced Sequence Calculation](solana-storage-architecture.md#namespaced-sequence-calculation) for details on sequence namespacing.
 
 **Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
+
 
 ## Security Model
 
