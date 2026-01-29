@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -31,8 +32,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint_patches "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07_tendermint_patches"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
@@ -40,6 +39,7 @@ import (
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -51,7 +51,7 @@ const (
 	// General
 	DefaultTimeoutSeconds = 30
 	SolanaClientID        = testvalues.CustomClientID
-	CosmosClientID        = testvalues.FirstWasmClientID
+	CosmosClientID        = testvalues.FirstAttestationsClientID
 	// Transfer App
 	OneSolInLamports   = 1_000_000_000            // 1 SOL in lamports
 	TestTransferAmount = OneSolInLamports / 1_000 // 0.001 SOL in lamports
@@ -268,6 +268,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
 
+	var attestorResult attestor.SetupResult
+	s.Require().True(s.Run("Start 1 Solana attestor", func() {
+		attestorResult = attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
+	}))
+
 	// Start relayer asynchronously - it can initialize while we set up IBC clients
 	type relayerStartResult struct {
 		process *os.Process
@@ -279,14 +284,16 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Log("Starting relayer asynchronously...")
 
 		config := relayer.NewConfigBuilder().
-			SolanaToCosmosMock(relayer.SolanaToCosmosMockParams{
-				SolanaChainID:  testvalues.SolanaChainID,
-				CosmosChainID:  simd.Config().ChainID,
-				SolanaRPC:      testvalues.SolanaLocalnetRPC,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26ProgramID: ics26_router.ProgramID.String(),
-				SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-				MockClient:     s.UseMockWasmClient,
+			SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+				SolanaChainID:     testvalues.SolanaChainID,
+				CosmosChainID:     simd.Config().ChainID,
+				SolanaRPC:         testvalues.SolanaLocalnetRPC,
+				TmRPC:             simd.GetHostRPCAddress(),
+				ICS26ProgramID:    ics26_router.ProgramID.String(),
+				SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+				AttestorEndpoints: attestorResult.Endpoints,
+				AttestorTimeout:   30000,
+				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
 			CosmosToSolana(relayer.CosmosToSolanaParams{
 				CosmosChainID:          simd.Config().ChainID,
@@ -379,9 +386,32 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				},
 			},
 			e2esuite.ParallelTask{
-				Name: "Create WASM client on Cosmos",
+				Name: "Create attestor client on Cosmos",
 				Run: func() error {
-					return s.createWasmClientOnCosmos(ctx, simd)
+					currentFinalizedSlot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+					s.Require().NoError(err)
+					solanaTimestamp, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, currentFinalizedSlot)
+					s.Require().NoError(err)
+					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+						SrcChain: testvalues.SolanaChainID,
+						DstChain: simd.Config().ChainID,
+						Parameters: map[string]string{
+							testvalues.ParameterKey_AttestorAddresses: attestorResult.Addresses[0],
+							testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
+							testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
+							testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
+						},
+					})
+					if err != nil {
+						return fmt.Errorf("failed to create client tx: %w", err)
+					}
+					if len(resp.Tx) == 0 {
+						return fmt.Errorf("relayer returned empty tx")
+					}
+
+					txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
+					s.T().Logf("✓ Attestor client created on Cosmos - tx: %s", txResp.TxHash)
+					return nil
 				},
 			},
 		)
@@ -451,34 +481,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			Run()
 		s.Require().NoError(err)
 	}))
-}
-
-// createWasmClientOnCosmos creates the WASM IBC client on the given Cosmos chain.
-func (s *IbcEurekaSolanaTestSuite) createWasmClientOnCosmos(ctx context.Context, simd *cosmos.CosmosChain) error {
-	s.T().Log("Creating WASM Client on Cosmos...")
-
-	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
-	if checksumHex == "" {
-		return fmt.Errorf("failed to store Solana light client")
-	}
-
-	resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-		SrcChain: testvalues.SolanaChainID,
-		DstChain: simd.Config().ChainID,
-		Parameters: map[string]string{
-			testvalues.ParameterKey_ChecksumHex: checksumHex,
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create client tx: %w", err)
-	}
-	if len(resp.Tx) == 0 {
-		return fmt.Errorf("relayer returned empty tx")
-	}
-
-	txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
-	s.T().Logf("✓ WASM client created on Cosmos - tx: %s", txResp.TxHash)
-	return nil
 }
 
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {

@@ -247,7 +247,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			ICS26ProgramID:    ics26_router.ProgramID.String(),
 			SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
 			AttestorEndpoints: s.AttestorEndpoints,
-			AttestorTimeout:   300000,
+			AttestorTimeout:   30000,
 			QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
