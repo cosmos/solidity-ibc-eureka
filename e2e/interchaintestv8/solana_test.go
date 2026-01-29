@@ -279,7 +279,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Log("Starting relayer asynchronously...")
 
 		config := relayer.NewConfigBuilder().
-			SolanaToCosmos(relayer.SolanaToCosmosParams{
+			SolanaToCosmosMock(relayer.SolanaToCosmosMockParams{
 				SolanaChainID:  testvalues.SolanaChainID,
 				CosmosChainID:  simd.Config().ChainID,
 				SolanaRPC:      testvalues.SolanaLocalnetRPC,
@@ -453,7 +453,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 }
 
-// Tests
+// createWasmClientOnCosmos creates the WASM IBC client on the given Cosmos chain.
 func (s *IbcEurekaSolanaTestSuite) createWasmClientOnCosmos(ctx context.Context, simd *cosmos.CosmosChain) error {
 	s.T().Log("Creating WASM Client on Cosmos...")
 
