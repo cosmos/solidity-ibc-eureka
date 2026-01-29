@@ -5,6 +5,12 @@ anchor_version = "0.32.1"
 resolution = true
 skip-lint = false
 
+[clusters]
+localnet = "http://localhost:8899"
+# devnet = "https://api.devnet.solana.com"
+# testnet = "https://api.testnet.solana.com"
+# mainnet = "https://api.mainnet-beta.solana.com"
+
 [programs.localnet]
 access_manager = "4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1"
 dummy_ibc_app = "5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC"
