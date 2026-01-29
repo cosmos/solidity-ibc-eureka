@@ -23,13 +23,13 @@ type iftPDAs struct{}
 type mockLightClientPDAs struct{}
 
 var (
-	AccessManager   = accessManagerPDAs{}
-	DummyIbcApp     = dummyIbcAppPDAs{}
-	GmpCounterApp   = gmpCounterAppPDAs{}
+	AccessManager = accessManagerPDAs{}
+	DummyIbcApp = dummyIbcAppPDAs{}
+	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router     = ics26RouterPDAs{}
-	Ics27Gmp        = ics27GmpPDAs{}
-	Ift             = iftPDAs{}
+	Ics26Router = ics26RouterPDAs{}
+	Ics27Gmp = ics27GmpPDAs{}
+	Ift = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
 )
 
@@ -406,3 +406,4 @@ func (mockLightClientPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 	}
 	return pda, bump
 }
+
