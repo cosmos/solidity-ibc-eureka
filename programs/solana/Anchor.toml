@@ -18,7 +18,7 @@ gmp_counter_app = "GdEUjpVtKvHKStM3Hph6PnLSUMsJXvcVqugubhtQ5QUD"
 ics07_tendermint = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD"
 ics26_router = "FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx"
 ics27_gmp = "3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi"
-ift = "8Nw4ZsbVnH8Zi6yQHjuMrjZmoquMVij7ML11tEMnx3de"
+ift = "DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy"
 mock_ibc_app = "4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1"
 mock_light_client = "CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ"
 
