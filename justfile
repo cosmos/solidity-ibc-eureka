@@ -815,6 +815,8 @@ generate-solana-types: build-solana generate-pda
 	anchor-go --idl ./programs/solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
 	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	rm -rf packages/go-anchor/ift
+	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
 	# Dummy apps for testing
 	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod
@@ -1006,6 +1008,12 @@ test-e2e-solana testname:
 test-e2e-solana-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaGMPTestSuite/{{testname}}
+
+# Run the e2e tests in the IbcEurekaSolanaIFTTestSuite. For example, `just test-e2e-solana-ift Test_IFT_RoundtripTransferFromCosmos`
+[group('test')]
+test-e2e-solana-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaSolanaIFTTestSuite/{{testname}}
 
 # Run the e2e tests in the IbcEurekaSolanaUpgradeTestSuite. For example, `just test-e2e-solana-upgrade Test_ProgramUpgrade_Via_AccessManager`
 [group('test')]

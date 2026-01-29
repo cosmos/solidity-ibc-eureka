@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "gmp", "anchor"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "ics27_gmp"
@@ -34,9 +31,14 @@ ics26-router = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
 gmp-counter-app = { workspace = true, features = ["cpi"] }
+rstest.workspace = true
+
+[lints]
+workspace = true

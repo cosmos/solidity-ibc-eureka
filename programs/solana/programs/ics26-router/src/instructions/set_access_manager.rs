@@ -1,6 +1,6 @@
-use crate::events::AccessManagerUpdatedEvent;
 use crate::state::RouterState;
 use anchor_lang::prelude::*;
+use solana_ibc_types::AccessManagerUpdated;
 
 #[derive(Accounts)]
 pub struct SetAccessManager<'info> {
@@ -44,7 +44,7 @@ pub fn set_access_manager(
 
     ctx.accounts.router_state.access_manager = new_access_manager;
 
-    emit!(AccessManagerUpdatedEvent {
+    emit!(AccessManagerUpdated {
         old_access_manager,
         new_access_manager,
     });

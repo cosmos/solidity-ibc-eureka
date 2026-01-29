@@ -15,11 +15,11 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
-	case Event_Ics26RouterEventsAccessManagerUpdatedEvent:
-		value := new(Ics26RouterEventsAccessManagerUpdatedEvent)
+	case Event_Ics26RouterEventsAccessManagerUpdated:
+		value := new(Ics26RouterEventsAccessManagerUpdated)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAccessManagerUpdatedEvent: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAccessManagerUpdated: %w", err)
 		}
 		return value, nil
 	case Event_Ics26RouterEventsAckPacketEvent:
@@ -43,11 +43,11 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsClientUpdatedEvent: %w", err)
 		}
 		return value, nil
-	case Event_Ics26RouterEventsIbcAppAddedEvent:
-		value := new(Ics26RouterEventsIbcAppAddedEvent)
+	case Event_Ics26RouterEventsIbcAppAdded:
+		value := new(Ics26RouterEventsIbcAppAdded)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsIbcAppAddedEvent: %w", err)
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsIbcAppAdded: %w", err)
 		}
 		return value, nil
 	case Event_Ics26RouterEventsNoopEvent:
@@ -83,19 +83,19 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 	}
 }
 
-func ParseEvent_Ics26RouterEventsAccessManagerUpdatedEvent(eventData []byte) (*Ics26RouterEventsAccessManagerUpdatedEvent, error) {
+func ParseEvent_Ics26RouterEventsAccessManagerUpdated(eventData []byte) (*Ics26RouterEventsAccessManagerUpdated, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsAccessManagerUpdatedEvent {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsAccessManagerUpdatedEvent, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsAccessManagerUpdated {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsAccessManagerUpdated, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsAccessManagerUpdatedEvent)
+	event := new(Ics26RouterEventsAccessManagerUpdated)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsAccessManagerUpdatedEvent: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsAccessManagerUpdated: %w", err)
 	}
 	return event, nil
 }
@@ -151,19 +151,19 @@ func ParseEvent_Ics26RouterEventsClientUpdatedEvent(eventData []byte) (*Ics26Rou
 	return event, nil
 }
 
-func ParseEvent_Ics26RouterEventsIbcAppAddedEvent(eventData []byte) (*Ics26RouterEventsIbcAppAddedEvent, error) {
+func ParseEvent_Ics26RouterEventsIbcAppAdded(eventData []byte) (*Ics26RouterEventsIbcAppAdded, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
 	}
-	if discriminator != Event_Ics26RouterEventsIbcAppAddedEvent {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsIbcAppAddedEvent, binary.FormatDiscriminator(discriminator))
+	if discriminator != Event_Ics26RouterEventsIbcAppAdded {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsIbcAppAdded, binary.FormatDiscriminator(discriminator))
 	}
-	event := new(Ics26RouterEventsIbcAppAddedEvent)
+	event := new(Ics26RouterEventsIbcAppAdded)
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsIbcAppAddedEvent: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsIbcAppAdded: %w", err)
 	}
 	return event, nil
 }

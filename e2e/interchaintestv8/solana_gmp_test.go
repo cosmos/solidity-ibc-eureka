@@ -166,7 +166,7 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-		ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
+		ibcAppAccount, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 
 		registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
 			GMPPortID,
@@ -843,9 +843,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
@@ -865,7 +865,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
@@ -1155,9 +1155,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
@@ -1177,7 +1177,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d (timeout test)", baseSequence, namespacedSequence)
 		}))
 
@@ -1872,9 +1872,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
@@ -1892,7 +1892,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
@@ -1996,7 +1996,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	// Verify the packet commitment was deleted (ack processed)
 	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
 		// Derive packet commitment PDA for the sequence we used
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 		// Get the base sequence we used (it was incremented after send)
 		currentBaseSequence, err := s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)

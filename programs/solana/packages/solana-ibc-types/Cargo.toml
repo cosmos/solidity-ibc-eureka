@@ -31,5 +31,11 @@ light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:t
 solana = []
 idl-build = ["anchor-lang/idl-build"]
 
+[dev-dependencies]
+solana-sdk.workspace = true
+
 [lib]
 crate-type = ["cdylib", "lib"]
+
+[lints]
+workspace = true

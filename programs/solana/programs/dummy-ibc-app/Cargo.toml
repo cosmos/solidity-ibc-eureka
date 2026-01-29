@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "test", "anchor"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "dummy_ibc_app"
@@ -24,6 +21,7 @@ cpi = ["no-entrypoint"]
 idl-build = ["anchor-lang/idl-build"]
 default = []
 
+
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-ibc-types.workspace = true
@@ -31,3 +29,6 @@ solana-ibc-macros.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 prost = { workspace = true }
 ibc-proto = { workspace = true }
+
+[lints]
+workspace = true

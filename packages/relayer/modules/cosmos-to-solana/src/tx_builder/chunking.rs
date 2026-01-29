@@ -1,8 +1,11 @@
 //! Chunking operations for large payloads and proofs.
 
+use std::collections::HashSet;
+
 use anchor_lang::prelude::*;
 use anyhow::Result;
 use solana_sdk::{
+    commitment_config::CommitmentConfig,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
@@ -14,7 +17,18 @@ use solana_ibc_types::{
     MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 
-use crate::gmp;
+use super::transaction::derive_alt_address;
+
+use crate::{gmp, ift};
+
+/// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
+type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
+
+/// Maximum accounts that fit in a Solana transaction without ALT
+const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
+
+/// Batch size for ALT extension transactions
+const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
 impl super::TxBuilder {
     /// Derives the GMP result PDA bytes for a single-payload packet.
@@ -50,6 +64,71 @@ impl super::TxBuilder {
             _ => anyhow::bail!("Multi-payload is not yet supported"),
         }
     }
+
+    /// Builds IFT `claim_refund` transaction for ack/timeout packets.
+    ///
+    /// Returns `None` if not applicable (non-IFT packet, no pending transfer).
+    /// Logs warnings for unexpected failures but continues - tokens are safe in
+    /// `PendingTransfer` and user can manually claim later.
+    fn build_ift_claim_refund_tx(
+        &self,
+        payloads: &[solana_ibc_types::PayloadMetadata],
+        payload_data: &[Vec<u8>],
+        source_client: &str,
+        sequence: u64,
+    ) -> Option<Vec<u8>> {
+        // Only single-payload packets supported for IFT
+        let [payload] = payloads else {
+            return None;
+        };
+
+        let [data] = payload_data else {
+            return None;
+        };
+
+        let gmp_program_id = match self.resolve_port_program_id(&payload.source_port) {
+            Ok(id) => id,
+            Err(e) => {
+                tracing::warn!(
+                    source_port = %payload.source_port,
+                    error = ?e,
+                    "IFT: Failed to resolve port program ID for claim_refund"
+                );
+                return None;
+            }
+        };
+
+        let params = ift::ClaimRefundParams {
+            source_port: &payload.source_port,
+            encoding: &payload.encoding,
+            payload_value: data,
+            source_client,
+            sequence,
+            solana_client: &self.target_solana_client,
+            gmp_program_id,
+            fee_payer: self.fee_payer,
+        };
+
+        // build_claim_refund_instruction logs internally for unexpected failures
+        let instruction = ift::build_claim_refund_instruction(&params)?;
+
+        let mut instructions = Self::extend_compute_ix();
+        instructions.push(instruction);
+
+        match self.create_tx_bytes(&instructions) {
+            Ok(tx_bytes) => Some(tx_bytes),
+            Err(e) => {
+                tracing::warn!(
+                    source_client = %source_client,
+                    sequence = sequence,
+                    error = ?e,
+                    "IFT: Failed to create claim_refund transaction"
+                );
+                None
+            }
+        }
+    }
+
     /// Helper function to split data into chunks
     pub(crate) fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
         data.chunks(CHUNK_DATA_SIZE).map(<[u8]>::to_vec).collect()
@@ -278,11 +357,15 @@ impl super::TxBuilder {
         )?;
 
         // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
+        // No claim_refund needed for recv packets (only for ack/timeout on source chain)
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: recv_tx,
             cleanup_tx,
+            alt_create_tx: vec![],
+            alt_extend_txs: vec![],
             gmp_result_pda: Vec::new(),
+            ift_claim_refund_tx: vec![],
         })
     }
 
@@ -316,7 +399,27 @@ impl super::TxBuilder {
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);
 
-        let ack_tx = self.create_tx_bytes(&instructions)?;
+        // Count unique accounts across all instructions
+        let unique_accounts = Self::count_unique_accounts(&instructions, self.fee_payer);
+
+        tracing::debug!(
+            "ack_packet: {} unique accounts (threshold {})",
+            unique_accounts,
+            MAX_ACCOUNTS_WITHOUT_ALT
+        );
+
+        // Build final transaction with or without ALT based on account count
+        let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT
+        {
+            tracing::debug!(
+                "Using ALT: {} accounts exceeds {}",
+                unique_accounts,
+                MAX_ACCOUNTS_WITHOUT_ALT
+            );
+            self.build_tx_with_alt(&instructions)?
+        } else {
+            (self.create_tx_bytes(&instructions)?, vec![], vec![])
+        };
 
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.source_client,
@@ -331,12 +434,102 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
+        let ift_claim_refund_tx = self
+            .build_ift_claim_refund_tx(
+                &msg.payloads,
+                payload_data,
+                &msg.packet.source_client,
+                msg.packet.sequence,
+            )
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: ack_tx,
             cleanup_tx,
+            alt_create_tx,
+            alt_extend_txs,
             gmp_result_pda,
+            ift_claim_refund_tx,
         })
+    }
+
+    /// Count unique accounts across all instructions
+    fn count_unique_accounts(instructions: &[Instruction], fee_payer: Pubkey) -> usize {
+        let mut accounts: HashSet<Pubkey> = HashSet::new();
+        accounts.insert(fee_payer);
+        for ix in instructions {
+            accounts.insert(ix.program_id);
+            for acc in &ix.accounts {
+                accounts.insert(acc.pubkey);
+            }
+        }
+        accounts.len()
+    }
+
+    /// Build transaction with ALT support (following `update_client` pattern)
+    fn build_tx_with_alt(&self, instructions: &[Instruction]) -> Result<AltBuildResult> {
+        // Get current slot for ALT derivation
+        let slot = self
+            .target_solana_client
+            .get_slot_with_commitment(CommitmentConfig::processed())
+            .map_err(|e| anyhow::anyhow!("Failed to get slot for ALT: {e}"))?;
+
+        let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
+
+        // Collect all unique accounts for ALT (only accounts that exist on-chain)
+        // Signing-only PDAs (like mint_authority) don't exist as accounts and must be excluded
+        let mut alt_accounts: Vec<Pubkey> = Vec::new();
+        let mut seen: HashSet<Pubkey> = HashSet::new();
+
+        // Add fee payer and system program first (these always exist)
+        alt_accounts.push(self.fee_payer);
+        seen.insert(self.fee_payer);
+        alt_accounts.push(solana_sdk::system_program::id());
+        seen.insert(solana_sdk::system_program::id());
+
+        // Add all accounts from instructions, but only if they exist on-chain
+        for ix in instructions {
+            if seen.insert(ix.program_id) {
+                // Program IDs always exist
+                alt_accounts.push(ix.program_id);
+            }
+            for acc in &ix.accounts {
+                if seen.insert(acc.pubkey) {
+                    // Check if account exists before adding to ALT
+                    // Non-existent accounts (signing-only PDAs) will be referenced directly
+                    if self.account_exists(&acc.pubkey) {
+                        alt_accounts.push(acc.pubkey);
+                    } else {
+                        tracing::debug!(
+                            "Excluding non-existent account {} from ALT (signing-only PDA)",
+                            acc.pubkey
+                        );
+                    }
+                }
+            }
+        }
+
+        tracing::debug!(
+            "Building ALT: {} accounts, address={}, slot={}",
+            alt_accounts.len(),
+            alt_address,
+            slot
+        );
+
+        // Build ALT creation transaction
+        let alt_create_tx = self.build_create_alt_tx(slot)?;
+
+        // Build ALT extension transactions in batches
+        let alt_extend_txs: Vec<Vec<u8>> = alt_accounts
+            .chunks(ALT_EXTEND_BATCH_SIZE)
+            .map(|batch| self.build_extend_alt_tx(slot, batch.to_vec()))
+            .collect::<Result<Vec<_>>>()?;
+
+        // Build final transaction using ALT
+        let final_tx = self.create_tx_bytes_with_alt(instructions, alt_address, alt_accounts)?;
+
+        Ok((final_tx, alt_create_tx, alt_extend_txs))
     }
 
     pub(crate) fn build_timeout_packet_chunked(
@@ -384,11 +577,23 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
+        let ift_claim_refund_tx = self
+            .build_ift_claim_refund_tx(
+                &msg.payloads,
+                payload_data,
+                &msg.packet.source_client,
+                msg.packet.sequence,
+            )
+            .unwrap_or_default();
+
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: timeout_tx,
             cleanup_tx,
+            alt_create_tx: vec![],
+            alt_extend_txs: vec![],
             gmp_result_pda,
+            ift_claim_refund_tx,
         })
     }
 

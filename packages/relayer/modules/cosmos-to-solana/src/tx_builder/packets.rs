@@ -25,6 +25,33 @@ struct RecvPayloadInfo<'a> {
     value: &'a [u8],
 }
 
+/// Extract `source_port` from either inline payloads or chunked metadata.
+fn extract_source_port<'a>(
+    packet_payloads: &'a [solana_ibc_types::Payload],
+    metadata_payloads: &'a [solana_ibc_types::router::PayloadMetadata],
+    context: &str,
+) -> Result<&'a str> {
+    if !packet_payloads.is_empty() {
+        let [payload] = packet_payloads else {
+            anyhow::bail!(
+                "Expected exactly one {context} packet payload element, got {}",
+                packet_payloads.len()
+            );
+        };
+        Ok(&payload.source_port)
+    } else if !metadata_payloads.is_empty() {
+        let [payload_meta] = metadata_payloads else {
+            anyhow::bail!(
+                "Expected exactly one {context} packet payload metadata element, got {}",
+                metadata_payloads.len()
+            );
+        };
+        Ok(&payload_meta.source_port)
+    } else {
+        anyhow::bail!("No payload data found in either packet.payloads or payloads metadata");
+    }
+}
+
 /// Extract payload info from either `packet.payloads` or metadata + `payload_data`.
 fn extract_recv_payload_info<'a>(
     msg: &'a MsgRecvPacket,
@@ -79,7 +106,6 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        // Resolve the light client program ID for this client
         let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
 
         let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
@@ -138,10 +164,7 @@ impl super::TxBuilder {
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let [payload] = msg.packet.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one ack packet payload element");
-        };
-        let source_port = &payload.source_port;
+        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "ack")?;
 
         let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let (ibc_app_pda, _) = IBCApp::pda(source_port, self.solana_ics26_program_id);
@@ -170,7 +193,6 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
-        // Resolve the light client program ID for this client
         let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
 
         let chain_id = self.chain_id().await?;
@@ -204,6 +226,7 @@ impl super::TxBuilder {
         );
 
         // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
+        // Note: IFT claim_refund is handled as a separate transaction after ack completes
         if let Some(result_pda) = gmp::find_gmp_result_pda(
             source_port,
             &msg.packet.source_client,
@@ -229,18 +252,20 @@ impl super::TxBuilder {
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = Self::extract_timeout_source_port(msg)?;
+        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
+
         let mut accounts = self.build_timeout_accounts_with_derived_keys(
             chain_id,
             msg,
-            &source_port,
+            source_port,
             chunk_accounts,
         )?;
 
         // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
-        let ibc_app_program_id = self.resolve_port_program_id(&source_port)?;
+        // Note: IFT claim_refund is handled as a separate transaction after timeout completes
+        let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         if let Some(result_pda) = gmp::find_gmp_result_pda(
-            &source_port,
+            source_port,
             &msg.packet.source_client,
             msg.packet.sequence,
             ibc_app_program_id,
@@ -255,13 +280,6 @@ impl super::TxBuilder {
             accounts,
             data,
         })
-    }
-
-    pub(crate) fn extract_timeout_source_port(msg: &MsgTimeoutPacket) -> Result<String> {
-        let [payload] = msg.packet.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one timeout packet payload element");
-        };
-        Ok(payload.source_port.clone())
     }
 
     pub(crate) fn build_timeout_accounts_with_derived_keys(

@@ -1,5 +1,4 @@
 use crate::errors::RouterError;
-use crate::events::{NoopEvent, TimeoutPacketEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
@@ -9,6 +8,7 @@ use ics25_handler::NonMembershipMsg;
 use solana_ibc_types::ibc_app::{on_timeout_packet, OnTimeoutPacket, OnTimeoutPacketMsg};
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
+use solana_ibc_types::{NoopEvent, TimeoutPacketEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgTimeoutPacket)]

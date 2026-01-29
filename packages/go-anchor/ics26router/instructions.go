@@ -128,7 +128,7 @@ func NewSendPacketInstruction(
 	ibcAppAccount solanago.PublicKey,
 	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
-	instructionSysvarAccount solanago.PublicKey,
+	appSignerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
@@ -161,9 +161,9 @@ func NewSendPacketInstruction(
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
 		// Packet commitment account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 4 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for validating CPI caller
-		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 4 "app_signer": Read-only, Signer, Required
+		// App signer - PDA signed by the calling IBC app program
+		accounts__.Append(solanago.NewAccountMeta(appSignerAccount, false, true))
 		// Account 5 "payer": Writable, Signer, Required
 		// Allow payer to be separate from IBC app
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
