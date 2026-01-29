@@ -256,7 +256,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaRelayer)
 		s.Require().NoError(err)
 	}))
 
@@ -271,18 +271,20 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	var attestorResult attestor.SetupResult
 	s.Require().True(s.Run("Start 1 Solana attestor", func() {
 		attestorResult = attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
+
+		if len(attestorResult.Endpoints) > 0 {
+			serverAddr := attestorResult.Endpoints[0][len("http://"):]
+			_, err := attestor.GetAttestationServiceClient(serverAddr)
+			s.Require().NoError(err)
+		}
+
+		// sleep for 30 seconds to allow attestor to fully initialize
+		s.T().Log("Waiting 30 seconds for attestor to initialize...")
+		time.Sleep(30 * time.Second)
 	}))
 
-	// Start relayer asynchronously - it can initialize while we set up IBC clients
-	type relayerStartResult struct {
-		process *os.Process
-		err     error
-	}
-	relayerReady := make(chan relayerStartResult, 1)
-
-	go func() {
-		s.T().Log("Starting relayer asynchronously...")
-
+	var relayerProcess *os.Process
+	s.Require().True(s.Run("Start Relayer", func() {
 		config := relayer.NewConfigBuilder().
 			SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
 				SolanaChainID:     testvalues.SolanaChainID,
@@ -292,7 +294,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:    ics26_router.ProgramID.String(),
 				SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
 				AttestorEndpoints: attestorResult.Endpoints,
-				AttestorTimeout:   30000,
+				AttestorTimeout:   300000,
 				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
 			CosmosToSolana(relayer.CosmosToSolanaParams{
@@ -310,16 +312,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
-		if err != nil {
-			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to generate config: %w", err)}
-			return
-		}
+		s.Require().NoError(err)
 
-		process, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		if err != nil {
-			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to start relayer: %w", err)}
-			return
-		}
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
 
 		if s.SolanaAltAddress != "" {
 			s.T().Logf("Started relayer with ALT address: %s", s.SolanaAltAddress)
@@ -328,19 +324,19 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.RelayerConfigFilePath)
 		})
+	}))
 
-		relayerReady <- relayerStartResult{process, nil}
-		s.T().Log("Relayer startup complete")
-	}()
+	s.T().Cleanup(func() {
+		if relayerProcess != nil {
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
+		}
+	})
 
 	// Wait for relayer to be ready and create client
 	s.Require().True(s.Run("Wait for Relayer and Create Client", func() {
-		s.T().Log("Waiting for relayer to be ready...")
-		result := <-relayerReady
-		s.Require().NoError(result.err, "Relayer failed to start")
-		s.RelayerProcess = result.process
-		s.T().Log("Relayer is ready")
-
 		// Create relayer gRPC client
 		var err error
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
