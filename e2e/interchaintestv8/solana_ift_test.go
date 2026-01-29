@@ -231,10 +231,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, min
 	s.Require().NoError(err)
 }
 
-// TODO: rename to CosmosToSolana
 // Test_IFT_SolanaToCosmosTransfer tests the full roundtrip: wfchain -> Solana -> wfchain -> Solana
 // TODO: Important: Need a way to seed solana spl-token without using IFT minting.
-func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtripTransfer() {
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)

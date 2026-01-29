@@ -1009,6 +1009,12 @@ test-e2e-solana-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaGMPTestSuite/{{testname}}
 
+# Run the e2e tests in the IbcEurekaSolanaIFTTestSuite. For example, `just test-e2e-solana-ift Test_IFT_RoundtripTransferFromCosmos`
+[group('test')]
+test-e2e-solana-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaSolanaIFTTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcEurekaSolanaUpgradeTestSuite. For example, `just test-e2e-solana-upgrade Test_ProgramUpgrade_Via_AccessManager`
 [group('test')]
 test-e2e-solana-upgrade testname:
