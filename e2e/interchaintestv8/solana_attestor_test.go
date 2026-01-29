@@ -902,7 +902,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_SolanaToCosmosTransfer(
 		}))
 
 		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
-			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 200_000, relayTxBodyBz)
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 300_000, relayTxBodyBz)
 			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
 
