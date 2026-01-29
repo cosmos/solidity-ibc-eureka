@@ -41,7 +41,7 @@ import (
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
 
-// IbcEurekaSolanaIFTTestSuite tests ICS27-IFT functionality
+// IbcEurekaSolanaIFTTestSuite tests IFT functionality
 type IbcEurekaSolanaIFTTestSuite struct {
 	IbcEurekaSolanaTestSuite
 

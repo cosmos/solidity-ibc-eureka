@@ -69,7 +69,7 @@ type IbcEurekaSolanaTestSuite struct {
 
 	RelayerClient            relayertypes.RelayerServiceClient
 	ICS27GMPProgramID        solanago.PublicKey
-	IFTProgramID        solanago.PublicKey
+	IFTProgramID             solanago.PublicKey
 	GMPCounterProgramID      solanago.PublicKey
 	DummyAppProgramID        solanago.PublicKey
 	MaliciousCallerProgramID solanago.PublicKey

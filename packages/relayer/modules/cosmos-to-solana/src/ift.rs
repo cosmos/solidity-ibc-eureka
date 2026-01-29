@@ -19,7 +19,7 @@ use spl_associated_token_account::get_associated_token_address;
 use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, Protobuf};
 
-/// IFT PDA seeds (must match ics27-ift program)
+/// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
 const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
