@@ -142,8 +142,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) getCosmosIFTModuleAddress() string {
 	return bech32Addr
 }
 
-// registerIFTBridge registers an IFT bridge for the Cosmos counterparty
-func (s *IbcEurekaSolanaIFTTestSuite) registerIFTBridge(ctx context.Context, clientID, counterpartyAddress, counterpartyDenom string) {
+// registerSolanaIFTBridge registers an IFT bridge for the Cosmos counterparty
+func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Context, clientID, counterpartyAddress, counterpartyDenom string) {
 	s.Require().True(s.Run("Register IFT Bridge", func() {
 		bridgePDA, _ := solana.Ics27Ift.IftBridgePDA(ics27_ift.ProgramID, s.IFTMintBytes(), []byte(clientID))
 		s.IFTBridge = bridgePDA
@@ -231,8 +231,10 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, min
 	s.Require().NoError(err)
 }
 
-// Test_IFT_SolanaToCosmosTransfer tests the full roundtrip: Solana → wfchain → ack back
-func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
+// TODO: rename to CosmosToSolana
+// Test_IFT_SolanaToCosmosTransfer tests the full roundtrip: wfchain -> Solana -> wfchain -> Solana
+// TODO: Important: Need a way to seed solana spl-token without using IFT minting.
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtripTransfer() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -273,10 +275,11 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 		// Register bridge on Cosmos
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
 		s.T().Logf("IFT module address on Cosmos: %s", iftModuleAddr)
-		s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
 
 	// === Seed Solana with tokens: wfchain → Solana ===
+	// TODO: initial balance stuff needs clean up and better naming
 	var initialSolanaBalance uint64
 	s.Require().True(s.Run("Seed Solana: transfer from wfchain", func() {
 		var cosmosIFTTxHash string
@@ -323,6 +326,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 			initialSolanaBalance = balance
 			s.T().Logf("Solana balance after seeding: %d", balance)
 		}))
+
+		// TODO: relay ack back to wfchain to complete the IFT transfer?
 	}))
 
 	// Now we have tokens on Solana and can test the outbound transfer
@@ -512,6 +517,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosTransfer() {
 	}))
 }
 
+// TODO: Need to update (P0)
+// Switch this to Solana to Cosmos
 // Test_IFT_CosmosToSolanaTransfer tests receiving IFT tokens from wfchain to Solana
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 	ctx := context.Background()
@@ -524,7 +531,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 	}))
 
 	cosmosUser := s.Cosmos.Users[0]
-	s.registerIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
+	s.registerSolanaIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
 
 	var receiverTokenAccount solanago.PublicKey
 	receiverPubkey := s.SolanaRelayer.PublicKey()
@@ -681,7 +688,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 	var bridgePDA solanago.PublicKey
 	cosmosCounterpartyAddress := "cosmos1test123456789" // Mock counterparty
 	s.Require().True(s.Run("Register IFT Bridge", func() {
-		s.registerIFTBridge(ctx, SolanaClientID, cosmosCounterpartyAddress, testvalues.IFTTestDenom)
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, cosmosCounterpartyAddress, testvalues.IFTTestDenom)
 		bridgePDA = s.IFTBridge
 		s.T().Logf("IFT Bridge registered: %s", bridgePDA.String())
 	}))
@@ -802,7 +809,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	s.Require().True(s.Run("Register IFT Bridges", func() {
 		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, s.IFTMint())
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
-		s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
 
 	// Seed Solana with tokens via transfer from Cosmos
@@ -999,7 +1006,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	s.Require().True(s.Run("Register bridges and seed tokens", func() {
 		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ics27_ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, s.IFTMint())
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
-		s.registerIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 		resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
