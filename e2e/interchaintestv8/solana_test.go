@@ -174,7 +174,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				deployProgram("Deploy ICS07 Tendermint", "ics07_tendermint"),
 				deployProgram("Deploy ICS26 Router", "ics26_router"),
 				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
-				deployProgram("Deploy ICS27 IFT", "ics27_ift"),
+				deployProgram("Deploy IFT", "ift"),
 				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
 				deployProgram("Deploy Dummy IBC App", "dummy_ibc_app"),
 				deployProgram("Deploy Malicious Caller", "malicious_caller"),
