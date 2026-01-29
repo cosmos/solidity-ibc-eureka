@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +21,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
 	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
@@ -26,6 +29,8 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/cosmos/interchaintest/v10/testutil"
+
+	ethcommon "github.com/ethereum/go-ethereum/common"
 
 	ics26router "github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 
@@ -55,10 +60,14 @@ type IbcSolanaAttestorTestSuite struct {
 
 	AttestorContainers []*attestor.AttestorContainer
 	AttestorEndpoints  []string
+	AttestorAddresses  []string
 	AttestorClient     attestortypes.AttestationServiceClient
 
 	RelayerClient  relayertypes.RelayerServiceClient
 	RelayerProcess *os.Process
+
+	// UseMockClient controls whether to use mock light clients (true) or real verification (false)
+	UseMockClient bool
 }
 
 func TestWithIbcSolanaAttestorTestSuite(t *testing.T) {
@@ -227,6 +236,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	attestorResult := attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
 	s.AttestorContainers = attestorResult.Containers
 	s.AttestorEndpoints = attestorResult.Endpoints
+	s.AttestorAddresses = attestorResult.Addresses
 
 	if len(s.AttestorEndpoints) > 0 {
 		serverAddr := s.AttestorEndpoints[0][len("http://"):]
@@ -239,13 +249,14 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	config := relayer.NewConfigBuilder().
 		SolanaToCosmos(relayer.SolanaToCosmosParams{
-			SolanaChainID:  testvalues.SolanaChainID,
-			CosmosChainID:  simd.Config().ChainID,
-			SolanaRPC:      testvalues.SolanaLocalnetRPC,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26ProgramID: ics26_router.ProgramID.String(),
-			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-			MockClient:     true,
+			SolanaChainID:     testvalues.SolanaChainID,
+			CosmosChainID:     simd.Config().ChainID,
+			SolanaRPC:         testvalues.SolanaLocalnetRPC,
+			TmRPC:             simd.GetHostRPCAddress(),
+			ICS26ProgramID:    ics26_router.ProgramID.String(),
+			SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+			MockClient:        s.UseMockClient,
+			AttestorEndpoints: s.AttestorEndpoints,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
 			CosmosChainID:  simd.Config().ChainID,
@@ -256,7 +267,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			ICS26ProgramID: ics26_router.ProgramID.String(),
 			FeePayer:       s.SolanaUser.PublicKey().String(),
 			ALTAddress:     s.SolanaAltAddress,
-			MockClient:     true,
+			MockClient:     s.UseMockClient,
 		}).
 		Build()
 
@@ -290,17 +301,45 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	s.T().Logf("IBC client created on Solana - tx: %s", sig)
 
-	s.T().Log("Storing Solana light client on Cosmos...")
-	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
+	var checksumHex string
+	if s.UseMockClient {
+		s.T().Log("Storing dummy Solana light client on Cosmos (mock mode)...")
+		checksumHex = s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
+	} else {
+		s.T().Log("Storing attestor-based Solana light client on Cosmos...")
+		checksumHex = s.StoreSolanaAttestedLightClient(ctx, simd, s.Cosmos.Users[0])
+	}
 	s.Require().NotEmpty(checksumHex, "Failed to store Solana light client")
 
 	s.T().Log("Creating IBC client on Cosmos...")
+
+	createClientParams := map[string]string{
+		testvalues.ParameterKey_ChecksumHex: checksumHex,
+	}
+
+	if !s.UseMockClient {
+		slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+		s.Require().NoError(err)
+
+		currentTime := time.Now().Unix()
+
+		// Convert attestor addresses to checksummed format (EIP-55)
+		checksummedAddrs := make([]string, len(s.AttestorAddresses))
+		for i, addr := range s.AttestorAddresses {
+			checksummedAddrs[i] = ethcommon.HexToAddress(addr).Hex()
+		}
+		attestorAddrs := strings.Join(checksummedAddrs, ",")
+
+		createClientParams[testvalues.ParameterKey_height] = strconv.FormatUint(slot, 10)
+		createClientParams[testvalues.ParameterKey_timestamp] = strconv.FormatInt(currentTime, 10)
+		createClientParams[testvalues.ParameterKey_AttestorAddresses] = attestorAddrs
+		createClientParams[testvalues.ParameterKey_MinRequiredSigs] = strconv.Itoa(testvalues.DefaultMinRequiredSigs)
+	}
+
 	clientResp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
-		SrcChain: testvalues.SolanaChainID,
-		DstChain: simd.Config().ChainID,
-		Parameters: map[string]string{
-			testvalues.ParameterKey_ChecksumHex: checksumHex,
-		},
+		SrcChain:   testvalues.SolanaChainID,
+		DstChain:   simd.Config().ChainID,
+		Parameters: createClientParams,
 	})
 	s.Require().NoError(err)
 
@@ -417,6 +456,7 @@ func convertSolanaPacket(packet solana.SolanaPacket) ics26router.IICS26RouterMsg
 
 func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_StateAttestation() {
 	ctx := context.Background()
+	s.UseMockClient = true
 	s.SetupSuite(ctx)
 
 	slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
@@ -437,6 +477,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_StateAttestation() {
 
 func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments() {
 	ctx := context.Background()
+	s.UseMockClient = true
 	s.SetupSuite(ctx)
 
 	var solanaTxSig solanago.Signature
@@ -564,6 +605,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyPacketCommitments
 
 func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 	ctx := context.Background()
+	s.UseMockClient = true
 	s.SetupSuite(ctx)
 
 	var cosmosRelayPacketTxHash []byte
@@ -716,5 +758,189 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 
 		attestorAckCommitment := packetAttestation.Packets[0].Commitment[:]
 		s.Require().Equal(onChainAckCommitment, attestorAckCommitment)
+	}))
+}
+
+// Test_SolanaAttestor_SolanaToCosmosTransfer tests a full Solana to Cosmos transfer
+// using real Tendermint client on Solana and attestor-based light client on Cosmos.
+func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_SolanaToCosmosTransfer() {
+	ctx := context.Background()
+
+	s.UseMockClient = false
+
+	s.SetupSuite(ctx)
+
+	simd := s.Cosmos.Chains[0]
+
+	var solanaTxSig solanago.Signature
+	var cosmosRelayTxHash []byte
+	var sentPacketBaseSequence uint64
+
+	s.Require().True(s.Run("Send SOL transfer from Solana", func() {
+		initialBalance := s.SolanaUser.PublicKey()
+		balanceResp, err := s.Solana.Chain.RPCClient.GetBalance(ctx, initialBalance, "confirmed")
+		s.Require().NoError(err)
+		initialLamports := balanceResp.Value
+
+		s.T().Logf("Initial SOL balance: %d lamports", initialLamports)
+
+		transferAmount := fmt.Sprintf("%d", TestTransferAmount)
+		cosmosUserWallet := s.Cosmos.Users[0]
+		receiver := cosmosUserWallet.FormattedAddress()
+		memo := "Test transfer from Solana to Cosmos via attestor"
+
+		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
+		s.Require().True(s.Run("Prepare accounts", func() {
+			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
+			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientSequence, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+
+			clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
+				Commitment: rpc.CommitmentConfirmed,
+			})
+			s.Require().NoError(err)
+
+			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
+			s.Require().NoError(err)
+
+			baseSequence := clientSequenceData.NextSequenceSend
+			sentPacketBaseSequence = baseSequence
+
+			namespacedSequence := solana.CalculateNamespacedSequence(
+				baseSequence,
+				s.DummyAppProgramID,
+				s.SolanaUser.PublicKey(),
+			)
+
+			namespacedSequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
+			packetCommitment, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+
+			escrow, _ = solana.DummyIbcApp.EscrowWithArgSeedPDA(s.DummyAppProgramID, []byte(SolanaClientID))
+			escrowState, _ = solana.DummyIbcApp.EscrowStateWithArgSeedPDA(s.DummyAppProgramID, []byte(SolanaClientID))
+		}))
+
+		timeoutTimestamp := time.Now().Unix() + 3600
+
+		transferMsg := dummy_ibc_app.DummyIbcAppInstructionsSendTransferSendTransferMsg{
+			Denom:            SolDenom,
+			Amount:           transferAmount,
+			Receiver:         receiver,
+			SourceClient:     SolanaClientID,
+			DestPort:         transfertypes.PortID,
+			TimeoutTimestamp: timeoutTimestamp,
+			Memo:             memo,
+		}
+
+		sendTransferInstruction, err := dummy_ibc_app.NewSendTransferInstruction(
+			transferMsg,
+			appState,
+			s.SolanaUser.PublicKey(),
+			escrow,
+			escrowState,
+			routerState,
+			ibcApp,
+			clientSequence,
+			packetCommitment,
+			client,
+			ics26_router.ProgramID,
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		computeBudgetInstruction := solana.NewComputeBudgetInstruction(DefaultComputeUnits)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.SolanaUser.PublicKey(),
+			computeBudgetInstruction,
+			sendTransferInstruction,
+		)
+		s.Require().NoError(err)
+
+		solanaTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Transfer transaction sent: %s", solanaTxSig)
+
+		finalLamports, balanceChanged := s.Solana.Chain.WaitForBalanceChange(ctx, s.SolanaUser.PublicKey(), initialLamports)
+		s.Require().True(balanceChanged, "Balance should change after transfer")
+
+		s.T().Logf("Final SOL balance: %d lamports", finalLamports)
+		s.T().Logf("SOL transferred: %d lamports", initialLamports-finalLamports)
+
+		s.Require().Less(finalLamports, initialLamports, "Balance should decrease after transfer")
+
+		escrowBalance, balanceChanged := s.Solana.Chain.WaitForBalanceChange(ctx, escrow, 0)
+		s.Require().True(balanceChanged, "Escrow account should receive SOL")
+
+		s.T().Logf("Escrow account balance: %d lamports", escrowBalance)
+
+		expectedAmount := uint64(TestTransferAmount)
+		s.Require().Equal(escrowBalance, expectedAmount,
+			"Escrow should contain exactly the transferred amount")
+
+		s.T().Logf("Solana transaction %s ready for relaying to Cosmos", solanaTxSig)
+	}))
+
+	s.Require().True(s.Run("Relay transfer to Cosmos", func() {
+		var relayTxBodyBz []byte
+		s.Require().True(s.Run("Retrieve relay tx", func() {
+			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    simd.Config().ChainID,
+				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())},
+				SrcClientId: SolanaClientID,
+				DstClientId: CosmosClientID,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+			s.Require().Empty(resp.Address)
+
+			relayTxBodyBz = resp.Tx
+			s.T().Logf("Retrieved relay transaction with %d bytes", len(relayTxBodyBz))
+		}))
+
+		s.Require().True(s.Run("Broadcast relay tx on Cosmos", func() {
+			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 200_000, relayTxBodyBz)
+			s.T().Logf("Relay transaction: %s (code: %d, gas: %d)",
+				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+			cosmosRelayTxHashBytes, err := hex.DecodeString(relayTxResult.TxHash)
+			s.Require().NoError(err)
+			cosmosRelayTxHash = cosmosRelayTxHashBytes
+		}))
+	}))
+
+	s.Require().True(s.Run("Verify transfer completion on Cosmos", func() {
+		ibcSolDenom := getSolDenomOnCosmos()
+
+		cosmosUserAddress := s.Cosmos.Users[0].FormattedAddress()
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   ibcSolDenom.IBCDenom(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		s.Require().Equal(sdkmath.NewIntFromUint64(TestTransferAmount), resp.Balance.Amount)
+		s.Require().Equal(ibcSolDenom.IBCDenom(), resp.Balance.Denom)
+		s.T().Logf("Verified IBC SOL balance on Cosmos: %s %s", resp.Balance.Amount.String(), resp.Balance.Denom)
+	}))
+
+	s.Require().True(s.Run("Acknowledge transfer on Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosRelayTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+		s.Require().NoError(err)
+
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaUser.PublicKey())
 	}))
 }

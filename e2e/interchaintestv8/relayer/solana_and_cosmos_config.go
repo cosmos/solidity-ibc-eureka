@@ -41,6 +41,8 @@ type SolanaToCosmosModuleConfig struct {
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Whether to use mock WASM client on Cosmos for testing
 	MockWasmClient bool `json:"mock_wasm_client"`
+	// Aggregator configuration for attestor-based verification (required when MockWasmClient is false)
+	Aggregator *AggregatorConfig `json:"aggregator,omitempty"`
 }
 
 type CosmosToSolanaModuleConfig struct {

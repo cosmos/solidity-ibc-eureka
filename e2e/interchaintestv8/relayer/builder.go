@@ -271,17 +271,35 @@ func (b *ConfigBuilder) CosmosToCosmos(p CosmosToCosmosParams) *ConfigBuilder {
 
 // SolanaToCosmosParams contains parameters for Solana→Cosmos module.
 type SolanaToCosmosParams struct {
-	SolanaChainID  string
-	CosmosChainID  string
-	SolanaRPC      string
-	TmRPC          string
-	ICS26ProgramID string
-	SignerAddress  string
-	MockClient     bool
+	SolanaChainID     string
+	CosmosChainID     string
+	SolanaRPC         string
+	TmRPC             string
+	ICS26ProgramID    string
+	SignerAddress     string
+	MockClient        bool
+	AttestorEndpoints []string // Required when MockClient is false
+	AttestorTimeout   int      // Optional, defaults to 5000
+	QuorumThreshold   int      // Optional, defaults to 1
 }
 
 // SolanaToCosmos adds a Solana→Cosmos module.
 func (b *ConfigBuilder) SolanaToCosmos(p SolanaToCosmosParams) *ConfigBuilder {
+	var aggConfig *AggregatorConfig
+	if !p.MockClient {
+		cfg := DefaultAggregatorConfig()
+		if len(p.AttestorEndpoints) > 0 {
+			cfg.Attestor.AttestorEndpoints = p.AttestorEndpoints
+		}
+		if p.AttestorTimeout > 0 {
+			cfg.Attestor.AttestorQueryTimeoutMs = p.AttestorTimeout
+		}
+		if p.QuorumThreshold > 0 {
+			cfg.Attestor.QuorumThreshold = p.QuorumThreshold
+		}
+		aggConfig = &cfg
+	}
+
 	module := ModuleConfig{
 		Name:     ModuleSolanaToCosmos,
 		SrcChain: p.SolanaChainID,
@@ -293,6 +311,7 @@ func (b *ConfigBuilder) SolanaToCosmos(p SolanaToCosmosParams) *ConfigBuilder {
 			SignerAddress:        p.SignerAddress,
 			SolanaIcs26ProgramId: p.ICS26ProgramID,
 			MockWasmClient:       p.MockClient,
+			Aggregator:           aggConfig,
 		},
 	}
 	b.modules = append(b.modules, module)

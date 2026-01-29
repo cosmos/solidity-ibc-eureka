@@ -7,6 +7,7 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
+use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
 use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
@@ -27,7 +28,6 @@ use ibc_eureka_relayer_core::{
 
 #[allow(dead_code)]
 enum SolanaToCosmosTxBuilder {
-    Real(),
     Mock(tx_builder::MockTxBuilder),
     Attested(tx_builder::AttestedTxBuilder),
 }
@@ -67,10 +67,14 @@ pub struct SolanaToCosmosConfig {
     /// Whether to use mock Solana light client updates for testing.
     #[serde(default)]
     pub mock_solana_client: bool,
+    /// Aggregator configuration for attestor-based verification.
+    /// Required when mock_wasm_client is false.
+    #[serde(default)]
+    pub aggregator: Option<AggregatorConfig>,
 }
 
 impl SolanaToCosmosRelayerModuleService {
-    fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
+    async fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
             .parse()
@@ -90,8 +94,16 @@ impl SolanaToCosmosRelayerModuleService {
                 solana_ics26_program_id,
             ))
         } else {
-            // TODO: Implement once solana client for cosmos is ready
-            unimplemented!()
+            let aggregator_config = config.aggregator.ok_or_else(|| {
+                anyhow::anyhow!("aggregator config required when mock_wasm_client is false")
+            })?;
+            let aggregator = Aggregator::from_config(aggregator_config)
+                .await
+                .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
+            SolanaToCosmosTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
+                aggregator,
+                config.signer_address,
+            ))
         };
 
         Ok(Self {
@@ -237,7 +249,7 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config: SolanaToCosmosConfig = serde_json::from_value(config)?;
-        let service = SolanaToCosmosRelayerModuleService::new(config)?;
+        let service = SolanaToCosmosRelayerModuleService::new(config).await?;
         Ok(Box::new(service))
     }
 }
@@ -255,7 +267,6 @@ impl SolanaToCosmosTxBuilder {
         dst_packet_seqs: Vec<u64>,
     ) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Real() => unreachable!(),
             Self::Mock(tb) => {
                 tb.relay_events(
                     solana_src_events,
@@ -288,7 +299,6 @@ impl SolanaToCosmosTxBuilder {
 
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.create_client(parameters).await,
             Self::Attested(tb) => tb.create_client(parameters),
         }
@@ -296,7 +306,6 @@ impl SolanaToCosmosTxBuilder {
 
     async fn update_client(&self, dst_client_id: String) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Real() => unreachable!(),
             Self::Mock(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(&dst_client_id).await,
         }
