@@ -85,7 +85,7 @@ pub fn on_recv_packet<'info>(
     );
 
     require!(
-        msg.payload.encoding.is_empty() || msg.payload.encoding == ICS27_ENCODING,
+        msg.payload.encoding == ICS27_ENCODING,
         GMPError::InvalidEncoding
     );
 

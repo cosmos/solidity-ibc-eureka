@@ -13,24 +13,26 @@ var (
 
 // Event discriminators
 var (
-	Event_Ics27IftEventsIftBridgeRegistered  = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
-	Event_Ics27IftEventsIftBridgeRemoved     = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
-	Event_Ics27IftEventsIftMintReceived      = [8]byte{231, 237, 212, 47, 70, 180, 189, 161}
-	Event_Ics27IftEventsIftTransferCompleted = [8]byte{108, 70, 78, 147, 62, 29, 217, 203}
-	Event_Ics27IftEventsIftTransferInitiated = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
-	Event_Ics27IftEventsIftTransferRefunded  = [8]byte{108, 165, 124, 162, 135, 70, 80, 210}
-	Event_Ics27IftEventsMintAuthorityRevoked = [8]byte{2, 222, 125, 58, 108, 126, 254, 121}
-	Event_Ics27IftEventsSplTokenCreated      = [8]byte{178, 160, 51, 0, 206, 211, 237, 25}
+	Event_Ics27IftEventsExistingTokenInitialized = [8]byte{208, 76, 129, 169, 87, 75, 247, 38}
+	Event_Ics27IftEventsIftBridgeRegistered      = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
+	Event_Ics27IftEventsIftBridgeRemoved         = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
+	Event_Ics27IftEventsIftMintReceived          = [8]byte{231, 237, 212, 47, 70, 180, 189, 161}
+	Event_Ics27IftEventsIftTransferCompleted     = [8]byte{108, 70, 78, 147, 62, 29, 217, 203}
+	Event_Ics27IftEventsIftTransferInitiated     = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
+	Event_Ics27IftEventsIftTransferRefunded      = [8]byte{108, 165, 124, 162, 135, 70, 80, 210}
+	Event_Ics27IftEventsMintAuthorityRevoked     = [8]byte{2, 222, 125, 58, 108, 126, 254, 121}
+	Event_Ics27IftEventsSplTokenCreated          = [8]byte{178, 160, 51, 0, 206, 211, 237, 25}
 )
 
 // Instruction discriminators
 var (
-	Instruction_CreateSplToken      = [8]byte{206, 61, 13, 166, 215, 118, 38, 2}
-	Instruction_RegisterIftBridge   = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
-	Instruction_RemoveIftBridge     = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
-	Instruction_IftTransfer         = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
-	Instruction_IftMint             = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
-	Instruction_ClaimRefund         = [8]byte{15, 16, 30, 161, 255, 228, 97, 60}
-	Instruction_SetAccessManager    = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
-	Instruction_RevokeMintAuthority = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
+	Instruction_CreateSplToken          = [8]byte{206, 61, 13, 166, 215, 118, 38, 2}
+	Instruction_InitializeExistingToken = [8]byte{202, 36, 198, 101, 164, 90, 18, 233}
+	Instruction_RegisterIftBridge       = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
+	Instruction_RemoveIftBridge         = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
+	Instruction_IftTransfer             = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
+	Instruction_IftMint                 = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
+	Instruction_ClaimRefund             = [8]byte{15, 16, 30, 161, 255, 228, 97, 60}
+	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
 )

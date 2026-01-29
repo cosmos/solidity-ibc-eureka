@@ -24,7 +24,7 @@ pub struct SendCall<'info> {
 
     /// Only used for direct calls (must sign). For CPI calls, this account is ignored
     /// and the calling program ID is extracted from instruction sysvar instead.
-    /// CHECK: UncheckedAccount because validation depends on runtime call type.
+    /// CHECK: `UncheckedAccount` because validation depends on runtime call type.
     pub sender: UncheckedAccount<'info>,
 
     #[account(mut)]

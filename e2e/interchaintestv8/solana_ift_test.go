@@ -554,7 +554,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 
 	var cosmosGMPTxHash []byte
 	s.Require().True(s.Run("Send GMP Call from Cosmos", func() {
-		gmpAccountPDA, gmpAccountBump := solana.Ics27Gmp.GmpAccountPDA(
+		gmpAccountPDA, _ := solana.Ics27Gmp.GmpAccountPDA(
 			ics27_gmp.ProgramID,
 			[]byte(SolanaClientID),
 			[]byte(cosmosUser.FormattedAddress()),
@@ -562,10 +562,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 		)
 
 		iftMintMsg := ics27_ift.Ics27IftStateIftMintMsg{
-			Receiver:       receiverPubkey,
-			Amount:         IFTTransferAmount,
-			ClientId:       SolanaClientID,
-			GmpAccountBump: gmpAccountBump,
+			Receiver: receiverPubkey,
+			Amount:   IFTTransferAmount,
 		}
 
 		msgBytes, err := iftMintMsg.Marshal()

@@ -100,8 +100,8 @@ func NewSendCallInstruction(
 		// This account will be signed when calling the router to prove GMP is the caller
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "sender": Read-only, Non-signer, Required
-		// Sender of the call - for direct calls must be a signer (user wallet),
-		// for CPI calls this is the calling program ID (callback target)
+		// Only used for direct calls (must sign). For CPI calls, this account is ignored
+		// and the calling program ID is extracted from instruction sysvar instead.
 		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, false))
 		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))

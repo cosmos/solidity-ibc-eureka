@@ -90,3 +90,36 @@ fn test_account_version_default() {
     let version = AccountVersion::default();
     assert_eq!(version, AccountVersion::V1);
 }
+
+#[test]
+fn test_ift_bridge_serialization_roundtrip() {
+    use anchor_lang::AccountDeserialize;
+
+    let mint = Pubkey::new_unique();
+    let bridge = IFTBridge {
+        version: AccountVersion::V1,
+        bump: 42,
+        mint,
+        client_id: "07-tendermint-0".to_string(),
+        counterparty_ift_address: "0x1234567890abcdef".to_string(),
+        chain_options: ChainOptions::Evm,
+        active: true,
+        _reserved: [0; 64],
+    };
+
+    // Serialize with discriminator
+    let mut data = IFTBridge::DISCRIMINATOR.to_vec();
+    bridge.serialize(&mut data).unwrap();
+
+    // Deserialize
+    let deserialized: IFTBridge =
+        IFTBridge::try_deserialize(&mut &data[..]).expect("Failed to deserialize");
+
+    assert_eq!(deserialized.version, AccountVersion::V1);
+    assert_eq!(deserialized.bump, 42);
+    assert_eq!(deserialized.mint, mint);
+    assert_eq!(deserialized.client_id, "07-tendermint-0");
+    assert_eq!(deserialized.counterparty_ift_address, "0x1234567890abcdef");
+    assert!(matches!(deserialized.chain_options, ChainOptions::Evm));
+    assert!(deserialized.active);
+}

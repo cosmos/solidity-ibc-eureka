@@ -20,7 +20,7 @@ runs:
       shell: bash
       run: |
         echo "Pulling wfchain image..."
-        docker pull ghcr.io/cosmos/wfchain:vaporif-solana-constructor || echo "Failed to pull wfchain image"
+        docker pull ghcr.io/cosmos/wfchain:latest || echo "Failed to pull wfchain image"
 
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup

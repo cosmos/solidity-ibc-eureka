@@ -102,8 +102,14 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account =
-            create_ift_bridge_account(mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
+        let bridge_account = create_ift_bridge_account(
+            mint,
+            client_id,
+            "0x1234",
+            ChainOptions::Evm,
+            bridge_bump,
+            true,
+        );
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -179,8 +185,14 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account =
-            create_ift_bridge_account(mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
+        let bridge_account = create_ift_bridge_account(
+            mint,
+            client_id,
+            "0x1234",
+            ChainOptions::Evm,
+            bridge_bump,
+            true,
+        );
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -242,8 +254,14 @@ mod tests {
             Pubkey::new_unique(),
         );
 
-        let bridge_account =
-            create_ift_bridge_account(wrong_mint, "0x1234", ChainOptions::Evm, bridge_bump, true);
+        let bridge_account = create_ift_bridge_account(
+            wrong_mint,
+            client_id,
+            "0x1234",
+            ChainOptions::Evm,
+            bridge_bump,
+            true,
+        );
 
         let instruction = Instruction {
             program_id: crate::ID,

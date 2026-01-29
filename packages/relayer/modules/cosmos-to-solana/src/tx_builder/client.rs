@@ -269,7 +269,7 @@ impl super::TxBuilder {
         let mut seen_hashes = std::collections::HashSet::new();
         let mut duplicates_skipped = 0;
 
-        for (_idx, commit_sig) in commit.signatures.iter().enumerate() {
+        for commit_sig in &commit.signatures {
             let (validator_address, timestamp, signature_opt) = match commit_sig {
                 tendermint::block::CommitSig::BlockIdFlagCommit {
                     validator_address,
@@ -361,7 +361,7 @@ impl super::TxBuilder {
         let mut accumulated_power = 0u64;
         let mut selected = Vec::new();
 
-        for (_val_idx, validator) in untrusted_validator_set.validators().iter().enumerate() {
+        for validator in untrusted_validator_set.validators() {
             let pubkey_bytes = validator.pub_key.to_bytes();
 
             if let Some(sig_data) = signature_data.iter().find(|sig| pubkey_bytes == sig.pubkey) {

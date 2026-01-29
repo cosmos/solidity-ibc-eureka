@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::*;
+use crate::{constants::*, errors::IFTError};
 
 /// Account schema version for upgrades
 #[derive(
@@ -32,9 +32,35 @@ pub enum ChainOptions {
     Solana,
 }
 
-// impl ChainOptions {
-//     fn validate
-// }
+impl ChainOptions {
+    /// Validate Chain Options params
+    pub fn validate(&self) -> Result<()> {
+        if let Self::Cosmos {
+            ref denom,
+            ref type_url,
+            ref ica_address,
+        } = self
+        {
+            require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
+            require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
+            require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
+            require!(
+                denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCounterpartyDenomLength
+            );
+            require!(
+                type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCosmosTypeUrlLength
+            );
+            require!(
+                ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                IFTError::InvalidCosmosIcaAddressLength
+            );
+        }
+
+        Ok(())
+    }
+}
 
 /// Main IFT application state
 /// PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
@@ -86,6 +112,10 @@ pub struct IFTBridge {
 
     /// Mint this bridge is associated with
     pub mint: Pubkey,
+
+    /// IBC client identifier for this bridge
+    #[max_len(64)]
+    pub client_id: String,
 
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
     #[max_len(128)]
@@ -181,10 +211,6 @@ pub struct IFTMintMsg {
     pub receiver: Pubkey,
     /// Amount to mint
     pub amount: u64,
-    /// IBC client identifier (for bridge lookup and GMP validation)
-    pub client_id: String,
-    /// GMP account PDA bump (for efficient validation with `create_program_address`)
-    pub gmp_account_bump: u8,
 }
 
 #[cfg(test)]

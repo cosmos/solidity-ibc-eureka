@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTBridgeRegistered;
-use crate::state::{AccountVersion, ChainOptions, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
+use crate::state::{AccountVersion, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
 
 #[derive(Accounts)]
 #[instruction(msg: RegisterIFTBridgeMsg)]
@@ -73,34 +73,13 @@ pub fn register_ift_bridge(
         IFTError::InvalidCounterpartyAddressLength
     );
 
-    // Validate chain-specific options
-    if let ChainOptions::Cosmos {
-        ref denom,
-        ref type_url,
-        ref ica_address,
-    } = msg.chain_options
-    {
-        require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
-        require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
-        require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
-        require!(
-            denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-            IFTError::InvalidCounterpartyDenomLength
-        );
-        require!(
-            type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-            IFTError::InvalidCosmosTypeUrlLength
-        );
-        require!(
-            ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-            IFTError::InvalidCosmosIcaAddressLength
-        );
-    }
+    msg.chain_options.validate()?;
 
     let bridge = &mut ctx.accounts.ift_bridge;
     bridge.version = AccountVersion::V1;
     bridge.bump = ctx.bumps.ift_bridge;
     bridge.mint = ctx.accounts.app_state.mint;
+    bridge.client_id.clone_from(&msg.client_id);
     bridge
         .counterparty_ift_address
         .clone_from(&msg.counterparty_ift_address);

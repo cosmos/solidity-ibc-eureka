@@ -16,6 +16,6 @@ pub const ICS07_TENDERMINT_ID: &str = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3
 pub const CHUNK_DATA_SIZE: usize = 900;
 
 /// Number of static accounts for `AssembleAndUpdateClient` instruction
-/// (excludes remaining_accounts for chunks/sigs).
+/// (excludes `remaining_accounts` for chunks/sigs).
 /// Must match `AssembleAndUpdateClient::STATIC_ACCOUNTS` in ics07-tendermint program.
 pub const ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS: usize = 8;

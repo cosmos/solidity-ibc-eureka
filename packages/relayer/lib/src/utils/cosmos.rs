@@ -548,12 +548,6 @@ pub async fn inject_tendermint_proofs(
         let path_component_0 = b"ibc".to_vec();
         let path_component_1 = ack_path.clone();
 
-        // Query Cosmos to get the app_hash at target height
-        let target_light_block = source_tm_client
-            .get_light_block(Some(target_height.revision_height))
-            .await?;
-        let _cosmos_app_hash = target_light_block.signed_header.header.app_hash;
-
         let (value, proof) = source_tm_client
             .prove_path(
                 &[path_component_0, path_component_1],

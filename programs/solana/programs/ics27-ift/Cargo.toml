@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "ift", "anchor", "token"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "ics27_ift"
@@ -37,6 +34,7 @@ hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
+
 [build-dependencies]
 solana-keccak-hasher.workspace = true
 sha2.workspace = true
@@ -48,3 +46,6 @@ solana-sdk.workspace = true
 bincode.workspace = true
 sha2.workspace = true
 rstest.workspace = true
+
+[lints]
+workspace = true

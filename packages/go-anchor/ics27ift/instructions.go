@@ -81,6 +81,70 @@ func NewCreateSplTokenInstruction(
 	), nil
 }
 
+// Builds a "initialize_existing_token" instruction.
+// Initialize IFT for an existing SPL token by transferring mint authority
+func NewInitializeExistingTokenInstruction(
+	// Params:
+	accessManagerParam solanago.PublicKey,
+	gmpProgramParam solanago.PublicKey,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	mintAccount solanago.PublicKey,
+	mintAuthorityAccount solanago.PublicKey,
+	currentAuthorityAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	tokenProgramAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_InitializeExistingToken[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `accessManagerParam`:
+		err = enc__.Encode(accessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("accessManagerParam", err)
+		}
+		// Serialize `gmpProgramParam`:
+		err = enc__.Encode(gmpProgramParam)
+		if err != nil {
+			return nil, errors.NewField("gmpProgramParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "mint": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
+		// Account 2 "mint_authority": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
+		// Account 3 "current_authority": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(currentAuthorityAccount, false, true))
+		// Account 4 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 5 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
+		// Account 6 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
 // Builds a "register_ift_bridge" instruction.
 // Register an IFT bridge to a counterparty chain
 func NewRegisterIftBridgeInstruction(
@@ -248,11 +312,11 @@ func NewIftTransferInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "ift_bridge": Writable, Non-signer, Required
+		// Account 0 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 1 "ift_bridge": Read-only, Non-signer, Required
 		// IFT bridge for the destination
-		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, true, false))
+		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
 		// Account 2 "mint": Writable, Non-signer, Required
 		// SPL Token mint
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
@@ -265,6 +329,7 @@ func NewIftTransferInstruction(
 		// Account 5 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Required for burning tokens from sender's account
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -309,7 +374,7 @@ func NewIftTransferInstruction(
 }
 
 // Builds a "ift_mint" instruction.
-// Mint IFT tokens (called by GMP when receiving cross-chain transfer)
+// Mint IFT tokens (called by GMP when receiving cross-chain transfer). // Per IFT spec: `iftMint(receiver, amount)` - bridge is passed as account, not in payload.
 func NewIftMintInstruction(
 	// Params:
 	msgParam Ics27IftStateIftMintMsg,
@@ -347,10 +412,12 @@ func NewIftMintInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 0 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "ift_bridge": Read-only, Non-signer, Required
-		// IFT bridge - provides counterparty info for GMP account validation
+		// IFT bridge - provides counterparty info for GMP account validation.
+		// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
+		// Security: Anchor verifies ownership, validate_gmp_account verifies (client_id, counterparty) match.
 		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
 		// Account 2 "mint": Writable, Non-signer, Required
 		// SPL Token mint
@@ -362,6 +429,7 @@ func NewIftMintInstruction(
 		// Receiver's token account (will be created if needed)
 		accounts__.Append(solanago.NewAccountMeta(receiverTokenAccountAccount, true, false))
 		// Account 5 "receiver_owner": Read-only, Non-signer, Required
+		// Constraint prevents relayer from substituting a different receiver than specified in cross-chain message.
 		accounts__.Append(solanago.NewAccountMeta(receiverOwnerAccount, false, false))
 		// Account 6 "gmp_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(gmpProgramAccount, false, false))
