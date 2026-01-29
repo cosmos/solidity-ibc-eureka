@@ -216,7 +216,9 @@ func (RealMode) MarshalJSON() ([]byte, error) { return json.Marshal("real") }
 // MockMode is for testing without real proofs.
 type MockMode struct{}
 
-func (MockMode) MarshalJSON() ([]byte, error) { return json.Marshal("mock") }
+func (MockMode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{"type": "mock"})
+}
 
 // AttestedMode uses aggregator attestations.
 type AttestedMode struct {
@@ -224,7 +226,12 @@ type AttestedMode struct {
 }
 
 func (m AttestedMode) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]AggregatorConfig{"attested": m.Config})
+	// Internally tagged enum format: {"type": "attested", ...config fields...}
+	return json.Marshal(map[string]interface{}{
+		"type":     "attested",
+		"attestor": m.Config.Attestor,
+		"cache":    m.Config.Cache,
+	})
 }
 
 // SP1Mode uses zero-knowledge proofs.

@@ -245,7 +245,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			TmRPC:          simd.GetHostRPCAddress(),
 			ICS26ProgramID: ics26_router.ProgramID.String(),
 			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-			MockClient:     true,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
 			CosmosChainID:  simd.Config().ChainID,
@@ -256,7 +255,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			ICS26ProgramID: ics26_router.ProgramID.String(),
 			FeePayer:       s.SolanaUser.PublicKey().String(),
 			ALTAddress:     s.SolanaAltAddress,
-			MockClient:     true,
 		}).
 		Build()
 

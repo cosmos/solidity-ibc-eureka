@@ -22,8 +22,6 @@ type SolanaCosmosConfigInfo struct {
 	SolanaFeePayer string
 	// Address Lookup Table address for reducing transaction size (optional)
 	SolanaAltAddress string
-	// Whether we use the mock WASM client in Cosmos (for Solana->Cosmos)
-	MockWasmClient bool
 	// Signature threshold for skipping pre-verification (nil = use default 50, 0 = always use pre-verify)
 	SkipPreVerifyThreshold *int
 }
@@ -39,8 +37,8 @@ type SolanaToCosmosModuleConfig struct {
 	SignerAddress string `json:"signer_address"`
 	// Solana ICS26 router program ID (must be "solana_ics26_program_id")
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
-	// Whether to use mock WASM client on Cosmos for testing
-	MockWasmClient bool `json:"mock_wasm_client"`
+	// Transaction builder mode (mock or attested)
+	Mode TxBuilderMode `json:"mode"`
 }
 
 type CosmosToSolanaModuleConfig struct {
@@ -54,8 +52,6 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaFeePayer string `json:"solana_fee_payer"`
 	// Address Lookup Table address for reducing transaction size (optional)
 	SolanaAltAddress *string `json:"solana_alt_address,omitempty"`
-	// Whether to use mock WASM client on Cosmos for testing
-	MockWasmClient bool `json:"mock_wasm_client"`
 	// Signature threshold for skipping pre-verification (optional, default: 50, 0 = always use pre-verify)
 	SkipPreVerifyThreshold *int `json:"skip_pre_verify_threshold,omitempty"`
 }
@@ -78,7 +74,7 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				TargetRpcUrl:         configInfo.TmRPC,
 				SignerAddress:        configInfo.CosmosSignerAddress,
 				SolanaIcs26ProgramId: configInfo.ICS26RouterProgramID,
-				MockWasmClient:       configInfo.MockWasmClient,
+				Mode:                 MockMode{},
 			},
 		},
 		{
@@ -91,7 +87,6 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				SolanaIcs26ProgramId:   configInfo.ICS26RouterProgramID,
 				SolanaFeePayer:         configInfo.SolanaFeePayer,
 				SolanaAltAddress:       altAddress,
-				MockWasmClient:         configInfo.MockWasmClient,
 				SkipPreVerifyThreshold: configInfo.SkipPreVerifyThreshold,
 			},
 		},

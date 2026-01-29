@@ -74,9 +74,6 @@ type IbcEurekaSolanaTestSuite struct {
 	DummyAppProgramID        solanago.PublicKey
 	MaliciousCallerProgramID solanago.PublicKey
 
-	// Mock configuration for tests
-	UseMockWasmClient bool
-
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
 	RelayerProcess   *os.Process
@@ -284,7 +281,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				TmRPC:          simd.GetHostRPCAddress(),
 				ICS26ProgramID: ics26_router.ProgramID.String(),
 				SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-				MockClient:     s.UseMockWasmClient,
 			}).
 			CosmosToSolana(relayer.CosmosToSolanaParams{
 				CosmosChainID:          simd.Config().ChainID,
@@ -295,7 +291,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:         ics26_router.ProgramID.String(),
 				FeePayer:               s.SolanaRelayer.PublicKey().String(),
 				ALTAddress:             s.SolanaAltAddress,
-				MockClient:             s.UseMockWasmClient,
 				SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
 			}).
 			Build()
@@ -478,8 +473,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 
 	simd := s.Cosmos.Chains[0]
@@ -582,8 +575,6 @@ func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
@@ -766,8 +757,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
@@ -961,7 +950,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer_WithPreVerify() {
 func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThreshold *int) {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SkipPreVerifyThreshold = skipPreVerifyThreshold
 
 	s.SetupSuite(ctx)
@@ -1128,7 +1116,6 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
 
@@ -1407,7 +1394,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
 
@@ -1588,7 +1574,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 
 func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign() {
 	ctx := context.Background()
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 
 	simd := s.Cosmos.Chains[0]
