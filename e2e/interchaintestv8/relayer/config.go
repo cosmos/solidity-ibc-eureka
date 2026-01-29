@@ -211,7 +211,9 @@ type TxBuilderMode interface {
 // RealMode uses Ethereum beacon chain proofs.
 type RealMode struct{}
 
-func (RealMode) MarshalJSON() ([]byte, error) { return json.Marshal("real") }
+func (RealMode) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]string{"type": "real"})
+}
 
 // MockMode is for testing without real proofs.
 type MockMode struct{}
@@ -241,11 +243,11 @@ type SP1Mode struct {
 }
 
 func (m SP1Mode) MarshalJSON() ([]byte, error) {
+	// Internally tagged enum format: {"type": "sp1", "sp1_prover": {...}, "sp1_programs": {...}}
 	return json.Marshal(map[string]interface{}{
-		"sp1": map[string]interface{}{
-			"sp1_prover":   m.Prover,
-			"sp1_programs": m.Programs,
-		},
+		"type":         "sp1",
+		"sp1_prover":   m.Prover,
+		"sp1_programs": m.Programs,
 	})
 }
 

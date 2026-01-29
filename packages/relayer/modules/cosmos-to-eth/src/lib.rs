@@ -75,7 +75,7 @@ pub struct CosmosToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// SP1 prover mode using zero-knowledge proofs.
     Sp1(Sp1ModeConfig),

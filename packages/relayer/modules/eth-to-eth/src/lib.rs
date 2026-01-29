@@ -75,7 +75,7 @@ pub struct EthToEthConfig {
 
 /// Transaction builder mode configuration.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(tag = "type", rename_all = "snake_case")]
 pub enum TxBuilderMode {
     /// Attested mode using aggregator attestations.
     Attested(AggregatorConfig),
