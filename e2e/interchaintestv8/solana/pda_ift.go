@@ -13,7 +13,7 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-func (ics27IftPDAs) IftAppStatePDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ift_app_state"), mint},
 		programID,
@@ -24,7 +24,7 @@ func (ics27IftPDAs) IftAppStatePDA(programID solanago.PublicKey, mint []byte) (s
 	return pda, bump
 }
 
-func (ics27IftPDAs) IftBridgePDA(programID solanago.PublicKey, mint []byte, clientId []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftBridgePDA(programID solanago.PublicKey, mint []byte, clientId []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ift_bridge"), mint, clientId},
 		programID,
@@ -35,7 +35,7 @@ func (ics27IftPDAs) IftBridgePDA(programID solanago.PublicKey, mint []byte, clie
 	return pda, bump
 }
 
-func (ics27IftPDAs) IftMintAuthorityPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftMintAuthorityPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ift_mint_authority"), mint},
 		programID,
@@ -46,7 +46,7 @@ func (ics27IftPDAs) IftMintAuthorityPDA(programID solanago.PublicKey, mint []byt
 	return pda, bump
 }
 
-func (ics27IftPDAs) PendingTransferPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) PendingTransferPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("pending_transfer"), mint, clientId, sequence},
 		programID,

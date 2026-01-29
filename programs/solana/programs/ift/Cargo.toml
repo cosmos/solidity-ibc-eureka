@@ -1,7 +1,7 @@
 [package]
-name = "ics27-ift"
+name = "ift"
 version.workspace = true
-description = "ICS27 Interchain Fungible Token (IFT) for Solana"
+description = "Interchain Fungible Token (IFT) for Solana"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true

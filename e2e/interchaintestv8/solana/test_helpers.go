@@ -823,7 +823,7 @@ func (s *Solana) VerifyPendingTransferExists(
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 
-	pendingTransferPDA, _ := Ics27Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+	pendingTransferPDA, _ := Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -851,7 +851,7 @@ func (s *Solana) VerifyPendingTransferClosed(
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 
-	pendingTransferPDA, _ := Ics27Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+	pendingTransferPDA, _ := Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -914,7 +914,7 @@ func (s *Solana) VerifyIftAppStateExists(
 ) {
 	t.Helper()
 
-	appStatePDA, _ := Ics27Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -936,7 +936,7 @@ func (s *Solana) VerifyIftAppStateClosed(
 ) {
 	t.Helper()
 
-	appStatePDA, _ := Ics27Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,

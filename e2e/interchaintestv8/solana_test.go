@@ -36,7 +36,7 @@ import (
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
-	ics27_ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27ift"
+	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
@@ -69,7 +69,7 @@ type IbcEurekaSolanaTestSuite struct {
 
 	RelayerClient            relayertypes.RelayerServiceClient
 	ICS27GMPProgramID        solanago.PublicKey
-	ICS27IFTProgramID        solanago.PublicKey
+	IFTProgramID        solanago.PublicKey
 	GMPCounterProgramID      solanago.PublicKey
 	DummyAppProgramID        solanago.PublicKey
 	MaliciousCallerProgramID solanago.PublicKey
@@ -186,8 +186,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			ics26_router.ProgramID = deployResults["Deploy ICS26 Router"]
 			s.ICS27GMPProgramID = deployResults["Deploy ICS27 GMP"]
 			ics27_gmp.ProgramID = s.ICS27GMPProgramID
-			s.ICS27IFTProgramID = deployResults["Deploy ICS27 IFT"]
-			ics27_ift.ProgramID = s.ICS27IFTProgramID
+			s.IFTProgramID = deployResults["Deploy ICS27 IFT"]
+			ift.ProgramID = s.IFTProgramID
 			s.GMPCounterProgramID = deployResults["Deploy GMP Counter App"]
 			gmp_counter_app.ProgramID = s.GMPCounterProgramID
 			s.DummyAppProgramID = deployResults["Deploy Dummy IBC App"]

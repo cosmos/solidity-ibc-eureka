@@ -2132,30 +2132,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ics27-ift"
-version = "0.1.0"
-dependencies = [
- "access-manager",
- "anchor-lang",
- "anchor-spl",
- "bincode",
- "hex",
- "ics26-router",
- "ics27-gmp",
- "mollusk-svm",
- "mollusk-svm-bencher",
- "rstest",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-ibc-proto",
- "solana-ibc-types",
- "solana-keccak-hasher",
- "solana-sdk",
- "solana-sha256-hasher",
-]
-
-[[package]]
 name = "icu_collections"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2266,6 +2242,30 @@ checksum = "3acae9609540aa318d1bc588455225fb2085b9ed0c4f6bd0d9d5bcd86f1a0344"
 dependencies = [
  "icu_normalizer",
  "icu_properties",
+]
+
+[[package]]
+name = "ift"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "anchor-lang",
+ "anchor-spl",
+ "bincode",
+ "hex",
+ "ics26-router",
+ "ics27-gmp",
+ "mollusk-svm",
+ "mollusk-svm-bencher",
+ "rstest",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-ibc-proto",
+ "solana-ibc-types",
+ "solana-keccak-hasher",
+ "solana-sdk",
+ "solana-sha256-hasher",
 ]
 
 [[package]]
