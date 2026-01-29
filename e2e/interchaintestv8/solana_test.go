@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/dummyibcapp"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
@@ -379,30 +381,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			e2esuite.ParallelTask{
 				Name: "Create WASM client on Cosmos",
 				Run: func() error {
-					s.T().Log("Creating WASM Client on Cosmos...")
-
-					checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
-					if checksumHex == "" {
-						return fmt.Errorf("failed to store Solana light client")
-					}
-
-					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
-						SrcChain: testvalues.SolanaChainID,
-						DstChain: simd.Config().ChainID,
-						Parameters: map[string]string{
-							testvalues.ParameterKey_ChecksumHex: checksumHex,
-						},
-					})
-					if err != nil {
-						return fmt.Errorf("failed to create client tx: %w", err)
-					}
-					if len(resp.Tx) == 0 {
-						return fmt.Errorf("relayer returned empty tx")
-					}
-
-					txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
-					s.T().Logf("✓ WASM client created on Cosmos - tx: %s", txResp.TxHash)
-					return nil
+					return s.createWasmClientOnCosmos(ctx, simd)
 				},
 			},
 		)
@@ -475,6 +454,33 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 }
 
 // Tests
+func (s *IbcEurekaSolanaTestSuite) createWasmClientOnCosmos(ctx context.Context, simd *cosmos.CosmosChain) error {
+	s.T().Log("Creating WASM Client on Cosmos...")
+
+	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
+	if checksumHex == "" {
+		return fmt.Errorf("failed to store Solana light client")
+	}
+
+	resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+		SrcChain: testvalues.SolanaChainID,
+		DstChain: simd.Config().ChainID,
+		Parameters: map[string]string{
+			testvalues.ParameterKey_ChecksumHex: checksumHex,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create client tx: %w", err)
+	}
+	if len(resp.Tx) == 0 {
+		return fmt.Errorf("relayer returned empty tx")
+	}
+
+	txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
+	s.T().Logf("✓ WASM client created on Cosmos - tx: %s", txResp.TxHash)
+	return nil
+}
+
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
 
