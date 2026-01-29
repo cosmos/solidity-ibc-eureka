@@ -240,15 +240,15 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	config := relayer.NewConfigBuilder().
 		SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
-			SolanaChainID:  testvalues.SolanaChainID,
-			CosmosChainID:  simd.Config().ChainID,
-			SolanaRPC:      testvalues.SolanaLocalnetRPC,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26ProgramID: ics26_router.ProgramID.String(),
-			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
+			SolanaChainID:     testvalues.SolanaChainID,
+			CosmosChainID:     simd.Config().ChainID,
+			SolanaRPC:         testvalues.SolanaLocalnetRPC,
+			TmRPC:             simd.GetHostRPCAddress(),
+			ICS26ProgramID:    ics26_router.ProgramID.String(),
+			SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
 			AttestorEndpoints: s.AttestorEndpoints,
-			AttestorTimeout: 300000,
-			QuorumThreshold: testvalues.DefaultMinRequiredSigs,
+			AttestorTimeout:   300000,
+			QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
 			CosmosChainID:  simd.Config().ChainID,
@@ -305,8 +305,8 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 		Parameters: map[string]string{
 			testvalues.ParameterKey_AttestorAddresses: attestorResult.Addresses[0],
 			testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
-			testvalues.ParameterKey_height: strconv.FormatUint(currentFinalizedSlot, 10),
-			testvalues.ParameterKey_timestamp: strconv.FormatInt(int64(*solanaTimestamp), 10),
+			testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
+			testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
 		},
 	})
 	s.Require().NoError(err)

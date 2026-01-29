@@ -27,9 +27,9 @@ type SolanaCosmosConfigInfo struct {
 	MockWasmClient bool
 	// Signature threshold for skipping pre-verification (nil = use default 50, 0 = always use pre-verify)
 	SkipPreVerifyThreshold *int
-	AttestorEndpoints []string
-	AttestorTimeout   int // Optional, defaults to 5000
-	QuorumThreshold   int // Optional, defaults to 1
+	AttestorEndpoints      []string
+	AttestorTimeout        int // Optional, defaults to 5000
+	QuorumThreshold        int // Optional, defaults to 1
 }
 
 type SolanaToCosmosModuleConfig struct {
@@ -45,7 +45,6 @@ type SolanaToCosmosModuleConfig struct {
 	SolanaIcs26ProgramId string `json:"solana_ics26_program_id"`
 	// Tx builder mode
 	Mode TxBuilderMode `json:"mode"`
-
 }
 
 type CosmosToSolanaModuleConfig struct {

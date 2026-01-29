@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/dummyibcapp"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
@@ -32,6 +30,8 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+
+	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint_patches "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07_tendermint_patches"

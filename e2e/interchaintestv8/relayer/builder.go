@@ -292,7 +292,7 @@ func (b *ConfigBuilder) SolanaToCosmosMock(p SolanaToCosmosMockParams) *ConfigBu
 			TargetRpcUrl:         p.TmRPC,
 			SignerAddress:        p.SignerAddress,
 			SolanaIcs26ProgramId: p.ICS26ProgramID,
-			Mode: MockMode{},
+			Mode:                 MockMode{},
 		},
 	}
 	b.modules = append(b.modules, module)
@@ -305,12 +305,12 @@ func (b *ConfigBuilder) SolanaToCosmosMock(p SolanaToCosmosMockParams) *ConfigBu
 
 // SolanaToCosmosAttestedParams contains parameters for Solana→Cosmos module.
 type SolanaToCosmosAttestedParams struct {
-	SolanaChainID  string
-	CosmosChainID  string
-	SolanaRPC      string
-	TmRPC          string
-	ICS26ProgramID string
-	SignerAddress  string
+	SolanaChainID     string
+	CosmosChainID     string
+	SolanaRPC         string
+	TmRPC             string
+	ICS26ProgramID    string
+	SignerAddress     string
 	AttestorEndpoints []string
 	AttestorTimeout   int // Optional, defaults to 5000
 	QuorumThreshold   int // Optional, defaults to 1
@@ -339,7 +339,7 @@ func (b *ConfigBuilder) SolanaToCosmosAttested(p SolanaToCosmosAttestedParams) *
 			TargetRpcUrl:         p.TmRPC,
 			SignerAddress:        p.SignerAddress,
 			SolanaIcs26ProgramId: p.ICS26ProgramID,
-			Mode: AttestedMode{Config: aggConfig},
+			Mode:                 AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)
