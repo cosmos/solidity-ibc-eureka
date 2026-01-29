@@ -10,7 +10,7 @@ use crate::constants::*;
 use crate::state::{AccountVersion, ChainOptions, IFTAppState, IFTBridge, PendingTransfer};
 
 /// Path to the compiled IFT program binary
-pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ics27_ift";
+pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ift";
 
 /// Anchor error code offset
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;

@@ -4,7 +4,7 @@ package solana
 // 1. The IFT IDL has non-UTF8 bytes in const seeds that corrupt auto-generation
 // 2. Auto-generated names would have verbose "WithAccountSeed" suffix
 //
-// The type `ics27IftPDAs` and singleton `Ics27Ift` are defined in pda.go (auto-generated).
+// The type `IftPDAs` and singleton `Ics27Ift` are defined in pda.go (auto-generated).
 // Only the methods are defined here to avoid corruption from `just generate-pda`.
 
 import (
@@ -19,7 +19,7 @@ func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey, mint []byte) (solana
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Ift.IftAppStatePDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftAppStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -30,7 +30,7 @@ func (iftPDAs) IftBridgePDA(programID solanago.PublicKey, mint []byte, clientId 
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Ift.IftBridgePDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftBridgePDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -41,7 +41,7 @@ func (iftPDAs) IftMintAuthorityPDA(programID solanago.PublicKey, mint []byte) (s
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Ift.IftMintAuthorityPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftMintAuthorityPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -52,7 +52,7 @@ func (iftPDAs) PendingTransferPDA(programID solanago.PublicKey, mint []byte, cli
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Ift.PendingTransferPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.PendingTransferPDA PDA: %v", err))
 	}
 	return pda, bump
 }

@@ -164,10 +164,10 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 		cosmosIcaAddress := res.AccountAddress
 		s.T().Logf("Computed Cosmos ICA address: %s (for IFT program: %s)", cosmosIcaAddress, iftProgramAddress)
 
-		registerMsg := ift.Ics27IftStateRegisterIftBridgeMsg{
+		registerMsg := ift.IftStateRegisterIftBridgeMsg{
 			ClientId:               clientID,
 			CounterpartyIftAddress: counterpartyAddress,
-			ChainOptions: &ift.Ics27IftStateChainOptions_Cosmos{
+			ChainOptions: &ift.IftStateChainOptions_Cosmos{
 				Denom:      counterpartyDenom,
 				TypeUrl:    "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
 				IcaAddress: cosmosIcaAddress,
@@ -356,7 +356,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 		s.Require().NoError(err)
 		timeoutTimestamp := solanaClockTime + 900
 
-		transferMsg := ift.Ics27IftStateIftTransferMsg{
+		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
 			Receiver:         cosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
@@ -560,7 +560,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 			[]byte{},
 		)
 
-		iftMintMsg := ift.Ics27IftStateIftMintMsg{
+		iftMintMsg := ift.IftStateIftMintMsg{
 			Receiver: receiverPubkey,
 			Amount:   IFTTransferAmount,
 		}
@@ -876,7 +876,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 		timeoutTimestamp := solanaClockTime + 35
 		s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeoutTimestamp, solanaClockTime)
 
-		transferMsg := ift.Ics27IftStateIftTransferMsg{
+		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
 			Receiver:         cosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
@@ -1091,7 +1091,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 
 		timeoutTimestamp := solanaClockTime + 900 // 15 minutes
 
-		transferMsg := ift.Ics27IftStateIftTransferMsg{
+		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
 			Receiver:         cosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,

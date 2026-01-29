@@ -816,7 +816,7 @@ generate-solana-types: (sync-solana-keys "localnet") build-solana generate-pda
 	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
 	rm -rf packages/go-anchor/ift
-	anchor-go --idl ./programs/solana/target/idl/ics27_ift.json --output packages/go-anchor/ics27ift --no-go-mod
+	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
 	# Dummy apps for testing
 	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod

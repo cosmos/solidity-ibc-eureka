@@ -15,10 +15,10 @@ pub mod test_utils;
 use instructions::*;
 use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg};
 
-declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
+declare_id!("8Nw4ZsbVnH8Zi6yQHjuMrjZmoquMVij7ML11tEMnx3de");
 
 #[program]
-pub mod ics27_ift {
+pub mod ift {
     use super::*;
 
     /// Create a new SPL token mint for IFT

@@ -11,7 +11,7 @@ categories = ["cryptography", "blockchain"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "ics27_ift"
+name = "ift"
 
 [features]
 default = []
