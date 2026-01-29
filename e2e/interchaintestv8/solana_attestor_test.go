@@ -238,13 +238,14 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Starting relayer...")
 
 	config := relayer.NewConfigBuilder().
-		SolanaToCosmos(relayer.SolanaToCosmosParams{
-			SolanaChainID:  testvalues.SolanaChainID,
-			CosmosChainID:  simd.Config().ChainID,
-			SolanaRPC:      testvalues.SolanaLocalnetRPC,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26ProgramID: ics26_router.ProgramID.String(),
-			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
+		SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+			SolanaChainID:     testvalues.SolanaChainID,
+			CosmosChainID:     simd.Config().ChainID,
+			SolanaRPC:         testvalues.SolanaLocalnetRPC,
+			TmRPC:             simd.GetHostRPCAddress(),
+			ICS26ProgramID:    ics26_router.ProgramID.String(),
+			SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+			AttestorEndpoints: s.AttestorEndpoints,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
 			CosmosChainID:  simd.Config().ChainID,

@@ -38,6 +38,7 @@ import (
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -74,6 +75,10 @@ type IbcEurekaSolanaTestSuite struct {
 	DummyAppProgramID        solanago.PublicKey
 	MaliciousCallerProgramID solanago.PublicKey
 
+	// Attestor configuration
+	AttestorContainers []*attestor.AttestorContainer
+	AttestorEndpoints  []string
+
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
 	RelayerProcess   *os.Process
@@ -87,6 +92,9 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 }
 
 func (s *IbcEurekaSolanaTestSuite) TearDownSuite() {
+	// Clean up attestor containers
+	attestor.CleanupContainers(context.Background(), s.T(), s.AttestorContainers)
+
 	// Clean up relayer process if it's running
 	if s.RelayerProcess != nil {
 		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
@@ -263,6 +271,14 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
 
+	s.Require().True(s.Run("Start Attestor Services", func() {
+		s.T().Log("Starting attestor service(s)...")
+		attestorResult := attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
+		s.AttestorContainers = attestorResult.Containers
+		s.AttestorEndpoints = attestorResult.Endpoints
+		s.T().Logf("Started %d attestors with endpoints: %v", len(s.AttestorEndpoints), s.AttestorEndpoints)
+	}))
+
 	// Start relayer asynchronously - it can initialize while we set up IBC clients
 	type relayerStartResult struct {
 		process *os.Process
@@ -274,13 +290,14 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Log("Starting relayer asynchronously...")
 
 		config := relayer.NewConfigBuilder().
-			SolanaToCosmos(relayer.SolanaToCosmosParams{
-				SolanaChainID:  testvalues.SolanaChainID,
-				CosmosChainID:  simd.Config().ChainID,
-				SolanaRPC:      testvalues.SolanaLocalnetRPC,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26ProgramID: ics26_router.ProgramID.String(),
-				SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
+			SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+				SolanaChainID:     testvalues.SolanaChainID,
+				CosmosChainID:     simd.Config().ChainID,
+				SolanaRPC:         testvalues.SolanaLocalnetRPC,
+				TmRPC:             simd.GetHostRPCAddress(),
+				ICS26ProgramID:    ics26_router.ProgramID.String(),
+				SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+				AttestorEndpoints: s.AttestorEndpoints,
 			}).
 			CosmosToSolana(relayer.CosmosToSolanaParams{
 				CosmosChainID:          simd.Config().ChainID,
