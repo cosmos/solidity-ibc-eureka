@@ -13,9 +13,6 @@ pub const ICS26_ROUTER_ID: &str = "FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx"
 /// ICS07 Tendermint Light Client Program ID on Solana
 pub const ICS07_TENDERMINT_ID: &str = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD";
 
-/// Attestation Light Client Program ID on Solana
-pub const ATTESTATION_LIGHT_CLIENT_ID: &str = "F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe";
-
 /// Client type prefix for ICS07 Tendermint light client
 pub const CLIENT_TYPE_TENDERMINT: &str = "07-tendermint";
 
@@ -30,15 +27,6 @@ pub const CLIENT_TYPE_ATTESTATION: &str = "attestation";
 /// Returns the client type prefix (everything before the last `-`).
 pub fn client_type_from_id(client_id: &str) -> Option<&str> {
     client_id.rsplit_once('-').map(|(prefix, _)| prefix)
-}
-
-/// Returns the program ID string for a given client type.
-pub fn program_id_for_client_type(client_type: &str) -> Option<&'static str> {
-    match client_type {
-        CLIENT_TYPE_TENDERMINT => Some(ICS07_TENDERMINT_ID),
-        CLIENT_TYPE_ATTESTATION => Some(ATTESTATION_LIGHT_CLIENT_ID),
-        _ => None,
-    }
 }
 
 /// Maximum size of chunk data for multi-transaction uploads.

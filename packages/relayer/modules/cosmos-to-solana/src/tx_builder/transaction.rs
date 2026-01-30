@@ -156,14 +156,11 @@ impl super::TxBuilder {
     pub(crate) fn attestation_client_state(
         &self,
         client_id: &str,
+        light_client_program_id: Pubkey,
     ) -> Result<solana_ibc_types::attestation::ClientState> {
         use solana_ibc_types::attestation::ClientState as AttestationClientState;
 
-        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
-            .parse()
-            .context("Invalid ATTESTATION_LIGHT_CLIENT_ID constant")?;
-
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, attestation_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
 
         let account = self
             .target_solana_client
@@ -180,8 +177,14 @@ impl super::TxBuilder {
     }
 
     /// Fetch the minimum required signatures from the attestation light client on Solana.
-    pub(crate) fn attestation_client_min_sigs(&self, client_id: &str) -> Result<usize> {
-        Ok(self.attestation_client_state(client_id)?.min_required_sigs as usize)
+    pub(crate) fn attestation_client_min_sigs(
+        &self,
+        client_id: &str,
+        light_client_program_id: Pubkey,
+    ) -> Result<usize> {
+        Ok(self
+            .attestation_client_state(client_id, light_client_program_id)?
+            .min_required_sigs as usize)
     }
 
     /// Fetch the attestation consensus state timestamp at a given height (in seconds).
@@ -189,18 +192,15 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         height: u64,
+        light_client_program_id: Pubkey,
     ) -> Result<u64> {
         use solana_ibc_types::attestation::{
             ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
         };
 
-        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
-            .parse()
-            .context("Invalid ATTESTATION_LIGHT_CLIENT_ID constant")?;
-
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, attestation_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
         let (consensus_state_pda, _) =
-            AttestationConsensusState::pda(client_state_pda, height, attestation_program_id);
+            AttestationConsensusState::pda(client_state_pda, height, light_client_program_id);
 
         let account = self
             .target_solana_client

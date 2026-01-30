@@ -775,10 +775,15 @@ impl AttestedTxBuilder {
             return Ok((vec![], None));
         }
 
+        // Resolve light client program ID for the destination client
+        let light_client_program_id = self
+            .tx_builder
+            .resolve_client_program_id(&params.dst_client_id)?;
+
         // Get current attestation client state to check if update is needed
         let client_state = self
             .tx_builder
-            .attestation_client_state(&params.dst_client_id)?;
+            .attestation_client_state(&params.dst_client_id, light_client_program_id)?;
         let current_height = client_state.latest_height;
 
         let max_height = params
@@ -795,7 +800,11 @@ impl AttestedTxBuilder {
         // Check if timestamp update is needed for timeouts
         let consensus_ts = max_timeout_ts.and_then(|_| {
             self.tx_builder
-                .attestation_consensus_state_timestamp_secs(&params.dst_client_id, current_height)
+                .attestation_consensus_state_timestamp_secs(
+                    &params.dst_client_id,
+                    current_height,
+                    light_client_program_id,
+                )
                 .ok()
         });
 
@@ -902,7 +911,10 @@ impl AttestedTxBuilder {
             target_height
         );
 
-        let min_sigs = self.tx_builder.attestation_client_min_sigs(dst_client_id)?;
+        let light_client_program_id = self.tx_builder.resolve_client_program_id(dst_client_id)?;
+        let min_sigs = self
+            .tx_builder
+            .attestation_client_min_sigs(dst_client_id, light_client_program_id)?;
         tracing::info!("Attestation client requires {} signatures", min_sigs);
 
         // Get state attestation from aggregator
@@ -923,8 +935,12 @@ impl AttestedTxBuilder {
         tracing::info!("Proof bytes size: {} bytes", proof_bytes.len());
 
         // Build the update_client instruction for attestation light client
-        let update_tx =
-            self.build_attestation_update_client_tx(dst_client_id, target_height, proof_bytes)?;
+        let update_tx = self.build_attestation_update_client_tx(
+            dst_client_id,
+            target_height,
+            proof_bytes,
+            light_client_program_id,
+        )?;
 
         tracing::info!("Update transaction size: {} bytes", update_tx.len());
 
@@ -944,6 +960,7 @@ impl AttestedTxBuilder {
         client_id: &str,
         new_height: u64,
         proof: Vec<u8>,
+        light_client_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         use sha2::{Digest, Sha256};
         use solana_ibc_types::attestation::{
@@ -951,14 +968,10 @@ impl AttestedTxBuilder {
             ConsensusState as AttestationConsensusState,
         };
 
-        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
-            .parse()
-            .context("Invalid ATTESTATION_LIGHT_CLIENT_ID constant")?;
-
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, attestation_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
         let (new_consensus_state_pda, _) =
-            AttestationConsensusState::pda(client_state_pda, new_height, attestation_program_id);
-        let (app_state_pda, _) = AttestationAppState::pda(attestation_program_id);
+            AttestationConsensusState::pda(client_state_pda, new_height, light_client_program_id);
+        let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
 
         let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
         let (access_manager_pda, _) = Pubkey::find_program_address(
@@ -993,7 +1006,7 @@ impl AttestedTxBuilder {
             .context("Failed to serialize UpdateClientParams")?;
 
         let instruction = solana_sdk::instruction::Instruction {
-            program_id: attestation_program_id,
+            program_id: light_client_program_id,
             accounts: vec![
                 solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
                 solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
