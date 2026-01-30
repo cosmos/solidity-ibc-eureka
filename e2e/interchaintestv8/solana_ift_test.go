@@ -54,6 +54,15 @@ type IbcEurekaSolanaIFTTestSuite struct {
 	IFTBridge            solanago.PublicKey
 	SenderTokenAccount   solanago.PublicKey
 	ReceiverTokenAccount solanago.PublicKey
+
+	CosmosUser ibc.Wallet // Primary user for IFT operations
+
+	GMPAppStatePDA    solanago.PublicKey
+	RouterStatePDA    solanago.PublicKey
+	IBCClientPDA      solanago.PublicKey
+	GMPIBCAppPDA      solanago.PublicKey
+	ClientSequencePDA solanago.PublicKey
+	AccessManagerPDA  solanago.PublicKey
 }
 
 // IFTMint returns the mint public key
@@ -92,6 +101,16 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Wfchain = s.Cosmos.Chains[0]
 	s.CosmosSubmitter = s.CreateAndFundCosmosUser(ctx, s.Wfchain)
+	s.CosmosUser = s.Cosmos.Users[0]
+
+	s.initializeICS27GMP(ctx)
+
+	s.GMPAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+	s.RouterStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+	s.AccessManagerPDA, _ = solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 }
 
 // createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
@@ -148,8 +167,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 		bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, s.IFTMintBytes(), []byte(clientID))
 		s.IFTBridge = bridgePDA
 
-		accessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-
 		// Query the ICA address on Cosmos for the IFT program
 		// When IFT calls GMP via CPI, the sender is the IFT program ID (not the user)
 		// This is similar to Ethereum where the IFT contract address is the sender
@@ -178,7 +195,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			registerMsg,
 			s.IFTAppState,
 			bridgePDA,
-			accessManagerPDA,
+			s.AccessManagerPDA,
 			s.SolanaRelayer.PublicKey(),       // Authority
 			solanago.SysVarInstructionsPubkey, // Instructions sysvar
 			s.SolanaRelayer.PublicKey(),       // Payer
@@ -236,17 +253,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, min
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
-
-	cosmosUser := s.Cosmos.Users[0]
 
 	var cosmosDenom string
 	s.Require().True(s.Run("Create and mint tokenfactory denom", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
 		// Mint tokens on Cosmos that will be transferred to Solana
-		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), cosmosUser.FormattedAddress())
+		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), s.CosmosUser.FormattedAddress())
 
-		balance, err := s.Wfchain.GetBalance(ctx, cosmosUser.FormattedAddress(), cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
 		s.Require().NoError(err)
 		s.Require().Equal(sdkmath.NewInt(int64(IFTMintAmount)), balance)
 	}))
@@ -286,8 +300,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 			timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 			receiverPubkey := s.SolanaRelayer.PublicKey()
 
-			resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
-				Signer:           cosmosUser.FormattedAddress(),
+			resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
+				Signer:           s.CosmosUser.FormattedAddress(),
 				Denom:            cosmosDenom,
 				ClientId:         testvalues.FirstWasmClientID,
 				Receiver:         receiverPubkey.String(),
@@ -335,14 +349,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 	var transferTxSig solanago.Signature
 	var baseSequence uint64
 	s.Require().True(s.Run("Execute IFT Transfer", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
-		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-		ibcClientPDA, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-
 		var err error
-		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
 		s.Require().NoError(err)
 
 		namespacedSequence := solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
@@ -358,7 +366,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
-			Receiver:         cosmosUser.FormattedAddress(),
+			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
 			TimeoutTimestamp: timeoutTimestamp,
 		}
@@ -366,9 +374,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTBridge, s.IFTMint(), senderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
-			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, gmpAppStatePDA,
-			ics26_router.ProgramID, routerStatePDA, clientSequencePDA, packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey, gmpIbcAppPDA, ibcClientPDA, pendingTransferPDA,
+			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
+			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -405,7 +413,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens minted on wfchain", func() {
-		balance, err := s.Wfchain.GetBalance(ctx, cosmosUser.FormattedAddress(), cosmosDenom)
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
 		s.Require().NoError(err)
 		expectedAmount := sdkmath.NewInt(int64(IFTTransferAmount))
 		s.Require().True(balance.Equal(expectedAmount), "expected %s, got %s", expectedAmount, balance)
@@ -454,8 +462,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 			timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 			receiverPubkey := s.SolanaRelayer.PublicKey()
 
-			resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
-				Signer:           cosmosUser.FormattedAddress(),
+			resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
+				Signer:           s.CosmosUser.FormattedAddress(),
 				Denom:            cosmosDenom,
 				ClientId:         testvalues.FirstWasmClientID,
 				Receiver:         receiverPubkey.String(),
@@ -468,7 +476,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 		}))
 
 		s.Require().True(s.Run("Verify wfchain balance burned", func() {
-			balance, err := s.Wfchain.GetBalance(ctx, cosmosUser.FormattedAddress(), cosmosDenom)
+			balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
 			s.Require().NoError(err)
 			s.Require().True(balance.IsZero(), "expected 0 after burn, got %s", balance)
 		}))
@@ -522,15 +530,13 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RoundtripTransferFromCosmos() {
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
 
 	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 	}))
 
-	cosmosUser := s.Cosmos.Users[0]
-	s.registerSolanaIFTBridge(ctx, SolanaClientID, cosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
+	s.registerSolanaIFTBridge(ctx, SolanaClientID, s.CosmosUser.FormattedAddress(), testvalues.IFTTestDenom)
 
 	var receiverTokenAccount solanago.PublicKey
 	receiverPubkey := s.SolanaRelayer.PublicKey()
@@ -556,7 +562,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 		gmpAccountPDA, _ := solana.Ics27Gmp.GmpAccountPDA(
 			ics27_gmp.ProgramID,
 			[]byte(SolanaClientID),
-			[]byte(cosmosUser.FormattedAddress()),
+			[]byte(s.CosmosUser.FormattedAddress()),
 			[]byte{},
 		)
 
@@ -599,9 +605,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
 
-		resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+		resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 2_000_000, &gmptypes.MsgSendCall{
 			SourceClient:     CosmosClientID,
-			Sender:           cosmosUser.FormattedAddress(),
+			Sender:           s.CosmosUser.FormattedAddress(),
 			Receiver:         ift.ProgramID.String(),
 			Salt:             []byte{},
 			Payload:          payloadBytes,
@@ -655,7 +661,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 		}))
 
 		s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-			_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, cosmosUser, CosmosDefaultGasLimit, ackRelayTxBodyBz)
+			_ = s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosUser, CosmosDefaultGasLimit, ackRelayTxBodyBz)
 		}))
 	}))
 }
@@ -664,7 +670,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaTransfer() {
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
 
 	s.Require().True(s.Run("Create IFT SPL token (creates mint)", func() {
 		s.IFTMintWallet = solanago.NewWallet()
@@ -705,7 +710,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminSetupFlow() {
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
 
 	var iftMintAuthorityPDA solanago.PublicKey
 	s.Require().True(s.Run("Create IFT SPL token", func() {
@@ -727,14 +731,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 	}))
 
 	s.Require().True(s.Run("Revoke mint authority", func() {
-		accessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-
 		revokeIx, err := ift.NewRevokeMintAuthorityInstruction(
 			s.IFTAppState,
 			s.IFTMint(),
 			iftMintAuthorityPDA,
 			newAuthorityWallet.PublicKey(),
-			accessManagerPDA,
+			s.AccessManagerPDA,
 			s.SolanaRelayer.PublicKey(), // admin
 			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SysVarInstructionsPubkey,
@@ -778,15 +780,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
-
-	cosmosUser := s.Cosmos.Users[0]
 
 	// Create and mint tokenfactory tokens on Cosmos
 	var cosmosDenom string
 	s.Require().True(s.Run("Create and mint tokenfactory denom", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
-		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), cosmosUser.FormattedAddress())
+		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), s.CosmosUser.FormattedAddress())
 	}))
 
 	// Create IFT SPL token and create sender token account
@@ -812,8 +811,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	// Seed Solana with tokens via transfer from Cosmos
 	s.Require().True(s.Run("Seed Solana with tokens from Cosmos", func() {
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
-		resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
-			Signer:           cosmosUser.FormattedAddress(),
+		resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
+			Signer:           s.CosmosUser.FormattedAddress(),
 			Denom:            cosmosDenom,
 			ClientId:         testvalues.FirstWasmClientID,
 			Receiver:         s.SolanaRelayer.PublicKey().String(),
@@ -848,14 +847,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	var solanaPacketTxHash []byte
 	var baseSequence uint64
 	s.Require().True(s.Run("Execute Transfer with Short Timeout", func() {
-		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
-		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(IFTPortID))
-		ibcClientPDA, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-
 		var err error
-		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
 		s.Require().NoError(err)
 
 		namespacedSequence := solana.CalculateNamespacedSequence(
@@ -878,7 +871,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
-			Receiver:         cosmosUser.FormattedAddress(),
+			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
 			TimeoutTimestamp: timeoutTimestamp,
 		}
@@ -894,14 +887,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 			token.ProgramID,
 			solanago.SystemProgramID,
 			ics27_gmp.ProgramID,
-			gmpAppStatePDA,
+			s.GMPAppStatePDA,
 			ics26_router.ProgramID,
-			routerStatePDA,
-			clientSequencePDA,
+			s.RouterStatePDA,
+			s.ClientSequencePDA,
 			packetCommitmentPDA,
 			solanago.SysVarInstructionsPubkey,
-			gmpIbcAppPDA,
-			ibcClientPDA,
+			s.GMPIBCAppPDA,
+			s.IBCClientPDA,
 			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
@@ -976,15 +969,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
-	s.initializeICS27GMP(ctx)
-
-	cosmosUser := s.Cosmos.Users[0]
 
 	// Create and mint tokenfactory tokens on Cosmos
 	var cosmosDenom string
 	s.Require().True(s.Run("Create and mint tokenfactory denom", func() {
 		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
-		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), cosmosUser.FormattedAddress())
+		s.mintTokenFactory(ctx, s.CosmosSubmitter, cosmosDenom, sdkmath.NewInt(int64(IFTMintAmount)), s.CosmosUser.FormattedAddress())
 	}))
 
 	// Create IFT SPL token and create sender token account
@@ -1006,8 +996,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 
 		timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
-		resp, err := s.BroadcastMessages(ctx, s.Wfchain, cosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
-			Signer:           cosmosUser.FormattedAddress(),
+		resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
+			Signer:           s.CosmosUser.FormattedAddress(),
 			Denom:            cosmosDenom,
 			ClientId:         testvalues.FirstWasmClientID,
 			Receiver:         s.SolanaRelayer.PublicKey().String(),
@@ -1044,7 +1034,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			DstClientId: CosmosClientID,
 		})
 		s.Require().NoError(err)
-		s.MustBroadcastSdkTxBody(ctx, s.Wfchain, cosmosUser, 2_000_000, ackResp.Tx)
+		s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosUser, 2_000_000, ackResp.Tx)
 		s.T().Log("Seeding ack relayed back to Cosmos")
 	}))
 
@@ -1065,14 +1055,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	var transferTxSig solanago.Signature
 	var baseSequence uint64
 	s.Require().True(s.Run("Execute Transfer", func() {
-		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
-		gmpIbcAppPDA, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(IFTPortID))
-		ibcClientPDA, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-
 		var err error
-		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
+		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
 		s.Require().NoError(err)
 
 		namespacedSequence := solana.CalculateNamespacedSequence(
@@ -1093,7 +1077,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
-			Receiver:         cosmosUser.FormattedAddress(),
+			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
 			TimeoutTimestamp: timeoutTimestamp,
 		}
@@ -1109,14 +1093,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			token.ProgramID,
 			solanago.SystemProgramID,
 			ics27_gmp.ProgramID,
-			gmpAppStatePDA,
+			s.GMPAppStatePDA,
 			ics26_router.ProgramID,
-			routerStatePDA,
-			clientSequencePDA,
+			s.RouterStatePDA,
+			s.ClientSequencePDA,
 			packetCommitmentPDA,
 			solanago.SysVarInstructionsPubkey,
-			gmpIbcAppPDA,
-			ibcClientPDA,
+			s.GMPIBCAppPDA,
+			s.IBCClientPDA,
 			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
