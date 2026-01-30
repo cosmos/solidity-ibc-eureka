@@ -353,10 +353,7 @@ mod tests {
         );
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(
-            result.program_result.is_err(),
-            "claim_refund should fail when GMP result sender doesn't match IFT program"
-        );
+        assert!(result.program_result.is_err());
     }
 
     #[test]
@@ -371,10 +368,7 @@ mod tests {
         );
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(
-            result.program_result.is_err(),
-            "claim_refund should fail when GMP result client ID doesn't match"
-        );
+        assert!(result.program_result.is_err());
     }
 
     #[test]
@@ -389,10 +383,7 @@ mod tests {
         );
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(
-            result.program_result.is_err(),
-            "claim_refund should fail when GMP result sequence doesn't match"
-        );
+        assert!(result.program_result.is_err());
     }
 
     #[test]
