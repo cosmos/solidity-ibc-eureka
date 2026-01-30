@@ -21,6 +21,27 @@ use solana_ibc_types::{
 use super::TimeoutAccountsParams;
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 
+/// Derives client state and consensus state PDAs based on client type.
+fn derive_light_client_pdas(
+    client_id: &str,
+    chain_id: &str,
+    height: u64,
+    light_client_program_id: Pubkey,
+) -> (Pubkey, Pubkey) {
+    match solana_ibc_constants::client_type_from_id(client_id) {
+        Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
+            let (cs, _) = AttestationClientState::pda(client_id, light_client_program_id);
+            let (cons, _) = AttestationConsensusState::pda(cs, height, light_client_program_id);
+            (cs, cons)
+        }
+        Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
+            let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
+            let (cons, _) = ConsensusState::pda(cs, height, light_client_program_id);
+            (cs, cons)
+        }
+    }
+}
+
 /// Extracted payload info for recv packet processing.
 struct RecvPayloadInfo<'a> {
     dest_port: &'a str,
@@ -111,29 +132,12 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
-
-        // Determine client type from client ID prefix
-        let (client_state, consensus_state) =
-            match solana_ibc_constants::client_type_from_id(&msg.packet.dest_client) {
-                Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-                    let (cs, _) = AttestationClientState::pda(
-                        &msg.packet.dest_client,
-                        light_client_program_id,
-                    );
-                    let (cons, _) = AttestationConsensusState::pda(
-                        cs,
-                        msg.proof.height,
-                        light_client_program_id,
-                    );
-                    (cs, cons)
-                }
-                Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-                    let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
-                    let (cons, _) =
-                        ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
-                    (cs, cons)
-                }
-            };
+        let (client_state, consensus_state) = derive_light_client_pdas(
+            &msg.packet.dest_client,
+            chain_id,
+            msg.proof.height,
+            light_client_program_id,
+        );
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(payload_info.dest_port, ibc_app_program_id);
@@ -218,31 +222,13 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-
         let chain_id = self.chain_id().await?;
-
-        // Determine client type from client ID prefix
-        let (client_state, consensus_state) =
-            match solana_ibc_constants::client_type_from_id(&msg.packet.source_client) {
-                Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-                    let (cs, _) = AttestationClientState::pda(
-                        &msg.packet.source_client,
-                        light_client_program_id,
-                    );
-                    let (cons, _) = AttestationConsensusState::pda(
-                        cs,
-                        msg.proof.height,
-                        light_client_program_id,
-                    );
-                    (cs, cons)
-                }
-                Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-                    let (cs, _) = ClientState::pda(&chain_id, light_client_program_id);
-                    let (cons, _) =
-                        ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
-                    (cs, cons)
-                }
-            };
+        let (client_state, consensus_state) = derive_light_client_pdas(
+            &msg.packet.source_client,
+            &chain_id,
+            msg.proof.height,
+            light_client_program_id,
+        );
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -347,29 +333,12 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-
-        // Determine client type from client ID prefix
-        let (client_state, consensus_state) =
-            match solana_ibc_constants::client_type_from_id(&msg.packet.source_client) {
-                Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-                    let (cs, _) = AttestationClientState::pda(
-                        &msg.packet.source_client,
-                        light_client_program_id,
-                    );
-                    let (cons, _) = AttestationConsensusState::pda(
-                        cs,
-                        msg.proof.height,
-                        light_client_program_id,
-                    );
-                    (cs, cons)
-                }
-                Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-                    let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
-                    let (cons, _) =
-                        ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
-                    (cs, cons)
-                }
-            };
+        let (client_state, consensus_state) = derive_light_client_pdas(
+            &msg.packet.source_client,
+            chain_id,
+            msg.proof.height,
+            light_client_program_id,
+        );
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
