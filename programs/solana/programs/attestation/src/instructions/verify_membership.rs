@@ -5,7 +5,6 @@ use crate::helpers::{
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::MembershipMsg;
 
 #[derive(Accounts)]
@@ -65,14 +64,6 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
         packet.commitment == value_hash,
         ErrorCode::CommitmentMismatch
     );
-
-    // The router calls this light client via CPI and reads the returned timestamp
-    // via get_return_data() to perform timeout checks against packet expiration
-    let timestamp_bytes = consensus_state_store
-        .consensus_state
-        .timestamp
-        .to_le_bytes();
-    set_return_data(&timestamp_bytes);
 
     Ok(())
 }
