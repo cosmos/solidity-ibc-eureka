@@ -471,9 +471,9 @@ mod tests {
 
     #[derive(Clone)]
     enum PdaMismatchCase {
-        WrongSender(&'static str),
-        WrongSalt(Vec<u8>),
-        WrongClient(&'static str),
+        Sender(&'static str),
+        Salt(Vec<u8>),
+        Client(&'static str),
     }
 
     fn run_pda_mismatch_test(case: PdaMismatchCase) {
@@ -485,13 +485,9 @@ mod tests {
 
         // Determine packet values (one will be wrong) and PDA values (all correct)
         let (packet_client_id, packet_sender, packet_salt) = match &case {
-            PdaMismatchCase::WrongSender(wrong) => {
-                (original_client_id, *wrong, original_salt.clone())
-            }
-            PdaMismatchCase::WrongSalt(wrong) => {
-                (original_client_id, original_sender, wrong.clone())
-            }
-            PdaMismatchCase::WrongClient(wrong) => (*wrong, original_sender, original_salt.clone()),
+            PdaMismatchCase::Sender(wrong) => (original_client_id, *wrong, original_salt.clone()),
+            PdaMismatchCase::Salt(wrong) => (original_client_id, original_sender, wrong.clone()),
+            PdaMismatchCase::Client(wrong) => (*wrong, original_sender, original_salt.clone()),
         };
 
         // Derive the correct PDA using original values
@@ -550,9 +546,9 @@ mod tests {
     }
 
     #[rstest]
-    #[case::wrong_sender(PdaMismatchCase::WrongSender("cosmos1attacker"))]
-    #[case::wrong_salt(PdaMismatchCase::WrongSalt(vec![4u8, 5, 6]))]
-    #[case::wrong_client(PdaMismatchCase::WrongClient("different-client"))]
+    #[case::wrong_sender(PdaMismatchCase::Sender("cosmos1attacker"))]
+    #[case::wrong_salt(PdaMismatchCase::Salt(vec![4u8, 5, 6]))]
+    #[case::wrong_client(PdaMismatchCase::Client("different-client"))]
     fn test_on_recv_packet_pda_mismatch(#[case] case: PdaMismatchCase) {
         run_pda_mismatch_test(case);
     }
