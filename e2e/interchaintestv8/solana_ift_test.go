@@ -81,8 +81,6 @@ const (
 	IFTTransferAmount = uint64(1_000_000)  // 1 token with 6 decimals
 )
 
-var associatedTokenProgramID = solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
-
 func TestWithIbcEurekaSolanaIFTTestSuite(t *testing.T) {
 	s := &IbcEurekaSolanaIFTTestSuite{}
 	suite.Run(t, s)
@@ -1056,14 +1054,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens burned", func() {
-		burnedBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
+		burnedBalance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(initialBalance-IFTTransferAmount, burnedBalance, "Tokens should be burned after transfer")
 	}))
 
 	s.Require().True(s.Run("Verify PendingTransfer PDA exists before relay", func() {
 		namespacedSequence := solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
-		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(), ift.ProgramID, s.IFTMint(), SolanaClientID, namespacedSequence)
+		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(), ift.ProgramID, mint, SolanaClientID, namespacedSequence)
 	}))
 
 	var cosmosRecvTxHash string
@@ -1109,7 +1107,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens refunded", func() {
-		finalBalance, err := s.Solana.Chain.GetTokenBalance(ctx, senderTokenAccount)
+		finalBalance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(initialBalance, finalBalance, "Tokens should be refunded after error ack")
 	}))
@@ -1121,6 +1119,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			s.SolanaRelayer.PublicKey(),
 		)
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), SolanaClientID, namespacedSequence)
+			ift.ProgramID, mint, SolanaClientID, namespacedSequence)
 	}))
 }
