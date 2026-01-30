@@ -87,7 +87,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
 	}
 
-	s.UseMockWasmClient = true
 	s.IbcEurekaSolanaTestSuite.SetupSuite(ctx)
 
 	s.Wfchain = s.Cosmos.Chains[0]
