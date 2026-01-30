@@ -273,10 +273,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}
 
-	// sleep for 30 seconds to allow attestor to fully initialize
-	s.T().Log("Waiting 30 seconds for attestor to initialize...")
-	time.Sleep(30 * time.Second)
-
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
 		config := relayer.NewConfigBuilder().
