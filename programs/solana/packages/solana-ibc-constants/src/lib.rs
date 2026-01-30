@@ -16,6 +16,31 @@ pub const ICS07_TENDERMINT_ID: &str = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3
 /// Attestation Light Client Program ID on Solana
 pub const ATTESTATION_LIGHT_CLIENT_ID: &str = "F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe";
 
+/// Client type prefix for ICS07 Tendermint light client
+pub const CLIENT_TYPE_TENDERMINT: &str = "07-tendermint";
+
+/// Client type prefix for attestation light client
+pub const CLIENT_TYPE_ATTESTATION: &str = "attestation";
+
+/// Extracts the client type from a client ID.
+///
+/// IBC client IDs follow the format `{client_type}-{sequence}`.
+/// For example: `07-tendermint-0`, `attestation-0`.
+///
+/// Returns the client type prefix (everything before the last `-`).
+pub fn client_type_from_id(client_id: &str) -> Option<&str> {
+    client_id.rsplit_once('-').map(|(prefix, _)| prefix)
+}
+
+/// Returns the program ID string for a given client type.
+pub fn program_id_for_client_type(client_type: &str) -> Option<&'static str> {
+    match client_type {
+        CLIENT_TYPE_TENDERMINT => Some(ICS07_TENDERMINT_ID),
+        CLIENT_TYPE_ATTESTATION => Some(ATTESTATION_LIGHT_CLIENT_ID),
+        _ => None,
+    }
+}
+
 /// Maximum size of chunk data for multi-transaction uploads.
 /// Used by ics07-tendermint (header chunks) and ics26-router (payload/proof chunks).
 pub const CHUNK_DATA_SIZE: usize = 900;
