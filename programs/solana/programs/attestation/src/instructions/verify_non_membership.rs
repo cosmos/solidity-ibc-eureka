@@ -472,7 +472,7 @@ mod tests {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
 
         let path = b"test/path";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [0u8; 32])],
@@ -575,7 +575,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -624,7 +624,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         // Non-zero commitment - should fail non-membership check
         let non_zero_commitment = [0xAB; 32];
 
@@ -679,7 +679,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -731,7 +731,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -784,7 +784,7 @@ mod tests {
 
         // Attestation contains a different path
         let attested_path = b"ibc/commitments/channel-0/sequence/1";
-        let attested_path_hash = crate::helpers::hash_path(attested_path);
+        let attested_path_hash = crate::crypto::hash_path(attested_path);
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
@@ -836,7 +836,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         // Attestation has different height than consensus state
@@ -891,7 +891,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -946,7 +946,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -999,7 +999,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::helpers::hash_path(path);
+        let path_hash = crate::crypto::hash_path(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
