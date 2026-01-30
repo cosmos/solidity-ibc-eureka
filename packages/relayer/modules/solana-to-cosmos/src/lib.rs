@@ -7,6 +7,7 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
+use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
 use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
@@ -16,7 +17,6 @@ use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
 use ibc_eureka_relayer_lib::utils::RelayEventsParams;
-use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
