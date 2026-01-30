@@ -348,7 +348,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 	}))
 
 	s.Require().True(s.Run("Register IFT Bridges", func() {
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
 		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
@@ -454,7 +454,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 		resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
 			Signer:           s.CosmosUser.FormattedAddress(),
 			Denom:            cosmosDenom,
-			ClientId:         testvalues.FirstWasmClientID,
+			ClientId:         testvalues.FirstAttestationsClientID,
 			Receiver:         s.SolanaRelayer.PublicKey().String(),
 			Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 			TimeoutTimestamp: timeout,
@@ -539,7 +539,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 
 	mint := s.IFTMintWallet.PublicKey()
 	s.Require().True(s.Run("Register IFT Bridges", func() {
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
 		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
@@ -552,7 +552,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 		resp, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosUser, 200_000, &ifttypes.MsgIFTTransfer{
 			Signer:           s.CosmosUser.FormattedAddress(),
 			Denom:            cosmosDenom,
-			ClientId:         testvalues.FirstWasmClientID,
+			ClientId:         testvalues.FirstAttestationsClientID,
 			Receiver:         s.SolanaRelayer.PublicKey().String(),
 			Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 			TimeoutTimestamp: timeout,
@@ -827,7 +827,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 	}))
 
 	s.Require().True(s.Run("Register IFT Bridges", func() {
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
 		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
@@ -972,7 +972,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	}))
 
 	s.Require().True(s.Run("Register IFT Bridges", func() {
-		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstWasmClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
 		iftModuleAddr := s.getCosmosIFTModuleAddress()
 		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
 	}))
