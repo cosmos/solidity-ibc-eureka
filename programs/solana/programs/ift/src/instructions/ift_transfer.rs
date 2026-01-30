@@ -443,14 +443,13 @@ mod tests {
         assert_eq!(&amount_bytes[24..32], &u64::MAX.to_be_bytes());
     }
 
-    #[test]
-    fn test_construct_evm_mint_call_invalid_hex() {
-        assert!(construct_evm_mint_call("0xnothex", 100).is_err());
-    }
-
-    #[test]
-    fn test_construct_evm_mint_call_short_address() {
-        assert!(construct_evm_mint_call("0xabcd", 100).is_err());
+    #[rstest]
+    #[case::invalid_hex("0xnothex")]
+    #[case::short_address("0xabcd")]
+    #[case::empty_address("")]
+    #[case::only_prefix("0x")]
+    fn test_construct_evm_mint_call_invalid_receiver(#[case] invalid_receiver: &str) {
+        assert!(construct_evm_mint_call(invalid_receiver, 100).is_err());
     }
 
     #[test]
@@ -508,44 +507,67 @@ mod tests {
         assert!(result.is_err());
     }
 
-    #[test]
-    fn test_construct_mint_call_evm() {
-        let result = construct_mint_call(
-            &ChainOptions::Evm,
-            "0x1234567890abcdef1234567890abcdef12345678",
-            100,
-        );
-        assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 68);
+    #[derive(Clone)]
+    struct MintCallTestCase {
+        chain_options: ChainOptions,
+        receiver: &'static str,
+        expected_len: Option<usize>,
+        expected_content: Vec<&'static str>,
     }
 
-    #[test]
-    fn test_construct_mint_call_cosmos() {
-        let result = construct_mint_call(
-            &ChainOptions::Cosmos {
+    fn evm_test_case() -> MintCallTestCase {
+        MintCallTestCase {
+            chain_options: ChainOptions::Evm,
+            receiver: "0x1234567890abcdef1234567890abcdef12345678",
+            expected_len: Some(68),
+            expected_content: vec![],
+        }
+    }
+
+    fn cosmos_test_case() -> MintCallTestCase {
+        MintCallTestCase {
+            chain_options: ChainOptions::Cosmos {
                 denom: "uatom".to_string(),
                 type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
                 ica_address: "cosmos1icaaddress".to_string(),
             },
-            "cosmos1receiver",
-            100,
-        );
-        assert!(result.is_ok());
-        let json = String::from_utf8(result.unwrap()).unwrap();
-        assert!(json.contains("/cosmos.ift.v1.MsgIFTMint"));
-        assert!(json.contains("uatom"));
-        assert!(json.contains("cosmos1icaaddress"));
+            receiver: "cosmos1receiver",
+            expected_len: None,
+            expected_content: vec!["/cosmos.ift.v1.MsgIFTMint", "uatom", "cosmos1icaaddress"],
+        }
     }
 
-    #[test]
-    fn test_construct_mint_call_solana() {
-        let result = construct_mint_call(
-            &ChainOptions::Solana,
-            "11111111111111111111111111111111",
-            100,
-        );
+    fn solana_test_case() -> MintCallTestCase {
+        MintCallTestCase {
+            chain_options: ChainOptions::Solana,
+            receiver: "11111111111111111111111111111111",
+            expected_len: Some(48),
+            expected_content: vec![],
+        }
+    }
+
+    #[rstest]
+    #[case::evm(evm_test_case())]
+    #[case::cosmos(cosmos_test_case())]
+    #[case::solana(solana_test_case())]
+    fn test_construct_mint_call(#[case] test_case: MintCallTestCase) {
+        let result = construct_mint_call(&test_case.chain_options, test_case.receiver, 100);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().len(), 48);
+        let payload = result.unwrap();
+
+        if let Some(expected_len) = test_case.expected_len {
+            assert_eq!(payload.len(), expected_len);
+        }
+
+        if !test_case.expected_content.is_empty() {
+            let content = String::from_utf8(payload).unwrap();
+            for expected in test_case.expected_content {
+                assert!(
+                    content.contains(expected),
+                    "Expected to contain: {expected}"
+                );
+            }
+        }
     }
 
     fn create_token_account(
