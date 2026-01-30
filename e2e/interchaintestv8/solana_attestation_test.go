@@ -261,7 +261,8 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	cosmosChainID := simd.Config().ChainID
 
 	// Set AttestationClientID to a valid IBC identifier (8-64 chars required)
-	s.AttestationClientID = testvalues.CustomClientID
+	// Must use "attestations-N" format to match CLIENT_TYPE_ATTESTATION for proper PDA derivation
+	s.AttestationClientID = testvalues.FirstAttestationsClientID
 
 	// Create ALT for attestation client with attestation light client accounts
 	altAddress := s.Solana.Chain.CreateIBCAddressLookupTableWithAttestation(

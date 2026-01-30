@@ -16,8 +16,8 @@ pub const ICS07_TENDERMINT_ID: &str = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3
 /// Client type prefix for ICS07 Tendermint light client
 pub const CLIENT_TYPE_TENDERMINT: &str = "07-tendermint";
 
-/// Client type prefix for attestation light client
-pub const CLIENT_TYPE_ATTESTATION: &str = "attestation";
+/// Client type prefix for attestations light client (follows ibc-go convention)
+pub const CLIENT_TYPE_ATTESTATION: &str = "attestations";
 
 /// Extracts the client type from a client ID.
 ///
