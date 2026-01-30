@@ -196,8 +196,6 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -540,8 +538,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -771,8 +767,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1097,8 +1091,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -1394,8 +1386,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -1624,8 +1614,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -1804,8 +1792,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 // through the runtime and abort the entire transaction before any acknowledgment can be written.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -2038,7 +2024,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 

@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -38,6 +39,7 @@ import (
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -49,7 +51,7 @@ const (
 	// General
 	DefaultTimeoutSeconds = 30
 	SolanaClientID        = testvalues.CustomClientID
-	CosmosClientID        = testvalues.FirstWasmClientID
+	CosmosClientID        = testvalues.FirstAttestationsClientID
 	// Transfer App
 	OneSolInLamports   = 1_000_000_000            // 1 SOL in lamports
 	TestTransferAmount = OneSolInLamports / 1_000 // 0.001 SOL in lamports
@@ -73,9 +75,6 @@ type IbcEurekaSolanaTestSuite struct {
 	GMPCounterProgramID      solanago.PublicKey
 	DummyAppProgramID        solanago.PublicKey
 	MaliciousCallerProgramID solanago.PublicKey
-
-	// Mock configuration for tests
-	UseMockWasmClient bool
 
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
@@ -212,7 +211,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Log("Access control initialized")
 	}))
@@ -242,7 +241,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), grantRelayerRoleInstruction, grantIdCustomizerRoleInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Log("Granted RELAYER_ROLE and ID_CUSTOMIZER_ROLE to SolanaRelayer")
 	}))
@@ -254,7 +253,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaRelayer)
 		s.Require().NoError(err)
 	}))
 
@@ -266,25 +265,27 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
 
-	// Start relayer asynchronously - it can initialize while we set up IBC clients
-	type relayerStartResult struct {
-		process *os.Process
-		err     error
+	attestorResult := attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
+
+	if len(attestorResult.Endpoints) > 0 {
+		serverAddr := attestorResult.Endpoints[0][len("http://"):]
+		_, err := attestor.GetAttestationServiceClient(serverAddr)
+		s.Require().NoError(err)
 	}
-	relayerReady := make(chan relayerStartResult, 1)
 
-	go func() {
-		s.T().Log("Starting relayer asynchronously...")
-
+	var relayerProcess *os.Process
+	s.Require().True(s.Run("Start Relayer", func() {
 		config := relayer.NewConfigBuilder().
-			SolanaToCosmos(relayer.SolanaToCosmosParams{
-				SolanaChainID:  testvalues.SolanaChainID,
-				CosmosChainID:  simd.Config().ChainID,
-				SolanaRPC:      testvalues.SolanaLocalnetRPC,
-				TmRPC:          simd.GetHostRPCAddress(),
-				ICS26ProgramID: ics26_router.ProgramID.String(),
-				SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-				MockClient:     s.UseMockWasmClient,
+			SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+				SolanaChainID:     testvalues.SolanaChainID,
+				CosmosChainID:     simd.Config().ChainID,
+				SolanaRPC:         testvalues.SolanaLocalnetRPC,
+				TmRPC:             simd.GetHostRPCAddress(),
+				ICS26ProgramID:    ics26_router.ProgramID.String(),
+				SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+				AttestorEndpoints: attestorResult.Endpoints,
+				AttestorTimeout:   30000,
+				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
 			CosmosToSolana(relayer.CosmosToSolanaParams{
 				CosmosChainID:          simd.Config().ChainID,
@@ -295,22 +296,16 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:         ics26_router.ProgramID.String(),
 				FeePayer:               s.SolanaRelayer.PublicKey().String(),
 				ALTAddress:             s.SolanaAltAddress,
-				MockClient:             s.UseMockWasmClient,
+				MockClient:             true,
 				SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
 			}).
 			Build()
 
 		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
-		if err != nil {
-			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to generate config: %w", err)}
-			return
-		}
+		s.Require().NoError(err)
 
-		process, err := relayer.StartRelayer(testvalues.RelayerConfigFilePath)
-		if err != nil {
-			relayerReady <- relayerStartResult{nil, fmt.Errorf("failed to start relayer: %w", err)}
-			return
-		}
+		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.Require().NoError(err)
 
 		if s.SolanaAltAddress != "" {
 			s.T().Logf("Started relayer with ALT address: %s", s.SolanaAltAddress)
@@ -319,19 +314,19 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.RelayerConfigFilePath)
 		})
+	}))
 
-		relayerReady <- relayerStartResult{process, nil}
-		s.T().Log("Relayer startup complete")
-	}()
+	s.T().Cleanup(func() {
+		if relayerProcess != nil {
+			err := relayerProcess.Kill()
+			if err != nil {
+				s.T().Logf("Failed to kill the relayer process: %v", err)
+			}
+		}
+	})
 
 	// Wait for relayer to be ready and create client
 	s.Require().True(s.Run("Wait for Relayer and Create Client", func() {
-		s.T().Log("Waiting for relayer to be ready...")
-		result := <-relayerReady
-		s.Require().NoError(result.err, "Relayer failed to start")
-		s.RelayerProcess = result.process
-		s.T().Log("Relayer is ready")
-
 		// Create relayer gRPC client
 		var err error
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
@@ -377,20 +372,20 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				},
 			},
 			e2esuite.ParallelTask{
-				Name: "Create WASM client on Cosmos",
+				Name: "Create attestor client on Cosmos",
 				Run: func() error {
-					s.T().Log("Creating WASM Client on Cosmos...")
-
-					checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
-					if checksumHex == "" {
-						return fmt.Errorf("failed to store Solana light client")
-					}
-
+					currentFinalizedSlot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+					s.Require().NoError(err)
+					solanaTimestamp, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, currentFinalizedSlot)
+					s.Require().NoError(err)
 					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
 						SrcChain: testvalues.SolanaChainID,
 						DstChain: simd.Config().ChainID,
 						Parameters: map[string]string{
-							testvalues.ParameterKey_ChecksumHex: checksumHex,
+							testvalues.ParameterKey_AttestorAddresses: attestorResult.Addresses[0],
+							testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
+							testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
+							testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
 						},
 					})
 					if err != nil {
@@ -401,7 +396,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					}
 
 					txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
-					s.T().Logf("✓ WASM client created on Cosmos - tx: %s", txResp.TxHash)
+					s.T().Logf("✓ Attestor client created on Cosmos - tx: %s", txResp.TxHash)
 					return nil
 				},
 			},
@@ -474,11 +469,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 }
 
-// Tests
 func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 
@@ -582,8 +574,6 @@ func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
@@ -766,8 +756,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
@@ -961,7 +949,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CosmosToSolanaTransfer_WithPreVerify() {
 func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThreshold *int) {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SkipPreVerifyThreshold = skipPreVerifyThreshold
 
 	s.SetupSuite(ctx)
@@ -1128,7 +1115,6 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
 
@@ -1407,7 +1393,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
 
@@ -1588,7 +1573,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 
 func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign() {
 	ctx := context.Background()
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 
 	simd := s.Cosmos.Chains[0]

@@ -91,7 +91,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		chainconfig.WfchainChainSpec("wfchain-1", "wfchain-1"),
 	}
 
-	s.UseMockWasmClient = true
 	s.IbcEurekaSolanaTestSuite.SetupSuite(ctx)
 
 	s.Wfchain = s.Cosmos.Chains[0]
@@ -983,7 +982,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		msg := &ifttypes.MsgRemoveIFTBridge{
 			Signer:   govModuleAddr,
 			Denom:    cosmosDenom,
-			ClientId: testvalues.FirstWasmClientID,
+			ClientId: testvalues.FirstAttestationsClientID,
 		}
 		err := s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
 		s.Require().NoError(err)

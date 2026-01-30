@@ -65,7 +65,6 @@ func TestWithIbcEurekaSolanaUpgradeTestSuite(t *testing.T) {
 func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 
 	s.Require().True(s.Run("Setup: Create upgrader wallet", func() {
@@ -270,9 +269,6 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 // Test_RevokeAdminRole demonstrates that revoking ADMIN_ROLE from an account prevents upgrades
 func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 	ctx := context.Background()
-
-	// Enable mock WASM client to avoid relayer unimplemented panic
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 
