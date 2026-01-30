@@ -9,6 +9,9 @@ use solana_sdk::{
 };
 
 use crate::gmp;
+use solana_ibc_types::attestation::{
+    ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
+};
 use solana_ibc_types::ics07::{ClientState, ConsensusState};
 use solana_ibc_types::{
     router::{router_instructions, Client, Commitment, IBCApp, IBCAppState, RouterState},
@@ -106,11 +109,27 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
 
-        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
 
-        let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
-        let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
+        // Check if this is an attestation light client
+        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
+            .parse()
+            .expect("ATTESTATION_LIGHT_CLIENT_ID is a valid pubkey");
+
+        let (client_state, consensus_state) = if light_client_program_id == attestation_program_id {
+            // Attestation client uses client_id for PDA derivation
+            let (cs, _) =
+                AttestationClientState::pda(&msg.packet.dest_client, light_client_program_id);
+            let (cons, _) =
+                AttestationConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        } else {
+            // ICS07 Tendermint uses chain_id for PDA derivation
+            let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
+            let (cons, _) = ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        };
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(payload_info.dest_port, ibc_app_program_id);
@@ -130,7 +149,7 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(solana_ics07_program_id, false),
+            AccountMeta::new_readonly(light_client_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -193,12 +212,29 @@ impl super::TxBuilder {
         );
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
-        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+        // Resolve the light client program ID for this client
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
 
         let chain_id = self.chain_id().await?;
-        let (client_state, _) = ClientState::pda(&chain_id, solana_ics07_program_id);
-        let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
+
+        // Check if this is an attestation light client
+        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
+            .parse()
+            .expect("ATTESTATION_LIGHT_CLIENT_ID is a valid pubkey");
+
+        let (client_state, consensus_state) = if light_client_program_id == attestation_program_id {
+            // Attestation client uses client_id for PDA derivation
+            let (cs, _) =
+                AttestationClientState::pda(&msg.packet.source_client, light_client_program_id);
+            let (cons, _) =
+                AttestationConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        } else {
+            // ICS07 Tendermint uses chain_id for PDA derivation
+            let (cs, _) = ClientState::pda(&chain_id, light_client_program_id);
+            let (cons, _) = ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        };
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -215,7 +251,7 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(solana_ics07_program_id, false),
+            AccountMeta::new_readonly(light_client_program_id, false),
             AccountMeta::new_readonly(client_state, false),
             AccountMeta::new_readonly(consensus_state, false),
         ];
@@ -302,10 +338,26 @@ impl super::TxBuilder {
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
         // Resolve the light client program ID for this client
-        let solana_ics07_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let (client_state, _) = ClientState::pda(chain_id, solana_ics07_program_id);
-        let (consensus_state, _) =
-            ConsensusState::pda(client_state, msg.proof.height, solana_ics07_program_id);
+        let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
+
+        // Check if this is an attestation light client
+        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
+            .parse()
+            .expect("ATTESTATION_LIGHT_CLIENT_ID is a valid pubkey");
+
+        let (client_state, consensus_state) = if light_client_program_id == attestation_program_id {
+            // Attestation client uses client_id for PDA derivation
+            let (cs, _) =
+                AttestationClientState::pda(&msg.packet.source_client, light_client_program_id);
+            let (cons, _) =
+                AttestationConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        } else {
+            // ICS07 Tendermint uses chain_id for PDA derivation
+            let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
+            let (cons, _) = ConsensusState::pda(cs, msg.proof.height, light_client_program_id);
+            (cs, cons)
+        };
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -322,7 +374,7 @@ impl super::TxBuilder {
             consensus_state,
             fee_payer: self.fee_payer,
             router_program_id: self.solana_ics26_program_id,
-            light_client_program_id: solana_ics07_program_id,
+            light_client_program_id,
             chunk_accounts,
         }))
     }

@@ -152,6 +152,71 @@ impl super::TxBuilder {
         Ok(client_state)
     }
 
+    /// Fetch the attestation light client state from Solana.
+    pub(crate) fn attestation_client_state(
+        &self,
+        client_id: &str,
+    ) -> Result<solana_ibc_types::attestation::ClientState> {
+        use solana_ibc_types::attestation::ClientState as AttestationClientState;
+
+        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
+            .parse()
+            .context("Invalid ATTESTATION_LIGHT_CLIENT_ID constant")?;
+
+        let (client_state_pda, _) = AttestationClientState::pda(client_id, attestation_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&client_state_pda, CommitmentConfig::confirmed())
+            .context("Failed to fetch attestation client state account")?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("Attestation client state account not found"))?;
+
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let client_state = AttestationClientState::deserialize(&mut data)
+            .context("Failed to deserialize attestation client state")?;
+
+        Ok(client_state)
+    }
+
+    /// Fetch the minimum required signatures from the attestation light client on Solana.
+    pub(crate) fn attestation_client_min_sigs(&self, client_id: &str) -> Result<usize> {
+        Ok(self.attestation_client_state(client_id)?.min_required_sigs as usize)
+    }
+
+    /// Fetch the attestation consensus state timestamp at a given height (in seconds).
+    pub(crate) fn attestation_consensus_state_timestamp_secs(
+        &self,
+        client_id: &str,
+        height: u64,
+    ) -> Result<u64> {
+        use solana_ibc_types::attestation::{
+            ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
+        };
+
+        let attestation_program_id: Pubkey = solana_ibc_constants::ATTESTATION_LIGHT_CLIENT_ID
+            .parse()
+            .context("Invalid ATTESTATION_LIGHT_CLIENT_ID constant")?;
+
+        let (client_state_pda, _) = AttestationClientState::pda(client_id, attestation_program_id);
+        let (consensus_state_pda, _) =
+            AttestationConsensusState::pda(client_state_pda, height, attestation_program_id);
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&consensus_state_pda, CommitmentConfig::confirmed())
+            .context("Failed to fetch attestation consensus state account")?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("Attestation consensus state account not found"))?;
+
+        let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
+        let consensus_state = AttestationConsensusState::deserialize(&mut data)
+            .context("Failed to deserialize attestation consensus state")?;
+
+        // Attestation consensus state stores timestamp in seconds (not nanoseconds)
+        Ok(consensus_state.timestamp)
+    }
+
     pub(crate) fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
         if instructions.is_empty() {
             anyhow::bail!("No instructions to execute on Solana");

@@ -68,3 +68,4 @@ pub mod cosmos_attested;
 pub mod eth_attested;
 pub mod eth_eureka;
 pub mod solana;
+pub mod solana_attested;

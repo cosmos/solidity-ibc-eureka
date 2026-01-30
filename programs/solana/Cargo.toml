@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "programs/access-manager",
+  "programs/attestation",
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/ics27-gmp",
