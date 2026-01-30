@@ -323,7 +323,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 		currentTime := time.Now().Unix()
 
-		// Convert attestor addresses to checksummed format (EIP-55)
+		// TODO: remove, simplify
 		checksummedAddrs := make([]string, len(s.AttestorAddresses))
 		for i, addr := range s.AttestorAddresses {
 			checksummedAddrs[i] = ethcommon.HexToAddress(addr).Hex()
