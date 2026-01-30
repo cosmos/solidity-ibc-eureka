@@ -265,20 +265,17 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
 
-	var attestorResult attestor.SetupResult
-	s.Require().True(s.Run("Start 1 Solana attestor", func() {
-		attestorResult = attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
+	attestorResult := attestor.SetupSolanaAttestors(ctx, s.T(), s.GetDockerClient(), s.GetNetworkID(), testvalues.SolanaLocalnetRPC, ics26_router.ProgramID.String())
 
-		if len(attestorResult.Endpoints) > 0 {
-			serverAddr := attestorResult.Endpoints[0][len("http://"):]
-			_, err := attestor.GetAttestationServiceClient(serverAddr)
-			s.Require().NoError(err)
-		}
+	if len(attestorResult.Endpoints) > 0 {
+		serverAddr := attestorResult.Endpoints[0][len("http://"):]
+		_, err := attestor.GetAttestationServiceClient(serverAddr)
+		s.Require().NoError(err)
+	}
 
-		// sleep for 30 seconds to allow attestor to fully initialize
-		s.T().Log("Waiting 30 seconds for attestor to initialize...")
-		time.Sleep(30 * time.Second)
-	}))
+	// sleep for 30 seconds to allow attestor to fully initialize
+	s.T().Log("Waiting 30 seconds for attestor to initialize...")
+	time.Sleep(30 * time.Second)
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
