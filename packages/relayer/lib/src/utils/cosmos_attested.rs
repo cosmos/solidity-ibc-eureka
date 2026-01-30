@@ -541,9 +541,9 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
     if timeout_packets.is_empty() {
         tracing::debug!("No timeout packets collected");
     } else {
-        let timeout_height = params.timeout_relay_height.ok_or_else(|| {
-            anyhow::anyhow!("timeout_relay_height required for timeout packets")
-        })?;
+        let timeout_height = params
+            .timeout_relay_height
+            .ok_or_else(|| anyhow::anyhow!("timeout_relay_height required for timeout packets"))?;
         // Use max of src_events height and timeout height
         relay_height = Some(relay_height.map_or(timeout_height, |h| h.max(timeout_height)));
     }

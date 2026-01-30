@@ -1,0 +1,51 @@
+[package]
+name = "ift"
+version.workspace = true
+description = "Interchain Fungible Token (IFT) for Solana"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "ift", "anchor", "token"]
+categories = ["cryptography", "blockchain"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ift"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+anchor-spl.workspace = true
+solana-ibc-types.workspace = true
+solana-ibc-proto.workspace = true
+ics26-router = { workspace = true, features = ["cpi"] }
+ics27-gmp = { workspace = true, features = ["cpi"] }
+access-manager = { workspace = true, features = ["cpi"] }
+solana-sha256-hasher.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+
+[build-dependencies]
+solana-keccak-hasher.workspace = true
+sha2.workspace = true
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+bincode.workspace = true
+sha2.workspace = true
+rstest.workspace = true
+
+[lints]
+workspace = true

@@ -6,6 +6,7 @@
 pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
+pub mod ift;
 pub mod proto;
 pub mod tx_builder;
 
@@ -119,7 +120,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::info!("Handling info request for Cosmos to Solana...");
+        tracing::debug!("Handling info request");
 
         Ok(Response::new(api::InfoResponse {
             source_chain: Some(api::Chain {
@@ -144,11 +145,12 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::RelayByTxRequest>,
     ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        tracing::info!("Handling relay by tx request for Cosmos to Solana...");
-
         let inner_req = request.into_inner();
-        tracing::info!("Got {} source tx IDs", inner_req.source_tx_ids.len());
-        tracing::info!("Got {} timeout tx IDs", inner_req.timeout_tx_ids.len());
+        tracing::debug!(
+            "Relay request: {} source txs, {} timeout txs",
+            inner_req.source_tx_ids.len(),
+            inner_req.timeout_tx_ids.len()
+        );
         let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
 
         let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids)?;
@@ -159,9 +161,8 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(cosmos_src_events = ?src_events, "Fetched source cosmos events.");
-        tracing::info!(
-            "Fetched {} source eureka events from CosmosSDK.",
+        tracing::debug!(
+            "Fetched {} src events, fetching target events...",
             src_events.len()
         );
 
@@ -171,11 +172,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(solana_target_events = ?target_events, "Fetched target Solana events.");
-        tracing::info!(
-            "Fetched {} target eureka events from Solana.",
-            target_events.len()
-        );
+        tracing::debug!("Fetched {} target events", target_events.len());
 
         // Use the combined method that includes update client if needed
         let (packet_txs, update_client) = self
@@ -191,11 +188,11 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(to_tonic_status)?;
 
-        tracing::info!(
-            "Relay by tx request completed with {} packets{}.",
+        tracing::debug!(
+            "Relay completed: {} packets{}",
             packet_txs.len(),
             if update_client.is_some() {
-                " (with update client)"
+                " +update"
             } else {
                 ""
             }
@@ -217,7 +214,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::info!("Handling create client request for Cosmos to Solana...");
+        tracing::debug!("Handling create client request");
 
         let inner_req = request.into_inner();
         let tx = self
@@ -236,16 +233,14 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        tracing::info!("Handling update client request for Cosmos to Solana...");
-
         let solana_update_client = self
             .tx_builder
             .update_client(request.into_inner().dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::info!(
-            "Using chunked update client with {} signatures/chunks",
+        tracing::debug!(
+            "Update client: {} chunks",
             solana_update_client.chunk_txs.len()
         );
 

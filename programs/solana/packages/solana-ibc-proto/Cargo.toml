@@ -9,10 +9,11 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "protobuf"]
 categories = ["cryptography", "blockchain"]
 
+
 [dependencies]
 prost = { workspace = true, features = ["prost-derive"] }
 anchor-lang = { workspace = true }
-ibc-eureka-constrained-types = { workspace = true }
+ibc-eureka-constrained-types = { workspace = true, features = ["borsh"] }
 ibc-proto = { workspace = true }
 thiserror = { workspace = true }
 
@@ -21,3 +22,6 @@ prost-build.workspace = true
 
 [lib]
 crate-type = ["lib"]
+
+[lints]
+workspace = true

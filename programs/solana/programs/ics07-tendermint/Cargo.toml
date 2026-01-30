@@ -9,9 +9,6 @@ readme = "../../../README.md"
 keywords = ["cosmos", "ibc", "solana", "tendermint", "anchor"]
 categories = ["cryptography", "blockchain"]
 
-[lints]
-workspace = true
-
 [lib]
 crate-type = ["cdylib", "lib"]
 name = "ics07_tendermint"
@@ -51,6 +48,7 @@ ibc-proto.workspace = true
 tendermint.workspace = true
 time = { workspace = true, features = ["macros"] }
 
+
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
@@ -60,3 +58,6 @@ serde_json.workspace = true
 hex.workspace = true
 bincode.workspace = true
 prost.workspace = true
+
+[lints]
+workspace = true

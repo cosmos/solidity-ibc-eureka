@@ -79,7 +79,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
         ics26Router = ICS26Router(address(routerProxy));
         ics20Transfer = ICS20Transfer(address(transferProxy));
 
-        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), true);
+        accessManagerSetTargetRoles(accessManager, address(routerProxy), address(transferProxy), address(0), true);
 
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, address(this), 0);
     }

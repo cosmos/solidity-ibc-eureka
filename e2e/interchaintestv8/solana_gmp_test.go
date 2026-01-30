@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
@@ -12,7 +13,9 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
+	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
+	googleproto "google.golang.org/protobuf/proto"
 
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/programs/token"
@@ -32,6 +35,7 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -65,21 +69,37 @@ const (
 	DummyTargetProgramID = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi"
 )
 
-// gmpAccountPDA derives GMP account PDA with sender hash
+// accountIdentifier mirrors the Rust Hashable struct for Borsh serialization
+type accountIdentifier struct {
+	ClientID string
+	Sender   string
+	Salt     []byte
+}
+
+// gmpAccountPDA derives GMP account PDA using AccountIdentifier hash
 // This is a specialized PDA that uses SHA256 hashing and is not in the IDL.
 // GMP accounts are stateless - no account storage, only PDA validation.
 // See: packages/solana-ibc-types/src/ics27.rs - GMPAccount::new
 func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string, salt []byte) (solanago.PublicKey, uint8) {
-	hasher := sha256.New()
-	hasher.Write([]byte(sender))
-	senderHash := hasher.Sum(nil)
+	// Borsh-encode the AccountIdentifier struct to match Rust implementation
+	id := accountIdentifier{
+		ClientID: clientID,
+		Sender:   sender,
+		Salt:     salt,
+	}
+
+	buf := new(bytes.Buffer)
+	encoder := bin.NewBorshEncoder(buf)
+	if err := encoder.Encode(id); err != nil {
+		panic(fmt.Sprintf("failed to borsh encode account identifier: %v", err))
+	}
+
+	accountIDHash := sha256.Sum256(buf.Bytes())
 
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{
 			[]byte("gmp_account"),
-			[]byte(clientID),
-			senderHash,
-			salt,
+			accountIDHash[:],
 		},
 		programID,
 	)
@@ -123,11 +143,10 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 
 		// Initialize ICS27 GMP app
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
-			access_manager.ProgramID,          // access_manager program ID
-			gmpAppStatePDA,                    // app state account
-			s.SolanaRelayer.PublicKey(),       // payer
-			solanago.SystemProgramID,          // system program
-			solanago.SysVarInstructionsPubkey, // instructions sysvar
+			access_manager.ProgramID,    // access_manager program ID
+			gmpAppStatePDA,              // app state account
+			s.SolanaRelayer.PublicKey(), // payer
+			solanago.SystemProgramID,    // system program
 		)
 		s.Require().NoError(err)
 
@@ -147,7 +166,7 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-		ibcAppAccount, _ := solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
+		ibcAppAccount, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 
 		registerInstruction, err := ics26_router.NewAddIbcAppInstruction(
 			GMPPortID,
@@ -176,8 +195,6 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 // Test_GMPCounterFromCosmos tests sending a counter increment call from Cosmos to Solana
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -438,82 +455,78 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			finalCounterUser0, expectedFinalUser0, finalCounterUser1, expectedFinalUser1)
 	}))
 
-	s.Require().True(s.Run("Relay acknowledgments back to Cosmos", func() {
+	s.Require().True(s.Run("Verify acknowledgments on Solana and relay to Cosmos", func() {
 		simd := s.Cosmos.Chains[0]
 
-		s.Require().True(s.Run("Relay User0 first acknowledgment", func() {
+		// Helper to verify ack content on Solana and relay to Cosmos
+		// The WriteAcknowledgementEvent on Solana contains the protobuf-encoded GmpAcknowledgement
+		// with the counter value returned by the GMP counter app
+		verifyAndRelayAck := func(solanaRelayTxSig solanago.Signature, label string, expectedCounterValue uint64) {
+			// First verify the ack content on Solana
+			s.Require().True(s.Run(fmt.Sprintf("Verify %s ack on Solana", label), func() {
+				events, err := s.Solana.Chain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
+				s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
+				s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+
+				event := events[0]
+				s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack (one payload)")
+
+				// The ack is Borsh-encoded Vec<u8> containing protobuf GmpAcknowledgement
+				ackBytes := event.Acknowledgements[0]
+
+				// Decode Borsh-encoded bytes
+				var protoBytes []byte
+				err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
+				s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
+
+				// Parse protobuf acknowledgement
+				var ack gmptypes.Acknowledgement
+				err = proto.Unmarshal(protoBytes, &ack)
+				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
+
+				// Extract counter value (u64 little-endian)
+				s.Require().Len(ack.Result, 8, "Result should be 8 bytes (u64)")
+				actualCounter := binary.LittleEndian.Uint64(ack.Result)
+				s.Require().Equal(expectedCounterValue, actualCounter,
+					"Counter in ack should be %d, got %d", expectedCounterValue, actualCounter)
+				s.T().Logf("%s ack verified on Solana: counter=%d", label, actualCounter)
+			}))
+
+			// Then relay the ack to Cosmos
 			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
+			s.Require().True(s.Run(fmt.Sprintf("Retrieve %s ack relay tx", label), func() {
 				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 					SrcChain:    testvalues.SolanaChainID,
 					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0.String())},
+					SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
 					SrcClientId: SolanaClientID,
 					DstClientId: CosmosClientID,
 				})
 				s.Require().NoError(err)
 				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User0 first GMP acknowledgment relay transaction")
-
 				ackRelayTxBodyBz = resp.Tx
 			}))
 
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+			s.Require().True(s.Run(fmt.Sprintf("Broadcast %s ack to Cosmos", label), func() {
 				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User0 first GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+				s.Require().Equal(uint32(0), relayTxResult.Code, "Ack relay tx should succeed")
+				s.T().Logf("%s ack relayed to Cosmos: %s (code: %d, gas: %d)",
+					label, relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+				// Verify acknowledge_packet event was emitted
+				_, err := cosmos.GetEventValue(relayTxResult.Events, channeltypesv2.EventTypeAcknowledgePacket, channeltypesv2.AttributeKeySequence)
+				s.Require().NoError(err, "acknowledge_packet event should be emitted")
 			}))
-		}))
+		}
 
-		s.Require().True(s.Run("Relay User0 second acknowledgment", func() {
-			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser0Second.String())},
-					SrcClientId: SolanaClientID,
-					DstClientId: CosmosClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User0 second GMP acknowledgment relay transaction")
+		// User0 first increment: 0 + 5 = 5
+		verifyAndRelayAck(solanaRelayTxSigUser0, "User0 first", initialCounterUser0+DefaultIncrementAmount)
+		// User0 second increment: 5 + 7 = 12
+		verifyAndRelayAck(solanaRelayTxSigUser0Second, "User0 second", initialCounterUser0+DefaultIncrementAmount+7)
+		// User1 first increment: 0 + 3 = 3
+		verifyAndRelayAck(solanaRelayTxSigUser1, "User1", initialCounterUser1+3)
 
-				ackRelayTxBodyBz = resp.Tx
-			}))
-
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User0 second GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
-			}))
-		}))
-
-		s.Require().True(s.Run("Relay User1 acknowledgment", func() {
-			var ackRelayTxBodyBz []byte
-			s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
-					SrcChain:    testvalues.SolanaChainID,
-					DstChain:    simd.Config().ChainID,
-					SourceTxIds: [][]byte{[]byte(solanaRelayTxSigUser1.String())},
-					SrcClientId: SolanaClientID,
-					DstClientId: CosmosClientID,
-				})
-				s.Require().NoError(err)
-				s.Require().NotEmpty(resp.Tx)
-				s.T().Logf("Retrieved User1 GMP acknowledgment relay transaction")
-
-				ackRelayTxBodyBz = resp.Tx
-			}))
-
-			s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
-				s.T().Logf("User1 GMP acknowledgment relay transaction: %s (code: %d, gas: %d)",
-					relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
-			}))
-		}))
-
-		s.T().Logf("GMP calls from Cosmos successfully acknowledged")
+		s.T().Logf("All GMP acknowledgments verified and relayed successfully")
 	}))
 }
 
@@ -524,8 +537,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 // 3. Through GMP, the Cosmos user sends cross-chain calls to transfer tokens
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -693,8 +704,36 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.T().Logf("  Dest:   %d → %d (+%d)", initialDestBalance, finalDestBalance, transferAmount)
 	}))
 
-	// Relay acknowledgment back to Cosmos
-	s.Require().True(s.Run("Relay Acknowledgment to Cosmos", func() {
+	// Verify acknowledgment on Solana and relay to Cosmos
+	s.Require().True(s.Run("Verify and Relay Acknowledgment", func() {
+		// Verify ack on Solana
+		s.Require().True(s.Run("Verify ack on Solana", func() {
+			events, err := s.Solana.Chain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
+			s.Require().NoError(err, "Failed to get WriteAcknowledgementEvents")
+			s.Require().Len(events, 1, "Should have exactly one WriteAcknowledgementEvent")
+
+			event := events[0]
+			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")
+
+			// SPL Token program doesn't return data, so ack result is empty
+			ackBytes := event.Acknowledgements[0]
+			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
+
+			// Decode Borsh-encoded bytes
+			var protoBytes []byte
+			err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
+			s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
+
+			// Parse protobuf acknowledgement
+			var ack gmptypes.Acknowledgement
+			err = proto.Unmarshal(protoBytes, &ack)
+			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
+
+			// SPL Token program returns empty result on success
+			s.Require().Empty(ack.Result, "SPL transfer ack result should be empty")
+			s.T().Logf("SPL transfer ack verified on Solana: empty result (success)")
+		}))
+
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve acknowledgment relay tx", func() {
 			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -707,13 +746,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			s.Require().NoError(err)
 			s.Require().NotEmpty(resp.Tx)
 			ackRelayTxBodyBz = resp.Tx
-			s.T().Logf("Retrieved acknowledgment relay transaction")
 		}))
 
-		s.Require().True(s.Run("Broadcast acknowledgment on Cosmos", func() {
+		s.Require().True(s.Run("Broadcast ack to Cosmos", func() {
 			relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, cosmosUser, CosmosDefaultGasLimit, ackRelayTxBodyBz)
-			s.T().Logf("SPL transfer acknowledgment relay transaction: %s (code: %d, gas: %d)",
+			s.Require().Equal(uint32(0), relayTxResult.Code, "Ack relay tx should succeed")
+			s.T().Logf("SPL transfer ack relayed to Cosmos: %s (code: %d, gas: %d)",
 				relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
+
+			_, err := cosmos.GetEventValue(relayTxResult.Events, channeltypesv2.EventTypeAcknowledgePacket, channeltypesv2.AttributeKeySequence)
+			s.Require().NoError(err, "acknowledge_packet event should be emitted")
 		}))
 
 		s.T().Logf("✓ SPL token transfer via GMP completed successfully")
@@ -725,8 +767,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -774,6 +814,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 
 	var solanaPacketTxHash string
+	var baseSequence uint64
+	var namespacedSequence uint64
 	s.Require().True(s.Run("Send call from Solana", func() {
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 
@@ -795,22 +837,21 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
-		var baseSequence uint64
 		s.Require().True(s.Run("Get next sequence number and packet commitment PDA", func() {
 			var err error
 			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			namespacedSequence := solana.CalculateNamespacedSequence(
+			namespacedSequence = solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
 				s.SolanaRelayer.PublicKey(),
@@ -818,7 +859,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
@@ -867,6 +908,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 
 	var ackTxHash []byte
+	var ackBytes []byte
 	s.Require().True(s.Run("Receive packet in Cosmos", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
@@ -896,6 +938,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			var err error
 			ackTxHash, err = hex.DecodeString(receipt.TxHash)
 			s.Require().NoError(err)
+
+			ackHex, err := cosmos.GetEventValue(receipt.Events, channeltypesv2.EventTypeWriteAck, channeltypesv2.AttributeKeyEncodedAckHex)
+			s.Require().NoError(err, "Failed to get acknowledgement from write_acknowledgement event")
+			ackBytes, err = hex.DecodeString(ackHex)
+			s.Require().NoError(err, "Failed to decode acknowledgement hex")
 		}))
 
 		s.Require().True(s.Run("Verify balance changed on Cosmos", func() {
@@ -917,6 +964,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		}))
 	}))
 
+	var gmpResultPDA solanago.PublicKey
 	s.Require().True(s.Run("Acknowledge packet in Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
@@ -928,11 +976,44 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
+		gmpResultPDA, _ = solana.GMPCallResultPDA(ics27_gmp.ProgramID, SolanaClientID, namespacedSequence)
+
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Acknowledgement transaction broadcasted: %s", sig)
 
 		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+	}))
+
+	s.Require().True(s.Run("Verify GMP call result PDA", func() {
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, gmpResultPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value, "GMP result account should exist")
+		s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
+
+		data := accountInfo.Value.Data.GetBinary()
+		result, err := solana.DecodeGMPCallResultAccount(data)
+		s.Require().NoError(err, "Failed to decode GMP call result account")
+
+		s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
+		s.Require().Equal(s.SolanaRelayer.PublicKey(), result.Sender, "Sender should match")
+		s.Require().Equal(namespacedSequence, result.Sequence, "Sequence should match namespaced sequence")
+		s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
+		s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
+		s.Require().Equal(solana.CallResultStatusAcknowledgement, result.Status, "Status should be Acknowledgement")
+		var ibcAck channeltypesv2.Acknowledgement
+		err = proto.Unmarshal(ackBytes, &ibcAck)
+		s.Require().NoError(err, "Failed to unmarshal IBC Acknowledgement")
+		s.Require().Len(ibcAck.AppAcknowledgements, 1, "Should have exactly one app acknowledgement")
+		expectedCommitment := solana.IBCAckCommitment(ibcAck.AppAcknowledgements[0])
+		s.Require().Equal(expectedCommitment, result.AckCommitment, "AckCommitment should match IBC commitment")
+		s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
+		s.Require().True(result.Bump > 0, "Bump should be non-zero")
+
+		s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Acknowledgement, ack_commitment=%x",
+			result.Sender, result.Sequence, result.AckCommitment)
 	}))
 }
 
@@ -1010,8 +1091,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -1047,6 +1126,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 	var solanaPacketTxHash []byte
 	var baseSequence uint64
+	var namespacedSequence uint64
 
 	s.Require().True(s.Run("Send call from Solana with short timeout", func() {
 		var payload []byte
@@ -1067,9 +1147,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
@@ -1081,7 +1161,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
 			s.Require().NoError(err)
 
-			namespacedSequence := solana.CalculateNamespacedSequence(
+			namespacedSequence = solana.CalculateNamespacedSequence(
 				baseSequence,
 				ics27_gmp.ProgramID,
 				s.SolanaRelayer.PublicKey(),
@@ -1089,7 +1169,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d (timeout test)", baseSequence, namespacedSequence)
 		}))
 
@@ -1174,6 +1254,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
 
+		gmpResultPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, SolanaClientID, namespacedSequence)
+
 		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 		s.T().Logf("Timeout transaction broadcasted: %s", sig)
@@ -1201,6 +1283,33 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.Require().True(s.Run("Verify recvPacket fails on Cosmos after timeout", func() {
 				_, err := s.BroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], 2_000_000, recvRelayTxBodyBz)
 				s.Require().Error(err)
+			}))
+
+			s.Require().True(s.Run("Verify GMP call result PDA shows timed out", func() {
+				accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, gmpResultPDA, &rpc.GetAccountInfoOpts{
+					Commitment: rpc.CommitmentConfirmed,
+				})
+				s.Require().NoError(err)
+				s.Require().NotNil(accountInfo.Value, "GMP result account should exist after timeout")
+				s.Require().Equal(ics27_gmp.ProgramID, accountInfo.Value.Owner, "Account should be owned by ics27_gmp program")
+
+				data := accountInfo.Value.Data.GetBinary()
+				result, err := solana.DecodeGMPCallResultAccount(data)
+				s.Require().NoError(err, "Failed to decode GMP call result account")
+
+				// Validate all fields
+				s.Require().Equal(uint8(0), result.Version, "Version should be 0 (V1)")
+				s.Require().Equal(s.SolanaRelayer.PublicKey(), result.Sender, "Sender should match")
+				s.Require().Equal(namespacedSequence, result.Sequence, "Sequence should match namespaced sequence")
+				s.Require().Equal(SolanaClientID, result.SourceClient, "Source client should match")
+				s.Require().Equal(CosmosClientID, result.DestClient, "Dest client should match")
+				s.Require().Equal(solana.CallResultStatusTimeout, result.Status, "Status should be Timeout")
+				s.Require().Equal([32]byte{}, result.AckCommitment, "AckCommitment should be zeros for timeout")
+				s.Require().True(result.ResultTimestamp > 0, "Result timestamp should be set")
+				s.Require().True(result.Bump > 0, "Bump should be non-zero")
+
+				s.T().Logf("GMP result account validated: sender=%s, sequence=%d, status=Timeout",
+					result.Sender, result.Sequence)
 			}))
 		}))
 	}))
@@ -1276,8 +1385,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 //   - Transactions should fail on Solana (packet already timed out)
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1392,10 +1499,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 
 		// Submit UpdateClient only (not packets) so we can verify packets fail after timeout
 		var batch relayertypes.SolanaRelayPacketBatch
-		err = proto.Unmarshal(resp.Tx, &batch)
+		err = googleproto.Unmarshal(resp.Tx, &batch)
 		s.Require().NoError(err)
 		if batch.UpdateClient != nil {
-			updateClientBytes, err := proto.Marshal(batch.UpdateClient)
+			updateClientBytes, err := googleproto.Marshal(batch.UpdateClient)
 			s.Require().NoError(err)
 			s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), &relayertypes.UpdateClientResponse{
 				Tx: updateClientBytes,
@@ -1506,8 +1613,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 // This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	ctx := context.Background()
-
-	s.UseMockWasmClient = true
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1688,8 +1793,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
-
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -1755,9 +1858,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
-			clientPDA, _ = solana.Ics26Router.ClientPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			ibcAppPDA, _ = solana.Ics26Router.IbcAppPDA(ics26_router.ProgramID, []byte(GMPPortID))
-			clientSequencePDA, _ = solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
@@ -1775,7 +1878,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 			namespacedSequenceBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
+			packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 			s.T().Logf("Using base sequence: %d, namespaced sequence: %d", baseSequence, namespacedSequence)
 		}))
 
@@ -1879,7 +1982,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	// Verify the packet commitment was deleted (ack processed)
 	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
 		// Derive packet commitment PDA for the sequence we used
-		clientSequencePDA, _ := solana.Ics26Router.ClientSequencePDA(ics26_router.ProgramID, []byte(SolanaClientID))
+		clientSequencePDA, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 		// Get the base sequence we used (it was incremented after send)
 		currentBaseSequence, err := s.Solana.Chain.GetNextSequenceNumber(ctx, clientSequencePDA)
@@ -1921,7 +2024,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	ctx := context.Background()
 
-	s.UseMockWasmClient = true
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
 
@@ -2144,14 +2246,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 
@@ -2206,14 +2312,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer:         s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 
@@ -2271,14 +2381,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 
@@ -2332,14 +2446,18 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
+		// Derive result_account PDA
+		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
+
 		// Build instruction with CORRECT router_program
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
 			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
-			s.SolanaRelayer.PublicKey(),
-			solanago.SystemProgramID,
+			s.SolanaRelayer.PublicKey(),       // payer
+			solanago.SystemProgramID,          // system_program
+			resultAccountPDA,                  // result_account (passed as remaining account by router)
 		)
 		s.Require().NoError(err)
 

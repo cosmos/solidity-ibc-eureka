@@ -10,6 +10,10 @@ plugins:
   - local: protoc-gen-go-grpc
     out: e2e/interchaintestv8/types/
     opt: paths=source_relative
+    # TODO: use go-proto in e2e rather than its own types
+  - local: protoc-gen-go
+    out: packages/go-proto/
+    opt: paths=source_relative
 
 inputs:
   - directory: proto

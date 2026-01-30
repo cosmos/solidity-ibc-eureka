@@ -230,22 +230,14 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
   done
   echo ""
 
-  # Step 4: Grant UPGRADER_ROLE (8) to deployer
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  echo "👤 Step 4/4: Granting UPGRADER_ROLE (8) to deployer"
-  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-  just grant-solana-role 8 "" {{cluster}}
-  echo ""
-
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "✅ Full deployment complete for cluster: {{cluster}}"
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo ""
   echo "Summary:"
   echo "  ✓ All programs deployed"
-  echo "  ✓ AccessManager initialized"
+  echo "  ✓ AccessManager initialized (deployer has ADMIN_ROLE)"
   echo "  ✓ Upgrade authorities set to AccessManager PDAs"
-  echo "  ✓ UPGRADER_ROLE granted to deployer"
   echo ""
   echo "Next steps:"
   echo "  • Use 'just upgrade-solana-program <program> {{cluster}}' to upgrade programs"
@@ -509,15 +501,15 @@ prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-s
   echo "   To complete the upgrade, call AccessManager.upgrade_program with:"
   echo "   - buffer: $BUFFER_ADDRESS"
   echo "   - target_program: <PROGRAM_ID>"
-  echo "   - authority: <ACCOUNT_WITH_UPGRADER_ROLE>"
+  echo "   - authority: <ACCOUNT_WITH_ADMIN_ROLE>"
   echo ""
   echo "   See e2e/interchaintestv8/solana_upgrade_test.go for implementation example"
 
 # Execute complete program upgrade (prepare buffer + execute upgrade instruction)
 # Usage: just upgrade-solana-program <program-name> [cluster] [upgrader-keypair]
 # Example: just upgrade-solana-program ics26_router
-# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/upgrader.json
-# Note: Requires UPGRADER_ROLE granted to the upgrader keypair (defaults to deployer)
+# Example: just upgrade-solana-program ics26_router devnet solana-keypairs/devnet/admin.json
+# Note: Requires ADMIN_ROLE granted to the upgrader keypair (defaults to deployer)
 [group('solana')]
 upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validate-cluster cluster)
   #!/usr/bin/env bash
@@ -608,7 +600,7 @@ upgrade-solana-program program cluster="localnet" upgrader_keypair="": (_validat
   echo "Program Data Address: $PROGRAM_DATA_ADDR"
   echo ""
   echo "Step 4: Executing upgrade instruction..."
-  echo "(This requires UPGRADER_ROLE on the upgrader keypair)"
+  echo "(This requires ADMIN_ROLE on the upgrader keypair)"
   echo ""
 
   # Convert upgrader keypair to absolute path
@@ -792,7 +784,9 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
+	jq '.abi' out/TestIFT.sol/TestIFT.json > abi/TestIFT.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
+	abigen --abi abi/TestIFT.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
@@ -821,6 +815,8 @@ generate-solana-types: build-solana generate-pda
 	anchor-go --idl ./programs/solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
 	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	rm -rf packages/go-anchor/ift
+	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
 	# Dummy apps for testing
 	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
 	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod
@@ -917,10 +913,10 @@ generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
   cd e2e/interchaintestv8 && RUST_LOG=info SP1_PROVER=network GENERATE_SOLIDITY_FIXTURES=true E2E_PROOF_TYPE=plonk go test -v -run '^TestWithSP1ICS07TendermintTestSuite/Test_25_Membership' -timeout 40m
   @echo "Fixtures generated at 'test/sp1-ics07/fixtures'"
 
-# Generate the code from pritibuf using `buf generate`. (Only used for relayer testing at the moment)
+# Generate the code from protobuf using `buf generate`
 [group('generate')]
 generate-buf:
-    @echo "Generating Protobuf files for relayer"
+    @echo "Generating Protobuf files"
     buf generate --template buf.gen.yaml
 
 shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
@@ -1013,11 +1009,29 @@ test-e2e-solana-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaGMPTestSuite/{{testname}}
 
+# Run the e2e tests in the IbcEurekaSolanaIFTTestSuite. For example, `just test-e2e-solana-ift Test_IFT_RoundtripTransferFromCosmos`
+[group('test')]
+test-e2e-solana-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithIbcEurekaSolanaIFTTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcEurekaSolanaUpgradeTestSuite. For example, `just test-e2e-solana-upgrade Test_ProgramUpgrade_Via_AccessManager`
 [group('test')]
 test-e2e-solana-upgrade testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaUpgradeTestSuite/{{testname}}
+
+# Run the e2e tests in the CosmosIFTTestSuite. For example, `just test-e2e-cosmos-ift Test_IFTTransfer`
+[group('test')]
+test-e2e-cosmos-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosIFTTestSuite/{{testname}}
+
+# Run the e2e tests in the CosmosEthereumIFTTestSuite. For example, `just test-e2e-cosmos-ethereum-ift Test_Deploy`
+[group('test')]
+test-e2e-cosmos-ethereum-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithCosmosEthereumIFTTestSuite/{{testname}}
 
 # Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
 [group('test')]
@@ -1068,3 +1082,9 @@ clean-cargo:
 slither:
 	@echo "Running Slither static analysis..."
 	slither . --config-file .slither.config.json
+
+# Compute IFT contract address and ICA address from deployer private key
+# Example: just compute-ift-addresses ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 18 08-wasm-0 wf
+[group('tools')]
+compute-ift-addresses private-key nonce client-id bech32-prefix salt="":
+	@cd tools/compute-ift-addresses && go run . {{private-key}} {{nonce}} {{client-id}} {{bech32-prefix}} {{salt}}

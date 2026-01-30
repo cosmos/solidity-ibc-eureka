@@ -294,9 +294,7 @@ impl RelayerModule for EthToEthRelayerModule {
 impl EthToEthTxBuilder {
     async fn relay_events(&self, params: RelayEventsParams) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Attested(tb) => {
-                build_eth_attestor_relay_events_tx(&tb.aggregator, params).await
-            }
+            Self::Attested(tb) => build_eth_attestor_relay_events_tx(&tb.aggregator, params).await,
         }
     }
 

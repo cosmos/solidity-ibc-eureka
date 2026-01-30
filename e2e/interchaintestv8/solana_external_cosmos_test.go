@@ -210,7 +210,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 			routerStateAccount,
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
-			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -313,7 +312,7 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	s.T().Logf("Successfully created Tendermint client on Solana")
 	s.T().Logf("Transaction signature: %s", sig)
 
-	clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
+	clientStateAccount, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
 
 	accountInfo, err := s.SolanaRPCConn.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -350,7 +349,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 
 	s.T().Logf("Successfully updated Tendermint client on Solana")
 
-	clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
+	clientStateAccount, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
 
 	accountInfo, err := s.SolanaRPCConn.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -390,7 +389,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 
 		s.SolanaChain.SubmitChunkedUpdateClientSkipCleanup(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
 
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
+		clientStateAccount, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(s.ExternalCosmosChainID))
 		accountInfo, err := s.SolanaRPCConn.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})

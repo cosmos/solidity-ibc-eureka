@@ -1,14 +1,16 @@
 use crate::errors::RouterError;
 use crate::router_cpi::LightClientCpi;
-use crate::router_cpi::{IbcAppCpi, IbcAppCpiAccounts};
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
 use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
-use solana_ibc_types::events::{AckPacketEvent, NoopEvent};
+use solana_ibc_types::ibc_app::{
+    on_acknowledgement_packet, OnAcknowledgementPacket, OnAcknowledgementPacketMsg,
+};
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
+use solana_ibc_types::{AckPacketEvent, NoopEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
@@ -198,23 +200,28 @@ pub fn ack_packet<'info>(
         msg.proof.total_chunks,
     );
 
-    let cpi_accounts = IbcAppCpiAccounts {
-        ibc_app_program: ctx.accounts.ibc_app_program.clone(),
-        app_state: ctx.accounts.ibc_app_state.clone(),
-        router_program: ctx.accounts.router_program.clone(),
-        instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
-        payer: ctx.accounts.relayer.to_account_info(),
-        system_program: ctx.accounts.system_program.to_account_info(),
+    let cpi_ctx = CpiContext::new(
+        ctx.accounts.ibc_app_program.clone(),
+        OnAcknowledgementPacket {
+            app_state: ctx.accounts.ibc_app_state.clone(),
+            router_program: ctx.accounts.router_program.clone(),
+            instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
+            payer: ctx.accounts.relayer.to_account_info(),
+            system_program: ctx.accounts.system_program.to_account_info(),
+        },
+    )
+    .with_remaining_accounts(app_remaining_accounts.to_vec());
+
+    let ack_msg = OnAcknowledgementPacketMsg {
+        source_client: packet.source_client.clone(),
+        dest_client: packet.dest_client.clone(),
+        sequence: packet.sequence,
+        payload: payload.clone(),
+        acknowledgement: msg.acknowledgement.clone(),
+        relayer: ctx.accounts.relayer.key(),
     };
 
-    let cpi = IbcAppCpi::new(cpi_accounts);
-    cpi.on_acknowledgement_packet(
-        &packet,
-        payload,
-        &msg.acknowledgement,
-        &ctx.accounts.relayer.key(),
-        app_remaining_accounts,
-    )?;
+    on_acknowledgement_packet(cpi_ctx, ack_msg)?;
 
     // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)
     {

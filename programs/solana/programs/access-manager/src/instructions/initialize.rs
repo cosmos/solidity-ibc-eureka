@@ -1,7 +1,7 @@
 use crate::errors::AccessManagerError;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{roles, validate_direct_or_whitelisted_cpi};
+use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -27,7 +27,7 @@ pub struct Initialize<'info> {
 
 pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     // Validate caller
-    validate_direct_or_whitelisted_cpi(
+    require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
         crate::WHITELISTED_CPI_PROGRAMS,
         &crate::ID,
@@ -277,5 +277,66 @@ mod tests {
             &accounts,
             &[expect_access_manager_cpi_rejection_error()],
         );
+    }
+
+    #[test]
+    fn test_initialize_cannot_reinitialize() {
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        // Use helper to create an already-initialized access manager
+        let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
+
+        let instruction_data = crate::instruction::Initialize { admin };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (access_manager_pda, access_manager_account),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
+
+        // Anchor's `init` constraint fails when account already exists
+        // Error code 0 means the account is already in use
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            0,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

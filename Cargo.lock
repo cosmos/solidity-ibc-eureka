@@ -1205,6 +1205,7 @@ dependencies = [
  "anchor-derive-accounts",
  "anchor-derive-serde",
  "anchor-derive-space",
+ "anchor-lang-idl",
  "base64 0.21.7",
  "bincode",
  "borsh 0.10.4",
@@ -1241,6 +1242,7 @@ dependencies = [
  "anchor-lang-idl-spec",
  "anyhow",
  "heck 0.3.3",
+ "regex",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1264,6 +1266,7 @@ checksum = "b93b69aa7d099b59378433f6d7e20e1008fc10c69e48b220270e5b3f2ec4c8be"
 dependencies = [
  "anyhow",
  "bs58",
+ "cargo_toml",
  "heck 0.3.3",
  "proc-macro2",
  "quote",
@@ -2774,6 +2777,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "cargo_toml"
+version = "0.19.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a98356df42a2eb1bd8f1793ae4ee4de48e384dd974ce5eac8eee802edb7492be"
+dependencies = [
+ "serde",
+ "toml 0.8.23",
 ]
 
 [[package]]
@@ -5522,6 +5535,9 @@ dependencies = [
 [[package]]
 name = "ibc-eureka-constrained-types"
 version = "0.1.0"
+dependencies = [
+ "borsh 0.10.4",
+]
 
 [[package]]
 name = "ibc-eureka-relayer"
@@ -5635,6 +5651,7 @@ dependencies = [
  "anchor-client",
  "anchor-lang",
  "anyhow",
+ "base64 0.22.1",
  "bincode",
  "borsh 1.6.0",
  "ed25519-consensus",
@@ -5656,6 +5673,8 @@ dependencies = [
  "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
+ "spl-associated-token-account",
+ "spl-token",
  "tendermint",
  "tendermint-proto",
  "tendermint-rpc",
@@ -10055,6 +10074,16 @@ name = "solana-ibc-constants"
 version = "0.1.0"
 
 [[package]]
+name = "solana-ibc-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "sha2 0.10.9",
+ "syn 2.0.113",
+]
+
+[[package]]
 name = "solana-ibc-proto"
 version = "0.1.0"
 dependencies = [
@@ -10077,7 +10106,9 @@ dependencies = [
  "ibc-eureka-constrained-types",
  "prost",
  "solana-ibc-constants",
+ "solana-ibc-macros",
  "solana-ibc-proto",
+ "solana-sdk",
  "solana-sha256-hasher",
  "tendermint",
 ]

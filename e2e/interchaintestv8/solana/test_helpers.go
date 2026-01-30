@@ -83,10 +83,70 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	// Process all packets in parallel
 	packetResults := make(chan packetResult, len(batch.Packets))
 
+	// Track IFT claim_refund goroutines so we can wait for them before returning
+	var claimRefundWg sync.WaitGroup
+
 	for packetIdx, packet := range batch.Packets {
 		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
 			packetStart := time.Now()
-			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx) ---", pktIdx+1, len(pkt.Chunks))
+			hasAlt := len(pkt.AltCreateTx) > 0
+			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx, ALT: %v) ---", pktIdx+1, len(pkt.Chunks), hasAlt)
+
+			// Phase 0: Submit ALT create + extend in background (if present)
+			altDone := make(chan error, 1)
+			if hasAlt {
+				go func() {
+					// Submit ALT creation transaction
+					altCreateTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(pkt.AltCreateTx))
+					if err != nil {
+						altDone <- fmt.Errorf("failed to decode ALT creation tx: %w", err)
+						return
+					}
+
+					// Update blockhash for ALT creation tx (relayer's blockhash may have expired)
+					altRecent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						altDone <- fmt.Errorf("failed to get blockhash for ALT creation tx: %w", err)
+						return
+					}
+					altCreateTx.Message.RecentBlockhash = altRecent.Value.Blockhash
+
+					altCreateSig, err := s.SignAndBroadcastTxWithOpts(ctx, altCreateTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						altDone <- fmt.Errorf("failed to submit ALT creation tx: %w", err)
+						return
+					}
+					t.Logf("✓ Packet %d ALT creation tx submitted: %s", pktIdx+1, altCreateSig)
+
+					// Submit ALT extension transactions sequentially
+					for i, altExtendTxBytes := range pkt.AltExtendTxs {
+						altExtendTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(altExtendTxBytes))
+						if err != nil {
+							altDone <- fmt.Errorf("failed to decode ALT extension tx %d: %w", i+1, err)
+							return
+						}
+
+						// Update blockhash for ALT extension tx
+						extendRecent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+						if err != nil {
+							altDone <- fmt.Errorf("failed to get blockhash for ALT extension tx %d: %w", i+1, err)
+							return
+						}
+						altExtendTx.Message.RecentBlockhash = extendRecent.Value.Blockhash
+
+						altExtendSig, err := s.SignAndBroadcastTxWithOpts(ctx, altExtendTx, rpc.ConfirmationStatusConfirmed, user)
+						if err != nil {
+							altDone <- fmt.Errorf("failed to submit ALT extension tx %d: %w", i+1, err)
+							return
+						}
+						t.Logf("✓ Packet %d ALT extension tx %d/%d submitted: %s", pktIdx+1, i+1, len(pkt.AltExtendTxs), altExtendSig)
+					}
+
+					altDone <- nil
+				}()
+			} else {
+				altDone <- nil
+			}
 
 			type chunkResult struct {
 				chunkIdx int
@@ -169,8 +229,52 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				return
 			}
 
-			t.Logf("--- Packet %d: All %d chunks completed in %v, submitting final tx ---",
+			t.Logf("--- Packet %d: All %d chunks completed in %v ---",
 				pktIdx+1, len(pkt.Chunks), chunksDuration)
+
+			// Wait for ALT to complete before final tx (if ALT is being used)
+			if altErr := <-altDone; altErr != nil {
+				packetResults <- packetResult{
+					packetIdx:      pktIdx,
+					err:            fmt.Errorf("packet %d ALT setup failed: %w", pktIdx, altErr),
+					chunksDuration: chunksDuration,
+					totalDuration:  time.Since(packetStart),
+				}
+				return
+			}
+			if hasAlt {
+				// Wait for ALT to activate (requires at least 1 slot)
+				t.Logf("--- Packet %d: ALT setup complete, waiting for activation ---", pktIdx+1)
+				currentSlot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+				if err != nil {
+					packetResults <- packetResult{
+						packetIdx:      pktIdx,
+						err:            fmt.Errorf("packet %d failed to get current slot: %w", pktIdx, err),
+						chunksDuration: chunksDuration,
+						totalDuration:  time.Since(packetStart),
+					}
+					return
+				}
+
+				targetSlot := currentSlot + 1
+				for {
+					slot, err := s.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						packetResults <- packetResult{
+							packetIdx:      pktIdx,
+							err:            fmt.Errorf("packet %d failed to poll slot: %w", pktIdx, err),
+							chunksDuration: chunksDuration,
+							totalDuration:  time.Since(packetStart),
+						}
+						return
+					}
+					if slot >= targetSlot {
+						t.Logf("--- Packet %d: ALT activated at slot %d, submitting final tx ---", pktIdx+1, slot)
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+			}
 
 			// Phase 2: Submit final transaction for this packet
 			finalStart := time.Now()
@@ -254,6 +358,35 @@ func (s *Solana) SubmitChunkedRelayPackets(
 					}
 				}(pktIdx, pkt.CleanupTx)
 			}
+
+			// Phase 4: Submit IFT claim_refund transaction (tracked, waits before function returns)
+			// This processes refunds for IFT transfers on ack/timeout
+			if len(pkt.IftClaimRefundTx) > 0 {
+				claimRefundWg.Add(1)
+				go func(pktIdx int, claimRefundTxBytes []byte) {
+					defer claimRefundWg.Done()
+
+					claimRefundTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(claimRefundTxBytes))
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to decode IFT claim_refund tx: %v", pktIdx+1, err)
+						return
+					}
+
+					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
+					if err != nil {
+						t.Logf("⚠ Packet %d: Failed to get blockhash for IFT claim_refund tx: %v", pktIdx+1, err)
+						return
+					}
+					claimRefundTx.Message.RecentBlockhash = recent.Value.Blockhash
+
+					claimRefundSig, err := s.SignAndBroadcastTxWithOpts(ctx, claimRefundTx, rpc.ConfirmationStatusConfirmed, user)
+					if err != nil {
+						t.Logf("⚠ Packet %d: IFT claim_refund tx failed: %v", pktIdx+1, err)
+					} else {
+						t.Logf("✓ Packet %d: IFT claim_refund tx completed - tx: %s", pktIdx+1, claimRefundSig)
+					}
+				}(pktIdx, pkt.IftClaimRefundTx)
+			}
 		}(packetIdx, packet)
 	}
 
@@ -273,6 +406,10 @@ func (s *Solana) SubmitChunkedRelayPackets(
 		totalFinalsDuration += result.finalDuration
 	}
 	close(packetResults)
+
+	// Wait for all IFT claim_refund transactions to complete before returning
+	// This ensures tests can verify PendingTransfer PDA closure after relay completes
+	claimRefundWg.Wait()
 
 	totalDuration := time.Since(totalStart)
 	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
@@ -652,7 +789,7 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 
 	sequenceBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
-	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
+	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
@@ -669,6 +806,153 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 
 	require.Fail("Packet commitment should have been deleted after acknowledgment",
 		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
+}
+
+// VerifyPendingTransferExists verifies that an IFT PendingTransfer PDA exists (was created during transfer)
+func (s *Solana) VerifyPendingTransferExists(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+	clientID string,
+	sequence uint64,
+) {
+	t.Helper()
+
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+
+	pendingTransferPDA, _ := Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "PendingTransfer PDA should exist")
+	require.NotNil(accountInfo.Value, "PendingTransfer PDA account should have data")
+	require.True(accountInfo.Value.Lamports > 0, "PendingTransfer PDA should have lamports")
+
+	t.Logf("✓ PendingTransfer PDA exists: %s (mint: %s, client: %s, sequence: %d)",
+		pendingTransferPDA.String(), mint.String(), clientID, sequence)
+}
+
+// VerifyPendingTransferClosed verifies that an IFT PendingTransfer PDA has been closed after claim_refund
+func (s *Solana) VerifyPendingTransferClosed(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+	clientID string,
+	sequence uint64,
+) {
+	t.Helper()
+
+	sequenceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+
+	pendingTransferPDA, _ := Ift.PendingTransferPDA(iftProgramID, mint.Bytes(), []byte(clientID), sequenceBytes)
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, pendingTransferPDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		t.Logf("✓ PendingTransfer PDA closed (account not found) for mint %s, client %s, sequence %d",
+			mint.String(), clientID, sequence)
+		return
+	}
+
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		t.Logf("✓ PendingTransfer PDA closed (account zeroed) for mint %s, client %s, sequence %d",
+			mint.String(), clientID, sequence)
+		return
+	}
+
+	require.Fail("PendingTransfer PDA should have been closed after claim_refund",
+		"Account %s still exists with %d lamports (mint: %s, client: %s, sequence: %d)",
+		pendingTransferPDA.String(), accountInfo.Value.Lamports, mint.String(), clientID, sequence)
+}
+
+// VerifyMintAuthority verifies that a token mint has the expected mint authority
+func (s *Solana) VerifyMintAuthority(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	mint solana.PublicKey,
+	expectedAuthority solana.PublicKey,
+) {
+	t.Helper()
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, mint, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "Failed to get mint account info")
+	require.NotNil(accountInfo.Value, "Mint account not found")
+
+	// Parse mint account data (SPL Token mint layout)
+	// Layout: 4 bytes COption (0=None, 1=Some) + 32 bytes authority if Some
+	data := accountInfo.Value.Data.GetBinary()
+	require.True(len(data) >= 36, "Mint account data too short")
+
+	hasAuthority := binary.LittleEndian.Uint32(data[0:4]) == 1
+	require.True(hasAuthority, "Mint has no authority set")
+
+	actualAuthority := solana.PublicKeyFromBytes(data[4:36])
+	require.Equal(expectedAuthority, actualAuthority,
+		"Mint authority mismatch: expected %s, got %s", expectedAuthority.String(), actualAuthority.String())
+
+	t.Logf("✓ Mint %s has correct authority: %s", mint.String(), expectedAuthority.String())
+}
+
+// VerifyIftAppStateExists verifies that an IFT app state PDA exists
+func (s *Solana) VerifyIftAppStateExists(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+) {
+	t.Helper()
+
+	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	require.NoError(err, "IFT app state PDA should exist")
+	require.NotNil(accountInfo.Value, "IFT app state PDA account should have data")
+	require.True(accountInfo.Value.Lamports > 0, "IFT app state PDA should have lamports")
+
+	t.Logf("✓ IFT app state exists: %s", appStatePDA.String())
+}
+
+// VerifyIftAppStateClosed verifies that an IFT app state PDA has been closed
+func (s *Solana) VerifyIftAppStateClosed(
+	ctx context.Context,
+	t *testing.T,
+	require *require.Assertions,
+	iftProgramID solana.PublicKey,
+	mint solana.PublicKey,
+) {
+	t.Helper()
+
+	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+
+	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	if err != nil {
+		t.Logf("✓ IFT app state closed (account not found): %s", appStatePDA.String())
+		return
+	}
+
+	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
+		t.Logf("✓ IFT app state closed (account zeroed): %s", appStatePDA.String())
+		return
+	}
+
+	require.Fail("IFT app state should have been closed after revoke",
+		"Account %s still exists with %d lamports", appStatePDA.String(), accountInfo.Value.Lamports)
 }
 
 func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string) solana.PublicKey {
@@ -732,7 +1016,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
 	chunksStart := time.Now()
 
-	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
 
 	type chunkResult struct {
 		chunkIdx int
@@ -831,8 +1115,8 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	binary.LittleEndian.PutUint64(height2Bytes, trustedHeight2)
 
 	// Get trusted consensus state PDAs (use client state PDA address as seed, not chain ID)
-	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
-	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStatePDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
+	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
+	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 		clientID,

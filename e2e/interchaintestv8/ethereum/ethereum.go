@@ -137,6 +137,26 @@ func (e Ethereum) CreateUser() (*ecdsa.PrivateKey, error) {
 	return key, nil
 }
 
+// CreateUserFromKey creates a user from a hex-encoded private key.
+func (e Ethereum) CreateUserFromKey(privateKeyHex string) (*ecdsa.PrivateKey, error) {
+	return crypto.HexToECDSA(privateKeyHex)
+}
+
+// CreateAndFundUserFromKey creates and funds a user from a hex-encoded private key.
+func (e Ethereum) CreateAndFundUserFromKey(privateKeyHex string) (*ecdsa.PrivateKey, error) {
+	key, err := e.CreateUserFromKey(privateKeyHex)
+	if err != nil {
+		return nil, err
+	}
+
+	address := crypto.PubkeyToAddress(key.PublicKey)
+	if err := e.FundUser(address, testvalues.StartingEthBalance); err != nil {
+		return nil, err
+	}
+
+	return key, nil
+}
+
 func (e Ethereum) CreateAndFundUser() (*ecdsa.PrivateKey, error) {
 	key, err := e.CreateUser()
 	if err != nil {

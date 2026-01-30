@@ -17,6 +17,8 @@ import (
 
 	"github.com/cosmos/interchaintest/v10/testutil"
 
+	ics26router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
@@ -369,17 +371,17 @@ func (s *Solana) LogTransactionDetails(ctx context.Context, t *testing.T, sig so
 
 	if txDetails.Meta.Err != nil {
 		t.Logf("❌ Transaction error: %+v", txDetails.Meta.Err)
-
-		if len(txDetails.Meta.LogMessages) > 0 {
-			t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
-			for i, log := range txDetails.Meta.LogMessages {
-				t.Logf("  [%d] %s", i, log)
-			}
-		}
-		t.Logf("=====================================")
 	} else {
 		t.Logf("✅ Transaction succeeded")
 	}
+
+	if len(txDetails.Meta.LogMessages) > 0 {
+		t.Logf("📋 Program Logs (%d messages):", len(txDetails.Meta.LogMessages))
+		for i, log := range txDetails.Meta.LogMessages {
+			t.Logf("  [%d] %s", i, log)
+		}
+	}
+	t.Logf("=====================================")
 }
 
 func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
@@ -413,4 +415,23 @@ func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error)
 		return solana.PublicKey{}, fmt.Errorf("failed to derive program data address: %w", err)
 	}
 	return pda, nil
+}
+
+// GetWriteAcknowledgementEvents fetches a transaction and parses WriteAcknowledgementEvents from its logs
+func (s *Solana) GetWriteAcknowledgementEvents(ctx context.Context, sig solana.Signature) ([]*ics26router.Ics26RouterEventsWriteAcknowledgementEvent, error) {
+	version := uint64(0)
+	txDetails, err := s.RPCClient.GetTransaction(ctx, sig, &rpc.GetTransactionOpts{
+		Encoding:                       solana.EncodingBase64,
+		Commitment:                     rpc.CommitmentConfirmed,
+		MaxSupportedTransactionVersion: &version,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch transaction: %w", err)
+	}
+
+	if txDetails == nil || txDetails.Meta == nil {
+		return nil, fmt.Errorf("transaction details or meta is nil")
+	}
+
+	return ParseWriteAcknowledgementEventsFromLogs(txDetails.Meta.LogMessages)
 }

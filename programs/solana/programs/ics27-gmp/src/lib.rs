@@ -51,16 +51,16 @@ pub mod ics27_gmp {
     }
 
     /// IBC acknowledgement handler (called by router via CPI)
-    pub fn on_acknowledgement_packet(
-        ctx: Context<OnAckPacket>,
+    pub fn on_acknowledgement_packet<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OnAckPacket<'info>>,
         msg: solana_ibc_types::OnAcknowledgementPacketMsg,
     ) -> Result<()> {
         instructions::on_acknowledgement_packet(ctx, msg)
     }
 
     /// IBC timeout handler (called by router via CPI)
-    pub fn on_timeout_packet(
-        ctx: Context<OnTimeoutPacket>,
+    pub fn on_timeout_packet<'info>(
+        ctx: Context<'_, '_, 'info, 'info, OnTimeoutPacket<'info>>,
         msg: solana_ibc_types::OnTimeoutPacketMsg,
     ) -> Result<()> {
         instructions::on_timeout_packet(ctx, msg)

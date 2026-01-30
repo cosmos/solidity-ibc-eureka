@@ -7,6 +7,15 @@ use anchor_lang::solana_program::instruction::Instruction;
 use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
+/// Number of fixed accounts in `remaining_accounts` (before target program accounts)
+const FIXED_REMAINING_ACCOUNTS: usize = 2;
+
+/// Index of GMP account PDA in `remaining_accounts`
+const GMP_ACCOUNT_INDEX: usize = 0;
+
+/// Index of target program in `remaining_accounts`
+const TARGET_PROGRAM_INDEX: usize = 1;
+
 /// Receive IBC packet and execute call (called by router via CPI)
 ///
 /// # Account Layout
@@ -53,17 +62,6 @@ pub struct OnRecvPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-impl OnRecvPacket<'_> {
-    /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
-    pub const FIXED_REMAINING_ACCOUNTS: usize = 2;
-
-    /// Index of GMP account PDA in `remaining_accounts`
-    pub const GMP_ACCOUNT_INDEX: usize = 0;
-
-    /// Index of target program in `remaining_accounts`
-    pub const TARGET_PROGRAM_INDEX: usize = 1;
-}
-
 pub fn on_recv_packet<'info>(
     ctx: Context<'_, '_, 'info, 'info, OnRecvPacket<'info>>,
     msg: solana_ibc_types::OnRecvPacketMsg,
@@ -71,39 +69,34 @@ pub fn on_recv_packet<'info>(
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
-        &ics26_router::program::Ics26Router::id(),
+        &ctx.accounts.router_program.key(),
         &crate::ID,
     )
     .map_err(GMPError::from)?;
 
-    // Validate version
     require!(
         msg.payload.version == ICS27_VERSION,
         GMPError::InvalidVersion
     );
 
-    // Validate source port
     require!(
         msg.payload.source_port == GMP_PORT_ID,
         GMPError::InvalidPort
     );
 
-    // Validate encoding
     require!(
         msg.payload.encoding == ICS27_ENCODING,
         GMPError::InvalidEncoding
     );
 
-    // Validate dest port
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
     // Extract target_program from `remaining_accounts`
     let target_program = ctx
         .remaining_accounts
-        .get(OnRecvPacket::TARGET_PROGRAM_INDEX)
+        .get(TARGET_PROGRAM_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Validate target_program is executable
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Decode and validate GMP packet data from protobuf payload
@@ -124,7 +117,6 @@ pub fn on_recv_packet<'info>(
         GMPError::AccountKeyMismatch
     );
 
-    // Create ClientId from dest_client (local client on this chain)
     let client_id = solana_ibc_types::ClientId::try_from(msg.dest_client)
         .map_err(|_| GMPError::InvalidClientId)?;
 
@@ -139,10 +131,9 @@ pub fn on_recv_packet<'info>(
     // Extract GMP account PDA from `remaining_accounts`
     let gmp_account_info = ctx
         .remaining_accounts
-        .get(OnRecvPacket::GMP_ACCOUNT_INDEX)
+        .get(GMP_ACCOUNT_INDEX)
         .ok_or(GMPError::InsufficientAccounts)?;
 
-    // Validate GMP account PDA matches expected address
     require_keys_eq!(
         gmp_account_info.key(),
         gmp_account.pda,
@@ -160,8 +151,7 @@ pub fn on_recv_packet<'info>(
     let mut account_metas = solana_payload.to_account_metas();
 
     // Skip gmp_account_pda[0] and target_program[1]
-    let remaining_accounts_for_execution =
-        &ctx.remaining_accounts[OnRecvPacket::FIXED_REMAINING_ACCOUNTS..];
+    let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
 
     // Validate account count matches exactly (before payer injection)
     require!(
@@ -177,8 +167,9 @@ pub fn on_recv_packet<'info>(
             GMPError::AccountKeyMismatch
         );
 
+        // Allow writable when payload says readonly (Solana account merging)
         require!(
-            account_info.is_writable == meta.is_writable,
+            account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
         );
     }
@@ -231,6 +222,7 @@ mod tests {
     use gmp_counter_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use rstest::rstest;
     use solana_ibc_proto::ProstMessage;
     use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
@@ -746,61 +738,16 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_version() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid version
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: "wrong-version".to_string(), // Invalid version!
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid version"
-        );
+    /// Payload field overrides for testing invalid packet validation
+    #[derive(Default)]
+    struct PayloadOverrides {
+        source_port: Option<&'static str>,
+        dest_port: Option<&'static str>,
+        version: Option<&'static str>,
+        encoding: Option<&'static str>,
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_source_port() {
+    fn run_invalid_payload_test(overrides: PayloadOverrides) {
         let ctx = create_gmp_test_context();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
@@ -813,16 +760,15 @@ mod tests {
 
         let packet_data_bytes = packet_data.encode_to_vec();
 
-        // Create custom recv_msg with invalid source port
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
             dest_client: client_id.to_string(),
             sequence: 1,
             payload: solana_ibc_types::Payload {
-                source_port: "transfer".to_string(), // Invalid source port!
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                source_port: overrides.source_port.unwrap_or(GMP_PORT_ID).to_string(),
+                dest_port: overrides.dest_port.unwrap_or(GMP_PORT_ID).to_string(),
+                version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
+                encoding: overrides.encoding.unwrap_or(ICS27_ENCODING).to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -831,131 +777,26 @@ mod tests {
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
             create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda),
+            create_dummy_target_program_account(),
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid source port"
-        );
+        assert!(result.program_result.is_err());
     }
 
-    #[test]
-    fn test_on_recv_packet_invalid_encoding() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid encoding
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: "application/json".to_string(), // Invalid encoding!
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid encoding"
-        );
-    }
-
-    #[test]
-    fn test_on_recv_packet_invalid_dest_port() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![1, 2, 3],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        // Create custom recv_msg with invalid dest port
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: "transfer".to_string(), // Invalid dest port!
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
-
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid dest port"
-        );
+    #[rstest]
+    #[case::invalid_version(PayloadOverrides { version: Some("wrong-version"), ..Default::default() })]
+    #[case::invalid_source_port(PayloadOverrides { source_port: Some("transfer"), ..Default::default() })]
+    #[case::invalid_encoding(PayloadOverrides { encoding: Some("application/json"), ..Default::default() })]
+    #[case::invalid_dest_port(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() })]
+    fn test_on_recv_packet_payload_validation(#[case] overrides: PayloadOverrides) {
+        run_invalid_payload_test(overrides);
     }
 
     #[test]
@@ -1301,51 +1142,11 @@ mod tests {
         // The GMP account PDA is used as a signer without storing state
     }
 
-    /// Verifies that CPI errors cause immediate transaction failure
+    /// Verifies that CPI errors cause immediate transaction failure.
     ///
-    /// Test Scenario:
-    /// 1. GMP receives a packet requesting a counter app CPI call
-    /// 2. The payer has insufficient lamports (3M - enough for `gmp_account_pda` but not for `user_counter`)
-    /// 3. GMP invokes counter app via CPI
-    /// 4. Counter app fails when attempting to create `user_counter` (insufficient lamports)
-    /// 5. The entire transaction aborts - no error acknowledgment is returned
-    ///
-    /// Solana Architectural Constraint:
-    /// Unlike IBC/EVM where execution errors can be caught and returned as error acknowledgments,
-    /// Solana CPIs (Cross-Program Invocations) fail atomically. When `invoke()` or `invoke_signed()`
-    /// fails, the entire transaction aborts immediately - by design to maintain atomicity.
-    ///
-    /// Technical Details:
-    /// CPI errors cannot be handled in Solana programs - when `invoke()` or `invoke_signed()`
-    /// fails, the entire transaction aborts immediately. This is by design to maintain
-    /// transaction atomicity.
-    ///
-    /// Runtime Implementation:
-    /// The error propagation happens at the VM/runtime level. When a child program returns
-    /// an error, it propagates immediately via the ? operator in `cpi_common()`:
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/cpi.rs#L843>
-    ///
-    /// Error propagation flow in `process_instruction()`:
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/program-runtime/src/invoke_context.rs#L488-L498>
-    ///
-    /// Unit Test Proof:
-    /// There's a test that proves CPI errors cause transaction abort even when the Result
-    /// is ignored.
-    ///
-    /// Test setup (expects transaction to fail with Custom(42)):
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/tests/programs.rs#L1043-L1049>
-    ///
-    /// Parent program IGNORES the `invoke()` result with "let _ = invoke(...)":
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoke/src/lib.rs#L604>
-    ///
-    /// Child program returns error Custom(42):
-    /// <https://github.com/anza-xyz/agave/blob/6ba8c59466d18ef480680732c89fa076b15843f5/programs/sbf/rust/invoked/src/lib.rs#L119>
-    ///
-    /// The test confirms that even though the parent ignores the Result, the transaction
-    /// aborts with the child's error. The parent program never gets to execute any code
-    /// after the failed `invoke()` call - the abort happens at the runtime/VM level.
-    ///
-    /// This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
+    /// Unlike EVM/IBC where errors can return error acknowledgments, Solana CPIs fail
+    /// atomically - when `invoke()` fails, the entire transaction aborts at the VM level.
+    /// This test triggers a CPI failure (insufficient lamports) and expects tx abort.
     #[test]
     fn test_on_recv_packet_failed_execution_returns_error_ack() {
         // Create Mollusk instance and load both programs

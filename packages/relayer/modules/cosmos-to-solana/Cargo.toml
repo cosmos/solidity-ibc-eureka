@@ -41,3 +41,10 @@ prost.workspace = true
 solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
 solana-ibc-constants = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
 solana-ibc-proto = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
+
+# SPL Token dependencies
+spl-token = "8.0"
+spl-associated-token-account = "7.0"
+
+# Encoding
+base64.workspace = true

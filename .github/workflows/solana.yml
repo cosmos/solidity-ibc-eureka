@@ -1,12 +1,17 @@
 name: solana
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
   pull_request:
     paths:
       - 'packages/tendermint-light-client/**'
+      - 'packages/relayer/**'
       - 'programs/solana/**'
+      - 'programs/relayer/**'
       - '.github/workflows/solana.yml'
       - 'justfile'
 
@@ -53,9 +58,6 @@ jobs:
       - name: Install just
         uses: extractions/setup-just@v2
 
-      - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-
       - name: Install protobuf compiler
         run: |
           sudo apt-get update
@@ -69,24 +71,6 @@ jobs:
         run: just test-solana
         env:
           RUST_BACKTRACE: 1
-
-      # Exclude test programs
-      - name: Run coverage
-        run: |
-          EXCLUDE='programs/(dummy-ibc-app'
-          EXCLUDE+='|gmp-counter-app'
-          EXCLUDE+='|malicious-caller'
-          EXCLUDE+='|mock-ibc-app'
-          EXCLUDE+='|mock-light-client)/'
-          cargo llvm-cov --workspace --lcov --output-path lcov.info --ignore-filename-regex "$EXCLUDE"
-        working-directory: programs/solana
-
-      - uses: codecov/codecov-action@v5
-        with:
-          files: programs/solana/lcov.info
-          flags: solana
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Run Solana linting
         run: just lint-solana

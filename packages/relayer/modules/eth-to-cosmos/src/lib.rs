@@ -194,17 +194,16 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 
         // For timeouts in attested mode, get the current height from the source chain (Eth)
         // where non-membership is proven
-        let timeout_relay_height =
-            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-                Some(
-                    self.eth_listener
-                        .get_block_number()
-                        .await
-                        .map_err(|e| tonic::Status::from_error(e.into()))?,
-                )
-            } else {
-                None
-            };
+        let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+            Some(
+                self.eth_listener
+                    .get_block_number()
+                    .await
+                    .map_err(|e| tonic::Status::from_error(e.into()))?,
+            )
+        } else {
+            None
+        };
 
         let tx = self
             .tx_builder

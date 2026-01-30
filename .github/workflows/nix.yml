@@ -1,0 +1,36 @@
+name: nix
+
+on:
+  pull_request:
+    paths:
+      - '**/*.nix'
+      - 'flake.lock'
+
+jobs:
+  develop-default:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - name: install-nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: nix-develop-default
+        run: nix develop --command true
+
+  develop-solana:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+      - name: install-nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: nix-develop-solana
+        run: nix develop .#solana --command true

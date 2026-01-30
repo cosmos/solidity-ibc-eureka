@@ -20,12 +20,13 @@ mod errors;
 pub use errors::{GMPPacketError, GmpValidationError};
 
 // Generated protobuf modules
-#[allow(clippy::all)]
 mod ibc_applications_gmp_v1 {
+    #![allow(clippy::all, clippy::doc_markdown, clippy::use_self)]
     include!(concat!(env!("OUT_DIR"), "/ibc.applications.gmp.v1.rs"));
 }
 
 pub mod solana {
+    #![allow(clippy::all, clippy::doc_markdown, clippy::use_self)]
     include!(concat!(env!("OUT_DIR"), "/solana.rs"));
 }
 
@@ -40,8 +41,8 @@ pub use solana::{
 pub const MAX_CLIENT_ID_LENGTH: usize = 64;
 /// Maximum sender address length (128 bytes)
 pub const MAX_SENDER_LENGTH: usize = 128;
-/// Maximum receiver address length (for Solana pubkey as string: 32-44 bytes)
-pub const MAX_RECEIVER_LENGTH: usize = 64;
+/// Maximum receiver address length (128 bytes)
+pub const MAX_RECEIVER_LENGTH: usize = 128;
 /// Maximum salt length (32 bytes)
 pub const MAX_SALT_LENGTH: usize = 32;
 /// Maximum memo length (256 bytes)
@@ -149,7 +150,7 @@ pub struct GmpSolanaPayload {
 }
 
 impl GmpSolanaPayload {
-    /// Convert accounts to Anchor AccountMeta format
+    /// Convert accounts to Anchor `AccountMeta` format
     pub fn to_account_metas(&self) -> Vec<anchor_lang::prelude::AccountMeta> {
         self.accounts.iter().map(Into::into).collect()
     }
@@ -204,7 +205,7 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
 }
 
 // GmpAcknowledgement is a simple protobuf type that doesn't need validation
-impl Protobuf<GmpAcknowledgement> for GmpAcknowledgement {}
+impl Protobuf<Self> for GmpAcknowledgement {}
 
 impl GmpAcknowledgement {
     /// Create new acknowledgement with result data

@@ -54,6 +54,7 @@ impl std::error::Error for ConstrainedError {}
 /// assert!(too_short.is_err());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "borsh", derive(borsh::BorshSerialize))]
 pub struct ConstrainedString<const MIN: usize, const MAX: usize>(String);
 
 impl<const MIN: usize, const MAX: usize> ConstrainedString<MIN, MAX> {
@@ -171,6 +172,13 @@ impl<T, const MIN: usize, const MAX: usize> ConstrainedVec<T, MIN, MAX> {
     }
 }
 
+impl<T, const MAX: usize> ConstrainedVec<T, 0, MAX> {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self(Vec::new())
+    }
+}
+
 impl<T, const MIN: usize, const MAX: usize> AsRef<[T]> for ConstrainedVec<T, MIN, MAX> {
     fn as_ref(&self) -> &[T] {
         &self.0
@@ -219,6 +227,16 @@ impl<T, const MIN: usize, const MAX: usize> core::convert::TryFrom<Vec<T>>
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ConstrainedBytes<const MIN: usize, const MAX: usize>(ConstrainedVec<u8, MIN, MAX>);
 
+#[cfg(feature = "borsh")]
+impl<const MIN: usize, const MAX: usize> borsh::BorshSerialize for ConstrainedBytes<MIN, MAX> {
+    fn serialize<W: borsh::maybestd::io::Write>(
+        &self,
+        writer: &mut W,
+    ) -> borsh::maybestd::io::Result<()> {
+        borsh::BorshSerialize::serialize(self.0.as_ref(), writer)
+    }
+}
+
 impl<const MIN: usize, const MAX: usize> ConstrainedBytes<MIN, MAX> {
     /// Create new constrained bytes with validation
     pub fn new(bytes: impl Into<Vec<u8>>) -> Result<Self, ConstrainedError> {
@@ -228,6 +246,13 @@ impl<const MIN: usize, const MAX: usize> ConstrainedBytes<MIN, MAX> {
     /// Consume and return the inner `Vec<u8>`
     pub fn into_vec(self) -> Vec<u8> {
         self.0.into_vec()
+    }
+}
+
+impl<const MAX: usize> ConstrainedBytes<0, MAX> {
+    #[must_use]
+    pub fn empty() -> Self {
+        Self(ConstrainedVec::empty())
     }
 }
 
@@ -350,6 +375,24 @@ mod tests {
         type MaybeEmpty = ConstrainedVec<u8, 0, 10>;
 
         let empty = MaybeEmpty::new(vec![]).unwrap();
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_constrained_vec_empty_method() {
+        type MaybeEmpty = ConstrainedVec<u8, 0, 10>;
+
+        let empty = MaybeEmpty::empty();
+        assert!(empty.is_empty());
+        assert_eq!(empty.len(), 0);
+    }
+
+    #[test]
+    fn test_constrained_bytes_empty_method() {
+        type Salt = ConstrainedBytes<0, 32>;
+
+        let empty = Salt::empty();
         assert!(empty.is_empty());
         assert_eq!(empty.len(), 0);
     }

@@ -11,6 +11,67 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Event emitted when access manager is updated
+type Ics07TendermintEventsAccessManagerUpdated struct {
+	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
+	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
+}
+
+func (obj Ics07TendermintEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldAccessManager`:
+	err = encoder.Encode(obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Serialize `NewAccessManager`:
+	err = encoder.Encode(obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj Ics07TendermintEventsAccessManagerUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics07TendermintEventsAccessManagerUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics07TendermintEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldAccessManager`:
+	err = decoder.Decode(&obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Deserialize `NewAccessManager`:
+	err = decoder.Decode(&obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *Ics07TendermintEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics07TendermintEventsAccessManagerUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs07TendermintEventsAccessManagerUpdated(buf []byte) (*Ics07TendermintEventsAccessManagerUpdated, error) {
+	obj := new(Ics07TendermintEventsAccessManagerUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type Ics07TendermintStateConsensusStateStore struct {
 	Height         uint64                             `json:"height"`
 	ConsensusState Ics07TendermintTypesConsensusState `json:"consensusState"`
@@ -186,25 +247,26 @@ func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07Tendermin
 	return obj, nil
 }
 
-// Storage for Ed25519 signature verification results
+// Storage for Ed25519 signature verification results.
+// IMPORTANT: Field order matters: verifier reads `data[8]` for `is_valid`.
 type Ics07TendermintStateSignatureVerification struct {
-	// The submitter who created this verification
-	Submitter solanago.PublicKey `json:"submitter"`
-
 	// Whether the signature is valid
 	IsValid bool `json:"isValid"`
+
+	// The submitter who created this verification
+	Submitter solanago.PublicKey `json:"submitter"`
 }
 
 func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Submitter`:
-	err = encoder.Encode(obj.Submitter)
-	if err != nil {
-		return errors.NewField("Submitter", err)
-	}
 	// Serialize `IsValid`:
 	err = encoder.Encode(obj.IsValid)
 	if err != nil {
 		return errors.NewField("IsValid", err)
+	}
+	// Serialize `Submitter`:
+	err = encoder.Encode(obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
 	}
 	return nil
 }
@@ -220,15 +282,15 @@ func (obj Ics07TendermintStateSignatureVerification) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Submitter`:
-	err = decoder.Decode(&obj.Submitter)
-	if err != nil {
-		return errors.NewField("Submitter", err)
-	}
 	// Deserialize `IsValid`:
 	err = decoder.Decode(&obj.IsValid)
 	if err != nil {
 		return errors.NewField("IsValid", err)
+	}
+	// Deserialize `Submitter`:
+	err = decoder.Decode(&obj.Submitter)
+	if err != nil {
+		return errors.NewField("Submitter", err)
 	}
 	return nil
 }

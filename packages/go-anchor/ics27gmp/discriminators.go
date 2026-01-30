@@ -5,11 +5,21 @@ package ics27_gmp
 
 // Account discriminators
 var (
-	Account_Ics27GmpStateGmpAppState = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
+	Account_Ics27GmpStateGmpAppState          = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
+	Account_Ics27GmpStateGmpCallResultAccount = [8]byte{236, 115, 234, 143, 137, 175, 113, 32}
 )
 
 // Event discriminators
-var ()
+var (
+	Event_Ics27GmpEventsAccessManagerUpdated  = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
+	Event_Ics27GmpEventsGmpAppInitialized     = [8]byte{212, 236, 132, 161, 142, 153, 248, 176}
+	Event_Ics27GmpEventsGmpAppPaused          = [8]byte{85, 230, 80, 71, 172, 103, 11, 186}
+	Event_Ics27GmpEventsGmpAppUnpaused        = [8]byte{154, 224, 206, 7, 164, 216, 81, 181}
+	Event_Ics27GmpEventsGmpCallAcknowledgment = [8]byte{239, 175, 112, 84, 147, 243, 239, 202}
+	Event_Ics27GmpEventsGmpCallSent           = [8]byte{97, 205, 149, 75, 198, 28, 132, 141}
+	Event_Ics27GmpEventsGmpCallTimeout        = [8]byte{10, 9, 192, 61, 183, 251, 100, 89}
+	Event_Ics27GmpEventsGmpExecutionFailed    = [8]byte{78, 147, 179, 232, 5, 38, 127, 64}
+)
 
 // Instruction discriminators
 var (

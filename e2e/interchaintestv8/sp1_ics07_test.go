@@ -188,19 +188,8 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		contractAddresses, err := ethereum.GetEthContractsFromDeployOutput(string(stdout))
 		s.Require().NoError(err)
 
-		var verfierAddress string
-		if prover == testvalues.EnvValueSp1Prover_Mock {
-			verfierAddress = contractAddresses.VerifierMock
-		} else {
-			switch proofType {
-			case types.ProofTypeGroth16:
-				verfierAddress = contractAddresses.VerifierGroth16
-			case types.ProofTypePlonk:
-				verfierAddress = contractAddresses.VerifierPlonk
-			default:
-				s.Require().Fail("invalid proof type: %s", proofType)
-			}
-		}
+		verifierAddress, err := contractAddresses.GetVerifierAddress(prover, proofType.String())
+		s.Require().NoError(err)
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
@@ -208,7 +197,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
-					testvalues.ParameterKey_Sp1Verifier: verfierAddress,
+					testvalues.ParameterKey_Sp1Verifier: verifierAddress,
 					testvalues.ParameterKey_ZkAlgorithm: proofType.String(),
 					testvalues.ParameterKey_RoleManager: ethcommon.Address{}.Hex(),
 				},
