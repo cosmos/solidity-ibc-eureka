@@ -107,229 +107,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.AccessManagerPDA, _ = solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 }
 
-// createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
-func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, subdenom string) string {
-	msg := &tokenfactorytypes.MsgCreateDenom{
-		Sender: s.CosmosSubmitter.FormattedAddress(),
-		Denom:  subdenom,
-	}
-	_, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosSubmitter, 200_000, msg)
-	s.Require().NoError(err)
-	return subdenom
-}
-
-// mintTokenFactory mints tokenfactory tokens to a recipient
-func (s *IbcEurekaSolanaIFTTestSuite) mintTokenFactory(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
-	msg := &tokenfactorytypes.MsgMint{
-		From:    user.FormattedAddress(),
-		Address: recipient,
-		Amount:  sdk.Coin{Denom: denom, Amount: amount},
-	}
-	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
-	s.Require().NoError(err)
-}
-
-func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr, counterpartyClientId string, gmpProgramID, mint solanago.PublicKey) {
-	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
-	s.Require().NoError(err)
-
-	// counterpartyClientId is the client on Solana that tracks Cosmos - needed for gmp_account_pda derivation
-	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String())
-	s.T().Logf("IFT constructor: %s", constructor)
-
-	msg := &ifttypes.MsgRegisterIFTBridge{
-		Signer:                 govModuleAddr,
-		Denom:                  denom,
-		ClientId:               clientId,
-		CounterpartyIftAddress: counterpartyIftAddr,
-		IftSendCallConstructor: constructor,
-	}
-	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
-	s.Require().NoError(err)
-}
-
-func (s *IbcEurekaSolanaIFTTestSuite) getCosmosIFTModuleAddress() string {
-	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
-	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
-	s.Require().NoError(err)
-	return bech32Addr
-}
-
-// registerSolanaIFTBridge registers an IFT bridge for the Cosmos counterparty
-func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Context, clientID, counterpartyAddress, counterpartyDenom string) {
-	s.Require().True(s.Run("Register IFT Bridge", func() {
-		bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, s.IFTMintBytes(), []byte(clientID))
-		s.IFTBridge = bridgePDA
-
-		// Query the ICA address on Cosmos for the IFT program
-		// When IFT calls GMP via CPI, the sender is the IFT program ID (not the user)
-		// This is similar to Ethereum where the IFT contract address is the sender
-		iftProgramAddress := ift.ProgramID.String()
-		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, s.Wfchain, &gmptypes.QueryAccountAddressRequest{
-			ClientId: CosmosClientID, // The wasm client on Cosmos (dest client)
-			Sender:   iftProgramAddress,
-			Salt:     "",
-		})
-		s.Require().NoError(err)
-		s.Require().NotEmpty(res.AccountAddress)
-		cosmosIcaAddress := res.AccountAddress
-		s.T().Logf("Computed Cosmos ICA address: %s (for IFT program: %s)", cosmosIcaAddress, iftProgramAddress)
-
-		registerMsg := ift.IftStateRegisterIftBridgeMsg{
-			ClientId:               clientID,
-			CounterpartyIftAddress: counterpartyAddress,
-			ChainOptions: &ift.IftStateChainOptions_Cosmos{
-				Denom:      counterpartyDenom,
-				TypeUrl:    "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
-				IcaAddress: cosmosIcaAddress,
-			},
-		}
-
-		registerIx, err := ift.NewRegisterIftBridgeInstruction(
-			registerMsg,
-			s.IFTAppState,
-			bridgePDA,
-			s.AccessManagerPDA,
-			s.SolanaRelayer.PublicKey(),       // Authority
-			solanago.SysVarInstructionsPubkey, // Instructions sysvar
-			s.SolanaRelayer.PublicKey(),       // Payer
-			solanago.SystemProgramID,
-		)
-		s.Require().NoError(err)
-
-		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), registerIx)
-		s.Require().NoError(err)
-
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
-		s.Require().NoError(err)
-
-		s.T().Logf("IFT Bridge registered for client %s", clientID)
-		s.T().Logf("  Bridge PDA: %s", bridgePDA)
-		s.T().Logf("  Counterparty: %s (Cosmos)", counterpartyAddress)
-		s.T().Logf("  Counterparty Denom: %s", counterpartyDenom)
-		s.T().Logf("  Cosmos ICA Address: %s", cosmosIcaAddress)
-	}))
-}
-
-// createIFTSplToken creates a new SPL token for IFT
-func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
-	mint := mintWallet.PublicKey()
-	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
-	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
-
-	s.IFTAppState = appStatePDA
-	s.IFTMintAuthority = mintAuthorityPDA
-
-	initIx, err := ift.NewCreateSplTokenInstruction(
-		IFTTokenDecimals,
-		access_manager.ProgramID,
-		ics27_gmp.ProgramID,
-		appStatePDA,
-		mint,
-		mintAuthorityPDA,
-		s.SolanaRelayer.PublicKey(),
-		token.ProgramID,
-		solanago.SystemProgramID,
-	)
-	s.Require().NoError(err)
-
-	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initIx)
-	s.Require().NoError(err)
-
-	// Both the payer and mint must sign (mint is created during init)
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, mintWallet)
-	s.Require().NoError(err)
-}
-
-// initializeExistingToken creates an SPL token with relayer as authority, mints tokens,
-// then transfers mint authority to IFT.
-func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingToken(ctx context.Context, amount uint64) solanago.PublicKey {
-	// Generate mint keypair - we need this to create the token
-	mintWallet := solanago.NewWallet()
-	mint := mintWallet.PublicKey()
-
-	// Create SPL token with relayer as mint authority
-	rentExemption, err := s.Solana.Chain.RPCClient.GetMinimumBalanceForRentExemption(ctx, 82, "confirmed")
-	s.Require().NoError(err)
-
-	// Build CreateAccount instruction data: [0,0,0,0] (discriminator) + lamports + space + owner
-	lamportsBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(lamportsBytes, rentExemption)
-	spaceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(spaceBytes, 82) // Mint account size
-
-	createAccountData := append([]byte{0, 0, 0, 0}, lamportsBytes...) // CreateAccount = 0
-	createAccountData = append(createAccountData, spaceBytes...)
-	createAccountData = append(createAccountData, token.ProgramID[:]...)
-
-	createAccountIx := solanago.NewInstruction(
-		solanago.SystemProgramID,
-		solanago.AccountMetaSlice{
-			solanago.NewAccountMeta(s.SolanaRelayer.PublicKey(), true, true),
-			solanago.NewAccountMeta(mint, true, true),
-		},
-		createAccountData,
-	)
-
-	// InitializeMint2 instruction
-	initMintIx := token.NewInitializeMint2Instruction(
-		IFTTokenDecimals,
-		s.SolanaRelayer.PublicKey(), // Mint authority
-		s.SolanaRelayer.PublicKey(), // Freeze authority
-		mint,
-	).Build()
-
-	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), createAccountIx, initMintIx)
-	s.Require().NoError(err)
-
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, mintWallet)
-	s.Require().NoError(err)
-	s.T().Logf("Created SPL token mint: %s", mint)
-
-	// Store mint wallet for IFTMint() and IFTMintBytes() methods
-	s.IFTMintWallet = mintWallet
-
-	// Create ATA for sender
-	senderATA, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
-	s.Require().NoError(err)
-	s.SenderTokenAccount = senderATA
-
-	// Mint tokens to sender
-	err = s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, mint, senderATA, amount)
-	s.Require().NoError(err)
-	s.T().Logf("Minted %d tokens to %s", amount, senderATA)
-
-	// Derive IFT PDAs
-	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
-	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
-
-	s.IFTAppState = appStatePDA
-	s.IFTMintAuthority = mintAuthorityPDA
-
-	// Transfer mint authority to IFT via initialize_existing_token
-	initExistingIx, err := ift.NewInitializeExistingTokenInstruction(
-		access_manager.ProgramID,
-		ics27_gmp.ProgramID,
-		appStatePDA,
-		mint,
-		mintAuthorityPDA,
-		s.SolanaRelayer.PublicKey(), // current authority (will sign)
-		s.SolanaRelayer.PublicKey(), // payer
-		token.ProgramID,
-		solanago.SystemProgramID,
-	)
-	s.Require().NoError(err)
-
-	tx2, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initExistingIx)
-	s.Require().NoError(err)
-
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx2, rpc.CommitmentConfirmed, s.SolanaRelayer)
-	s.Require().NoError(err)
-	s.T().Logf("Transferred mint authority to IFT PDA: %s", mintAuthorityPDA)
-
-	return mint
-}
-
 // Test_IFT_SolanaToCosmosRoundtrip test: Solana → Cosmos → Solana
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 	ctx := context.Background()
@@ -1120,4 +897,228 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
 			ift.ProgramID, mint, SolanaClientID, namespacedSequence)
 	}))
+}
+
+// createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
+func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, subdenom string) string {
+	msg := &tokenfactorytypes.MsgCreateDenom{
+		Sender: s.CosmosSubmitter.FormattedAddress(),
+		Denom:  subdenom,
+	}
+	_, err := s.BroadcastMessages(ctx, s.Wfchain, s.CosmosSubmitter, 200_000, msg)
+	s.Require().NoError(err)
+	return subdenom
+}
+
+// mintTokenFactory mints tokenfactory tokens to a recipient
+func (s *IbcEurekaSolanaIFTTestSuite) mintTokenFactory(ctx context.Context, user ibc.Wallet, denom string, amount sdkmath.Int, recipient string) {
+	msg := &tokenfactorytypes.MsgMint{
+		From:    user.FormattedAddress(),
+		Address: recipient,
+		Amount:  sdk.Coin{Denom: denom, Amount: amount},
+	}
+	_, err := s.BroadcastMessages(ctx, s.Wfchain, user, 200_000, msg)
+	s.Require().NoError(err)
+}
+
+func (s *IbcEurekaSolanaIFTTestSuite) registerCosmosIFTBridge(ctx context.Context, denom, clientId, counterpartyIftAddr, counterpartyClientId string, gmpProgramID, mint solanago.PublicKey) {
+	govModuleAddr, err := s.Wfchain.AuthQueryModuleAddress(ctx, govtypes.ModuleName)
+	s.Require().NoError(err)
+
+	// counterpartyClientId is the client on Solana that tracks Cosmos - needed for gmp_account_pda derivation
+	constructor := testvalues.BuildSolanaIFTConstructor(gmpProgramID.String(), mint.String())
+	s.T().Logf("IFT constructor: %s", constructor)
+
+	msg := &ifttypes.MsgRegisterIFTBridge{
+		Signer:                 govModuleAddr,
+		Denom:                  denom,
+		ClientId:               clientId,
+		CounterpartyIftAddress: counterpartyIftAddr,
+		IftSendCallConstructor: constructor,
+	}
+	err = s.ExecuteGovV1Proposal(ctx, msg, s.Wfchain, s.CosmosSubmitter)
+	s.Require().NoError(err)
+}
+
+// registerSolanaIFTBridge registers an IFT bridge for the Cosmos counterparty
+func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Context, clientID, counterpartyAddress, counterpartyDenom string) {
+	s.Require().True(s.Run("Register IFT Bridge", func() {
+		bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, s.IFTMintBytes(), []byte(clientID))
+		s.IFTBridge = bridgePDA
+
+		// Query the ICA address on Cosmos for the IFT program
+		// When IFT calls GMP via CPI, the sender is the IFT program ID (not the user)
+		// This is similar to Ethereum where the IFT contract address is the sender
+		iftProgramAddress := ift.ProgramID.String()
+		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, s.Wfchain, &gmptypes.QueryAccountAddressRequest{
+			ClientId: CosmosClientID, // The wasm client on Cosmos (dest client)
+			Sender:   iftProgramAddress,
+			Salt:     "",
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(res.AccountAddress)
+		cosmosIcaAddress := res.AccountAddress
+		s.T().Logf("Computed Cosmos ICA address: %s (for IFT program: %s)", cosmosIcaAddress, iftProgramAddress)
+
+		registerMsg := ift.IftStateRegisterIftBridgeMsg{
+			ClientId:               clientID,
+			CounterpartyIftAddress: counterpartyAddress,
+			ChainOptions: &ift.IftStateChainOptions_Cosmos{
+				Denom:      counterpartyDenom,
+				TypeUrl:    "/wfchain.ift.MsgIFTMint", // Type URL for Cosmos MsgIFTMint
+				IcaAddress: cosmosIcaAddress,
+			},
+		}
+
+		registerIx, err := ift.NewRegisterIftBridgeInstruction(
+			registerMsg,
+			s.IFTAppState,
+			bridgePDA,
+			s.AccessManagerPDA,
+			s.SolanaRelayer.PublicKey(),       // Authority
+			solanago.SysVarInstructionsPubkey, // Instructions sysvar
+			s.SolanaRelayer.PublicKey(),       // Payer
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), registerIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+
+		s.T().Logf("IFT Bridge registered for client %s", clientID)
+		s.T().Logf("  Bridge PDA: %s", bridgePDA)
+		s.T().Logf("  Counterparty: %s (Cosmos)", counterpartyAddress)
+		s.T().Logf("  Counterparty Denom: %s", counterpartyDenom)
+		s.T().Logf("  Cosmos ICA Address: %s", cosmosIcaAddress)
+	}))
+}
+
+func (s *IbcEurekaSolanaIFTTestSuite) getCosmosIFTModuleAddress() string {
+	iftAddr := authtypes.NewModuleAddress(testvalues.IFTModuleName)
+	bech32Addr, err := sdk.Bech32ifyAddressBytes(s.Wfchain.Config().Bech32Prefix, iftAddr)
+	s.Require().NoError(err)
+	return bech32Addr
+}
+
+
+// createIFTSplToken creates a new SPL token for IFT
+func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
+	mint := mintWallet.PublicKey()
+	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
+	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
+
+	s.IFTAppState = appStatePDA
+	s.IFTMintAuthority = mintAuthorityPDA
+
+	initIx, err := ift.NewCreateSplTokenInstruction(
+		IFTTokenDecimals,
+		access_manager.ProgramID,
+		ics27_gmp.ProgramID,
+		appStatePDA,
+		mint,
+		mintAuthorityPDA,
+		s.SolanaRelayer.PublicKey(),
+		token.ProgramID,
+		solanago.SystemProgramID,
+	)
+	s.Require().NoError(err)
+
+	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initIx)
+	s.Require().NoError(err)
+
+	// Both the payer and mint must sign (mint is created during init)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, mintWallet)
+	s.Require().NoError(err)
+}
+
+// initializeExistingToken creates an SPL token with relayer as authority, mints tokens,
+// then transfers mint authority to IFT.
+func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingToken(ctx context.Context, amount uint64) solanago.PublicKey {
+	// Generate mint keypair - we need this to create the token
+	mintWallet := solanago.NewWallet()
+	mint := mintWallet.PublicKey()
+
+	// Create SPL token with relayer as mint authority
+	rentExemption, err := s.Solana.Chain.RPCClient.GetMinimumBalanceForRentExemption(ctx, 82, "confirmed")
+	s.Require().NoError(err)
+
+	// Build CreateAccount instruction data: [0,0,0,0] (discriminator) + lamports + space + owner
+	lamportsBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(lamportsBytes, rentExemption)
+	spaceBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(spaceBytes, 82) // Mint account size
+
+	createAccountData := append([]byte{0, 0, 0, 0}, lamportsBytes...) // CreateAccount = 0
+	createAccountData = append(createAccountData, spaceBytes...)
+	createAccountData = append(createAccountData, token.ProgramID[:]...)
+
+	createAccountIx := solanago.NewInstruction(
+		solanago.SystemProgramID,
+		solanago.AccountMetaSlice{
+			solanago.NewAccountMeta(s.SolanaRelayer.PublicKey(), true, true),
+			solanago.NewAccountMeta(mint, true, true),
+		},
+		createAccountData,
+	)
+
+	// InitializeMint2 instruction
+	initMintIx := token.NewInitializeMint2Instruction(
+		IFTTokenDecimals,
+		s.SolanaRelayer.PublicKey(), // Mint authority
+		s.SolanaRelayer.PublicKey(), // Freeze authority
+		mint,
+	).Build()
+
+	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), createAccountIx, initMintIx)
+	s.Require().NoError(err)
+
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, mintWallet)
+	s.Require().NoError(err)
+	s.T().Logf("Created SPL token mint: %s", mint)
+
+	// Store mint wallet for IFTMint() and IFTMintBytes() methods
+	s.IFTMintWallet = mintWallet
+
+	// Create ATA for sender
+	senderATA, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+	s.Require().NoError(err)
+	s.SenderTokenAccount = senderATA
+
+	// Mint tokens to sender
+	err = s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, mint, senderATA, amount)
+	s.Require().NoError(err)
+	s.T().Logf("Minted %d tokens to %s", amount, senderATA)
+
+	// Derive IFT PDAs
+	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
+	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
+
+	s.IFTAppState = appStatePDA
+	s.IFTMintAuthority = mintAuthorityPDA
+
+	// Transfer mint authority to IFT via initialize_existing_token
+	initExistingIx, err := ift.NewInitializeExistingTokenInstruction(
+		access_manager.ProgramID,
+		ics27_gmp.ProgramID,
+		appStatePDA,
+		mint,
+		mintAuthorityPDA,
+		s.SolanaRelayer.PublicKey(), // current authority (will sign)
+		s.SolanaRelayer.PublicKey(), // payer
+		token.ProgramID,
+		solanago.SystemProgramID,
+	)
+	s.Require().NoError(err)
+
+	tx2, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initExistingIx)
+	s.Require().NoError(err)
+
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx2, rpc.CommitmentConfirmed, s.SolanaRelayer)
+	s.Require().NoError(err)
+	s.T().Logf("Transferred mint authority to IFT PDA: %s", mintAuthorityPDA)
+
+	return mint
 }
