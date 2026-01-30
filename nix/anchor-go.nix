@@ -14,6 +14,7 @@ pkgs.buildGoModule rec {
 
   patches = [
     ./anchor-go-fix-complex-enum.patch
+    # https://github.com/gagliardetto/anchor-go/pull/52
     ./anchor-go-fix-no-args-discriminator.patch
   ];
 
