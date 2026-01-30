@@ -1,8 +1,10 @@
+use crate::abi_decode::decode_state_attestation;
 use crate::error::ErrorCode;
 use crate::events::MisbehaviourDetected;
-use crate::helpers::{decode_state_attestation, deserialize_membership_proof, verify_attestation};
+use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
+use crate::verification::verify_attestation;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]

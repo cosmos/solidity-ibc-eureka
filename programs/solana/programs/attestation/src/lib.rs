@@ -4,7 +4,6 @@ pub mod abi_decode;
 pub mod crypto;
 pub mod error;
 pub mod events;
-pub mod helpers;
 pub mod instructions;
 pub mod proof;
 pub mod state;

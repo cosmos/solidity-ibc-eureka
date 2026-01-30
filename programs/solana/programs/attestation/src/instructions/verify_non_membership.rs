@@ -1,9 +1,10 @@
+use crate::abi_decode::decode_packet_attestation;
+use crate::crypto::hash_path;
 use crate::error::ErrorCode;
-use crate::helpers::{
-    decode_packet_attestation, deserialize_membership_proof, hash_path, verify_attestation,
-};
+use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
+use crate::verification::verify_attestation;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
