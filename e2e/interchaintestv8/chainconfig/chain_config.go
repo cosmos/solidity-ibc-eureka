@@ -44,7 +44,7 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			ChainID: chainId,
 			Images: []ibc.DockerImage{
 				{
-					Repository: "wfchain",
+					Repository: "ghcr.io/cosmos/wfchain",
 					Version:    "latest",
 					UIDGID:     "1025:1025",
 				},

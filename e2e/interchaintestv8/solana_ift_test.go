@@ -1003,7 +1003,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) getCosmosIFTModuleAddress() string {
 	return bech32Addr
 }
 
-
 // createIFTSplToken creates a new SPL token for IFT
 func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
 	mint := mintWallet.PublicKey()
