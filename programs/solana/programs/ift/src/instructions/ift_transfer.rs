@@ -219,7 +219,6 @@ fn construct_mint_call(
             receiver,
             amount,
         )),
-        ChainOptions::Solana => construct_solana_mint_call(receiver, amount),
     }
 }
 
@@ -537,19 +536,9 @@ mod tests {
         }
     }
 
-    fn solana_test_case() -> MintCallTestCase {
-        MintCallTestCase {
-            chain_options: ChainOptions::Solana,
-            receiver: "11111111111111111111111111111111",
-            expected_len: Some(48),
-            expected_content: vec![],
-        }
-    }
-
     #[rstest]
     #[case::evm(evm_test_case())]
     #[case::cosmos(cosmos_test_case())]
-    #[case::solana(solana_test_case())]
     fn test_construct_mint_call(#[case] test_case: MintCallTestCase) {
         let result = construct_mint_call(&test_case.chain_options, test_case.receiver, 100);
         assert!(result.is_ok());
