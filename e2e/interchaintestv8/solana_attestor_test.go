@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -84,7 +85,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
-	os.Setenv(testvalues.EnvKeyEthLcOnCosmos, testvalues.EthWasmTypeAttestorWasm)
 
 	s.TestSuite.SetupSuite(ctx)
 
@@ -238,14 +238,16 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Starting relayer...")
 
 	config := relayer.NewConfigBuilder().
-		SolanaToCosmos(relayer.SolanaToCosmosParams{
-			SolanaChainID:  testvalues.SolanaChainID,
-			CosmosChainID:  simd.Config().ChainID,
-			SolanaRPC:      testvalues.SolanaLocalnetRPC,
-			TmRPC:          simd.GetHostRPCAddress(),
-			ICS26ProgramID: ics26_router.ProgramID.String(),
-			SignerAddress:  s.Cosmos.Users[0].FormattedAddress(),
-			MockClient:     true,
+		SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+			SolanaChainID:     testvalues.SolanaChainID,
+			CosmosChainID:     simd.Config().ChainID,
+			SolanaRPC:         testvalues.SolanaLocalnetRPC,
+			TmRPC:             simd.GetHostRPCAddress(),
+			ICS26ProgramID:    ics26_router.ProgramID.String(),
+			SignerAddress:     s.Cosmos.Users[0].FormattedAddress(),
+			AttestorEndpoints: s.AttestorEndpoints,
+			AttestorTimeout:   30000,
+			QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 		}).
 		CosmosToSolana(relayer.CosmosToSolanaParams{
 			CosmosChainID:  simd.Config().ChainID,
@@ -290,16 +292,20 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	s.T().Logf("IBC client created on Solana - tx: %s", sig)
 
-	s.T().Log("Storing Solana light client on Cosmos...")
-	checksumHex := s.StoreSolanaLightClient(ctx, simd, s.Cosmos.Users[0])
-	s.Require().NotEmpty(checksumHex, "Failed to store Solana light client")
+	s.T().Log("Creating attestor client on Cosmos with 1 attestor...")
+	currentFinalizedSlot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+	s.Require().NoError(err)
+	solanaTimestamp, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, currentFinalizedSlot)
+	s.Require().NoError(err)
 
-	s.T().Log("Creating IBC client on Cosmos...")
 	clientResp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 		SrcChain: testvalues.SolanaChainID,
 		DstChain: simd.Config().ChainID,
 		Parameters: map[string]string{
-			testvalues.ParameterKey_ChecksumHex: checksumHex,
+			testvalues.ParameterKey_AttestorAddresses: attestorResult.Addresses[0],
+			testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(testvalues.DefaultMinRequiredSigs),
+			testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
+			testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
 		},
 	})
 	s.Require().NoError(err)
@@ -313,7 +319,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	clientSequenceAccount, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 	counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
-		ClientId:     CosmosClientID,
+		ClientId:     testvalues.FirstAttestationsClientID,
 		MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
 	}
 
@@ -342,7 +348,7 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Registering counterparty on Cosmos...")
 	merklePathPrefix := [][]byte{[]byte("")}
 	_, err = s.BroadcastMessages(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, &clienttypesv2.MsgRegisterCounterparty{
-		ClientId:                 CosmosClientID,
+		ClientId:                 testvalues.FirstAttestationsClientID,
 		CounterpartyMerklePrefix: merklePathPrefix,
 		CounterpartyClientId:     SolanaClientID,
 		Signer:                   s.Cosmos.Users[0].FormattedAddress(),
@@ -602,7 +608,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 			Value:           encodedPayload,
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
-			SourceClient:     CosmosClientID,
+			SourceClient:     testvalues.FirstAttestationsClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []channeltypesv2.Payload{
 				payload,
@@ -641,7 +647,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
-				SrcClientId: CosmosClientID,
+				SrcClientId: testvalues.FirstAttestationsClientID,
 				DstClientId: SolanaClientID,
 			})
 			s.Require().NoError(err)
@@ -683,7 +689,7 @@ func (s *IbcSolanaAttestorTestSuite) Test_SolanaAttestor_VerifyAckCommitment() {
 	s.Require().True(s.Run("Verify ACK commitment via attestor", func() {
 		abiPacket := ics26router.IICS26RouterMsgsPacket{
 			Sequence:         1,
-			SourceClient:     CosmosClientID,
+			SourceClient:     testvalues.FirstAttestationsClientID,
 			DestClient:       SolanaClientID,
 			TimeoutTimestamp: timeout,
 			Payloads: []ics26router.IICS26RouterMsgsPayload{
