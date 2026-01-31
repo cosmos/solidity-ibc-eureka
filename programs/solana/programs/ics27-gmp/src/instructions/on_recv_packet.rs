@@ -249,9 +249,51 @@ mod tests {
         )
     }
 
-    #[test]
-    fn test_on_recv_packet_app_paused() {
+    #[derive(Clone, Copy)]
+    enum AccessControlErrorCase {
+        AppPaused,
+        DirectCallNotAllowed,
+        UnauthorizedRouter,
+    }
+
+    struct AccessControlConfig {
+        paused: bool,
+        caller: CallerType,
+        expected_error: crate::errors::GMPError,
+    }
+
+    #[derive(Clone, Copy)]
+    enum CallerType {
+        AuthorizedRouter,
+        SelfProgram,
+        Unauthorized,
+    }
+
+    impl From<AccessControlErrorCase> for AccessControlConfig {
+        fn from(case: AccessControlErrorCase) -> Self {
+            match case {
+                AccessControlErrorCase::AppPaused => Self {
+                    paused: true,
+                    caller: CallerType::AuthorizedRouter,
+                    expected_error: crate::errors::GMPError::AppPaused,
+                },
+                AccessControlErrorCase::DirectCallNotAllowed => Self {
+                    paused: false,
+                    caller: CallerType::SelfProgram,
+                    expected_error: crate::errors::GMPError::DirectCallNotAllowed,
+                },
+                AccessControlErrorCase::UnauthorizedRouter => Self {
+                    paused: false,
+                    caller: CallerType::Unauthorized,
+                    expected_error: crate::errors::GMPError::UnauthorizedRouter,
+                },
+            }
+        }
+    }
+
+    fn run_access_control_test(case: AccessControlErrorCase) {
         let ctx = create_gmp_test_context();
+        let config = AccessControlConfig::from(case);
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let packet_data = create_gmp_packet_data(
@@ -260,121 +302,41 @@ mod tests {
             salt,
             vec![],
         );
-
         let packet_data_bytes = packet_data.encode_to_vec();
 
         let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
         let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
+        let caller_pubkey = match config.caller {
+            CallerType::AuthorizedRouter => ctx.router_program,
+            CallerType::SelfProgram => crate::ID,
+            CallerType::Unauthorized => Pubkey::new_unique(),
+        };
+
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                true, // paused
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, config.paused),
             create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_instructions_sysvar_account_with_caller(caller_pubkey),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
+            create_uninitialized_account_for_pda(gmp_account_pda),
+            create_dummy_target_program_account(),
         ];
 
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::AppPaused as u32,
+            ANCHOR_ERROR_OFFSET + config.expected_error as u32,
         ))];
 
         ctx.mollusk
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    #[test]
-    fn test_on_recv_packet_direct_call_rejected() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            // For a direct call, the instructions sysvar will show GMP as the caller (not router)
-            create_instructions_sysvar_account_with_caller(crate::ID),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        // Direct calls fail with DirectCallNotAllowed since validate_cpi_caller checks
-        // that the instruction was called via CPI from the authorized router
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::DirectCallNotAllowed as u32,
-        ))];
-
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
-    }
-
-    #[test]
-    fn test_on_recv_packet_unauthorized_router() {
-        let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            vec![],
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        // Create an unauthorized program ID (not the authorized router)
-        let unauthorized_program = Pubkey::new_unique();
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            // Simulate CPI from an unauthorized program (not the router)
-            create_instructions_sysvar_account_with_caller(unauthorized_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // [0] gmp_account_pda
-            create_dummy_target_program_account(),                 // [1] target_program
-        ];
-
-        // Unauthorized router calls fail with UnauthorizedRouter error
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
-        ))];
-
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    #[rstest]
+    #[case::app_paused(AccessControlErrorCase::AppPaused)]
+    #[case::direct_call_not_allowed(AccessControlErrorCase::DirectCallNotAllowed)]
+    #[case::unauthorized_router(AccessControlErrorCase::UnauthorizedRouter)]
+    fn test_on_recv_packet_access_control(#[case] case: AccessControlErrorCase) {
+        run_access_control_test(case);
     }
 
     #[test]
@@ -507,66 +469,74 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_on_recv_packet_wrong_sender() {
+    #[derive(Clone)]
+    enum PdaMismatchCase {
+        Sender(&'static str),
+        Salt(Vec<u8>),
+        Client(&'static str),
+    }
+
+    fn run_pda_mismatch_test(case: PdaMismatchCase) {
         let ctx = create_gmp_test_context();
 
-        let (client_id, _default_sender, salt, _default_pda) = create_test_account_data();
+        let original_client_id = "test-client";
         let original_sender = "cosmos1original";
-        let wrong_sender = "cosmos1attacker";
+        let original_salt = vec![1u8, 2, 3];
 
-        // Derive PDA for original_sender (the correct one)
-        let (correct_pda, _) =
-            create_test_gmp_account(client_id, original_sender, salt.clone(), &crate::ID).pda();
-
-        // Create a minimal valid payload
-        let solana_payload = RawGmpSolanaPayload {
-            accounts: vec![],
-            data: vec![0u8], // Minimal non-empty data
-            payer_position: None,
+        // Determine packet values (one will be wrong) and PDA values (all correct)
+        let (packet_client_id, packet_sender, packet_salt) = match &case {
+            PdaMismatchCase::Sender(wrong) => (original_client_id, *wrong, original_salt.clone()),
+            PdaMismatchCase::Salt(wrong) => (original_client_id, original_sender, wrong.clone()),
+            PdaMismatchCase::Client(wrong) => (*wrong, original_sender, original_salt.clone()),
         };
 
+        // Derive the correct PDA using original values
+        let (correct_pda, _) = create_test_gmp_account(
+            original_client_id,
+            original_sender,
+            original_salt,
+            &crate::ID,
+        )
+        .pda();
+
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![],
+            data: vec![0u8],
+            payer_position: None,
+        };
         let solana_payload_bytes = solana_payload.encode_to_vec();
 
-        // Packet claims to be from wrong_sender - this will derive a different PDA
+        // Packet uses the (potentially wrong) values - this will derive a different PDA
         let packet_data = create_gmp_packet_data(
-            wrong_sender,
+            packet_sender,
             &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
+            packet_salt,
             solana_payload_bytes,
         );
-
         let packet_data_bytes = packet_data.encode_to_vec();
 
-        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
+        let recv_msg = create_recv_packet_msg(packet_client_id, packet_data_bytes, 1);
         let mut instruction =
             create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
 
-        // Add remaining accounts to instruction
         instruction
             .accounts
-            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
+            .push(AccountMeta::new(correct_pda, false));
         instruction.accounts.push(AccountMeta::new_readonly(
             crate::test_utils::DUMMY_TARGET_PROGRAM,
             false,
-        )); // [1] target_program
+        ));
 
         let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
             create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
-            // Remaining accounts - providing the PDA for original_sender, but packet claims wrong_sender
-            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
-            create_dummy_target_program_account(),             // [1] target_program
+            create_uninitialized_account_for_pda(correct_pda),
+            create_dummy_target_program_account(),
         ];
 
-        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_sender) doesn't match provided PDA (from original_sender)
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
         ))];
@@ -575,130 +545,12 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    #[test]
-    fn test_on_recv_packet_wrong_salt() {
-        let ctx = create_gmp_test_context();
-
-        let (client_id, sender, _original_salt, correct_pda) = create_test_account_data();
-        let wrong_salt = vec![4u8, 5, 6];
-
-        // Create a minimal valid payload
-        let solana_payload = RawGmpSolanaPayload {
-            accounts: vec![],
-            data: vec![0u8], // Minimal non-empty data
-            payer_position: None,
-        };
-
-        let solana_payload_bytes = solana_payload.encode_to_vec();
-
-        // Packet uses wrong_salt - this will derive a different PDA
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            wrong_salt,
-            solana_payload_bytes,
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        let recv_msg = create_recv_packet_msg(client_id, packet_data_bytes, 1);
-        let mut instruction =
-            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        // Add remaining accounts to instruction
-        instruction
-            .accounts
-            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
-        instruction.accounts.push(AccountMeta::new_readonly(
-            crate::test_utils::DUMMY_TARGET_PROGRAM,
-            false,
-        )); // [1] target_program
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts - providing the PDA for original_salt, but packet claims wrong_salt
-            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
-            create_dummy_target_program_account(),             // [1] target_program
-        ];
-
-        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_salt) doesn't match provided PDA (from original_salt)
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
-        ))];
-
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
-    }
-
-    #[test]
-    fn test_on_recv_packet_wrong_client() {
-        let ctx = create_gmp_test_context();
-
-        let (_original_client_id, sender, salt, correct_pda) = create_test_account_data();
-        let wrong_client_id = "different-client";
-
-        // Create a minimal valid payload
-        let solana_payload = RawGmpSolanaPayload {
-            accounts: vec![],
-            data: vec![0u8], // Minimal non-empty data
-            payer_position: None,
-        };
-
-        let solana_payload_bytes = solana_payload.encode_to_vec();
-
-        // Packet claims to be from wrong_client_id - this will derive a different PDA
-        let packet_data = create_gmp_packet_data(
-            sender,
-            &crate::test_utils::DUMMY_TARGET_PROGRAM.to_string(),
-            salt,
-            solana_payload_bytes,
-        );
-
-        let packet_data_bytes = packet_data.encode_to_vec();
-
-        let recv_msg = create_recv_packet_msg(wrong_client_id, packet_data_bytes, 1);
-        let mut instruction =
-            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
-
-        // Add remaining accounts to instruction
-        instruction
-            .accounts
-            .push(AccountMeta::new(correct_pda, false)); // [0] GMP account PDA
-        instruction.accounts.push(AccountMeta::new_readonly(
-            crate::test_utils::DUMMY_TARGET_PROGRAM,
-            false,
-        )); // [1] target_program
-
-        let accounts = vec![
-            create_gmp_app_state_account(
-                ctx.app_state_pda,
-                ctx.app_state_bump,
-                false, // not paused
-            ),
-            create_router_program_account(ctx.router_program),
-            create_instructions_sysvar_account_with_caller(ctx.router_program),
-            create_authority_account(ctx.payer),
-            create_system_program_account(),
-            // Remaining accounts - providing the PDA for original_client_id, but packet claims wrong_client_id
-            create_uninitialized_account_for_pda(correct_pda), // [0] GMP account PDA
-            create_dummy_target_program_account(),             // [1] target_program
-        ];
-
-        // Should fail with GMPAccountPDAMismatch because derived PDA (from wrong_client_id) doesn't match provided PDA (from original_client_id)
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::GMPAccountPDAMismatch as u32,
-        ))];
-
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    #[rstest]
+    #[case::wrong_sender(PdaMismatchCase::Sender("cosmos1attacker"))]
+    #[case::wrong_salt(PdaMismatchCase::Salt(vec![4u8, 5, 6]))]
+    #[case::wrong_client(PdaMismatchCase::Client("different-client"))]
+    fn test_on_recv_packet_pda_mismatch(#[case] case: PdaMismatchCase) {
+        run_pda_mismatch_test(case);
     }
 
     #[test]

@@ -107,7 +107,7 @@ func waitForConfirmation(clusterURL string, sig solanago.Signature) bool {
 	client := rpc.New(clusterURL)
 	ctx := context.Background()
 
-	for i := 0; i < 30; i++ {
+	for range 30 {
 		statuses, err := client.GetSignatureStatuses(ctx, false, sig)
 		if err == nil && len(statuses.Value) > 0 && statuses.Value[0] != nil {
 			if statuses.Value[0].Err != nil {
