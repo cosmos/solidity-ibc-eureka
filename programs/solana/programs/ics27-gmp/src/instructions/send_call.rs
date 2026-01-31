@@ -178,6 +178,7 @@ mod tests {
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -228,14 +229,25 @@ mod tests {
             }
         }
 
-        fn build_instruction(&self, msg: SendCallMsg) -> Instruction {
+        fn create_valid_msg() -> SendCallMsg {
+            SendCallMsg {
+                source_client: "cosmoshub-1".to_string(),
+                receiver: Pubkey::new_unique().to_string(),
+                salt: vec![1, 2, 3],
+                payload: vec![4, 5, 6],
+                timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
+                memo: String::new(),
+            }
+        }
+
+        fn build_instruction(&self, msg: SendCallMsg, sender_is_signer: bool) -> Instruction {
             let instruction_data = crate::instruction::SendCall { msg };
 
             Instruction {
                 program_id: crate::ID,
                 accounts: vec![
                     AccountMeta::new(self.app_state_pda, false),
-                    AccountMeta::new_readonly(self.sender, true),
+                    AccountMeta::new_readonly(self.sender, sender_is_signer),
                     AccountMeta::new(self.payer, true),
                     AccountMeta::new_readonly(self.router_program, false),
                     AccountMeta::new_readonly(self.router_state, false),
@@ -267,17 +279,6 @@ mod tests {
                 create_authority_account(self.client),
                 create_system_program_account(),
             ]
-        }
-
-        fn create_valid_msg() -> SendCallMsg {
-            SendCallMsg {
-                source_client: "cosmoshub-1".to_string(),
-                receiver: Pubkey::new_unique().to_string(),
-                salt: vec![1, 2, 3],
-                payload: vec![4, 5, 6],
-                timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
-                memo: String::new(),
-            }
         }
 
         fn build_instruction_with_wrong_pda(
@@ -377,159 +378,109 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_send_call_app_paused() {
-        let ctx = TestContext::new();
-        let msg = TestContext::create_valid_msg();
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(true); // paused
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail when app is paused"
-        );
+    #[derive(Clone, Copy)]
+    enum SendCallErrorCase {
+        AppPaused,
+        SenderNotSigner,
+        InvalidAppStatePda,
+        WrongRouterProgram,
+        EmptyPayload,
+        SaltTooLong,
+        MemoTooLong,
+        ReceiverTooLong,
+        TimeoutTooSoon,
+        TimeoutTooLong,
+        EmptyClientId,
     }
 
-    #[test]
-    fn test_send_call_invalid_timeout() {
+    fn run_send_call_error_test(case: SendCallErrorCase) {
         let ctx = TestContext::new();
         let mut msg = TestContext::create_valid_msg();
-        msg.timeout_timestamp = 1_000_000; // Timeout in the past
 
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
+        let (instruction, accounts) = match case {
+            SendCallErrorCase::AppPaused => {
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(true); // paused
+                (instruction, accounts)
+            }
+            SendCallErrorCase::SenderNotSigner => {
+                let instruction = ctx.build_instruction(msg, false); // sender not signer
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::InvalidAppStatePda => {
+                let wrong_pda = Pubkey::new_unique();
+                let instruction = ctx.build_instruction_with_wrong_pda(msg, wrong_pda);
+                let accounts = ctx.build_accounts_with_wrong_pda(wrong_pda);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::WrongRouterProgram => {
+                let wrong_router = Pubkey::new_unique();
+                let instruction = ctx.build_instruction_with_wrong_router(msg, wrong_router);
+                let accounts = ctx.build_accounts_with_wrong_router(wrong_router);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::EmptyPayload => {
+                msg.payload = vec![];
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::SaltTooLong => {
+                msg.salt = vec![0u8; crate::constants::MAX_SALT_LENGTH + 1];
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::MemoTooLong => {
+                msg.memo = "x".repeat(crate::constants::MAX_MEMO_LENGTH + 1);
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::ReceiverTooLong => {
+                msg.receiver = "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1);
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::TimeoutTooSoon => {
+                msg.timeout_timestamp = 1; // Too soon (less than MIN_TIMEOUT_DURATION from clock=0)
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::TimeoutTooLong => {
+                msg.timeout_timestamp = i64::MAX;
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+            SendCallErrorCase::EmptyClientId => {
+                msg.source_client = String::new();
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts)
+            }
+        };
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with timeout in the past"
-        );
+        assert!(result.program_result.is_err());
     }
 
-    #[test]
-    fn test_send_call_invalid_app_state_pda() {
-        let ctx = TestContext::new();
-        let msg = TestContext::create_valid_msg();
-        let wrong_pda = Pubkey::new_unique();
-        let instruction = ctx.build_instruction_with_wrong_pda(msg, wrong_pda);
-        let accounts = ctx.build_accounts_with_wrong_pda(wrong_pda);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with invalid app_state PDA"
-        );
-    }
-
-    #[test]
-    fn test_send_call_wrong_router_program() {
-        let ctx = TestContext::new();
-        let msg = TestContext::create_valid_msg();
-        let wrong_router = Pubkey::new_unique();
-        let instruction = ctx.build_instruction_with_wrong_router(msg, wrong_router);
-        let accounts = ctx.build_accounts_with_wrong_router(wrong_router);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with wrong router_program"
-        );
-    }
-
-    #[test]
-    fn test_send_call_empty_payload() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.payload = vec![];
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with empty payload"
-        );
-    }
-
-    #[test]
-    fn test_send_call_salt_too_long() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.salt = vec![0u8; crate::constants::MAX_SALT_LENGTH + 1];
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with salt too long"
-        );
-    }
-
-    #[test]
-    fn test_send_call_memo_too_long() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.memo = "x".repeat(crate::constants::MAX_MEMO_LENGTH + 1);
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with memo too long"
-        );
-    }
-
-    #[test]
-    fn test_send_call_receiver_too_long() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.receiver = "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1);
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with receiver too long"
-        );
-    }
-
-    #[test]
-    fn test_send_call_timeout_too_far_in_future() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.timeout_timestamp = i64::MAX;
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with timeout too far in the future"
-        );
-    }
-
-    #[test]
-    fn test_send_call_empty_client_id() {
-        let ctx = TestContext::new();
-        let mut msg = TestContext::create_valid_msg();
-        msg.source_client = String::new();
-
-        let instruction = ctx.build_instruction(msg);
-        let accounts = ctx.build_accounts(false);
-
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "SendCall should fail with empty client_id"
-        );
+    #[rstest]
+    #[case::app_paused(SendCallErrorCase::AppPaused)]
+    #[case::sender_not_signer(SendCallErrorCase::SenderNotSigner)]
+    #[case::invalid_app_state_pda(SendCallErrorCase::InvalidAppStatePda)]
+    #[case::wrong_router_program(SendCallErrorCase::WrongRouterProgram)]
+    #[case::empty_payload(SendCallErrorCase::EmptyPayload)]
+    #[case::salt_too_long(SendCallErrorCase::SaltTooLong)]
+    #[case::memo_too_long(SendCallErrorCase::MemoTooLong)]
+    #[case::receiver_too_long(SendCallErrorCase::ReceiverTooLong)]
+    #[case::timeout_too_soon(SendCallErrorCase::TimeoutTooSoon)]
+    #[case::timeout_too_long(SendCallErrorCase::TimeoutTooLong)]
+    #[case::empty_client_id(SendCallErrorCase::EmptyClientId)]
+    fn test_send_call_validation(#[case] case: SendCallErrorCase) {
+        run_send_call_error_test(case);
     }
 }
