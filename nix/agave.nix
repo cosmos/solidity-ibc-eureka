@@ -32,7 +32,7 @@
   ],
 }: let
   version = "3.1.6";
-  platformToolsVersion = "v1.52";
+  platformToolsVersion = "v1.48";
   system = stdenv.hostPlatform.system;
 
   # Rust 1.89.0 for IDL generation (Span::local_file was stabilized)
@@ -48,19 +48,19 @@
   platformArchives = {
     x86_64-darwin = {
       name = "platform-tools-osx-x86_64.tar.bz2";
-      sha256 = "sha256-HdTysfe1MWwvGJjzfHXtSV7aoIMzM0kVP+lV5Wg3kdE=";
+      sha256 = "sha256-vLTtCmUkxxkd8KKQa8qpQ7kb5S52EI/DVllgtu8zM2I=";
     };
     aarch64-darwin = {
       name = "platform-tools-osx-aarch64.tar.bz2";
-      sha256 = "sha256-Fyffsx6DPOd30B5wy0s869JrN2vwnYBSfwJFfUz2/QA=";
+      sha256 = "sha256-eZ5M/O444icVXIP7IpT5b5SoQ9QuAcA1n7cSjiIW0t0=";
     };
     x86_64-linux = {
       name = "platform-tools-linux-x86_64.tar.bz2";
-      sha256 = "sha256-izhh6T2vCF7BK2XE+sN02b7EWHo94Whx2msIqwwdkH4=";
+      sha256 = "sha256-qdMVf5N9X2+vQyGjWoA14PgnEUpmOwFQ20kuiT7CdZc=";
     };
     aarch64-linux = {
       name = "platform-tools-linux-aarch64.tar.bz2";
-      sha256 = "sha256-sfhbLsR+9tUPZoPjUUv0apUmlQMVUXjN+0i9aUszH5g=";
+      sha256 = "sha256-rsYCIiL3ueJHkDZkhLzGz59mljd7uY9UHIhp4vMecPI=";
     };
   };
 
