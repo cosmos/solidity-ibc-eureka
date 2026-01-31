@@ -1,9 +1,3 @@
-//! Integration tests for `pre_verify_signature` instruction.
-//!
-//! These tests use solana-program-test because the instruction reads from the instructions sysvar
-//! to verify a preceding ed25519 program instruction, which requires processing
-//! multi-instruction transactions (not possible with mollusk-svm).
-
 use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
 use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
