@@ -156,6 +156,42 @@ pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
     create_instructions_sysvar_account_with_caller(crate::ID)
 }
 
+/// Create a fake instructions sysvar account (for attack simulation)
+/// This simulates the Wormhole-style attack where an attacker provides
+/// a fake account at the real sysvar address with manipulated data.
+pub fn create_fake_instructions_sysvar_account(admin: Pubkey) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    // Create fake instruction data that makes it look like a direct call
+    let account = BorrowedAccountMeta {
+        pubkey: &admin,
+        is_signer: true,
+        is_writable: false,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &crate::ID, // Fake: appears to be direct call
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    // Return with WRONG owner - this is the attack vector
+    // The real sysvar should be owned by solana_sdk::sysvar::ID
+    (
+        solana_sdk::sysvar::instructions::ID,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: system_program::ID, // WRONG owner - attack simulation
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 /// Create instructions sysvar account with specific caller program ID
 pub fn create_instructions_sysvar_account_with_caller(
     caller_program_id: Pubkey,

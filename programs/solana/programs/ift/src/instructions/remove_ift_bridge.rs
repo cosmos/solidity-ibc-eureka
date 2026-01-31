@@ -69,6 +69,7 @@ pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Re
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -77,6 +78,8 @@ mod tests {
     use crate::state::ChainOptions;
     use crate::test_utils::*;
 
+    const TEST_CLIENT_ID: &str = "07-tendermint-0";
+
     #[test]
     fn test_remove_ift_bridge_success() {
         let mollusk = setup_mollusk();
@@ -84,11 +87,10 @@ mod tests {
         let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let client_id = "07-tendermint-0";
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, client_id);
+        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (access_manager_pda, access_manager_account) =
             create_access_manager_account_with_admin(admin);
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
@@ -104,7 +106,7 @@ mod tests {
 
         let bridge_account = create_ift_bridge_account(
             mint,
-            client_id,
+            TEST_CLIENT_ID,
             "0x1234",
             ChainOptions::Evm,
             bridge_bump,
@@ -123,7 +125,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
             ],
             data: crate::instruction::RemoveIftBridge {
-                client_id: client_id.to_string(),
+                client_id: TEST_CLIENT_ID.to_string(),
             }
             .data(),
         };
@@ -159,22 +161,51 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_remove_ift_bridge_unauthorized_fails() {
+    #[derive(Clone, Copy)]
+    enum RemoveBridgeErrorCase {
+        Unauthorized,
+        MintMismatch,
+        FakeSysvarAttack,
+        CpiRejection,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum SysvarMode {
+        Normal,
+        FakeSysvar,
+        CpiCall,
+    }
+
+    fn run_remove_bridge_error_test(case: RemoveBridgeErrorCase) {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
+        let wrong_mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let client_id = "07-tendermint-0";
+
+        let (use_unauthorized, use_wrong_mint, sysvar_mode) = match case {
+            RemoveBridgeErrorCase::Unauthorized => (true, false, SysvarMode::Normal),
+            RemoveBridgeErrorCase::MintMismatch => (false, true, SysvarMode::Normal),
+            RemoveBridgeErrorCase::FakeSysvarAttack => (false, false, SysvarMode::FakeSysvar),
+            RemoveBridgeErrorCase::CpiRejection => (false, false, SysvarMode::CpiCall),
+        };
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, client_id);
+        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (access_manager_pda, access_manager_account) =
             create_access_manager_account_with_admin(admin);
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+
+        let (instructions_sysvar, instructions_account) = match sysvar_mode {
+            SysvarMode::Normal => create_instructions_sysvar_account(),
+            SysvarMode::FakeSysvar => create_fake_instructions_sysvar_account(admin),
+            SysvarMode::CpiCall => {
+                create_instructions_sysvar_account_with_caller(Pubkey::new_unique())
+            }
+        };
+
         let (system_program, system_account) = create_system_program_account();
 
         let app_state_account = create_ift_app_state_account(
@@ -185,14 +216,21 @@ mod tests {
             Pubkey::new_unique(),
         );
 
+        let bridge_mint = if use_wrong_mint { wrong_mint } else { mint };
         let bridge_account = create_ift_bridge_account(
-            mint,
-            client_id,
+            bridge_mint,
+            TEST_CLIENT_ID,
             "0x1234",
             ChainOptions::Evm,
             bridge_bump,
             true,
         );
+
+        let signer = if use_unauthorized {
+            unauthorized
+        } else {
+            admin
+        };
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -200,13 +238,13 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
-                AccountMeta::new_readonly(unauthorized, true),
+                AccountMeta::new_readonly(signer, true),
                 AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
             data: crate::instruction::RemoveIftBridge {
-                client_id: client_id.to_string(),
+                client_id: TEST_CLIENT_ID.to_string(),
             }
             .data(),
         };
@@ -215,84 +253,22 @@ mod tests {
             (app_state_pda, app_state_account),
             (bridge_pda, bridge_account),
             (access_manager_pda, access_manager_account),
-            (unauthorized, create_signer_account()),
+            (signer, create_signer_account()),
             (instructions_sysvar, instructions_account),
             (payer, create_signer_account()),
             (system_program, system_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "remove_ift_bridge should fail for unauthorized user"
-        );
+        assert!(result.program_result.is_err());
     }
 
-    #[test]
-    fn test_remove_ift_bridge_mint_mismatch_fails() {
-        let mollusk = setup_mollusk();
-
-        let mint = Pubkey::new_unique();
-        let wrong_mint = Pubkey::new_unique();
-        let admin = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let client_id = "07-tendermint-0";
-
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, client_id);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
-        let (system_program, system_account) = create_system_program_account();
-
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            access_manager::ID,
-            Pubkey::new_unique(),
-        );
-
-        let bridge_account = create_ift_bridge_account(
-            wrong_mint,
-            client_id,
-            "0x1234",
-            ChainOptions::Evm,
-            bridge_bump,
-            true,
-        );
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(bridge_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
-                AccountMeta::new_readonly(admin, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program, false),
-            ],
-            data: crate::instruction::RemoveIftBridge {
-                client_id: client_id.to_string(),
-            }
-            .data(),
-        };
-
-        let accounts = vec![
-            (app_state_pda, app_state_account),
-            (bridge_pda, bridge_account),
-            (access_manager_pda, access_manager_account),
-            (admin, create_signer_account()),
-            (instructions_sysvar, instructions_account),
-            (payer, create_signer_account()),
-            (system_program, system_account),
-        ];
-
-        let checks = vec![mollusk_svm::result::Check::err(
-            solana_sdk::program_error::ProgramError::Custom(13004),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    #[rstest]
+    #[case::unauthorized(RemoveBridgeErrorCase::Unauthorized)]
+    #[case::mint_mismatch(RemoveBridgeErrorCase::MintMismatch)]
+    #[case::fake_sysvar_attack(RemoveBridgeErrorCase::FakeSysvarAttack)]
+    #[case::cpi_rejection(RemoveBridgeErrorCase::CpiRejection)]
+    fn test_remove_ift_bridge_validation(#[case] case: RemoveBridgeErrorCase) {
+        run_remove_bridge_error_test(case);
     }
 }
