@@ -11,23 +11,23 @@ use sha2::{Digest, Sha256};
 use solana_ibc_types::ics07::SignatureData;
 use solana_program_test::{ProgramTest, ProgramTestBanksClientExt};
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction,
-    instruction::Instruction,
-    pubkey::Pubkey,
-    signer::Signer as SolSigner,
-    system_program,
-    sysvar::instructions as ix_sysvar,
-    transaction::Transaction,
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
+    signer::Signer as SolSigner, sysvar::instructions as ix_sysvar, transaction::Transaction,
 };
+
+const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
 /// Creates a `ProgramTest` instance with the `ics07_tendermint` program loaded.
 fn setup_program_test() -> ProgramTest {
-    // Load the program from .so file (None uses BPF loader)
-    ProgramTest::new(
-        "ics07_tendermint",
-        ics07_tendermint::ID,
-        None, // Load from target/deploy/ics07_tendermint.so
-    )
+    // Set SBF_OUT_DIR if not already set, so solana-program-test can find the .so file
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(PROGRAM_BINARY_PATH)
+            .parent()
+            .expect("Invalid program path");
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    ProgramTest::new("ics07_tendermint", ics07_tendermint::ID, None)
 }
 
 /// Creates a valid `SignatureData` struct from a signing key and message.
@@ -54,48 +54,33 @@ fn create_signature_data_raw(pubkey: [u8; 32], msg: &[u8], signature: [u8; 64]) 
     }
 }
 
+/// Ed25519 instruction header length (`num_sigs` + padding + 7x u16 offsets).
+const ED25519_HEADER_LEN: u16 = 16;
+
 /// Creates an ed25519 program instruction for signature verification.
-/// This must be the first instruction in the transaction for `pre_verify_signature` to work.
+/// Must be the first instruction in the transaction for `pre_verify_signature` to work.
 fn create_ed25519_instruction(signing_key: &SigningKey, msg: &[u8]) -> Instruction {
     let pubkey = signing_key.verifying_key().to_bytes();
     let signature = signing_key.sign(msg).to_bytes();
-
-    // Ed25519 instruction format:
-    // - 1 byte: number of signatures (1)
-    // - 1 byte: padding
-    // - 2 bytes: signature offset
-    // - 2 bytes: signature instruction index (0xFFFF = same instruction)
-    // - 2 bytes: public key offset
-    // - 2 bytes: public key instruction index
-    // - 2 bytes: message data offset
-    // - 2 bytes: message data size
-    // - 2 bytes: message instruction index
-    // - signature bytes (64)
-    // - public key bytes (32)
-    // - message bytes
-
     let num_signatures: u8 = 1;
     let padding: u8 = 0;
 
-    // Offsets are relative to the start of instruction data
-    let signature_offset: u16 = 16; // After header
-    let signature_ix_index: u16 = 0xFFFF; // Same instruction
-    let pubkey_offset: u16 = 16 + 64; // After signature
-    let pubkey_ix_index: u16 = 0xFFFF;
-    let message_offset: u16 = 16 + 64 + 32; // After pubkey
-    let message_size: u16 = msg.len() as u16;
-    let message_ix_index: u16 = 0xFFFF;
+    // Offsets relative to instruction data start; 0xFFFF = data in same instruction
+    let signature_offset: u16 = ED25519_HEADER_LEN;
+    let pubkey_offset: u16 = ED25519_HEADER_LEN + 64;
+    let message_offset: u16 = ED25519_HEADER_LEN + 64 + 32;
+    let same_ix: u16 = 0xFFFF;
 
-    let mut data = Vec::with_capacity(16 + 64 + 32 + msg.len());
+    let mut data = Vec::with_capacity((ED25519_HEADER_LEN + 64 + 32) as usize + msg.len());
     data.push(num_signatures);
     data.push(padding);
     data.extend_from_slice(&signature_offset.to_le_bytes());
-    data.extend_from_slice(&signature_ix_index.to_le_bytes());
+    data.extend_from_slice(&same_ix.to_le_bytes());
     data.extend_from_slice(&pubkey_offset.to_le_bytes());
-    data.extend_from_slice(&pubkey_ix_index.to_le_bytes());
+    data.extend_from_slice(&same_ix.to_le_bytes());
     data.extend_from_slice(&message_offset.to_le_bytes());
-    data.extend_from_slice(&message_size.to_le_bytes());
-    data.extend_from_slice(&message_ix_index.to_le_bytes());
+    data.extend_from_slice(&(msg.len() as u16).to_le_bytes());
+    data.extend_from_slice(&same_ix.to_le_bytes());
     data.extend_from_slice(&signature);
     data.extend_from_slice(&pubkey);
     data.extend_from_slice(msg);
@@ -118,10 +103,12 @@ fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Ins
         instructions_sysvar: ix_sysvar::ID,
         signature_verification: sig_verification_pda,
         payer,
-        system_program: system_program::ID,
+        system_program: solana_sdk::system_program::ID,
     };
 
-    let ix_data = ics07_tendermint::instruction::PreVerifySignature { signature: sig_data };
+    let ix_data = ics07_tendermint::instruction::PreVerifySignature {
+        signature: sig_data,
+    };
 
     let instruction = Instruction {
         program_id: ics07_tendermint::ID,
