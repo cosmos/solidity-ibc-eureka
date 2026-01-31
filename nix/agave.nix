@@ -32,6 +32,7 @@
   ],
 }: let
   version = "3.1.6";
+  # TODO: Update to v1.52+ when Anchor 1.0 is released with solana-sdk 3.x support.
   platformToolsVersion = "v1.48";
   system = stdenv.hostPlatform.system;
 
