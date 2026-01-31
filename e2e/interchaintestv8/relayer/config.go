@@ -303,3 +303,25 @@ func DefaultSP1ProgramPaths() SP1ProgramPaths {
 		Misbehaviour:              "./programs/sp1-programs//target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour",
 	}
 }
+
+// SolanaToCosmosModuleConfig represents the configuration for solana_to_cosmos module
+type SolanaToCosmosModuleConfig struct {
+	SolanaChainId        string        `json:"solana_chain_id"`
+	SrcRpcUrl            string        `json:"src_rpc_url"`
+	TargetRpcUrl         string        `json:"target_rpc_url"`
+	SignerAddress        string        `json:"signer_address"`
+	SolanaIcs26ProgramId string        `json:"solana_ics26_program_id"`
+	Mode                 TxBuilderMode `json:"mode"`
+}
+
+// CosmosToSolanaModuleConfig represents the configuration for cosmos_to_solana module
+type CosmosToSolanaModuleConfig struct {
+	SourceRpcUrl           string        `json:"source_rpc_url"`
+	TargetRpcUrl           string        `json:"target_rpc_url"`
+	SolanaIcs26ProgramId   string        `json:"solana_ics26_program_id"`
+	SolanaFeePayer         string        `json:"solana_fee_payer"`
+	SolanaAltAddress       *string       `json:"solana_alt_address,omitempty"`
+	MockWasmClient         bool          `json:"mock_wasm_client"`
+	SkipPreVerifyThreshold *int          `json:"skip_pre_verify_threshold,omitempty"`
+	Mode                   TxBuilderMode `json:"mode,omitempty"`
+}

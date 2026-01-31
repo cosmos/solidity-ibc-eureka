@@ -118,7 +118,7 @@ func CreateAndStart(ctx context.Context, client *dockerclient.Client, cfg Contai
 	// Get assigned host ports with retry logic
 	// Sometimes Docker takes a moment to assign port bindings after container start
 	var hostPorts map[string]string
-	maxRetries := 10
+	maxRetries := 30
 	retryDelay := 100 * time.Millisecond
 
 	for i := 0; i < maxRetries; i++ {

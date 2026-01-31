@@ -815,6 +815,8 @@ generate-solana-types: build-solana generate-pda
 	anchor-go --idl ./programs/solana/target/idl/access_manager.json --output packages/go-anchor/accessmanager --no-go-mod
 	rm -rf packages/go-anchor/ics27gmp
 	anchor-go --idl ./programs/solana/target/idl/ics27_gmp.json --output packages/go-anchor/ics27gmp --no-go-mod
+	rm -rf packages/go-anchor/attestation
+	anchor-go --idl ./programs/solana/target/idl/attestation.json --output packages/go-anchor/attestation --no-go-mod
 	rm -rf packages/go-anchor/ift
 	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
 	# Dummy apps for testing
@@ -1033,11 +1035,11 @@ test-e2e-cosmos-ethereum-ift testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithCosmosEthereumIFTTestSuite/{{testname}}
 
-# Run the e2e tests in the IbcSolanaAttestorTestSuite. For example, `just test-e2e-solana-attestor Test_Deploy`
+# Run the e2e tests in the IbcSolanaAttestationTestSuite. For example, `just test-e2e-solana-attestation Test_Attestation_Deploy`
 [group('test')]
-test-e2e-solana-attestor testname:
+test-e2e-solana-attestation testname:
 	@echo "Running {{testname}} test..."
-	just test-e2e TestWithIbcSolanaAttestorTestSuite/{{testname}}
+	just test-e2e TestWithIbcSolanaAttestationTestSuite/{{testname}}
 
 # Run the Solana Anchor tests
 [group('test')]
