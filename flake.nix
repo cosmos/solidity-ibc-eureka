@@ -46,7 +46,6 @@
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
               rust.shellHook
-              + go.shellHook
               + ''
                 if [ -z "$(which cargo-prove)" ]; then
                   echo "SP1 toolchain is not installed. To install:"
@@ -61,12 +60,10 @@
               rust.packages
               ++ go.packages
               ++ common.packages
-              ++ [solana-agave anchor-go]
-              ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [pkgs.apple-sdk_15];
+              ++ [solana-agave anchor-go];
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
               rust.shellHook
-              + go.shellHook
               + ''
                 export PATH="${solana-agave}/bin:$PATH"
                 echo "Solana shell: solana, anchor-nix (build|test|unit-test|keys|deploy)"

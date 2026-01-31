@@ -10,9 +10,4 @@
     protoc-gen-go
     protoc-gen-go-grpc
   ];
-
-  shellHook = ''
-    export GOPATH=$HOME/go
-    export PATH=$GOPATH/bin:$PATH
-  '';
 }

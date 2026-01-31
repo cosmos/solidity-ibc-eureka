@@ -13,7 +13,7 @@ in {
       cargo-nextest
     ]
     ++ lib.optionals stdenv.isDarwin [
-      apple-sdk_12
+      apple-sdk_15
     ];
 
   env = {
