@@ -1,4 +1,4 @@
-//! Integration tests for pre_verify_signature instruction.
+//! Integration tests for `pre_verify_signature` instruction.
 //!
 //! These tests use solana-program-test because the instruction reads from the instructions sysvar
 //! to verify a preceding ed25519 program instruction, which requires processing
@@ -9,8 +9,9 @@ use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
 use sha2::{Digest, Sha256};
 use solana_ibc_types::ics07::SignatureData;
-use solana_program_test::ProgramTest;
+use solana_program_test::{ProgramTest, ProgramTestBanksClientExt};
 use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction,
     instruction::Instruction,
     pubkey::Pubkey,
     signer::Signer as SolSigner,
@@ -19,7 +20,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-/// Creates a ProgramTest instance with the ics07_tendermint program loaded.
+/// Creates a `ProgramTest` instance with the `ics07_tendermint` program loaded.
 fn setup_program_test() -> ProgramTest {
     // Load the program from .so file (None uses BPF loader)
     ProgramTest::new(
@@ -29,29 +30,32 @@ fn setup_program_test() -> ProgramTest {
     )
 }
 
-/// Creates a valid SignatureData struct from a signing key and message.
+/// Creates a valid `SignatureData` struct from a signing key and message.
 fn create_signature_data(signing_key: &SigningKey, msg: &[u8]) -> SignatureData {
-    let signature = signing_key.sign(msg);
     let pubkey: [u8; 32] = signing_key.verifying_key().to_bytes();
-    let sig_bytes: [u8; 64] = signature.to_bytes();
+    let signature: [u8; 64] = signing_key.sign(msg).to_bytes();
+    create_signature_data_raw(pubkey, msg, signature)
+}
 
-    // Compute signature hash (used for PDA derivation)
+/// Creates a `SignatureData` struct with explicit pubkey, message, and signature.
+/// Useful for testing mismatched values.
+fn create_signature_data_raw(pubkey: [u8; 32], msg: &[u8], signature: [u8; 64]) -> SignatureData {
     let mut hasher = Sha256::new();
     hasher.update(pubkey);
     hasher.update(msg);
-    hasher.update(sig_bytes);
+    hasher.update(signature);
     let signature_hash: [u8; 32] = hasher.finalize().into();
 
     SignatureData {
         signature_hash,
         pubkey,
         msg: msg.to_vec(),
-        signature: sig_bytes,
+        signature,
     }
 }
 
 /// Creates an ed25519 program instruction for signature verification.
-/// This must be the first instruction in the transaction for pre_verify_signature to work.
+/// This must be the first instruction in the transaction for `pre_verify_signature` to work.
 fn create_ed25519_instruction(signing_key: &SigningKey, msg: &[u8]) -> Instruction {
     let pubkey = signing_key.verifying_key().to_bytes();
     let signature = signing_key.sign(msg).to_bytes();
@@ -103,7 +107,7 @@ fn create_ed25519_instruction(signing_key: &SigningKey, msg: &[u8]) -> Instructi
     }
 }
 
-/// Creates the pre_verify_signature instruction.
+/// Creates the `pre_verify_signature` instruction.
 fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Instruction, Pubkey) {
     let (sig_verification_pda, _bump) = Pubkey::find_program_address(
         &[SignatureVerification::SEED, &sig_data.signature_hash],
@@ -179,24 +183,11 @@ async fn test_pre_verify_signature_wrong_pubkey_returns_invalid() {
     // Sign with one key
     let real_signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
-    let signature = real_signing_key.sign(msg);
+    let signature = real_signing_key.sign(msg).to_bytes();
 
     // But claim it was signed by a different key
     let wrong_key = SigningKey::generate(&mut rand::thread_rng());
-
-    // Create SignatureData with WRONG pubkey
-    let mut hasher = Sha256::new();
-    hasher.update(wrong_key.verifying_key().to_bytes());
-    hasher.update(msg);
-    hasher.update(signature.to_bytes());
-    let signature_hash: [u8; 32] = hasher.finalize().into();
-
-    let sig_data = SignatureData {
-        signature_hash,
-        pubkey: wrong_key.verifying_key().to_bytes(), // WRONG pubkey
-        msg: msg.to_vec(),
-        signature: signature.to_bytes(),
-    };
+    let sig_data = create_signature_data_raw(wrong_key.verifying_key().to_bytes(), msg, signature);
 
     // Ed25519 instruction with CORRECT key (runtime will verify this)
     let ed25519_ix = create_ed25519_instruction(&real_signing_key, msg);
@@ -235,22 +226,10 @@ async fn test_pre_verify_signature_wrong_message_returns_invalid() {
     let real_msg = b"real message";
     let fake_msg = b"fake message";
 
-    // Sign the real message
-    let sig_data = create_signature_data(&signing_key, real_msg);
-
-    // Create SignatureData claiming it was for fake message
-    let mut hasher = Sha256::new();
-    hasher.update(signing_key.verifying_key().to_bytes());
-    hasher.update(fake_msg);
-    hasher.update(sig_data.signature);
-    let signature_hash: [u8; 32] = hasher.finalize().into();
-
-    let tampered_sig_data = SignatureData {
-        signature_hash,
-        pubkey: sig_data.pubkey,
-        msg: fake_msg.to_vec(), // WRONG message
-        signature: sig_data.signature,
-    };
+    // Sign the real message, but claim it was for fake message
+    let signature = signing_key.sign(real_msg).to_bytes();
+    let tampered_sig_data =
+        create_signature_data_raw(signing_key.verifying_key().to_bytes(), fake_msg, signature);
 
     // Ed25519 instruction verifies with real message
     let ed25519_ix = create_ed25519_instruction(&signing_key, real_msg);
@@ -288,25 +267,10 @@ async fn test_pre_verify_signature_wrong_signature_returns_invalid() {
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
 
-    // Create valid signature data
-    let sig_data = create_signature_data(&signing_key, msg);
-
-    // Create a different signature (sign a different message)
+    // Create a different signature (sign a different message) but claim it's for msg
     let different_sig = signing_key.sign(b"different message").to_bytes();
-
-    // Create SignatureData with WRONG signature bytes
-    let mut hasher = Sha256::new();
-    hasher.update(signing_key.verifying_key().to_bytes());
-    hasher.update(msg);
-    hasher.update(different_sig);
-    let signature_hash: [u8; 32] = hasher.finalize().into();
-
-    let tampered_sig_data = SignatureData {
-        signature_hash,
-        pubkey: sig_data.pubkey,
-        msg: msg.to_vec(),
-        signature: different_sig, // WRONG signature
-    };
+    let tampered_sig_data =
+        create_signature_data_raw(signing_key.verifying_key().to_bytes(), msg, different_sig);
 
     // Ed25519 instruction with correct signature
     let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
@@ -342,7 +306,7 @@ async fn test_pre_verify_signature_no_ed25519_instruction_returns_invalid() {
     let (banks_client, payer, recent_blockhash) = pt.start().await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let sig_data = create_signature_data(&signing_key, b"msg");
+    let sig_data = create_signature_data(&signing_key, b"test message");
 
     // Only pre_verify instruction - NO ed25519 instruction
     let (pre_verify_ix, sig_verification_pda) =
@@ -441,7 +405,7 @@ async fn test_pre_verify_signature_empty_message() {
     let (banks_client, payer, recent_blockhash) = pt.start().await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let msg: &[u8] = b""; // Empty message
+    let msg = b""; // Empty message
     let sig_data = create_signature_data(&signing_key, msg);
 
     let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
@@ -480,7 +444,7 @@ async fn test_pre_verify_signature_large_message() {
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     // Large message (but not too large to fit in transaction)
-    let msg: Vec<u8> = (0..500).map(|i| (i % 256) as u8).collect();
+    let msg: Vec<u8> = (0u8..=255).cycle().take(500).collect();
     let sig_data = create_signature_data(&signing_key, &msg);
 
     let ed25519_ix = create_ed25519_instruction(&signing_key, &msg);
@@ -509,5 +473,88 @@ async fn test_pre_verify_signature_large_message() {
     assert!(
         verification.is_valid,
         "Large message signature should be valid"
+    );
+}
+
+#[tokio::test]
+async fn test_pre_verify_signature_ed25519_at_wrong_index_returns_invalid() {
+    let pt = setup_program_test();
+    let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    let msg = b"test message";
+    let sig_data = create_signature_data(&signing_key, msg);
+
+    // Create a dummy instruction to put at index 0 (compute budget is a no-op that always succeeds)
+    let dummy_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
+
+    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
+    let (pre_verify_ix, sig_verification_pda) =
+        create_pre_verify_instruction(payer.pubkey(), sig_data);
+
+    // Put ed25519 at index 1 instead of index 0
+    let tx = Transaction::new_signed_with_payer(
+        &[dummy_ix, ed25519_ix, pre_verify_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        recent_blockhash,
+    );
+
+    banks_client.process_transaction(tx).await.unwrap();
+
+    // Signature should be invalid because ed25519 is not at index 0
+    let account = banks_client
+        .get_account(sig_verification_pda)
+        .await
+        .unwrap()
+        .expect("Account not found");
+
+    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
+    assert!(
+        !verification.is_valid,
+        "Signature should be invalid when ed25519 instruction is not at index 0"
+    );
+}
+
+#[tokio::test]
+async fn test_pre_verify_signature_duplicate_pda_fails() {
+    let pt = setup_program_test();
+    let (mut banks_client, payer, recent_blockhash) = pt.start().await;
+
+    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    let msg = b"test message";
+    let sig_data = create_signature_data(&signing_key, msg);
+
+    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
+    let (pre_verify_ix, _sig_verification_pda) =
+        create_pre_verify_instruction(payer.pubkey(), sig_data.clone());
+
+    // First transaction - should succeed
+    let tx1 = Transaction::new_signed_with_payer(
+        &[ed25519_ix.clone(), pre_verify_ix.clone()],
+        Some(&payer.pubkey()),
+        &[&payer],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(tx1).await.unwrap();
+
+    // Second transaction with same signature - should fail (PDA already exists)
+    let new_blockhash = banks_client
+        .get_new_latest_blockhash(&recent_blockhash)
+        .await
+        .unwrap();
+
+    let (pre_verify_ix2, _) = create_pre_verify_instruction(payer.pubkey(), sig_data);
+    let tx2 = Transaction::new_signed_with_payer(
+        &[ed25519_ix, pre_verify_ix2],
+        Some(&payer.pubkey()),
+        &[&payer],
+        new_blockhash,
+    );
+
+    let result = banks_client.process_transaction(tx2).await;
+    assert!(
+        result.is_err(),
+        "Second verification with same signature should fail"
     );
 }
