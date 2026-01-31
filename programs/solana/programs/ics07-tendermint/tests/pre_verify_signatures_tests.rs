@@ -318,7 +318,7 @@ async fn test_pre_verify_signature_no_ed25519_instruction_returns_invalid() {
 }
 
 #[tokio::test]
-async fn test_pre_verify_signature_multiple_signatures_not_supported() {
+async fn test_pre_verify_signature_malformed_ed25519_fails() {
     let pt = setup_program_test();
     let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -326,19 +326,18 @@ async fn test_pre_verify_signature_multiple_signatures_not_supported() {
     let msg = b"test message";
     let sig_data = create_signature_data(&signing_key, msg);
 
-    // Create ed25519 instruction claiming 2 signatures
+    // Create malformed ed25519 instruction: claims 2 signatures but only provides data for 1
     let pubkey = signing_key.verifying_key().to_bytes();
     let signature = signing_key.sign(msg).to_bytes();
 
-    let num_signatures: u8 = 2; // WRONG - we only support 1
     let mut data = Vec::with_capacity(16 + 64 + 32 + msg.len());
-    data.push(num_signatures);
-    data.push(0); // padding
-    data.extend_from_slice(&16u16.to_le_bytes()); // signature offset
+    data.push(2u8); // num_signatures = 2 (but we only provide 1)
+    data.push(0);
+    data.extend_from_slice(&16u16.to_le_bytes());
     data.extend_from_slice(&0xFFFFu16.to_le_bytes());
-    data.extend_from_slice(&80u16.to_le_bytes()); // pubkey offset
+    data.extend_from_slice(&80u16.to_le_bytes());
     data.extend_from_slice(&0xFFFFu16.to_le_bytes());
-    data.extend_from_slice(&112u16.to_le_bytes()); // message offset
+    data.extend_from_slice(&112u16.to_le_bytes());
     data.extend_from_slice(&(msg.len() as u16).to_le_bytes());
     data.extend_from_slice(&0xFFFFu16.to_le_bytes());
     data.extend_from_slice(&signature);
@@ -351,8 +350,7 @@ async fn test_pre_verify_signature_multiple_signatures_not_supported() {
         data,
     };
 
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
+    let (pre_verify_ix, _) = create_pre_verify_instruction(payer.pubkey(), sig_data);
 
     let tx = Transaction::new_signed_with_payer(
         &[ed25519_ix, pre_verify_ix],
@@ -361,23 +359,10 @@ async fn test_pre_verify_signature_multiple_signatures_not_supported() {
         recent_blockhash,
     );
 
-    // Transaction might fail at ed25519 precompile level or succeed with invalid
-    let result = banks_client.process_transaction(tx).await;
-
-    if result.is_ok() {
-        let account = banks_client
-            .get_account(sig_verification_pda)
-            .await
-            .unwrap()
-            .expect("Account not found");
-
-        let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-        assert!(
-            !verification.is_valid,
-            "Should be invalid for multiple signatures"
-        );
-    }
-    // If it fails, that's also acceptable
+    assert!(
+        banks_client.process_transaction(tx).await.is_err(),
+        "Malformed ed25519 instruction should fail at precompile"
+    );
 }
 
 #[tokio::test]
