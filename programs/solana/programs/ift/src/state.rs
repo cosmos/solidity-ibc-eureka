@@ -28,8 +28,6 @@ pub enum ChainOptions {
         #[max_len(128)]
         ica_address: String,
     },
-    /// Solana chain - encode as Solana instruction data
-    Solana,
 }
 
 impl ChainOptions {
