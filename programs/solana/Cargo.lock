@@ -2588,7 +2588,7 @@ dependencies = [
  "mollusk-svm",
  "mollusk-svm-bencher",
  "prost",
- "rand 0.8.5",
+ "rand 0.9.1",
  "serde",
  "serde_json",
  "sha2 0.10.9",
