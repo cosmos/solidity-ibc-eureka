@@ -214,6 +214,15 @@ mod tests {
         CosmosDenomTooLong,
         CosmosTypeUrlTooLong,
         CosmosIcaAddressTooLong,
+        FakeSysvarAttack,
+        CpiRejection,
+    }
+
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    enum SysvarMode {
+        Normal,
+        FakeSysvar,
+        CpiCall,
     }
 
     #[derive(Clone)]
@@ -222,6 +231,7 @@ mod tests {
         counterparty_address: String,
         chain_options: ChainOptions,
         use_unauthorized_signer: bool,
+        sysvar_mode: SysvarMode,
     }
 
     impl Default for RegisterBridgeTestConfig {
@@ -231,6 +241,7 @@ mod tests {
                 counterparty_address: "0x1234".to_string(),
                 chain_options: ChainOptions::Evm,
                 use_unauthorized_signer: false,
+                sysvar_mode: SysvarMode::Normal,
             }
         }
     }
@@ -308,6 +319,14 @@ mod tests {
                     },
                     ..Default::default()
                 },
+                RegisterBridgeErrorCase::FakeSysvarAttack => Self {
+                    sysvar_mode: SysvarMode::FakeSysvar,
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CpiRejection => Self {
+                    sysvar_mode: SysvarMode::CpiCall,
+                    ..Default::default()
+                },
             }
         }
     }
@@ -334,7 +353,18 @@ mod tests {
         let (bridge_pda, _) = get_bridge_pda(&mint, pda_client_id);
         let (access_manager_pda, access_manager_account) =
             create_access_manager_account_with_admin(admin);
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+
+        // Create instructions sysvar account based on sysvar_mode
+        let (instructions_sysvar, instructions_account) = match config.sysvar_mode {
+            SysvarMode::Normal => create_instructions_sysvar_account(),
+            SysvarMode::FakeSysvar => create_fake_instructions_sysvar_account(admin),
+            SysvarMode::CpiCall => {
+                // Simulate CPI call from a different program
+                let attacker_program = Pubkey::new_unique();
+                create_instructions_sysvar_account_with_caller(attacker_program)
+            }
+        };
+
         let (system_program, system_account) = create_system_program_account();
 
         let app_state_account = create_ift_app_state_account(
@@ -405,6 +435,8 @@ mod tests {
     #[case::cosmos_denom_too_long(RegisterBridgeErrorCase::CosmosDenomTooLong)]
     #[case::cosmos_type_url_too_long(RegisterBridgeErrorCase::CosmosTypeUrlTooLong)]
     #[case::cosmos_ica_address_too_long(RegisterBridgeErrorCase::CosmosIcaAddressTooLong)]
+    #[case::fake_sysvar_attack(RegisterBridgeErrorCase::FakeSysvarAttack)]
+    #[case::cpi_rejection(RegisterBridgeErrorCase::CpiRejection)]
     fn test_register_ift_bridge_validation(#[case] case: RegisterBridgeErrorCase) {
         run_register_bridge_error_test(case);
     }
