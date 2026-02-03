@@ -16,7 +16,6 @@ pub mod ics27;
 pub mod router;
 pub mod utils;
 
-// Re-export commonly used types
 pub use app_msgs::{
     IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
 };
@@ -28,7 +27,6 @@ pub use router::{
     ProofChunk, ProofMetadata, RouterState,
 };
 
-// Re-export MAX_CLIENT_ID_LENGTH from solana-ibc-proto (single source of truth)
 pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
 
 pub use ics07::{

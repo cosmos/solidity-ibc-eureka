@@ -1,4 +1,5 @@
 use crate::errors::RouterError;
+use crate::events::{AckPacketEvent, NoopEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
@@ -10,7 +11,6 @@ use solana_ibc_types::ibc_app::{
 };
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
-use solana_ibc_types::{AckPacketEvent, NoopEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]

@@ -1,6 +1,6 @@
+use crate::events::AccessManagerUpdated;
 use crate::state::RouterState;
 use anchor_lang::prelude::*;
-use solana_ibc_types::AccessManagerUpdated;
 
 #[derive(Accounts)]
 pub struct SetAccessManager<'info> {

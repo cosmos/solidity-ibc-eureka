@@ -1,4 +1,5 @@
 use crate::errors::RouterError;
+use crate::events::{NoopEvent, WriteAcknowledgementEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
@@ -6,7 +7,6 @@ use crate::utils::{chunking, ics24, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
-use solana_ibc_types::{NoopEvent, WriteAcknowledgementEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
