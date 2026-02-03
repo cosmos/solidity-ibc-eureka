@@ -22,6 +22,6 @@ pub const CHUNK_DATA_SIZE: usize = 900;
 /// Must match `AssembleAndUpdateClient::STATIC_ACCOUNTS` in ics07-tendermint program.
 pub const ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS: usize = 8;
 
-/// IBC commitment version byte (ICS24).
+/// IBC commitment version byte.
 /// Used as prefix in packet/ack commitment calculations.
 pub const IBC_VERSION: u8 = 0x02;
