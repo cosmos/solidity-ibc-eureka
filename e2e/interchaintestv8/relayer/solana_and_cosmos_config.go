@@ -58,8 +58,6 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaFeePayer string `json:"solana_fee_payer"`
 	// Address Lookup Table address for reducing transaction size (optional)
 	SolanaAltAddress *string `json:"solana_alt_address,omitempty"`
-	// Whether to use mock WASM client on Cosmos for testing
-	MockWasmClient bool `json:"mock_wasm_client"`
 	// Signature threshold for skipping pre-verification (optional, default: 50, 0 = always use pre-verify)
 	SkipPreVerifyThreshold *int `json:"skip_pre_verify_threshold,omitempty"`
 }
@@ -112,7 +110,6 @@ func CreateSolanaCosmosModules(configInfo SolanaCosmosConfigInfo) []ModuleConfig
 				SolanaIcs26ProgramId:   configInfo.ICS26RouterProgramID,
 				SolanaFeePayer:         configInfo.SolanaFeePayer,
 				SolanaAltAddress:       altAddress,
-				MockWasmClient:         configInfo.MockWasmClient,
 				SkipPreVerifyThreshold: configInfo.SkipPreVerifyThreshold,
 			},
 		},

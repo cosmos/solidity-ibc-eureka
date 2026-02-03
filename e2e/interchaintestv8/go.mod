@@ -26,6 +26,7 @@ require (
 	github.com/docker/docker v28.0.0+incompatible
 	github.com/docker/go-connections v0.5.0
 	github.com/ethereum/go-ethereum v1.16.8
+	github.com/gagliardetto/anchor-go v0.3.2
 	github.com/gagliardetto/binary v0.8.0
 	github.com/gagliardetto/solana-go v1.13.0
 	github.com/holiman/uint256 v1.3.2
@@ -131,7 +132,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/ferranbt/fastssz v0.1.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
-	github.com/gagliardetto/anchor-go v0.3.2 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/getsentry/sentry-go v0.35.0 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
