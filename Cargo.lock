@@ -10072,6 +10072,9 @@ dependencies = [
 [[package]]
 name = "solana-ibc-constants"
 version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+]
 
 [[package]]
 name = "solana-ibc-macros"
@@ -10108,9 +10111,11 @@ dependencies = [
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",
+ "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
  "tendermint",
+ "thiserror 2.0.17",
 ]
 
 [[package]]

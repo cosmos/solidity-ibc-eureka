@@ -33,10 +33,6 @@ solana-sha256-hasher.workspace = true
 solana-keccak-hasher.workspace = true
 hex = "0.4"
 
-[build-dependencies]
-sha2 = "0.10"
-
-
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true

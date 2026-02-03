@@ -2102,7 +2102,6 @@ dependencies = [
  "mock-light-client",
  "mollusk-svm",
  "mollusk-svm-bencher",
- "sha2 0.10.9",
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-types",
@@ -4099,6 +4098,9 @@ dependencies = [
 [[package]]
 name = "solana-ibc-constants"
 version = "0.1.0"
+dependencies = [
+ "sha2 0.10.9",
+]
 
 [[package]]
 name = "solana-ibc-macros"
@@ -4135,6 +4137,7 @@ dependencies = [
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",
+ "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
  "tendermint",

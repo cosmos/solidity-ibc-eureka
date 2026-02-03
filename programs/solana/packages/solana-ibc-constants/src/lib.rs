@@ -2,6 +2,8 @@
 //!
 //! This crate provides all the program IDs and constants used by IBC on Solana
 
+include!(concat!(env!("OUT_DIR"), "/generated_constants.rs"));
+
 /// Anchor default discriminator length in bytes
 pub const ANCHOR_DISCRIMINATOR_LEN: usize = 8;
 
@@ -19,3 +21,7 @@ pub const CHUNK_DATA_SIZE: usize = 900;
 /// (excludes `remaining_accounts` for chunks/sigs).
 /// Must match `AssembleAndUpdateClient::STATIC_ACCOUNTS` in ics07-tendermint program.
 pub const ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS: usize = 8;
+
+/// IBC commitment version byte (ICS24).
+/// Used as prefix in packet/ack commitment calculations.
+pub const IBC_VERSION: u8 = 0x02;
