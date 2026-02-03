@@ -258,7 +258,6 @@ func (s *IbcSolanaAttestorTestSuite) SetupSuite(ctx context.Context) {
 			ICS26ProgramID: ics26_router.ProgramID.String(),
 			FeePayer:       s.SolanaUser.PublicKey().String(),
 			ALTAddress:     s.SolanaAltAddress,
-			MockClient:     true,
 		}).
 		Build()
 
