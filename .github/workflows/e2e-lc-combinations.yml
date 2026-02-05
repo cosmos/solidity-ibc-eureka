@@ -31,7 +31,7 @@ env:
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-light-client-tag || 'local' }}
   SP1_PROVER: mock
   E2E_PROOF_TYPE: groth16
-  SOLANA_VERSION: "2.1.17"
+  SOLANA_VERSION: "3.1.6"
   ANCHOR_VERSION: "0.32.1"
 
 permissions:
