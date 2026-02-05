@@ -6,27 +6,16 @@ use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
 mod sol_types {
-    alloy_sol_types::sol! {
-        struct StateAttestation {
-            uint64 height;
-            uint64 timestamp;
-        }
-
-        struct PacketCompact {
-            bytes32 path;
-            bytes32 commitment;
-        }
-
-        struct PacketAttestation {
-            uint64 height;
-            PacketCompact[] packets;
-        }
-    }
+    alloy_sol_types::sol!(
+        "../../../../contracts/light-clients/attestation/msgs/IAttestationMsgs.sol"
+    );
 }
+
+use sol_types::IAttestationMsgs;
 
 /// Decode a `PacketAttestation` from ABI-encoded bytes.
 pub fn decode_packet_attestation(data: &[u8]) -> Result<PacketAttestation> {
-    let decoded = sol_types::PacketAttestation::abi_decode(data)
+    let decoded = IAttestationMsgs::PacketAttestation::abi_decode(data)
         .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
     let packets = decoded
@@ -46,7 +35,7 @@ pub fn decode_packet_attestation(data: &[u8]) -> Result<PacketAttestation> {
 
 /// Decode a `StateAttestation` from ABI-encoded bytes.
 pub fn decode_state_attestation(data: &[u8]) -> Result<StateAttestation> {
-    let decoded = sol_types::StateAttestation::abi_decode(data)
+    let decoded = IAttestationMsgs::StateAttestation::abi_decode(data)
         .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
     Ok(StateAttestation {
