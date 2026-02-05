@@ -699,3 +699,74 @@ func NewSetPausedInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "admin_mint" instruction.
+// Mint tokens to any account (admin only)
+func NewAdminMintInstruction(
+	// Params:
+	msgParam IftStateAdminMintMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	mintAccount solanago.PublicKey,
+	mintAuthorityAccount solanago.PublicKey,
+	receiverTokenAccountAccount solanago.PublicKey,
+	receiverOwnerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	tokenProgramAccount solanago.PublicKey,
+	associatedTokenProgramAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AdminMint[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "mint": Writable, Non-signer, Required
+		// SPL Token mint
+		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
+		// Account 2 "mint_authority": Read-only, Non-signer, Required
+		// Mint authority PDA
+		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
+		// Account 3 "receiver_token_account": Writable, Non-signer, Required
+		// Receiver's token account (will be created if needed)
+		accounts__.Append(solanago.NewAccountMeta(receiverTokenAccountAccount, true, false))
+		// Account 4 "receiver_owner": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(receiverOwnerAccount, false, false))
+		// Account 5 "admin": Read-only, Signer, Required
+		// Admin signer
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 6 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 7 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
+		// Account 8 "associated_token_program": Read-only, Non-signer, Required, Address: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
+		accounts__.Append(solanago.NewAccountMeta(associatedTokenProgramAccount, false, false))
+		// Account 9 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

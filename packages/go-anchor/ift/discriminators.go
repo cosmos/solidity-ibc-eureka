@@ -13,6 +13,7 @@ var (
 
 // Event discriminators
 var (
+	Event_IftEventsAdminMintExecuted        = [8]byte{96, 100, 181, 34, 239, 17, 170, 41}
 	Event_IftEventsAdminUpdated             = [8]byte{69, 82, 49, 171, 43, 3, 80, 161}
 	Event_IftEventsExistingTokenInitialized = [8]byte{208, 76, 129, 169, 87, 75, 247, 38}
 	Event_IftEventsIftBridgeRegistered      = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
@@ -40,4 +41,5 @@ var (
 	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
 	Instruction_SetMintRateLimit        = [8]byte{130, 207, 16, 33, 36, 175, 200, 83}
 	Instruction_SetPaused               = [8]byte{91, 60, 125, 192, 176, 225, 166, 218}
+	Instruction_AdminMint               = [8]byte{137, 144, 88, 222, 36, 159, 250, 217}
 )

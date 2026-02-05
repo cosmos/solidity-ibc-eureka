@@ -180,6 +180,109 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Event emitted when admin mints tokens
+type IftEventsAdminMintExecuted struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// Receiver pubkey
+	Receiver solanago.PublicKey `json:"receiver"`
+
+	// Amount minted
+	Amount uint64 `json:"amount"`
+
+	// Admin who executed the mint
+	Admin solanago.PublicKey `json:"admin"`
+
+	// Mint timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsAdminMintExecuted) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `Receiver`:
+	err = encoder.Encode(obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Serialize `Amount`:
+	err = encoder.Encode(obj.Amount)
+	if err != nil {
+		return errors.NewField("Amount", err)
+	}
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsAdminMintExecuted) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsAdminMintExecuted: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsAdminMintExecuted) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `Receiver`:
+	err = decoder.Decode(&obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Deserialize `Amount`:
+	err = decoder.Decode(&obj.Amount)
+	if err != nil {
+		return errors.NewField("Amount", err)
+	}
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsAdminMintExecuted) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsAdminMintExecuted: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsAdminMintExecuted(buf []byte) (*IftEventsAdminMintExecuted, error) {
+	obj := new(IftEventsAdminMintExecuted)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when the admin authority is updated
 type IftEventsAdminUpdated struct {
 	// SPL Token mint address
@@ -1415,6 +1518,70 @@ func (value IftStateAccountVersion) String() string {
 	default:
 		return ""
 	}
+}
+
+// Message for admin mint
+type IftStateAdminMintMsg struct {
+	// Receiver pubkey
+	Receiver solanago.PublicKey `json:"receiver"`
+
+	// Amount to mint
+	Amount uint64 `json:"amount"`
+}
+
+func (obj IftStateAdminMintMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Receiver`:
+	err = encoder.Encode(obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Serialize `Amount`:
+	err = encoder.Encode(obj.Amount)
+	if err != nil {
+		return errors.NewField("Amount", err)
+	}
+	return nil
+}
+
+func (obj IftStateAdminMintMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftStateAdminMintMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftStateAdminMintMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Receiver`:
+	err = decoder.Decode(&obj.Receiver)
+	if err != nil {
+		return errors.NewField("Receiver", err)
+	}
+	// Deserialize `Amount`:
+	err = decoder.Decode(&obj.Amount)
+	if err != nil {
+		return errors.NewField("Amount", err)
+	}
+	return nil
+}
+
+func (obj *IftStateAdminMintMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftStateAdminMintMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftStateAdminMintMsg(buf []byte) (*IftStateAdminMintMsg, error) {
+	obj := new(IftStateAdminMintMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
 }
 
 // Chain-specific options for counterparty chain configuration
