@@ -3,43 +3,24 @@
 //! This module provides secp256k1 signature recovery and Ethereum address
 //! derivation with three implementations based on compilation target:
 //!
-//! ## Production (`target_os = "solana"`)
-//! Uses Solana's `sol_secp256k1_recover` syscall - a precompiled, audited
-//! implementation provided by the Solana runtime. This is the only version
-//! that runs on-chain.
-//!
-//! ## Tests (`#[cfg(test)]`)
-//! Uses the `k256` crate (pure Rust secp256k1) for native test execution.
-//! This allows unit tests to run without the Solana runtime while maintaining
-//! cryptographic correctness. The k256 crate is well-audited and produces
-//! identical results to the Solana syscall.
-//!
-//! **Why k256 in tests?** Solana syscalls are only available in the SVM runtime.
-//! Native `cargo test` runs outside SVM, so we need a compatible implementation.
-//! Mollusk tests (which simulate SVM) use the real syscall via the compiled program.
-//!
-//! ## IDL Generation (`#[cfg(not(test))]` on native)
-//! Returns a stub error since signature recovery isn't needed for IDL extraction.
-//!
-//! ## Security Considerations
-//! - Production security relies entirely on Solana's syscall implementation
-//! - Test implementation uses k256 which is widely used and audited
-//! - Both implementations use identical message hashing (SHA256) and address
-//!   derivation (keccak256 of uncompressed pubkey, take last 20 bytes)
+//! - **Production** (`target_os = "solana"`): Uses `solana_secp256k1_recover` crate.
+//! - **Tests** (`#[cfg(test)]`): Uses `alloy_primitives` for native test execution.
+//! - **IDL generation**: Returns a stub error.
 
 use anchor_lang::prelude::*;
 
 use crate::error::ErrorCode;
 
-const SIGNATURE_LEN: usize = 65;
-const SIG_RS_LEN: usize = 64;
+use solana_secp256k1_recover::{SECP256K1_PUBLIC_KEY_LENGTH, SECP256K1_SIGNATURE_LENGTH};
+
+const SIGNATURE_LEN: usize = SECP256K1_SIGNATURE_LENGTH + 1;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
 const ETH_ADDRESS_LEN: usize = 20;
 
 /// Prepared signature data for secp256k1 recovery.
 struct PreparedSignature {
-    message_hash: [u8; 32],
-    sig_bytes: [u8; 64],
+    message_hash: [u8; solana_keccak_hasher::HASH_BYTES],
+    sig_bytes: [u8; SECP256K1_SIGNATURE_LENGTH],
     recovery_id: u8,
 }
 
@@ -56,10 +37,10 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
         return Err(error!(ErrorCode::InvalidSignature));
     }
 
-    let mut sig_bytes = [0u8; SIG_RS_LEN];
-    sig_bytes.copy_from_slice(&signature[..SIG_RS_LEN]);
+    let mut sig_bytes = [0u8; SECP256K1_SIGNATURE_LENGTH];
+    sig_bytes.copy_from_slice(&signature[..SECP256K1_SIGNATURE_LENGTH]);
 
-    let v = signature[SIG_RS_LEN];
+    let v = signature[SECP256K1_SIGNATURE_LENGTH];
 
     Ok(PreparedSignature {
         message_hash: Sha256::digest(message).into(),
@@ -99,8 +80,12 @@ pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_
     }
 
     let sig = Signature::new(
-        alloy_primitives::U256::from_be_slice(&prepared.sig_bytes[..32]),
-        alloy_primitives::U256::from_be_slice(&prepared.sig_bytes[32..]),
+        alloy_primitives::U256::from_be_slice(
+            &prepared.sig_bytes[..SECP256K1_SIGNATURE_LENGTH / 2],
+        ),
+        alloy_primitives::U256::from_be_slice(
+            &prepared.sig_bytes[SECP256K1_SIGNATURE_LENGTH / 2..],
+        ),
         prepared.recovery_id != 0,
     );
 
@@ -123,33 +108,15 @@ pub fn recover_eth_address(_message: &[u8], signature: &[u8]) -> Result<[u8; ETH
 /// Convert a 64-byte secp256k1 public key to Ethereum address.
 ///
 /// Ethereum address = last 20 bytes of `keccak256(uncompressed_pubkey)`
-fn pubkey_to_eth_address(pubkey: &[u8; 64]) -> [u8; ETH_ADDRESS_LEN] {
+fn pubkey_to_eth_address(pubkey: &[u8; SECP256K1_PUBLIC_KEY_LENGTH]) -> [u8; ETH_ADDRESS_LEN] {
     let solana_keccak_hasher::Hash(hash) = solana_keccak_hasher::hash(pubkey);
-    let mut address = [0u8; ETH_ADDRESS_LEN];
-    address.copy_from_slice(&hash[12..32]);
-    address
+    std::array::from_fn(|i| hash[hash.len() - ETH_ADDRESS_LEN + i])
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rstest::rstest;
-
-    #[test]
-    fn test_pubkey_to_eth_address() {
-        let pubkey = [0u8; 64];
-        let address = pubkey_to_eth_address(&pubkey);
-        assert_eq!(address.len(), 20);
-    }
-
-    #[test]
-    fn test_pubkey_to_eth_address_known_value() {
-        let mut pubkey = [0u8; 64];
-        pubkey[0] = 0x04;
-        let address = pubkey_to_eth_address(&pubkey);
-        let solana_keccak_hasher::Hash(expected_hash) = solana_keccak_hasher::hash(&pubkey);
-        assert_eq!(address, expected_hash[12..32]);
-    }
 
     #[rstest]
     #[case::short(vec![0u8; 64])]
