@@ -5,7 +5,6 @@ use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
 use crate::verification::verify_attestation;
-use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -132,6 +131,7 @@ mod tests {
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{AppState, ClientState, MembershipProof};
+    use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
     use borsh::BorshSerialize;

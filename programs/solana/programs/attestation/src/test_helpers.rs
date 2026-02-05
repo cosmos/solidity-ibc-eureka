@@ -286,7 +286,7 @@ pub mod signing {
             let mut result = Vec::with_capacity(65);
             result.extend_from_slice(&sig.r().to_be_bytes::<32>());
             result.extend_from_slice(&sig.s().to_be_bytes::<32>());
-            result.push(sig.v() as u8 + 27);
+            result.push(u8::from(sig.v()) + 27);
             result
         }
     }

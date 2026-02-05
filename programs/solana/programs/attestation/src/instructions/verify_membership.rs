@@ -4,7 +4,6 @@ use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 use crate::verification::verify_attestation;
-use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_keccak_hasher::{hash as keccak256, Hash};
@@ -83,6 +82,7 @@ mod tests {
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
     use borsh::BorshSerialize;

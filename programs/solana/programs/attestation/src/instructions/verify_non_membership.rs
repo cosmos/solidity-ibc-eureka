@@ -4,7 +4,6 @@ use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 use crate::verification::verify_attestation;
-use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
@@ -85,6 +84,7 @@ mod tests {
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
     use borsh::BorshSerialize;

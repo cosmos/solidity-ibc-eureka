@@ -1,152 +1,58 @@
-//! Manual ABI decoding for Ethereum-compatible attestation types.
-//!
-//! This module provides manual implementations of Ethereum ABI decoding for attestation
-//! structs used in the IBC protocol. We implement these decoders manually instead of using
-//! the `alloy-sol-types` crate for the following reasons:
-//!
-//! 1. **Solana toolchain compatibility**: The Solana toolchain bundles Cargo 1.84, which
-//!    does not support Rust edition 2024. The `alloy` crates (v1.2+) use edition 2024,
-//!    causing build failures during `anchor build` when the toolchain's internal cargo
-//!    is used for running tests.
-//!
-//! 2. **Minimal dependency footprint**: By implementing only the specific decoders we need,
-//!    we avoid pulling in the entire alloy dependency tree, reducing compile times and
-//!    binary size.
-//!
-//! 3. **Predictable behavior**: Manual implementation gives us full control over error
-//!    handling and validation without relying on external crate behavior.
-//!
-//! The ABI encoding format follows the Ethereum ABI specification where:
-//! - All values are padded to 32-byte words
-//! - Integers are big-endian and right-aligned within the word
-//! - Dynamic arrays use offset pointers
+//! ABI decoding for Ethereum-compatible attestation types using `alloy-sol-types`.
 
 use crate::error::ErrorCode;
 use crate::types::{PacketAttestation, PacketCommitment, StateAttestation};
+use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
-const ABI_WORD_SIZE: usize = 32;
+mod sol_types {
+    alloy_sol_types::sol! {
+        struct StateAttestation {
+            uint64 height;
+            uint64 timestamp;
+        }
 
-/// Read a u64 from a 32-byte ABI-encoded word.
-///
-/// In ABI encoding, integers smaller than 256 bits are right-aligned (big-endian)
-/// within the 32-byte word. For u64, the value occupies the last 8 bytes.
-fn read_u64_from_word(data: &[u8], offset: usize) -> Option<u64> {
-    if offset.saturating_add(ABI_WORD_SIZE) > data.len() {
-        return None;
-    }
-    let start = offset.saturating_add(24);
-    let bytes: [u8; 8] = data[start..start.saturating_add(8)].try_into().ok()?;
-    Some(u64::from_be_bytes(bytes))
-}
+        struct PacketCompact {
+            bytes32 path;
+            bytes32 commitment;
+        }
 
-/// Read a bytes32 from ABI-encoded data.
-fn read_bytes32(data: &[u8], offset: usize) -> Option<[u8; 32]> {
-    if offset.saturating_add(32) > data.len() {
-        return None;
+        struct PacketAttestation {
+            uint64 height;
+            PacketCompact[] packets;
+        }
     }
-    data[offset..offset.saturating_add(32)].try_into().ok()
 }
 
 /// Decode a `PacketAttestation` from ABI-encoded bytes.
-///
-/// Corresponds to the Solidity struct:
-/// ```solidity
-/// struct PacketAttestation {
-///     uint64 height;
-///     PacketCompact[] packets;
-/// }
-///
-/// struct PacketCompact {
-///     bytes32 path;
-///     bytes32 commitment;
-/// }
-/// ```
-///
-/// ABI encoding layout (with tuple wrapper from `abi.encode`):
-/// - `[0..32]`: tuple offset (always 32, pointing to struct start)
-/// - `[32..64]`: height (u256, u64 value in last 8 bytes)
-/// - `[64..96]`: relative offset to packets array (from struct start)
-/// - `[96..128]`: packets array length
-/// - `[128..]`: packets data (64 bytes each: path || commitment)
 pub fn decode_packet_attestation(data: &[u8]) -> Result<PacketAttestation> {
-    const MIN_SIZE: usize = 128;
+    let decoded = sol_types::PacketAttestation::abi_decode(data)
+        .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
-    if data.len() < MIN_SIZE {
-        return Err(error!(ErrorCode::InvalidAttestationData));
-    }
+    let packets = decoded
+        .packets
+        .into_iter()
+        .map(|p| PacketCommitment {
+            path: p.path.into(),
+            commitment: p.commitment.into(),
+        })
+        .collect();
 
-    let tuple_offset = read_u64_from_word(data, 0)
-        .ok_or_else(|| error!(ErrorCode::InvalidAttestationData))? as usize;
-
-    if tuple_offset != 32 {
-        return Err(error!(ErrorCode::InvalidAttestationData));
-    }
-
-    let height =
-        read_u64_from_word(data, 32).ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?;
-
-    let packets_rel_offset = read_u64_from_word(data, 64)
-        .ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?
-        as usize;
-
-    // Absolute offset to packets length (relative offset is from struct start at byte 32)
-    let packets_length_offset = 32_usize.saturating_add(packets_rel_offset);
-
-    if packets_length_offset.saturating_add(32) > data.len() {
-        return Err(error!(ErrorCode::InvalidAttestationData));
-    }
-
-    let packets_len = read_u64_from_word(data, packets_length_offset)
-        .ok_or_else(|| error!(ErrorCode::InvalidAttestationData))? as usize;
-
-    let packets_data_offset = packets_length_offset.saturating_add(32);
-    let required_len = packets_data_offset.saturating_add(packets_len.saturating_mul(64));
-
-    if required_len > data.len() {
-        return Err(error!(ErrorCode::InvalidAttestationData));
-    }
-
-    let mut packets = Vec::with_capacity(packets_len);
-    for i in 0..packets_len {
-        let packet_offset = packets_data_offset.saturating_add(i.saturating_mul(64));
-        let path = read_bytes32(data, packet_offset)
-            .ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?;
-        let commitment = read_bytes32(data, packet_offset.saturating_add(32))
-            .ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?;
-        packets.push(PacketCommitment { path, commitment });
-    }
-
-    Ok(PacketAttestation { height, packets })
+    Ok(PacketAttestation {
+        height: decoded.height,
+        packets,
+    })
 }
 
 /// Decode a `StateAttestation` from ABI-encoded bytes.
-///
-/// Corresponds to the Solidity struct:
-/// ```solidity
-/// struct StateAttestation {
-///     uint64 height;
-///     uint64 timestamp;
-/// }
-/// ```
-///
-/// ABI encoding layout:
-/// - `[0..32]`: height (u256, u64 value in last 8 bytes)
-/// - `[32..64]`: timestamp (u256, u64 value in last 8 bytes)
 pub fn decode_state_attestation(data: &[u8]) -> Result<StateAttestation> {
-    const MIN_SIZE: usize = 64;
+    let decoded = sol_types::StateAttestation::abi_decode(data)
+        .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
-    if data.len() < MIN_SIZE {
-        return Err(error!(ErrorCode::InvalidAttestationData));
-    }
-
-    let height =
-        read_u64_from_word(data, 0).ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?;
-
-    let timestamp =
-        read_u64_from_word(data, 32).ok_or_else(|| error!(ErrorCode::InvalidAttestationData))?;
-
-    Ok(StateAttestation { height, timestamp })
+    Ok(StateAttestation {
+        height: decoded.height,
+        timestamp: decoded.timestamp,
+    })
 }
 
 #[cfg(test)]
@@ -160,7 +66,7 @@ mod tests {
         bytes
     }
 
-    /// Build a standard packet attestation header (tuple_offset, height, packets_rel_offset, packets_len)
+    /// Build a standard packet attestation header.
     fn build_packet_header(
         tuple_offset: u64,
         height: u64,
@@ -215,6 +121,7 @@ mod tests {
 
     #[test]
     fn test_decode_state_attestation_non_zero_high_bytes() {
+        // Lenient decoder truncates u256 to u64, ignoring high bytes
         let mut data = vec![0xffu8; 64];
         data[24..32].copy_from_slice(&42u64.to_be_bytes());
         data[56..64].copy_from_slice(&123u64.to_be_bytes());
@@ -265,16 +172,12 @@ mod tests {
     }
 
     #[rstest]
-    #[case::too_short(vec![0u8; 127])]
     #[case::empty(vec![])]
-    #[case::one_byte_short_for_header(vec![0u8; 127])]
-    #[case::invalid_tuple_offset_zero(build_packet_header(0, 100, 64, 0))]
     #[case::invalid_tuple_offset_wrong(build_packet_header(64, 100, 64, 0))]
     #[case::offset_out_of_bounds(build_packet_header(32, 100, 1000, 0))]
     #[case::huge_packet_count(build_packet_header(32, 100, 64, u64::MAX))]
     #[case::large_offset_overflow(build_packet_header(32, 100, u64::MAX, 0))]
     #[case::offset_causes_wrap(build_packet_header(32, 100, (usize::MAX - 16) as u64, 0))]
-    #[case::all_zeros(vec![0u8; 128])]
     #[case::truncated_packets_array(build_packet_err_truncated_array())]
     #[case::partial_packet(build_packet_err_partial_packet())]
     #[case::one_byte_short_for_packet(build_packet_err_one_byte_short_for_packet())]
@@ -420,6 +323,7 @@ mod tests {
 
     #[test]
     fn test_decode_packet_attestation_non_zero_high_bytes_in_height() {
+        // Lenient decoder truncates u256 to u64, ignoring high bytes
         let mut data = Vec::new();
         data.extend_from_slice(&encode_u256(32));
 

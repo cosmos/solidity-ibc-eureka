@@ -142,7 +142,7 @@ mod tests {
         let addr_original = recover_eth_address(message, &sig).unwrap();
 
         // Recover with canonical v (0 or 1)
-        let mut sig_canonical = sig.clone();
+        let mut sig_canonical = sig;
         sig_canonical[64] = original_v - 27;
         let addr_canonical = recover_eth_address(message, &sig_canonical).unwrap();
 
