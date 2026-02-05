@@ -1,5 +1,4 @@
 use crate::abi_decode::decode_packet_attestation;
-use crate::crypto::hash_path;
 use crate::error::ErrorCode;
 use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
@@ -8,6 +7,7 @@ use crate::verification::verify_attestation;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
+use solana_keccak_hasher::{hash as keccak256, Hash};
 
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
@@ -50,7 +50,7 @@ pub fn verify_non_membership(
 
     require!(!attestation.packets.is_empty(), ErrorCode::EmptyAttestation);
 
-    let path_hash = hash_path(&msg.path[0]);
+    let Hash(path_hash) = keccak256(&msg.path[0]);
 
     let packet = attestation
         .packets
@@ -437,7 +437,7 @@ mod tests {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
 
         let path = b"test/path";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[(path_hash, [0u8; 32])],
@@ -540,7 +540,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -589,7 +589,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         // Non-zero commitment - should fail non-membership check
         let non_zero_commitment = [0xAB; 32];
 
@@ -644,7 +644,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -696,7 +696,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -749,7 +749,7 @@ mod tests {
 
         // Attestation contains a different path
         let attested_path = b"ibc/commitments/channel-0/sequence/1";
-        let attested_path_hash = crate::crypto::hash_path(attested_path);
+        let Hash(attested_path_hash) = solana_keccak_hasher::hash(attested_path);
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
@@ -801,7 +801,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         // Attestation has different height than consensus state
@@ -856,7 +856,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -911,7 +911,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -964,7 +964,7 @@ mod tests {
         );
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -1015,7 +1015,7 @@ mod tests {
             setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT, client_state, consensus_state);
 
         let path = b"ibc/commitments/channel-0/sequence/1";
-        let path_hash = crate::crypto::hash_path(path);
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let zero_commitment = [0u8; 32];
 
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(

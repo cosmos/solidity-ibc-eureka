@@ -33,7 +33,6 @@ use crate::error::ErrorCode;
 
 const SIGNATURE_LEN: usize = 65;
 const ETH_ADDRESS_LEN: usize = 20;
-const KECCAK256_HASH_LEN: usize = 32;
 const SECP256K1_PUBLIC_KEY_LENGTH: usize = 64;
 
 /// Prepared signature data for secp256k1 recovery.
@@ -153,42 +152,16 @@ pub fn recover_eth_address(_message: &[u8], signature: &[u8]) -> Result<[u8; ETH
 ///
 /// Ethereum address = last 20 bytes of `keccak256(uncompressed_pubkey)`
 fn pubkey_to_eth_address(pubkey: &[u8; 64]) -> [u8; ETH_ADDRESS_LEN] {
-    let hash = keccak256(pubkey);
+    let solana_keccak_hasher::Hash(hash) = solana_keccak_hasher::hash(pubkey);
     let mut address = [0u8; ETH_ADDRESS_LEN];
     address.copy_from_slice(&hash[12..32]);
     address
-}
-
-/// Compute keccak256 hash using Solana's native hasher.
-pub fn keccak256(data: &[u8]) -> [u8; KECCAK256_HASH_LEN] {
-    solana_keccak_hasher::hash(data).0
-}
-
-/// Compute keccak256 hash of a path (for IBC commitment paths).
-pub fn hash_path(path: &[u8]) -> [u8; 32] {
-    keccak256(path)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use rstest::rstest;
-
-    #[rstest]
-    #[case::hello(
-        b"hello",
-        "1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8"
-    )]
-    #[case::empty(
-        b"",
-        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
-    )]
-    fn test_keccak256(#[case] input: &[u8], #[case] expected_hex: &str) {
-        let hash = keccak256(input);
-        assert_eq!(hash.len(), 32);
-        let expected = hex::decode(expected_hex).unwrap();
-        assert_eq!(hash.as_slice(), expected.as_slice());
-    }
 
     #[test]
     fn test_pubkey_to_eth_address() {
@@ -202,37 +175,8 @@ mod tests {
         let mut pubkey = [0u8; 64];
         pubkey[0] = 0x04;
         let address = pubkey_to_eth_address(&pubkey);
-        let expected_hash = keccak256(&pubkey);
+        let solana_keccak_hasher::Hash(expected_hash) = solana_keccak_hasher::hash(&pubkey);
         assert_eq!(address, expected_hash[12..32]);
-    }
-
-    #[test]
-    fn test_hash_path() {
-        let path = b"ibc/commitments/channel-0/sequence/1";
-        let hash = hash_path(path);
-        assert_eq!(hash.len(), 32);
-        assert_eq!(hash, keccak256(path));
-    }
-
-    #[test]
-    fn test_hash_path_empty() {
-        let hash = hash_path(b"");
-        assert_eq!(hash, keccak256(b""));
-    }
-
-    #[test]
-    fn test_hash_path_deterministic() {
-        let path = b"test/path/to/commitment";
-        let hash1 = hash_path(path);
-        let hash2 = hash_path(path);
-        assert_eq!(hash1, hash2);
-    }
-
-    #[test]
-    fn test_hash_path_different_inputs() {
-        let hash1 = hash_path(b"path1");
-        let hash2 = hash_path(b"path2");
-        assert_ne!(hash1, hash2);
     }
 
     #[rstest]
