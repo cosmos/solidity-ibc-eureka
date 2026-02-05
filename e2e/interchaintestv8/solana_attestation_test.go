@@ -699,6 +699,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 	simd := s.Cosmos.Chains[0]
 
 	var cosmosRelayPacketTxHash []byte
+	var timeout uint64
+	var encodedPayload []byte
 
 	s.Require().True(s.Run("Send ICS20 transfer from Cosmos to Solana", func() {
 		cosmosUserWallet := s.Cosmos.Users[0]
@@ -706,7 +708,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 		solanaUserAddress := s.SolanaUser.PublicKey().String()
 		transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(TestTransferAmount))
 
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		timeout = uint64(time.Now().Add(30 * time.Minute).Unix())
 
 		transferPayload := transfertypes.FungibleTokenPacketData{
 			Denom:    transferCoin.Denom,
@@ -715,7 +717,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 			Receiver: solanaUserAddress,
 			Memo:     "cosmos-to-solana-attestation-transfer",
 		}
-		encodedPayload, err := transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
+		var err error
+		encodedPayload, err = transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
 		s.Require().NoError(err)
 
 		payload := channeltypesv2.Payload{
@@ -805,6 +808,67 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 
 		s.Require().Greater(appState.PacketsReceived, uint64(0))
 		s.T().Logf("Solana dummy app received %d packets", appState.PacketsReceived)
+	}))
+
+	s.Require().True(s.Run("Verify ACK commitment via Solana attestor", func() {
+		s.Require().NoError(s.Solana.Chain.WaitForTxStatus(solanaRelayTxSig, rpc.ConfirmationStatusFinalized))
+
+		slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+		s.Require().NoError(err)
+
+		actualSequence := uint64(1)
+		sequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sequenceBytes, actualSequence)
+
+		packetAckPDA, _ := solana.Ics26Router.PacketAckWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
+
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, packetAckPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentFinalized,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+
+		data := accountInfo.Value.Data.GetBinary()
+		s.Require().GreaterOrEqual(len(data), 40)
+		onChainAckCommitment := data[8:40]
+		s.Require().NotEmpty(onChainAckCommitment)
+
+		abiPacket := ics26router.IICS26RouterMsgsPacket{
+			Sequence:         1,
+			SourceClient:     CosmosClientID,
+			DestClient:       s.AttestationClientID,
+			TimeoutTimestamp: timeout,
+			Payloads: []ics26router.IICS26RouterMsgsPayload{
+				{
+					SourcePort: transfertypes.PortID,
+					DestPort:   transfertypes.PortID,
+					Version:    transfertypes.V1,
+					Encoding:   transfertypes.EncodingProtobuf,
+					Value:      encodedPayload,
+				},
+			},
+		}
+		packetBytes, err := types.AbiEncodePacket(abiPacket)
+		s.Require().NoError(err)
+
+		resp, err := attestor.GetPacketAttestation(ctx, s.SolanaAttestorClient, [][]byte{packetBytes}, slot, attestortypes.CommitmentType_COMMITMENT_TYPE_ACK)
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.GetAttestation())
+
+		attestation := resp.GetAttestation()
+		s.Require().NotEmpty(attestation.GetSignature())
+		s.Require().Equal(slot, attestation.GetHeight())
+
+		attestedData := attestation.GetAttestedData()
+		packetAttestation, err := types.AbiDecodePacketAttestation(attestedData)
+		s.Require().NoError(err)
+		s.Require().NotNil(packetAttestation)
+		s.Require().Len(packetAttestation.Packets, 1)
+
+		attestorAckCommitment := packetAttestation.Packets[0].Commitment[:]
+		s.Require().Equal(onChainAckCommitment, attestorAckCommitment)
+
+		s.T().Log("Solana attestor ACK commitment verification successful")
 	}))
 
 	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
