@@ -47,42 +47,45 @@ pub fn create_ift_app_state_account_with_options(
     gmp_program: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
-    create_ift_app_state_account_full(
+    create_ift_app_state_account_full(IftAppStateParams {
         mint,
         bump,
         mint_authority_bump,
         admin,
         gmp_program,
         paused,
-        0,
-        0,
-        0,
-    )
+        daily_mint_limit: 0,
+        rate_limit_day: 0,
+        rate_limit_daily_usage: 0,
+    })
+}
+
+/// Parameters for creating a full IFT app state account
+pub struct IftAppStateParams {
+    pub mint: Pubkey,
+    pub bump: u8,
+    pub mint_authority_bump: u8,
+    pub admin: Pubkey,
+    pub gmp_program: Pubkey,
+    pub paused: bool,
+    pub daily_mint_limit: u64,
+    pub rate_limit_day: u64,
+    pub rate_limit_daily_usage: u64,
 }
 
 /// Create a serialized IFT app state account with all configurable fields
-pub fn create_ift_app_state_account_full(
-    mint: Pubkey,
-    bump: u8,
-    mint_authority_bump: u8,
-    admin: Pubkey,
-    gmp_program: Pubkey,
-    paused: bool,
-    daily_mint_limit: u64,
-    rate_limit_day: u64,
-    rate_limit_daily_usage: u64,
-) -> SolanaAccount {
+pub fn create_ift_app_state_account_full(params: IftAppStateParams) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
-        bump,
-        mint,
-        mint_authority_bump,
-        admin,
-        gmp_program,
-        daily_mint_limit,
-        rate_limit_day,
-        rate_limit_daily_usage,
-        paused,
+        bump: params.bump,
+        mint: params.mint,
+        mint_authority_bump: params.mint_authority_bump,
+        admin: params.admin,
+        gmp_program: params.gmp_program,
+        daily_mint_limit: params.daily_mint_limit,
+        rate_limit_day: params.rate_limit_day,
+        rate_limit_daily_usage: params.rate_limit_daily_usage,
+        paused: params.paused,
         _reserved: [0; 128],
     };
 

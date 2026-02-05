@@ -245,17 +245,17 @@ mod tests {
 
         let app_state_account = if config.rate_limit_exceeded {
             // Set daily limit to 100 with usage already at 100, so any mint exceeds the limit
-            create_ift_app_state_account_full(
+            create_ift_app_state_account_full(IftAppStateParams {
                 mint,
-                app_state_bump,
+                bump: app_state_bump,
                 mint_authority_bump,
-                Pubkey::new_unique(),
+                admin: Pubkey::new_unique(),
                 gmp_program,
-                config.token_paused,
-                100,
-                0,
-                100,
-            )
+                paused: config.token_paused,
+                daily_mint_limit: 100,
+                rate_limit_day: 0,
+                rate_limit_daily_usage: 100,
+            })
         } else {
             create_ift_app_state_account_with_options(
                 mint,

@@ -366,17 +366,17 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = create_token_program_account();
 
-        let app_state_account = create_ift_app_state_account_full(
+        let app_state_account = create_ift_app_state_account_full(IftAppStateParams {
             mint,
-            app_state_bump,
+            bump: app_state_bump,
             mint_authority_bump,
             admin,
-            Pubkey::new_unique(),
-            config.paused,
-            config.daily_mint_limit,
-            0,
-            config.rate_limit_daily_usage,
-        );
+            gmp_program: Pubkey::new_unique(),
+            paused: config.paused,
+            daily_mint_limit: config.daily_mint_limit,
+            rate_limit_day: 0,
+            rate_limit_daily_usage: config.rate_limit_daily_usage,
+        });
 
         let mint_account = create_mint_account(mint_authority_pda, 6);
 
