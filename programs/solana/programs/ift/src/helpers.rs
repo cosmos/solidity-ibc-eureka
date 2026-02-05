@@ -41,6 +41,7 @@ const fn current_day(clock: &Clock) -> u64 {
     clock.unix_timestamp as u64 / SECONDS_PER_DAY
 }
 
+#[allow(clippy::missing_const_for_fn)]
 fn maybe_reset_day(app_state: &mut IFTAppState, clock: &Clock) {
     let today = current_day(clock);
     if app_state.rate_limit_day != today {
