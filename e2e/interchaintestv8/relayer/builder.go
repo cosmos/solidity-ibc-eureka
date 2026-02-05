@@ -360,8 +360,7 @@ type CosmosToSolanaParams struct {
 	ICS26ProgramID         string
 	FeePayer               string
 	ALTAddress             string // Optional
-	MockClient             bool
-	SkipPreVerifyThreshold *int // Optional
+	SkipPreVerifyThreshold *int   // Optional
 }
 
 // CosmosToSolana adds a Cosmos→Solana module.
@@ -381,7 +380,6 @@ func (b *ConfigBuilder) CosmosToSolana(p CosmosToSolanaParams) *ConfigBuilder {
 			SolanaIcs26ProgramId:   p.ICS26ProgramID,
 			SolanaFeePayer:         p.FeePayer,
 			SolanaAltAddress:       altAddress,
-			MockWasmClient:         p.MockClient,
 			SkipPreVerifyThreshold: p.SkipPreVerifyThreshold,
 		},
 	}

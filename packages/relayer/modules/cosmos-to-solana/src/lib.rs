@@ -64,8 +64,6 @@ pub struct CosmosToSolanaConfig {
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub solana_alt_address: Option<String>,
-    /// Whether to use mock WASM client on Cosmos for testing.
-    pub mock_wasm_client: bool,
     /// Signature threshold below which pre-verification is skipped.
     /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
     /// Default: Some(50)

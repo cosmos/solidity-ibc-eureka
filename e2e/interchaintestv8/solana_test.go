@@ -296,7 +296,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:         ics26_router.ProgramID.String(),
 				FeePayer:               s.SolanaRelayer.PublicKey().String(),
 				ALTAddress:             s.SolanaAltAddress,
-				MockClient:             true,
 				SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
 			}).
 			Build()

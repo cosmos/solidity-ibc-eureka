@@ -135,7 +135,6 @@ Module configuration varies by module type:
   - `solana_ics26_program_id`: Solana ICS26 router program ID.
   - `solana_fee_payer`: Solana fee payer address.
   - `solana_alt_address`: Address lookup table address (optional).
-  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
   - `skip_pre_verify_threshold`: Skip pre-verification when signatures are below this threshold. (default: 50)
 - `solana_to_cosmos`:
   - `solana_chain_id`: Solana chain ID label.
@@ -143,8 +142,6 @@ Module configuration varies by module type:
   - `target_rpc_url`: Tendermint RPC endpoint for the destination chain.
   - `signer_address`: Cosmos address used for message construction metadata.
   - `solana_ics26_program_id`: Solana ICS26 router program ID.
-  - `mock_wasm_client`: Enable mock Cosmos WASM client mode.
-  - `mock_solana_client`: Enable mock Solana client mode.
 
 ## Using the gRPC API
 
