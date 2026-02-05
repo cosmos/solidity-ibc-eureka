@@ -862,6 +862,44 @@ mod tests {
     }
 
     #[test]
+    fn test_update_client_invalid_state_zero_height_and_timestamp() {
+        let attestor = TestAttestor::new(1);
+
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses: vec![attestor.eth_address],
+            min_required_sigs: 1,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+
+        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
+
+        // Create attestation with both zero height and zero timestamp
+        let attestation_data = crate::test_helpers::fixtures::encode_state_attestation(0, 0);
+
+        let signature = attestor.sign(&attestation_data);
+
+        let params = UpdateClientParams {
+            proof: borsh::to_vec(&MembershipProof {
+                attestation_data,
+                signatures: vec![signature],
+            })
+            .unwrap(),
+        };
+
+        let instruction =
+            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(ErrorCode::InvalidState).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    #[test]
     fn test_update_client_invalid_state_zero_timestamp() {
         let attestor = TestAttestor::new(1);
 

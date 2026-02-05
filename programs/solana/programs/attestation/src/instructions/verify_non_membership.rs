@@ -991,4 +991,65 @@ mod tests {
         let checks = vec![Check::success()];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
+
+    #[test]
+    fn test_verify_non_membership_returns_timestamp() {
+        let timestamp = 1_700_000_000u64;
+        let attestor = TestAttestor::new(1);
+
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses: vec![attestor.eth_address],
+            min_required_sigs: 1,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+
+        let consensus_state = ConsensusState {
+            height: HEIGHT,
+            timestamp,
+        };
+
+        let test_accounts =
+            setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT, client_state, consensus_state);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let path_hash = crate::crypto::hash_path(path);
+        let zero_commitment = [0u8; 32];
+
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, zero_commitment)],
+        );
+
+        let signature = attestor.sign(&attestation_data);
+
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![signature],
+        };
+
+        let msg = NonMembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![path.to_vec()],
+        };
+
+        let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::success()];
+        let result = mollusk.process_and_validate_instruction(
+            &instruction,
+            &test_accounts.accounts,
+            &checks,
+        );
+
+        // Verify return data contains the consensus timestamp as LE bytes
+        assert!(!result.return_data.is_empty());
+        assert_eq!(result.return_data.len(), 8);
+        let returned_timestamp = u64::from_le_bytes(result.return_data.try_into().unwrap());
+        assert_eq!(returned_timestamp, timestamp);
+    }
 }

@@ -242,4 +242,42 @@ mod tests {
     fn test_recover_eth_address_invalid_signature_length(#[case] sig: Vec<u8>) {
         assert!(recover_eth_address(b"test message", &sig).is_err());
     }
+
+    #[test]
+    fn test_recover_eth_address_recovery_id_normalization() {
+        use crate::test_helpers::signing::TestAttestor;
+
+        let attestor = TestAttestor::new(1);
+        let message = b"test message for recovery id normalization";
+        let sig = attestor.sign(message);
+
+        // Original signature uses Ethereum-style v (27 or 28)
+        let original_v = sig[64];
+        assert!(original_v == 27 || original_v == 28);
+
+        // Recover with original Ethereum-style v
+        let addr_original = recover_eth_address(message, &sig).unwrap();
+
+        // Recover with canonical v (0 or 1)
+        let mut sig_canonical = sig.clone();
+        sig_canonical[64] = original_v - 27;
+        let addr_canonical = recover_eth_address(message, &sig_canonical).unwrap();
+
+        // Both should recover the same address
+        assert_eq!(addr_original, addr_canonical);
+        assert_eq!(addr_original, attestor.eth_address);
+    }
+
+    #[test]
+    fn test_recover_eth_address_invalid_recovery_id() {
+        use crate::test_helpers::signing::TestAttestor;
+
+        let attestor = TestAttestor::new(1);
+        let message = b"test message for invalid recovery id";
+        let mut sig = attestor.sign(message);
+
+        // v=29 normalizes to 2, which is invalid for secp256k1
+        sig[64] = 29;
+        assert!(recover_eth_address(message, &sig).is_err());
+    }
 }

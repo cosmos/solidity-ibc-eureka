@@ -219,6 +219,7 @@ mod tests {
     #[case::zero_timestamp(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 1, 0, ErrorCode::InvalidTimestamp)]
     #[case::duplicate_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
     #[case::duplicate_attestors_adjacent(DEFAULT_CLIENT_ID, HEIGHT, vec![[5u8; 20], [5u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    #[case::multiple_duplicate_groups(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20], [2u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
     fn test_initialize_error(
         #[case] client_id: &str,
         #[case] height: u64,

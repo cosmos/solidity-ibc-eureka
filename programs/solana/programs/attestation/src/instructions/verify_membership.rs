@@ -1105,6 +1105,59 @@ mod tests {
     }
 
     #[test]
+    fn test_verify_membership_empty_path_bytes() {
+        let attestor = TestAttestor::new(1);
+
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses: vec![attestor.eth_address],
+            min_required_sigs: 1,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        );
+
+        let actual_path = b"ibc/commitments/channel-0/sequence/1";
+        let path_hash = crate::crypto::hash_path(actual_path);
+        let commitment = [0xAB; 32];
+
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, commitment)],
+        );
+
+        let signature = attestor.sign(&attestation_data);
+
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![signature],
+        };
+
+        // Empty path[0] hashes to keccak256(b""), which won't match the actual path
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![vec![]],
+            value: commitment.to_vec(),
+        };
+
+        let instruction = create_verify_membership_instruction(&test_accounts, msg);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(ErrorCode::NotMember).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    #[test]
     fn test_verify_membership_single_attestor_happy_path() {
         // Minimal quorum: 1 attestor, 1 required signature
         let attestor = TestAttestor::new(1);
