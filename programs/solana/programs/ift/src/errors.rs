@@ -98,6 +98,9 @@ pub enum IFTError {
 
     #[msg("Invalid mint authority - signer does not match current authority")]
     InvalidMintAuthority,
+
+    #[msg("Daily mint rate limit exceeded")]
+    MintRateLimitExceeded,
 }
 
 /// Convert CPI validation errors to IFT errors

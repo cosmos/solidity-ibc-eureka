@@ -7,7 +7,7 @@ use anchor_spl::{
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
-use crate::helpers::mint_to_account;
+use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
 use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request.
@@ -15,6 +15,7 @@ use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
     #[account(
+        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -91,6 +92,8 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &bridge.counterparty_ift_address,
         &ctx.accounts.gmp_program.key(),
     )?;
+
+    check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
 
     mint_to_account(
         &ctx.accounts.mint,

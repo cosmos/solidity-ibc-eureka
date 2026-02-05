@@ -20,6 +20,7 @@ use crate::state::{IFTAppState, PendingTransfer};
 pub struct ClaimRefund<'info> {
     /// IFT app state
     #[account(
+        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump
     )]
@@ -110,6 +111,12 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
                 pending.amount,
             )?;
 
+            crate::helpers::increase_mint_rate_limit_usage(
+                &mut ctx.accounts.app_state,
+                pending.amount,
+                &clock,
+            );
+
             emit!(IFTTransferRefunded {
                 mint: ctx.accounts.app_state.mint,
                 client_id: pending.client_id.clone(),
@@ -130,6 +137,12 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
                     &ctx.accounts.token_program,
                     pending.amount,
                 )?;
+
+                crate::helpers::increase_mint_rate_limit_usage(
+                    &mut ctx.accounts.app_state,
+                    pending.amount,
+                    &clock,
+                );
 
                 emit!(IFTTransferRefunded {
                     mint: ctx.accounts.app_state.mint,
@@ -286,7 +299,7 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -455,7 +468,7 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -560,7 +573,7 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),

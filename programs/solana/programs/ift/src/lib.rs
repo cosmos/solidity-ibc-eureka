@@ -13,7 +13,7 @@ pub mod state;
 pub mod test_utils;
 
 use instructions::*;
-use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg};
+use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg, SetMintRateLimitMsg};
 
 declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 
@@ -80,5 +80,13 @@ pub mod ift {
     /// Revoke mint authority from IFT and transfer it to a new authority.
     pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
         instructions::revoke_mint_authority(ctx)
+    }
+
+    /// Set the daily mint rate limit (admin only)
+    pub fn set_mint_rate_limit(
+        ctx: Context<SetMintRateLimit>,
+        msg: SetMintRateLimitMsg,
+    ) -> Result<()> {
+        instructions::set_mint_rate_limit(ctx, msg)
     }
 }

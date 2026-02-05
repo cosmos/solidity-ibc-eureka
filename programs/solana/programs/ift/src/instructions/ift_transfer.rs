@@ -19,6 +19,7 @@ use crate::state::{
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
+        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -144,6 +145,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
     token::burn(burn_ctx, msg.amount)?;
+
+    crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
 
     let mint_call_payload = construct_mint_call(
         &ctx.accounts.ift_bridge.chain_options,

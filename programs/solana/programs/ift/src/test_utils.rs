@@ -35,6 +35,9 @@ pub fn create_ift_app_state_account(
         mint_authority_bump,
         access_manager,
         gmp_program,
+        daily_mint_limit: 0,
+        rate_limit_day: 0,
+        rate_limit_daily_usage: 0,
         _reserved: [0; 128],
     };
 

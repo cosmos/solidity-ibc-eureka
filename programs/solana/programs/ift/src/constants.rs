@@ -7,10 +7,10 @@ pub const IFT_PORT_ID: &str = "iftport";
 pub const IFT_VERSION: &str = "ift-1";
 
 /// Default timeout duration (15 minutes in seconds)
-pub const DEFAULT_TIMEOUT_DURATION: i64 = 900;
+pub const DEFAULT_TIMEOUT_DURATION: i64 = 60 * 15;
 
 /// Maximum timeout duration (24 hours in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+pub const MAX_TIMEOUT_DURATION: i64 = 60 * 60 * 24;
 
 /// Minimum timeout duration (1 minute in seconds)
 pub const MIN_TIMEOUT_DURATION: i64 = 60;
@@ -35,3 +35,6 @@ pub const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 
 /// PDA seed for mint authority
 pub const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
+
+/// Seconds per day for rate limit day calculation
+pub const SECONDS_PER_DAY: u64 = 60 * 60 * 24;

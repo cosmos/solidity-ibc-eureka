@@ -135,6 +135,17 @@ pub struct MintAuthorityRevoked {
     pub timestamp: i64,
 }
 
+/// Event emitted when the daily mint rate limit is updated
+#[event]
+pub struct MintRateLimitUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// New daily mint limit (0 = no limit)
+    pub daily_mint_limit: u64,
+    /// Update timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when IFT is initialized for an existing SPL token
 #[event]
 pub struct ExistingTokenInitialized {
