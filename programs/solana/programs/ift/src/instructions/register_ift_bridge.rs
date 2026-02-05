@@ -25,21 +25,11 @@ pub struct RegisterIFTBridge<'info> {
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
-    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    /// Admin authority
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
-        bump,
-        seeds::program = app_state.access_manager
+        constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
-    pub access_manager: AccountInfo<'info>,
-
-    /// Authority with admin role
-    pub authority: Signer<'info>,
-
-    /// Instructions sysvar for CPI validation
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
+    pub admin: Signer<'info>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -51,14 +41,6 @@ pub fn register_ift_bridge(
     ctx: Context<RegisterIFTBridge>,
     msg: RegisterIFTBridgeMsg,
 ) -> Result<()> {
-    access_manager::require_role(
-        &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
-        &ctx.accounts.authority,
-        &ctx.accounts.instructions_sysvar,
-        &crate::ID,
-    )?;
-
     require!(!msg.client_id.is_empty(), IFTError::EmptyClientId);
     require!(
         msg.client_id.len() <= MAX_CLIENT_ID_LENGTH,
@@ -125,16 +107,13 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, _) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
         let (system_program, system_account) = create_system_program_account();
 
         let app_state_account = create_ift_app_state_account(
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            admin,
             Pubkey::new_unique(),
         );
 
@@ -157,9 +136,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new_readonly(admin, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
@@ -169,9 +146,7 @@ mod tests {
         let accounts = vec![
             (app_state_pda, app_state_account),
             (bridge_pda, bridge_account),
-            (access_manager_pda, access_manager_account),
             (admin, create_signer_account()),
-            (instructions_sysvar, instructions_account),
             (payer, create_signer_account()),
             (system_program, system_account),
         ];
@@ -214,15 +189,6 @@ mod tests {
         CosmosDenomTooLong,
         CosmosTypeUrlTooLong,
         CosmosIcaAddressTooLong,
-        FakeSysvarAttack,
-        CpiRejection,
-    }
-
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum SysvarMode {
-        Normal,
-        FakeSysvar,
-        CpiCall,
     }
 
     #[derive(Clone)]
@@ -231,7 +197,6 @@ mod tests {
         counterparty_address: String,
         chain_options: ChainOptions,
         use_unauthorized_signer: bool,
-        sysvar_mode: SysvarMode,
     }
 
     impl Default for RegisterBridgeTestConfig {
@@ -241,7 +206,6 @@ mod tests {
                 counterparty_address: "0x1234".to_string(),
                 chain_options: ChainOptions::Evm,
                 use_unauthorized_signer: false,
-                sysvar_mode: SysvarMode::Normal,
             }
         }
     }
@@ -319,14 +283,6 @@ mod tests {
                     },
                     ..Default::default()
                 },
-                RegisterBridgeErrorCase::FakeSysvarAttack => Self {
-                    sysvar_mode: SysvarMode::FakeSysvar,
-                    ..Default::default()
-                },
-                RegisterBridgeErrorCase::CpiRejection => Self {
-                    sysvar_mode: SysvarMode::CpiCall,
-                    ..Default::default()
-                },
             }
         }
     }
@@ -351,27 +307,13 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, _) = get_bridge_pda(&mint, pda_client_id);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-
-        // Create instructions sysvar account based on sysvar_mode
-        let (instructions_sysvar, instructions_account) = match config.sysvar_mode {
-            SysvarMode::Normal => create_instructions_sysvar_account(),
-            SysvarMode::FakeSysvar => create_fake_instructions_sysvar_account(admin),
-            SysvarMode::CpiCall => {
-                // Simulate CPI call from a different program
-                let attacker_program = Pubkey::new_unique();
-                create_instructions_sysvar_account_with_caller(attacker_program)
-            }
-        };
-
         let (system_program, system_account) = create_system_program_account();
 
         let app_state_account = create_ift_app_state_account(
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            admin,
             Pubkey::new_unique(),
         );
 
@@ -400,9 +342,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new_readonly(signer, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
@@ -412,9 +352,7 @@ mod tests {
         let accounts = vec![
             (app_state_pda, app_state_account),
             (bridge_pda, bridge_account),
-            (access_manager_pda, access_manager_account),
             (signer, create_signer_account()),
-            (instructions_sysvar, instructions_account),
             (payer, create_signer_account()),
             (system_program, system_account),
         ];
@@ -435,8 +373,6 @@ mod tests {
     #[case::cosmos_denom_too_long(RegisterBridgeErrorCase::CosmosDenomTooLong)]
     #[case::cosmos_type_url_too_long(RegisterBridgeErrorCase::CosmosTypeUrlTooLong)]
     #[case::cosmos_ica_address_too_long(RegisterBridgeErrorCase::CosmosIcaAddressTooLong)]
-    #[case::fake_sysvar_attack(RegisterBridgeErrorCase::FakeSysvarAttack)]
-    #[case::cpi_rejection(RegisterBridgeErrorCase::CpiRejection)]
     fn test_register_ift_bridge_validation(#[case] case: RegisterBridgeErrorCase) {
         run_register_bridge_error_test(case);
     }

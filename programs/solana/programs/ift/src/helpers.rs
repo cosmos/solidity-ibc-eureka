@@ -35,10 +35,13 @@ pub fn mint_to_account<'info>(
 }
 
 const fn current_day(clock: &Clock) -> u64 {
-    clock.unix_timestamp.unsigned_abs() / SECONDS_PER_DAY
+    if clock.unix_timestamp < 0 {
+        return 0;
+    }
+    clock.unix_timestamp as u64 / SECONDS_PER_DAY
 }
 
-const fn maybe_reset_day(app_state: &mut IFTAppState, clock: &Clock) {
+fn maybe_reset_day(app_state: &mut IFTAppState, clock: &Clock) {
     let today = current_day(clock);
     if app_state.rate_limit_day != today {
         app_state.rate_limit_day = today;
@@ -70,7 +73,7 @@ pub fn check_and_update_mint_rate_limit(
 }
 
 /// Reduce mint rate limit usage for `ift_transfer` (burn).
-pub const fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
+pub fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
     if app_state.daily_mint_limit == 0 {
         return;
     }
@@ -80,11 +83,7 @@ pub const fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u
 
 /// Increase mint rate limit usage for `claim_refund` (refund re-mints).
 /// Does not check the limit -- refunds must never be blocked.
-pub const fn increase_mint_rate_limit_usage(
-    app_state: &mut IFTAppState,
-    amount: u64,
-    clock: &Clock,
-) {
+pub fn increase_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
     if app_state.daily_mint_limit == 0 {
         return;
     }
@@ -103,7 +102,7 @@ mod tests {
             bump: 0,
             mint: Pubkey::new_unique(),
             mint_authority_bump: 0,
-            access_manager: Pubkey::new_unique(),
+            admin: Pubkey::new_unique(),
             gmp_program: Pubkey::new_unique(),
             daily_mint_limit: limit,
             rate_limit_day: day,
@@ -274,6 +273,24 @@ mod tests {
         // Day reset to 0, then saturating_sub(0, 300) = 0
         assert_eq!(state.rate_limit_day, 1);
         assert_eq!(state.rate_limit_daily_usage, 0);
+    }
+
+    #[test]
+    fn test_negative_timestamp_clamps_to_day_zero() {
+        let mut state = make_app_state(1000, 0, 0);
+        let clock = make_clock(-86400); // negative timestamp
+        assert!(check_and_update_mint_rate_limit(&mut state, 500, &clock).is_ok());
+        assert_eq!(state.rate_limit_day, 0);
+        assert_eq!(state.rate_limit_daily_usage, 500);
+    }
+
+    #[test]
+    fn test_checked_add_overflow_returns_error() {
+        let day = 1u64;
+        let mut state = make_app_state(u64::MAX, day, u64::MAX - 100);
+        let clock = make_clock(SECONDS_PER_DAY as i64);
+        assert!(check_and_update_mint_rate_limit(&mut state, 200, &clock).is_err());
+        assert_eq!(state.rate_limit_daily_usage, u64::MAX - 100); // unchanged
     }
 
     #[test]

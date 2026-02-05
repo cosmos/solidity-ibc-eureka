@@ -180,6 +180,83 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Event emitted when the admin authority is updated
+type IftEventsAdminUpdated struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// New admin authority
+	NewAdmin solanago.PublicKey `json:"newAdmin"`
+
+	// Update timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsAdminUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `NewAdmin`:
+	err = encoder.Encode(obj.NewAdmin)
+	if err != nil {
+		return errors.NewField("NewAdmin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsAdminUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsAdminUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsAdminUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `NewAdmin`:
+	err = decoder.Decode(&obj.NewAdmin)
+	if err != nil {
+		return errors.NewField("NewAdmin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsAdminUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsAdminUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsAdminUpdated(buf []byte) (*IftEventsAdminUpdated, error) {
+	obj := new(IftEventsAdminUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when IFT is initialized for an existing SPL token
 type IftEventsExistingTokenInitialized struct {
 	// SPL Token mint address
@@ -191,8 +268,8 @@ type IftEventsExistingTokenInitialized struct {
 	// Previous mint authority that transferred ownership
 	PreviousAuthority solanago.PublicKey `json:"previousAuthority"`
 
-	// Access manager program
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	// Admin authority
+	Admin solanago.PublicKey `json:"admin"`
 
 	// GMP program for cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
@@ -217,10 +294,10 @@ func (obj IftEventsExistingTokenInitialized) MarshalWithEncoder(encoder *binary.
 	if err != nil {
 		return errors.NewField("PreviousAuthority", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Serialize `GmpProgram`:
 	err = encoder.Encode(obj.GmpProgram)
@@ -261,10 +338,10 @@ func (obj *IftEventsExistingTokenInitialized) UnmarshalWithDecoder(decoder *bina
 	if err != nil {
 		return errors.NewField("PreviousAuthority", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Deserialize `GmpProgram`:
 	err = decoder.Decode(&obj.GmpProgram)
@@ -1152,8 +1229,8 @@ type IftEventsSplTokenCreated struct {
 	// Token decimals
 	Decimals uint8 `json:"decimals"`
 
-	// Access manager program
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	// Admin authority
+	Admin solanago.PublicKey `json:"admin"`
 
 	// GMP program for cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
@@ -1173,10 +1250,10 @@ func (obj IftEventsSplTokenCreated) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("Decimals", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Serialize `GmpProgram`:
 	err = encoder.Encode(obj.GmpProgram)
@@ -1212,10 +1289,10 @@ func (obj *IftEventsSplTokenCreated) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Decimals", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Deserialize `GmpProgram`:
 	err = decoder.Decode(&obj.GmpProgram)
@@ -1485,8 +1562,8 @@ type IftStateIftAppState struct {
 	// `find_program_address` (~10k CUs) on each mint/refund.
 	MintAuthorityBump uint8 `json:"mintAuthorityBump"`
 
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	// Admin authority for this IFT token
+	Admin solanago.PublicKey `json:"admin"`
 
 	// GMP program address for sending cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
@@ -1494,7 +1571,7 @@ type IftStateIftAppState struct {
 	// Daily mint rate limit (0 = no limit)
 	DailyMintLimit uint64 `json:"dailyMintLimit"`
 
-	// Current rate limit day (`unix_timestamp` `SECONDS_PER_DAY`AY)
+	// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`)
 	RateLimitDay uint64 `json:"rateLimitDay"`
 
 	// Net mint usage for the current day
@@ -1526,10 +1603,10 @@ func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err 
 	if err != nil {
 		return errors.NewField("MintAuthorityBump", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Serialize `GmpProgram`:
 	err = encoder.Encode(obj.GmpProgram)
@@ -1595,10 +1672,10 @@ func (obj *IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (e
 	if err != nil {
 		return errors.NewField("MintAuthorityBump", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("Admin", err)
 	}
 	// Deserialize `GmpProgram`:
 	err = decoder.Decode(&obj.GmpProgram)

@@ -25,19 +25,19 @@ pub mod ift {
     pub fn create_spl_token(
         ctx: Context<CreateSplToken>,
         decimals: u8,
-        access_manager: Pubkey,
+        admin: Pubkey,
         gmp_program: Pubkey,
     ) -> Result<()> {
-        instructions::create_spl_token(ctx, decimals, access_manager, gmp_program)
+        instructions::create_spl_token(ctx, decimals, admin, gmp_program)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority
     pub fn initialize_existing_token(
         ctx: Context<InitializeExistingToken>,
-        access_manager: Pubkey,
+        admin: Pubkey,
         gmp_program: Pubkey,
     ) -> Result<()> {
-        instructions::initialize_existing_token(ctx, access_manager, gmp_program)
+        instructions::initialize_existing_token(ctx, admin, gmp_program)
     }
 
     /// Register an IFT bridge to a counterparty chain
@@ -69,12 +69,9 @@ pub mod ift {
         instructions::claim_refund(ctx, client_id, sequence)
     }
 
-    /// Set the access manager program (admin only)
-    pub fn set_access_manager(
-        ctx: Context<SetAccessManager>,
-        new_access_manager: Pubkey,
-    ) -> Result<()> {
-        instructions::set_access_manager(ctx, new_access_manager)
+    /// Set the admin authority (admin only)
+    pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::set_admin(ctx, new_admin)
     }
 
     /// Revoke mint authority from IFT and transfer it to a new authority.

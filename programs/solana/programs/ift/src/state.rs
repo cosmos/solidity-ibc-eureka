@@ -76,15 +76,15 @@ pub struct IFTAppState {
     /// `find_program_address` (~10k CUs) on each mint/refund.
     pub mint_authority_bump: u8,
 
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Admin authority for this IFT token
+    pub admin: Pubkey,
 
     /// GMP program address for sending cross-chain calls
     pub gmp_program: Pubkey,
 
     /// Daily mint rate limit (0 = no limit)
     pub daily_mint_limit: u64,
-    /// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`AY)
+    /// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`)
     pub rate_limit_day: u64,
     /// Net mint usage for the current day
     pub rate_limit_daily_usage: u64,

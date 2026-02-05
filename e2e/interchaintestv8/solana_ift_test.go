@@ -25,7 +25,6 @@ import (
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/cosmos/interchaintest/v10/ibc"
 
-	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
@@ -60,7 +59,6 @@ type IbcEurekaSolanaIFTTestSuite struct {
 	IBCClientPDA      solanago.PublicKey
 	GMPIBCAppPDA      solanago.PublicKey
 	ClientSequencePDA solanago.PublicKey
-	AccessManagerPDA  solanago.PublicKey
 }
 
 // IFTMint returns the mint public key
@@ -104,7 +102,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-	s.AccessManagerPDA, _ = solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 }
 
 // Test_IFT_SolanaToCosmosRoundtrip test: Solana → Cosmos → Solana
@@ -547,10 +544,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 			s.IFTMint(),
 			iftMintAuthorityPDA,
 			newAuthorityWallet.PublicKey(),
-			s.AccessManagerPDA,
 			s.SolanaRelayer.PublicKey(), // admin
 			s.SolanaRelayer.PublicKey(), // payer
-			solanago.SysVarInstructionsPubkey,
 			token.ProgramID,
 		)
 		s.Require().NoError(err)
@@ -974,10 +969,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			registerMsg,
 			s.IFTAppState,
 			bridgePDA,
-			s.AccessManagerPDA,
-			s.SolanaRelayer.PublicKey(),       // Authority
-			solanago.SysVarInstructionsPubkey, // Instructions sysvar
-			s.SolanaRelayer.PublicKey(),       // Payer
+			s.SolanaRelayer.PublicKey(), // admin
+			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -1014,7 +1007,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, min
 
 	initIx, err := ift.NewCreateSplTokenInstruction(
 		IFTTokenDecimals,
-		access_manager.ProgramID,
+		s.SolanaRelayer.PublicKey(), // admin
 		ics27_gmp.ProgramID,
 		appStatePDA,
 		mint,
@@ -1100,7 +1093,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingToken(ctx context.Contex
 
 	// Transfer mint authority to IFT via initialize_existing_token
 	initExistingIx, err := ift.NewInitializeExistingTokenInstruction(
-		access_manager.ProgramID,
+		s.SolanaRelayer.PublicKey(), // admin
 		ics27_gmp.ProgramID,
 		appStatePDA,
 		mint,

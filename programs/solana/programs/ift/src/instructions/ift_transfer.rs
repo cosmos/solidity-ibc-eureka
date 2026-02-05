@@ -9,7 +9,7 @@ use serde::Serialize;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
-use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
+use crate::evm_selectors::IFT_MINT_SELECTOR;
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
     AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
@@ -296,18 +296,6 @@ fn construct_cosmos_mint_call(
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
 }
 
-fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
-    use std::str::FromStr;
-
-    let receiver_pubkey = Pubkey::from_str(receiver).map_err(|_| IFTError::InvalidReceiver)?;
-
-    let mut payload = Vec::with_capacity(48); // 8 discriminator + 32 pubkey + 8 amount
-    payload.extend_from_slice(&IFT_MINT_DISCRIMINATOR);
-    payload.extend_from_slice(&receiver_pubkey.to_bytes());
-    payload.extend_from_slice(&amount.to_le_bytes());
-    Ok(payload)
-}
-
 /// Parameters for creating a pending transfer account
 struct CreatePendingTransferParams<'a, 'info> {
     mint: &'a Pubkey,
@@ -401,7 +389,7 @@ fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
+    use crate::evm_selectors::IFT_MINT_SELECTOR;
     use crate::state::IFTTransferMsg;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -487,27 +475,6 @@ mod tests {
         assert!(json_str.contains("\"denom\":\"ibc/ABC123\""));
         assert!(json_str.contains("\"@type\":\"/wfchain.ift.MsgIFTMint\""));
         assert!(json_str.contains("\"signer\":\"wf1icaaddress\""));
-    }
-
-    #[test]
-    fn test_construct_solana_mint_call() {
-        let receiver = "11111111111111111111111111111111";
-        let amount = 999u64;
-
-        let payload = construct_solana_mint_call(receiver, amount).unwrap();
-
-        assert_eq!(payload.len(), 48);
-        assert_eq!(&payload[0..8], &IFT_MINT_DISCRIMINATOR);
-        assert_eq!(&payload[40..48], &amount.to_le_bytes());
-    }
-
-    #[test]
-    fn test_construct_solana_mint_call_invalid_pubkey() {
-        let invalid_receiver = "not-a-valid-base58-pubkey";
-        let amount = 999u64;
-
-        let result = construct_solana_mint_call(invalid_receiver, amount);
-        assert!(result.is_err());
     }
 
     #[derive(Clone)]
@@ -706,7 +673,7 @@ mod tests {
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            Pubkey::new_unique(),
             gmp_program,
             config.token_paused,
         );

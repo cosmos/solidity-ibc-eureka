@@ -252,7 +252,7 @@ mod tests {
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            Pubkey::new_unique(),
             gmp_program,
         );
 
@@ -421,7 +421,7 @@ mod tests {
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            Pubkey::new_unique(),
             gmp_program,
         );
 
@@ -526,7 +526,7 @@ mod tests {
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            Pubkey::new_unique(),
             gmp_program,
         );
 

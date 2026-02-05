@@ -9,8 +9,8 @@ pub struct SplTokenCreated {
     pub mint: Pubkey,
     /// Token decimals
     pub decimals: u8,
-    /// Access manager program
-    pub access_manager: Pubkey,
+    /// Admin authority
+    pub admin: Pubkey,
     /// GMP program for cross-chain calls
     pub gmp_program: Pubkey,
     /// Initialization timestamp
@@ -166,10 +166,21 @@ pub struct ExistingTokenInitialized {
     pub decimals: u8,
     /// Previous mint authority that transferred ownership
     pub previous_authority: Pubkey,
-    /// Access manager program
-    pub access_manager: Pubkey,
+    /// Admin authority
+    pub admin: Pubkey,
     /// GMP program for cross-chain calls
     pub gmp_program: Pubkey,
     /// Initialization timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when the admin authority is updated
+#[event]
+pub struct AdminUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// New admin authority
+    pub new_admin: Pubkey,
+    /// Update timestamp
     pub timestamp: i64,
 }
