@@ -67,7 +67,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) IFTMint() solanago.PublicKey {
 	return s.IFTMintWallet.PublicKey()
 }
 
-// IFTMintBytes returns the mint public key as bytes (for PDA derivation)
+// IFTMintBytes returns the mint public key as bytes
 func (s *IbcEurekaSolanaIFTTestSuite) IFTMintBytes() []byte {
 	pk := s.IFTMintWallet.PublicKey()
 	return pk[:]
@@ -561,7 +561,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 
 	s.Require().True(s.Run("Verify mint authority transferred", func() {
 		s.Solana.Chain.VerifyMintAuthority(ctx, s.T(), s.Require(), s.IFTMint(), newAuthorityWallet.PublicKey())
-		s.T().Logf("✓ Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
+		s.T().Logf("Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
 	}))
 
 	s.Require().True(s.Run("Verify IFT app state closed", func() {
@@ -579,7 +579,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 		balance, err := s.Solana.Chain.GetTokenBalance(ctx, tokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(IFTMintAmount, balance)
-		s.T().Logf("✓ New authority minted %d tokens", IFTMintAmount)
+		s.T().Logf("New authority minted %d tokens", IFTMintAmount)
 	}))
 }
 
