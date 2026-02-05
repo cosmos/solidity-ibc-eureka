@@ -1,49 +1,54 @@
 [package]
-name = "ibc-eureka-relayer-cosmos-to-solana"
-version.workspace = true
-edition.workspace = true
+name                 = "ibc-eureka-relayer-cosmos-to-solana"
+version.workspace    = true
+edition.workspace    = true
 repository.workspace = true
-license.workspace = true
+license.workspace    = true
 
 [dependencies]
-ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-relayer-core          = { workspace = true, default-features = false }
 ibc-eureka-relayer-lib.workspace = true
-ibc-eureka-utils.workspace = true
+ibc-eureka-utils.workspace       = true
 
-serde = { workspace = true, features = ["derive"] }
+serde                = { workspace = true, features = ["derive"] }
 serde_json.workspace = true
 
-tonic = { workspace = true, default-features = true }
-anyhow = { workspace = true, features = ["std"] }
+tonic   = { workspace = true, default-features = true }
+anyhow  = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
 
-tendermint = { workspace = true, features = ["std"] }
-tendermint-rpc = { workspace = true, features = ["http-client"] }
-tendermint-proto = { workspace = true, features = ["std"] }
+tendermint        = { workspace = true, features = ["std"] }
+tendermint-rpc    = { workspace = true, features = ["http-client"] }
+tendermint-proto  = { workspace = true, features = ["std"] }
 ed25519-consensus = "2.1"
 
 # Solana specific dependencies
-solana-client.workspace = true
-solana-sdk.workspace = true
+solana-client.workspace             = true
+solana-sdk.workspace                = true
 solana-transaction-status.workspace = true
-bincode.workspace = true
-hex.workspace = true
-sha2.workspace = true
-anchor-lang.workspace = true
-anchor-client.workspace = true
-borsh.workspace = true
+bincode.workspace                   = true
+hex.workspace                       = true
+sha2.workspace                      = true
+anchor-lang.workspace               = true
+anchor-client.workspace             = true
+borsh.workspace                     = true
 
-ibc-proto-eureka.workspace = true
-ibc-proto.workspace = true
+ibc-proto-eureka.workspace      = true
+ibc-proto.workspace             = true
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true
-prost.workspace = true
-solana-ibc-types = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
-solana-ibc-constants = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
-solana-ibc-proto = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
+prost.workspace                 = true
+
+# For attestation mode (ABI encoding)
+alloy.workspace                     = true
+ibc-eureka-solidity-types.workspace = true
+tokio.workspace                     = true
+solana-ibc-types                    = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
+solana-ibc-constants                = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
+solana-ibc-proto                    = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
 
 # SPL Token dependencies
-spl-token = "8.0"
+spl-token                    = "8.0"
 spl-associated-token-account = "7.0"
 
 # Encoding

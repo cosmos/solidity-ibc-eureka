@@ -5648,6 +5648,7 @@ dependencies = [
 name = "ibc-eureka-relayer-cosmos-to-solana"
 version = "0.1.0"
 dependencies = [
+ "alloy",
  "anchor-client",
  "anchor-lang",
  "anyhow",
@@ -5660,6 +5661,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.52.0",
@@ -5678,6 +5680,7 @@ dependencies = [
  "tendermint",
  "tendermint-proto",
  "tendermint-rpc",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -5777,6 +5780,7 @@ dependencies = [
  "async-trait",
  "attestor-light-client",
  "base64 0.22.1",
+ "borsh 1.6.0",
  "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",
  "ethereum-types 0.1.0",

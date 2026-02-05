@@ -1,0 +1,716 @@
+use crate::abi_decode::decode_packet_attestation;
+use crate::error::ErrorCode;
+use crate::proof::deserialize_membership_proof;
+use crate::state::ConsensusStateStore;
+use crate::types::ClientState;
+use crate::verification::verify_attestation;
+use anchor_lang::prelude::*;
+use ics25_handler::MembershipMsg;
+use solana_keccak_hasher::{hash as keccak256, Hash};
+
+#[derive(Accounts)]
+#[instruction(msg: ics25_handler::MembershipMsg)]
+pub struct VerifyMembership<'info> {
+    pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
+}
+
+pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
+    require!(!msg.value.is_empty(), ErrorCode::EmptyValue);
+    require!(msg.path.len() == 1, ErrorCode::InvalidPathLength);
+
+    let client_state = &ctx.accounts.client_state;
+    let consensus_state_store = &ctx.accounts.consensus_state_at_height;
+
+    require!(!client_state.is_frozen, ErrorCode::FrozenClientState);
+
+    // Ensure we have a trusted timestamp at the provided height
+    require!(
+        consensus_state_store.consensus_state.timestamp != 0,
+        ErrorCode::ConsensusTimestampNotFound
+    );
+
+    let proof = deserialize_membership_proof(&msg.proof)?;
+
+    let attestation = decode_packet_attestation(&proof.attestation_data)?;
+
+    require!(
+        attestation.height == consensus_state_store.consensus_state.height,
+        ErrorCode::HeightMismatch
+    );
+
+    verify_attestation(client_state, &proof.attestation_data, &proof.signatures)?;
+
+    require!(!attestation.packets.is_empty(), ErrorCode::EmptyAttestation);
+
+    let Hash(path_hash) = keccak256(&msg.path[0]);
+
+    let packet = attestation
+        .packets
+        .iter()
+        .find(|p| p.path == path_hash)
+        .ok_or_else(|| error!(ErrorCode::NotMember))?;
+
+    let value_hash: [u8; 32] = msg
+        .value
+        .as_slice()
+        .try_into()
+        .map_err(|_| error!(ErrorCode::CommitmentMismatch))?;
+
+    require!(
+        packet.commitment == value_hash,
+        ErrorCode::CommitmentMismatch
+    );
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::ConsensusStateStore;
+    use crate::test_helpers::accounts::{
+        create_client_state_account, create_consensus_state_account,
+    };
+    use crate::test_helpers::fixtures::{
+        default_client_state, default_consensus_state, DEFAULT_CLIENT_ID,
+    };
+    use crate::test_helpers::signing::TestAttestor;
+    use crate::test_helpers::PROGRAM_BINARY_PATH;
+    use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::ETH_ADDRESS_LEN;
+    use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
+    use anchor_lang::InstructionData;
+    use borsh::BorshSerialize;
+    use mollusk_svm::result::Check;
+    use mollusk_svm::Mollusk;
+    use solana_sdk::account::Account;
+    use solana_sdk::pubkey::Pubkey;
+
+    const HEIGHT: u64 = 100;
+
+    struct TestAccounts {
+        client_state_pda: Pubkey,
+        consensus_state_pda: Pubkey,
+        accounts: Vec<(Pubkey, Account)>,
+    }
+
+    fn setup_test_accounts(
+        client_id: &str,
+        height: u64,
+        client_state: ClientState,
+        consensus_state: ConsensusState,
+    ) -> TestAccounts {
+        let client_state_pda = ClientState::pda(client_id);
+        let consensus_state_pda = ConsensusStateStore::pda(&client_state_pda, height);
+
+        let accounts = vec![
+            (client_state_pda, create_client_state_account(&client_state)),
+            (
+                consensus_state_pda,
+                create_consensus_state_account(height, consensus_state),
+            ),
+        ];
+
+        TestAccounts {
+            client_state_pda,
+            consensus_state_pda,
+            accounts,
+        }
+    }
+
+    fn setup_default_test_accounts(client_id: &str, height: u64) -> TestAccounts {
+        setup_test_accounts(
+            client_id,
+            height,
+            default_client_state(client_id, height),
+            default_consensus_state(height),
+        )
+    }
+
+    fn setup_attestor_accounts(
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
+        min_required_sigs: u8,
+    ) -> TestAccounts {
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses,
+            min_required_sigs,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+        setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        )
+    }
+
+    fn create_verify_membership_instruction(
+        test_accounts: &TestAccounts,
+        msg: MembershipMsg,
+    ) -> Instruction {
+        let instruction_data = crate::instruction::VerifyMembership { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(test_accounts.client_state_pda, false),
+                AccountMeta::new_readonly(test_accounts.consensus_state_pda, false),
+            ],
+            data: instruction_data.data(),
+        }
+    }
+
+    fn expect_error(test_accounts: &TestAccounts, msg: MembershipMsg, error: ErrorCode) {
+        let instruction = create_verify_membership_instruction(test_accounts, msg);
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::error::Error::from(error).into())];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    fn expect_success(test_accounts: &TestAccounts, msg: MembershipMsg) {
+        let instruction = create_verify_membership_instruction(test_accounts, msg);
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &test_accounts.accounts,
+            &[Check::success()],
+        );
+    }
+
+    fn expect_any_error(test_accounts: &TestAccounts, msg: MembershipMsg) {
+        let instruction = create_verify_membership_instruction(test_accounts, msg);
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+        assert!(result.program_result.is_err());
+    }
+
+    fn build_signed_msg(
+        signers: &[&TestAttestor],
+        attestation_height: u64,
+        packets: &[([u8; 32], [u8; 32])],
+        verify_path: &[u8],
+        verify_value: Vec<u8>,
+    ) -> MembershipMsg {
+        let attestation_data =
+            crate::test_helpers::fixtures::encode_packet_attestation(attestation_height, packets);
+        let signatures: Vec<_> = signers.iter().map(|a| a.sign(&attestation_data)).collect();
+        let proof = MembershipProof {
+            attestation_data,
+            signatures,
+        };
+        MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![verify_path.to_vec()],
+            value: verify_value,
+        }
+    }
+
+    #[rstest::rstest]
+    #[case::empty_path(vec![], vec![1; 32], ErrorCode::InvalidPathLength)]
+    #[case::two_paths(vec![b"path1".to_vec(), b"path2".to_vec()], vec![1, 2, 3], ErrorCode::InvalidPathLength)]
+    #[case::three_paths(vec![b"path1".to_vec(), b"path2".to_vec(), b"path3".to_vec()], vec![1; 32], ErrorCode::InvalidPathLength)]
+    #[case::empty_value(vec![b"test/path".to_vec()], vec![], ErrorCode::EmptyValue)]
+    fn test_verify_membership_input_validation_error(
+        #[case] path: Vec<Vec<u8>>,
+        #[case] value: Vec<u8>,
+        #[case] expected_error: ErrorCode,
+    ) {
+        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: vec![],
+            path,
+            value,
+        };
+        expect_error(&test_accounts, msg, expected_error);
+    }
+
+    #[test]
+    fn test_verify_membership_frozen_client() {
+        let mut client_state = default_client_state(DEFAULT_CLIENT_ID, HEIGHT);
+        client_state.is_frozen = true;
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        );
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: vec![],
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::FrozenClientState);
+    }
+
+    #[rstest::rstest]
+    #[case::invalid_proof(HEIGHT, vec![0xFF; 100], vec![b"test/path".to_vec()], vec![1; 32])]
+    #[case::large_value(HEIGHT, vec![], vec![b"test/path".to_vec()], vec![0xFF; 1000])]
+    #[case::very_long_path(HEIGHT, vec![], vec![vec![0xAB; 1000]], vec![1; 32])]
+    #[case::attestation_data_too_short(
+        HEIGHT,
+        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        vec![b"test/path".to_vec()],
+        vec![1; 32]
+    )]
+    fn test_verify_membership_rejects_bad_input(
+        #[case] height: u64,
+        #[case] proof: Vec<u8>,
+        #[case] path: Vec<Vec<u8>>,
+        #[case] value: Vec<u8>,
+    ) {
+        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, height);
+        let msg = MembershipMsg {
+            height,
+            proof,
+            path,
+            value,
+        };
+        expect_any_error(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_max_height() {
+        let height = u64::MAX;
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            height,
+            default_client_state(DEFAULT_CLIENT_ID, height),
+            default_consensus_state(height),
+        );
+        let msg = MembershipMsg {
+            height,
+            proof: vec![0xFF; 100],
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_any_error(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_height_mismatch() {
+        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(200, &[]);
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::HeightMismatch);
+    }
+
+    #[test]
+    fn test_verify_membership_no_signatures() {
+        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[([1u8; 32], [2u8; 32])],
+        );
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::EmptySignatures);
+    }
+
+    #[test]
+    fn test_verify_membership_value_wrong_length() {
+        let client_state = crate::test_helpers::fixtures::create_test_client_state(
+            DEFAULT_CLIENT_ID,
+            vec![],
+            0,
+            HEIGHT,
+        );
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        );
+
+        let path = b"test/path";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, [2u8; 32])],
+        );
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![vec![0u8; 65]],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![path.to_vec()],
+            value: vec![1; 31],
+        };
+        expect_any_error(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_empty_attestation_packets() {
+        let client_state = crate::test_helpers::fixtures::create_test_client_state(
+            DEFAULT_CLIENT_ID,
+            vec![],
+            0,
+            HEIGHT,
+        );
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        );
+
+        let attestation_data =
+            crate::test_helpers::fixtures::encode_packet_attestation(HEIGHT, &[]);
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![vec![0u8; 65]],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_any_error(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_invalid_signature_length() {
+        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let path = b"test/path";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, [2u8; 32])],
+        );
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![vec![0u8; 64]],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![path.to_vec()],
+            value: vec![2; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::InvalidSignature);
+    }
+
+    #[test]
+    fn test_verify_membership_too_few_signatures() {
+        let client_state = crate::test_helpers::fixtures::create_test_client_state(
+            DEFAULT_CLIENT_ID,
+            vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+            3,
+            HEIGHT,
+        );
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            client_state,
+            default_consensus_state(HEIGHT),
+        );
+
+        let path = b"test/path";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, [2u8; 32])],
+        );
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![vec![1u8; 65], vec![2u8; 65]],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![path.to_vec()],
+            value: vec![2; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::ThresholdNotMet);
+    }
+
+    #[test]
+    fn test_verify_membership_duplicate_signers() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 2);
+
+        let path = b"test/path";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
+            HEIGHT,
+            &[(path_hash, [2u8; 32])],
+        );
+
+        let sig = attestor.sign(&attestation_data);
+        let proof = MembershipProof {
+            attestation_data,
+            signatures: vec![sig.clone(), sig],
+        };
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: proof.try_to_vec().unwrap(),
+            path: vec![path.to_vec()],
+            value: vec![2; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::DuplicateSigner);
+    }
+
+    #[test]
+    fn test_verify_membership_zero_timestamp() {
+        let consensus_state = ConsensusState {
+            height: HEIGHT,
+            timestamp: 0,
+        };
+        let test_accounts = setup_test_accounts(
+            DEFAULT_CLIENT_ID,
+            HEIGHT,
+            default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
+            consensus_state,
+        );
+        let msg = MembershipMsg {
+            height: HEIGHT,
+            proof: vec![],
+            path: vec![b"test/path".to_vec()],
+            value: vec![1; 32],
+        };
+        expect_error(&test_accounts, msg, ErrorCode::ConsensusTimestampNotFound);
+    }
+
+    #[test]
+    fn test_verify_membership_happy_path() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_success(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_not_member() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let attested_path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(attested_path_hash) = solana_keccak_hasher::hash(attested_path);
+        let commitment = [0xAB; 32];
+
+        let different_path = b"ibc/commitments/channel-0/sequence/999";
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[(attested_path_hash, commitment)],
+            different_path,
+            commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::NotMember);
+    }
+
+    #[test]
+    fn test_verify_membership_commitment_mismatch() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let attested_commitment = [0xAB; 32];
+        let wrong_commitment = [0xCD; 32];
+
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[(path_hash, attested_commitment)],
+            path,
+            wrong_commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::CommitmentMismatch);
+    }
+
+    #[test]
+    fn test_verify_membership_multi_attestor_quorum() {
+        use crate::test_helpers::signing::create_test_attestors;
+
+        let attestors = create_test_attestors(3);
+        let addresses: Vec<_> = attestors.iter().map(|a| a.eth_address).collect();
+        let test_accounts = setup_attestor_accounts(addresses, 2);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        // Sign with 2 out of 3 attestors (meets quorum)
+        let msg = build_signed_msg(
+            &[&attestors[0], &attestors[1]],
+            HEIGHT,
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_success(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_multiple_packets_find_middle() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let path1 = b"ibc/commitments/channel-0/sequence/1";
+        let path2 = b"ibc/commitments/channel-0/sequence/2";
+        let path3 = b"ibc/commitments/channel-0/sequence/3";
+
+        let Hash(path1_hash) = solana_keccak_hasher::hash(path1);
+        let Hash(path2_hash) = solana_keccak_hasher::hash(path2);
+        let Hash(path3_hash) = solana_keccak_hasher::hash(path3);
+
+        let commitment1 = [0x11; 32];
+        let commitment2 = [0x22; 32];
+        let commitment3 = [0x33; 32];
+
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[
+                (path1_hash, commitment1),
+                (path2_hash, commitment2),
+                (path3_hash, commitment3),
+            ],
+            path2,
+            commitment2.to_vec(),
+        );
+        expect_success(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_unknown_signer() {
+        let trusted_attestor = TestAttestor::new(1);
+        let untrusted_attestor = TestAttestor::new(99);
+        let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 1);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        let msg = build_signed_msg(
+            &[&untrusted_attestor],
+            HEIGHT,
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::UnknownSigner);
+    }
+
+    #[test]
+    fn test_verify_membership_attestation_height_mismatch() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT + 10, // wrong attestation height
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::HeightMismatch);
+    }
+
+    #[test]
+    fn test_verify_membership_more_signatures_than_required() {
+        let attestors: Vec<_> = (1..=5).map(TestAttestor::new).collect();
+        let addresses: Vec<_> = attestors.iter().map(|a| a.eth_address).collect();
+        let test_accounts = setup_attestor_accounts(addresses, 3);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        let attestor_refs: Vec<_> = attestors.iter().collect();
+        let msg = build_signed_msg(
+            &attestor_refs,
+            HEIGHT,
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_success(&test_accounts, msg);
+    }
+
+    #[test]
+    fn test_verify_membership_mixed_trusted_and_unknown_signer() {
+        let trusted_attestor = TestAttestor::new(1);
+        let unknown_attestor = TestAttestor::new(2);
+        let test_accounts = setup_attestor_accounts(vec![trusted_attestor.eth_address], 2);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let commitment = [0xAB; 32];
+
+        let msg = build_signed_msg(
+            &[&trusted_attestor, &unknown_attestor],
+            HEIGHT,
+            &[(path_hash, commitment)],
+            path,
+            commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::UnknownSigner);
+    }
+
+    #[test]
+    fn test_verify_membership_empty_path_bytes() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let actual_path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(actual_path);
+        let commitment = [0xAB; 32];
+
+        // Empty path[0] won't match the actual path hash
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[(path_hash, commitment)],
+            b"",
+            commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::NotMember);
+    }
+}
