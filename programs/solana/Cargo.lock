@@ -419,9 +419,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro"
-version = "1.5.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f5fa1ca7e617c634d2bd9fa71f9ec8e47c07106e248b9fcbd3eaddc13cabd625"
+checksum = "1e2e0d050de1da5c6a4a5f4bcb4a54e225046352a5bbcd38045aa8ada90f1529"
 dependencies = [
  "alloy-sol-macro-expander",
  "alloy-sol-macro-input",
@@ -433,9 +433,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-macro-expander"
-version = "1.5.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c00c0c3a75150a9dc7c8c679ca21853a137888b4e1c5569f92d7e2b15b5102"
+checksum = "513322ca875f8dd097652396ddee766f4b9818b934e2080cf60d914482024825"
 dependencies = [
  "alloy-sol-macro-input",
  "const-hex",
@@ -444,16 +444,16 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "sha3",
  "syn 2.0.101",
  "syn-solidity",
+ "tiny-keccak",
 ]
 
 [[package]]
 name = "alloy-sol-macro-input"
-version = "1.5.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "297db260eb4d67c105f68d6ba11b8874eec681caec5505eab8fbebee97f790bc"
+checksum = "df8b5eebcc14d5e8a1cbf19623ec066f3f82efc30810fd6de4dfbbd18138000e"
 dependencies = [
  "const-hex",
  "dunce",
@@ -467,9 +467,9 @@ dependencies = [
 
 [[package]]
 name = "alloy-sol-type-parser"
-version = "1.5.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94b91b13181d3bcd23680fd29d7bc861d1f33fbe90fdd0af67162434aeba902d"
+checksum = "112610edf1bb26a03d1fb5d34bec72702b9030d3f43fa480468ab364dabc3502"
 dependencies = [
  "serde",
  "winnow",
@@ -6803,9 +6803,9 @@ dependencies = [
 
 [[package]]
 name = "syn-solidity"
-version = "1.5.4"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2379beea9476b89d0237078be761cf8e012d92d5ae4ae0c9a329f974838870fc"
+checksum = "33bd753c739f7307ce20950983f7fa4371780815225043fe330122c613f42a99"
 dependencies = [
  "paste",
  "proc-macro2",
