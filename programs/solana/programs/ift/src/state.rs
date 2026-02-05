@@ -84,10 +84,13 @@ pub struct IFTAppState {
 
     /// Daily mint rate limit (0 = no limit)
     pub daily_mint_limit: u64,
-    /// Current rate limit day (unix_timestamp / SECONDS_PER_DAY)
+    /// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`AY)
     pub rate_limit_day: u64,
     /// Net mint usage for the current day
     pub rate_limit_daily_usage: u64,
+
+    /// Whether this token is paused (blocks mint and transfer, not refunds)
+    pub paused: bool,
 
     pub _reserved: [u8; 128],
 }
@@ -223,6 +226,13 @@ pub struct IFTMintMsg {
 pub struct SetMintRateLimitMsg {
     /// Daily mint limit (0 = no limit)
     pub daily_mint_limit: u64,
+}
+
+/// Message for pausing/unpausing an IFT token
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SetPausedMsg {
+    /// Whether to pause (true) or unpause (false) the token
+    pub paused: bool,
 }
 
 #[cfg(test)]

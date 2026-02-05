@@ -21,7 +21,9 @@ var (
 	Event_IftEventsIftTransferInitiated     = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
 	Event_IftEventsIftTransferRefunded      = [8]byte{108, 165, 124, 162, 135, 70, 80, 210}
 	Event_IftEventsMintAuthorityRevoked     = [8]byte{2, 222, 125, 58, 108, 126, 254, 121}
+	Event_IftEventsMintRateLimitUpdated     = [8]byte{133, 144, 204, 176, 60, 196, 93, 48}
 	Event_IftEventsSplTokenCreated          = [8]byte{178, 160, 51, 0, 206, 211, 237, 25}
+	Event_IftEventsTokenPausedUpdated       = [8]byte{194, 41, 138, 226, 94, 77, 218, 122}
 )
 
 // Instruction discriminators
@@ -35,4 +37,6 @@ var (
 	Instruction_ClaimRefund             = [8]byte{15, 16, 30, 161, 255, 228, 97, 60}
 	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
 	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
+	Instruction_SetMintRateLimit        = [8]byte{130, 207, 16, 33, 36, 175, 200, 83}
+	Instruction_SetPaused               = [8]byte{91, 60, 125, 192, 176, 225, 166, 218}
 )

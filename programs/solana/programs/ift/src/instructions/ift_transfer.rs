@@ -118,6 +118,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
         msg.receiver.len() <= MAX_RECEIVER_LENGTH,
@@ -611,6 +612,7 @@ mod tests {
         TimeoutInPast,
         TimeoutTooLong,
         ReceiverTooLong,
+        TokenPaused,
     }
 
     #[allow(clippy::struct_excessive_bools)]
@@ -622,6 +624,7 @@ mod tests {
         use_wrong_token_owner: bool,
         use_wrong_token_mint: bool,
         timeout_timestamp: i64,
+        token_paused: bool,
     }
 
     impl From<TransferErrorCase> for TransferTestConfig {
@@ -634,6 +637,7 @@ mod tests {
                 use_wrong_token_owner: false,
                 use_wrong_token_mint: false,
                 timeout_timestamp: 0,
+                token_paused: false,
             };
 
             match case {
@@ -673,6 +677,10 @@ mod tests {
                     receiver: "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1),
                     ..default
                 },
+                TransferErrorCase::TokenPaused => Self {
+                    token_paused: true,
+                    ..default
+                },
             }
         }
     }
@@ -694,12 +702,13 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account = create_ift_app_state_account_with_options(
             mint,
             app_state_bump,
             mint_authority_bump,
             access_manager::ID,
             gmp_program,
+            config.token_paused,
         );
 
         let ift_bridge_account = create_ift_bridge_account(
@@ -817,6 +826,7 @@ mod tests {
     #[case::timeout_in_past(TransferErrorCase::TimeoutInPast)]
     #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
     #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
+    #[case::token_paused(TransferErrorCase::TokenPaused)]
     fn test_ift_transfer_validation(#[case] case: TransferErrorCase) {
         run_transfer_error_test(case);
     }

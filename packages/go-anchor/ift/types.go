@@ -1048,6 +1048,83 @@ func UnmarshalIftEventsMintAuthorityRevoked(buf []byte) (*IftEventsMintAuthority
 	return obj, nil
 }
 
+// Event emitted when the daily mint rate limit is updated
+type IftEventsMintRateLimitUpdated struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// New daily mint limit (0 = no limit)
+	DailyMintLimit uint64 `json:"dailyMintLimit"`
+
+	// Update timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsMintRateLimitUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `DailyMintLimit`:
+	err = encoder.Encode(obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsMintRateLimitUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsMintRateLimitUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsMintRateLimitUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `DailyMintLimit`:
+	err = decoder.Decode(&obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsMintRateLimitUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsMintRateLimitUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsMintRateLimitUpdated(buf []byte) (*IftEventsMintRateLimitUpdated, error) {
+	obj := new(IftEventsMintRateLimitUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Reason for transfer refund
 type IftEventsRefundReason binary.BorshEnum
 
@@ -1170,6 +1247,83 @@ func UnmarshalIftEventsSplTokenCreated(buf []byte) (*IftEventsSplTokenCreated, e
 	return obj, nil
 }
 
+// Event emitted when a token's paused state is updated
+type IftEventsTokenPausedUpdated struct {
+	// SPL Token mint address
+	Mint solanago.PublicKey `json:"mint"`
+
+	// Whether the token is now paused
+	Paused bool `json:"paused"`
+
+	// Update timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsTokenPausedUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Mint`:
+	err = encoder.Encode(obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsTokenPausedUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsTokenPausedUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsTokenPausedUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Mint`:
+	err = decoder.Decode(&obj.Mint)
+	if err != nil {
+		return errors.NewField("Mint", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsTokenPausedUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsTokenPausedUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsTokenPausedUpdated(buf []byte) (*IftEventsTokenPausedUpdated, error) {
+	obj := new(IftEventsTokenPausedUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Account schema version for upgrades
 type IftStateAccountVersion binary.BorshEnum
 
@@ -1196,7 +1350,6 @@ type iftStateChainOptionsEnumContainer struct {
 	Enum   binary.BorshEnum `bin:"enum"`
 	Evm    IftStateChainOptions_Evm
 	Cosmos IftStateChainOptions_Cosmos
-	Solana IftStateChainOptions_Solana
 }
 
 func DecodeIftStateChainOptions(decoder *binary.Decoder) (IftStateChainOptions, error) {
@@ -1211,8 +1364,6 @@ func DecodeIftStateChainOptions(decoder *binary.Decoder) (IftStateChainOptions, 
 			return (*IftStateChainOptions_Evm)(&tmp.Enum), nil
 		case 1:
 			return &tmp.Cosmos, nil
-		case 2:
-			return (*IftStateChainOptions_Solana)(&tmp.Enum), nil
 		default:
 			return nil, fmt.Errorf("IftStateChainOptions: unknown enum index: %v", tmp.Enum)
 		}
@@ -1229,9 +1380,6 @@ func EncodeIftStateChainOptions(encoder *binary.Encoder, value IftStateChainOpti
 		case *IftStateChainOptions_Cosmos:
 			tmp.Enum = 1
 			tmp.Cosmos = *realvalue
-		case *IftStateChainOptions_Solana:
-			tmp.Enum = 2
-			tmp.Solana = *realvalue
 		}
 		return encoder.Encode(tmp)
 	}
@@ -1323,18 +1471,6 @@ func UnmarshalIftStateChainOptions_Cosmos(buf []byte) (*IftStateChainOptions_Cos
 
 func (_ *IftStateChainOptions_Cosmos) isIftStateChainOptions() {}
 
-type IftStateChainOptions_Solana uint8
-
-func (obj IftStateChainOptions_Solana) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	return nil
-}
-
-func (obj *IftStateChainOptions_Solana) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	return nil
-}
-
-func (_ *IftStateChainOptions_Solana) isIftStateChainOptions() {}
-
 // Main IFT application state
 // PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
 type IftStateIftAppState struct {
@@ -1354,7 +1490,19 @@ type IftStateIftAppState struct {
 
 	// GMP program address for sending cross-chain calls
 	GmpProgram solanago.PublicKey `json:"gmpProgram"`
-	Reserved   [128]uint8         `json:"reserved"`
+
+	// Daily mint rate limit (0 = no limit)
+	DailyMintLimit uint64 `json:"dailyMintLimit"`
+
+	// Current rate limit day (`unix_timestamp` `SECONDS_PER_DAY`AY)
+	RateLimitDay uint64 `json:"rateLimitDay"`
+
+	// Net mint usage for the current day
+	RateLimitDailyUsage uint64 `json:"rateLimitDailyUsage"`
+
+	// Whether this token is paused (blocks mint and transfer, not refunds)
+	Paused   bool       `json:"paused"`
+	Reserved [128]uint8 `json:"reserved"`
 }
 
 func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1387,6 +1535,26 @@ func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err 
 	err = encoder.Encode(obj.GmpProgram)
 	if err != nil {
 		return errors.NewField("GmpProgram", err)
+	}
+	// Serialize `DailyMintLimit`:
+	err = encoder.Encode(obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	// Serialize `RateLimitDay`:
+	err = encoder.Encode(obj.RateLimitDay)
+	if err != nil {
+		return errors.NewField("RateLimitDay", err)
+	}
+	// Serialize `RateLimitDailyUsage`:
+	err = encoder.Encode(obj.RateLimitDailyUsage)
+	if err != nil {
+		return errors.NewField("RateLimitDailyUsage", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -1436,6 +1604,26 @@ func (obj *IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (e
 	err = decoder.Decode(&obj.GmpProgram)
 	if err != nil {
 		return errors.NewField("GmpProgram", err)
+	}
+	// Deserialize `DailyMintLimit`:
+	err = decoder.Decode(&obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	// Deserialize `RateLimitDay`:
+	err = decoder.Decode(&obj.RateLimitDay)
+	if err != nil {
+		return errors.NewField("RateLimitDay", err)
+	}
+	// Deserialize `RateLimitDailyUsage`:
+	err = decoder.Decode(&obj.RateLimitDailyUsage)
+	if err != nil {
+		return errors.NewField("RateLimitDailyUsage", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -1983,6 +2171,108 @@ func (obj *IftStateRegisterIftBridgeMsg) Unmarshal(buf []byte) error {
 
 func UnmarshalIftStateRegisterIftBridgeMsg(buf []byte) (*IftStateRegisterIftBridgeMsg, error) {
 	obj := new(IftStateRegisterIftBridgeMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Message for setting the daily mint rate limit
+type IftStateSetMintRateLimitMsg struct {
+	// Daily mint limit (0 = no limit)
+	DailyMintLimit uint64 `json:"dailyMintLimit"`
+}
+
+func (obj IftStateSetMintRateLimitMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `DailyMintLimit`:
+	err = encoder.Encode(obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	return nil
+}
+
+func (obj IftStateSetMintRateLimitMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftStateSetMintRateLimitMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftStateSetMintRateLimitMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `DailyMintLimit`:
+	err = decoder.Decode(&obj.DailyMintLimit)
+	if err != nil {
+		return errors.NewField("DailyMintLimit", err)
+	}
+	return nil
+}
+
+func (obj *IftStateSetMintRateLimitMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftStateSetMintRateLimitMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftStateSetMintRateLimitMsg(buf []byte) (*IftStateSetMintRateLimitMsg, error) {
+	obj := new(IftStateSetMintRateLimitMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Message for pausing/unpausing an IFT token
+type IftStateSetPausedMsg struct {
+	// Whether to pause (true) or unpause (false) the token
+	Paused bool `json:"paused"`
+}
+
+func (obj IftStateSetPausedMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	return nil
+}
+
+func (obj IftStateSetPausedMsg) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftStateSetPausedMsg: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftStateSetPausedMsg) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
+	}
+	return nil
+}
+
+func (obj *IftStateSetPausedMsg) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftStateSetPausedMsg: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftStateSetPausedMsg(buf []byte) (*IftStateSetPausedMsg, error) {
+	obj := new(IftStateSetPausedMsg)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

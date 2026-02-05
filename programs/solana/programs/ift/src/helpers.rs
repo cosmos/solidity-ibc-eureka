@@ -108,6 +108,7 @@ mod tests {
             daily_mint_limit: limit,
             rate_limit_day: day,
             rate_limit_daily_usage: usage,
+            paused: false,
             _reserved: [0; 128],
         }
     }

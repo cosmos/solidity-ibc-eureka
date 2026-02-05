@@ -26,6 +26,7 @@ fn test_ift_app_state_signer_seeds() {
         daily_mint_limit: 0,
         rate_limit_day: 0,
         rate_limit_daily_usage: 0,
+        paused: false,
         _reserved: [0; 128],
     };
 

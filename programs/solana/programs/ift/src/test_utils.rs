@@ -28,6 +28,25 @@ pub fn create_ift_app_state_account(
     access_manager: Pubkey,
     gmp_program: Pubkey,
 ) -> SolanaAccount {
+    create_ift_app_state_account_with_options(
+        mint,
+        bump,
+        mint_authority_bump,
+        access_manager,
+        gmp_program,
+        false,
+    )
+}
+
+/// Create a serialized IFT app state account with configurable paused state
+pub fn create_ift_app_state_account_with_options(
+    mint: Pubkey,
+    bump: u8,
+    mint_authority_bump: u8,
+    access_manager: Pubkey,
+    gmp_program: Pubkey,
+    paused: bool,
+) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
         bump,
@@ -38,6 +57,7 @@ pub fn create_ift_app_state_account(
         daily_mint_limit: 0,
         rate_limit_day: 0,
         rate_limit_daily_usage: 0,
+        paused,
         _reserved: [0; 128],
     };
 

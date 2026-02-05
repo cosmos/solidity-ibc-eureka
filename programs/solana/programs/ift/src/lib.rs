@@ -13,7 +13,7 @@ pub mod state;
 pub mod test_utils;
 
 use instructions::*;
-use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg, SetMintRateLimitMsg};
+use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg, SetMintRateLimitMsg, SetPausedMsg};
 
 declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 
@@ -88,5 +88,10 @@ pub mod ift {
         msg: SetMintRateLimitMsg,
     ) -> Result<()> {
         instructions::set_mint_rate_limit(ctx, msg)
+    }
+
+    /// Pause or unpause an IFT token (admin only)
+    pub fn set_paused(ctx: Context<SetPaused>, msg: SetPausedMsg) -> Result<()> {
+        instructions::set_paused(ctx, msg)
     }
 }

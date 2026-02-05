@@ -101,6 +101,9 @@ pub enum IFTError {
 
     #[msg("Daily mint rate limit exceeded")]
     MintRateLimitExceeded,
+
+    #[msg("Token is paused")]
+    TokenPaused,
 }
 
 /// Convert CPI validation errors to IFT errors

@@ -7,6 +7,7 @@ pub mod initialize_existing_token;
 pub mod register_ift_bridge;
 pub mod remove_ift_bridge;
 pub mod set_mint_rate_limit;
+pub mod set_paused;
 
 pub use admin::*;
 pub use claim_refund::*;
@@ -17,3 +18,4 @@ pub use initialize_existing_token::*;
 pub use register_ift_bridge::*;
 pub use remove_ift_bridge::*;
 pub use set_mint_rate_limit::*;
+pub use set_paused::*;

@@ -83,6 +83,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let bridge = &ctx.accounts.ift_bridge;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
 
     // Validate GMP account matches the bridge's (client_id, counterparty_ift_address).
     // This ensures the relayer passed the correct bridge for this GMP call.
@@ -163,6 +164,7 @@ mod tests {
         GmpNotSigner,
         BridgeNotActive,
         InvalidGmpAccount,
+        TokenPaused,
     }
 
     #[allow(clippy::struct_excessive_bools)]
@@ -172,45 +174,44 @@ mod tests {
         gmp_is_signer: bool,
         bridge_active: bool,
         use_wrong_gmp_account: bool,
+        token_paused: bool,
     }
 
     impl From<MintErrorCase> for MintTestConfig {
         fn from(case: MintErrorCase) -> Self {
+            let default = Self {
+                amount: 1000,
+                use_wrong_receiver: false,
+                gmp_is_signer: true,
+                bridge_active: true,
+                use_wrong_gmp_account: false,
+                token_paused: false,
+            };
+
             match case {
                 MintErrorCase::ZeroAmount => Self {
                     amount: 0,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::ReceiverMismatch => Self {
-                    amount: 1000,
                     use_wrong_receiver: true,
-                    gmp_is_signer: true,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::GmpNotSigner => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
                     gmp_is_signer: false,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::BridgeNotActive => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
                     bridge_active: false,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::InvalidGmpAccount => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
-                    bridge_active: true,
                     use_wrong_gmp_account: true,
+                    ..default
+                },
+                MintErrorCase::TokenPaused => Self {
+                    token_paused: true,
+                    ..default
                 },
             }
         }
@@ -235,12 +236,13 @@ mod tests {
         let wrong_gmp_account = Pubkey::new_unique();
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account = create_ift_app_state_account_with_options(
             mint,
             app_state_bump,
             mint_authority_bump,
             access_manager::ID,
             gmp_program,
+            config.token_paused,
         );
 
         let ift_bridge_account = create_ift_bridge_account(
@@ -366,6 +368,7 @@ mod tests {
     #[case::gmp_not_signer(MintErrorCase::GmpNotSigner)]
     #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
     #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
+    #[case::token_paused(MintErrorCase::TokenPaused)]
     fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);
     }

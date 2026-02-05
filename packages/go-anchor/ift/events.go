@@ -71,11 +71,25 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as IftEventsMintAuthorityRevoked: %w", err)
 		}
 		return value, nil
+	case Event_IftEventsMintRateLimitUpdated:
+		value := new(IftEventsMintRateLimitUpdated)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as IftEventsMintRateLimitUpdated: %w", err)
+		}
+		return value, nil
 	case Event_IftEventsSplTokenCreated:
 		value := new(IftEventsSplTokenCreated)
 		err := value.UnmarshalWithDecoder(decoder)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal event as IftEventsSplTokenCreated: %w", err)
+		}
+		return value, nil
+	case Event_IftEventsTokenPausedUpdated:
+		value := new(IftEventsTokenPausedUpdated)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as IftEventsTokenPausedUpdated: %w", err)
 		}
 		return value, nil
 	default:
@@ -219,6 +233,23 @@ func ParseEvent_IftEventsMintAuthorityRevoked(eventData []byte) (*IftEventsMintA
 	return event, nil
 }
 
+func ParseEvent_IftEventsMintRateLimitUpdated(eventData []byte) (*IftEventsMintRateLimitUpdated, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_IftEventsMintRateLimitUpdated {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_IftEventsMintRateLimitUpdated, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(IftEventsMintRateLimitUpdated)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsMintRateLimitUpdated: %w", err)
+	}
+	return event, nil
+}
+
 func ParseEvent_IftEventsSplTokenCreated(eventData []byte) (*IftEventsSplTokenCreated, error) {
 	decoder := binary.NewBorshDecoder(eventData)
 	discriminator, err := decoder.ReadDiscriminator()
@@ -232,6 +263,23 @@ func ParseEvent_IftEventsSplTokenCreated(eventData []byte) (*IftEventsSplTokenCr
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsSplTokenCreated: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_IftEventsTokenPausedUpdated(eventData []byte) (*IftEventsTokenPausedUpdated, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_IftEventsTokenPausedUpdated {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_IftEventsTokenPausedUpdated, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(IftEventsTokenPausedUpdated)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsTokenPausedUpdated: %w", err)
 	}
 	return event, nil
 }

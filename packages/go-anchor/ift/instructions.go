@@ -312,8 +312,8 @@ func NewIftTransferInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "ift_bridge": Read-only, Non-signer, Required
 		// IFT bridge for the destination
 		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
@@ -412,8 +412,8 @@ func NewIftMintInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "ift_bridge": Read-only, Non-signer, Required
 		// IFT bridge - provides counterparty info for GMP account validation.
 		// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
@@ -496,9 +496,9 @@ func NewClaimRefundInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Read-only, Non-signer, Required
+		// Account 0 "app_state": Writable, Non-signer, Required
 		// IFT app state
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "pending_transfer": Writable, Non-signer, Required
 		// Pending transfer to process
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
@@ -633,6 +633,108 @@ func NewRevokeMintAuthorityInstruction(
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 8 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "set_mint_rate_limit" instruction.
+// Set the daily mint rate limit (admin only)
+func NewSetMintRateLimitInstruction(
+	// Params:
+	msgParam IftStateSetMintRateLimitMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetMintRateLimit[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin with admin role
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "set_paused" instruction.
+// Pause or unpause an IFT token (admin only)
+func NewSetPausedInstruction(
+	// Params:
+	msgParam IftStateSetPausedMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetPaused[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin with admin role
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

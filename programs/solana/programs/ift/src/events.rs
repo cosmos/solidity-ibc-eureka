@@ -146,6 +146,17 @@ pub struct MintRateLimitUpdated {
     pub timestamp: i64,
 }
 
+/// Event emitted when a token's paused state is updated
+#[event]
+pub struct TokenPausedUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// Whether the token is now paused
+    pub paused: bool,
+    /// Update timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when IFT is initialized for an existing SPL token
 #[event]
 pub struct ExistingTokenInitialized {
