@@ -5,6 +5,7 @@ use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
 use crate::verification::verify_attestation;
+use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -444,7 +445,8 @@ mod tests {
 
     #[test]
     fn test_update_client_max_attestors() {
-        let attestor_addresses: Vec<[u8; 20]> = (0..10).map(|i| [i as u8; 20]).collect();
+        let attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
+            (0..10).map(|i| [i as u8; 20]).collect();
         let client_state = ClientState {
             version: crate::types::AccountVersion::V1,
             client_id: DEFAULT_CLIENT_ID.to_string(),
@@ -1022,7 +1024,8 @@ mod tests {
         use crate::test_helpers::signing::create_test_attestors;
 
         let attestors = create_test_attestors(3);
-        let attestor_addresses: Vec<[u8; 20]> = attestors.iter().map(|a| a.eth_address).collect();
+        let attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
+            attestors.iter().map(|a| a.eth_address).collect();
 
         let client_state = ClientState {
             version: crate::types::AccountVersion::V1,

@@ -17,6 +17,7 @@ use instructions::*;
 declare_id!("F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe");
 solana_allocator::custom_heap!();
 
+pub use crypto::ETH_ADDRESS_LEN;
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 pub use instructions::update_client::UpdateClientParams;
 pub use types::ConsensusState;
@@ -30,7 +31,7 @@ pub mod attestation {
         ctx: Context<Initialize>,
         client_id: String,
         latest_height: u64,
-        attestor_addresses: Vec<[u8; 20]>,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         timestamp: u64,
         access_manager: Pubkey,

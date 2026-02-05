@@ -117,6 +117,7 @@ pub mod accounts {
 
 pub mod fixtures {
     use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::ETH_ADDRESS_LEN;
 
     pub const DEFAULT_TIMESTAMP: u64 = 1_700_000_000;
     pub const DEFAULT_CLIENT_ID: &str = "test-client";
@@ -141,7 +142,7 @@ pub mod fixtures {
 
     pub fn create_test_client_state(
         client_id: &str,
-        attestor_addresses: Vec<[u8; 20]>,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         latest_height: u64,
     ) -> ClientState {
@@ -246,6 +247,7 @@ pub mod fixtures {
 
 /// Test signing utilities using alloy.
 pub mod signing {
+    use crate::ETH_ADDRESS_LEN;
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
     use sha2::{Digest, Sha256};
@@ -253,7 +255,7 @@ pub mod signing {
     /// Test attestor with deterministic keys for unit and integration testing.
     pub struct TestAttestor {
         signer: PrivateKeySigner,
-        pub eth_address: [u8; 20],
+        pub eth_address: [u8; ETH_ADDRESS_LEN],
     }
 
     impl TestAttestor {

@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 use crate::crypto::recover_eth_address;
 use crate::error::ErrorCode;
 use crate::types::ClientState;
+use crate::ETH_ADDRESS_LEN;
 
 /// Verify attestation signatures and check recovered addresses against trusted set.
 ///
@@ -28,7 +29,8 @@ pub fn verify_attestation(
 
     // Recover addresses and check for duplicates + trust in single pass
     // Matches Solidity which checks duplicate recovered addresses, not signature bytes
-    let mut recovered_addresses: Vec<[u8; 20]> = Vec::with_capacity(raw_signatures.len());
+    let mut recovered_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
+        Vec::with_capacity(raw_signatures.len());
 
     for raw_sig in raw_signatures {
         let recovered_address = recover_eth_address(attestation_data, raw_sig)?;
@@ -55,7 +57,7 @@ mod tests {
     use rstest::rstest;
 
     fn create_test_client_state(
-        attestor_addresses: Vec<[u8; 20]>,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
     ) -> ClientState {
         ClientState {
@@ -83,7 +85,7 @@ mod tests {
     #[case::exact_required_sigs(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2, vec![create_test_signature(1), create_test_signature(2)])]
     #[case::more_than_required_sigs(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2, vec![create_test_signature(1), create_test_signature(2), create_test_signature(3)])]
     fn test_verify_attestation_stub_signature_errors(
-        #[case] addrs: Vec<[u8; 20]>,
+        #[case] addrs: Vec<[u8; ETH_ADDRESS_LEN]>,
         #[case] min_sigs: u8,
         #[case] signatures: Vec<Vec<u8>>,
     ) {

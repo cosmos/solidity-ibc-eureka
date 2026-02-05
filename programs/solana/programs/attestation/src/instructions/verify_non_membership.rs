@@ -4,6 +4,7 @@ use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 use crate::verification::verify_attestation;
+use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
@@ -625,7 +626,8 @@ mod tests {
         use crate::test_helpers::signing::create_test_attestors;
 
         let attestors = create_test_attestors(3);
-        let attestor_addresses: Vec<[u8; 20]> = attestors.iter().map(|a| a.eth_address).collect();
+        let attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
+            attestors.iter().map(|a| a.eth_address).collect();
 
         let client_state = ClientState {
             version: crate::types::AccountVersion::V1,

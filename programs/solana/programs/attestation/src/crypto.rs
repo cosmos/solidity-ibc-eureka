@@ -15,7 +15,7 @@ use solana_secp256k1_recover::{SECP256K1_PUBLIC_KEY_LENGTH, SECP256K1_SIGNATURE_
 
 const SIGNATURE_LEN: usize = SECP256K1_SIGNATURE_LENGTH + 1;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
-const ETH_ADDRESS_LEN: usize = 20;
+pub const ETH_ADDRESS_LEN: usize = 20;
 
 /// Prepared signature data for secp256k1 recovery.
 struct PreparedSignature {

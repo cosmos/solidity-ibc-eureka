@@ -1,6 +1,7 @@
 use crate::error::ErrorCode;
 use crate::state::ConsensusStateStore;
 use crate::types::{AccountVersion, AppState, ClientState, ConsensusState};
+use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -40,7 +41,7 @@ pub fn initialize(
     ctx: Context<Initialize>,
     client_id: String,
     latest_height: u64,
-    attestor_addresses: Vec<[u8; 20]>,
+    attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
     min_required_sigs: u8,
     timestamp: u64,
     access_manager: Pubkey,
@@ -141,7 +142,7 @@ mod tests {
         test_accounts: &TestAccounts,
         client_id: &str,
         latest_height: u64,
-        attestor_addresses: Vec<[u8; 20]>,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         timestamp: u64,
     ) -> Instruction {
@@ -223,7 +224,7 @@ mod tests {
     fn test_initialize_error(
         #[case] client_id: &str,
         #[case] height: u64,
-        #[case] attestors: Vec<[u8; 20]>,
+        #[case] attestors: Vec<[u8; ETH_ADDRESS_LEN]>,
         #[case] min_sigs: u8,
         #[case] timestamp: u64,
         #[case] expected_error: ErrorCode,
@@ -333,7 +334,7 @@ mod tests {
         let test_accounts = setup_test_accounts(client_id, HEIGHT);
 
         // Create 20 unique attestor addresses (max_len from ClientState)
-        let attestors: Vec<[u8; 20]> = (0u8..20).map(|i| [i; 20]).collect();
+        let attestors: Vec<[u8; ETH_ADDRESS_LEN]> = (0u8..20).map(|i| [i; 20]).collect();
 
         let instruction = create_initialize_instruction(
             &test_accounts,
@@ -355,7 +356,7 @@ mod tests {
         let test_accounts = setup_test_accounts(client_id, HEIGHT);
 
         // 5 attestors, require all 5 signatures
-        let attestors: Vec<[u8; 20]> = (0u8..5).map(|i| [i; 20]).collect();
+        let attestors: Vec<[u8; ETH_ADDRESS_LEN]> = (0u8..5).map(|i| [i; 20]).collect();
 
         let instruction = create_initialize_instruction(
             &test_accounts,

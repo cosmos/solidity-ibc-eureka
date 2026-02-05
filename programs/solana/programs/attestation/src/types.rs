@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
 pub use solana_ibc_types::attestation::AccountVersion;
 
+use crate::ETH_ADDRESS_LEN;
+
 /// Client state for the attestation light client
 #[account]
 #[derive(InitSpace)]
@@ -10,7 +12,7 @@ pub struct ClientState {
     pub client_id: String,
     /// Ethereum addresses of trusted attestors (20 bytes each)
     #[max_len(20)]
-    pub attestor_addresses: Vec<[u8; 20]>,
+    pub attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
     pub min_required_sigs: u8,
     pub latest_height: u64,
     pub is_frozen: bool,
