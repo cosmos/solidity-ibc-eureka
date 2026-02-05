@@ -12,6 +12,7 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
+use ibc_eureka_relayer_lib::aggregator::Config as AggregatorConfig;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -35,11 +36,19 @@ pub struct CosmosToSolanaRelayerModule;
 #[allow(dead_code)]
 struct CosmosToSolanaRelayerModuleService {
     /// The souce chain listener for Cosmos.
-    pub src_listener: cosmos_sdk::ChainListener,
+    src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Solana.
-    pub target_listener: solana::ChainListener,
-    /// The transaction builder from Cosmos to Solana.
-    pub tx_builder: tx_builder::TxBuilder,
+    target_listener: solana::ChainListener,
+    /// The transaction builder (either ICS07 Tendermint or Attested).
+    tx_builder: CosmosToSolanaTxBuilder,
+}
+
+/// Enum wrapping transaction builders for different modes.
+enum CosmosToSolanaTxBuilder {
+    /// ICS07 Tendermint light client mode.
+    Ics07Tendermint(tx_builder::TxBuilder),
+    /// Attestation light client mode.
+    Attested(tx_builder::AttestedTxBuilder),
 }
 
 /// The configuration for the Cosmos to Solana relayer module.
@@ -55,13 +64,27 @@ pub struct CosmosToSolanaConfig {
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub solana_alt_address: Option<String>,
-    /// Whether to use mock WASM client on Cosmos for testing.
-    pub mock_wasm_client: bool,
     /// Signature threshold below which pre-verification is skipped.
     /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
     /// Default: Some(50)
     #[serde(default = "default_skip_pre_verify_threshold")]
     pub skip_pre_verify_threshold: Option<usize>,
+    /// Transaction builder mode. Defaults to ICS07 Tendermint.
+    #[serde(default)]
+    pub mode: SolanaTxBuilderMode,
+}
+
+/// Transaction builder mode for Cosmos to Solana relay.
+#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SolanaTxBuilderMode {
+    /// ICS07 Tendermint light client mode (default).
+    /// Uses Tendermint header verification on Solana.
+    #[default]
+    Ics07Tendermint,
+    /// Attestation light client mode.
+    /// Uses attestor signatures for state verification via aggregator.
+    Attested(AggregatorConfig),
 }
 
 #[allow(
@@ -73,7 +96,7 @@ const fn default_skip_pre_verify_threshold() -> Option<usize> {
 }
 
 impl CosmosToSolanaRelayerModuleService {
-    fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
+    async fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
         let src_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
 
@@ -97,14 +120,36 @@ impl CosmosToSolanaRelayerModuleService {
             .transpose()
             .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
-        let tx_builder = tx_builder::TxBuilder::new(
-            src_listener.client().clone(),
-            target_listener.client().clone(),
-            solana_ics26_program_id,
-            fee_payer,
-            alt_address,
-            config.skip_pre_verify_threshold,
-        )?;
+        let tx_builder = match &config.mode {
+            SolanaTxBuilderMode::Ics07Tendermint => {
+                let builder = tx_builder::TxBuilder::new(
+                    src_listener.client().clone(),
+                    target_listener.client().clone(),
+                    solana_ics26_program_id,
+                    fee_payer,
+                    alt_address,
+                    config.skip_pre_verify_threshold,
+                )?;
+                CosmosToSolanaTxBuilder::Ics07Tendermint(builder)
+            }
+            SolanaTxBuilderMode::Attested(aggregator_config) => {
+                let base_builder = tx_builder::TxBuilder::new(
+                    src_listener.client().clone(),
+                    target_listener.client().clone(),
+                    solana_ics26_program_id,
+                    fee_payer,
+                    alt_address,
+                    config.skip_pre_verify_threshold,
+                )?;
+                let attested_builder =
+                    tx_builder::AttestedTxBuilder::new(aggregator_config.clone(), base_builder)
+                        .await
+                        .map_err(|e| {
+                            anyhow::anyhow!("Failed to create attested tx builder: {e}")
+                        })?;
+                CosmosToSolanaTxBuilder::Attested(attested_builder)
+            }
+        };
 
         Ok(Self {
             src_listener,
@@ -133,7 +178,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                 ibc_contract: String::new(),
             }),
             target_chain: Some(api::Chain {
-                chain_id: "solana-localnet".to_string(), // Solana doesn't have chain IDs like Cosmos
+                chain_id: "solana-localnet".to_string(),
                 ibc_version: "2".to_string(),
                 ibc_contract: self.target_listener.ics26_program_id().to_string(),
             }),
@@ -152,7 +197,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             inner_req.timeout_tx_ids.len()
         );
         let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
-
         let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let src_events = self
@@ -174,17 +218,16 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events", target_events.len());
 
-        // Use the combined method that includes update client if needed
         let (packet_txs, update_client) = self
             .tx_builder
-            .relay_events_with_update(tx_builder::RelayParams {
+            .relay_events(
                 src_events,
-                dest_events: target_events,
-                src_client_id: inner_req.src_client_id,
-                dst_client_id: inner_req.dst_client_id,
-                src_packet_seqs: inner_req.src_packet_sequences,
-                dst_packet_seqs: inner_req.dst_packet_sequences,
-            })
+                target_events,
+                &inner_req.src_client_id,
+                &inner_req.dst_client_id,
+                &inner_req.src_packet_sequences,
+                &inner_req.dst_packet_sequences,
+            )
             .await
             .map_err(to_tonic_status)?;
 
@@ -233,9 +276,12 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
+        tracing::info!("Handling update client request for Cosmos to Solana...");
+
+        let inner_req = request.into_inner();
         let solana_update_client = self
             .tx_builder
-            .update_client(request.into_inner().dst_client_id)
+            .update_client(&inner_req.dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
@@ -264,7 +310,65 @@ impl RelayerModule for CosmosToSolanaRelayerModule {
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
         let config: CosmosToSolanaConfig = serde_json::from_value(config)?;
-        let service = CosmosToSolanaRelayerModuleService::new(&config)?;
+        let service = CosmosToSolanaRelayerModuleService::new(&config).await?;
         Ok(Box::new(service))
+    }
+}
+
+// Implement dispatch methods on the enum
+impl CosmosToSolanaTxBuilder {
+    async fn relay_events(
+        &self,
+        src_events: Vec<ibc_eureka_relayer_lib::events::EurekaEventWithHeight>,
+        target_events: Vec<ibc_eureka_relayer_lib::events::SolanaEurekaEventWithHeight>,
+        src_client_id: &str,
+        dst_client_id: &str,
+        src_packet_seqs: &[u64],
+        dst_packet_seqs: &[u64],
+    ) -> anyhow::Result<(
+        Vec<ibc_eureka_relayer_core::api::SolanaPacketTxs>,
+        Option<ibc_eureka_relayer_core::api::SolanaUpdateClient>,
+    )> {
+        match self {
+            Self::Ics07Tendermint(tb) => {
+                tb.relay_events_with_update(tx_builder::RelayParams {
+                    src_events,
+                    dest_events: target_events,
+                    src_client_id: src_client_id.to_string(),
+                    dst_client_id: dst_client_id.to_string(),
+                    src_packet_seqs: src_packet_seqs.to_vec(),
+                    dst_packet_seqs: dst_packet_seqs.to_vec(),
+                })
+                .await
+            }
+            Self::Attested(tb) => {
+                tb.relay_events(tx_builder::RelayParams {
+                    src_events,
+                    dest_events: target_events,
+                    src_client_id: src_client_id.to_string(),
+                    dst_client_id: dst_client_id.to_string(),
+                    src_packet_seqs: src_packet_seqs.to_vec(),
+                    dst_packet_seqs: dst_packet_seqs.to_vec(),
+                })
+                .await
+            }
+        }
+    }
+
+    async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
+        match self {
+            Self::Ics07Tendermint(tb) => tb.create_client(parameters).await,
+            Self::Attested(tb) => tb.tx_builder().create_client(parameters).await,
+        }
+    }
+
+    async fn update_client(
+        &self,
+        dst_client_id: &str,
+    ) -> anyhow::Result<ibc_eureka_relayer_core::api::SolanaUpdateClient> {
+        match self {
+            Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
+            Self::Attested(tb) => tb.update_client(dst_client_id).await,
+        }
     }
 }

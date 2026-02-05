@@ -245,7 +245,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 					SolanaIcs26ProgramId: ics26_router.ProgramID.String(),
 					SolanaFeePayer:       s.SolanaUser.PublicKey().String(),
 					SolanaAltAddress:     &s.SolanaAltAddress,
-					MockWasmClient:       false,
 				},
 			},
 		}

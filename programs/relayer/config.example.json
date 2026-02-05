@@ -167,7 +167,6 @@
         "solana_ics26_program_id": "11111111111111111111111111111111",
         "solana_fee_payer": "11111111111111111111111111111111",
         "solana_alt_address": "11111111111111111111111111111111",
-        "mock_wasm_client": true,
         "skip_pre_verify_threshold": 50
       }
     },
@@ -180,9 +179,7 @@
         "src_rpc_url": "https://api.devnet.solana.com",
         "target_rpc_url": "http://public-celestia-mocha4-consensus.numia.xyz/",
         "signer_address": "cosmos1abcdef1234567890abcdef1234567890",
-        "solana_ics26_program_id": "11111111111111111111111111111111",
-        "mock_wasm_client": true,
-        "mock_solana_client": true
+        "solana_ics26_program_id": "11111111111111111111111111111111"
       }
     }
   ]

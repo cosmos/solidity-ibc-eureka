@@ -360,8 +360,7 @@ type CosmosToSolanaParams struct {
 	ICS26ProgramID         string
 	FeePayer               string
 	ALTAddress             string // Optional
-	MockClient             bool
-	SkipPreVerifyThreshold *int // Optional
+	SkipPreVerifyThreshold *int   // Optional
 }
 
 // CosmosToSolana adds a Cosmos→Solana module.
@@ -381,8 +380,62 @@ func (b *ConfigBuilder) CosmosToSolana(p CosmosToSolanaParams) *ConfigBuilder {
 			SolanaIcs26ProgramId:   p.ICS26ProgramID,
 			SolanaFeePayer:         p.FeePayer,
 			SolanaAltAddress:       altAddress,
-			MockWasmClient:         p.MockClient,
 			SkipPreVerifyThreshold: p.SkipPreVerifyThreshold,
+		},
+	}
+	b.modules = append(b.modules, module)
+	return b
+}
+
+// =============================================================================
+// Cosmos → Solana (Attestor)
+// =============================================================================
+
+// CosmosToSolanaAttestedParams contains parameters for Cosmos→Solana module using attestation light client.
+type CosmosToSolanaAttestedParams struct {
+	CosmosChainID          string
+	SolanaChainID          string
+	SolanaRPC              string
+	TmRPC                  string
+	ICS26ProgramID         string
+	FeePayer               string
+	ALTAddress             string   // Optional
+	SkipPreVerifyThreshold *int     // Optional
+	AttestorEndpoints      []string // Required for attestation mode
+	AttestorTimeout        int      // Optional, defaults to 5000
+	QuorumThreshold        int      // Optional, defaults to 1
+}
+
+// CosmosToSolanaAttested adds a Cosmos→Solana module using attestor.
+func (b *ConfigBuilder) CosmosToSolanaAttested(p CosmosToSolanaAttestedParams) *ConfigBuilder {
+	var altAddress *string
+	if p.ALTAddress != "" {
+		altAddress = &p.ALTAddress
+	}
+
+	aggConfig := DefaultAggregatorConfig()
+	if len(p.AttestorEndpoints) > 0 {
+		aggConfig.Attestor.AttestorEndpoints = p.AttestorEndpoints
+	}
+	if p.AttestorTimeout > 0 {
+		aggConfig.Attestor.AttestorQueryTimeoutMs = p.AttestorTimeout
+	}
+	if p.QuorumThreshold > 0 {
+		aggConfig.Attestor.QuorumThreshold = p.QuorumThreshold
+	}
+
+	module := ModuleConfig{
+		Name:     ModuleCosmosToSolana,
+		SrcChain: p.CosmosChainID,
+		DstChain: p.SolanaChainID,
+		Config: CosmosToSolanaModuleConfig{
+			SourceRpcUrl:           p.TmRPC,
+			TargetRpcUrl:           p.SolanaRPC,
+			SolanaIcs26ProgramId:   p.ICS26ProgramID,
+			SolanaFeePayer:         p.FeePayer,
+			SolanaAltAddress:       altAddress,
+			SkipPreVerifyThreshold: p.SkipPreVerifyThreshold,
+			Mode:                   AttestedMode{Config: aggConfig},
 		},
 	}
 	b.modules = append(b.modules, module)
