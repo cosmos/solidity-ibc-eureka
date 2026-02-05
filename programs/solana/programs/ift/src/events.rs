@@ -184,3 +184,18 @@ pub struct AdminUpdated {
     /// Update timestamp
     pub timestamp: i64,
 }
+
+/// Event emitted when admin mints tokens
+#[event]
+pub struct AdminMintExecuted {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// Receiver pubkey
+    pub receiver: Pubkey,
+    /// Amount minted
+    pub amount: u64,
+    /// Admin who executed the mint
+    pub admin: Pubkey,
+    /// Mint timestamp
+    pub timestamp: i64,
+}

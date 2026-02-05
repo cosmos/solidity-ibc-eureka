@@ -235,5 +235,14 @@ pub struct SetPausedMsg {
     pub paused: bool,
 }
 
+/// Message for admin mint
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AdminMintMsg {
+    /// Receiver pubkey
+    pub receiver: Pubkey,
+    /// Amount to mint
+    pub amount: u64,
+}
+
 #[cfg(test)]
 mod tests;
