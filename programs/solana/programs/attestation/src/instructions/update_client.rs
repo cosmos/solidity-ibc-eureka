@@ -134,6 +134,7 @@ mod tests {
     use crate::types::{AppState, ClientState, MembershipProof};
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
+    use borsh::BorshSerialize;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_sdk::account::Account;
@@ -211,6 +212,22 @@ mod tests {
         )
     }
 
+    fn setup_attestor_accounts(
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
+        min_required_sigs: u8,
+        new_height: u64,
+    ) -> TestAccounts {
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses,
+            min_required_sigs,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+        setup_test_accounts(DEFAULT_CLIENT_ID, new_height, client_state)
+    }
+
     fn create_update_client_instruction(
         test_accounts: &TestAccounts,
         client_id: &str,
@@ -238,346 +255,183 @@ mod tests {
         }
     }
 
+    fn expect_error(test_accounts: &TestAccounts, instruction: Instruction, error: ErrorCode) {
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::error::Error::from(error).into())];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    fn expect_success(test_accounts: &TestAccounts, instruction: Instruction) {
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &test_accounts.accounts,
+            &[Check::success()],
+        );
+    }
+
+    fn expect_any_error(test_accounts: &TestAccounts, instruction: Instruction) {
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+        assert!(result.program_result.is_err());
+    }
+
+    fn build_signed_params(
+        signers: &[&TestAttestor],
+        attestation_height: u64,
+        timestamp: u64,
+    ) -> UpdateClientParams {
+        let attestation_data =
+            crate::test_helpers::fixtures::encode_state_attestation(attestation_height, timestamp);
+        let signatures: Vec<_> = signers.iter().map(|a| a.sign(&attestation_data)).collect();
+        UpdateClientParams {
+            proof: MembershipProof {
+                attestation_data,
+                signatures,
+            }
+            .try_to_vec()
+            .unwrap(),
+        }
+    }
+
+    fn make_proof_params(
+        attestation_data: Vec<u8>,
+        signatures: Vec<Vec<u8>>,
+    ) -> UpdateClientParams {
+        UpdateClientParams {
+            proof: MembershipProof {
+                attestation_data,
+                signatures,
+            }
+            .try_to_vec()
+            .unwrap(),
+        }
+    }
+
     #[test]
     fn test_update_client_frozen() {
         let mut client_state = default_client_state(DEFAULT_CLIENT_ID, HEIGHT);
         client_state.is_frozen = true;
-
         let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
 
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data: vec![],
-                signatures: vec![],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(vec![], vec![]);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::FrozenClientState).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::FrozenClientState);
     }
 
-    #[test]
-    fn test_update_client_invalid_proof() {
+    #[rstest::rstest]
+    #[case::invalid_proof(vec![0xFF; 100])]
+    #[case::attestation_data_too_short(
+        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap()
+    )]
+    fn test_update_client_rejects_bad_proof(#[case] proof: Vec<u8>) {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
-
-        let params = UpdateClientParams {
-            proof: vec![0xFF; 100],
-        };
-
+        let params = UpdateClientParams { proof };
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        // Garbage data may cause program crash or specific error - both are acceptable
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(
-            result.program_result.is_err(),
-            "Expected instruction to fail with invalid proof data"
-        );
+        expect_any_error(&test_accounts, instruction);
     }
 
     #[test]
     fn test_update_client_no_signatures() {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
-
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(attestation_data, vec![]);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::EmptySignatures).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::EmptySignatures);
     }
 
     #[test]
     fn test_update_client_too_few_signatures() {
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![[1u8; 20], [2u8; 20]],
-            min_required_sigs: 2,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
+        let test_accounts = setup_attestor_accounts(vec![[1u8; 20], [2u8; 20]], 2, NEW_HEIGHT);
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![vec![0u8; 65]],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(attestation_data, vec![vec![0u8; 65]]);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::ThresholdNotMet).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::ThresholdNotMet);
     }
 
     #[test]
     fn test_update_client_duplicate_signers() {
         let attestor = TestAttestor::new(1);
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 2,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 2, NEW_HEIGHT);
 
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-
-        // Same attestor signs twice - recovers to same address
         let sig = attestor.sign(&attestation_data);
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![sig.clone(), sig],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(attestation_data, vec![sig.clone(), sig]);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::DuplicateSigner).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::DuplicateSigner);
     }
 
     #[test]
     fn test_update_client_empty_proof_bytes() {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
-
         let params = UpdateClientParams { proof: vec![] };
-
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidProof).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidProof);
     }
 
     #[test]
     fn test_update_client_invalid_signature_length() {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
-
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![vec![0u8; 64]],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(attestation_data, vec![vec![0u8; 64]]);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidSignature).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_update_client_attestation_data_too_short() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data: vec![0u8; 64],
-                signatures: vec![vec![0u8; 65]],
-            })
-            .unwrap(),
-        };
-
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(
-            result.program_result.is_err(),
-            "Expected instruction to fail for short attestation data"
-        );
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidSignature);
     }
 
     #[test]
     fn test_update_client_max_attestors() {
-        let attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
-            (0..10).map(|i| [i as u8; 20]).collect();
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses,
-            min_required_sigs: 7,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
+        let addresses: Vec<[u8; ETH_ADDRESS_LEN]> = (0..10).map(|i| [i as u8; 20]).collect();
+        let test_accounts = setup_attestor_accounts(addresses, 7, NEW_HEIGHT);
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![
-                    vec![1u8; 65],
-                    vec![2u8; 65],
-                    vec![3u8; 65],
-                    vec![4u8; 65],
-                    vec![5u8; 65],
-                ],
-            })
-            .unwrap(),
-        };
-
+        let params = make_proof_params(
+            attestation_data,
+            vec![
+                vec![1u8; 65],
+                vec![2u8; 65],
+                vec![3u8; 65],
+                vec![4u8; 65],
+                vec![5u8; 65],
+            ],
+        );
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::ThresholdNotMet).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::ThresholdNotMet);
     }
 
-    #[test]
-    fn test_update_client_same_height() {
+    #[rstest::rstest]
+    #[case::same_height(HEIGHT)]
+    #[case::lower_height(50)]
+    #[case::max_height(u64::MAX)]
+    fn test_update_client_default_accounts_bad_height(#[case] height: u64) {
         let test_accounts = setup_test_accounts(
             DEFAULT_CLIENT_ID,
-            HEIGHT,
+            height,
             default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
         );
-
         let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(HEIGHT, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![vec![0u8; 65]],
-            })
-            .unwrap(),
-        };
-
+            crate::test_helpers::fixtures::encode_state_attestation(height, 1_700_000_000);
+        let params = make_proof_params(attestation_data, vec![vec![0u8; 65]]);
         let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
-    }
-
-    #[test]
-    fn test_update_client_lower_height() {
-        let lower_height = 50u64;
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            lower_height,
-            default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
-        );
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(lower_height, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![vec![0u8; 65]],
-            })
-            .unwrap(),
-        };
-
-        let instruction = create_update_client_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            lower_height,
-            params,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
-    }
-
-    #[test]
-    fn test_update_client_max_height() {
-        let max_height = u64::MAX;
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            max_height,
-            default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
-        );
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(max_height, 1_700_000_000);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![vec![0u8; 65]],
-            })
-            .unwrap(),
-        };
-
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, max_height, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
+            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, height, params);
+        expect_any_error(&test_accounts, instruction);
     }
 
     #[test]
     fn test_update_client_misbehaviour_different_timestamp() {
         let existing_timestamp = 1_700_000_000u64;
         let conflicting_timestamp = 1_800_000_000u64;
-
-        // Create test attestor with known keys
         let attestor = TestAttestor::new(1);
 
         let existing_consensus = ConsensusState {
@@ -585,57 +439,37 @@ mod tests {
             timestamp: existing_timestamp,
         };
 
-        // Create client state with the test attestor's address
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
         let test_accounts = setup_test_accounts_with_consensus(
             DEFAULT_CLIENT_ID,
             HEIGHT,
-            client_state,
+            ClientState {
+                version: crate::types::AccountVersion::V1,
+                client_id: DEFAULT_CLIENT_ID.to_string(),
+                attestor_addresses: vec![attestor.eth_address],
+                min_required_sigs: 1,
+                latest_height: HEIGHT,
+                is_frozen: false,
+            },
             Some(existing_consensus),
         );
 
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(HEIGHT, conflicting_timestamp);
-
-        // Sign the attestation data with the test attestor
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&attestor], HEIGHT, conflicting_timestamp);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(
             &instruction,
             &test_accounts.accounts,
-            &checks,
+            &[Check::success()],
         );
 
-        // Check that client state is frozen in the result accounts
         let client_state_account = result
             .get_account(&test_accounts.client_state_pda)
             .expect("Client state account should exist");
-
         let client_state: ClientState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &client_state_account.data[..])
                 .expect("Failed to deserialize client state");
-
         assert!(
             client_state.is_frozen,
             "Client state should be frozen after misbehaviour detection"
@@ -645,8 +479,6 @@ mod tests {
     #[test]
     fn test_update_client_same_height_same_timestamp_noop() {
         let timestamp = 1_700_000_000u64;
-
-        // Create test attestor with known keys
         let attestor = TestAttestor::new(1);
 
         let existing_consensus = ConsensusState {
@@ -654,57 +486,37 @@ mod tests {
             timestamp,
         };
 
-        // Create client state with the test attestor's address
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
         let test_accounts = setup_test_accounts_with_consensus(
             DEFAULT_CLIENT_ID,
             HEIGHT,
-            client_state,
+            ClientState {
+                version: crate::types::AccountVersion::V1,
+                client_id: DEFAULT_CLIENT_ID.to_string(),
+                attestor_addresses: vec![attestor.eth_address],
+                min_required_sigs: 1,
+                latest_height: HEIGHT,
+                is_frozen: false,
+            },
             Some(existing_consensus),
         );
 
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(HEIGHT, timestamp);
-
-        // Sign the attestation data with the test attestor
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&attestor], HEIGHT, timestamp);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(
             &instruction,
             &test_accounts.accounts,
-            &checks,
+            &[Check::success()],
         );
 
-        // Client should NOT be frozen
         let client_state_account = result
             .get_account(&test_accounts.client_state_pda)
             .expect("Client state account should exist");
-
         let client_state: ClientState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &client_state_account.data[..])
                 .expect("Failed to deserialize client state");
-
         assert!(
             !client_state.is_frozen,
             "Client state should NOT be frozen for same timestamp"
@@ -714,66 +526,37 @@ mod tests {
     #[test]
     fn test_update_client_happy_path_new_height() {
         let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1, NEW_HEIGHT);
 
         let new_timestamp = 1_800_000_000u64;
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, new_timestamp);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&attestor], NEW_HEIGHT, new_timestamp);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(
             &instruction,
             &test_accounts.accounts,
-            &checks,
+            &[Check::success()],
         );
 
-        // Verify client state updated latest_height
         let client_state_account = result
             .get_account(&test_accounts.client_state_pda)
             .expect("Client state account should exist");
-
         let client_state: ClientState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &client_state_account.data[..])
                 .expect("Failed to deserialize client state");
-
         assert_eq!(client_state.latest_height, NEW_HEIGHT);
         assert!(!client_state.is_frozen);
 
-        // Verify consensus state was created
         let consensus_state_account = result
             .get_account(&test_accounts.consensus_state_pda)
             .expect("Consensus state account should exist");
-
         let consensus_state_store: crate::state::ConsensusStateStore =
             anchor_lang::AccountDeserialize::try_deserialize(
                 &mut &consensus_state_account.data[..],
             )
             .expect("Failed to deserialize consensus state");
-
         assert_eq!(consensus_state_store.height, NEW_HEIGHT);
         assert_eq!(consensus_state_store.consensus_state.height, NEW_HEIGHT);
         assert_eq!(
@@ -785,193 +568,36 @@ mod tests {
     #[test]
     fn test_update_client_height_mismatch() {
         let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1, NEW_HEIGHT);
 
         // PDA seed uses NEW_HEIGHT (200), but attestation contains a different height (150)
-        let mismatched_height = 150u64;
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let attestation_data = crate::test_helpers::fixtures::encode_state_attestation(
-            mismatched_height,
-            1_800_000_000,
-        );
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&attestor], 150, 1_800_000_000);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::HeightMismatch).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::HeightMismatch);
     }
 
-    #[test]
-    fn test_update_client_invalid_state_zero_height() {
+    #[rstest::rstest]
+    #[case::zero_height(0, 1_700_000_000)]
+    #[case::zero_timestamp(NEW_HEIGHT, 0)]
+    #[case::zero_height_and_timestamp(0, 0)]
+    fn test_update_client_invalid_state(#[case] attestation_height: u64, #[case] timestamp: u64) {
         let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        // Create attestation with zero height
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(0, 1_700_000_000);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1, NEW_HEIGHT);
+        let params = build_signed_params(&[&attestor], attestation_height, timestamp);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidState).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_update_client_invalid_state_zero_height_and_timestamp() {
-        let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        // Create attestation with both zero height and zero timestamp
-        let attestation_data = crate::test_helpers::fixtures::encode_state_attestation(0, 0);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidState).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_update_client_invalid_state_zero_timestamp() {
-        let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        // Create attestation with zero timestamp
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 0);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidState).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidState);
     }
 
     #[test]
     fn test_update_client_lower_height_does_not_update_latest() {
         let attestor = TestAttestor::new(1);
-
-        // Client already at HEIGHT=100
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        // Update to a lower height (50 < 100)
         let lower_height = 50u64;
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, lower_height, client_state);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1, lower_height);
 
         let new_timestamp = 1_600_000_000u64;
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(lower_height, new_timestamp);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&attestor], lower_height, new_timestamp);
         let instruction = create_update_client_instruction(
             &test_accounts,
             DEFAULT_CLIENT_ID,
@@ -980,38 +606,31 @@ mod tests {
         );
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(
             &instruction,
             &test_accounts.accounts,
-            &checks,
+            &[Check::success()],
         );
 
-        // Verify latest_height was NOT updated (still 100, not 50)
         let client_state_account = result
             .get_account(&test_accounts.client_state_pda)
             .expect("Client state account should exist");
-
         let client_state: ClientState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &client_state_account.data[..])
                 .expect("Failed to deserialize client state");
-
         assert_eq!(
             client_state.latest_height, HEIGHT,
             "latest_height should remain unchanged"
         );
 
-        // But consensus state should still be created
         let consensus_state_account = result
             .get_account(&test_accounts.consensus_state_pda)
             .expect("Consensus state account should exist");
-
         let consensus_state_store: crate::state::ConsensusStateStore =
             anchor_lang::AccountDeserialize::try_deserialize(
                 &mut &consensus_state_account.data[..],
             )
             .expect("Failed to deserialize consensus state");
-
         assert_eq!(consensus_state_store.height, lower_height);
         assert_eq!(
             consensus_state_store.consensus_state.timestamp,
@@ -1024,201 +643,57 @@ mod tests {
         use crate::test_helpers::signing::create_test_attestors;
 
         let attestors = create_test_attestors(3);
-        let attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
-            attestors.iter().map(|a| a.eth_address).collect();
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses,
-            min_required_sigs: 2,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let new_timestamp = 1_800_000_000u64;
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, new_timestamp);
+        let addresses: Vec<_> = attestors.iter().map(|a| a.eth_address).collect();
+        let test_accounts = setup_attestor_accounts(addresses, 2, NEW_HEIGHT);
 
         // Sign with 2 out of 3 attestors
-        let sig1 = attestors[0].sign(&attestation_data);
-        let sig2 = attestors[2].sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![sig1, sig2],
-            })
-            .unwrap(),
-        };
-
+        let params =
+            build_signed_params(&[&attestors[0], &attestors[2]], NEW_HEIGHT, 1_800_000_000);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_success(&test_accounts, instruction);
     }
 
     #[test]
     fn test_update_client_unknown_signer() {
         let trusted_attestor = TestAttestor::new(1);
         let untrusted_attestor = TestAttestor::new(99);
+        let test_accounts =
+            setup_attestor_accounts(vec![trusted_attestor.eth_address], 1, NEW_HEIGHT);
 
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![trusted_attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_800_000_000);
-
-        // Sign with untrusted attestor
-        let signature = untrusted_attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(&[&untrusted_attestor], NEW_HEIGHT, 1_800_000_000);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::UnknownSigner).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::UnknownSigner);
     }
 
     #[test]
     fn test_update_client_more_signatures_than_required() {
-        // 5 attestors, only 3 required, but all 5 sign - should succeed
         let attestors: Vec<_> = (1..=5).map(TestAttestor::new).collect();
         let addresses: Vec<_> = attestors.iter().map(|a| a.eth_address).collect();
+        let test_accounts = setup_attestor_accounts(addresses, 3, NEW_HEIGHT);
 
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: addresses,
-            min_required_sigs: 3,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_800_000_000);
-
-        // All 5 attestors sign
-        let signatures: Vec<_> = attestors
-            .iter()
-            .map(|a| a.sign(&attestation_data))
-            .collect();
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures,
-            })
-            .unwrap(),
-        };
-
+        let attestor_refs: Vec<_> = attestors.iter().collect();
+        let params = build_signed_params(&attestor_refs, NEW_HEIGHT, 1_800_000_000);
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_success(&test_accounts, instruction);
     }
 
     #[test]
     fn test_update_client_mixed_trusted_and_unknown_signer() {
-        // First signer is trusted, second is unknown - should fail
         let trusted_attestor = TestAttestor::new(1);
         let unknown_attestor = TestAttestor::new(2);
+        let test_accounts =
+            setup_attestor_accounts(vec![trusted_attestor.eth_address], 2, NEW_HEIGHT);
 
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![trusted_attestor.eth_address],
-            min_required_sigs: 2,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_800_000_000);
-
-        let sig1 = trusted_attestor.sign(&attestation_data);
-        let sig2 = unknown_attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![sig1, sig2],
-            })
-            .unwrap(),
-        };
-
+        let params = build_signed_params(
+            &[&trusted_attestor, &unknown_attestor],
+            NEW_HEIGHT,
+            1_800_000_000,
+        );
         let instruction =
             create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::UnknownSigner).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_update_client_single_attestor_happy_path() {
-        // Minimal quorum: 1 attestor, 1 required signature
-        let attestor = TestAttestor::new(1);
-
-        let client_state = ClientState {
-            version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
-            attestor_addresses: vec![attestor.eth_address],
-            min_required_sigs: 1,
-            latest_height: HEIGHT,
-            is_frozen: false,
-        };
-
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
-
-        let attestation_data =
-            crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_800_000_000);
-
-        let signature = attestor.sign(&attestation_data);
-
-        let params = UpdateClientParams {
-            proof: borsh::to_vec(&MembershipProof {
-                attestation_data,
-                signatures: vec![signature],
-            })
-            .unwrap(),
-        };
-
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, ErrorCode::UnknownSigner);
     }
 }

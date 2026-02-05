@@ -28,7 +28,6 @@ pub fn verify_attestation(
     }
 
     // Recover addresses and check for duplicates + trust in single pass
-    // Matches Solidity which checks duplicate recovered addresses, not signature bytes
     let mut recovered_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
         Vec::with_capacity(raw_signatures.len());
 

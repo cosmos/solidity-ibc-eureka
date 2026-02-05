@@ -168,19 +168,19 @@ mod tests {
         }
     }
 
-    fn create_default_initialize_instruction(
-        test_accounts: &TestAccounts,
-        client_id: &str,
-        latest_height: u64,
-    ) -> Instruction {
-        create_initialize_instruction(
-            test_accounts,
-            client_id,
-            latest_height,
-            vec![[1u8; 20]],
-            1,
-            DEFAULT_TIMESTAMP,
-        )
+    fn expect_error(test_accounts: &TestAccounts, instruction: Instruction, error: ErrorCode) {
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::error::Error::from(error).into())];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
+    fn expect_success(test_accounts: &TestAccounts, instruction: Instruction) {
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &test_accounts.accounts,
+            &[Check::success()],
+        );
     }
 
     #[test]
@@ -209,11 +209,12 @@ mod tests {
                 .owner(&crate::ID)
                 .build(),
         ];
-
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
     #[rstest::rstest]
+    #[case::empty_client_id("", HEIGHT, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::InvalidClientId)]
+    #[case::zero_height(DEFAULT_CLIENT_ID, 0, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::InvalidHeight)]
     #[case::empty_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![], 1, DEFAULT_TIMESTAMP, ErrorCode::NoAttestors)]
     #[case::zero_min_sigs(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 0, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
     #[case::min_sigs_exceeds_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
@@ -238,196 +239,33 @@ mod tests {
             min_sigs,
             timestamp,
         );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(expected_error).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_error(&test_accounts, instruction, expected_error);
     }
 
-    #[test]
-    fn test_initialize_empty_client_id() {
-        let client_id = "";
-        let test_accounts = setup_test_accounts(client_id, HEIGHT);
-        let instruction = create_default_initialize_instruction(&test_accounts, client_id, HEIGHT);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidClientId).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_zero_height() {
-        let zero_height = 0u64;
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, zero_height);
-        let instruction =
-            create_default_initialize_instruction(&test_accounts, DEFAULT_CLIENT_ID, zero_height);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidHeight).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_single_attestor() {
-        let client_id = "single-attestor-client";
-        let test_accounts = setup_test_accounts(client_id, 1);
+    #[rstest::rstest]
+    #[case::single_attestor("single-attestor-client", 1, vec![[0xAB; 20]], 1, DEFAULT_TIMESTAMP)]
+    #[case::min_sigs_equals_count("exact-sigs-client", 50, vec![[1u8; 20], [2u8; 20], [3u8; 20]], 3, DEFAULT_TIMESTAMP)]
+    #[case::large_height("large-height-client", u64::MAX, vec![[1u8; 20]], 1, u64::MAX)]
+    #[case::max_attestors("max-attestors-client", HEIGHT, (0u8..20).map(|i| [i; 20]).collect::<Vec<_>>(), 10, DEFAULT_TIMESTAMP)]
+    #[case::max_min_required_sigs("max-sigs-client", HEIGHT, (0u8..5).map(|i| [i; 20]).collect::<Vec<_>>(), 5, DEFAULT_TIMESTAMP)]
+    #[case::long_client_id("a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]", HEIGHT, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP)]
+    #[case::max_timestamp("max-timestamp-client", HEIGHT, vec![[1u8; 20]], 1, u64::MAX)]
+    fn test_initialize_success(
+        #[case] client_id: &str,
+        #[case] height: u64,
+        #[case] attestors: Vec<[u8; ETH_ADDRESS_LEN]>,
+        #[case] min_sigs: u8,
+        #[case] timestamp: u64,
+    ) {
+        let test_accounts = setup_test_accounts(client_id, height);
         let instruction = create_initialize_instruction(
             &test_accounts,
             client_id,
-            1,
-            vec![[0xAB; 20]],
-            1,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_min_sigs_equals_attestor_count() {
-        let client_id = "exact-sigs-client";
-        let test_accounts = setup_test_accounts(client_id, 50);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            50,
-            vec![[1u8; 20], [2u8; 20], [3u8; 20]],
-            3,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_large_height() {
-        let client_id = "large-height-client";
-        let max_height = u64::MAX;
-        let test_accounts = setup_test_accounts(client_id, max_height);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            max_height,
-            vec![[1u8; 20]],
-            1,
-            u64::MAX,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_max_attestors() {
-        let client_id = "max-attestors-client";
-        let test_accounts = setup_test_accounts(client_id, HEIGHT);
-
-        // Create 20 unique attestor addresses (max_len from ClientState)
-        let attestors: Vec<[u8; ETH_ADDRESS_LEN]> = (0u8..20).map(|i| [i; 20]).collect();
-
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            HEIGHT,
+            height,
             attestors,
-            10, // Require half for quorum
-            DEFAULT_TIMESTAMP,
+            min_sigs,
+            timestamp,
         );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_max_min_required_sigs() {
-        let client_id = "max-sigs-client";
-        let test_accounts = setup_test_accounts(client_id, HEIGHT);
-
-        // 5 attestors, require all 5 signatures
-        let attestors: Vec<[u8; ETH_ADDRESS_LEN]> = (0u8..5).map(|i| [i; 20]).collect();
-
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            HEIGHT,
-            attestors,
-            5,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_long_client_id() {
-        // PDA seeds have length limits, so test a reasonably long client_id
-        let client_id = "a]".repeat(16); // 32 chars
-        let test_accounts = setup_test_accounts(&client_id, HEIGHT);
-
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            &client_id,
-            HEIGHT,
-            vec![[1u8; 20]],
-            1,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_max_height() {
-        let client_id = "max-height-client";
-        let max_height = u64::MAX;
-        let test_accounts = setup_test_accounts(client_id, max_height);
-
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            max_height,
-            vec![[1u8; 20]],
-            1,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_max_timestamp() {
-        let client_id = "max-timestamp-client";
-        let test_accounts = setup_test_accounts(client_id, HEIGHT);
-
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            HEIGHT,
-            vec![[1u8; 20]],
-            1,
-            u64::MAX,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+        expect_success(&test_accounts, instruction);
     }
 }
