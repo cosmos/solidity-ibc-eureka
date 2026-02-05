@@ -57,6 +57,7 @@ pub struct UpdateClientParams {
 
 pub fn update_client<'info>(
     ctx: Context<'_, '_, 'info, 'info, UpdateClient<'info>>,
+    new_height: u64,
     params: UpdateClientParams,
 ) -> Result<()> {
     access_manager::require_role(
@@ -80,6 +81,8 @@ pub fn update_client<'info>(
         attestation.height > 0 && attestation.timestamp > 0,
         ErrorCode::InvalidState
     );
+
+    require!(new_height == attestation.height, ErrorCode::HeightMismatch);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
 
@@ -775,6 +778,48 @@ mod tests {
             consensus_state_store.consensus_state.timestamp,
             new_timestamp
         );
+    }
+
+    #[test]
+    fn test_update_client_height_mismatch() {
+        let attestor = TestAttestor::new(1);
+
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            client_id: DEFAULT_CLIENT_ID.to_string(),
+            attestor_addresses: vec![attestor.eth_address],
+            min_required_sigs: 1,
+            latest_height: HEIGHT,
+            is_frozen: false,
+        };
+
+        // PDA seed uses NEW_HEIGHT (200), but attestation contains a different height (150)
+        let mismatched_height = 150u64;
+        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
+
+        let attestation_data = crate::test_helpers::fixtures::encode_state_attestation(
+            mismatched_height,
+            1_800_000_000,
+        );
+
+        let signature = attestor.sign(&attestation_data);
+
+        let params = UpdateClientParams {
+            proof: borsh::to_vec(&MembershipProof {
+                attestation_data,
+                signatures: vec![signature],
+            })
+            .unwrap(),
+        };
+
+        let instruction =
+            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(ErrorCode::HeightMismatch).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
     #[test]

@@ -63,9 +63,8 @@ pub mod attestation {
         new_height: u64,
         params: UpdateClientParams,
     ) -> Result<()> {
-        // Suppress unused warnings - these are used in account validation
+        // client_id is used in account validation
         let _ = client_id;
-        let _ = new_height;
-        instructions::update_client::update_client(ctx, params)
+        instructions::update_client::update_client(ctx, new_height, params)
     }
 }
