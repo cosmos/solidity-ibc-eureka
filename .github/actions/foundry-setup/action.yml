@@ -12,7 +12,11 @@ runs:
     - name: Install Bun
       uses: oven-sh/setup-bun@v2
     - name: Install the Node.js dependencies
-      shell: bash
-      run: bun install
+      uses: nick-invision/retry@v3
+      with:
+        timeout_minutes: 10
+        max_attempts: 3
+        retry_wait_seconds: 5
+        command: bun install
     - name: Setup Protoc
       uses: taiki-e/install-action@protoc
