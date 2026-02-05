@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
+	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 
@@ -891,6 +892,64 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 		)
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
 			ift.ProgramID, mint, SolanaClientID, namespacedSequence)
+	}))
+}
+
+// Test_IFT_AdminMint tests that admin can mint tokens to any account
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminMint() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	const adminMintAmount = uint64(5_000_000)
+
+	s.Require().True(s.Run("Create IFT SPL token", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+	}))
+
+	mint := s.IFTMint()
+
+	receiverWallet, err := s.Solana.Chain.CreateAndFundWallet()
+	s.Require().NoError(err)
+
+	receiverATA, err := solana.AssociatedTokenAccountAddress(receiverWallet.PublicKey(), mint)
+	s.Require().NoError(err)
+
+	iftMintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
+
+	s.Require().True(s.Run("Admin mint tokens to receiver", func() {
+		adminMintMsg := ift.IftStateAdminMintMsg{
+			Receiver: receiverWallet.PublicKey(),
+			Amount:   adminMintAmount,
+		}
+
+		adminMintIx, err := ift.NewAdminMintInstruction(
+			adminMintMsg,
+			s.IFTAppState,
+			mint,
+			iftMintAuthorityPDA,
+			receiverATA,
+			receiverWallet.PublicKey(),
+			s.SolanaRelayer.PublicKey(), // admin
+			s.SolanaRelayer.PublicKey(), // payer
+			token.ProgramID,
+			associatedtokenaccount.ProgramID,
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), adminMintIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Admin mint tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify receiver balance", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverATA)
+		s.Require().NoError(err)
+		s.Require().Equal(adminMintAmount, balance)
 	}))
 }
 
