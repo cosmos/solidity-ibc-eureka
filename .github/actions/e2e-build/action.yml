@@ -48,7 +48,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: ~/.cargo/bin/relayer
-        key: ${{ runner.os }}-relayer-${{ hashFiles('programs/relayer/**', 'packages/**', 'Cargo.lock') }}
+        key: ${{ runner.os }}-relayer-${{ hashFiles('programs/relayer/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'Cargo.lock') }}
 
     - name: Install relayer
       if: steps.cache-relayer.outputs.cache-hit != 'true'

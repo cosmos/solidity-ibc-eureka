@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "programs/access-manager",
+  "programs/attestation",
   "programs/ics07-tendermint",
   "programs/ics26-router",
   "programs/ics27-gmp",
@@ -128,6 +129,13 @@ rstest = "0.26"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 rand = "0.8"
 
+## TODO: Update on anchor 1.0 when it will support rust edition 2004
+alloy-primitives = { version = "~1.1", default-features = false, features = ["k256"] }
+alloy-signer = { version = "~1.0", default-features = false }
+alloy-signer-local = { version = "~1.0", default-features = false }
+alloy-sol-types = { version = "~1.1", default-features = false }
+
+## TODO: Update on anchor 1.0 when it will support anchor sdk v3
 solana-account-info = { version = "2.2", default-features = false }
 solana-pubkey = { version = "2.2", default-features = false, features = ["sha2", "curve25519"] }
 solana-sha256-hasher = { version = "2.2", default-features = false }
@@ -135,6 +143,7 @@ solana-keccak-hasher = { version = "2.2", default-features = false }
 solana-msg = { version = "2.2", default-features = false }
 solana-sdk-ids = { version = "2.2", default-features = false }
 solana-define-syscall = { version = "2.2", default-features = false }
+solana-secp256k1-recover = { version = "2.2", default-features = false }
 
 [profile.dev]
 debug = 0
