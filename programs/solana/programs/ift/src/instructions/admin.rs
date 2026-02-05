@@ -207,6 +207,7 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;
+    use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -301,8 +302,6 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(result.program_result.is_err());
     }
-
-    use rstest::rstest;
 
     #[derive(Clone, Copy)]
     enum AdminMintErrorCase {
@@ -446,11 +445,7 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "admin_mint should fail for {:?}",
-            std::any::type_name::<AdminMintErrorCase>()
-        );
+        assert!(result.program_result.is_err());
     }
 
     #[rstest]
