@@ -1,12 +1,3 @@
-//! Cryptographic utilities for Ethereum signature verification on Solana.
-//!
-//! This module provides secp256k1 signature recovery and Ethereum address
-//! derivation with three implementations based on compilation target:
-//!
-//! - **Production** (`target_os = "solana"`): Uses `solana_secp256k1_recover` crate.
-//! - **Tests** (`#[cfg(test)]`): Uses `alloy_primitives` for native test execution.
-//! - **IDL generation**: Returns a stub error.
-
 use anchor_lang::prelude::*;
 
 use crate::error::ErrorCode;
@@ -17,19 +8,12 @@ const SIGNATURE_LEN: usize = SECP256K1_SIGNATURE_LENGTH + 1;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
 pub const ETH_ADDRESS_LEN: usize = 20;
 
-/// Prepared signature data for secp256k1 recovery.
 struct PreparedSignature {
     message_hash: [u8; solana_keccak_hasher::HASH_BYTES],
     sig_bytes: [u8; SECP256K1_SIGNATURE_LENGTH],
     recovery_id: u8,
 }
 
-/// Validate signature and prepare data for secp256k1 recovery.
-///
-/// Performs:
-/// - Signature length validation (must be 65 bytes)
-/// - SHA256 message hashing
-/// - Recovery ID normalization (27/28 → 0/1)
 fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignature> {
     use sha2::{Digest, Sha256};
 
@@ -53,7 +37,7 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
     })
 }
 
-/// Recover Ethereum address from a 65-byte secp256k1 ECDSA signature.
+/// Recover Ethereum address from a 65-byte secp256k1 signature.
 #[cfg(target_os = "solana")]
 pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
     let prepared = prepare_signature(message, signature)?;
@@ -68,7 +52,7 @@ pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_
     Ok(pubkey_to_eth_address(&pubkey.0))
 }
 
-/// Native test implementation using alloy for Ethereum signature recovery.
+/// Recover Ethereum address from a 65-byte secp256k1 signature (test impl).
 #[cfg(all(not(target_os = "solana"), test))]
 pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
     use alloy_primitives::Signature;
@@ -96,7 +80,6 @@ pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_
     Ok(address.0 .0)
 }
 
-/// Stub for non-Solana, non-test builds (IDL generation)
 #[cfg(all(not(target_os = "solana"), not(test)))]
 pub fn recover_eth_address(_message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
     if signature.len() != SIGNATURE_LEN {
@@ -105,12 +88,9 @@ pub fn recover_eth_address(_message: &[u8], signature: &[u8]) -> Result<[u8; ETH
     Err(error!(ErrorCode::InvalidSignature))
 }
 
-/// Convert a 64-byte secp256k1 public key to Ethereum address.
-///
-/// Ethereum address = last 20 bytes of `keccak256(uncompressed_pubkey)`
 fn pubkey_to_eth_address(pubkey: &[u8; SECP256K1_PUBLIC_KEY_LENGTH]) -> [u8; ETH_ADDRESS_LEN] {
     let solana_keccak_hasher::Hash(hash) = solana_keccak_hasher::hash(pubkey);
-    std::array::from_fn(|i| hash[hash.len() - ETH_ADDRESS_LEN + i])
+    hash[hash.len() - ETH_ADDRESS_LEN..].try_into().unwrap()
 }
 
 #[cfg(test)]

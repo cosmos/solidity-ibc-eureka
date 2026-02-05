@@ -1,5 +1,3 @@
-//! Attestation verification for the attestation light client.
-
 use anchor_lang::prelude::*;
 
 use crate::crypto::recover_eth_address;
@@ -7,13 +5,7 @@ use crate::error::ErrorCode;
 use crate::types::ClientState;
 use crate::ETH_ADDRESS_LEN;
 
-/// Verify attestation signatures and check recovered addresses against trusted set.
-///
-/// Validates that:
-/// - At least one signature is provided
-/// - Minimum required signatures threshold is met
-/// - No duplicate recovered addresses (same signer cannot sign twice)
-/// - All recovered addresses belong to trusted attestors
+/// Verify attestation signatures against the trusted attestor set.
 pub fn verify_attestation(
     client_state: &ClientState,
     attestation_data: &[u8],

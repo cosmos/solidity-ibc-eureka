@@ -116,7 +116,7 @@ pub mod accounts {
 }
 
 pub mod fixtures {
-    use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::types::{ClientState, ConsensusState};
     use crate::ETH_ADDRESS_LEN;
 
     pub const DEFAULT_TIMESTAMP: u64 = 1_700_000_000;
@@ -156,30 +156,7 @@ pub mod fixtures {
         }
     }
 
-    pub fn create_test_consensus_state(height: u64, timestamp: u64) -> ConsensusState {
-        ConsensusState { height, timestamp }
-    }
-
-    pub fn create_test_membership_proof(
-        attestation_data: Vec<u8>,
-        signatures: Vec<Vec<u8>>,
-    ) -> MembershipProof {
-        MembershipProof {
-            attestation_data,
-            signatures,
-        }
-    }
-
     /// Create ABI-encoded `PacketAttestation` for testing.
-    /// Matches alloy's `abi_encode()` output for:
-    /// `PacketAttestation { uint64 height; PacketCompact[] packets; }`
-    ///
-    /// Layout with tuple wrapper:
-    /// - `tuple_offset` (32 bytes) = 32, pointing to struct start
-    /// - height (32 bytes, u256)
-    /// - `packets_rel_offset` (32 bytes) = 64, relative to struct start
-    /// - packets array length (32 bytes)
-    /// - packets data (64 bytes per packet: path + commitment)
     pub fn encode_packet_attestation(height: u64, packets: &[([u8; 32], [u8; 32])]) -> Vec<u8> {
         let tuple_offset: u64 = 32; // Tuple wrapper points to byte 32
         let packets_rel_offset: u64 = 64; // Relative to struct start (after height + offset fields)
@@ -215,13 +192,8 @@ pub mod fixtures {
         data
     }
 
-    /// Create ABI-encoded `StateAttestation` for testing (used by `update_client`).
-    /// Matches Solidity: `StateAttestation { uint64 height; uint64 timestamp; }`
+    /// Create ABI-encoded `StateAttestation` for testing.
     pub fn encode_state_attestation(height: u64, timestamp: u64) -> Vec<u8> {
-        // ABI encoding layout:
-        // - height (32 bytes, right-padded u256)
-        // - timestamp (32 bytes, right-padded u256)
-
         let mut data = Vec::with_capacity(64);
 
         // Height (u256, big-endian)
@@ -237,7 +209,6 @@ pub mod fixtures {
         data
     }
 
-    /// Helper to create a test signature (65 bytes)
     pub fn create_test_signature() -> Vec<u8> {
         let mut sig = vec![0u8; 65];
         sig[64] = 27; // recovery_id

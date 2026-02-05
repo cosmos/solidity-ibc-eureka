@@ -86,10 +86,7 @@ pub fn update_client<'info>(
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
 
-    // Misbehaviour detection:
-    // - If consensus state exists with same timestamp → NoOp (return early)
-    // - If consensus state exists with different timestamp → freeze client and return success
-    //   (must return Ok so state change persists - errors revert all changes in Solana)
+    // Return Ok on misbehaviour so the client freeze persists (errors revert state in Solana)
     let existing_timestamp = consensus_state_store.consensus_state.timestamp;
     if existing_timestamp != 0 {
         if existing_timestamp != attestation.timestamp {

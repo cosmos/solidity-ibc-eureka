@@ -1,5 +1,3 @@
-//! ABI decoding for Ethereum-compatible attestation types using `alloy-sol-types`.
-
 use crate::error::ErrorCode;
 use crate::types::{PacketAttestation, PacketCommitment, StateAttestation};
 use alloy_sol_types::SolValue;
@@ -91,7 +89,6 @@ mod tests {
     #[rstest]
     #[case::too_short(vec![0u8; 63])]
     #[case::empty(vec![])]
-    #[case::one_byte_short(vec![0u8; 63])]
     fn test_decode_state_attestation_err(#[case] data: Vec<u8>) {
         assert!(decode_state_attestation(&data).is_err());
     }

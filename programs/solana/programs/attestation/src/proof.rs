@@ -1,20 +1,12 @@
-//! Membership proof handling for the attestation light client.
-//!
-//! This module provides deserialization for Borsh-encoded membership proofs
-//! with size validation to prevent allocation attacks.
-
 use anchor_lang::prelude::*;
 use borsh::BorshDeserialize;
 
 use crate::error::ErrorCode;
 use crate::types::MembershipProof;
 
-/// Maximum allowed proof size to prevent allocation attacks.
 const MAX_PROOF_SIZE: usize = 64 * 1024; // 64 KB
 
-/// Deserialize membership proof from Borsh-encoded bytes.
-///
-/// Validates size before deserialization to prevent allocation panics from malicious data.
+/// Deserialize membership proof with size validation.
 pub fn deserialize_membership_proof(proof_bytes: &[u8]) -> Result<MembershipProof> {
     if proof_bytes.len() > MAX_PROOF_SIZE {
         msg!(

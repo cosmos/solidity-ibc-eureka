@@ -64,7 +64,6 @@ pub mod attestation {
         new_height: u64,
         params: UpdateClientParams,
     ) -> Result<()> {
-        // client_id is used in account validation
         let _ = client_id;
         instructions::update_client::update_client(ctx, new_height, params)
     }
