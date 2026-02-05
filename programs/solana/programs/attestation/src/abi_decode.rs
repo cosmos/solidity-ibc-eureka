@@ -152,6 +152,7 @@ pub fn decode_state_attestation(data: &[u8]) -> Result<StateAttestation> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
     fn encode_u256(value: u64) -> [u8; 32] {
         let mut bytes = [0u8; 32];
@@ -159,13 +160,30 @@ mod tests {
         bytes
     }
 
-    // ==================== StateAttestation tests ====================
+    /// Build a standard packet attestation header (tuple_offset, height, packets_rel_offset, packets_len)
+    fn build_packet_header(
+        tuple_offset: u64,
+        height: u64,
+        packets_rel_offset: u64,
+        packets_len: u64,
+    ) -> Vec<u8> {
+        let mut data = Vec::new();
+        data.extend_from_slice(&encode_u256(tuple_offset));
+        data.extend_from_slice(&encode_u256(height));
+        data.extend_from_slice(&encode_u256(packets_rel_offset));
+        data.extend_from_slice(&encode_u256(packets_len));
+        data
+    }
 
-    #[test]
-    fn test_decode_state_attestation_basic() {
-        let height: u64 = 100;
-        let timestamp: u64 = 1_700_000_000;
+    // ==================== StateAttestation success tests ====================
 
+    #[rstest]
+    #[case::basic(100, 1_700_000_000)]
+    #[case::zero_values(0, 0)]
+    #[case::max_values(u64::MAX, u64::MAX)]
+    #[case::realistic_values(18_500_000, 1_700_000_000)]
+    #[case::exactly_minimum_size(1, 2)]
+    fn test_decode_state_attestation_ok(#[case] height: u64, #[case] timestamp: u64) {
         let mut data = Vec::new();
         data.extend_from_slice(&encode_u256(height));
         data.extend_from_slice(&encode_u256(timestamp));
@@ -175,37 +193,11 @@ mod tests {
         assert_eq!(result.timestamp, timestamp);
     }
 
-    #[test]
-    fn test_decode_state_attestation_zero_values() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(0));
-        data.extend_from_slice(&encode_u256(0));
-
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, 0);
-        assert_eq!(result.timestamp, 0);
-    }
-
-    #[test]
-    fn test_decode_state_attestation_max_values() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(u64::MAX));
-        data.extend_from_slice(&encode_u256(u64::MAX));
-
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, u64::MAX);
-        assert_eq!(result.timestamp, u64::MAX);
-    }
-
-    #[test]
-    fn test_decode_state_attestation_too_short() {
-        let data = vec![0u8; 63];
-        assert!(decode_state_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_state_attestation_empty() {
-        let data: Vec<u8> = vec![];
+    #[rstest]
+    #[case::too_short(vec![0u8; 63])]
+    #[case::empty(vec![])]
+    #[case::one_byte_short(vec![0u8; 63])]
+    fn test_decode_state_attestation_err(#[case] data: Vec<u8>) {
         assert!(decode_state_attestation(&data).is_err());
     }
 
@@ -222,30 +214,88 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_state_attestation_realistic_values() {
-        // Realistic block height and Unix timestamp
-        let height: u64 = 18_500_000; // Ethereum mainnet block
-        let timestamp: u64 = 1_700_000_000; // Nov 2023
-
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(height));
-        data.extend_from_slice(&encode_u256(timestamp));
+    fn test_decode_state_attestation_non_zero_high_bytes() {
+        let mut data = vec![0xffu8; 64];
+        data[24..32].copy_from_slice(&42u64.to_be_bytes());
+        data[56..64].copy_from_slice(&123u64.to_be_bytes());
 
         let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, height);
-        assert_eq!(result.timestamp, timestamp);
+        assert_eq!(result.height, 42);
+        assert_eq!(result.timestamp, 123);
     }
 
-    // ==================== PacketAttestation tests ====================
+    #[test]
+    fn test_decode_state_attestation_all_zeros() {
+        let data = vec![0u8; 64];
+        let result = decode_state_attestation(&data).unwrap();
+        assert_eq!(result.height, 0);
+        assert_eq!(result.timestamp, 0);
+    }
+
+    // ==================== PacketAttestation error tests ====================
+
+    fn build_packet_err_truncated_array() -> Vec<u8> {
+        let mut data = build_packet_header(32, 100, 64, 3);
+        data.extend_from_slice(&[1u8; 32]); // Only 1 partial packet
+        data.extend_from_slice(&[2u8; 32]);
+        data
+    }
+
+    fn build_packet_err_partial_packet() -> Vec<u8> {
+        let mut data = build_packet_header(32, 100, 64, 1);
+        data.extend_from_slice(&[1u8; 32]); // Only path, missing commitment
+        data
+    }
+
+    fn build_packet_err_one_byte_short_for_packet() -> Vec<u8> {
+        let mut data = build_packet_header(32, 100, 64, 1);
+        data.extend_from_slice(&[0u8; 63]); // 63 bytes instead of 64
+        data
+    }
+
+    fn build_packet_err_all_ones() -> Vec<u8> {
+        let mut data = vec![0xffu8; 128];
+        data[0..32].copy_from_slice(&encode_u256(32));
+        data
+    }
+
+    fn build_packet_err_multiplication_overflow() -> Vec<u8> {
+        let overflow_count = (usize::MAX / 64).saturating_add(1) as u64;
+        build_packet_header(32, 100, 64, overflow_count)
+    }
+
+    #[rstest]
+    #[case::too_short(vec![0u8; 127])]
+    #[case::empty(vec![])]
+    #[case::one_byte_short_for_header(vec![0u8; 127])]
+    #[case::invalid_tuple_offset_zero(build_packet_header(0, 100, 64, 0))]
+    #[case::invalid_tuple_offset_wrong(build_packet_header(64, 100, 64, 0))]
+    #[case::offset_out_of_bounds(build_packet_header(32, 100, 1000, 0))]
+    #[case::huge_packet_count(build_packet_header(32, 100, 64, u64::MAX))]
+    #[case::large_offset_overflow(build_packet_header(32, 100, u64::MAX, 0))]
+    #[case::offset_causes_wrap(build_packet_header(32, 100, (usize::MAX - 16) as u64, 0))]
+    #[case::all_zeros(vec![0u8; 128])]
+    #[case::truncated_packets_array(build_packet_err_truncated_array())]
+    #[case::partial_packet(build_packet_err_partial_packet())]
+    #[case::one_byte_short_for_packet(build_packet_err_one_byte_short_for_packet())]
+    #[case::all_ones(build_packet_err_all_ones())]
+    #[case::packet_count_multiplication_overflow(build_packet_err_multiplication_overflow())]
+    #[case::packets_length_at_boundary({
+        let mut d = Vec::new();
+        d.extend_from_slice(&encode_u256(32));
+        d.extend_from_slice(&encode_u256(100));
+        d.extend_from_slice(&encode_u256(64));
+        d
+    })]
+    fn test_decode_packet_attestation_err(#[case] data: Vec<u8>) {
+        assert!(decode_packet_attestation(&data).is_err());
+    }
+
+    // ==================== PacketAttestation success tests ====================
 
     #[test]
     fn test_decode_packet_attestation_empty_packets() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32)); // tuple offset
-        data.extend_from_slice(&encode_u256(100)); // height
-        data.extend_from_slice(&encode_u256(64)); // packets rel offset
-        data.extend_from_slice(&encode_u256(0)); // packets length
-
+        let data = build_packet_header(32, 100, 64, 0);
         let result = decode_packet_attestation(&data).unwrap();
         assert_eq!(result.height, 100);
         assert!(result.packets.is_empty());
@@ -256,11 +306,7 @@ mod tests {
         let path = [0xabu8; 32];
         let commitment = [0xcdu8; 32];
 
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(500));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(1));
+        let mut data = build_packet_header(32, 500, 64, 1);
         data.extend_from_slice(&path);
         data.extend_from_slice(&commitment);
 
@@ -279,11 +325,7 @@ mod tests {
             ([5u8; 32], [6u8; 32]),
         ];
 
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(999));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(packets_data.len() as u64));
+        let mut data = build_packet_header(32, 999, 64, packets_data.len() as u64);
         for (path, commitment) in &packets_data {
             data.extend_from_slice(path);
             data.extend_from_slice(commitment);
@@ -298,107 +340,18 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_decode_packet_attestation_zero_height() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(0));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
-
+    #[rstest]
+    #[case::zero_height(0)]
+    #[case::max_height(u64::MAX)]
+    fn test_decode_packet_attestation_height_boundary(#[case] height: u64) {
+        let data = build_packet_header(32, height, 64, 0);
         let result = decode_packet_attestation(&data).unwrap();
-        assert_eq!(result.height, 0);
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_max_height() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(u64::MAX));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
-
-        let result = decode_packet_attestation(&data).unwrap();
-        assert_eq!(result.height, u64::MAX);
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_too_short() {
-        let data = vec![0u8; 127];
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_empty() {
-        let data: Vec<u8> = vec![];
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_invalid_tuple_offset_zero() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(0)); // Invalid: should be 32
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_invalid_tuple_offset_wrong_value() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(64)); // Invalid: should be 32
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_packets_offset_out_of_bounds() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(1000)); // Points beyond data
-        data.extend_from_slice(&encode_u256(0));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_truncated_packets_array() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(3)); // Claims 3 packets
-        data.extend_from_slice(&[1u8; 32]); // Only 1 packet
-        data.extend_from_slice(&[2u8; 32]);
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_partial_packet() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(1));
-        data.extend_from_slice(&[1u8; 32]); // Only path, missing commitment
-
-        assert!(decode_packet_attestation(&data).is_err());
+        assert_eq!(result.height, height);
     }
 
     #[test]
     fn test_decode_packet_attestation_extra_data_ignored() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(42));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
+        let mut data = build_packet_header(32, 42, 64, 0);
         data.extend_from_slice(&[0xffu8; 128]); // Extra garbage
 
         let result = decode_packet_attestation(&data).unwrap();
@@ -409,11 +362,7 @@ mod tests {
     #[test]
     fn test_decode_packet_attestation_many_packets() {
         let packet_count = 100;
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(12345));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(packet_count));
+        let mut data = build_packet_header(32, 12345, 64, packet_count);
 
         for i in 0..packet_count {
             let mut path = [0u8; 32];
@@ -447,11 +396,7 @@ mod tests {
             c
         };
 
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(777));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(1));
+        let mut data = build_packet_header(32, 777, 64, 1);
         data.extend_from_slice(&path1);
         data.extend_from_slice(&commitment1);
 
@@ -463,15 +408,9 @@ mod tests {
         );
     }
 
-    // ==================== Edge cases for internal helpers ====================
-
     #[test]
     fn test_decode_packet_attestation_exactly_minimum_size() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(1));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(0));
+        let data = build_packet_header(32, 1, 64, 0);
         assert_eq!(data.len(), 128);
 
         let result = decode_packet_attestation(&data).unwrap();
@@ -480,65 +419,10 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_state_attestation_exactly_minimum_size() {
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(1));
-        data.extend_from_slice(&encode_u256(2));
-        assert_eq!(data.len(), 64);
-
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, 1);
-        assert_eq!(result.timestamp, 2);
-    }
-
-    // ==================== Overflow and boundary tests ====================
-
-    #[test]
-    fn test_decode_packet_attestation_huge_packet_count_overflow() {
-        // Test that a malicious huge packet count doesn't cause overflow
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(u64::MAX)); // Impossibly large count
-
-        // Should fail gracefully due to bounds check, not panic from overflow
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_large_offset_overflow() {
-        // Test that a huge relative offset doesn't cause overflow
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(u64::MAX)); // Huge offset
-        data.extend_from_slice(&encode_u256(0));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_state_attestation_non_zero_high_bytes() {
-        // ABI encodes u64 as u256 with zero high bytes, but we should handle
-        // non-zero high bytes gracefully (they're ignored, only last 8 bytes matter)
-        let mut data = vec![0xffu8; 64]; // All 0xff
-                                         // Set the actual u64 values in the last 8 bytes of each word
-        data[24..32].copy_from_slice(&42u64.to_be_bytes());
-        data[56..64].copy_from_slice(&123u64.to_be_bytes());
-
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, 42);
-        assert_eq!(result.timestamp, 123);
-    }
-
-    #[test]
     fn test_decode_packet_attestation_non_zero_high_bytes_in_height() {
-        // Height word has non-zero high bytes (ignored)
         let mut data = Vec::new();
         data.extend_from_slice(&encode_u256(32));
 
-        // Height with garbage in high bytes
         let mut height_word = [0xffu8; 32];
         height_word[24..32].copy_from_slice(&999u64.to_be_bytes());
         data.extend_from_slice(&height_word);
@@ -551,94 +435,8 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_packet_attestation_one_byte_short_for_header() {
-        // 127 bytes - exactly 1 byte short of minimum
-        let data = vec![0u8; 127];
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_state_attestation_one_byte_short() {
-        // 63 bytes - exactly 1 byte short of minimum
-        let data = vec![0u8; 63];
-        assert!(decode_state_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_one_byte_short_for_packet() {
-        // Header is valid, but packet data is 1 byte short
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(1)); // Claims 1 packet
-        data.extend_from_slice(&[0u8; 63]); // 63 bytes instead of 64
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_offset_causes_wrap() {
-        // Offset that when added to base could wrap around
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        // Use a value that's large but not u64::MAX
-        data.extend_from_slice(&encode_u256((usize::MAX - 16) as u64));
-        data.extend_from_slice(&encode_u256(0));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_packet_count_causes_multiplication_overflow() {
-        // Packet count that when multiplied by 64 would overflow
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        // usize::MAX / 64 + 1 would overflow when multiplied by 64
-        let overflow_count = (usize::MAX / 64).saturating_add(1) as u64;
-        data.extend_from_slice(&encode_u256(overflow_count));
-
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_all_zeros() {
-        // Completely zero data (invalid tuple offset)
-        let data = vec![0u8; 128];
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
-    fn test_decode_state_attestation_all_zeros() {
-        // Completely zero data (valid - height=0, timestamp=0)
-        let data = vec![0u8; 64];
-        let result = decode_state_attestation(&data).unwrap();
-        assert_eq!(result.height, 0);
-        assert_eq!(result.timestamp, 0);
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_all_ones() {
-        // All 0xff bytes
-        let mut data = vec![0xffu8; 128];
-        // Fix tuple offset to be 32
-        data[0..32].copy_from_slice(&encode_u256(32));
-
-        // Will fail because offset 0xffffffffffffffff is out of bounds
-        assert!(decode_packet_attestation(&data).is_err());
-    }
-
-    #[test]
     fn test_decode_packet_attestation_valid_with_zero_path_and_commitment() {
-        // Packets with all-zero path and commitment are valid
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64));
-        data.extend_from_slice(&encode_u256(1));
+        let mut data = build_packet_header(32, 100, 64, 1);
         data.extend_from_slice(&[0u8; 32]); // zero path
         data.extend_from_slice(&[0u8; 32]); // zero commitment
 
@@ -646,18 +444,5 @@ mod tests {
         assert_eq!(result.packets.len(), 1);
         assert_eq!(result.packets[0].path, [0u8; 32]);
         assert_eq!(result.packets[0].commitment, [0u8; 32]);
-    }
-
-    #[test]
-    fn test_decode_packet_attestation_packets_length_at_boundary() {
-        // Packets length field exactly at data boundary
-        let mut data = Vec::new();
-        data.extend_from_slice(&encode_u256(32));
-        data.extend_from_slice(&encode_u256(100));
-        data.extend_from_slice(&encode_u256(64)); // Points to byte 96
-                                                  // Data ends at 96, so reading length at 96 should fail
-                                                  // Total: 96 bytes, need 128 minimum
-
-        assert!(decode_packet_attestation(&data).is_err());
     }
 }

@@ -61,31 +61,20 @@ mod tests {
         assert!(result.signatures.is_empty());
     }
 
-    #[test]
-    fn test_deserialize_membership_proof_invalid_bytes() {
-        let invalid_bytes = b"not valid borsh data";
-        let result = deserialize_membership_proof(invalid_bytes);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_deserialize_membership_proof_truncated() {
+    #[rstest::rstest]
+    #[case::invalid_bytes(b"not valid borsh data".to_vec())]
+    #[case::truncated({
         let proof = MembershipProof {
             attestation_data: vec![1, 2, 3],
             signatures: vec![vec![4, 5, 6]],
         };
-        let mut borsh_bytes = borsh::to_vec(&proof).unwrap();
-        borsh_bytes.truncate(5);
-
-        let result = deserialize_membership_proof(&borsh_bytes);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_deserialize_membership_proof_empty_bytes() {
-        let empty: &[u8] = b"";
-        let result = deserialize_membership_proof(empty);
-        assert!(result.is_err());
+        let mut bytes = borsh::to_vec(&proof).unwrap();
+        bytes.truncate(5);
+        bytes
+    })]
+    #[case::empty_bytes(vec![])]
+    fn test_deserialize_membership_proof_invalid(#[case] data: Vec<u8>) {
+        assert!(deserialize_membership_proof(&data).is_err());
     }
 
     #[test]

@@ -47,3 +47,4 @@ solana-sdk          = { workspace = true }
 hex                 = { workspace = true }
 bincode             = { workspace = true }
 k256                = { version = "0.13", features = ["ecdsa", "ecdsa-core"] }
+rstest              = { workspace = true }

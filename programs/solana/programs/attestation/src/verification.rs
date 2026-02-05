@@ -1,6 +1,4 @@
 //! Attestation verification for the attestation light client.
-//!
-//! This module handles signature verification against a set of trusted attestors.
 
 use anchor_lang::prelude::*;
 
@@ -51,18 +49,10 @@ pub fn verify_attestation(
 
 #[cfg(test)]
 mod tests {
-    //! Unit tests for attestation verification logic.
-    //!
-    //! These tests run natively with `cargo test` (not in SVM). Tests using `TestAttestor`
-    //! require actual signature recovery, which is provided by k256 crate in native builds
-    //! (see `crypto.rs`). This enables fast iteration and debugging of verification logic.
-    //!
-    //! For integration tests that use the real Solana `secp256k1_recover` syscall,
-    //! see the Mollusk-based tests in `instructions/*.rs`.
-
     use super::*;
     use crate::test_helpers::signing::TestAttestor;
     use crate::types::AccountVersion;
+    use rstest::rstest;
 
     fn create_test_client_state(
         attestor_addresses: Vec<[u8; 20]>,
@@ -84,88 +74,53 @@ mod tests {
         sig
     }
 
-    #[test]
-    fn test_verify_attestation_no_signatures() {
-        let client_state = create_test_client_state(vec![[1u8; 20]], 1);
-        let attestation_data = b"test data";
-        let signatures: Vec<Vec<u8>> = vec![];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_too_few_signatures() {
-        let client_state = create_test_client_state(vec![[1u8; 20], [2u8; 20]], 2);
-        let attestation_data = b"test data";
-        let signatures = vec![create_test_signature(1)];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_duplicate_signers() {
-        // Duplicate signatures recover to same address, triggering DuplicateSigner error
-        let client_state = create_test_client_state(vec![[1u8; 20], [2u8; 20]], 2);
-        let attestation_data = b"test data";
-        let sig = create_test_signature(1);
-        let signatures = vec![sig.clone(), sig];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_min_sigs_zero_with_no_sigs() {
-        let client_state = create_test_client_state(vec![[1u8; 20]], 0);
-        let attestation_data = b"test data";
-        let signatures: Vec<Vec<u8>> = vec![];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_different_signatures() {
-        let client_state = create_test_client_state(vec![[1u8; 20], [2u8; 20]], 2);
-        let attestation_data = b"test data";
-        let sig1 = create_test_signature(1);
-        let sig2 = create_test_signature(2);
-
-        let result = verify_attestation(&client_state, attestation_data, &[sig1, sig2]);
-        // Will fail at signature recovery (stub returns error), but not at duplicate check
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_exact_required_sigs() {
-        let client_state = create_test_client_state(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2);
-        let attestation_data = b"test data";
-        let signatures = vec![create_test_signature(1), create_test_signature(2)];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        // Will fail at signature recovery, but passes the count check
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_more_than_required_sigs() {
-        let client_state = create_test_client_state(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2);
-        let attestation_data = b"test data";
-        let signatures = vec![
-            create_test_signature(1),
-            create_test_signature(2),
-            create_test_signature(3),
-        ];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        // Will fail at signature recovery, but passes the count check
+    #[rstest]
+    #[case::no_signatures(vec![[1u8; 20]], 1, vec![])]
+    #[case::too_few_signatures(vec![[1u8; 20], [2u8; 20]], 2, vec![create_test_signature(1)])]
+    #[case::duplicate_signers(vec![[1u8; 20], [2u8; 20]], 2, vec![create_test_signature(1), create_test_signature(1)])]
+    #[case::min_sigs_zero_with_no_sigs(vec![[1u8; 20]], 0, vec![])]
+    #[case::different_signatures(vec![[1u8; 20], [2u8; 20]], 2, vec![create_test_signature(1), create_test_signature(2)])]
+    #[case::exact_required_sigs(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2, vec![create_test_signature(1), create_test_signature(2)])]
+    #[case::more_than_required_sigs(vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2, vec![create_test_signature(1), create_test_signature(2), create_test_signature(3)])]
+    fn test_verify_attestation_stub_signature_errors(
+        #[case] addrs: Vec<[u8; 20]>,
+        #[case] min_sigs: u8,
+        #[case] signatures: Vec<Vec<u8>>,
+    ) {
+        let client_state = create_test_client_state(addrs, min_sigs);
+        let result = verify_attestation(&client_state, b"test data", &signatures);
         assert!(result.is_err());
     }
 
     // Tests below use TestAttestor which creates real ECDSA signatures.
     // Signature recovery uses k256 crate in native builds (see crypto.rs).
+
+    #[rstest]
+    #[case::duplicate_signer_same_key(1, &[1], 2, &[1, 1])]
+    #[case::unknown_signer(2, &[1], 1, &[2])]
+    #[case::mixed_trusted_and_unknown(2, &[1], 2, &[1, 2])]
+    fn test_verify_attestation_real_signature_errors(
+        #[case] num_attestors: u8,
+        #[case] trusted_seeds: &[u8],
+        #[case] min_sigs: u8,
+        #[case] signer_seeds: &[u8],
+    ) {
+        let attestors: Vec<_> = (1..=num_attestors).map(TestAttestor::new).collect();
+        let trusted_addrs: Vec<_> = trusted_seeds
+            .iter()
+            .map(|&s| attestors[(s - 1) as usize].eth_address)
+            .collect();
+        let client_state = create_test_client_state(trusted_addrs, min_sigs);
+        let attestation_data = b"test data";
+
+        let signatures: Vec<_> = signer_seeds
+            .iter()
+            .map(|&s| attestors[(s - 1) as usize].sign(attestation_data))
+            .collect();
+
+        let result = verify_attestation(&client_state, attestation_data, &signatures);
+        assert!(result.is_err());
+    }
 
     #[test]
     fn test_verify_attestation_happy_path() {
@@ -180,47 +135,6 @@ mod tests {
 
         let result = verify_attestation(&client_state, attestation_data, &[sig1, sig2]);
         assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_verify_attestation_duplicate_signer_same_key() {
-        let attestor = TestAttestor::new(1);
-        let client_state = create_test_client_state(vec![attestor.eth_address], 2);
-        let attestation_data = b"test data";
-
-        // Same attestor signs twice - identical signatures recover to same address
-        let sig = attestor.sign(attestation_data);
-        let signatures = vec![sig.clone(), sig];
-
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_unknown_signer() {
-        let trusted_attestor = TestAttestor::new(1);
-        let unknown_attestor = TestAttestor::new(2);
-        let client_state = create_test_client_state(vec![trusted_attestor.eth_address], 1);
-        let attestation_data = b"test data";
-
-        let sig = unknown_attestor.sign(attestation_data);
-
-        let result = verify_attestation(&client_state, attestation_data, &[sig]);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_verify_attestation_mixed_trusted_and_unknown() {
-        let trusted_attestor = TestAttestor::new(1);
-        let unknown_attestor = TestAttestor::new(2);
-        let client_state = create_test_client_state(vec![trusted_attestor.eth_address], 2);
-        let attestation_data = b"test data";
-
-        let sig1 = trusted_attestor.sign(attestation_data);
-        let sig2 = unknown_attestor.sign(attestation_data);
-
-        let result = verify_attestation(&client_state, attestation_data, &[sig1, sig2]);
-        assert!(result.is_err());
     }
 
     #[test]

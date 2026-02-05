@@ -147,42 +147,30 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_verify_membership_empty_value() {
+    #[rstest::rstest]
+    #[case::empty_path(vec![], vec![1; 32], ErrorCode::InvalidPathLength)]
+    #[case::two_paths(vec![b"path1".to_vec(), b"path2".to_vec()], vec![1, 2, 3], ErrorCode::InvalidPathLength)]
+    #[case::three_paths(vec![b"path1".to_vec(), b"path2".to_vec(), b"path3".to_vec()], vec![1; 32], ErrorCode::InvalidPathLength)]
+    #[case::empty_value(vec![b"test/path".to_vec()], vec![], ErrorCode::EmptyValue)]
+    fn test_verify_membership_input_validation_error(
+        #[case] path: Vec<Vec<u8>>,
+        #[case] value: Vec<u8>,
+        #[case] expected_error: ErrorCode,
+    ) {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
 
         let msg = MembershipMsg {
             height: HEIGHT,
             proof: vec![],
-            path: vec![b"test/path".to_vec()],
-            value: vec![],
+            path,
+            value,
         };
 
         let instruction = create_verify_membership_instruction(&test_accounts, msg);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::EmptyValue).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_verify_membership_invalid_path_length() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-
-        let msg = MembershipMsg {
-            height: HEIGHT,
-            proof: vec![],
-            path: vec![b"path1".to_vec(), b"path2".to_vec()],
-            value: vec![1, 2, 3],
-        };
-
-        let instruction = create_verify_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidPathLength).into(),
+            anchor_lang::error::Error::from(expected_error).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
@@ -235,26 +223,6 @@ mod tests {
             result.program_result.is_err(),
             "Expected instruction to fail with invalid proof data"
         );
-    }
-
-    #[test]
-    fn test_verify_membership_empty_path() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-
-        let msg = MembershipMsg {
-            height: HEIGHT,
-            proof: vec![],
-            path: vec![],
-            value: vec![1; 32],
-        };
-
-        let instruction = create_verify_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidPathLength).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
     #[test]
@@ -398,26 +366,6 @@ mod tests {
             result.program_result.is_err(),
             "Expected instruction to fail for empty attestation"
         );
-    }
-
-    #[test]
-    fn test_verify_membership_three_paths() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-
-        let msg = MembershipMsg {
-            height: HEIGHT,
-            proof: vec![],
-            path: vec![b"path1".to_vec(), b"path2".to_vec(), b"path3".to_vec()],
-            value: vec![1; 32],
-        };
-
-        let instruction = create_verify_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidPathLength).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
     #[test]

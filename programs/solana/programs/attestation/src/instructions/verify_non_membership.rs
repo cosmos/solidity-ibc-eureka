@@ -149,14 +149,17 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_verify_non_membership_invalid_path_length() {
+    #[rstest::rstest]
+    #[case::empty_path(vec![])]
+    #[case::two_paths(vec![b"path1".to_vec(), b"path2".to_vec()])]
+    #[case::three_paths(vec![b"path1".to_vec(), b"path2".to_vec(), b"path3".to_vec()])]
+    fn test_verify_non_membership_invalid_path_length(#[case] path: Vec<Vec<u8>>) {
         let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
 
         let msg = NonMembershipMsg {
             height: HEIGHT,
             proof: vec![],
-            path: vec![b"path1".to_vec(), b"path2".to_vec()],
+            path,
         };
 
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
@@ -191,25 +194,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::err(
             anchor_lang::error::Error::from(ErrorCode::FrozenClientState).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_verify_non_membership_empty_path() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-
-        let msg = NonMembershipMsg {
-            height: HEIGHT,
-            proof: vec![],
-            path: vec![],
-        };
-
-        let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidPathLength).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
@@ -419,25 +403,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::err(
             anchor_lang::error::Error::from(ErrorCode::DuplicateSigner).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_verify_non_membership_three_paths() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-
-        let msg = NonMembershipMsg {
-            height: HEIGHT,
-            proof: vec![],
-            path: vec![b"path1".to_vec(), b"path2".to_vec(), b"path3".to_vec()],
-        };
-
-        let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidPathLength).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }

@@ -172,24 +172,21 @@ pub fn hash_path(path: &[u8]) -> [u8; 32] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
 
-    #[test]
-    fn test_keccak256() {
-        let data = b"hello";
-        let hash = keccak256(data);
+    #[rstest]
+    #[case::hello(
+        b"hello",
+        "1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8"
+    )]
+    #[case::empty(
+        b"",
+        "c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+    )]
+    fn test_keccak256(#[case] input: &[u8], #[case] expected_hex: &str) {
+        let hash = keccak256(input);
         assert_eq!(hash.len(), 32);
-        let expected =
-            hex::decode("1c8aff950685c2ed4bc3174f3472287b56d9517b9c948127319a09a7a36deac8")
-                .unwrap();
-        assert_eq!(hash.as_slice(), expected.as_slice());
-    }
-
-    #[test]
-    fn test_keccak256_empty() {
-        let hash = keccak256(b"");
-        let expected =
-            hex::decode("c5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470")
-                .unwrap();
+        let expected = hex::decode(expected_hex).unwrap();
         assert_eq!(hash.as_slice(), expected.as_slice());
     }
 
@@ -238,24 +235,11 @@ mod tests {
         assert_ne!(hash1, hash2);
     }
 
-    #[test]
-    fn test_recover_eth_address_invalid_signature_length_short() {
-        let message = b"test message";
-        let short_sig = vec![0u8; 64];
-        assert!(recover_eth_address(message, &short_sig).is_err());
-    }
-
-    #[test]
-    fn test_recover_eth_address_invalid_signature_length_long() {
-        let message = b"test message";
-        let long_sig = vec![0u8; 66];
-        assert!(recover_eth_address(message, &long_sig).is_err());
-    }
-
-    #[test]
-    fn test_recover_eth_address_empty_signature() {
-        let message = b"test message";
-        let empty_sig: Vec<u8> = vec![];
-        assert!(recover_eth_address(message, &empty_sig).is_err());
+    #[rstest]
+    #[case::short(vec![0u8; 64])]
+    #[case::long(vec![0u8; 66])]
+    #[case::empty(vec![])]
+    fn test_recover_eth_address_invalid_signature_length(#[case] sig: Vec<u8>) {
+        assert!(recover_eth_address(b"test message", &sig).is_err());
     }
 }

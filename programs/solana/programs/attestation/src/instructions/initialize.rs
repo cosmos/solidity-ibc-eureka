@@ -212,6 +212,38 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
+    #[rstest::rstest]
+    #[case::empty_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![], 1, DEFAULT_TIMESTAMP, ErrorCode::NoAttestors)]
+    #[case::zero_min_sigs(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 0, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
+    #[case::min_sigs_exceeds_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
+    #[case::zero_timestamp(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 1, 0, ErrorCode::InvalidTimestamp)]
+    #[case::duplicate_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    #[case::duplicate_attestors_adjacent(DEFAULT_CLIENT_ID, HEIGHT, vec![[5u8; 20], [5u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    fn test_initialize_error(
+        #[case] client_id: &str,
+        #[case] height: u64,
+        #[case] attestors: Vec<[u8; 20]>,
+        #[case] min_sigs: u8,
+        #[case] timestamp: u64,
+        #[case] expected_error: ErrorCode,
+    ) {
+        let test_accounts = setup_test_accounts(client_id, height);
+        let instruction = create_initialize_instruction(
+            &test_accounts,
+            client_id,
+            height,
+            attestors,
+            min_sigs,
+            timestamp,
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(expected_error).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
+
     #[test]
     fn test_initialize_empty_client_id() {
         let client_id = "";
@@ -221,63 +253,6 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::err(
             anchor_lang::error::Error::from(ErrorCode::InvalidClientId).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_empty_attestors() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![],
-            1,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::NoAttestors).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_zero_min_sigs() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![[1u8; 20]],
-            0,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::BadQuorum).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_min_sigs_exceeds_attestors() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![[1u8; 20]],
-            2,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::BadQuorum).into(),
         )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
@@ -348,63 +323,6 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![Check::success()];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_zero_timestamp() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![[1u8; 20]],
-            1,
-            0, // zero timestamp
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::InvalidTimestamp).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_duplicate_attestors() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![[1u8; 20], [2u8; 20], [1u8; 20]],
-            2,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::DuplicateSigner).into(),
-        )];
-        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
-    }
-
-    #[test]
-    fn test_initialize_duplicate_attestors_adjacent() {
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            vec![[5u8; 20], [5u8; 20]],
-            1,
-            DEFAULT_TIMESTAMP,
-        );
-
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(
-            anchor_lang::error::Error::from(ErrorCode::DuplicateSigner).into(),
-        )];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 

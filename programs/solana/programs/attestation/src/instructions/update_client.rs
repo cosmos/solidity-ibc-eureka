@@ -86,7 +86,7 @@ pub fn update_client<'info>(
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
 
-    // Misbehaviour detection (matches Solidity behavior):
+    // Misbehaviour detection:
     // - If consensus state exists with same timestamp → NoOp (return early)
     // - If consensus state exists with different timestamp → freeze client and return success
     //   (must return Ok so state change persists - errors revert all changes in Solana)
