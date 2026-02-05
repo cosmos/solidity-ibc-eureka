@@ -32,6 +32,8 @@ use anchor_lang::prelude::*;
 use crate::error::ErrorCode;
 
 const SIGNATURE_LEN: usize = 65;
+const SIG_RS_LEN: usize = 64;
+const ETH_RECOVERY_ID_OFFSET: u8 = 27;
 const ETH_ADDRESS_LEN: usize = 20;
 const SECP256K1_PUBLIC_KEY_LENGTH: usize = 64;
 
@@ -55,22 +57,19 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
         return Err(error!(ErrorCode::InvalidSignature));
     }
 
-    let message_hash: [u8; 32] = Sha256::digest(message).into();
+    let mut sig_bytes = [0u8; SIG_RS_LEN];
+    sig_bytes.copy_from_slice(&signature[..SIG_RS_LEN]);
 
-    let recovery_id = signature[64];
-    let recovery_id = if recovery_id >= 27 {
-        recovery_id.saturating_sub(27)
-    } else {
-        recovery_id
-    };
-
-    let mut sig_bytes = [0u8; 64];
-    sig_bytes.copy_from_slice(&signature[..64]);
+    let v = signature[SIG_RS_LEN];
 
     Ok(PreparedSignature {
-        message_hash,
+        message_hash: Sha256::digest(message).into(),
         sig_bytes,
-        recovery_id,
+        recovery_id: if v >= ETH_RECOVERY_ID_OFFSET {
+            v - ETH_RECOVERY_ID_OFFSET
+        } else {
+            v
+        },
     })
 }
 
