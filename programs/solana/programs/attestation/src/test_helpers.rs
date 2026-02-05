@@ -244,21 +244,15 @@ pub mod fixtures {
     }
 }
 
-/// Test signing utilities using k256 crate.
-///
-/// k256 is used here because these helpers run in native `cargo test`, not in SVM.
-/// Solana's `secp256k1_recover` syscall is only available in the runtime.
-///
-/// The signatures produced here are cryptographically valid and compatible with:
-/// - Native unit tests (verified via k256 in `crypto.rs`)
-/// - Mollusk integration tests (verified via real Solana syscall)
+/// Test signing utilities using alloy.
 pub mod signing {
-    use k256::ecdsa::{Signature, SigningKey, VerifyingKey};
+    use alloy_signer::SignerSync;
+    use alloy_signer_local::PrivateKeySigner;
     use sha2::{Digest, Sha256};
 
     /// Test attestor with deterministic keys for unit and integration testing.
     pub struct TestAttestor {
-        signing_key: SigningKey,
+        signer: PrivateKeySigner,
         pub eth_address: [u8; 20],
     }
 
@@ -269,46 +263,28 @@ pub mod signing {
             key_bytes[0] = seed;
             key_bytes[31] = 1; // Ensure non-zero
 
-            let signing_key =
-                SigningKey::from_bytes(&key_bytes.into()).expect("Valid key bytes for testing");
-            let verifying_key = VerifyingKey::from(&signing_key);
-
-            // Convert public key to Ethereum address:
-            // 1. Get uncompressed public key (65 bytes starting with 0x04)
-            // 2. Skip the 0x04 prefix to get 64 bytes
-            // 3. Keccak256 hash those 64 bytes
-            // 4. Take last 20 bytes
-            let public_key_bytes = verifying_key.to_encoded_point(false);
-            let public_key_uncompressed = &public_key_bytes.as_bytes()[1..]; // Skip 0x04 prefix
-
-            let hash = solana_keccak_hasher::hash(public_key_uncompressed);
-            let mut eth_address = [0u8; 20];
-            eth_address.copy_from_slice(&hash.0[12..32]);
+            let signer = PrivateKeySigner::from_bytes(&key_bytes.into())
+                .expect("Valid key bytes for testing");
+            let eth_address = signer.address().0 .0;
 
             Self {
-                signing_key,
+                signer,
                 eth_address,
             }
         }
 
-        /// Sign attestation data and return 65-byte signature with recovery id
-        /// Uses SHA256 for hashing (matching the on-chain verification)
+        /// Sign attestation data and return 65-byte signature with Ethereum-style recovery id
         pub fn sign(&self, data: &[u8]) -> Vec<u8> {
-            // Hash the data with SHA256 (matching crypto.rs line 69)
             let message_hash: [u8; 32] = Sha256::digest(data).into();
-
-            // Sign the hash with recoverable signature
-            let (signature, recovery_id): (Signature, _) = self
-                .signing_key
-                .sign_prehash_recoverable(&message_hash)
+            let sig = self
+                .signer
+                .sign_hash_sync(&message_hash.into())
                 .expect("Signing should succeed");
 
-            // Build 65-byte signature: r (32) + s (32) + v (1)
-            let sig_bytes = signature.to_bytes();
             let mut result = Vec::with_capacity(65);
-            result.extend_from_slice(&sig_bytes);
-            result.push(recovery_id.to_byte().saturating_add(27)); // Ethereum-style recovery id
-
+            result.extend_from_slice(&sig.r().to_be_bytes::<32>());
+            result.extend_from_slice(&sig.s().to_be_bytes::<32>());
+            result.push(sig.v() as u8 + 27);
             result
         }
     }

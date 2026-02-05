@@ -34,8 +34,8 @@ ics25-handler         = { workspace = true }
 solana-ibc-types      = { workspace = true }
 solana-ibc-constants  = { workspace = true }
 solana-sdk-ids        = { workspace = true }
-solana-define-syscall = { workspace = true }
-solana-keccak-hasher  = { workspace = true }
+solana-keccak-hasher      = { workspace = true }
+solana-secp256k1-recover  = { workspace = true }
 sha2                  = { workspace = true, default-features = false }
 serde                 = { workspace = true, features = ["derive"] }
 serde_json            = { workspace = true }
@@ -46,5 +46,7 @@ mollusk-svm-bencher = { workspace = true }
 solana-sdk          = { workspace = true }
 hex                 = { workspace = true }
 bincode             = { workspace = true }
-k256                = { version = "0.13", features = ["ecdsa", "ecdsa-core"] }
+alloy-primitives    = { workspace = true }
+alloy-signer        = { workspace = true }
+alloy-signer-local  = { workspace = true }
 rstest              = { workspace = true }

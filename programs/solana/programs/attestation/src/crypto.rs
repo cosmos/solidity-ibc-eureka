@@ -35,7 +35,6 @@ const SIGNATURE_LEN: usize = 65;
 const SIG_RS_LEN: usize = 64;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
 const ETH_ADDRESS_LEN: usize = 20;
-const SECP256K1_PUBLIC_KEY_LENGTH: usize = 64;
 
 /// Prepared signature data for secp256k1 recovery.
 struct PreparedSignature {
@@ -73,69 +72,43 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
     })
 }
 
-#[cfg(target_os = "solana")]
-solana_define_syscall::define_syscall!(fn sol_secp256k1_recover(hash: *const u8, recovery_id: u64, signature: *const u8, result: *mut u8) -> u64);
-
-/// Recover Ethereum address from a signature using Solana's `secp256k1_recover` syscall.
-///
-/// Signature format: `r[32] || s[32] || v[1]` where v is the recovery ID (27/28 or 0/1).
+/// Recover Ethereum address from a 65-byte secp256k1 ECDSA signature.
 #[cfg(target_os = "solana")]
 pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
     let prepared = prepare_signature(message, signature)?;
 
-    let mut pubkey = [0u8; SECP256K1_PUBLIC_KEY_LENGTH];
+    let pubkey = solana_secp256k1_recover::secp256k1_recover(
+        &prepared.message_hash,
+        prepared.recovery_id,
+        &prepared.sig_bytes,
+    )
+    .map_err(|_| error!(ErrorCode::InvalidSignature))?;
 
-    // Unsafe is required because we're calling a Solana syscall via raw pointers.
-    // The syscall is implemented in C and exposed as an external function, so Rust
-    // cannot verify memory safety at compile time. We must manually ensure:
-    // - message_hash points to valid 32-byte buffer (guaranteed by [u8; 32] type)
-    // - sig_bytes points to valid 64-byte buffer (guaranteed by [u8; 64] type)
-    // - pubkey points to valid 64-byte writable buffer (guaranteed by [u8; 64] type)
-    // The syscall will write the recovered public key into pubkey buffer.
-    let ret = unsafe {
-        sol_secp256k1_recover(
-            prepared.message_hash.as_ptr(),
-            prepared.recovery_id as u64,
-            prepared.sig_bytes.as_ptr(),
-            pubkey.as_mut_ptr(),
-        )
-    };
+    Ok(pubkey_to_eth_address(&pubkey.0))
+}
 
-    if ret != 0 {
-        msg!("secp256k1_recover failed with code: {}", ret);
+/// Native test implementation using alloy for Ethereum signature recovery.
+#[cfg(all(not(target_os = "solana"), test))]
+pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
+    use alloy_primitives::Signature;
+
+    let prepared = prepare_signature(message, signature)?;
+
+    if prepared.recovery_id > 1 {
         return Err(error!(ErrorCode::InvalidSignature));
     }
 
-    Ok(pubkey_to_eth_address(&pubkey))
-}
+    let sig = Signature::new(
+        alloy_primitives::U256::from_be_slice(&prepared.sig_bytes[..32]),
+        alloy_primitives::U256::from_be_slice(&prepared.sig_bytes[32..]),
+        prepared.recovery_id != 0,
+    );
 
-/// Native test implementation using k256 for signature recovery.
-///
-/// k256 is a pure-Rust, constant-time implementation of secp256k1. It's used by
-/// major projects (ethers-rs, alloy) and has been audited. The cryptographic
-/// operations are identical to libsecp256k1 which Solana's syscall uses.
-#[cfg(all(not(target_os = "solana"), test))]
-pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
-    use k256::ecdsa::{RecoveryId, Signature, VerifyingKey};
-
-    let prepared = prepare_signature(message, signature)?;
-
-    let sig = Signature::from_slice(&prepared.sig_bytes)
+    let address = sig
+        .recover_address_from_prehash(&alloy_primitives::B256::from(prepared.message_hash))
         .map_err(|_| error!(ErrorCode::InvalidSignature))?;
 
-    let rec_id = RecoveryId::try_from(prepared.recovery_id)
-        .map_err(|_| error!(ErrorCode::InvalidSignature))?;
-
-    let verifying_key = VerifyingKey::recover_from_prehash(&prepared.message_hash, &sig, rec_id)
-        .map_err(|_| error!(ErrorCode::InvalidSignature))?;
-
-    let pubkey_bytes = verifying_key.to_encoded_point(false);
-    let pubkey_uncompressed = &pubkey_bytes.as_bytes()[1..]; // Skip 0x04 prefix
-
-    let mut pubkey = [0u8; SECP256K1_PUBLIC_KEY_LENGTH];
-    pubkey.copy_from_slice(pubkey_uncompressed);
-
-    Ok(pubkey_to_eth_address(&pubkey))
+    Ok(address.0 .0)
 }
 
 /// Stub for non-Solana, non-test builds (IDL generation)
