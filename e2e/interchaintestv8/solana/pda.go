@@ -14,6 +14,7 @@ import (
 )
 
 type accessManagerPDAs struct{}
+type attestationPDAs struct{}
 type dummyIbcAppPDAs struct{}
 type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
@@ -23,13 +24,14 @@ type iftPDAs struct{}
 type mockLightClientPDAs struct{}
 
 var (
-	AccessManager   = accessManagerPDAs{}
-	DummyIbcApp     = dummyIbcAppPDAs{}
-	GmpCounterApp   = gmpCounterAppPDAs{}
+	AccessManager = accessManagerPDAs{}
+	Attestation = attestationPDAs{}
+	DummyIbcApp = dummyIbcAppPDAs{}
+	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router     = ics26RouterPDAs{}
-	Ics27Gmp        = ics27GmpPDAs{}
-	Ift             = iftPDAs{}
+	Ics26Router = ics26RouterPDAs{}
+	Ics27Gmp = ics27GmpPDAs{}
+	Ift = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
 )
 
@@ -51,6 +53,39 @@ func (accessManagerPDAs) UpgradeAuthorityWithArgSeedPDA(programID solanago.Publi
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive AccessManager.UpgradeAuthorityWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.AppStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, clientId []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client"), clientId},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ClientWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationPDAs) ConsensusStateWithArgAndAccountSeedPDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgAndAccountSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -406,3 +441,4 @@ func (mockLightClientPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 	}
 	return pda, bump
 }
+

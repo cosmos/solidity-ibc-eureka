@@ -10,6 +10,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
+	attestation_light_client "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/attestation"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
@@ -213,6 +214,19 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 		ibcAppPDA,
 		gmpAppStatePDA,
 		clientPDA,
+		clientStatePDA,
+	}
+}
+
+// CreateAttestationLightClientALTAccounts returns accounts to add to ALT for attestation light client transactions.
+// These should be added in addition to the base IBC accounts.
+func (s *Solana) CreateAttestationLightClientALTAccounts(clientID string) []solana.PublicKey {
+	appStatePDA, _ := Attestation.AppStatePDA(attestation_light_client.ProgramID)
+	clientStatePDA, _ := Attestation.ClientWithArgSeedPDA(attestation_light_client.ProgramID, []byte(clientID))
+
+	return []solana.PublicKey{
+		attestation_light_client.ProgramID,
+		appStatePDA,
 		clientStatePDA,
 	}
 }

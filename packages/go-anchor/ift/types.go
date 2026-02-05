@@ -1196,7 +1196,6 @@ type iftStateChainOptionsEnumContainer struct {
 	Enum   binary.BorshEnum `bin:"enum"`
 	Evm    IftStateChainOptions_Evm
 	Cosmos IftStateChainOptions_Cosmos
-	Solana IftStateChainOptions_Solana
 }
 
 func DecodeIftStateChainOptions(decoder *binary.Decoder) (IftStateChainOptions, error) {
@@ -1211,8 +1210,6 @@ func DecodeIftStateChainOptions(decoder *binary.Decoder) (IftStateChainOptions, 
 			return (*IftStateChainOptions_Evm)(&tmp.Enum), nil
 		case 1:
 			return &tmp.Cosmos, nil
-		case 2:
-			return (*IftStateChainOptions_Solana)(&tmp.Enum), nil
 		default:
 			return nil, fmt.Errorf("IftStateChainOptions: unknown enum index: %v", tmp.Enum)
 		}
@@ -1229,9 +1226,6 @@ func EncodeIftStateChainOptions(encoder *binary.Encoder, value IftStateChainOpti
 		case *IftStateChainOptions_Cosmos:
 			tmp.Enum = 1
 			tmp.Cosmos = *realvalue
-		case *IftStateChainOptions_Solana:
-			tmp.Enum = 2
-			tmp.Solana = *realvalue
 		}
 		return encoder.Encode(tmp)
 	}
@@ -1322,18 +1316,6 @@ func UnmarshalIftStateChainOptions_Cosmos(buf []byte) (*IftStateChainOptions_Cos
 }
 
 func (_ *IftStateChainOptions_Cosmos) isIftStateChainOptions() {}
-
-type IftStateChainOptions_Solana uint8
-
-func (obj IftStateChainOptions_Solana) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	return nil
-}
-
-func (obj *IftStateChainOptions_Solana) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	return nil
-}
-
-func (_ *IftStateChainOptions_Solana) isIftStateChainOptions() {}
 
 // Main IFT application state
 // PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]

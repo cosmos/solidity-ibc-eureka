@@ -37,8 +37,13 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	}
 
 	// Submit update client first if present in response
-	if batch.UpdateClient != nil && len(batch.UpdateClient.ChunkTxs) > 0 {
-		t.Logf("=== Update client included in relay response (target height: %d), submitting first ===",
+	// For ICS07 Tendermint: ChunkTxs is non-empty
+	// For Attestation: ChunkTxs is empty but AssemblyTx is set
+	hasChunkedUpdateClient := batch.UpdateClient != nil && len(batch.UpdateClient.ChunkTxs) > 0
+	hasAttestationUpdateClient := batch.UpdateClient != nil && len(batch.UpdateClient.AssemblyTx) > 0 && len(batch.UpdateClient.ChunkTxs) == 0
+
+	if hasChunkedUpdateClient {
+		t.Logf("=== Update client (chunked) included in relay response (target height: %d), submitting first ===",
 			batch.UpdateClient.TargetHeight)
 
 		// Marshal the update client back to bytes for the existing helper
@@ -53,6 +58,21 @@ func (s *Solana) SubmitChunkedRelayPackets(
 		// Use existing helper (non-skip cleanup variant)
 		s.submitChunkedUpdateClient(ctx, t, require.New(t), updateResp, user, false)
 		t.Logf("=== Update client submission complete, proceeding with packets ===")
+	} else if hasAttestationUpdateClient {
+		t.Logf("=== Update client (attestation) included in relay response (target height: %d), submitting first ===",
+			batch.UpdateClient.TargetHeight)
+
+		// For attestation mode, AssemblyTx contains the complete update_client transaction
+		unsignedTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(batch.UpdateClient.AssemblyTx))
+		if err != nil {
+			return solana.Signature{}, fmt.Errorf("failed to decode attestation update client tx: %w", err)
+		}
+
+		sig, err := s.SignAndBroadcastTxWithRetry(ctx, unsignedTx, rpc.CommitmentFinalized, user)
+		if err != nil {
+			return solana.Signature{}, fmt.Errorf("failed to submit attestation update client: %w", err)
+		}
+		t.Logf("=== Attestation update client submitted (sig: %s), proceeding with packets ===", sig)
 	}
 
 	// Handle case where there are no packets (update only)
@@ -962,6 +982,22 @@ func (s *Solana) CreateIBCAddressLookupTable(ctx context.Context, t *testing.T, 
 	altAddress, err := s.CreateAddressLookupTable(ctx, user, commonAccounts)
 	require.NoError(err)
 	t.Logf("Created and extended ALT %s with %d common accounts", altAddress, len(commonAccounts))
+
+	return altAddress
+}
+
+// CreateIBCAddressLookupTableWithAttestation creates an ALT with both IBC and attestation light client accounts.
+// This optimizes transaction size for attestation-based packet relay.
+func (s *Solana) CreateIBCAddressLookupTableWithAttestation(ctx context.Context, t *testing.T, require *require.Assertions, user *solana.Wallet, cosmosChainID string, gmpPortID string, clientID string, attestationClientID string) solana.PublicKey {
+	t.Helper()
+
+	// Get base IBC accounts and add attestation light client accounts
+	allAccounts := s.CreateIBCAddressLookupTableAccounts(cosmosChainID, gmpPortID, clientID, user.PublicKey())
+	allAccounts = append(allAccounts, s.CreateAttestationLightClientALTAccounts(attestationClientID)...)
+
+	altAddress, err := s.CreateAddressLookupTable(ctx, user, allAccounts)
+	require.NoError(err)
+	t.Logf("Created and extended ALT %s with %d accounts (including attestation LC)", altAddress, len(allAccounts))
 
 	return altAddress
 }
