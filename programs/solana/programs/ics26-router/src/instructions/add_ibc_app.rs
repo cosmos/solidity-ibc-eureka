@@ -1,7 +1,7 @@
 use crate::errors::RouterError;
+use crate::events::IBCAppAdded;
 use crate::state::{AccountVersion, IBCApp, RouterState};
 use anchor_lang::prelude::*;
-use solana_ibc_types::IBCAppAdded;
 
 #[derive(Accounts)]
 #[instruction(port_id: String)]

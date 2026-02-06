@@ -1,12 +1,13 @@
 use crate::errors::RouterError;
+use crate::events::{NoopEvent, WriteAcknowledgementEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
-use crate::utils::{chunking, ics24, packet};
+use crate::utils::{chunking, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
-use solana_ibc_types::{NoopEvent, WriteAcknowledgementEvent};
+use solana_ibc_types::ics24;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -189,7 +190,7 @@ pub fn recv_packet<'info>(
         membership_msg,
     )?;
 
-    let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet);
+    let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&packet)?;
 
     // Check if packet_receipt already exists (non-empty means it was saved before)
     if packet_receipt.value != Commitment::EMPTY {
@@ -614,7 +615,8 @@ mod tests {
                 value: b"test data".to_vec(), // Value from chunk
             }],
         };
-        let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&expected_packet);
+        let receipt_commitment =
+            ics24::packet_receipt_commitment_bytes32(&expected_packet).unwrap();
         let receipt_data = get_account_data_from_mollusk(&result, &ctx.packet_receipt_pubkey)
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
@@ -693,7 +695,8 @@ mod tests {
                 value: b"test data".to_vec(), // Value from chunk (with space, matching test data)
             }],
         };
-        let receipt_commitment = ics24::packet_receipt_commitment_bytes32(&expected_packet);
+        let receipt_commitment =
+            ics24::packet_receipt_commitment_bytes32(&expected_packet).unwrap();
         let receipt_data = get_account_data_from_mollusk(&result, &ctx.packet_receipt_pubkey)
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
@@ -781,7 +784,7 @@ mod tests {
         };
 
         let correct_receipt_commitment =
-            crate::utils::ics24::packet_receipt_commitment_bytes32(&reconstructed_packet);
+            ics24::packet_receipt_commitment_bytes32(&reconstructed_packet).unwrap();
 
         let packet_receipt_data = {
             use anchor_lang::AccountSerialize;
