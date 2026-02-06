@@ -17,10 +17,13 @@ runs:
         password: ${{ inputs.github_token }}
 
     - name: Pre-pull private images
-      shell: bash
-      run: |
-        echo "Pulling wfchain image..."
-        docker pull ghcr.io/cosmos/wfchain:latest || echo "Failed to pull wfchain image"
+      uses: nick-invision/retry@v3
+      with:
+        timeout_minutes: 10
+        max_attempts: 3
+        retry_wait_seconds: 5
+        command: docker pull ghcr.io/cosmos/wfchain:latest
+      continue-on-error: true
 
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
@@ -70,13 +73,28 @@ runs:
         mkdir -p programs/solana/target/deploy/
         cp -r e2e-artifacts/solana-programs/* programs/solana/target/deploy/
 
-    - name: Setup Kurtosis
+    - name: Setup Kurtosis APT repository
       if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
       shell: bash
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
-        sudo apt update
-        sudo apt install kurtosis-cli=1.11.2 # Must match the kurtosis library version we use in the e2e tests
+
+    # Must match the kurtosis library version we use in the e2e tests
+    - name: Install Kurtosis
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
+      uses: nick-invision/retry@v3
+      with:
+        timeout_minutes: 10
+        max_attempts: 3
+        retry_wait_seconds: 5
+        command: |
+          sudo apt update
+          sudo apt install -y kurtosis-cli=1.11.2
+
+    - name: Start Kurtosis
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
+      shell: bash
+      run: |
         kurtosis engine start
         kurtosis analytics disable
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
@@ -94,5 +112,9 @@ runs:
         password: ${{ inputs.github_token }}
 
     - name: Pull attestor Docker image
-      shell: bash
-      run: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0
+      uses: nick-invision/retry@v3
+      with:
+        timeout_minutes: 10
+        max_attempts: 3
+        retry_wait_seconds: 5
+        command: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0
