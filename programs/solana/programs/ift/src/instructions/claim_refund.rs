@@ -172,8 +172,7 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;
-    use ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32;
-    use solana_ibc_types::CallResultStatus;
+    use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, CallResultStatus};
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
@@ -336,7 +335,7 @@ mod tests {
 
     #[test]
     fn test_error_ack_commitment_matches_runtime_computation() {
-        let error_ack = ics26_router::utils::ics24::UNIVERSAL_ERROR_ACK;
+        let error_ack = solana_ibc_types::UNIVERSAL_ERROR_ACK;
         let computed =
             packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&error_ack.to_vec()))
                 .expect("single ack is never empty");

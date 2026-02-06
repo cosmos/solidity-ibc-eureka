@@ -12,11 +12,11 @@ pub mod cpi;
 pub mod events;
 pub mod ibc_app;
 pub mod ics07;
+pub mod ics24;
 pub mod ics27;
 pub mod router;
 pub mod utils;
 
-// Re-export commonly used types
 pub use app_msgs::{
     IBCAppError, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg, Payload,
 };
@@ -28,7 +28,6 @@ pub use router::{
     ProofChunk, ProofMetadata, RouterState,
 };
 
-// Re-export MAX_CLIENT_ID_LENGTH from solana-ibc-proto (single source of truth)
 pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
 
 pub use ics07::{
@@ -50,5 +49,11 @@ pub use events::{
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
     reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,
+};
+pub use ics24::{
+    packet_acknowledgement_commitment_bytes32, packet_acknowledgement_commitment_key,
+    packet_acknowledgement_commitment_path, packet_commitment_bytes32, packet_commitment_key,
+    packet_commitment_path, packet_receipt_commitment_bytes32, packet_receipt_commitment_key,
+    packet_receipt_commitment_path, prefixed_path, Ics24Error, UNIVERSAL_ERROR_ACK,
 };
 pub use utils::compute_discriminator;

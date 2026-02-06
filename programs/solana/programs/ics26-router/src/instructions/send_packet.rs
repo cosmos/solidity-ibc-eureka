@@ -1,9 +1,9 @@
 use crate::errors::RouterError;
+use crate::events::SendPacketEvent;
 use crate::state::*;
-use crate::utils::ics24;
 use crate::utils::sequence;
 use anchor_lang::prelude::*;
-use solana_ibc_types::events::SendPacketEvent;
+use solana_ibc_types::ics24;
 use solana_ibc_types::IBCAppState;
 
 #[derive(Accounts)]
@@ -379,7 +379,7 @@ mod tests {
                 value: b"test data".to_vec(),
             }],
         };
-        let expected_commitment = crate::utils::ics24::packet_commitment_bytes32(&expected_packet);
+        let expected_commitment = ics24::packet_commitment_bytes32(&expected_packet);
         let commitment_data = get_account_data_from_mollusk(&result, &ctx.packet_commitment_pubkey)
             .expect("packet commitment account not found");
         assert_eq!(commitment_data[..32], expected_commitment);
