@@ -3,10 +3,11 @@ use crate::events::{NoopEvent, WriteAcknowledgementEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
-use crate::utils::{chunking, ics24, packet};
+use crate::utils::{chunking, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
+use solana_ibc_types::ics24;
 
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
@@ -783,7 +784,7 @@ mod tests {
         };
 
         let correct_receipt_commitment =
-            crate::utils::ics24::packet_receipt_commitment_bytes32(&reconstructed_packet).unwrap();
+            ics24::packet_receipt_commitment_bytes32(&reconstructed_packet).unwrap();
 
         let packet_receipt_data = {
             use anchor_lang::AccountSerialize;
