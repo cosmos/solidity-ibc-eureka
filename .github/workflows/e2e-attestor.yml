@@ -30,7 +30,7 @@ env:
   ETH_TESTNET_TYPE: anvil
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-attestor-light-client-tag || 'local' }}
   COSMOS_LC_ON_ETH: attestor
-  SOLANA_VERSION: "3.1.6"
+  SOLANA_VERSION: "2.3.13"
   ANCHOR_VERSION: "0.32.1"
 permissions:
   contents: read
