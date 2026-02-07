@@ -134,10 +134,6 @@ async fn get_verification(banks_client: &mut BanksClient, pda: Pubkey) -> Signat
     SignatureVerification::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-// =============================================================================
-// Valid signature tests
-// =============================================================================
-
 #[rstest]
 #[case::normal_message(b"test message for verification".to_vec())]
 #[case::empty_message(vec![])]
@@ -170,10 +166,6 @@ async fn test_pre_verify_signature_valid(#[future] ctx: TestContext, #[case] msg
     assert!(verification.is_valid, "Signature should be valid");
     assert_eq!(verification.submitter, payer.pubkey());
 }
-
-// =============================================================================
-// Mismatch tests (tampered data returns invalid)
-// =============================================================================
 
 enum TamperType {
     WrongPubkey,
@@ -255,10 +247,6 @@ async fn test_pre_verify_signature_tampered_returns_invalid(
     );
 }
 
-// =============================================================================
-// Instruction position/presence tests
-// =============================================================================
-
 #[rstest]
 #[case::no_ed25519_instruction(false)]
 #[case::ed25519_at_wrong_index(true)]
@@ -304,18 +292,13 @@ async fn test_pre_verify_signature_ed25519_position_invalid(
     );
 }
 
-// =============================================================================
-// Error tests
-// =============================================================================
-
-#[rstest]
 #[tokio::test]
-async fn test_pre_verify_signature_malformed_ed25519_fails(#[future] ctx: TestContext) {
+async fn test_pre_verify_signature_malformed_ed25519_fails() {
     let TestContext {
         banks_client,
         payer,
         recent_blockhash,
-    } = ctx.await;
+    } = ctx().await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
@@ -359,14 +342,13 @@ async fn test_pre_verify_signature_malformed_ed25519_fails(#[future] ctx: TestCo
     );
 }
 
-#[rstest]
 #[tokio::test]
-async fn test_pre_verify_signature_duplicate_pda_fails(#[future] ctx: TestContext) {
+async fn test_pre_verify_signature_duplicate_pda_fails() {
     let TestContext {
         mut banks_client,
         payer,
         recent_blockhash,
-    } = ctx.await;
+    } = ctx().await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
