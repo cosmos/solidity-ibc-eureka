@@ -1,27 +1,44 @@
 use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
 use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
+use rstest::{fixture, rstest};
 use sha2::{Digest, Sha256};
 use solana_ibc_types::ics07::SignatureData;
-use solana_program_test::{ProgramTest, ProgramTestBanksClientExt};
+use solana_program_test::{BanksClient, ProgramTest, ProgramTestBanksClientExt};
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
-    signer::Signer as SolSigner, sysvar::instructions as ix_sysvar, transaction::Transaction,
+    compute_budget::ComputeBudgetInstruction, hash::Hash, instruction::Instruction,
+    pubkey::Pubkey, signature::Keypair, signer::Signer as SolSigner,
+    sysvar::instructions as ix_sysvar, transaction::Transaction,
 };
 
 const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
 /// Creates a `ProgramTest` instance with the `ics07_tendermint` program loaded.
 fn setup_program_test() -> ProgramTest {
-    // Set SBF_OUT_DIR if not already set, so solana-program-test can find the .so file
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(PROGRAM_BINARY_PATH)
             .parent()
             .expect("Invalid program path");
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
-
     ProgramTest::new("ics07_tendermint", ics07_tendermint::ID, None)
+}
+
+struct TestContext {
+    banks_client: BanksClient,
+    payer: Keypair,
+    recent_blockhash: Hash,
+}
+
+#[fixture]
+async fn ctx() -> TestContext {
+    let pt = setup_program_test();
+    let (banks_client, payer, recent_blockhash) = pt.start().await;
+    TestContext {
+        banks_client,
+        payer,
+        recent_blockhash,
+    }
 }
 
 /// Creates a valid `SignatureData` struct from a signing key and message.
@@ -55,18 +72,15 @@ const ED25519_HEADER_LEN: u16 = 16;
 fn create_ed25519_instruction(signing_key: &SigningKey, msg: &[u8]) -> Instruction {
     let pubkey = signing_key.verifying_key().to_bytes();
     let signature = signing_key.sign(msg).to_bytes();
-    let num_signatures: u8 = 1;
-    let padding: u8 = 0;
 
-    // Offsets relative to instruction data start; 0xFFFF = data in same instruction
     let signature_offset: u16 = ED25519_HEADER_LEN;
     let pubkey_offset: u16 = ED25519_HEADER_LEN + 64;
     let message_offset: u16 = ED25519_HEADER_LEN + 64 + 32;
     let same_ix: u16 = 0xFFFF;
 
     let mut data = Vec::with_capacity((ED25519_HEADER_LEN + 64 + 32) as usize + msg.len());
-    data.push(num_signatures);
-    data.push(padding);
+    data.push(1u8); // num_signatures
+    data.push(0); // padding
     data.extend_from_slice(&signature_offset.to_le_bytes());
     data.extend_from_slice(&same_ix.to_le_bytes());
     data.extend_from_slice(&pubkey_offset.to_le_bytes());
@@ -99,9 +113,7 @@ fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Ins
         system_program: solana_sdk::system_program::ID,
     };
 
-    let ix_data = ics07_tendermint::instruction::PreVerifySignature {
-        signature: sig_data,
-    };
+    let ix_data = ics07_tendermint::instruction::PreVerifySignature { signature: sig_data };
 
     let instruction = Instruction {
         program_id: ics07_tendermint::ID,
@@ -112,63 +124,118 @@ fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Ins
     (instruction, sig_verification_pda)
 }
 
-#[tokio::test]
-async fn test_pre_verify_signature_valid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    // Generate ed25519 keypair and sign a message
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let msg = b"test message for verification";
-    let sig_data = create_signature_data(&signing_key, msg);
-
-    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
-
-    // Build transaction with BOTH instructions (ed25519 must be first)
-    let tx = Transaction::new_signed_with_payer(
-        &[ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
-        recent_blockhash,
-    );
-
-    banks_client.process_transaction(tx).await.unwrap();
-
-    // Verify the SignatureVerification account was created with is_valid = true
+async fn get_verification(banks_client: &mut BanksClient, pda: Pubkey) -> SignatureVerification {
     let account = banks_client
-        .get_account(sig_verification_pda)
+        .get_account(pda)
         .await
         .unwrap()
         .expect("Account not found");
-
     // Skip the 8-byte Anchor discriminator
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
+    SignatureVerification::deserialize(&mut &account.data[8..]).unwrap()
+}
+
+// =============================================================================
+// Valid signature tests
+// =============================================================================
+
+#[rstest]
+#[case::normal_message(b"test message for verification".to_vec())]
+#[case::empty_message(vec![])]
+#[case::large_message((0u8..=255).cycle().take(500).collect())]
+#[tokio::test]
+async fn test_pre_verify_signature_valid(#[future] ctx: TestContext, #[case] msg: Vec<u8>) {
+    let TestContext {
+        mut banks_client,
+        payer,
+        recent_blockhash,
+    } = ctx.await;
+
+    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    let sig_data = create_signature_data(&signing_key, &msg);
+
+    let ed25519_ix = create_ed25519_instruction(&signing_key, &msg);
+    let (pre_verify_ix, sig_verification_pda) =
+        create_pre_verify_instruction(payer.pubkey(), sig_data);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[ed25519_ix, pre_verify_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        recent_blockhash,
+    );
+
+    banks_client.process_transaction(tx).await.unwrap();
+
+    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
     assert!(verification.is_valid, "Signature should be valid");
-    assert_eq!(
-        verification.submitter,
-        payer.pubkey(),
-        "Submitter should match payer"
-    );
+    assert_eq!(verification.submitter, payer.pubkey());
 }
 
-#[tokio::test]
-async fn test_pre_verify_signature_wrong_pubkey_returns_invalid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
+// =============================================================================
+// Mismatch tests (tampered data returns invalid)
+// =============================================================================
 
-    // Sign with one key
-    let real_signing_key = SigningKey::generate(&mut rand::thread_rng());
+enum TamperType {
+    WrongPubkey,
+    WrongMessage,
+    WrongSignature,
+}
+
+fn create_tampered_sig_data(
+    signing_key: &SigningKey,
+    tamper: TamperType,
+) -> (SignatureData, Vec<u8>) {
     let msg = b"test message";
-    let signature = real_signing_key.sign(msg).to_bytes();
+    let real_msg = msg.to_vec();
 
-    // But claim it was signed by a different key
-    let wrong_key = SigningKey::generate(&mut rand::thread_rng());
-    let sig_data = create_signature_data_raw(wrong_key.verifying_key().to_bytes(), msg, signature);
+    match tamper {
+        TamperType::WrongPubkey => {
+            let signature = signing_key.sign(msg).to_bytes();
+            let wrong_key = SigningKey::generate(&mut rand::thread_rng());
+            let sig_data =
+                create_signature_data_raw(wrong_key.verifying_key().to_bytes(), msg, signature);
+            (sig_data, real_msg)
+        }
+        TamperType::WrongMessage => {
+            let signature = signing_key.sign(msg).to_bytes();
+            let sig_data = create_signature_data_raw(
+                signing_key.verifying_key().to_bytes(),
+                b"fake message",
+                signature,
+            );
+            (sig_data, real_msg)
+        }
+        TamperType::WrongSignature => {
+            let different_sig = signing_key.sign(b"different message").to_bytes();
+            let sig_data = create_signature_data_raw(
+                signing_key.verifying_key().to_bytes(),
+                msg,
+                different_sig,
+            );
+            (sig_data, real_msg)
+        }
+    }
+}
 
-    // Ed25519 instruction with CORRECT key (runtime will verify this)
-    let ed25519_ix = create_ed25519_instruction(&real_signing_key, msg);
+#[rstest]
+#[case::wrong_pubkey(TamperType::WrongPubkey)]
+#[case::wrong_message(TamperType::WrongMessage)]
+#[case::wrong_signature(TamperType::WrongSignature)]
+#[tokio::test]
+async fn test_pre_verify_signature_tampered_returns_invalid(
+    #[future] ctx: TestContext,
+    #[case] tamper: TamperType,
+) {
+    let TestContext {
+        mut banks_client,
+        payer,
+        recent_blockhash,
+    } = ctx.await;
+
+    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    let (sig_data, real_msg) = create_tampered_sig_data(&signing_key, tamper);
+
+    let ed25519_ix = create_ed25519_instruction(&signing_key, &real_msg);
     let (pre_verify_ix, sig_verification_pda) =
         create_pre_verify_instruction(payer.pubkey(), sig_data);
 
@@ -181,149 +248,79 @@ async fn test_pre_verify_signature_wrong_pubkey_returns_invalid() {
 
     banks_client.process_transaction(tx).await.unwrap();
 
-    // Signature should be marked as INVALID due to pubkey mismatch
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
+    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
     assert!(
         !verification.is_valid,
-        "Signature should be invalid due to pubkey mismatch"
+        "Signature should be invalid due to tampered data"
     );
 }
 
+// =============================================================================
+// Instruction position/presence tests
+// =============================================================================
+
+#[rstest]
+#[case::no_ed25519_instruction(false)]
+#[case::ed25519_at_wrong_index(true)]
 #[tokio::test]
-async fn test_pre_verify_signature_wrong_message_returns_invalid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let real_msg = b"real message";
-    let fake_msg = b"fake message";
-
-    // Sign the real message, but claim it was for fake message
-    let signature = signing_key.sign(real_msg).to_bytes();
-    let tampered_sig_data =
-        create_signature_data_raw(signing_key.verifying_key().to_bytes(), fake_msg, signature);
-
-    // Ed25519 instruction verifies with real message
-    let ed25519_ix = create_ed25519_instruction(&signing_key, real_msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), tampered_sig_data);
-
-    let tx = Transaction::new_signed_with_payer(
-        &[ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
+async fn test_pre_verify_signature_ed25519_position_invalid(
+    #[future] ctx: TestContext,
+    #[case] include_ed25519: bool,
+) {
+    let TestContext {
+        mut banks_client,
+        payer,
         recent_blockhash,
-    );
-
-    banks_client.process_transaction(tx).await.unwrap();
-
-    // Signature should be marked as INVALID due to message mismatch
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        !verification.is_valid,
-        "Signature should be invalid due to message mismatch"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_wrong_signature_returns_invalid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let msg = b"test message";
-
-    // Create a different signature (sign a different message) but claim it's for msg
-    let different_sig = signing_key.sign(b"different message").to_bytes();
-    let tampered_sig_data =
-        create_signature_data_raw(signing_key.verifying_key().to_bytes(), msg, different_sig);
-
-    // Ed25519 instruction with correct signature
-    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), tampered_sig_data);
-
-    let tx = Transaction::new_signed_with_payer(
-        &[ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
-        recent_blockhash,
-    );
-
-    banks_client.process_transaction(tx).await.unwrap();
-
-    // Signature should be marked as INVALID due to signature mismatch
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        !verification.is_valid,
-        "Signature should be invalid due to signature mismatch"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_no_ed25519_instruction_returns_invalid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let sig_data = create_signature_data(&signing_key, b"test message");
-
-    // Only pre_verify instruction - NO ed25519 instruction
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
-
-    let tx = Transaction::new_signed_with_payer(
-        &[pre_verify_ix], // Only one instruction - missing ed25519
-        Some(&payer.pubkey()),
-        &[&payer],
-        recent_blockhash,
-    );
-
-    // Transaction succeeds but verification should be invalid
-    // (instruction at index 0 is our own instruction, not ed25519)
-    banks_client.process_transaction(tx).await.unwrap();
-
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        !verification.is_valid,
-        "Signature should be invalid when no ed25519 instruction present"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_malformed_ed25519_fails() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
+    } = ctx.await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
     let sig_data = create_signature_data(&signing_key, msg);
 
-    // Create malformed ed25519 instruction: claims 2 signatures but only provides data for 1
+    let (pre_verify_ix, sig_verification_pda) =
+        create_pre_verify_instruction(payer.pubkey(), sig_data);
+
+    let instructions = if include_ed25519 {
+        let dummy_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
+        let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
+        vec![dummy_ix, ed25519_ix, pre_verify_ix]
+    } else {
+        vec![pre_verify_ix]
+    };
+
+    let tx = Transaction::new_signed_with_payer(
+        &instructions,
+        Some(&payer.pubkey()),
+        &[&payer],
+        recent_blockhash,
+    );
+
+    banks_client.process_transaction(tx).await.unwrap();
+
+    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
+    assert!(
+        !verification.is_valid,
+        "Signature should be invalid due to ed25519 position"
+    );
+}
+
+// =============================================================================
+// Error tests
+// =============================================================================
+
+#[rstest]
+#[tokio::test]
+async fn test_pre_verify_signature_malformed_ed25519_fails(#[future] ctx: TestContext) {
+    let TestContext {
+        banks_client,
+        payer,
+        recent_blockhash,
+    } = ctx.await;
+
+    let signing_key = SigningKey::generate(&mut rand::thread_rng());
+    let msg = b"test message";
+    let sig_data = create_signature_data(&signing_key, msg);
+
     let pubkey = signing_key.verifying_key().to_bytes();
     let signature = signing_key.sign(msg).to_bytes();
 
@@ -362,137 +359,22 @@ async fn test_pre_verify_signature_malformed_ed25519_fails() {
     );
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pre_verify_signature_empty_message() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let msg = b""; // Empty message
-    let sig_data = create_signature_data(&signing_key, msg);
-
-    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
-
-    let tx = Transaction::new_signed_with_payer(
-        &[ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
+async fn test_pre_verify_signature_duplicate_pda_fails(#[future] ctx: TestContext) {
+    let TestContext {
+        mut banks_client,
+        payer,
         recent_blockhash,
-    );
-
-    banks_client
-        .process_transaction(tx)
-        .await
-        .expect("Empty message should be valid");
-
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        verification.is_valid,
-        "Empty message signature should be valid"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_large_message() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    // Large message (but not too large to fit in transaction)
-    let msg: Vec<u8> = (0u8..=255).cycle().take(500).collect();
-    let sig_data = create_signature_data(&signing_key, &msg);
-
-    let ed25519_ix = create_ed25519_instruction(&signing_key, &msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
-
-    let tx = Transaction::new_signed_with_payer(
-        &[ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
-        recent_blockhash,
-    );
-
-    banks_client
-        .process_transaction(tx)
-        .await
-        .expect("Large message should be valid");
-
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        verification.is_valid,
-        "Large message signature should be valid"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_ed25519_at_wrong_index_returns_invalid() {
-    let pt = setup_program_test();
-    let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-    let signing_key = SigningKey::generate(&mut rand::thread_rng());
-    let msg = b"test message";
-    let sig_data = create_signature_data(&signing_key, msg);
-
-    // Create a dummy instruction to put at index 0 (compute budget is a no-op that always succeeds)
-    let dummy_ix = ComputeBudgetInstruction::set_compute_unit_limit(200_000);
-
-    let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
-    let (pre_verify_ix, sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data);
-
-    // Put ed25519 at index 1 instead of index 0
-    let tx = Transaction::new_signed_with_payer(
-        &[dummy_ix, ed25519_ix, pre_verify_ix],
-        Some(&payer.pubkey()),
-        &[&payer],
-        recent_blockhash,
-    );
-
-    banks_client.process_transaction(tx).await.unwrap();
-
-    // Signature should be invalid because ed25519 is not at index 0
-    let account = banks_client
-        .get_account(sig_verification_pda)
-        .await
-        .unwrap()
-        .expect("Account not found");
-
-    let verification = SignatureVerification::deserialize(&mut &account.data[8..]).unwrap();
-    assert!(
-        !verification.is_valid,
-        "Signature should be invalid when ed25519 instruction is not at index 0"
-    );
-}
-
-#[tokio::test]
-async fn test_pre_verify_signature_duplicate_pda_fails() {
-    let pt = setup_program_test();
-    let (mut banks_client, payer, recent_blockhash) = pt.start().await;
+    } = ctx.await;
 
     let signing_key = SigningKey::generate(&mut rand::thread_rng());
     let msg = b"test message";
     let sig_data = create_signature_data(&signing_key, msg);
 
     let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
-    let (pre_verify_ix, _sig_verification_pda) =
-        create_pre_verify_instruction(payer.pubkey(), sig_data.clone());
+    let (pre_verify_ix, _) = create_pre_verify_instruction(payer.pubkey(), sig_data.clone());
 
-    // First transaction - should succeed
     let tx1 = Transaction::new_signed_with_payer(
         &[ed25519_ix.clone(), pre_verify_ix.clone()],
         Some(&payer.pubkey()),
@@ -501,7 +383,6 @@ async fn test_pre_verify_signature_duplicate_pda_fails() {
     );
     banks_client.process_transaction(tx1).await.unwrap();
 
-    // Second transaction with same signature - should fail (PDA already exists)
     let new_blockhash = banks_client
         .get_new_latest_blockhash(&recent_blockhash)
         .await
@@ -515,9 +396,8 @@ async fn test_pre_verify_signature_duplicate_pda_fails() {
         new_blockhash,
     );
 
-    let result = banks_client.process_transaction(tx2).await;
     assert!(
-        result.is_err(),
+        banks_client.process_transaction(tx2).await.is_err(),
         "Second verification with same signature should fail"
     );
 }

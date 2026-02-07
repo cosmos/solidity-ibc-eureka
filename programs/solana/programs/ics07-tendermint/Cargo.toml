@@ -50,6 +50,7 @@ time = { workspace = true, features = ["macros"] }
 
 
 [dev-dependencies]
+rstest.workspace = true
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-program-test.workspace = true
