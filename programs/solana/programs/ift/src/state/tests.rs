@@ -21,8 +21,12 @@ fn test_ift_app_state_signer_seeds() {
         bump: 255,
         mint,
         mint_authority_bump: 254,
-        access_manager: Pubkey::new_unique(),
+        admin: Pubkey::new_unique(),
         gmp_program: Pubkey::new_unique(),
+        daily_mint_limit: 0,
+        rate_limit_day: 0,
+        rate_limit_daily_usage: 0,
+        paused: false,
         _reserved: [0; 128],
     };
 

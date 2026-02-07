@@ -45,7 +45,7 @@ pub struct CreateSplToken<'info> {
 pub fn create_spl_token(
     ctx: Context<CreateSplToken>,
     decimals: u8,
-    access_manager: Pubkey,
+    admin: Pubkey,
     gmp_program: Pubkey,
 ) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
@@ -53,14 +53,14 @@ pub fn create_spl_token(
     app_state.bump = ctx.bumps.app_state;
     app_state.mint = ctx.accounts.mint.key();
     app_state.mint_authority_bump = ctx.bumps.mint_authority;
-    app_state.access_manager = access_manager;
+    app_state.admin = admin;
     app_state.gmp_program = gmp_program;
 
     let clock = Clock::get()?;
     emit!(SplTokenCreated {
         mint: ctx.accounts.mint.key(),
         decimals,
-        access_manager,
+        admin,
         gmp_program,
         timestamp: clock.unix_timestamp,
     });
@@ -97,7 +97,7 @@ mod tests {
         let mint = Pubkey::new_unique();
         let wrong_mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let access_manager = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
         // Use wrong mint for PDA derivation
@@ -141,7 +141,7 @@ mod tests {
             ],
             data: crate::instruction::CreateSplToken {
                 decimals: 6,
-                access_manager,
+                admin,
                 gmp_program,
             }
             .data(),

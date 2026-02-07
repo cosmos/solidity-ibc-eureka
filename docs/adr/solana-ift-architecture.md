@@ -43,7 +43,8 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 | **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
 | **Create Mint** | `create_spl_token` | Create new SPL token mint with IFT PDA as authority |
 | **Transfer Authority** | `initialize_existing_token` | Transfer existing token's mint authority to IFT PDA |
-| **Create ATA** | `ift_mint` | Create receiver's ATA if needed (relayer pays) |
+| **Mint** | `admin_mint` | Admin mints tokens to any account (respects rate limits and pause) |
+| **Create ATA** | `ift_mint`, `admin_mint` | Create receiver's ATA if needed (relayer/payer pays) |
 
 ## Implementation Details
 
@@ -56,8 +57,12 @@ pub struct IFTAppState {
     pub bump: u8,
     pub mint: Pubkey,
     pub mint_authority_bump: u8,
-    pub access_manager: Pubkey,
+    pub admin: Pubkey,
     pub gmp_program: Pubkey,
+    pub daily_mint_limit: u64,    // 0 = no limit
+    pub rate_limit_day: u64,      // current day (unix_timestamp / 86400)
+    pub rate_limit_daily_usage: u64,
+    pub paused: bool,
     pub _reserved: [u8; 128],
 }
 
@@ -123,14 +128,14 @@ seeds = [b"pending_transfer", mint.as_ref(), client_id.as_bytes(), &sequence.to_
 
 **Option A: New Token**
 ```
-1. Admin calls create_spl_token(decimals, access_manager, gmp_program)
+1. Admin calls create_spl_token(decimals, admin, gmp_program)
    - Creates new SPL token mint with IFT PDA as authority
 2. Admin calls register_ift_bridge(client_id, counterparty_ift_address, chain_options)
 ```
 
 **Option B: Existing Token**
 ```
-1. Current mint authority calls initialize_existing_token(access_manager, gmp_program)
+1. Current mint authority calls initialize_existing_token(admin, gmp_program)
    - Transfers mint authority to IFT PDA (requires current authority signature)
 2. Admin calls register_ift_bridge(client_id, counterparty_ift_address, chain_options)
 ```
@@ -187,23 +192,26 @@ Tx 2 - Anyone claims refund:
 | `initialize_existing_token` | Initialize IFT for existing token (transfers mint authority to IFT PDA) |
 | `register_ift_bridge` | Register counterparty IFT contract for a destination chain |
 | `remove_ift_bridge` | Deactivate/remove a registered bridge |
-| `set_access_manager` | Update access manager program |
+| `set_admin` | Transfer admin authority to a new pubkey |
+| `set_paused` | Pause or unpause the token (blocks mint and transfer, not refunds) |
+| `set_mint_rate_limit` | Set daily mint rate limit (0 = no limit) |
+| `admin_mint` | Mint tokens to any account (respects rate limits and pause state) |
 | `revoke_mint_authority` | Reclaim mint authority from IFT PDA (closes app state) |
 
 ### Access Control
 
 | Role | Capability |
 |------|------------|
-| **Admin** | Register/remove bridges, update access manager |
-| **Mint Authority PDA** | Sole authority to mint tokens |
-| **GMP Account PDA** | Validates incoming mint requests |
+| **Admin** | Register/remove bridges, transfer admin, pause/unpause, set rate limits, admin mint |
+| **Mint Authority PDA** | Sole authority to mint tokens (used by `ift_mint`, `admin_mint`, `claim_refund`) |
+| **GMP Account PDA** | Validates incoming cross-chain mint requests |
 | **Users** | Initiate transfers (burn their own tokens) |
 
 ### Key Security Properties
 
 1. **Burn Authorization**: Only token owner can burn (standard SPL token semantics)
 
-2. **Mint Authorization**: Only IFT's mint authority PDA can mint, controlled by incoming GMP calls validated against registered bridge, or refund operations validated by pending transfer records
+2. **Mint Authorization**: Only IFT's mint authority PDA can mint, via three paths: incoming GMP calls validated against registered bridge (`ift_mint`), refund operations validated by pending transfer records (`claim_refund`), or direct admin mint (`admin_mint`). All mint paths (except refunds) respect daily rate limits and pause state.
 
 3. **Empty Salt Requirement**: Salt is hardcoded empty on send and validated empty on receive via GMP account PDA derivation. Prevents unauthorized minting via alternate GMP account PDAs.
 

@@ -7,7 +7,7 @@ use anchor_spl::{
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
-use crate::helpers::mint_to_account;
+use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
 use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request.
@@ -15,6 +15,7 @@ use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
     #[account(
+        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -82,6 +83,7 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let bridge = &ctx.accounts.ift_bridge;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
 
     // Validate GMP account matches the bridge's (client_id, counterparty_ift_address).
     // This ensures the relayer passed the correct bridge for this GMP call.
@@ -91,6 +93,8 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &bridge.counterparty_ift_address,
         &ctx.accounts.gmp_program.key(),
     )?;
+
+    check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
 
     mint_to_account(
         &ctx.accounts.mint,
@@ -160,6 +164,8 @@ mod tests {
         GmpNotSigner,
         BridgeNotActive,
         InvalidGmpAccount,
+        TokenPaused,
+        MintRateLimitExceeded,
     }
 
     #[allow(clippy::struct_excessive_bools)]
@@ -169,45 +175,50 @@ mod tests {
         gmp_is_signer: bool,
         bridge_active: bool,
         use_wrong_gmp_account: bool,
+        token_paused: bool,
+        rate_limit_exceeded: bool,
     }
 
     impl From<MintErrorCase> for MintTestConfig {
         fn from(case: MintErrorCase) -> Self {
+            let default = Self {
+                amount: 1000,
+                use_wrong_receiver: false,
+                gmp_is_signer: true,
+                bridge_active: true,
+                use_wrong_gmp_account: false,
+                token_paused: false,
+                rate_limit_exceeded: false,
+            };
+
             match case {
                 MintErrorCase::ZeroAmount => Self {
                     amount: 0,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::ReceiverMismatch => Self {
-                    amount: 1000,
                     use_wrong_receiver: true,
-                    gmp_is_signer: true,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::GmpNotSigner => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
                     gmp_is_signer: false,
-                    bridge_active: true,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::BridgeNotActive => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
                     bridge_active: false,
-                    use_wrong_gmp_account: false,
+                    ..default
                 },
                 MintErrorCase::InvalidGmpAccount => Self {
-                    amount: 1000,
-                    use_wrong_receiver: false,
-                    gmp_is_signer: true,
-                    bridge_active: true,
                     use_wrong_gmp_account: true,
+                    ..default
+                },
+                MintErrorCase::TokenPaused => Self {
+                    token_paused: true,
+                    ..default
+                },
+                MintErrorCase::MintRateLimitExceeded => Self {
+                    rate_limit_exceeded: true,
+                    ..default
                 },
             }
         }
@@ -232,13 +243,29 @@ mod tests {
         let wrong_gmp_account = Pubkey::new_unique();
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            access_manager::ID,
-            gmp_program,
-        );
+        let app_state_account = if config.rate_limit_exceeded {
+            // Set daily limit to 100 with usage already at 100, so any mint exceeds the limit
+            create_ift_app_state_account_full(IftAppStateParams {
+                mint,
+                bump: app_state_bump,
+                mint_authority_bump,
+                admin: Pubkey::new_unique(),
+                gmp_program,
+                paused: config.token_paused,
+                daily_mint_limit: 100,
+                rate_limit_day: 0,
+                rate_limit_daily_usage: 100,
+            })
+        } else {
+            create_ift_app_state_account_with_options(
+                mint,
+                app_state_bump,
+                mint_authority_bump,
+                Pubkey::new_unique(),
+                gmp_program,
+                config.token_paused,
+            )
+        };
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
@@ -363,6 +390,8 @@ mod tests {
     #[case::gmp_not_signer(MintErrorCase::GmpNotSigner)]
     #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
     #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
+    #[case::token_paused(MintErrorCase::TokenPaused)]
+    #[case::mint_rate_limit_exceeded(MintErrorCase::MintRateLimitExceeded)]
     fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);
     }

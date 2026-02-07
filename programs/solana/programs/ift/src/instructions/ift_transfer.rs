@@ -6,10 +6,10 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
+use crate::abi_encode::encode_ift_mint_call;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
-use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
     AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
@@ -19,6 +19,7 @@ use crate::state::{
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
+        mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
     )]
@@ -117,6 +118,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
         msg.receiver.len() <= MAX_RECEIVER_LENGTH,
@@ -144,6 +146,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
     token::burn(burn_ctx, msg.amount)?;
+
+    crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
 
     let mint_call_payload = construct_mint_call(
         &ctx.accounts.ift_bridge.chain_options,
@@ -222,36 +226,17 @@ fn construct_mint_call(
     }
 }
 
-// TODO: use alloy
-/// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains
+/// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
 fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
-    let mut payload = Vec::with_capacity(68);
-
-    // Function selector: keccak256("iftMint(address,uint256)")[:4]
-    // Generated at compile time by build.rs
-    payload.extend_from_slice(&IFT_MINT_SELECTOR);
-
-    // Parse receiver as hex address (remove 0x prefix if present)
     let receiver_hex = receiver.trim_start_matches("0x");
     let receiver_bytes =
         hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    // Validate EVM address is exactly 20 bytes
-    if receiver_bytes.len() != 20 {
-        return Err(error!(IFTError::InvalidReceiver));
-    }
+    let receiver_array: [u8; 20] = receiver_bytes
+        .try_into()
+        .map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    // Pad receiver address to 32 bytes (left-padded with zeros for ABI encoding)
-    let mut padded_receiver = [0u8; 32];
-    padded_receiver[12..32].copy_from_slice(&receiver_bytes);
-    payload.extend_from_slice(&padded_receiver);
-
-    // Amount as u256 (32 bytes, big-endian, left-padded)
-    let mut amount_bytes = [0u8; 32];
-    amount_bytes[24..32].copy_from_slice(&amount.to_be_bytes());
-    payload.extend_from_slice(&amount_bytes);
-
-    Ok(payload)
+    Ok(encode_ift_mint_call(receiver_array, amount))
 }
 
 /// Protojson representation of `MsgIFTMint` for Cosmos chains
@@ -290,18 +275,6 @@ fn construct_cosmos_mint_call(
         }],
     };
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
-}
-
-fn construct_solana_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
-    use std::str::FromStr;
-
-    let receiver_pubkey = Pubkey::from_str(receiver).map_err(|_| IFTError::InvalidReceiver)?;
-
-    let mut payload = Vec::with_capacity(48); // 8 discriminator + 32 pubkey + 8 amount
-    payload.extend_from_slice(&IFT_MINT_DISCRIMINATOR);
-    payload.extend_from_slice(&receiver_pubkey.to_bytes());
-    payload.extend_from_slice(&amount.to_le_bytes());
-    Ok(payload)
 }
 
 /// Parameters for creating a pending transfer account
@@ -397,7 +370,6 @@ fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::evm_selectors::{IFT_MINT_DISCRIMINATOR, IFT_MINT_SELECTOR};
     use crate::state::IFTTransferMsg;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -410,37 +382,6 @@ mod tests {
     const TEST_CLIENT_ID: &str = "07-tendermint-0";
     const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
     const VALID_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
-
-    #[test]
-    fn test_construct_evm_mint_call_basic() {
-        let receiver = "0x1234567890abcdef1234567890abcdef12345678";
-        let amount = 1_000_000u64;
-
-        let payload = construct_evm_mint_call(receiver, amount).unwrap();
-
-        assert_eq!(payload.len(), 68);
-        assert_eq!(&payload[0..4], &IFT_MINT_SELECTOR);
-        assert_eq!(&payload[4..16], &[0u8; 12]);
-
-        let amount_bytes = &payload[36..68];
-        assert_eq!(&amount_bytes[0..24], &[0u8; 24]);
-        assert_eq!(&amount_bytes[24..32], &amount.to_be_bytes());
-    }
-
-    #[test]
-    fn test_construct_evm_mint_call_without_0x_prefix() {
-        let receiver = "1234567890abcdef1234567890abcdef12345678";
-        let payload = construct_evm_mint_call(receiver, 500).unwrap();
-        assert_eq!(payload.len(), 68);
-    }
-
-    #[test]
-    fn test_construct_evm_mint_call_max_amount() {
-        let receiver = "0xffffffffffffffffffffffffffffffffffffffff";
-        let payload = construct_evm_mint_call(receiver, u64::MAX).unwrap();
-        let amount_bytes = &payload[36..68];
-        assert_eq!(&amount_bytes[24..32], &u64::MAX.to_be_bytes());
-    }
 
     #[rstest]
     #[case::invalid_hex("0xnothex")]
@@ -483,27 +424,6 @@ mod tests {
         assert!(json_str.contains("\"denom\":\"ibc/ABC123\""));
         assert!(json_str.contains("\"@type\":\"/wfchain.ift.MsgIFTMint\""));
         assert!(json_str.contains("\"signer\":\"wf1icaaddress\""));
-    }
-
-    #[test]
-    fn test_construct_solana_mint_call() {
-        let receiver = "11111111111111111111111111111111";
-        let amount = 999u64;
-
-        let payload = construct_solana_mint_call(receiver, amount).unwrap();
-
-        assert_eq!(payload.len(), 48);
-        assert_eq!(&payload[0..8], &IFT_MINT_DISCRIMINATOR);
-        assert_eq!(&payload[40..48], &amount.to_le_bytes());
-    }
-
-    #[test]
-    fn test_construct_solana_mint_call_invalid_pubkey() {
-        let invalid_receiver = "not-a-valid-base58-pubkey";
-        let amount = 999u64;
-
-        let result = construct_solana_mint_call(invalid_receiver, amount);
-        assert!(result.is_err());
     }
 
     #[derive(Clone)]
@@ -608,6 +528,7 @@ mod tests {
         TimeoutInPast,
         TimeoutTooLong,
         ReceiverTooLong,
+        TokenPaused,
     }
 
     #[allow(clippy::struct_excessive_bools)]
@@ -619,6 +540,7 @@ mod tests {
         use_wrong_token_owner: bool,
         use_wrong_token_mint: bool,
         timeout_timestamp: i64,
+        token_paused: bool,
     }
 
     impl From<TransferErrorCase> for TransferTestConfig {
@@ -631,6 +553,7 @@ mod tests {
                 use_wrong_token_owner: false,
                 use_wrong_token_mint: false,
                 timeout_timestamp: 0,
+                token_paused: false,
             };
 
             match case {
@@ -670,6 +593,10 @@ mod tests {
                     receiver: "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1),
                     ..default
                 },
+                TransferErrorCase::TokenPaused => Self {
+                    token_paused: true,
+                    ..default
+                },
             }
         }
     }
@@ -691,12 +618,13 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account = create_ift_app_state_account_with_options(
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            Pubkey::new_unique(),
             gmp_program,
+            config.token_paused,
         );
 
         let ift_bridge_account = create_ift_bridge_account(
@@ -814,6 +742,7 @@ mod tests {
     #[case::timeout_in_past(TransferErrorCase::TimeoutInPast)]
     #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
     #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
+    #[case::token_paused(TransferErrorCase::TokenPaused)]
     fn test_ift_transfer_validation(#[case] case: TransferErrorCase) {
         run_transfer_error_test(case);
     }

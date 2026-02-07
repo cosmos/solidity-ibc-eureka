@@ -25,16 +25,67 @@ pub fn create_ift_app_state_account(
     mint: Pubkey,
     bump: u8,
     mint_authority_bump: u8,
-    access_manager: Pubkey,
+    admin: Pubkey,
     gmp_program: Pubkey,
 ) -> SolanaAccount {
+    create_ift_app_state_account_with_options(
+        mint,
+        bump,
+        mint_authority_bump,
+        admin,
+        gmp_program,
+        false,
+    )
+}
+
+/// Create a serialized IFT app state account with configurable paused state
+pub fn create_ift_app_state_account_with_options(
+    mint: Pubkey,
+    bump: u8,
+    mint_authority_bump: u8,
+    admin: Pubkey,
+    gmp_program: Pubkey,
+    paused: bool,
+) -> SolanaAccount {
+    create_ift_app_state_account_full(IftAppStateParams {
+        mint,
+        bump,
+        mint_authority_bump,
+        admin,
+        gmp_program,
+        paused,
+        daily_mint_limit: 0,
+        rate_limit_day: 0,
+        rate_limit_daily_usage: 0,
+    })
+}
+
+/// Parameters for creating a full IFT app state account
+pub struct IftAppStateParams {
+    pub mint: Pubkey,
+    pub bump: u8,
+    pub mint_authority_bump: u8,
+    pub admin: Pubkey,
+    pub gmp_program: Pubkey,
+    pub paused: bool,
+    pub daily_mint_limit: u64,
+    pub rate_limit_day: u64,
+    pub rate_limit_daily_usage: u64,
+}
+
+/// Create a serialized IFT app state account with all configurable fields
+pub fn create_ift_app_state_account_full(params: IftAppStateParams) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
-        bump,
-        mint,
-        mint_authority_bump,
-        access_manager,
-        gmp_program,
+        bump: params.bump,
+        mint: params.mint,
+        mint_authority_bump: params.mint_authority_bump,
+        admin: params.admin,
+        gmp_program: params.gmp_program,
+        daily_mint_limit: params.daily_mint_limit,
+        rate_limit_day: params.rate_limit_day,
+        rate_limit_daily_usage: params.rate_limit_daily_usage,
+        paused: params.paused,
         _reserved: [0; 128],
     };
 
@@ -156,42 +207,6 @@ pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
     create_instructions_sysvar_account_with_caller(crate::ID)
 }
 
-/// Create a fake instructions sysvar account (for attack simulation)
-/// This simulates the Wormhole-style attack where an attacker provides
-/// a fake account at the real sysvar address with manipulated data.
-pub fn create_fake_instructions_sysvar_account(admin: Pubkey) -> (Pubkey, SolanaAccount) {
-    use solana_sdk::sysvar::instructions::{
-        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
-    };
-
-    // Create fake instruction data that makes it look like a direct call
-    let account = BorrowedAccountMeta {
-        pubkey: &admin,
-        is_signer: true,
-        is_writable: false,
-    };
-    let mock_instruction = BorrowedInstruction {
-        program_id: &crate::ID, // Fake: appears to be direct call
-        accounts: vec![account],
-        data: &[],
-    };
-
-    let ixs_data = construct_instructions_data(&[mock_instruction]);
-
-    // Return with WRONG owner - this is the attack vector
-    // The real sysvar should be owned by solana_sdk::sysvar::ID
-    (
-        solana_sdk::sysvar::instructions::ID,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data: ixs_data,
-            owner: system_program::ID, // WRONG owner - attack simulation
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
 /// Create instructions sysvar account with specific caller program ID
 pub fn create_instructions_sysvar_account_with_caller(
     caller_program_id: Pubkey,
@@ -220,37 +235,6 @@ pub fn create_instructions_sysvar_account_with_caller(
             lamports: 1_000_000,
             data: ixs_data,
             owner: solana_sdk::sysvar::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
-/// Create access manager account with admin role for a user
-pub fn create_access_manager_account_with_admin(admin: Pubkey) -> (Pubkey, SolanaAccount) {
-    use access_manager::state::AccessManager;
-    use solana_ibc_types::roles;
-
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &access_manager::ID);
-
-    let access_manager = AccessManager {
-        roles: vec![access_manager::types::RoleData {
-            role_id: roles::ADMIN_ROLE,
-            members: vec![admin],
-        }],
-    };
-
-    let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
-    data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-    access_manager.serialize(&mut &mut data[8..]).unwrap();
-
-    (
-        access_manager_pda,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data,
-            owner: access_manager::ID,
             executable: false,
             rent_epoch: 0,
         },
