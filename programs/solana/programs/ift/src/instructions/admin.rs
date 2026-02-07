@@ -1,12 +1,17 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
 
 use crate::constants::*;
-use crate::events::MintAuthorityRevoked;
-use crate::state::IFTAppState;
+use crate::errors::IFTError;
+use crate::events::{AdminMintExecuted, AdminUpdated, MintAuthorityRevoked};
+use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
+use crate::state::{AdminMintMsg, IFTAppState};
 
 #[derive(Accounts)]
-pub struct SetAccessManager<'info> {
+pub struct SetAdmin<'info> {
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
@@ -14,36 +19,23 @@ pub struct SetAccessManager<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
-        bump,
-        seeds::program = app_state.access_manager
+        constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
-    pub access_manager: AccountInfo<'info>,
-
-    /// Admin with admin role
     pub admin: Signer<'info>,
-
-    /// Instructions sysvar for CPI validation
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
 }
 
-pub fn set_access_manager(
-    ctx: Context<SetAccessManager>,
-    new_access_manager: Pubkey,
-) -> Result<()> {
-    access_manager::require_role(
-        &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
-        &ctx.accounts.admin,
-        &ctx.accounts.instructions_sysvar,
-        &crate::ID,
-    )?;
+/// Transfer admin to `new_admin`.
+/// TODO: consider a two-step transfer (propose + accept) to guard against typos.
+pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+    ctx.accounts.app_state.admin = new_admin;
 
-    ctx.accounts.app_state.access_manager = new_access_manager;
+    let clock = Clock::get()?;
+    emit!(AdminUpdated {
+        mint: ctx.accounts.app_state.mint,
+        new_admin,
+        timestamp: clock.unix_timestamp,
+    });
 
     Ok(())
 }
@@ -79,25 +71,15 @@ pub struct RevokeMintAuthority<'info> {
     /// CHECK: Can be any pubkey chosen by admin
     pub new_mint_authority: AccountInfo<'info>,
 
-    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
+    /// Admin signer
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
-        bump,
-        seeds::program = app_state.access_manager
+        constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
-    pub access_manager: AccountInfo<'info>,
-
-    /// Admin signer (must have `ADMIN_ROLE`)
     pub admin: Signer<'info>,
 
     /// Payer receives rent from closed `app_state`
     #[account(mut)]
     pub payer: Signer<'info>,
-
-    /// Instructions sysvar for access manager verification
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instructions_sysvar: AccountInfo<'info>,
 
     pub token_program: Program<'info, Token>,
 }
@@ -105,14 +87,6 @@ pub struct RevokeMintAuthority<'info> {
 /// Revoke mint authority and close IFT app state.
 /// Transfers mint authority back to the specified new authority.
 pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
-    access_manager::require_role(
-        &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
-        &ctx.accounts.admin,
-        &ctx.accounts.instructions_sysvar,
-        &crate::ID,
-    )?;
-
     let mint_key = ctx.accounts.mint.key();
     let mint_authority_bump = ctx.accounts.app_state.mint_authority_bump;
 
@@ -146,6 +120,90 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     Ok(())
 }
 
+/// Admin-callable mint instruction
+#[derive(Accounts)]
+#[instruction(msg: AdminMintMsg)]
+pub struct AdminMint<'info> {
+    #[account(
+        mut,
+        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        bump = app_state.bump,
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// SPL Token mint
+    #[account(
+        mut,
+        address = app_state.mint
+    )]
+    pub mint: Account<'info, Mint>,
+
+    /// Mint authority PDA
+    /// CHECK: Derived PDA that signs for minting
+    #[account(
+        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        bump = app_state.mint_authority_bump
+    )]
+    pub mint_authority: AccountInfo<'info>,
+
+    /// Receiver's token account (will be created if needed)
+    #[account(
+        init_if_needed,
+        payer = payer,
+        associated_token::mint = mint,
+        associated_token::authority = receiver_owner
+    )]
+    pub receiver_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: Receiver who will own the minted tokens.
+    #[account(
+        constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
+    )]
+    pub receiver_owner: AccountInfo<'info>,
+
+    /// Admin signer
+    #[account(
+        constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
+    )]
+    pub admin: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Mint tokens to any account (admin only). Respects rate limits and pause state.
+pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
+    let clock = Clock::get()?;
+
+    require!(msg.amount > 0, IFTError::ZeroAmount);
+    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
+
+    check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
+
+    mint_to_account(
+        &ctx.accounts.mint,
+        &ctx.accounts.receiver_token_account,
+        &ctx.accounts.mint_authority,
+        ctx.accounts.app_state.mint_authority_bump,
+        &ctx.accounts.token_program,
+        msg.amount,
+    )?;
+
+    emit!(AdminMintExecuted {
+        mint: ctx.accounts.mint.key(),
+        receiver: msg.receiver,
+        amount: msg.amount,
+        admin: ctx.accounts.admin.key(),
+        timestamp: clock.unix_timestamp,
+    });
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use anchor_lang::InstructionData;
@@ -158,23 +216,20 @@ mod tests {
     use crate::test_utils::*;
 
     #[test]
-    fn test_set_access_manager_success() {
+    fn test_set_admin_success() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let new_access_manager = Pubkey::new_unique();
+        let new_admin = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
         let app_state_account = create_ift_app_state_account(
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            admin,
             Pubkey::new_unique(),
         );
 
@@ -182,24 +237,20 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new_readonly(admin, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
             ],
-            data: crate::instruction::SetAccessManager { new_access_manager }.data(),
+            data: crate::instruction::SetAdmin { new_admin }.data(),
         };
 
         let accounts = vec![
             (app_state_pda, app_state_account),
-            (access_manager_pda, access_manager_account),
             (admin, create_signer_account()),
-            (instructions_sysvar, instructions_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
-            "set_access_manager should succeed: {:?}",
+            "set_admin should succeed: {:?}",
             result.program_result
         );
 
@@ -211,148 +262,153 @@ mod tests {
             .1
             .clone();
         let updated_state = deserialize_app_state(&updated_account);
-        assert_eq!(
-            updated_state.access_manager, new_access_manager,
-            "Access manager should be updated"
-        );
+        assert_eq!(updated_state.admin, new_admin, "Admin should be updated");
     }
 
-    #[derive(Clone, Copy)]
-    enum SetAccessManagerErrorCase {
-        Unauthorized,
-        FakeSysvarAttack,
-        CpiRejection,
-    }
-
-    #[derive(Clone, Copy, PartialEq, Eq)]
-    enum SysvarMode {
-        Normal,
-        FakeSysvar,
-        CpiCall,
-    }
-
-    fn run_set_access_manager_error_test(case: SetAccessManagerErrorCase) {
+    #[test]
+    fn test_set_admin_unauthorized() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
-        let new_access_manager = Pubkey::new_unique();
-
-        let (use_unauthorized, sysvar_mode) = match case {
-            SetAccessManagerErrorCase::Unauthorized => (true, SysvarMode::Normal),
-            SetAccessManagerErrorCase::FakeSysvarAttack => (false, SysvarMode::FakeSysvar),
-            SetAccessManagerErrorCase::CpiRejection => (false, SysvarMode::CpiCall),
-        };
+        let new_admin = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-
-        let (instructions_sysvar, instructions_account) = match sysvar_mode {
-            SysvarMode::Normal => create_instructions_sysvar_account(),
-            SysvarMode::FakeSysvar => create_fake_instructions_sysvar_account(admin),
-            SysvarMode::CpiCall => {
-                create_instructions_sysvar_account_with_caller(Pubkey::new_unique())
-            }
-        };
 
         let app_state_account = create_ift_app_state_account(
             mint,
             app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
+            admin,
             Pubkey::new_unique(),
         );
-
-        let signer = if use_unauthorized {
-            unauthorized
-        } else {
-            admin
-        };
 
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
-                AccountMeta::new_readonly(signer, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
+                AccountMeta::new_readonly(unauthorized, true),
             ],
-            data: crate::instruction::SetAccessManager { new_access_manager }.data(),
+            data: crate::instruction::SetAdmin { new_admin }.data(),
         };
 
         let accounts = vec![
             (app_state_pda, app_state_account),
-            (access_manager_pda, access_manager_account),
-            (signer, create_signer_account()),
-            (instructions_sysvar, instructions_account),
+            (unauthorized, create_signer_account()),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(result.program_result.is_err());
     }
 
-    #[rstest]
-    #[case::unauthorized(SetAccessManagerErrorCase::Unauthorized)]
-    #[case::fake_sysvar_attack(SetAccessManagerErrorCase::FakeSysvarAttack)]
-    #[case::cpi_rejection(SetAccessManagerErrorCase::CpiRejection)]
-    fn test_set_access_manager_validation(#[case] case: SetAccessManagerErrorCase) {
-        run_set_access_manager_error_test(case);
-    }
-
     #[derive(Clone, Copy)]
-    enum RevokeMintAuthorityErrorCase {
+    enum AdminMintErrorCase {
         Unauthorized,
-        FakeSysvarAttack,
-        CpiRejection,
+        ZeroAmount,
+        TokenPaused,
+        RateLimitExceeded,
     }
 
-    fn run_revoke_mint_authority_error_test(case: RevokeMintAuthorityErrorCase) {
+    struct AdminMintTestConfig {
+        amount: u64,
+        use_real_admin: bool,
+        paused: bool,
+        daily_mint_limit: u64,
+        rate_limit_daily_usage: u64,
+    }
+
+    impl From<AdminMintErrorCase> for AdminMintTestConfig {
+        fn from(case: AdminMintErrorCase) -> Self {
+            let default = Self {
+                amount: 1000,
+                use_real_admin: true,
+                paused: false,
+                daily_mint_limit: 0,
+                rate_limit_daily_usage: 0,
+            };
+
+            match case {
+                AdminMintErrorCase::Unauthorized => Self {
+                    use_real_admin: false,
+                    ..default
+                },
+                AdminMintErrorCase::ZeroAmount => Self {
+                    amount: 0,
+                    ..default
+                },
+                AdminMintErrorCase::TokenPaused => Self {
+                    paused: true,
+                    ..default
+                },
+                AdminMintErrorCase::RateLimitExceeded => Self {
+                    daily_mint_limit: 100,
+                    rate_limit_daily_usage: 100,
+                    ..default
+                },
+            }
+        }
+    }
+
+    fn run_admin_mint_error_test(case: AdminMintErrorCase) {
+        let config = AdminMintTestConfig::from(case);
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
+        let receiver = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let new_mint_authority = Pubkey::new_unique();
-
-        let (use_unauthorized, sysvar_mode) = match case {
-            RevokeMintAuthorityErrorCase::Unauthorized => (true, SysvarMode::Normal),
-            RevokeMintAuthorityErrorCase::FakeSysvarAttack => (false, SysvarMode::FakeSysvar),
-            RevokeMintAuthorityErrorCase::CpiRejection => (false, SysvarMode::CpiCall),
-        };
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_account_with_admin(admin);
-
-        let (instructions_sysvar, instructions_account) = match sysvar_mode {
-            SysvarMode::Normal => create_instructions_sysvar_account(),
-            SysvarMode::FakeSysvar => create_fake_instructions_sysvar_account(admin),
-            SysvarMode::CpiCall => {
-                create_instructions_sysvar_account_with_caller(Pubkey::new_unique())
-            }
-        };
-
+        let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = create_token_program_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account = create_ift_app_state_account_full(IftAppStateParams {
             mint,
-            app_state_bump,
+            bump: app_state_bump,
             mint_authority_bump,
-            access_manager::ID,
-            Pubkey::new_unique(),
-        );
+            admin,
+            gmp_program: Pubkey::new_unique(),
+            paused: config.paused,
+            daily_mint_limit: config.daily_mint_limit,
+            rate_limit_day: 0,
+            rate_limit_daily_usage: config.rate_limit_daily_usage,
+        });
 
         let mint_account = create_mint_account(mint_authority_pda, 6);
 
-        let signer = if use_unauthorized {
-            unauthorized
-        } else {
+        let receiver_token_pda = Pubkey::new_unique();
+        let mut receiver_token_data = vec![0u8; 165];
+        receiver_token_data[0..32].copy_from_slice(&mint.to_bytes());
+        receiver_token_data[32..64].copy_from_slice(&receiver.to_bytes());
+        let receiver_token_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: receiver_token_data,
+            owner: anchor_spl::token::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let associated_token_program_account = solana_sdk::account::Account {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        };
+
+        let signer_key = if config.use_real_admin {
             admin
+        } else {
+            unauthorized
+        };
+
+        let msg = crate::state::AdminMintMsg {
+            receiver,
+            amount: config.amount,
         };
 
         let instruction = Instruction {
@@ -361,11 +417,79 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
-                AccountMeta::new_readonly(new_mint_authority, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
-                AccountMeta::new_readonly(signer, true),
+                AccountMeta::new(receiver_token_pda, false),
+                AccountMeta::new_readonly(receiver, false),
+                AccountMeta::new_readonly(signer_key, true),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(instructions_sysvar, false),
+                AccountMeta::new_readonly(token_program_id, false),
+                AccountMeta::new_readonly(anchor_spl::associated_token::ID, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::AdminMint { msg }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (mint, mint_account),
+            (mint_authority_pda, create_signer_account()),
+            (receiver_token_pda, receiver_token_account),
+            (receiver, create_signer_account()),
+            (signer_key, create_signer_account()),
+            (payer, create_signer_account()),
+            (token_program_id, token_program_account),
+            (
+                anchor_spl::associated_token::ID,
+                associated_token_program_account,
+            ),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(result.program_result.is_err());
+    }
+
+    #[rstest]
+    #[case::unauthorized(AdminMintErrorCase::Unauthorized)]
+    #[case::zero_amount(AdminMintErrorCase::ZeroAmount)]
+    #[case::token_paused(AdminMintErrorCase::TokenPaused)]
+    #[case::rate_limit_exceeded(AdminMintErrorCase::RateLimitExceeded)]
+    fn test_admin_mint_validation(#[case] case: AdminMintErrorCase) {
+        run_admin_mint_error_test(case);
+    }
+
+    #[test]
+    fn test_revoke_mint_authority_unauthorized() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let unauthorized = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let new_mint_authority = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (token_program_id, token_program_account) = create_token_program_account();
+
+        let app_state_account = create_ift_app_state_account(
+            mint,
+            app_state_bump,
+            mint_authority_bump,
+            admin,
+            Pubkey::new_unique(),
+        );
+
+        let mint_account = create_mint_account(mint_authority_pda, 6);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new_readonly(new_mint_authority, false),
+                AccountMeta::new_readonly(unauthorized, true),
+                AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(token_program_id, false),
             ],
             data: crate::instruction::RevokeMintAuthority {}.data(),
@@ -376,22 +500,12 @@ mod tests {
             (mint, mint_account),
             (mint_authority_pda, create_signer_account()),
             (new_mint_authority, create_signer_account()),
-            (access_manager_pda, access_manager_account),
-            (signer, create_signer_account()),
+            (unauthorized, create_signer_account()),
             (payer, create_signer_account()),
-            (instructions_sysvar, instructions_account),
             (token_program_id, token_program_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(result.program_result.is_err());
-    }
-
-    #[rstest]
-    #[case::unauthorized(RevokeMintAuthorityErrorCase::Unauthorized)]
-    #[case::fake_sysvar_attack(RevokeMintAuthorityErrorCase::FakeSysvarAttack)]
-    #[case::cpi_rejection(RevokeMintAuthorityErrorCase::CpiRejection)]
-    fn test_revoke_mint_authority_validation(#[case] case: RevokeMintAuthorityErrorCase) {
-        run_revoke_mint_authority_error_test(case);
     }
 }

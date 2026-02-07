@@ -3,7 +3,7 @@ use crate::state::*;
 use access_manager::RoleData;
 use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
 use solana_ibc_types::roles;
-use solana_ibc_types::Payload;
+use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
 use solana_sdk::sysvar::Sysvar;
 
@@ -450,7 +450,7 @@ pub fn setup_packet_commitment(
         &crate::ID,
     );
 
-    let commitment_value = crate::utils::ics24::packet_commitment_bytes32(packet);
+    let commitment_value = ics24::packet_commitment_bytes32(packet);
     let commitment = Commitment {
         value: commitment_value,
     };

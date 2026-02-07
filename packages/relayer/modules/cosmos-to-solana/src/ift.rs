@@ -214,7 +214,7 @@ fn build_claim_refund_ix(
 
     // Account order must match IFT's ClaimRefund struct
     let accounts = vec![
-        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new(app_state_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
         AccountMeta::new_readonly(gmp_result_pda, false),
         AccountMeta::new(mint, false),

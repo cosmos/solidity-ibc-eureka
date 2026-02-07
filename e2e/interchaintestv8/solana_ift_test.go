@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	solanago "github.com/gagliardetto/solana-go"
+	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 
@@ -25,7 +26,6 @@ import (
 	"github.com/cosmos/interchaintest/v10/chain/cosmos"
 	"github.com/cosmos/interchaintest/v10/ibc"
 
-	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
@@ -60,7 +60,6 @@ type IbcEurekaSolanaIFTTestSuite struct {
 	IBCClientPDA      solanago.PublicKey
 	GMPIBCAppPDA      solanago.PublicKey
 	ClientSequencePDA solanago.PublicKey
-	AccessManagerPDA  solanago.PublicKey
 }
 
 // IFTMint returns the mint public key
@@ -68,7 +67,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) IFTMint() solanago.PublicKey {
 	return s.IFTMintWallet.PublicKey()
 }
 
-// IFTMintBytes returns the mint public key as bytes (for PDA derivation)
+// IFTMintBytes returns the mint public key as bytes
 func (s *IbcEurekaSolanaIFTTestSuite) IFTMintBytes() []byte {
 	pk := s.IFTMintWallet.PublicKey()
 	return pk[:]
@@ -104,7 +103,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-	s.AccessManagerPDA, _ = solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 }
 
 // Test_IFT_SolanaToCosmosRoundtrip test: Solana → Cosmos → Solana
@@ -547,10 +545,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 			s.IFTMint(),
 			iftMintAuthorityPDA,
 			newAuthorityWallet.PublicKey(),
-			s.AccessManagerPDA,
 			s.SolanaRelayer.PublicKey(), // admin
 			s.SolanaRelayer.PublicKey(), // payer
-			solanago.SysVarInstructionsPubkey,
 			token.ProgramID,
 		)
 		s.Require().NoError(err)
@@ -565,7 +561,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 
 	s.Require().True(s.Run("Verify mint authority transferred", func() {
 		s.Solana.Chain.VerifyMintAuthority(ctx, s.T(), s.Require(), s.IFTMint(), newAuthorityWallet.PublicKey())
-		s.T().Logf("✓ Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
+		s.T().Logf("Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
 	}))
 
 	s.Require().True(s.Run("Verify IFT app state closed", func() {
@@ -583,7 +579,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 		balance, err := s.Solana.Chain.GetTokenBalance(ctx, tokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(IFTMintAmount, balance)
-		s.T().Logf("✓ New authority minted %d tokens", IFTMintAmount)
+		s.T().Logf("New authority minted %d tokens", IFTMintAmount)
 	}))
 }
 
@@ -899,6 +895,64 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	}))
 }
 
+// Test_IFT_AdminMint tests that admin can mint tokens to any account
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminMint() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	const adminMintAmount = uint64(5_000_000)
+
+	s.Require().True(s.Run("Create IFT SPL token", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+	}))
+
+	mint := s.IFTMint()
+
+	receiverWallet, err := s.Solana.Chain.CreateAndFundWallet()
+	s.Require().NoError(err)
+
+	receiverATA, err := solana.AssociatedTokenAccountAddress(receiverWallet.PublicKey(), mint)
+	s.Require().NoError(err)
+
+	iftMintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
+
+	s.Require().True(s.Run("Admin mint tokens to receiver", func() {
+		adminMintMsg := ift.IftStateAdminMintMsg{
+			Receiver: receiverWallet.PublicKey(),
+			Amount:   adminMintAmount,
+		}
+
+		adminMintIx, err := ift.NewAdminMintInstruction(
+			adminMintMsg,
+			s.IFTAppState,
+			mint,
+			iftMintAuthorityPDA,
+			receiverATA,
+			receiverWallet.PublicKey(),
+			s.SolanaRelayer.PublicKey(), // admin
+			s.SolanaRelayer.PublicKey(), // payer
+			token.ProgramID,
+			associatedtokenaccount.ProgramID,
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), adminMintIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Admin mint tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify receiver balance", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverATA)
+		s.Require().NoError(err)
+		s.Require().Equal(adminMintAmount, balance)
+	}))
+}
+
 // createTokenFactoryDenom creates a tokenfactory denom and returns the subdenom
 func (s *IbcEurekaSolanaIFTTestSuite) createTokenFactoryDenom(ctx context.Context, subdenom string) string {
 	msg := &tokenfactorytypes.MsgCreateDenom{
@@ -974,10 +1028,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			registerMsg,
 			s.IFTAppState,
 			bridgePDA,
-			s.AccessManagerPDA,
-			s.SolanaRelayer.PublicKey(),       // Authority
-			solanago.SysVarInstructionsPubkey, // Instructions sysvar
-			s.SolanaRelayer.PublicKey(),       // Payer
+			s.SolanaRelayer.PublicKey(), // admin
+			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -1014,7 +1066,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, min
 
 	initIx, err := ift.NewCreateSplTokenInstruction(
 		IFTTokenDecimals,
-		access_manager.ProgramID,
+		s.SolanaRelayer.PublicKey(), // admin
 		ics27_gmp.ProgramID,
 		appStatePDA,
 		mint,
@@ -1100,7 +1152,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingToken(ctx context.Contex
 
 	// Transfer mint authority to IFT via initialize_existing_token
 	initExistingIx, err := ift.NewInitializeExistingTokenInstruction(
-		access_manager.ProgramID,
+		s.SolanaRelayer.PublicKey(), // admin
 		ics27_gmp.ProgramID,
 		appStatePDA,
 		mint,

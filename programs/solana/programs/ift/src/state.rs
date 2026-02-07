@@ -76,11 +76,21 @@ pub struct IFTAppState {
     /// `find_program_address` (~10k CUs) on each mint/refund.
     pub mint_authority_bump: u8,
 
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Admin authority for this IFT token
+    pub admin: Pubkey,
 
     /// GMP program address for sending cross-chain calls
     pub gmp_program: Pubkey,
+
+    /// Daily mint rate limit (0 = no limit)
+    pub daily_mint_limit: u64,
+    /// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`)
+    pub rate_limit_day: u64,
+    /// Net mint usage for the current day
+    pub rate_limit_daily_usage: u64,
+
+    /// Whether this token is paused (blocks mint and transfer, not refunds)
+    pub paused: bool,
 
     pub _reserved: [u8; 128],
 }
@@ -205,6 +215,29 @@ pub struct IFTTransferMsg {
 /// Message for minting IFT tokens (called by GMP)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct IFTMintMsg {
+    /// Receiver pubkey
+    pub receiver: Pubkey,
+    /// Amount to mint
+    pub amount: u64,
+}
+
+/// Message for setting the daily mint rate limit
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SetMintRateLimitMsg {
+    /// Daily mint limit (0 = no limit)
+    pub daily_mint_limit: u64,
+}
+
+/// Message for pausing/unpausing an IFT token
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct SetPausedMsg {
+    /// Whether to pause (true) or unpause (false) the token
+    pub paused: bool,
+}
+
+/// Message for admin mint
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AdminMintMsg {
     /// Receiver pubkey
     pub receiver: Pubkey,
     /// Amount to mint

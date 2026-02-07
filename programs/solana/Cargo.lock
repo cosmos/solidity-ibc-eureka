@@ -488,6 +488,7 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513322ca875f8dd097652396ddee766f4b9818b934e2080cf60d914482024825"
 dependencies = [
+ "alloy-json-abi",
  "alloy-sol-macro-input",
  "const-hex",
  "heck 0.5.0",
@@ -506,12 +507,14 @@ version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df8b5eebcc14d5e8a1cbf19623ec066f3f82efc30810fd6de4dfbbd18138000e"
 dependencies = [
+ "alloy-json-abi",
  "const-hex",
  "dunce",
  "heck 0.5.0",
  "macro-string",
  "proc-macro2",
  "quote",
+ "serde_json",
  "syn 2.0.101",
  "syn-solidity",
 ]
@@ -3431,7 +3434,6 @@ dependencies = [
  "mock-light-client",
  "mollusk-svm",
  "mollusk-svm-bencher",
- "sha2 0.10.9",
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-types",
@@ -3578,6 +3580,7 @@ name = "ift"
 version = "0.1.0"
 dependencies = [
  "access-manager",
+ "alloy-sol-types",
  "anchor-lang",
  "anchor-spl",
  "bincode",
@@ -3592,7 +3595,6 @@ dependencies = [
  "sha2 0.10.9",
  "solana-ibc-proto",
  "solana-ibc-types",
- "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
 ]
@@ -6931,6 +6933,7 @@ dependencies = [
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",
+ "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
  "tendermint",

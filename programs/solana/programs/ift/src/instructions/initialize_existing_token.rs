@@ -45,7 +45,7 @@ pub struct InitializeExistingToken<'info> {
 
 pub fn initialize_existing_token(
     ctx: Context<InitializeExistingToken>,
-    access_manager: Pubkey,
+    admin: Pubkey,
     gmp_program: Pubkey,
 ) -> Result<()> {
     let cpi_accounts = SetAuthority {
@@ -64,7 +64,7 @@ pub fn initialize_existing_token(
     app_state.bump = ctx.bumps.app_state;
     app_state.mint = ctx.accounts.mint.key();
     app_state.mint_authority_bump = ctx.bumps.mint_authority;
-    app_state.access_manager = access_manager;
+    app_state.admin = admin;
     app_state.gmp_program = gmp_program;
 
     let clock = Clock::get()?;
@@ -72,7 +72,7 @@ pub fn initialize_existing_token(
         mint: ctx.accounts.mint.key(),
         decimals: ctx.accounts.mint.decimals,
         previous_authority: ctx.accounts.current_authority.key(),
-        access_manager,
+        admin,
         gmp_program,
         timestamp: clock.unix_timestamp,
     });
@@ -121,7 +121,7 @@ mod tests {
         payer: Pubkey,
         app_state_pda: Pubkey,
         mint_authority_pda: Pubkey,
-        access_manager: Pubkey,
+        admin: Pubkey,
         gmp_program: Pubkey,
     }
 
@@ -132,7 +132,7 @@ mod tests {
         let payer = Pubkey::new_unique();
         let (app_state_pda, _) = get_app_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
-        let access_manager = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
         TestContext {
@@ -142,7 +142,7 @@ mod tests {
             payer,
             app_state_pda,
             mint_authority_pda,
-            access_manager,
+            admin,
             gmp_program,
         }
     }
@@ -160,7 +160,7 @@ mod tests {
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
             data: crate::instruction::InitializeExistingToken {
-                access_manager: ctx.access_manager,
+                admin: ctx.admin,
                 gmp_program: ctx.gmp_program,
             }
             .data(),
@@ -252,7 +252,7 @@ mod tests {
                     ctx.mint,
                     app_state_bump,
                     mint_authority_bump,
-                    ctx.access_manager,
+                    ctx.admin,
                     ctx.gmp_program,
                 ),
             ),

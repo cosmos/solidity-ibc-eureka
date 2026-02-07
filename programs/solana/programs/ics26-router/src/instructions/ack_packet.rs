@@ -1,16 +1,17 @@
 use crate::errors::RouterError;
+use crate::events::{AckPacketEvent, NoopEvent};
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
-use crate::utils::{chunking, ics24, packet};
+use crate::utils::{chunking, packet};
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{
     on_acknowledgement_packet, OnAcknowledgementPacket, OnAcknowledgementPacketMsg,
 };
+use solana_ibc_types::ics24;
 #[cfg(test)]
 use solana_ibc_types::IBCAppState;
-use solana_ibc_types::{AckPacketEvent, NoopEvent};
 
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]

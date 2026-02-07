@@ -9,8 +9,8 @@ pub struct SplTokenCreated {
     pub mint: Pubkey,
     /// Token decimals
     pub decimals: u8,
-    /// Access manager program
-    pub access_manager: Pubkey,
+    /// Admin authority
+    pub admin: Pubkey,
     /// GMP program for cross-chain calls
     pub gmp_program: Pubkey,
     /// Initialization timestamp
@@ -135,6 +135,28 @@ pub struct MintAuthorityRevoked {
     pub timestamp: i64,
 }
 
+/// Event emitted when the daily mint rate limit is updated
+#[event]
+pub struct MintRateLimitUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// New daily mint limit (0 = no limit)
+    pub daily_mint_limit: u64,
+    /// Update timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when a token's paused state is updated
+#[event]
+pub struct TokenPausedUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// Whether the token is now paused
+    pub paused: bool,
+    /// Update timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when IFT is initialized for an existing SPL token
 #[event]
 pub struct ExistingTokenInitialized {
@@ -144,10 +166,36 @@ pub struct ExistingTokenInitialized {
     pub decimals: u8,
     /// Previous mint authority that transferred ownership
     pub previous_authority: Pubkey,
-    /// Access manager program
-    pub access_manager: Pubkey,
+    /// Admin authority
+    pub admin: Pubkey,
     /// GMP program for cross-chain calls
     pub gmp_program: Pubkey,
     /// Initialization timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when the admin authority is updated
+#[event]
+pub struct AdminUpdated {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// New admin authority
+    pub new_admin: Pubkey,
+    /// Update timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when admin mints tokens
+#[event]
+pub struct AdminMintExecuted {
+    /// SPL Token mint address
+    pub mint: Pubkey,
+    /// Receiver pubkey
+    pub receiver: Pubkey,
+    /// Amount minted
+    pub amount: u64,
+    /// Admin who executed the mint
+    pub admin: Pubkey,
+    /// Mint timestamp
     pub timestamp: i64,
 }

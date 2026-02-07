@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 
+pub mod abi_encode;
 pub mod constants;
 pub mod errors;
 pub mod events;
@@ -13,7 +14,10 @@ pub mod state;
 pub mod test_utils;
 
 use instructions::*;
-use state::{IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg};
+use state::{
+    AdminMintMsg, IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg, SetMintRateLimitMsg,
+    SetPausedMsg,
+};
 
 declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 
@@ -25,19 +29,19 @@ pub mod ift {
     pub fn create_spl_token(
         ctx: Context<CreateSplToken>,
         decimals: u8,
-        access_manager: Pubkey,
+        admin: Pubkey,
         gmp_program: Pubkey,
     ) -> Result<()> {
-        instructions::create_spl_token(ctx, decimals, access_manager, gmp_program)
+        instructions::create_spl_token(ctx, decimals, admin, gmp_program)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority
     pub fn initialize_existing_token(
         ctx: Context<InitializeExistingToken>,
-        access_manager: Pubkey,
+        admin: Pubkey,
         gmp_program: Pubkey,
     ) -> Result<()> {
-        instructions::initialize_existing_token(ctx, access_manager, gmp_program)
+        instructions::initialize_existing_token(ctx, admin, gmp_program)
     }
 
     /// Register an IFT bridge to a counterparty chain
@@ -69,16 +73,31 @@ pub mod ift {
         instructions::claim_refund(ctx, client_id, sequence)
     }
 
-    /// Set the access manager program (admin only)
-    pub fn set_access_manager(
-        ctx: Context<SetAccessManager>,
-        new_access_manager: Pubkey,
-    ) -> Result<()> {
-        instructions::set_access_manager(ctx, new_access_manager)
+    /// Set the admin authority (admin only)
+    pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::set_admin(ctx, new_admin)
     }
 
     /// Revoke mint authority from IFT and transfer it to a new authority.
     pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
         instructions::revoke_mint_authority(ctx)
+    }
+
+    /// Set the daily mint rate limit (admin only)
+    pub fn set_mint_rate_limit(
+        ctx: Context<SetMintRateLimit>,
+        msg: SetMintRateLimitMsg,
+    ) -> Result<()> {
+        instructions::set_mint_rate_limit(ctx, msg)
+    }
+
+    /// Pause or unpause an IFT token (admin only)
+    pub fn set_paused(ctx: Context<SetPaused>, msg: SetPausedMsg) -> Result<()> {
+        instructions::set_paused(ctx, msg)
+    }
+
+    /// Mint tokens to any account (admin only)
+    pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
+        instructions::admin_mint(ctx, msg)
     }
 }

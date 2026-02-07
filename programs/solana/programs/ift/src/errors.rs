@@ -36,9 +36,6 @@ pub enum IFTError {
     #[msg("Pending transfer not found")]
     PendingTransferNotFound,
 
-    #[msg("Direct calls not allowed, must be called via CPI")]
-    DirectCallNotAllowed,
-
     #[msg("Token account owner mismatch")]
     TokenAccountOwnerMismatch,
 
@@ -72,12 +69,6 @@ pub enum IFTError {
     #[msg("Invalid Cosmos ICA address length")]
     InvalidCosmosIcaAddressLength,
 
-    #[msg("Invalid sysvar account provided")]
-    InvalidSysvar,
-
-    #[msg("Unauthorized GMP caller")]
-    UnauthorizedGmp,
-
     #[msg("Invalid GMP account - not derived from expected counterparty bridge")]
     InvalidGmpAccount,
 
@@ -98,17 +89,13 @@ pub enum IFTError {
 
     #[msg("Invalid mint authority - signer does not match current authority")]
     InvalidMintAuthority,
-}
 
-/// Convert CPI validation errors to IFT errors
-impl From<solana_ibc_types::CpiValidationError> for IFTError {
-    fn from(err: solana_ibc_types::CpiValidationError) -> Self {
-        match err {
-            solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
-            solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
-                Self::DirectCallNotAllowed
-            }
-            solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedGmp,
-        }
-    }
+    #[msg("Daily mint rate limit exceeded")]
+    MintRateLimitExceeded,
+
+    #[msg("Token is paused")]
+    TokenPaused,
+
+    #[msg("Unauthorized: signer is not the admin")]
+    UnauthorizedAdmin,
 }

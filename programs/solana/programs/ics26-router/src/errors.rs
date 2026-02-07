@@ -80,6 +80,9 @@ pub enum RouterError {
 
     #[msg("Invalid sequence suffix: must match hash(program_id || sender) % 10000")]
     InvalidSequenceSuffix,
+
+    #[msg("Failed to serialize packet")]
+    PacketSerializationError,
 }
 
 /// Convert CPI validation errors to Router errors

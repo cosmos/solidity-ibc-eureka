@@ -1,6 +1,6 @@
 use crate::constants::*;
 use anchor_lang::prelude::*;
-use ics26_router::utils::ics24::packet_acknowledgement_commitment_bytes32;
+use solana_ibc_types::packet_acknowledgement_commitment_bytes32;
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
