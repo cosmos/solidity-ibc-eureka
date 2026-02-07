@@ -32,7 +32,6 @@ fn create_signature_data(signing_key: &SigningKey, msg: &[u8]) -> SignatureData 
 }
 
 /// Creates a `SignatureData` struct with explicit pubkey, message, and signature.
-/// Useful for testing mismatched values.
 fn create_signature_data_raw(pubkey: [u8; 32], msg: &[u8], signature: [u8; 64]) -> SignatureData {
     let mut hasher = Sha256::new();
     hasher.update(pubkey);
@@ -123,7 +122,6 @@ async fn test_pre_verify_signature_valid() {
     let msg = b"test message for verification";
     let sig_data = create_signature_data(&signing_key, msg);
 
-    // Create instructions
     let ed25519_ix = create_ed25519_instruction(&signing_key, msg);
     let (pre_verify_ix, sig_verification_pda) =
         create_pre_verify_instruction(payer.pubkey(), sig_data);
@@ -136,7 +134,6 @@ async fn test_pre_verify_signature_valid() {
         recent_blockhash,
     );
 
-    // Execute
     banks_client.process_transaction(tx).await.unwrap();
 
     // Verify the SignatureVerification account was created with is_valid = true
