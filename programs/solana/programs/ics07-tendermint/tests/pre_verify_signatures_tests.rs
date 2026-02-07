@@ -6,9 +6,9 @@ use sha2::{Digest, Sha256};
 use solana_ibc_types::ics07::SignatureData;
 use solana_program_test::{BanksClient, ProgramTest, ProgramTestBanksClientExt};
 use solana_sdk::{
-    compute_budget::ComputeBudgetInstruction, hash::Hash, instruction::Instruction,
-    pubkey::Pubkey, signature::Keypair, signer::Signer as SolSigner,
-    sysvar::instructions as ix_sysvar, transaction::Transaction,
+    compute_budget::ComputeBudgetInstruction, hash::Hash, instruction::Instruction, pubkey::Pubkey,
+    signature::Keypair, signer::Signer as SolSigner, sysvar::instructions as ix_sysvar,
+    transaction::Transaction,
 };
 
 const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
@@ -48,7 +48,6 @@ fn create_signature_data(signing_key: &SigningKey, msg: &[u8]) -> SignatureData 
     create_signature_data_raw(pubkey, msg, signature)
 }
 
-/// Creates a `SignatureData` struct with explicit pubkey, message, and signature.
 fn create_signature_data_raw(pubkey: [u8; 32], msg: &[u8], signature: [u8; 64]) -> SignatureData {
     let mut hasher = Sha256::new();
     hasher.update(pubkey);
@@ -113,7 +112,9 @@ fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Ins
         system_program: solana_sdk::system_program::ID,
     };
 
-    let ix_data = ics07_tendermint::instruction::PreVerifySignature { signature: sig_data };
+    let ix_data = ics07_tendermint::instruction::PreVerifySignature {
+        signature: sig_data,
+    };
 
     let instruction = Instruction {
         program_id: ics07_tendermint::ID,
@@ -124,7 +125,7 @@ fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Ins
     (instruction, sig_verification_pda)
 }
 
-async fn get_verification(banks_client: &mut BanksClient, pda: Pubkey) -> SignatureVerification {
+async fn get_verification(banks_client: &BanksClient, pda: Pubkey) -> SignatureVerification {
     let account = banks_client
         .get_account(pda)
         .await
@@ -141,7 +142,7 @@ async fn get_verification(banks_client: &mut BanksClient, pda: Pubkey) -> Signat
 #[tokio::test]
 async fn test_pre_verify_signature_valid(#[future] ctx: TestContext, #[case] msg: Vec<u8>) {
     let TestContext {
-        mut banks_client,
+        banks_client,
         payer,
         recent_blockhash,
     } = ctx.await;
@@ -162,15 +163,15 @@ async fn test_pre_verify_signature_valid(#[future] ctx: TestContext, #[case] msg
 
     banks_client.process_transaction(tx).await.unwrap();
 
-    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
+    let verification = get_verification(&banks_client, sig_verification_pda).await;
     assert!(verification.is_valid, "Signature should be valid");
     assert_eq!(verification.submitter, payer.pubkey());
 }
 
 enum TamperType {
-    WrongPubkey,
-    WrongMessage,
-    WrongSignature,
+    Pubkey,
+    Message,
+    Signature,
 }
 
 fn create_tampered_sig_data(
@@ -181,14 +182,14 @@ fn create_tampered_sig_data(
     let real_msg = msg.to_vec();
 
     match tamper {
-        TamperType::WrongPubkey => {
+        TamperType::Pubkey => {
             let signature = signing_key.sign(msg).to_bytes();
             let wrong_key = SigningKey::generate(&mut rand::thread_rng());
             let sig_data =
                 create_signature_data_raw(wrong_key.verifying_key().to_bytes(), msg, signature);
             (sig_data, real_msg)
         }
-        TamperType::WrongMessage => {
+        TamperType::Message => {
             let signature = signing_key.sign(msg).to_bytes();
             let sig_data = create_signature_data_raw(
                 signing_key.verifying_key().to_bytes(),
@@ -197,7 +198,7 @@ fn create_tampered_sig_data(
             );
             (sig_data, real_msg)
         }
-        TamperType::WrongSignature => {
+        TamperType::Signature => {
             let different_sig = signing_key.sign(b"different message").to_bytes();
             let sig_data = create_signature_data_raw(
                 signing_key.verifying_key().to_bytes(),
@@ -210,16 +211,16 @@ fn create_tampered_sig_data(
 }
 
 #[rstest]
-#[case::wrong_pubkey(TamperType::WrongPubkey)]
-#[case::wrong_message(TamperType::WrongMessage)]
-#[case::wrong_signature(TamperType::WrongSignature)]
+#[case::wrong_pubkey(TamperType::Pubkey)]
+#[case::wrong_message(TamperType::Message)]
+#[case::wrong_signature(TamperType::Signature)]
 #[tokio::test]
 async fn test_pre_verify_signature_tampered_returns_invalid(
     #[future] ctx: TestContext,
     #[case] tamper: TamperType,
 ) {
     let TestContext {
-        mut banks_client,
+        banks_client,
         payer,
         recent_blockhash,
     } = ctx.await;
@@ -240,7 +241,7 @@ async fn test_pre_verify_signature_tampered_returns_invalid(
 
     banks_client.process_transaction(tx).await.unwrap();
 
-    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
+    let verification = get_verification(&banks_client, sig_verification_pda).await;
     assert!(
         !verification.is_valid,
         "Signature should be invalid due to tampered data"
@@ -256,7 +257,7 @@ async fn test_pre_verify_signature_ed25519_position_invalid(
     #[case] include_ed25519: bool,
 ) {
     let TestContext {
-        mut banks_client,
+        banks_client,
         payer,
         recent_blockhash,
     } = ctx.await;
@@ -285,7 +286,7 @@ async fn test_pre_verify_signature_ed25519_position_invalid(
 
     banks_client.process_transaction(tx).await.unwrap();
 
-    let verification = get_verification(&mut banks_client, sig_verification_pda).await;
+    let verification = get_verification(&banks_client, sig_verification_pda).await;
     assert!(
         !verification.is_valid,
         "Signature should be invalid due to ed25519 position"
