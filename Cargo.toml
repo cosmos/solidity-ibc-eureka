@@ -191,6 +191,7 @@ rlp-derive         = { version = "0.2", default-features = false }
 primitive-types    = { version = "0.14", default-features = false }
 
 # test/dev-dependencies
+rstest                       = { version = "0.26", default-features = false }
 milagro_bls                  = { git = "https://github.com/Snowfork/milagro_bls", rev = "bc2b5b5e8d48b7e2e1bfaa56dc2d93e13cb32095", default-features = false }                                           # Only used for testing, not to be used in production!
 smallvec                     = { version = "1.6.1", default-features = false }
 cw-ics08-wasm-eth-v1_2_0     = { package = "cw-ics08-wasm-eth", git = "https://github.com/cosmos/solidity-ibc-eureka", tag = "cw-ics08-wasm-eth-v1.2.0", default-features = false }

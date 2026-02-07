@@ -222,6 +222,7 @@ impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -262,8 +263,11 @@ mod tests {
         pda
     }
 
-    #[test]
-    fn test_preverify_valid_signature() {
+    #[rstest]
+    #[case::valid_signature(1, true)]
+    #[case::invalid_signature(0, false)]
+    #[case::unexpected_value_falls_back(42, false)]
+    fn test_preverify_with_account(#[case] is_valid: u8, #[case] expected_ok: bool) {
         let program_id = Pubkey::new_unique();
         let owner = Pubkey::new_unique();
         let pk_bytes = [1u8; 32];
@@ -271,7 +275,7 @@ mod tests {
         let sig_bytes = [2u8; 64];
         let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
 
-        let mut data = create_verification_account_data(1);
+        let mut data = create_verification_account_data(is_valid);
         let mut lamports = 1_000_000u64;
         let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
 
@@ -279,47 +283,7 @@ mod tests {
         let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
         let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
 
-        assert!(verifier.verify(pk, msg, &sig).is_ok());
-    }
-
-    #[test]
-    fn test_preverify_invalid_signature() {
-        let program_id = Pubkey::new_unique();
-        let owner = Pubkey::new_unique();
-        let pk_bytes = [1u8; 32];
-        let msg = b"test message";
-        let sig_bytes = [2u8; 64];
-        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
-
-        let mut data = create_verification_account_data(0);
-        let mut lamports = 1_000_000u64;
-        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
-
-        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
-        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
-        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
-
-        assert!(verifier.verify(pk, msg, &sig).is_err());
-    }
-
-    #[test]
-    fn test_preverify_unexpected_value_falls_back() {
-        let program_id = Pubkey::new_unique();
-        let owner = Pubkey::new_unique();
-        let pk_bytes = [1u8; 32];
-        let msg = b"test message";
-        let sig_bytes = [2u8; 64];
-        let pda = compute_sig_verify_pda(&pk_bytes, msg, &sig_bytes, &program_id);
-
-        let mut data = create_verification_account_data(42);
-        let mut lamports = 1_000_000u64;
-        let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
-
-        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
-        let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
-        let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
-
-        assert!(verifier.verify(pk, msg, &sig).is_err());
+        assert_eq!(verifier.verify(pk, msg, &sig).is_ok(), expected_ok);
     }
 
     #[test]
