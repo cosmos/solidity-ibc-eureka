@@ -117,6 +117,7 @@ pub struct IFTTransfer<'info> {
     pub pending_transfer: UncheckedAccount<'info>,
 }
 
+// TODO: validate client id non zero/less than max
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
     let clock = Clock::get()?;
 
