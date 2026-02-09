@@ -44,8 +44,8 @@ pub struct IFTTransfer<'info> {
     /// Sender's token account
     #[account(
         mut,
-        constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         // TODO: add its own error
+        constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == sender.key() @ IFTError::TokenAccountOwnerMismatch
     )]
     pub sender_token_account: Account<'info, TokenAccount>,
