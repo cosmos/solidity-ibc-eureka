@@ -8,15 +8,19 @@ const SIGNATURE_LEN: usize = SECP256K1_SIGNATURE_LENGTH + 1;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
 pub const ETH_ADDRESS_LEN: usize = 20;
 
+pub type MessageHash = [u8; 32];
+
+pub fn sha256_digest(data: &[u8]) -> MessageHash {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(data).into()
+}
+
 struct PreparedSignature {
-    message_hash: [u8; solana_keccak_hasher::HASH_BYTES],
     sig_bytes: [u8; SECP256K1_SIGNATURE_LENGTH],
     recovery_id: u8,
 }
 
-fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignature> {
-    use sha2::{Digest, Sha256};
-
+fn prepare_signature(signature: &[u8]) -> Result<PreparedSignature> {
     if signature.len() != SIGNATURE_LEN {
         return Err(error!(ErrorCode::InvalidSignature));
     }
@@ -27,7 +31,6 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
     let v = signature[SECP256K1_SIGNATURE_LENGTH];
 
     Ok(PreparedSignature {
-        message_hash: Sha256::digest(message).into(),
         sig_bytes,
         recovery_id: if v >= ETH_RECOVERY_ID_OFFSET {
             v - ETH_RECOVERY_ID_OFFSET
@@ -37,13 +40,16 @@ fn prepare_signature(message: &[u8], signature: &[u8]) -> Result<PreparedSignatu
     })
 }
 
-/// Recover Ethereum address from a 65-byte secp256k1 signature.
+/// Recover Ethereum address from a precomputed message hash and a 65-byte secp256k1 signature.
 #[cfg(target_os = "solana")]
-pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
-    let prepared = prepare_signature(message, signature)?;
+pub fn recover_eth_address(
+    message_hash: &MessageHash,
+    signature: &[u8],
+) -> Result<[u8; ETH_ADDRESS_LEN]> {
+    let prepared = prepare_signature(signature)?;
 
     let pubkey = solana_secp256k1_recover::secp256k1_recover(
-        &prepared.message_hash,
+        message_hash,
         prepared.recovery_id,
         &prepared.sig_bytes,
     )
@@ -52,12 +58,15 @@ pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_
     Ok(pubkey_to_eth_address(&pubkey.0))
 }
 
-/// Recover Ethereum address from a 65-byte secp256k1 signature (test impl).
+/// Recover Ethereum address from a precomputed message hash and a 65-byte secp256k1 signature (test impl).
 #[cfg(all(not(target_os = "solana"), test))]
-pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
+pub fn recover_eth_address(
+    message_hash: &MessageHash,
+    signature: &[u8],
+) -> Result<[u8; ETH_ADDRESS_LEN]> {
     use alloy_primitives::Signature;
 
-    let prepared = prepare_signature(message, signature)?;
+    let prepared = prepare_signature(signature)?;
 
     if prepared.recovery_id > 1 {
         return Err(error!(ErrorCode::InvalidSignature));
@@ -74,14 +83,17 @@ pub fn recover_eth_address(message: &[u8], signature: &[u8]) -> Result<[u8; ETH_
     );
 
     let address = sig
-        .recover_address_from_prehash(&alloy_primitives::B256::from(prepared.message_hash))
+        .recover_address_from_prehash(&alloy_primitives::B256::from(*message_hash))
         .map_err(|_| error!(ErrorCode::InvalidSignature))?;
 
     Ok(address.0 .0)
 }
 
 #[cfg(all(not(target_os = "solana"), not(test)))]
-pub fn recover_eth_address(_message: &[u8], signature: &[u8]) -> Result<[u8; ETH_ADDRESS_LEN]> {
+pub fn recover_eth_address(
+    _message_hash: &MessageHash,
+    signature: &[u8],
+) -> Result<[u8; ETH_ADDRESS_LEN]> {
     if signature.len() != SIGNATURE_LEN {
         return Err(error!(ErrorCode::InvalidSignature));
     }
@@ -103,7 +115,8 @@ mod tests {
     #[case::long(vec![0u8; 66])]
     #[case::empty(vec![])]
     fn test_recover_eth_address_invalid_signature_length(#[case] sig: Vec<u8>) {
-        assert!(recover_eth_address(b"test message", &sig).is_err());
+        let hash = sha256_digest(b"test message");
+        assert!(recover_eth_address(&hash, &sig).is_err());
     }
 
     #[test]
@@ -112,6 +125,7 @@ mod tests {
 
         let attestor = TestAttestor::new(1);
         let message = b"test message for recovery id normalization";
+        let hash = sha256_digest(message);
         let sig = attestor.sign(message);
 
         // Original signature uses Ethereum-style v (27 or 28)
@@ -119,12 +133,12 @@ mod tests {
         assert!(original_v == 27 || original_v == 28);
 
         // Recover with original Ethereum-style v
-        let addr_original = recover_eth_address(message, &sig).unwrap();
+        let addr_original = recover_eth_address(&hash, &sig).unwrap();
 
         // Recover with canonical v (0 or 1)
         let mut sig_canonical = sig;
         sig_canonical[64] = original_v - 27;
-        let addr_canonical = recover_eth_address(message, &sig_canonical).unwrap();
+        let addr_canonical = recover_eth_address(&hash, &sig_canonical).unwrap();
 
         // Both should recover the same address
         assert_eq!(addr_original, addr_canonical);
@@ -137,10 +151,11 @@ mod tests {
 
         let attestor = TestAttestor::new(1);
         let message = b"test message for invalid recovery id";
+        let hash = sha256_digest(message);
         let mut sig = attestor.sign(message);
 
         // v=29 normalizes to 2, which is invalid for secp256k1
         sig[64] = 29;
-        assert!(recover_eth_address(message, &sig).is_err());
+        assert!(recover_eth_address(&hash, &sig).is_err());
     }
 }
