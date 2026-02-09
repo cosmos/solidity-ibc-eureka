@@ -105,6 +105,7 @@ pub struct IFTTransfer<'info> {
     #[account()]
     pub gmp_ibc_app: AccountInfo<'info>,
 
+    // TODO: maybe remove IBC APP for sequence and check if it won't collide
     /// IBC client account
     /// CHECK: Router program validates this
     #[account()]
