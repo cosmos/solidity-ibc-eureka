@@ -82,7 +82,7 @@ pub fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, cl
     app_state.rate_limit_daily_usage = app_state.rate_limit_daily_usage.saturating_sub(amount);
 }
 
-// TODO: merge with minting & allow for refunds
+// TODO: merge with minting & allow for refunds, remove from pub
 /// Increase mint rate limit usage for `claim_refund` (refund re-mints).
 /// Does not check the limit -- refunds must never be blocked.
 pub fn increase_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
