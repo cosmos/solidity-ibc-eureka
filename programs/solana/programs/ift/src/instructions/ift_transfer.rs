@@ -15,6 +15,7 @@ use crate::state::{
     AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
 };
 
+// TODO: freeze constraint for appstate paused
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
