@@ -236,6 +236,7 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_bytes =
         hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
+    // TODO: eth address const
     let receiver_array: [u8; 20] = receiver_bytes
         .try_into()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
