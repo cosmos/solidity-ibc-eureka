@@ -33,6 +33,7 @@ pub enum ChainOptions {
 impl ChainOptions {
     /// Validate Chain Options params
     pub fn validate(&self) -> Result<()> {
+        // TODO: to match
         if let Self::Cosmos {
             ref denom,
             ref type_url,
