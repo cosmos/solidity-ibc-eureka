@@ -5,6 +5,7 @@ use alloy_sol_types::SolCall;
 // Using ABI JSON because sol! macro can't resolve Solidity imports.
 alloy_sol_types::sol!(IFT, "../../../../abi/IFTOwnable.json");
 
+// TODO: remove as a separate file and inline in constructor
 /// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
 pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
     use alloy_sol_types::private::{Address, U256};
