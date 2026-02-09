@@ -120,6 +120,8 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     Ok(())
 }
 
+// TODO: should we limit who can init it????
+// TODO: add multi mint, with testing if one state could not be enough to use for another mint
 /// Admin-callable mint instruction
 #[derive(Accounts)]
 #[instruction(msg: AdminMintMsg)]
