@@ -25,6 +25,8 @@ members = [
     "packages/relayer/modules/eth-to-cosmos-compat",
     "packages/relayer/modules/solana-to-cosmos",
     "packages/relayer/modules/cosmos-to-solana",
+    "packages/relayer/modules/eth-to-solana",
+    "packages/relayer/modules/solana-to-eth",
     "packages/sp1-ics07-tendermint-prover",
 
     # Programs (binaries)
@@ -55,6 +57,8 @@ ibc-eureka-relayer-eth-to-eth           = { path = "packages/relayer/modules/eth
 ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
 ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }
+ibc-eureka-relayer-eth-to-solana        = { path = "packages/relayer/modules/eth-to-solana", default-features = false }
+ibc-eureka-relayer-solana-to-eth        = { path = "packages/relayer/modules/solana-to-eth", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
 ibc-eureka-constrained-types            = { path = "packages/constrained_types", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }
