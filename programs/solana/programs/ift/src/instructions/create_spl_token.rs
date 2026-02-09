@@ -19,6 +19,7 @@ pub struct CreateSplToken<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    // TODO: does it set the same for freeze and metadata???
     /// SPL Token mint (created by IFT with PDA as authority)
     #[account(
         init,
