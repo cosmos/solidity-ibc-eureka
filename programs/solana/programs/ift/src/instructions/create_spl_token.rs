@@ -5,6 +5,7 @@ use crate::constants::*;
 use crate::events::SplTokenCreated;
 use crate::state::{AccountVersion, IFTAppState};
 
+// TODO: Add create and init spl token
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct CreateSplToken<'info> {
