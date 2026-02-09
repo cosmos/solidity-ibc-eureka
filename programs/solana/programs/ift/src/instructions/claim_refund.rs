@@ -14,6 +14,7 @@ use crate::evm_selectors::ERROR_ACK_COMMITMENT;
 use crate::helpers::mint_to_account;
 use crate::state::{IFTAppState, PendingTransfer};
 
+// TODO: pick a better name since it is for ack/timeout/failure
 /// Accounts for the `claim_refund` instruction
 #[derive(Accounts)]
 #[instruction(client_id: String, sequence: u64)]
