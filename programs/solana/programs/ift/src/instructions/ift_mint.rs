@@ -63,6 +63,7 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_owner: AccountInfo<'info>,
 
+    // TODO: check if we can remove it and pull from app_state
     /// CHECK: GMP program for PDA derivation
     #[account(address = app_state.gmp_program @ IFTError::InvalidGmpProgram)]
     pub gmp_program: AccountInfo<'info>,
