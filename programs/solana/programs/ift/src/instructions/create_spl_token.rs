@@ -43,6 +43,7 @@ pub struct CreateSplToken<'info> {
     pub system_program: Program<'info, System>,
 }
 
+// TODO: check compatibility with token 2022 and write a test for it
 pub fn create_spl_token(
     ctx: Context<CreateSplToken>,
     decimals: u8,
