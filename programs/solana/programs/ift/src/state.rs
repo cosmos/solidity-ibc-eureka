@@ -124,10 +124,12 @@ pub struct IFTBridge {
     pub mint: Pubkey,
 
     /// IBC client identifier for this bridge
+    //TODO: Use const
     #[max_len(64)]
     pub client_id: String,
 
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
+    //TODO: Use const
     #[max_len(128)]
     pub counterparty_ift_address: String,
 
