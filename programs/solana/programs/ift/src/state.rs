@@ -139,6 +139,7 @@ pub struct IFTBridge {
     /// Whether bridge is active
     pub active: bool,
 
+    // TODO: USE SAME 256 FOR EVERY RESERVED
     pub _reserved: [u8; 64],
 }
 
