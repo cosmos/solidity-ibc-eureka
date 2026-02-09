@@ -42,6 +42,7 @@ impl ChainOptions {
         {
             require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
             require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
+            // TODO: validate a valid cosmos address
             require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
             require!(
                 denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
