@@ -58,6 +58,10 @@ const (
 	numSolAttestors    = 1
 	ethSolGMPPortID    = testvalues.SolanaGMPPortID
 	ethSolComputeUnits = uint32(400_000)
+
+	// Separate keystore path templates to avoid conflicts between Eth and Solana attestors
+	ethAttestorKeystorePathTemplate    = "/tmp/ethsol_eth_attestor_%d"
+	solanaAttestorKeystorePathTemplate = "/tmp/ethsol_sol_attestor_%d"
 )
 
 // EthereumSolanaIFTTestSuite tests IFT transfers between Ethereum and Solana directly.
@@ -337,7 +341,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.ethAttestorAddresses, err = attestor.GenerateAttestorKeys(ctx, attestor.GenerateAttestorKeysParams{
 			Client:               s.GetDockerClient(),
 			NumKeys:              numEthAttestors,
-			KeystorePathTemplate: testvalues.AttestorKeystorePathTemplate,
+			KeystorePathTemplate: ethAttestorKeystorePathTemplate,
 		})
 		s.Require().NoError(err)
 		s.T().Logf("Generated %d Eth attestor keys: %v", len(s.ethAttestorAddresses), s.ethAttestorAddresses)
@@ -362,7 +366,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Start Eth attestors", func() {
 		s.ethAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
 			NumAttestors:         numEthAttestors,
-			KeystorePathTemplate: testvalues.AttestorKeystorePathTemplate,
+			KeystorePathTemplate: ethAttestorKeystorePathTemplate,
 			ChainType:            attestor.ChainTypeEvm,
 			AdapterURL:           eth.DockerRPC,
 			RouterAddress:        s.contractAddresses.Ics26Router,
@@ -379,7 +383,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Start Solana attestors", func() {
 		s.solanaAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
 			NumAttestors:         numSolAttestors,
-			KeystorePathTemplate: testvalues.AttestorKeystorePathTemplate,
+			KeystorePathTemplate: solanaAttestorKeystorePathTemplate,
 			ChainType:            attestor.ChainTypeSolana,
 			AdapterURL:           attestor.TransformLocalhostToDockerHost(testvalues.SolanaLocalnetRPC),
 			RouterAddress:        ics26_router.ProgramID.String(),
