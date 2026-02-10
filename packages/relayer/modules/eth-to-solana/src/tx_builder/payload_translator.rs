@@ -29,7 +29,7 @@ const ABI_ENCODING: &str = "application/x-solidity-abi";
 /// Anchor discriminator for `IFTBridge` accounts.
 static IFT_BRIDGE_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
-    hasher.update(b"account:IFTBridge");
+    hasher.update(b"account:ift::IFTBridge");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });

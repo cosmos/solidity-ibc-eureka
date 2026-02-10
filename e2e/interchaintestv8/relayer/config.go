@@ -327,7 +327,6 @@ type CosmosToSolanaModuleConfig struct {
 	Mode                   TxBuilderMode `json:"mode,omitempty"`
 }
 
-// EthToSolanaModuleConfig represents the configuration for eth_to_solana module
 type EthToSolanaModuleConfig struct {
 	Ics26Address         string        `json:"ics26_address"`
 	EthRpcUrl            string        `json:"eth_rpc_url"`
@@ -338,7 +337,6 @@ type EthToSolanaModuleConfig struct {
 	Mode                 TxBuilderMode `json:"mode"`
 }
 
-// SolanaToEthModuleConfig represents the configuration for solana_to_eth module
 type SolanaToEthModuleConfig struct {
 	SolanaRpcUrl         string        `json:"solana_rpc_url"`
 	SolanaIcs26ProgramId string        `json:"solana_ics26_program_id"`

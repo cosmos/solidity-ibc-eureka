@@ -37,7 +37,6 @@ type DeployedContracts struct {
 	Ift string `json:"ift,omitempty"`
 	// CosmosIFTSendCallConstructor (optional, deployed when IFT_ICA_ADDRESS is set)
 	CosmosIftConstructor string `json:"cosmosIftConstructor,omitempty"`
-	// SolanaIFTSendCallConstructor (always deployed)
 	SolanaIftConstructor string `json:"solanaIftConstructor,omitempty"`
 }
 

@@ -42,66 +42,47 @@ import (
 )
 
 const (
-	// EthSolana IFT test constants
 	EthSolanaIFTTokenDecimals  = uint8(6)
 	EthSolanaIFTMintAmount     = uint64(10_000_000) // 10 tokens with 6 decimals
 	EthSolanaIFTTransferAmount = uint64(1_000_000)  // 1 token with 6 decimals
 
-	// Client IDs for Eth-Solana direction
-	// On Solana: attestation client tracking Ethereum state
 	EthClientIDOnSolana = testvalues.FirstAttestationsClientID // "attestations-0"
-	// On Ethereum: attestation client tracking Solana state
-	SolanaClientIDOnEth = testvalues.CustomClientID // "cosmoshub-1"
+	SolanaClientIDOnEth = testvalues.CustomClientID            // "cosmoshub-1"
 
-	// Attestor counts (max 11 for Cosmos→Solana due to tx size)
 	numEthAttestors    = 1
 	numSolAttestors    = 1
 	ethSolGMPPortID    = testvalues.SolanaGMPPortID
 	ethSolComputeUnits = uint32(400_000)
 
-	// Separate keystore path templates to avoid conflicts between Eth and Solana attestors
 	ethAttestorKeystorePathTemplate    = "/tmp/ethsol_eth_attestor_%d"
 	solanaAttestorKeystorePathTemplate = "/tmp/ethsol_sol_attestor_%d"
 )
 
-// EthereumSolanaIFTTestSuite tests IFT transfers between Ethereum and Solana directly.
-// It embeds e2esuite.TestSuite directly (not IbcEurekaSolanaTestSuite) because
-// it needs both Ethereum (anvil) and Solana chains running.
 type EthereumSolanaIFTTestSuite struct {
 	e2esuite.TestSuite
 
-	// Solana wallets and programs
 	SolanaRelayer *solanago.Wallet
 
-	// Ethereum keys
 	ethDeployer *ecdsa.PrivateKey
 	ethUser     *ecdsa.PrivateKey
 
-	// Deployed EVM contracts
 	contractAddresses ethereum.DeployedContracts
 
-	// Relayer
 	RelayerClient  relayertypes.RelayerServiceClient
 	RelayerProcess *os.Process
 
-	// Solana ALT
 	SolanaAltAddress string
 
-	// Attestor infrastructure
-	// Eth attestors watch Ethereum - their addresses go into attestation client on Solana
 	ethAttestorAddresses []string
 	ethAttestorResult    attestor.SetupResult
-	// Solana attestors watch Solana - their addresses go into attestation client on Ethereum
 	solanaAttestorResult attestor.SetupResult
 
-	// Solana IFT state
 	IFTMintWallet      *solanago.Wallet
 	IFTAppState        solanago.PublicKey
 	IFTMintAuthority   solanago.PublicKey
 	IFTBridge          solanago.PublicKey
 	SenderTokenAccount solanago.PublicKey
 
-	// Solana PDAs
 	GMPAppStatePDA    solanago.PublicKey
 	RouterStatePDA    solanago.PublicKey
 	IBCClientPDA      solanago.PublicKey
@@ -141,7 +122,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
-	// Enable both Ethereum (anvil) and Solana
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
 	s.TestSuite.SetupSuite(ctx)
@@ -176,7 +156,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		os.Setenv(testvalues.EnvKeyOperatorPrivateKey, hex.EncodeToString(crypto.FromECDSA(operatorKey)))
 	}))
 
-	// Deploy Solana programs
 	s.Require().True(s.Run("Deploy Solana programs", func() {
 		solanaUser := solanago.NewWallet()
 		s.T().Logf("Created SolanaRelayer wallet: %s", solanaUser.PublicKey())
@@ -239,7 +218,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		}))
 	}))
 
-	// Initialize Solana infrastructure
 	s.Require().True(s.Run("Initialize Access Control", func() {
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 		initInstruction, err := access_manager.NewInitializeInstruction(
@@ -294,7 +272,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	// Initialize ICS27 GMP on Solana
 	s.Require().True(s.Run("Initialize ICS27 GMP", func() {
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
@@ -328,14 +305,12 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	// Derive commonly used PDAs
 	s.GMPAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 	s.RouterStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(ethSolGMPPortID))
 	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 
-	// Generate Eth attestor keys (before EVM contract deploy, needed for attestation client on Solana)
 	s.Require().True(s.Run("Generate Eth attestor keys", func() {
 		var err error
 		s.ethAttestorAddresses, err = attestor.GenerateAttestorKeys(ctx, attestor.GenerateAttestorKeysParams{
@@ -347,7 +322,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Generated %d Eth attestor keys: %v", len(s.ethAttestorAddresses), s.ethAttestorAddresses)
 	}))
 
-	// Deploy EVM contracts
 	s.Require().True(s.Run("Deploy EVM contracts", func() {
 		stdout, err := eth.ForgeScript(s.ethDeployer, testvalues.E2EDeployScriptPath)
 		s.Require().NoError(err)
@@ -362,7 +336,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("SolanaIFTSendCallConstructor at: %s", s.contractAddresses.SolanaIftConstructor)
 	}))
 
-	// Start Eth attestors (watch Ethereum, used by attestation client on Solana)
 	// NOTE: SetupAttestors registers t.Cleanup to stop containers. Must be called outside
 	// s.Run() subtests so cleanup runs at end of test, not when subtest finishes.
 	s.T().Log("Starting Eth attestors...")
@@ -380,7 +353,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err, "Eth attestor %d at %s is not healthy", i, endpoint)
 	}
 
-	// Start Solana attestors (watch Solana, used by attestation client on Ethereum)
 	s.T().Log("Starting Solana attestors...")
 	s.solanaAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
 		NumAttestors:         numSolAttestors,
@@ -393,7 +365,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		EnableHostAccess:     true,
 	})
 
-	// Create ALT
 	s.Require().True(s.Run("Create Address Lookup Table", func() {
 		altAddress := s.Solana.Chain.CreateIBCAddressLookupTableWithAttestation(
 			ctx, s.T(), s.Require(), s.SolanaRelayer,
@@ -403,12 +374,10 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("Created ALT: %s", s.SolanaAltAddress)
 	}))
 
-	// Initialize Attestation Light Client on Solana (tracking Ethereum)
 	s.Require().True(s.Run("Initialize Attestation Light Client on Solana", func() {
 		s.initializeAttestationLightClientOnSolana(ctx, EthClientIDOnSolana)
 	}))
 
-	// Start relayer with Eth↔Solana modules
 	s.Require().True(s.Run("Start Relayer", func() {
 		config := relayer.NewConfigBuilder().
 			EthToSolanaAttested(relayer.EthToSolanaAttestedParams{
@@ -453,7 +422,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	// Create attestation client on Ethereum (tracking Solana) via relayer
 	s.Require().True(s.Run("Create Solana light client on Ethereum", func() {
 		currentFinalizedSlot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 		s.Require().NoError(err)
@@ -488,7 +456,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		sp1Ics07Address := receipt.ContractAddress
 		s.T().Logf("Solana light client deployed on Ethereum at: %s", sp1Ics07Address.Hex())
 
-		// Add client to ICS26 Router on Ethereum
 		ics26Contract, err := ics26router.NewContract(ethcommon.HexToAddress(s.contractAddresses.Ics26Router), eth.RPCClient)
 		s.Require().NoError(err)
 
@@ -508,7 +475,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, addClientReceipt.Status)
 	}))
 
-	// Add attestation client to ICS26 Router on Solana
 	s.Require().True(s.Run("Add attestation client to Router on Solana", func() {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
@@ -535,8 +501,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 }
 
-// initializeAttestationLightClientOnSolana initializes the attestation light client
-// on Solana using the Eth attestor addresses.
 func (s *EthereumSolanaIFTTestSuite) initializeAttestationLightClientOnSolana(ctx context.Context, clientID string) {
 	var attestorAddresses [][20]uint8
 	for _, addr := range s.ethAttestorAddresses {
@@ -583,7 +547,6 @@ func (s *EthereumSolanaIFTTestSuite) initializeAttestationLightClientOnSolana(ct
 	s.T().Logf("Attestation Light Client initialized on Solana - tx: %s", sig)
 }
 
-// createIFTSplToken creates a new SPL token for IFT on Solana
 func (s *EthereumSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
 	mint := mintWallet.PublicKey()
 	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
@@ -609,7 +572,6 @@ func (s *EthereumSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mint
 	s.Require().NoError(err)
 }
 
-// registerSolanaIFTBridgeForEVM registers an IFT bridge on Solana for an EVM counterparty
 func (s *EthereumSolanaIFTTestSuite) registerSolanaIFTBridgeForEVM(ctx context.Context, clientID string, counterpartyIFTAddress string) {
 	bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, s.IFTMintBytes(), []byte(clientID))
 	s.IFTBridge = bridgePDA
@@ -640,7 +602,6 @@ func (s *EthereumSolanaIFTTestSuite) registerSolanaIFTBridgeForEVM(ctx context.C
 	s.T().Logf("  Bridge PDA: %s, Counterparty IFT: %s", bridgePDA, counterpartyIFTAddress)
 }
 
-// Test_EthSolana_IFT_Roundtrip tests Ethereum → Solana → Ethereum IFT transfer
 func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -648,7 +609,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	eth := s.Eth.Chains[0]
 	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
 
-	// Create SPL token on Solana (empty - will receive via IFT from Ethereum)
 	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
 		s.IFTMintWallet = solanago.NewWallet()
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
@@ -660,12 +620,9 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.T().Logf("SPL token mint: %s, token account: %s", mint, tokenAccount)
 	}))
 
-	// Register IFT bridges on both sides
 	s.Require().True(s.Run("Register IFT bridges", func() {
-		// Register on Solana: EVM counterparty
 		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
 
-		// Register on Ethereum: Solana counterparty
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
 
@@ -682,7 +639,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.T().Logf("IFT bridge registered on Ethereum for Solana counterparty")
 	}))
 
-	// Mint tokens on Ethereum
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
 
@@ -705,7 +661,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().Equal(transferAmount.String(), balance.String())
 	}))
 
-	// === Ethereum → Solana ===
 	var ethSendTxHash []byte
 	s.Require().True(s.Run("Transfer: Ethereum -> Solana", func() {
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
@@ -753,7 +708,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().NoError(err)
 		s.T().Logf("Solana recv tx: %s", sig)
 
-		// Relay ack back to Ethereum
 		ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    testvalues.SolanaChainID,
 			DstChain:    eth.ChainID.String(),
@@ -774,7 +728,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().Equal(EthSolanaIFTTransferAmount, balance)
 	}))
 
-	// === Solana → Ethereum ===
 	var solanaToEthSequence uint64
 	var solanaTransferTxSig solanago.Signature
 	s.Require().True(s.Run("Transfer: Solana -> Ethereum", func() {
@@ -840,7 +793,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		s.T().Logf("Ethereum recv tx: %s", receipt.TxHash.Hex())
 
-		// Relay ack back to Solana
 		ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    eth.ChainID.String(),
 			DstChain:    testvalues.SolanaChainID,

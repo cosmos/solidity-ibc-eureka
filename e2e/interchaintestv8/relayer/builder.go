@@ -442,11 +442,6 @@ func (b *ConfigBuilder) CosmosToSolanaAttested(p CosmosToSolanaAttestedParams) *
 	return b
 }
 
-// =============================================================================
-// Eth → Solana (Attestor)
-// =============================================================================
-
-// EthToSolanaAttestedParams contains parameters for Eth→Solana module using attestor.
 type EthToSolanaAttestedParams struct {
 	EthChainID        string
 	SolanaChainID     string
@@ -461,7 +456,6 @@ type EthToSolanaAttestedParams struct {
 	QuorumThreshold   int      // Optional, defaults to 1
 }
 
-// EthToSolanaAttested adds an Eth→Solana module using attestor.
 func (b *ConfigBuilder) EthToSolanaAttested(p EthToSolanaAttestedParams) *ConfigBuilder {
 	aggConfig := DefaultAggregatorConfig()
 	if len(p.AttestorEndpoints) > 0 {
@@ -497,11 +491,6 @@ func (b *ConfigBuilder) EthToSolanaAttested(p EthToSolanaAttestedParams) *Config
 	return b
 }
 
-// =============================================================================
-// Solana → Eth (Attestor)
-// =============================================================================
-
-// SolanaToEthAttestedParams contains parameters for Solana→Eth module using attestor.
 type SolanaToEthAttestedParams struct {
 	SolanaChainID     string
 	EthChainID        string
@@ -514,7 +503,6 @@ type SolanaToEthAttestedParams struct {
 	QuorumThreshold   int // Optional, defaults to 1
 }
 
-// SolanaToEthAttested adds a Solana→Eth module using attestor.
 func (b *ConfigBuilder) SolanaToEthAttested(p SolanaToEthAttestedParams) *ConfigBuilder {
 	aggConfig := DefaultAggregatorConfig()
 	if len(p.AttestorEndpoints) > 0 {
