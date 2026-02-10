@@ -153,10 +153,6 @@ fn find_pending_transfer(
         .collect();
 
     for (pubkey, account) in accounts {
-        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
-            continue;
-        }
-
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let pending = match PendingTransfer::deserialize(&mut data) {
             Ok(p) => p,
@@ -230,8 +226,7 @@ fn build_claim_refund_ix(
     let mut data = CLAIM_REFUND_DISCRIMINATOR.to_vec();
     // Anchor serializes String as length-prefixed (u32 + bytes)
     let client_id_bytes = client_id.as_bytes();
-    #[allow(clippy::cast_possible_truncation)]
-    let client_id_len = client_id_bytes.len() as u32;
+    let client_id_len = u32::try_from(client_id_bytes.len()).expect("client_id length fits in u32");
     data.extend_from_slice(&client_id_len.to_le_bytes());
     data.extend_from_slice(client_id_bytes);
     data.extend_from_slice(&sequence.to_le_bytes());

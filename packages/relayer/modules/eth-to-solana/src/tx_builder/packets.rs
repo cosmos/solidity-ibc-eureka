@@ -657,10 +657,16 @@ impl super::SolanaTxBuilder {
 
     /// Check if account exists on-chain.
     fn account_exists(&self, pubkey: &Pubkey) -> bool {
-        self.target_solana_client
+        match self
+            .target_solana_client
             .get_account_with_commitment(pubkey, CommitmentConfig::confirmed())
-            .map(|response| response.value.is_some())
-            .unwrap_or(false)
+        {
+            Ok(response) => response.value.is_some(),
+            Err(e) => {
+                tracing::warn!(%pubkey, error = %e, "RPC error checking account existence");
+                false
+            }
+        }
     }
 
     /// Build transaction with ALT support.
