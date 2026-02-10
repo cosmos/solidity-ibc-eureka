@@ -26,20 +26,20 @@ idl-build      = ["anchor-lang/idl-build"]
 custom-heap    = ["dep:solana-allocator"]
 
 [dependencies]
-solana-allocator      = { version = "0.1", optional = true }
-anchor-lang           = { workspace = true, features = ["init-if-needed"] }
-access-manager        = { workspace = true, features = ["cpi"] }
-borsh                 = { workspace = true }
-ics25-handler         = { workspace = true }
-solana-ibc-types      = { workspace = true }
-solana-ibc-constants  = { workspace = true }
-solana-sdk-ids        = { workspace = true }
-solana-keccak-hasher      = { workspace = true }
-solana-secp256k1-recover  = { workspace = true }
-alloy-sol-types           = { workspace = true }
-sha2                  = { workspace = true, default-features = false }
-serde                 = { workspace = true, features = ["derive"] }
-serde_json            = { workspace = true }
+solana-allocator         = { version = "0.1", optional = true }
+anchor-lang              = { workspace = true, features = ["init-if-needed"] }
+access-manager           = { workspace = true, features = ["cpi"] }
+borsh                    = { workspace = true }
+ics25-handler            = { workspace = true }
+solana-ibc-types         = { workspace = true }
+solana-ibc-constants     = { workspace = true }
+solana-sdk-ids           = { workspace = true }
+solana-keccak-hasher     = { workspace = true }
+solana-secp256k1-recover = { workspace = true }
+alloy-sol-types          = { workspace = true }
+solana-sha256-hasher     = { workspace = true }
+serde                    = { workspace = true, features = ["derive"] }
+serde_json               = { workspace = true }
 
 [dev-dependencies]
 mollusk-svm         = { workspace = true }
@@ -51,3 +51,4 @@ alloy-primitives    = { workspace = true }
 alloy-signer        = { workspace = true }
 alloy-signer-local  = { workspace = true }
 rstest              = { workspace = true }
+sha2                = { workspace = true }

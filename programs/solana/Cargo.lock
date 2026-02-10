@@ -1122,6 +1122,7 @@ dependencies = [
  "solana-sdk",
  "solana-sdk-ids",
  "solana-secp256k1-recover",
+ "solana-sha256-hasher",
 ]
 
 [[package]]

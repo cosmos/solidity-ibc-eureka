@@ -11,8 +11,7 @@ pub const ETH_ADDRESS_LEN: usize = 20;
 pub type MessageHash = [u8; 32];
 
 pub fn sha256_digest(data: &[u8]) -> MessageHash {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(data).into()
+    solana_sha256_hasher::hash(data).to_bytes()
 }
 
 struct PreparedSignature {
