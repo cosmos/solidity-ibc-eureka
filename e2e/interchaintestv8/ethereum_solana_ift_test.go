@@ -460,11 +460,17 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		solanaTimestamp, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, currentFinalizedSlot)
 		s.Require().NoError(err)
 
+		// Convert attestor addresses to EIP-55 checksummed format (required by eth_attested.rs)
+		checksummedAddrs := make([]string, len(s.solanaAttestorResult.Addresses))
+		for i, addr := range s.solanaAttestorResult.Addresses {
+			checksummedAddrs[i] = ethcommon.HexToAddress(addr).Hex()
+		}
+
 		resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
 			SrcChain: testvalues.SolanaChainID,
 			DstChain: eth.ChainID.String(),
 			Parameters: map[string]string{
-				testvalues.ParameterKey_AttestorAddresses: strings.Join(s.solanaAttestorResult.Addresses, ","),
+				testvalues.ParameterKey_AttestorAddresses: strings.Join(checksummedAddrs, ","),
 				testvalues.ParameterKey_MinRequiredSigs:   strconv.Itoa(numSolAttestors),
 				testvalues.ParameterKey_height:            strconv.FormatUint(currentFinalizedSlot, 10),
 				testvalues.ParameterKey_timestamp:         strconv.FormatInt(int64(*solanaTimestamp), 10),
@@ -709,8 +715,9 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().NoError(err)
 
 		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		// Receiver is the Solana wallet public key
-		tx, err := iftContract.IftTransfer(txOpts, SolanaClientIDOnEth, s.SolanaRelayer.PublicKey().String(), transferAmount, timeout)
+		// Receiver is the Solana public key in hex format (SolanaIFTSendCallConstructor expects 0x + 64 hex chars)
+		solanaReceiverHex := "0x" + hex.EncodeToString(s.SolanaRelayer.PublicKey().Bytes())
+		tx, err := iftContract.IftTransfer(txOpts, SolanaClientIDOnEth, solanaReceiverHex, transferAmount, timeout)
 		s.Require().NoError(err)
 
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
