@@ -15,7 +15,7 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_sdk::pubkey::Pubkey;
 
 use crate::gmp::{GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::ift_payload;
@@ -29,7 +29,7 @@ const ABI_ENCODING: &str = "application/x-solidity-abi";
 /// Anchor discriminator for `IFTBridge` accounts.
 static IFT_BRIDGE_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
-    hasher.update(b"account:ift::IFTBridge");
+    hasher.update(b"account:IFTBridge");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
@@ -203,20 +203,31 @@ fn find_ift_mint_for_client(
     ift_program_id: &Pubkey,
     client_id: &str,
 ) -> Result<Pubkey> {
-    let accounts = solana_client
-        .get_program_accounts_with_config(
-            ift_program_id,
-            solana_client::rpc_config::RpcProgramAccountsConfig {
-                account_config: solana_client::rpc_config::RpcAccountInfoConfig {
-                    commitment: Some(CommitmentConfig::confirmed()),
-                    ..Default::default()
-                },
-                ..Default::default()
-            },
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to get IFT program accounts: {e}"))?;
+    tracing::info!(
+        %ift_program_id,
+        %client_id,
+        discriminator = ?&*IFT_BRIDGE_DISCRIMINATOR,
+        "Scanning IFT program accounts for bridge"
+    );
 
-    for (_pubkey, account) in &accounts {
+    let accounts = match solana_client.get_program_accounts(ift_program_id) {
+        Ok(a) => a,
+        Err(e) => {
+            tracing::error!(%ift_program_id, error = %e, "getProgramAccounts RPC call failed");
+            anyhow::bail!("Failed to get IFT program accounts: {e}");
+        }
+    };
+
+    tracing::info!(num_accounts = accounts.len(), "Got IFT program accounts");
+
+    for (pubkey, account) in &accounts {
+        tracing::info!(
+            %pubkey,
+            data_len = account.data.len(),
+            first_8_bytes = ?account.data.get(..8),
+            "Checking IFT account"
+        );
+
         if account.data.len() < 8 || account.data[..8] != *IFT_BRIDGE_DISCRIMINATOR {
             continue;
         }
@@ -224,15 +235,20 @@ fn find_ift_mint_for_client(
         let mut data = &account.data[8..];
         let bridge = match IFTBridgePartial::deserialize(&mut data) {
             Ok(b) => b,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::debug!(%pubkey, error = %e, "Failed to deserialize IFTBridge");
+                continue;
+            }
         };
 
+        tracing::debug!(
+            %pubkey,
+            bridge_client_id = %bridge.client_id,
+            bridge_mint = %bridge.mint,
+            "Deserialized IFT bridge"
+        );
+
         if bridge.client_id == client_id {
-            tracing::debug!(
-                mint = %bridge.mint,
-                client_id = %bridge.client_id,
-                "Found matching IFT bridge"
-            );
             return Ok(bridge.mint);
         }
     }
