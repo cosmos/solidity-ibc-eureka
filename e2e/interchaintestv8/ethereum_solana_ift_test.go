@@ -363,35 +363,35 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	// Start Eth attestors (watch Ethereum, used by attestation client on Solana)
-	s.Require().True(s.Run("Start Eth attestors", func() {
-		s.ethAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-			NumAttestors:         numEthAttestors,
-			KeystorePathTemplate: ethAttestorKeystorePathTemplate,
-			ChainType:            attestor.ChainTypeEvm,
-			AdapterURL:           eth.DockerRPC,
-			RouterAddress:        s.contractAddresses.Ics26Router,
-			DockerClient:         s.GetDockerClient(),
-			NetworkID:            s.GetNetworkID(),
-		})
-		for i, endpoint := range s.ethAttestorResult.Endpoints {
-			err := attestor.CheckAttestorHealth(ctx, endpoint)
-			s.Require().NoError(err, "Eth attestor %d at %s is not healthy", i, endpoint)
-		}
-	}))
+	// NOTE: SetupAttestors registers t.Cleanup to stop containers. Must be called outside
+	// s.Run() subtests so cleanup runs at end of test, not when subtest finishes.
+	s.T().Log("Starting Eth attestors...")
+	s.ethAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         numEthAttestors,
+		KeystorePathTemplate: ethAttestorKeystorePathTemplate,
+		ChainType:            attestor.ChainTypeEvm,
+		AdapterURL:           eth.DockerRPC,
+		RouterAddress:        s.contractAddresses.Ics26Router,
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
+	})
+	for i, endpoint := range s.ethAttestorResult.Endpoints {
+		err := attestor.CheckAttestorHealth(ctx, endpoint)
+		s.Require().NoError(err, "Eth attestor %d at %s is not healthy", i, endpoint)
+	}
 
 	// Start Solana attestors (watch Solana, used by attestation client on Ethereum)
-	s.Require().True(s.Run("Start Solana attestors", func() {
-		s.solanaAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
-			NumAttestors:         numSolAttestors,
-			KeystorePathTemplate: solanaAttestorKeystorePathTemplate,
-			ChainType:            attestor.ChainTypeSolana,
-			AdapterURL:           attestor.TransformLocalhostToDockerHost(testvalues.SolanaLocalnetRPC),
-			RouterAddress:        ics26_router.ProgramID.String(),
-			DockerClient:         s.GetDockerClient(),
-			NetworkID:            s.GetNetworkID(),
-			EnableHostAccess:     true,
-		})
-	}))
+	s.T().Log("Starting Solana attestors...")
+	s.solanaAttestorResult = attestor.SetupAttestors(ctx, s.T(), attestor.SetupParams{
+		NumAttestors:         numSolAttestors,
+		KeystorePathTemplate: solanaAttestorKeystorePathTemplate,
+		ChainType:            attestor.ChainTypeSolana,
+		AdapterURL:           attestor.TransformLocalhostToDockerHost(testvalues.SolanaLocalnetRPC),
+		RouterAddress:        ics26_router.ProgramID.String(),
+		DockerClient:         s.GetDockerClient(),
+		NetworkID:            s.GetNetworkID(),
+		EnableHostAccess:     true,
+	})
 
 	// Create ALT
 	s.Require().True(s.Run("Create Address Lookup Table", func() {
