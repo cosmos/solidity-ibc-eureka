@@ -3,7 +3,7 @@
 //! Listens for IBC events on EVM, translates IFT payloads (ABI → GmpSolanaPayload),
 //! and builds Solana transactions with chunking, ALT, and attestation support.
 
-#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(clippy::nursery, clippy::pedantic, warnings)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
 pub mod constants;

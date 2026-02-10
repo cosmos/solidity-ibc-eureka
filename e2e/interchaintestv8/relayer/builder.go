@@ -443,6 +443,107 @@ func (b *ConfigBuilder) CosmosToSolanaAttested(p CosmosToSolanaAttestedParams) *
 }
 
 // =============================================================================
+// Eth → Solana (Attestor)
+// =============================================================================
+
+// EthToSolanaAttestedParams contains parameters for Eth→Solana module using attestor.
+type EthToSolanaAttestedParams struct {
+	EthChainID        string
+	SolanaChainID     string
+	EthRPC            string
+	ICS26Address      string
+	SolanaRPC         string
+	ICS26ProgramID    string
+	FeePayer          string
+	ALTAddress        string   // Optional
+	AttestorEndpoints []string // Required for attestation mode
+	AttestorTimeout   int      // Optional, defaults to 5000
+	QuorumThreshold   int      // Optional, defaults to 1
+}
+
+// EthToSolanaAttested adds an Eth→Solana module using attestor.
+func (b *ConfigBuilder) EthToSolanaAttested(p EthToSolanaAttestedParams) *ConfigBuilder {
+	aggConfig := DefaultAggregatorConfig()
+	if len(p.AttestorEndpoints) > 0 {
+		aggConfig.Attestor.AttestorEndpoints = p.AttestorEndpoints
+	}
+	if p.AttestorTimeout > 0 {
+		aggConfig.Attestor.AttestorQueryTimeoutMs = p.AttestorTimeout
+	}
+	if p.QuorumThreshold > 0 {
+		aggConfig.Attestor.QuorumThreshold = p.QuorumThreshold
+	}
+
+	var altAddress *string
+	if p.ALTAddress != "" {
+		altAddress = &p.ALTAddress
+	}
+
+	module := ModuleConfig{
+		Name:     ModuleEthToSolana,
+		SrcChain: p.EthChainID,
+		DstChain: p.SolanaChainID,
+		Config: EthToSolanaModuleConfig{
+			Ics26Address:         p.ICS26Address,
+			EthRpcUrl:            p.EthRPC,
+			SolanaRpcUrl:         p.SolanaRPC,
+			SolanaIcs26ProgramId: p.ICS26ProgramID,
+			SolanaFeePayer:       p.FeePayer,
+			SolanaAltAddress:     altAddress,
+			Mode:                 AttestedMode{Config: aggConfig},
+		},
+	}
+	b.modules = append(b.modules, module)
+	return b
+}
+
+// =============================================================================
+// Solana → Eth (Attestor)
+// =============================================================================
+
+// SolanaToEthAttestedParams contains parameters for Solana→Eth module using attestor.
+type SolanaToEthAttestedParams struct {
+	SolanaChainID     string
+	EthChainID        string
+	SolanaRPC         string
+	ICS26ProgramID    string
+	EthRPC            string
+	ICS26Address      string
+	AttestorEndpoints []string
+	AttestorTimeout   int // Optional, defaults to 5000
+	QuorumThreshold   int // Optional, defaults to 1
+}
+
+// SolanaToEthAttested adds a Solana→Eth module using attestor.
+func (b *ConfigBuilder) SolanaToEthAttested(p SolanaToEthAttestedParams) *ConfigBuilder {
+	aggConfig := DefaultAggregatorConfig()
+	if len(p.AttestorEndpoints) > 0 {
+		aggConfig.Attestor.AttestorEndpoints = p.AttestorEndpoints
+	}
+	if p.AttestorTimeout > 0 {
+		aggConfig.Attestor.AttestorQueryTimeoutMs = p.AttestorTimeout
+	}
+	if p.QuorumThreshold > 0 {
+		aggConfig.Attestor.QuorumThreshold = p.QuorumThreshold
+	}
+
+	module := ModuleConfig{
+		Name:     ModuleSolanaToEth,
+		SrcChain: p.SolanaChainID,
+		DstChain: p.EthChainID,
+		Config: SolanaToEthModuleConfig{
+			SolanaRpcUrl:         p.SolanaRPC,
+			SolanaIcs26ProgramId: p.ICS26ProgramID,
+			EthRpcUrl:            p.EthRPC,
+			Ics26Address:         p.ICS26Address,
+			Mode:                 AttestedMode{Config: aggConfig},
+		},
+	}
+	b.modules = append(b.modules, module)
+	return b
+}
+
+// =============================================================================
 // Helper constructors for common prover configurations
 // =============================================================================
 

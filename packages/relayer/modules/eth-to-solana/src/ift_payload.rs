@@ -347,9 +347,8 @@ mod tests {
     #[test]
     fn test_decode_ift_mint_payload_amount_overflow() {
         let mut payload = vec![0u8; 64];
-        payload[0] = 1; // set some non-zero in upper bytes of amount area
-                        // Actually this sets receiver byte, let's set amount overflow
-        payload[32] = 1; // first byte of uint256 amount (upper 24 bytes must be 0)
+        // Set first byte of uint256 amount area (upper 24 bytes must be zero for u64)
+        payload[32] = 1;
         assert!(decode_ift_mint_payload(&payload).is_err());
     }
 }

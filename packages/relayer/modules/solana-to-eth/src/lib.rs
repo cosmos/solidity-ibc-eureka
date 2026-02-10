@@ -4,7 +4,7 @@
 //! transactions with attestation proofs. Payloads from Solana are already
 //! ABI-encoded by the IFT program, so no translation is needed.
 
-#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(clippy::nursery, clippy::pedantic, warnings)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
 pub mod tx_builder;
