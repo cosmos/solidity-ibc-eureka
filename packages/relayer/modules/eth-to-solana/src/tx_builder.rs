@@ -4,6 +4,7 @@
 
 mod attested;
 mod packets;
+mod payload_translator;
 
 use std::sync::Arc;
 

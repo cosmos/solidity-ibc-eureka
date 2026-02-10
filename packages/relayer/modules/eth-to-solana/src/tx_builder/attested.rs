@@ -356,7 +356,10 @@ impl AttestedTxBuilder {
     ) -> Result<Vec<SolanaPacketTxs>> {
         let mut results = Vec::new();
 
-        for msg in recv_msgs {
+        for mut msg in recv_msgs {
+            // Translate ABI-encoded EVM payloads to protobuf for Solana
+            self.tx_builder.translate_evm_recv_msg(&mut msg)?;
+
             let recv_with_chunks = ibc_to_solana_recv_packet(msg)?;
             let packet_txs = self.tx_builder.build_recv_packet_chunked(
                 &recv_with_chunks.msg,
