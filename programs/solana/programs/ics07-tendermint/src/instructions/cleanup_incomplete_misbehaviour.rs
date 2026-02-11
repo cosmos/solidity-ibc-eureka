@@ -1,5 +1,21 @@
-use crate::CleanupIncompleteMisbehaviour;
+use crate::types::ClientState;
 use anchor_lang::prelude::*;
+
+#[derive(Accounts)]
+#[instruction(client_id: String, submitter: Pubkey)]
+pub struct CleanupIncompleteMisbehaviour<'info> {
+    #[account(
+        constraint = client_state.chain_id == client_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        mut,
+        constraint = submitter_account.key() == submitter
+    )]
+    pub submitter_account: Signer<'info>,
+    // Remaining accounts are the chunk accounts to close
+}
 
 pub fn cleanup_incomplete_misbehaviour(
     ctx: Context<CleanupIncompleteMisbehaviour>,

@@ -1,8 +1,34 @@
 use crate::error::ErrorCode;
-use crate::state::CHUNK_DATA_SIZE;
-use crate::types::UploadMisbehaviourChunkParams;
-use crate::UploadMisbehaviourChunk;
+use crate::state::{MisbehaviourChunk, CHUNK_DATA_SIZE};
+use crate::types::{ClientState, UploadMisbehaviourChunkParams};
 use anchor_lang::prelude::*;
+
+#[derive(Accounts)]
+#[instruction(params: UploadMisbehaviourChunkParams)]
+pub struct UploadMisbehaviourChunk<'info> {
+    #[account(
+        init,
+        payer = submitter,
+        space = 8 + MisbehaviourChunk::INIT_SPACE,
+        seeds = [
+            MisbehaviourChunk::SEED,
+            submitter.key().as_ref(),
+            params.client_id.as_bytes(),
+            &[params.chunk_index]
+        ],
+        bump
+    )]
+    pub chunk: Account<'info, MisbehaviourChunk>,
+
+    #[account(
+        constraint = client_state.chain_id == params.client_id,
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
 pub fn upload_misbehaviour_chunk(
     ctx: Context<UploadMisbehaviourChunk>,

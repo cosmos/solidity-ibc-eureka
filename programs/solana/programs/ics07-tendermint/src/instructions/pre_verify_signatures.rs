@@ -1,9 +1,31 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
+use solana_ibc_types::ics07::SignatureData;
 use solana_sdk_ids::ed25519_program;
 
-use crate::PreVerifySignature;
-use solana_ibc_types::ics07::SignatureData;
+#[derive(Accounts)]
+#[instruction(signature: SignatureData)]
+pub struct PreVerifySignature<'info> {
+    /// CHECK: Sysvar instructions account
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<crate::state::SignatureVerification>(),
+        seeds = [
+            crate::state::SignatureVerification::SEED,
+            &signature.signature_hash
+        ],
+        bump
+    )]
+    pub signature_verification: Account<'info, crate::state::SignatureVerification>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
 
 pub fn pre_verify_signature<'info>(
     ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,

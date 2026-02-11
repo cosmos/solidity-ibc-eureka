@@ -1,10 +1,46 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_misbehaviour;
-use crate::state::MisbehaviourChunk;
-use crate::AssembleAndSubmitMisbehaviour;
+use crate::state::{ConsensusStateStore, MisbehaviourChunk};
+use crate::types::{AppState, ClientState};
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
+
+#[derive(Accounts)]
+#[instruction(client_id: String)]
+pub struct AssembleAndSubmitMisbehaviour<'info> {
+    #[account(
+        mut,
+        constraint = client_state.chain_id == client_id.as_str(),
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
+
+    pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
+
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+    // Remaining accounts are the chunk accounts in order
+}
 
 pub fn assemble_and_submit_misbehaviour<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,

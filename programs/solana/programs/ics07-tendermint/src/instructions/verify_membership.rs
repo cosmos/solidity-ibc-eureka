@@ -1,9 +1,22 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_merkle_proof;
-use crate::VerifyMembership;
+use crate::state::ConsensusStateStore;
+use crate::types::ClientState;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use tendermint_light_client_membership::KVPair;
+
+#[derive(Accounts)]
+#[instruction(msg: ics25_handler::MembershipMsg)]
+pub struct VerifyMembership<'info> {
+    // TODO: we don't have seeds
+    pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
+}
 
 pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
     require!(!msg.value.is_empty(), ErrorCode::MembershipEmptyValue);

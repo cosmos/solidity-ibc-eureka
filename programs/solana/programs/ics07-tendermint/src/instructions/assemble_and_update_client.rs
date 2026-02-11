@@ -1,13 +1,61 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
 use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
-use crate::types::{ConsensusState, UpdateResult};
-use crate::AssembleAndUpdateClient;
+use crate::types::{AppState, ClientState, ConsensusState, UpdateResult};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
+
+/// Context for assembling chunks and updating the client
+/// This will automatically clean up any old chunks at the same height
+#[derive(Accounts)]
+#[instruction(chain_id: String, target_height: u64, chunk_count: u8)]
+pub struct AssembleAndUpdateClient<'info> {
+    #[account(
+        mut,
+        constraint = client_state.chain_id == chain_id.as_str(),
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
+    pub trusted_consensus_state: UncheckedAccount<'info>,
+
+    /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
+    pub new_consensus_state_store: UncheckedAccount<'info>,
+
+    /// The submitter who uploaded the chunks
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+    // Remaining accounts are the chunk accounts in order
+    // They will be validated and closed in the instruction handler
+}
+
+impl AssembleAndUpdateClient<'_> {
+    /// Number of static accounts (excludes `remaining_accounts` for chunks/sigs)
+    pub const STATIC_ACCOUNTS: usize = solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
+}
 
 pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,

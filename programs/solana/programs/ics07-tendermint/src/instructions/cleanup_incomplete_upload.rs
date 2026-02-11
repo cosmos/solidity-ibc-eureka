@@ -1,6 +1,15 @@
-use crate::CleanupIncompleteUpload;
 use anchor_lang::prelude::*;
 use anchor_lang::Discriminator;
+
+/// Context for cleaning up incomplete header uploads or signatures
+#[derive(Accounts)]
+pub struct CleanupIncompleteUpload<'info> {
+    /// The original submitter who gets their rent back
+    /// Must be the signer to prove they own the upload
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+    // Remaining accounts are the chunk and signature verification accounts to close
+}
 
 /// Cleans up incomplete update client uploads by closing both `HeaderChunk` and `SignatureVerification` PDAs
 pub fn cleanup_incomplete_upload(ctx: Context<CleanupIncompleteUpload>) -> Result<()> {

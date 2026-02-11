@@ -1,10 +1,23 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_merkle_proof;
-use crate::VerifyNonMembership;
+use crate::state::ConsensusStateStore;
+use crate::types::ClientState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
 use tendermint_light_client_membership::KVPair;
+
+#[derive(Accounts)]
+#[instruction(msg: ics25_handler::NonMembershipMsg)]
+pub struct VerifyNonMembership<'info> {
+    // TODO: we don't have seeds
+    pub client_state: Account<'info, ClientState>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
+}
 
 const NANOS_PER_SECOND: u64 = 1_000_000_000;
 

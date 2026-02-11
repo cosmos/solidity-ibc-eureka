@@ -1,9 +1,33 @@
+use crate::events::AccessManagerUpdated;
+use crate::types::AppState;
 use anchor_lang::prelude::*;
 
-use crate::events::AccessManagerUpdated;
+#[derive(Accounts)]
+pub struct SetAccessManager<'info> {
+    #[account(
+        mut,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    pub admin: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+}
 
 pub fn set_access_manager(
-    ctx: Context<crate::SetAccessManager>,
+    ctx: Context<SetAccessManager>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
     // Performs: CPI rejection + signer verification + role check

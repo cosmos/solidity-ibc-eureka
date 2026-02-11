@@ -1,7 +1,40 @@
 use crate::error::ErrorCode;
-use crate::types::{ClientState, ConsensusState};
-use crate::Initialize;
+use crate::state::ConsensusStateStore;
+use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
+
+#[derive(Accounts)]
+#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + ClientState::INIT_SPACE,
+        seeds = [ClientState::SEED, chain_id.as_bytes()],
+        bump
+    )]
+    pub client_state: Account<'info, ClientState>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + ConsensusStateStore::INIT_SPACE,
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + AppState::INIT_SPACE,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
 
 pub fn initialize(
     ctx: Context<Initialize>,
