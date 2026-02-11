@@ -551,10 +551,8 @@ mod integration_tests {
         let elf_len = elf_bytes.len();
 
         let target_program = Pubkey::new_unique();
-        let (program_data_pda, _) = Pubkey::find_program_address(
-            &[target_program.as_ref()],
-            &bpf_loader_upgradeable::ID,
-        );
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
         let (upgrade_authority_pda, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         let buffer = Pubkey::new_unique();
@@ -628,10 +626,8 @@ mod integration_tests {
     ) -> Instruction {
         let (access_manager_pda, _) =
             Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-        let (program_data, _) = Pubkey::find_program_address(
-            &[target_program.as_ref()],
-            &bpf_loader_upgradeable::ID,
-        );
+        let (program_data, _) =
+            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
         let (upgrade_authority_pda, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 

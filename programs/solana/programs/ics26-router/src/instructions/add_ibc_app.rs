@@ -426,8 +426,7 @@ mod integration_tests {
     };
 
     fn build_add_ibc_app_ix(payer: Pubkey, authority: Pubkey, port_id: &str) -> Instruction {
-        let (router_state_pda, _) =
-            Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
@@ -458,7 +457,10 @@ mod integration_tests {
     async fn test_add_ibc_app_direct_call_succeeds() {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
-            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
             &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
@@ -484,7 +486,10 @@ mod integration_tests {
         let admin = Keypair::new();
         let non_admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
-            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
             &[],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
@@ -508,7 +513,10 @@ mod integration_tests {
     async fn test_add_ibc_app_cpi_rejected() {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
-            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
             &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
