@@ -12,7 +12,7 @@ import (
 
 	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/dummyibcapp"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
-	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
+	test_cpi_proxy "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testcpiproxy"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
@@ -69,12 +69,12 @@ type IbcEurekaSolanaTestSuite struct {
 
 	SolanaRelayer *solanago.Wallet
 
-	RelayerClient            relayertypes.RelayerServiceClient
-	ICS27GMPProgramID        solanago.PublicKey
-	IFTProgramID             solanago.PublicKey
-	GMPCounterProgramID      solanago.PublicKey
-	DummyAppProgramID        solanago.PublicKey
-	MaliciousCallerProgramID solanago.PublicKey
+	RelayerClient         relayertypes.RelayerServiceClient
+	ICS27GMPProgramID     solanago.PublicKey
+	IFTProgramID          solanago.PublicKey
+	GMPCounterProgramID   solanago.PublicKey
+	DummyAppProgramID     solanago.PublicKey
+	TestCpiProxyProgramID solanago.PublicKey
 
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
@@ -176,7 +176,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				deployProgram("Deploy IFT", "ift"),
 				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
 				deployProgram("Deploy Dummy IBC App", "dummy_ibc_app"),
-				deployProgram("Deploy Malicious Caller", "malicious_caller"),
+				deployProgram("Deploy Test CPI Proxy", "test_cpi_proxy"),
 			)
 			s.Require().NoError(err, "Program deployment failed")
 
@@ -191,8 +191,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			gmp_counter_app.ProgramID = s.GMPCounterProgramID
 			s.DummyAppProgramID = deployResults["Deploy Dummy IBC App"]
 			dummy_ibc_app.ProgramID = s.DummyAppProgramID
-			s.MaliciousCallerProgramID = deployResults["Deploy Malicious Caller"]
-			malicious_caller.ProgramID = s.MaliciousCallerProgramID
+			s.TestCpiProxyProgramID = deployResults["Deploy Test CPI Proxy"]
+			test_cpi_proxy.ProgramID = s.TestCpiProxyProgramID
 
 			s.T().Log("All programs deployed successfully")
 		}))
