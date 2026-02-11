@@ -36,7 +36,7 @@ use anchor_lang::{
 //
 // This allows us to verify WHO initiated the call.
 
-/// TRANSACTION_LEVEL_STACK_HEIGHT (1) is the stack height for top-level
+/// `TRANSACTION_LEVEL_STACK_HEIGHT` (1) is the stack height for top-level
 /// transaction instructions. Each CPI hop adds 1, so single-level CPI = 2.
 const SINGLE_LEVEL_CPI_STACK_HEIGHT: usize = TRANSACTION_LEVEL_STACK_HEIGHT + 1;
 
