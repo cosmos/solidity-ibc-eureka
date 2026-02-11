@@ -804,7 +804,9 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: build-solana generate-pda
+generate-solana-types build="true":
+	@if [ "{{build}}" = "true" ]; then just build-solana; fi
+	just generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
