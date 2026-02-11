@@ -1,7 +1,8 @@
+use crate::abi::encode_abi_gmp_packet;
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPCallSent;
-use crate::state::{GMPAppState, SendCallMsg};
+use crate::state::{GMPAppState, GmpEncoding, SendCallMsg};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::get_stack_height;
 use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
@@ -111,15 +112,28 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         GMPError::InvalidPacketData
     })?;
 
-    // Encode to protobuf bytes
-    let packet_data_bytes = packet_data.encode_vec();
+    // Encode packet data based on the requested encoding
+    let (encoding, packet_data_bytes) = if msg.encoding == GmpEncoding::Abi {
+        (
+            ABI_ENCODING.to_string(),
+            encode_abi_gmp_packet(
+                &packet_data.sender,
+                &packet_data.receiver,
+                &packet_data.salt,
+                &packet_data.payload,
+                &packet_data.memo,
+            ),
+        )
+    } else {
+        (ICS27_ENCODING.to_string(), packet_data.encode_vec())
+    };
 
     // Create IBC packet payload
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
         dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
-        encoding: ICS27_ENCODING.to_string(),
+        encoding,
         value: packet_data_bytes,
     };
 
@@ -237,6 +251,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
+                encoding: GmpEncoding::default(),
             }
         }
 

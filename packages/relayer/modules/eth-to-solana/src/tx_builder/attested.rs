@@ -356,16 +356,26 @@ impl AttestedTxBuilder {
     ) -> Result<Vec<SolanaPacketTxs>> {
         let mut results = Vec::new();
 
-        for mut msg in recv_msgs {
-            // Translate ABI-encoded EVM payloads to protobuf for Solana
-            self.tx_builder.translate_evm_recv_msg(&mut msg)?;
+        for msg in recv_msgs {
+            // Build hint for ABI-encoded payloads (original payload stays intact)
+            let abi_hint = self.tx_builder.build_abi_hint_if_needed(&msg)?;
 
             let recv_with_chunks = ibc_to_solana_recv_packet(msg)?;
-            let packet_txs = self.tx_builder.build_recv_packet_chunked(
+            let mut packet_txs = self.tx_builder.build_recv_packet_chunked(
                 &recv_with_chunks.msg,
                 &recv_with_chunks.payload_chunks,
                 &recv_with_chunks.proof_chunks,
+                abi_hint.as_ref(),
             )?;
+
+            // Prepend store_hint tx before chunk uploads for ABI payloads
+            if let Some(hint) = &abi_hint {
+                let mut hint_instructions = super::SolanaTxBuilder::extend_compute_ix();
+                hint_instructions.push(hint.store_hint_instruction.clone());
+                let hint_tx = self.tx_builder.create_tx_bytes(&hint_instructions)?;
+                packet_txs.chunks.insert(0, hint_tx);
+            }
+
             results.push(packet_txs);
         }
 

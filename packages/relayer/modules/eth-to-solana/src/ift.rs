@@ -16,9 +16,12 @@ use solana_sdk::{
 };
 use spl_associated_token_account::get_associated_token_address;
 
+use alloy::sol_types::SolValue;
+
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp::{GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, Protobuf};
+use crate::tx_builder::payload_translator::{AbiGmpPacketData, ABI_ENCODING};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
@@ -71,26 +74,38 @@ pub struct ClaimRefundParams<'a> {
 /// Build IFT `claim_refund` instruction if this packet is from IFT.
 /// Returns None if the packet is not an IFT transfer or no pending transfer exists.
 pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<Instruction> {
-    // Only process GMP port packets
-    if params.source_port != GMP_PORT_ID
-        || !(params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING)
-    {
+    // Only process GMP port packets with known encoding
+    let is_protobuf = params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING;
+    let is_abi = params.encoding == ABI_ENCODING;
+
+    if params.source_port != GMP_PORT_ID || !(is_protobuf || is_abi) {
         return None;
     }
 
-    let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
-        Ok(packet) => packet,
-        Err(e) => {
-            tracing::warn!(error = ?e, "IFT: Failed to decode GMP packet");
-            return None;
+    // Decode sender from the GMP packet (protobuf or ABI)
+    let sender_string = if is_abi {
+        match <AbiGmpPacketData as SolValue>::abi_decode(params.payload_value) {
+            Ok(packet) => packet.sender,
+            Err(e) => {
+                tracing::warn!(error = ?e, "IFT: Failed to ABI decode GMP packet");
+                return None;
+            }
+        }
+    } else {
+        match GmpPacketData::decode_vec(params.payload_value) {
+            Ok(packet) => packet.sender.to_string(),
+            Err(e) => {
+                tracing::warn!(error = ?e, "IFT: Failed to decode GMP packet");
+                return None;
+            }
         }
     };
 
     // Parse sender as Pubkey (the IFT program ID)
-    let ift_program_id = match Pubkey::from_str(&gmp_packet.sender) {
+    let ift_program_id = match Pubkey::from_str(&sender_string) {
         Ok(pk) => pk,
         Err(e) => {
-            tracing::warn!(error = ?e, sender = %gmp_packet.sender, "IFT: GMP sender is not a valid Pubkey");
+            tracing::warn!(error = ?e, sender = %sender_string, "IFT: GMP sender is not a valid Pubkey");
             return None;
         }
     };

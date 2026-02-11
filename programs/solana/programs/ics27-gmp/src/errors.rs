@@ -140,6 +140,12 @@ pub enum GMPError {
 
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
+
+    #[msg("Invalid ABI encoding")]
+    InvalidAbiEncoding,
+
+    #[msg("Invalid payload hint account")]
+    InvalidHintAccount,
 }
 
 /// Convert GMP validation errors to GMP errors

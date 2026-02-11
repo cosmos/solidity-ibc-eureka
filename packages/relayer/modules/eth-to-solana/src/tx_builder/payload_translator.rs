@@ -1,12 +1,10 @@
-//! Payload translation: ABI (EVM) → Protobuf (Solana).
+//! ABI payload hint builder for Eth→Solana relay.
 //!
 //! When relaying from Ethereum to Solana, packet payloads arrive with
 //! `encoding = "application/x-solidity-abi"` and ABI-encoded values.
-//! Solana's GMP program expects `encoding = "application/x-protobuf"` with
-//! protobuf-encoded `GmpPacketData`.
-//!
-//! This module translates ABI payloads into protobuf for the IFT (Inter-chain
-//! Fungible Token) use case.
+//! Instead of translating the payload (which breaks IBC commitment verification),
+//! we build a `SolanaPayloadHint` that the GMP program reads to execute the CPI.
+//! The original ABI payload is kept intact for commitment verification.
 
 use std::sync::{Arc, LazyLock};
 
@@ -15,21 +13,35 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use sha2::{Digest, Sha256};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::pubkey::Pubkey;
+use solana_sdk::{
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+};
 
-use crate::gmp::{GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::gmp::GMP_PORT_ID;
 use crate::ift_payload;
-use crate::proto::{GmpPacketData, Protobuf};
+use crate::proto::Protobuf;
 
 use super::SolanaTxBuilder;
 
 /// ABI encoding identifier used by Ethereum ICS27 GMP.
-const ABI_ENCODING: &str = "application/x-solidity-abi";
+pub(crate) const ABI_ENCODING: &str = "application/x-solidity-abi";
+
+/// Payload hint PDA seed (must match GMP program's `SolanaPayloadHint::SEED`).
+const PAYLOAD_HINT_SEED: &[u8] = b"payload_hint";
 
 /// Anchor discriminator for `IFTBridge` accounts.
 static IFT_BRIDGE_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
     hasher.update(b"account:IFTBridge");
+    let result = hasher.finalize();
+    result[..8].try_into().expect("sha256 produces 32 bytes")
+});
+
+/// Anchor discriminator for `store_payload_hint` instruction.
+static STORE_PAYLOAD_HINT_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
+    let mut hasher = Sha256::new();
+    hasher.update(b"global:store_payload_hint");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
@@ -45,52 +57,53 @@ alloy::sol! {
     }
 }
 
+/// Info needed to handle an ABI-encoded GMP payload.
+pub struct AbiHintInfo {
+    /// Store hint instruction (to be sent before recv_packet).
+    pub store_hint_instruction: Instruction,
+    /// GMP remaining accounts for the recv_packet instruction.
+    /// Layout: [gmp_pda, target_program, hint_pda, execution_accounts...]
+    pub gmp_accounts: Vec<AccountMeta>,
+}
+
 impl SolanaTxBuilder {
-    /// Translate ABI-encoded payloads in a `MsgRecvPacket` to protobuf for Solana.
+    /// Build hint info for ABI-encoded GMP payloads, if applicable.
     ///
-    /// For each payload with `encoding = "application/x-solidity-abi"`:
-    /// 1. ABI-decode the outer `GMPPacketData`
-    /// 2. Decode the inner IFT mint payload (`bytes32 receiver + uint256 amount`)
-    /// 3. Build a `GmpSolanaPayload` with proper accounts and Borsh instruction data
-    /// 4. Re-encode as protobuf `GmpPacketData`
-    /// 5. Update the encoding field to `"application/x-protobuf"`
-    pub fn translate_evm_recv_msg(
+    /// Returns `None` if the payload is not ABI-encoded or not a GMP packet.
+    /// The original payload data is NOT modified.
+    pub fn build_abi_hint_if_needed(
         &self,
-        msg: &mut ibc_proto_eureka::ibc::core::channel::v2::MsgRecvPacket,
-    ) -> Result<()> {
-        let packet = match msg.packet.as_mut() {
+        msg: &ibc_proto_eureka::ibc::core::channel::v2::MsgRecvPacket,
+    ) -> Result<Option<AbiHintInfo>> {
+        let packet = match msg.packet.as_ref() {
             Some(p) => p,
-            None => return Ok(()),
+            None => return Ok(None),
         };
 
-        let dest_client = packet.destination_client.clone();
+        let dest_client = &packet.destination_client;
 
-        for payload in &mut packet.payloads {
+        for payload in &packet.payloads {
             if payload.encoding != ABI_ENCODING {
                 continue;
             }
 
             if payload.destination_port != GMP_PORT_ID {
-                tracing::debug!(
-                    dest_port = %payload.destination_port,
-                    "Skipping ABI payload translation for non-GMP port"
-                );
                 continue;
             }
 
-            self.translate_single_payload(payload, &dest_client)?;
+            return self.build_single_abi_hint(payload, dest_client).map(Some);
         }
 
-        Ok(())
+        Ok(None)
     }
 
-    /// Translate a single ABI-encoded payload to protobuf.
-    fn translate_single_payload(
+    /// Build hint info for a single ABI-encoded GMP payload.
+    fn build_single_abi_hint(
         &self,
-        payload: &mut ibc_proto_eureka::ibc::core::channel::v2::Payload,
+        payload: &ibc_proto_eureka::ibc::core::channel::v2::Payload,
         dest_client: &str,
-    ) -> Result<()> {
-        tracing::info!("Translating ABI payload to protobuf for dest_client={dest_client}");
+    ) -> Result<AbiHintInfo> {
+        tracing::info!("Building ABI hint for dest_client={dest_client}");
 
         // 1. ABI-decode the outer GMPPacketData
         let abi_gmp: AbiGmpPacketData = SolValue::abi_decode(&payload.value)
@@ -103,7 +116,7 @@ impl SolanaTxBuilder {
             "Decoded ABI GMPPacketData"
         );
 
-        // 2. Parse receiver as the target program ID (IFT program for IFT transfers)
+        // 2. Parse receiver as the target program ID
         let ift_program_id: Pubkey = abi_gmp
             .receiver
             .parse()
@@ -145,43 +158,106 @@ impl SolanaTxBuilder {
         )
         .context("Failed to build IFT mint GMP payload")?;
 
-        // 7. Encode GmpSolanaPayload as protobuf bytes
-        let solana_payload_bytes =
-            Protobuf::<solana_ibc_proto::RawGmpSolanaPayload>::encode_vec(gmp_solana_payload);
+        // 7. Encode GmpSolanaPayload as protobuf bytes (for the hint account)
+        let solana_payload_bytes = Protobuf::<solana_ibc_proto::RawGmpSolanaPayload>::encode_vec(
+            gmp_solana_payload.clone(),
+        );
 
-        // 8. Build new protobuf GmpPacketData with translated payload
-        let proto_gmp = GmpPacketData {
-            sender: abi_gmp
-                .sender
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid sender"))?,
-            receiver: abi_gmp
-                .receiver
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid receiver"))?,
-            salt: abi_gmp
-                .salt
-                .to_vec()
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid salt"))?,
-            payload: solana_payload_bytes
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Empty payload"))?,
-            memo: abi_gmp
-                .memo
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("Invalid memo"))?,
-        };
+        // 8. Build the store_payload_hint instruction
+        let hint_pda = self.derive_hint_pda(gmp_program_id);
+        let store_hint_ix =
+            self.build_store_hint_instruction(gmp_program_id, hint_pda, &solana_payload_bytes);
 
-        // 9. Encode as protobuf and update
-        let proto_bytes = Protobuf::<solana_ibc_proto::RawGmpPacketData>::encode_vec(proto_gmp);
+        // 9. Build GMP account PDA from ABI-decoded fields
+        let sender: solana_ibc_proto::Sender = abi_gmp
+            .sender
+            .clone()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid sender"))?;
+        let salt: solana_ibc_proto::Salt = abi_gmp
+            .salt
+            .to_vec()
+            .try_into()
+            .map_err(|_| anyhow::anyhow!("Invalid salt"))?;
+        let client_id = solana_ibc_types::ClientId::new(dest_client)
+            .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
-        payload.value = proto_bytes;
-        payload.encoding = PROTOBUF_ENCODING.to_string();
+        let gmp_account =
+            solana_ibc_types::GMPAccount::new(client_id, sender, salt, &gmp_program_id);
+        let (gmp_account_pda, _) = gmp_account.pda();
 
-        tracing::info!("Successfully translated ABI payload to protobuf");
+        // 10. Build remaining accounts: [gmp_pda, target_program, hint_pda, execution_accounts...]
+        let mut gmp_accounts = vec![
+            AccountMeta {
+                pubkey: gmp_account_pda,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: ift_program_id,
+                is_signer: false,
+                is_writable: false,
+            },
+            AccountMeta {
+                pubkey: hint_pda,
+                is_signer: false,
+                is_writable: false,
+            },
+        ];
 
-        Ok(())
+        // Add execution accounts from GmpSolanaPayload
+        for account_meta in &gmp_solana_payload.accounts {
+            gmp_accounts.push(AccountMeta {
+                pubkey: account_meta.pubkey,
+                is_signer: false,
+                is_writable: account_meta.is_writable,
+            });
+        }
+
+        tracing::info!(
+            gmp_pda = %gmp_account_pda,
+            hint_pda = %hint_pda,
+            num_accounts = gmp_accounts.len(),
+            "Built ABI hint info"
+        );
+
+        Ok(AbiHintInfo {
+            store_hint_instruction: store_hint_ix,
+            gmp_accounts,
+        })
+    }
+
+    /// Derive the payload hint PDA address.
+    fn derive_hint_pda(&self, gmp_program_id: Pubkey) -> Pubkey {
+        let (pda, _) = Pubkey::find_program_address(
+            &[PAYLOAD_HINT_SEED, self.fee_payer.as_ref()],
+            &gmp_program_id,
+        );
+        pda
+    }
+
+    /// Build the `store_payload_hint` instruction for the GMP program.
+    fn build_store_hint_instruction(
+        &self,
+        gmp_program_id: Pubkey,
+        hint_pda: Pubkey,
+        payload_data: &[u8],
+    ) -> Instruction {
+        // Instruction data: discriminator + Borsh-encoded Vec<u8>
+        let mut data = STORE_PAYLOAD_HINT_DISCRIMINATOR.to_vec();
+        let len = u32::try_from(payload_data.len()).expect("payload_data length fits in u32");
+        data.extend_from_slice(&len.to_le_bytes());
+        data.extend_from_slice(payload_data);
+
+        Instruction {
+            program_id: gmp_program_id,
+            accounts: vec![
+                AccountMeta::new(hint_pda, false),
+                AccountMeta::new(self.fee_payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            ],
+            data,
+        }
     }
 }
 
@@ -195,39 +271,22 @@ struct IFTBridgePartial {
 }
 
 /// Find the SPL token mint associated with an IFT bridge for a given client ID.
-///
-/// Scans all accounts owned by the IFT program, looking for bridge accounts
-/// whose `client_id` matches the destination client.
 fn find_ift_mint_for_client(
     solana_client: &Arc<RpcClient>,
     ift_program_id: &Pubkey,
     client_id: &str,
 ) -> Result<Pubkey> {
-    tracing::info!(
+    tracing::debug!(
         %ift_program_id,
         %client_id,
-        discriminator = ?&*IFT_BRIDGE_DISCRIMINATOR,
         "Scanning IFT program accounts for bridge"
     );
 
-    let accounts = match solana_client.get_program_accounts(ift_program_id) {
-        Ok(a) => a,
-        Err(e) => {
-            tracing::error!(%ift_program_id, error = %e, "getProgramAccounts RPC call failed");
-            anyhow::bail!("Failed to get IFT program accounts: {e}");
-        }
-    };
-
-    tracing::info!(num_accounts = accounts.len(), "Got IFT program accounts");
+    let accounts = solana_client
+        .get_program_accounts(ift_program_id)
+        .map_err(|e| anyhow::anyhow!("Failed to get IFT program accounts: {e}"))?;
 
     for (pubkey, account) in &accounts {
-        tracing::info!(
-            %pubkey,
-            data_len = account.data.len(),
-            first_8_bytes = ?account.data.get(..8),
-            "Checking IFT account"
-        );
-
         if account.data.len() < 8 || account.data[..8] != *IFT_BRIDGE_DISCRIMINATOR {
             continue;
         }
@@ -241,14 +300,8 @@ fn find_ift_mint_for_client(
             }
         };
 
-        tracing::debug!(
-            %pubkey,
-            bridge_client_id = %bridge.client_id,
-            bridge_mint = %bridge.mint,
-            "Deserialized IFT bridge"
-        );
-
         if bridge.client_id == client_id {
+            tracing::debug!(mint = %bridge.mint, "Found IFT bridge");
             return Ok(bridge.mint);
         }
     }

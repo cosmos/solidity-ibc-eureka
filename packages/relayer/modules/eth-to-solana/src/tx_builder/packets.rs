@@ -134,6 +134,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
+        abi_hint: Option<&super::payload_translator::AbiHintInfo>,
     ) -> Result<Instruction> {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
@@ -186,14 +187,20 @@ impl super::SolanaTxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        let gmp_accounts = gmp::extract_gmp_accounts(
-            payload_info.dest_port,
-            payload_info.encoding,
-            payload_info.value,
-            &msg.packet.dest_client,
-            ibc_app_program_id,
-        )?;
-        accounts.extend(gmp_accounts);
+        if let Some(hint) = abi_hint {
+            // For ABI payloads, use pre-built GMP accounts with hint PDA
+            accounts.extend(hint.gmp_accounts.clone());
+        } else {
+            // For protobuf payloads, extract GMP accounts normally
+            let gmp_accounts = gmp::extract_gmp_accounts(
+                payload_info.dest_port,
+                payload_info.encoding,
+                payload_info.value,
+                &msg.packet.dest_client,
+                ibc_app_program_id,
+            )?;
+            accounts.extend(gmp_accounts);
+        }
 
         let mut data = router_instructions::recv_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -793,6 +800,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
+        abi_hint: Option<&super::payload_translator::AbiHintInfo>,
     ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
@@ -812,7 +820,7 @@ impl super::SolanaTxBuilder {
         )?;
 
         let recv_instruction =
-            self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
+            self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data, abi_hint)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(recv_instruction);

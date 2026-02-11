@@ -3,7 +3,6 @@ use crate::errors::GMPError;
 use crate::events::GMPCallAcknowledgment;
 use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
 /// Process IBC packet acknowledgement (called by router via CPI)
 #[derive(Accounts)]
@@ -52,10 +51,8 @@ pub fn on_acknowledgement_packet(
     )
     .map_err(GMPError::from)?;
 
-    let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
-        .map_err(|_| GMPError::InvalidPacketData)?;
     let packet_data =
-        GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
+        crate::abi::decode_gmp_packet_data(&msg.payload.value, &msg.payload.encoding)?;
 
     let clock = Clock::get()?;
     let sender: Pubkey = packet_data

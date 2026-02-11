@@ -146,7 +146,8 @@ pub fn build_ift_mint_gmp_payload(
     let mut instruction_data = discriminator.to_vec();
     instruction_data.extend_from_slice(&data);
 
-    // Build accounts matching IFTMint struct order in ift_mint.rs:
+    // Build accounts matching IFTMint struct order in ift_mint.rs,
+    // EXCLUDING the payer (which on_recv_packet injects via payer_position):
     // 0: app_state (writable)
     // 1: ift_bridge (readonly)
     // 2: mint (writable)
@@ -155,10 +156,10 @@ pub fn build_ift_mint_gmp_payload(
     // 5: receiver_owner (readonly)
     // 6: gmp_program (readonly)
     // 7: gmp_account (signer via CPI)
-    // 8: payer (writable, signer)
-    // 9: token_program (readonly)
-    // 10: associated_token_program (readonly)
-    // 11: system_program (readonly)
+    // -- payer injected here by on_recv_packet --
+    // 8: token_program (readonly)
+    // 9: associated_token_program (readonly)
+    // 10: system_program (readonly)
     let accounts = vec![
         SolanaAccountMeta {
             pubkey: app_state_pda,
@@ -201,11 +202,6 @@ pub fn build_ift_mint_gmp_payload(
             is_writable: false,
         },
         SolanaAccountMeta {
-            pubkey: params.fee_payer,
-            is_signer: true,
-            is_writable: true,
-        },
-        SolanaAccountMeta {
             pubkey: spl_token::id(),
             is_signer: false,
             is_writable: false,
@@ -222,7 +218,8 @@ pub fn build_ift_mint_gmp_payload(
         },
     ];
 
-    // payer_position = 8 (index of the payer account)
+    // payer_position = 8: on_recv_packet inserts payer at this index,
+    // shifting token_program et al. to their correct final positions
     Ok(GmpSolanaPayload {
         data: instruction_data,
         accounts,
