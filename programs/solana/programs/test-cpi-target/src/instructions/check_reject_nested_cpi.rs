@@ -2,9 +2,11 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::reject_nested_cpi;
 
 #[derive(Accounts)]
-pub struct NoAccounts {}
+pub struct CheckRejectNestedCpi<'info> {
+    pub signer: Signer<'info>,
+}
 
-pub fn check_reject_nested_cpi(_ctx: Context<NoAccounts>) -> Result<()> {
+pub fn check_reject_nested_cpi(_ctx: Context<CheckRejectNestedCpi>) -> Result<()> {
     reject_nested_cpi().map_err(Into::into)
 }
 
@@ -12,7 +14,7 @@ pub fn check_reject_nested_cpi(_ctx: Context<NoAccounts>) -> Result<()> {
 mod integration_tests {
     use anchor_lang::{InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
-    use solana_sdk::{instruction::Instruction, signer::Signer};
+    use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};
 
     use crate::test_utils::*;
 
@@ -27,8 +29,8 @@ mod integration_tests {
         }
     }
 
-    fn build_ix() -> Instruction {
-        let accounts = crate::accounts::NoAccounts {};
+    fn build_ix(signer: Pubkey) -> Instruction {
+        let accounts = crate::accounts::CheckRejectNestedCpi { signer };
         Instruction {
             program_id: crate::ID,
             accounts: accounts.to_account_metas(None),
@@ -45,7 +47,7 @@ mod integration_tests {
             recent_blockhash,
         } = ctx.await;
 
-        let ix = build_ix();
+        let ix = build_ix(payer.pubkey());
         process_tx(&banks_client, &payer, recent_blockhash, &[ix])
             .await
             .unwrap();
@@ -60,7 +62,7 @@ mod integration_tests {
             recent_blockhash,
         } = ctx.await;
 
-        let inner_ix = build_ix();
+        let inner_ix = build_ix(payer.pubkey());
         let ix = build_single_cpi_ix(payer.pubkey(), &inner_ix);
         process_tx(&banks_client, &payer, recent_blockhash, &[ix])
             .await
@@ -76,7 +78,7 @@ mod integration_tests {
             recent_blockhash,
         } = ctx.await;
 
-        let inner_ix = build_ix();
+        let inner_ix = build_ix(payer.pubkey());
         let ix = build_nested_cpi_ix(payer.pubkey(), &inner_ix);
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         assert!(result.is_err(), "Nested CPI should be rejected");

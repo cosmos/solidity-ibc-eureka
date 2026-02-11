@@ -19,7 +19,7 @@ pub mod test_cpi_target {
         instructions::check_is_cpi::check_is_cpi(ctx)
     }
 
-    pub fn check_reject_nested_cpi(ctx: Context<NoAccounts>) -> Result<()> {
+    pub fn check_reject_nested_cpi(ctx: Context<CheckRejectNestedCpi>) -> Result<()> {
         instructions::check_reject_nested_cpi::check_reject_nested_cpi(ctx)
     }
 
