@@ -10,7 +10,10 @@ use tendermint_light_client_membership::KVPair;
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
-    // TODO: we don't have seeds
+    #[account(
+        seeds = [ClientState::SEED],
+        bump
+    )]
     pub client_state: Account<'info, ClientState>,
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
@@ -73,12 +76,11 @@ mod tests {
     }
 
     fn setup_test_accounts(
-        chain_id: String,
         height: u64,
         client_state: ClientState,
         consensus_state: ConsensusState,
     ) -> TestAccounts {
-        let client_state_pda = derive_client_state_pda(&chain_id);
+        let client_state_pda = derive_client_state_pda();
         let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
 
         let mut client_data = vec![];
@@ -173,12 +175,8 @@ mod tests {
         let client_state = decode_client_state_from_hex(&fixture.client_state_hex);
         let consensus_state = decode_consensus_state_from_hex(&fixture.consensus_state_hex);
 
-        let test_accounts = setup_test_accounts(
-            client_state.chain_id.clone(),
-            fixture.membership_msg.height,
-            client_state,
-            consensus_state,
-        );
+        let test_accounts =
+            setup_test_accounts(fixture.membership_msg.height, client_state, consensus_state);
 
         let msg = create_non_membership_msg(&fixture.membership_msg);
 
@@ -217,12 +215,8 @@ mod tests {
 
         consensus_state.root = [0xFF; 32];
 
-        let test_accounts = setup_test_accounts(
-            client_state.chain_id.clone(),
-            fixture.membership_msg.height,
-            client_state,
-            consensus_state,
-        );
+        let test_accounts =
+            setup_test_accounts(fixture.membership_msg.height, client_state, consensus_state);
 
         let msg = create_non_membership_msg(&fixture.membership_msg);
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
@@ -273,12 +267,8 @@ mod tests {
             revision_height: 1,
         };
 
-        let test_accounts = setup_test_accounts(
-            client_state.chain_id.clone(),
-            fixture.membership_msg.height,
-            client_state,
-            consensus_state,
-        );
+        let test_accounts =
+            setup_test_accounts(fixture.membership_msg.height, client_state, consensus_state);
 
         let msg = create_non_membership_msg(&fixture.membership_msg);
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
@@ -299,12 +289,7 @@ mod tests {
         let actual_height = fixture.membership_msg.height;
         let wrong_height = actual_height + 100;
 
-        let test_accounts = setup_test_accounts(
-            client_state.chain_id.clone(),
-            actual_height,
-            client_state,
-            consensus_state,
-        );
+        let test_accounts = setup_test_accounts(actual_height, client_state, consensus_state);
 
         let mut msg = create_non_membership_msg(&fixture.membership_msg);
         msg.height = wrong_height;
@@ -324,7 +309,7 @@ mod tests {
         let existing_height = fixture.membership_msg.height;
         let nonexistent_height = existing_height + 999;
 
-        let client_state_pda = derive_client_state_pda(&client_state.chain_id);
+        let client_state_pda = derive_client_state_pda();
 
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();

@@ -315,7 +315,6 @@ impl super::TxBuilder {
 
     pub(crate) fn build_recv_packet_chunked(
         &self,
-        chain_id: &str,
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
@@ -337,12 +336,8 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
-        let recv_instruction = self.build_recv_packet_instruction(
-            chain_id,
-            msg,
-            remaining_account_pubkeys,
-            payload_data,
-        )?;
+        let recv_instruction =
+            self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(recv_instruction);
@@ -534,7 +529,6 @@ impl super::TxBuilder {
 
     pub(crate) fn build_timeout_packet_chunked(
         &self,
-        chain_id: &str,
         msg: &MsgTimeoutPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
@@ -557,7 +551,7 @@ impl super::TxBuilder {
         )?;
 
         let timeout_instruction =
-            self.build_timeout_packet_instruction(chain_id, msg, remaining_account_pubkeys)?;
+            self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(timeout_instruction);

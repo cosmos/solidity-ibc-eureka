@@ -19,7 +19,6 @@ struct TestAccounts {
 }
 
 fn setup_test_accounts(
-    chain_id: &str,
     target_height: u64,
     chunk_index: u8,
     submitter: Pubkey,
@@ -30,7 +29,6 @@ fn setup_test_accounts(
         &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
-            chain_id.as_bytes(),
             &target_height.to_le_bytes(),
             &[chunk_index],
         ],
@@ -38,11 +36,8 @@ fn setup_test_accounts(
     )
     .0;
 
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     let mut accounts = vec![
         (
@@ -71,7 +66,7 @@ fn setup_test_accounts(
     if with_existing_client {
         // Create client state account
         let client_state = ClientState {
-            chain_id: chain_id.to_string(),
+            chain_id: "test-chain".to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
@@ -124,13 +119,11 @@ fn setup_test_accounts(
 }
 
 fn create_upload_chunk_params(
-    chain_id: &str,
     target_height: u64,
     chunk_index: u8,
     chunk_data: Vec<u8>,
 ) -> UploadChunkParams {
     UploadChunkParams {
-        chain_id: chain_id.to_string(),
         target_height,
         chunk_index,
         chunk_data,
@@ -198,13 +191,11 @@ fn assert_instruction_fails_with_error(
 
 #[test]
 fn test_upload_first_chunk_success() {
-    let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
     let test_accounts = setup_test_accounts(
-        chain_id,
         target_height,
         chunk_index,
         submitter,
@@ -212,7 +203,7 @@ fn test_upload_first_chunk_success() {
     );
 
     let chunk_data = vec![1u8; 100];
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
+    let params = create_upload_chunk_params(target_height, chunk_index, chunk_data);
 
     let expected_data = params.chunk_data.clone();
 
@@ -242,16 +233,14 @@ fn test_upload_first_chunk_success() {
 
 #[test]
 fn test_upload_same_chunk_twice_should_fail() {
-    let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let mut test_accounts =
-        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
 
     let chunk_data = vec![1u8; 100];
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
+    let params = create_upload_chunk_params(target_height, chunk_index, chunk_data);
 
     // First upload
     let instruction = create_upload_instruction(&test_accounts, params.clone());
@@ -274,17 +263,15 @@ fn test_upload_same_chunk_twice_should_fail() {
 
 #[test]
 fn test_upload_chunk_no_overwrite_allowed() {
-    let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let mut test_accounts =
-        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
 
     // First upload
     let chunk_data1 = vec![1u8; 100];
-    let params1 = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data1);
+    let params1 = create_upload_chunk_params(target_height, chunk_index, chunk_data1);
 
     let instruction = create_upload_instruction(&test_accounts, params1);
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
@@ -294,7 +281,7 @@ fn test_upload_chunk_no_overwrite_allowed() {
 
     // Second upload with different data should fail (no overwrites allowed)
     let chunk_data2 = vec![2u8; 100];
-    let params2 = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data2);
+    let params2 = create_upload_chunk_params(target_height, chunk_index, chunk_data2);
 
     let instruction2 = create_upload_instruction(&test_accounts, params2);
     let result2 = mollusk_svm::Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
@@ -309,13 +296,12 @@ fn test_upload_chunk_no_overwrite_allowed() {
 
 #[test]
 fn test_upload_multiple_chunks_independently() {
-    let chain_id = "test-chain";
     let target_height = 200;
     let submitter = Pubkey::new_unique();
 
     // Upload chunk 0
-    let test_accounts0 = setup_test_accounts(chain_id, target_height, 0, submitter, true);
-    let params0 = create_upload_chunk_params(chain_id, target_height, 0, vec![1u8; 100]);
+    let test_accounts0 = setup_test_accounts(target_height, 0, submitter, true);
+    let params0 = create_upload_chunk_params(target_height, 0, vec![1u8; 100]);
     let instruction0 = create_upload_instruction(&test_accounts0, params0);
     let result0 = assert_instruction_succeeds(&instruction0, &test_accounts0.accounts);
 
@@ -331,8 +317,8 @@ fn test_upload_multiple_chunks_independently() {
     );
 
     // Upload chunk 1 independently
-    let test_accounts1 = setup_test_accounts(chain_id, target_height, 1, submitter, true);
-    let params1 = create_upload_chunk_params(chain_id, target_height, 1, vec![2u8; 100]);
+    let test_accounts1 = setup_test_accounts(target_height, 1, submitter, true);
+    let params1 = create_upload_chunk_params(target_height, 1, vec![2u8; 100]);
     let instruction1 = create_upload_instruction(&test_accounts1, params1);
     let result1 = assert_instruction_succeeds(&instruction1, &test_accounts1.accounts);
 
@@ -350,17 +336,16 @@ fn test_upload_multiple_chunks_independently() {
 
 #[test]
 fn test_upload_chunk_exceeding_max_size_fails() {
-    let chain_id = "test-chain";
     let target_height = 200;
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
 
     // Create chunk data that exceeds max size
     let oversized_data = vec![1u8; CHUNK_DATA_SIZE + 1];
 
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, oversized_data);
+    let params = create_upload_chunk_params(target_height, chunk_index, oversized_data);
 
     let instruction = create_upload_instruction(&test_accounts, params);
 
@@ -378,15 +363,11 @@ fn test_upload_chunk_with_frozen_client_fails() {
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let mut test_accounts =
-        setup_test_accounts(chain_id, target_height, chunk_index, submitter, true);
+    let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
 
     // Freeze the client by setting frozen_height
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     if let Some((_, account)) = test_accounts
         .accounts
@@ -416,7 +397,7 @@ fn test_upload_chunk_with_frozen_client_fails() {
     }
 
     let chunk_data = vec![1u8; 100];
-    let params = create_upload_chunk_params(chain_id, target_height, chunk_index, chunk_data);
+    let params = create_upload_chunk_params(target_height, chunk_index, chunk_data);
     let instruction = create_upload_instruction(&test_accounts, params);
 
     assert_instruction_fails_with_error(

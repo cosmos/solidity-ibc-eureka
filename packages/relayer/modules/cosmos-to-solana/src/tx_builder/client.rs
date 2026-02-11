@@ -29,7 +29,7 @@ impl super::TxBuilder {
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (consensus_state_pda, _) =
             ConsensusState::pda(client_state_pda, latest_height, solana_ics07_program_id);
         let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
@@ -61,10 +61,8 @@ impl super::TxBuilder {
         })
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn build_assemble_and_update_client_tx(
         &self,
-        chain_id: &str,
         target_height: u64,
         trusted_height: u64,
         total_chunks: u8,
@@ -75,7 +73,7 @@ impl super::TxBuilder {
         use super::transaction::derive_alt_address;
         use solana_ibc_types::AccessManager;
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
             ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
         let (new_consensus_state, _) =
@@ -100,7 +98,6 @@ impl super::TxBuilder {
         accounts.extend((0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
-                chain_id,
                 target_height,
                 chunk_index,
                 solana_ics07_program_id,
@@ -118,9 +115,6 @@ impl super::TxBuilder {
 
         let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
 
-        let chain_id_len = u32::try_from(chain_id.len()).expect("chain_id too long");
-        data.extend_from_slice(&chain_id_len.to_le_bytes());
-        data.extend_from_slice(chain_id.as_bytes());
         data.extend_from_slice(&target_height.to_le_bytes());
         data.extend_from_slice(&[total_chunks]);
 
@@ -144,7 +138,6 @@ impl super::TxBuilder {
 
     pub(crate) fn build_cleanup_tx(
         &self,
-        chain_id: &str,
         target_height: u64,
         total_chunks: u8,
         signature_data: &[SignatureData],
@@ -155,7 +148,6 @@ impl super::TxBuilder {
         accounts.extend((0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
-                chain_id,
                 target_height,
                 chunk_index,
                 solana_ics07_program_id,
@@ -188,23 +180,20 @@ impl super::TxBuilder {
 
     pub(crate) fn build_upload_header_chunk_instruction(
         &self,
-        chain_id: &str,
         target_height: u64,
         chunk_index: u8,
         chunk_data: Vec<u8>,
         solana_ics07_program_id: Pubkey,
     ) -> Result<Instruction> {
         let params = UploadChunkParams {
-            chain_id: chain_id.to_string(),
             target_height,
             chunk_index,
             chunk_data,
         };
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
-            chain_id,
             target_height,
             chunk_index,
             solana_ics07_program_id,
@@ -230,7 +219,6 @@ impl super::TxBuilder {
     pub(crate) fn build_chunk_transactions(
         &self,
         chunks: &[Vec<u8>],
-        chain_id: &str,
         target_height: u64,
         light_client_program_id: Pubkey,
     ) -> Result<Vec<Vec<u8>>> {
@@ -241,7 +229,6 @@ impl super::TxBuilder {
                 let chunk_index = u8::try_from(index)
                     .map_err(|_| anyhow::anyhow!("Chunk index {index} exceeds u8 max"))?;
                 let upload_ix = self.build_upload_header_chunk_instruction(
-                    chain_id,
                     target_height,
                     chunk_index,
                     chunk_data.clone(),

@@ -28,18 +28,14 @@ fn setup_test_accounts(
         &[
             crate::state::MisbehaviourChunk::SEED,
             submitter.as_ref(),
-            client_id.as_bytes(),
             &[chunk_index],
         ],
         &crate::ID,
     )
     .0;
 
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, client_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     let mut accounts = vec![
         (
@@ -135,7 +131,6 @@ fn test_upload_misbehaviour_chunk_success() {
     let test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
 
     let params = UploadMisbehaviourChunkParams {
-        client_id: client_id.to_string(),
         chunk_index,
         chunk_data: vec![1u8; 100],
     };
@@ -169,11 +164,8 @@ fn test_upload_chunk_with_frozen_client_fails() {
 
     let mut test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
 
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, client_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     if let Some((_, account)) = test_accounts
         .accounts
@@ -203,7 +195,6 @@ fn test_upload_chunk_with_frozen_client_fails() {
     }
 
     let params = UploadMisbehaviourChunkParams {
-        client_id: client_id.to_string(),
         chunk_index,
         chunk_data: vec![1u8; 100],
     };
@@ -226,7 +217,6 @@ fn test_upload_chunk_data_too_large() {
     let test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
 
     let params = UploadMisbehaviourChunkParams {
-        client_id: client_id.to_string(),
         chunk_index,
         chunk_data: vec![1u8; CHUNK_DATA_SIZE + 1],
     };

@@ -94,7 +94,6 @@ const NANOS_PER_SECOND: u64 = 1_000_000_000;
 /// Parameters for uploading a header chunk (mirrors the Solana program's type)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub(crate) struct UploadChunkParams {
-    pub chain_id: String,
     pub target_height: u64,
     pub chunk_index: u8,
     pub chunk_data: Vec<u8>,
@@ -103,7 +102,6 @@ pub(crate) struct UploadChunkParams {
 /// Helper to derive header chunk PDA
 pub(crate) fn derive_header_chunk(
     submitter: Pubkey,
-    chain_id: &str,
     height: u64,
     chunk_index: u8,
     program_id: Pubkey,
@@ -112,7 +110,6 @@ pub(crate) fn derive_header_chunk(
         &[
             b"header_chunk",
             submitter.as_ref(),
-            chain_id.as_bytes(),
             &height.to_le_bytes(),
             &[chunk_index],
         ],
@@ -173,7 +170,6 @@ impl TxBuilder {
             .map(|s| Self::parse_trust_level(s))
             .transpose()?;
 
-        let chain_id = self.chain_id().await?;
         let TmCreateClientParams {
             latest_height,
             client_state: tm_client_state,
@@ -185,7 +181,7 @@ impl TxBuilder {
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(
-            &chain_id,
+            &client_state.chain_id,
             latest_height,
             &client_state,
             &consensus_state,
@@ -205,7 +201,7 @@ impl TxBuilder {
 
         let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
         let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
+        let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
 
         let TmUpdateClientParams {
             target_height,
@@ -256,15 +252,10 @@ impl TxBuilder {
                 optimized_accounts
             );
 
-            let chunk_txs = self.build_chunk_transactions(
-                &chunks,
-                &chain_id,
-                target_height,
-                solana_ics07_program_id,
-            )?;
+            let chunk_txs =
+                self.build_chunk_transactions(&chunks, target_height, solana_ics07_program_id)?;
 
             let assembly_tx = self.build_assemble_and_update_client_tx(
-                &chain_id,
                 target_height,
                 trusted_height,
                 total_chunks,
@@ -273,13 +264,8 @@ impl TxBuilder {
                 solana_ics07_program_id,
             )?;
 
-            let cleanup_tx = self.build_cleanup_tx(
-                &chain_id,
-                target_height,
-                total_chunks,
-                &[],
-                solana_ics07_program_id,
-            )?;
+            let cleanup_tx =
+                self.build_cleanup_tx(target_height, total_chunks, &[], solana_ics07_program_id)?;
 
             return Ok(api::SolanaUpdateClient {
                 chunk_txs,
@@ -305,7 +291,6 @@ impl TxBuilder {
 
         prep_txs.extend(self.build_chunk_transactions(
             &chunks,
-            &chain_id,
             target_height,
             solana_ics07_program_id,
         )?);
@@ -316,7 +301,7 @@ impl TxBuilder {
 
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
-        let (client_state_pda, _) = ClientState::pda(&chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
             ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
         let (new_consensus_state, _) =
@@ -333,7 +318,6 @@ impl TxBuilder {
         alt_accounts.extend((0..total_chunks).map(|chunk_index| {
             derive_header_chunk(
                 self.fee_payer,
-                &chain_id,
                 target_height,
                 chunk_index,
                 solana_ics07_program_id,
@@ -355,7 +339,6 @@ impl TxBuilder {
             .collect::<Result<Vec<_>>>()?;
 
         let assembly_tx = self.build_assemble_and_update_client_tx(
-            &chain_id,
             target_height,
             trusted_height,
             total_chunks,
@@ -365,7 +348,6 @@ impl TxBuilder {
         )?;
 
         let cleanup_tx = self.build_cleanup_tx(
-            &chain_id,
             target_height,
             total_chunks,
             &signature_data,
@@ -406,8 +388,7 @@ impl TxBuilder {
         } = params;
 
         let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
-        let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
+        let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
 
         let proof_height = proof_height_override.map_or_else(
             || {
@@ -479,7 +460,6 @@ impl TxBuilder {
         for recv_msg in recv_msgs {
             let r = ibc_to_solana_recv_packet(recv_msg)?;
             packet_txs.push(self.build_recv_packet_chunked(
-                &chain_id,
                 &r.msg,
                 &r.payload_chunks,
                 &r.proof_chunks,
@@ -496,7 +476,6 @@ impl TxBuilder {
 
         for t in timeout_msgs_with_chunks {
             packet_txs.push(self.build_timeout_packet_chunked(
-                &chain_id,
                 &t.msg,
                 &t.payload_chunks,
                 &t.proof_chunks,
@@ -515,18 +494,13 @@ impl TxBuilder {
         params: RelayParams,
     ) -> Result<(Vec<SolanaPacketTxs>, Option<api::SolanaUpdateClient>)> {
         let solana_ics07_program_id = self.resolve_client_program_id(&params.dst_client_id)?;
-        let chain_id = self.chain_id().await?;
-        let client_state = self.cosmos_client_state(&chain_id, solana_ics07_program_id)?;
+        let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
         let current_height = client_state.latest_height.revision_height;
 
         let max_timeout_ts = Self::max_timeout_timestamp(&params.dest_events);
         let consensus_ts = max_timeout_ts.and_then(|_| {
-            self.get_consensus_state_timestamp_secs(
-                &chain_id,
-                current_height,
-                solana_ics07_program_id,
-            )
-            .ok()
+            self.get_consensus_state_timestamp_secs(current_height, solana_ics07_program_id)
+                .ok()
         });
 
         // Build update_client transaction if needed
@@ -566,11 +540,10 @@ impl TxBuilder {
 
     fn get_consensus_state_timestamp_secs(
         &self,
-        chain_id: &str,
         height: u64,
         solana_ics07_program_id: Pubkey,
     ) -> Result<u64> {
-        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (consensus_state_pda, _) =
             ConsensusState::pda(client_state_pda, height, solana_ics07_program_id);
 
@@ -888,9 +861,8 @@ impl AttestedTxBuilder {
             None
         };
 
-        let chain_id = self.tx_builder.chain_id().await?;
         let packets = self
-            .build_packet_transactions(&chain_id, recv_msgs, ack_msgs, timeout_msgs)
+            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)
             .await?;
 
         Ok((packets, update_client))
@@ -1038,7 +1010,6 @@ impl AttestedTxBuilder {
 
     async fn build_packet_transactions(
         &self,
-        chain_id: &str,
         recv_msgs: Vec<MsgRecvPacket>,
         ack_msgs: Vec<MsgAcknowledgement>,
         timeout_msgs: Vec<solana_utils::TimeoutPacketWithChunks>,
@@ -1048,7 +1019,6 @@ impl AttestedTxBuilder {
         for msg in recv_msgs {
             let recv_with_chunks = solana_utils::ibc_to_solana_recv_packet(msg)?;
             let packet_txs = self.tx_builder.build_recv_packet_chunked(
-                chain_id,
                 &recv_with_chunks.msg,
                 &recv_with_chunks.payload_chunks,
                 &recv_with_chunks.proof_chunks,
@@ -1078,7 +1048,6 @@ impl AttestedTxBuilder {
                 timeout.msg.packet.sequence
             );
             let packet_txs = self.tx_builder.build_timeout_packet_chunked(
-                chain_id,
                 &timeout.msg,
                 &timeout.payload_chunks,
                 &timeout.proof_chunks,

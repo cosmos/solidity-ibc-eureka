@@ -316,6 +316,9 @@ type Ics07TendermintTypesAppState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Chain ID stored for introspection
+	ChainId string `json:"chainId"`
+
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -325,6 +328,11 @@ func (obj Ics07TendermintTypesAppState) MarshalWithEncoder(encoder *binary.Encod
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `ChainId`:
+	err = encoder.Encode(obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -349,6 +357,11 @@ func (obj *Ics07TendermintTypesAppState) UnmarshalWithDecoder(decoder *binary.De
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `ChainId`:
+	err = decoder.Decode(&obj.ChainId)
+	if err != nil {
+		return errors.NewField("ChainId", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -655,18 +668,12 @@ func (value Ics07TendermintTypesUpdateResult) String() string {
 
 // Parameters for uploading a header chunk
 type Ics07TendermintTypesUploadChunkParams struct {
-	ChainId      string `json:"chainId"`
 	TargetHeight uint64 `json:"targetHeight"`
 	ChunkIndex   uint8  `json:"chunkIndex"`
 	ChunkData    []byte `json:"chunkData"`
 }
 
 func (obj Ics07TendermintTypesUploadChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ChainId`:
-	err = encoder.Encode(obj.ChainId)
-	if err != nil {
-		return errors.NewField("ChainId", err)
-	}
 	// Serialize `TargetHeight`:
 	err = encoder.Encode(obj.TargetHeight)
 	if err != nil {
@@ -696,11 +703,6 @@ func (obj Ics07TendermintTypesUploadChunkParams) Marshal() ([]byte, error) {
 }
 
 func (obj *Ics07TendermintTypesUploadChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ChainId`:
-	err = decoder.Decode(&obj.ChainId)
-	if err != nil {
-		return errors.NewField("ChainId", err)
-	}
 	// Deserialize `TargetHeight`:
 	err = decoder.Decode(&obj.TargetHeight)
 	if err != nil {
@@ -738,17 +740,11 @@ func UnmarshalIcs07TendermintTypesUploadChunkParams(buf []byte) (*Ics07Tendermin
 
 // Parameters for uploading a misbehaviour chunk
 type Ics07TendermintTypesUploadMisbehaviourChunkParams struct {
-	ClientId   string `json:"clientId"`
 	ChunkIndex uint8  `json:"chunkIndex"`
 	ChunkData  []byte `json:"chunkData"`
 }
 
 func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
 	// Serialize `ChunkIndex`:
 	err = encoder.Encode(obj.ChunkIndex)
 	if err != nil {
@@ -773,11 +769,6 @@ func (obj Ics07TendermintTypesUploadMisbehaviourChunkParams) Marshal() ([]byte, 
 }
 
 func (obj *Ics07TendermintTypesUploadMisbehaviourChunkParams) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
 	// Deserialize `ChunkIndex`:
 	err = decoder.Decode(&obj.ChunkIndex)
 	if err != nil {

@@ -7,11 +7,11 @@ use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
 
 #[derive(Accounts)]
-#[instruction(client_id: String)]
 pub struct AssembleAndSubmitMisbehaviour<'info> {
     #[account(
         mut,
-        constraint = client_state.chain_id == client_id.as_str(),
+        seeds = [ClientState::SEED],
+        bump
     )]
     pub client_state: Account<'info, ClientState>,
 
@@ -44,7 +44,6 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
 
 pub fn assemble_and_submit_misbehaviour<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
-    client_id: String,
     chunk_count: u8,
 ) -> Result<()> {
     access_manager::require_role(
@@ -63,7 +62,7 @@ pub fn assemble_and_submit_misbehaviour<'info>(
     let chunk_count = chunk_count as usize;
     let submitter = ctx.accounts.submitter.key();
 
-    let misbehaviour_bytes = assemble_chunks(&ctx, &client_id, submitter, chunk_count)?;
+    let misbehaviour_bytes = assemble_chunks(&ctx, submitter, chunk_count)?;
 
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
 
@@ -73,14 +72,13 @@ pub fn assemble_and_submit_misbehaviour<'info>(
         signature_verification_accounts,
     )?;
 
-    cleanup_chunks(&ctx, &client_id, submitter, chunk_count)?;
+    cleanup_chunks(&ctx, submitter, chunk_count)?;
 
     Ok(())
 }
 
 fn assemble_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
-    client_id: &str,
     submitter: Pubkey,
     chunk_count: usize,
 ) -> Result<Vec<u8>> {
@@ -89,7 +87,6 @@ fn assemble_chunks(
     for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         validate_and_load_chunk(
             chunk_account,
-            client_id,
             submitter,
             index as u8,
             &mut misbehaviour_bytes,
@@ -101,7 +98,6 @@ fn assemble_chunks(
 
 fn validate_and_load_chunk(
     chunk_account: &AccountInfo,
-    client_id: &str,
     submitter: Pubkey,
     index: u8,
     misbehaviour_bytes: &mut Vec<u8>,
@@ -109,7 +105,6 @@ fn validate_and_load_chunk(
     let expected_seeds = &[
         crate::state::MisbehaviourChunk::SEED,
         submitter.as_ref(),
-        client_id.as_bytes(),
         &[index],
     ];
     let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
@@ -195,7 +190,6 @@ fn process_misbehaviour<'info>(
 
 fn cleanup_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
-    client_id: &str,
     submitter: Pubkey,
     chunk_count: usize,
 ) -> Result<()> {
@@ -203,7 +197,6 @@ fn cleanup_chunks(
         let expected_seeds = &[
             crate::state::MisbehaviourChunk::SEED,
             submitter.as_ref(),
-            client_id.as_bytes(),
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);

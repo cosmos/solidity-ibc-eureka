@@ -222,13 +222,13 @@ func (ics07TendermintPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.P
 	return pda, bump
 }
 
-func (ics07TendermintPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, chainId []byte) (solanago.PublicKey, uint8) {
+func (ics07TendermintPDAs) ClientPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client"), chainId},
+		[][]byte{[]byte("client")},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ClientWithArgSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ClientPDA PDA: %v", err))
 	}
 	return pda, bump
 }

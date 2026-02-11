@@ -708,30 +708,22 @@ pub mod chunk_test_utils {
     }
 
     pub fn create_upload_chunk_params(
-        chain_id: &str,
         target_height: u64,
         chunk_index: u8,
         chunk_data: Vec<u8>,
     ) -> UploadChunkParams {
         UploadChunkParams {
-            chain_id: chain_id.to_string(),
             target_height,
             chunk_index,
             chunk_data,
         }
     }
 
-    pub fn derive_chunk_pda(
-        submitter: &Pubkey,
-        chain_id: &str,
-        target_height: u64,
-        chunk_index: u8,
-    ) -> Pubkey {
+    pub fn derive_chunk_pda(submitter: &Pubkey, target_height: u64, chunk_index: u8) -> Pubkey {
         Pubkey::find_program_address(
             &[
                 crate::state::HeaderChunk::SEED,
                 submitter.as_ref(),
-                chain_id.as_bytes(),
                 &target_height.to_le_bytes(),
                 &[chunk_index],
             ],
@@ -740,12 +732,8 @@ pub mod chunk_test_utils {
         .0
     }
 
-    pub fn derive_client_state_pda(chain_id: &str) -> Pubkey {
-        Pubkey::find_program_address(
-            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-            &crate::ID,
-        )
-        .0
+    pub fn derive_client_state_pda() -> Pubkey {
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0
     }
 
     pub fn derive_consensus_state_pda(client_state_key: &Pubkey, height: u64) -> Pubkey {

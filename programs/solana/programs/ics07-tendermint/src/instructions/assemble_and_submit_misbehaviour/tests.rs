@@ -45,11 +45,8 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         with_chunks,
         misbehaviour_bytes,
     } = config;
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     let trusted_consensus_state_1_pda = Pubkey::find_program_address(
         &[
@@ -125,6 +122,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     // Add app_state account
     let app_state = AppState {
         access_manager: access_manager::ID,
+        chain_id: String::new(),
         _reserved: [0; 256],
     };
     let mut app_state_data = vec![];
@@ -264,7 +262,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
                 &[
                     crate::state::MisbehaviourChunk::SEED,
                     submitter.as_ref(),
-                    chain_id.as_bytes(),
                     &[i as u8],
                 ],
                 &crate::ID,
@@ -308,12 +305,9 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     }
 }
 
-fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) -> Instruction {
+fn create_assemble_instruction(test_accounts: &TestAccounts) -> Instruction {
     let chunk_count = test_accounts.chunk_pdas.len() as u8;
-    let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
-        client_id: client_id.to_string(),
-        chunk_count,
-    };
+    let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour { chunk_count };
 
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
@@ -374,7 +368,7 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
         misbehaviour_bytes: &misbehaviour_bytes,
     });
 
-    let instruction = create_assemble_instruction(&test_accounts, chain_id);
+    let instruction = create_assemble_instruction(&test_accounts);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![Check::err(
@@ -421,7 +415,7 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
         }
     }
 
-    let instruction = create_assemble_instruction(&test_accounts, chain_id);
+    let instruction = create_assemble_instruction(&test_accounts);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![Check::err(

@@ -1003,12 +1003,11 @@ func (s *Solana) CreateIBCAddressLookupTableWithAttestation(ctx context.Context,
 }
 
 // MisbehaviourChunkPDA computes the PDA for a misbehaviour chunk account
-func MisbehaviourChunkPDA(submitter solana.PublicKey, clientID string, chunkIndex uint8, programID solana.PublicKey) (solana.PublicKey, uint8, error) {
+func MisbehaviourChunkPDA(submitter solana.PublicKey, chunkIndex uint8, programID solana.PublicKey) (solana.PublicKey, uint8, error) {
 	return solana.FindProgramAddress(
 		[][]byte{
 			[]byte("misbehaviour_chunk"),
 			submitter.Bytes(),
-			[]byte(clientID),
 			{chunkIndex},
 		},
 		programID,
@@ -1023,8 +1022,6 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	ctx context.Context,
 	t *testing.T,
 	require *require.Assertions,
-	clientID string,
-	cosmosChainID string,
 	misbehaviourBytes []byte,
 	trustedHeight1 uint64,
 	trustedHeight2 uint64,
@@ -1034,7 +1031,6 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 
 	totalStart := time.Now()
 	t.Logf("=== Starting Chunked Misbehaviour Submission ===")
-	t.Logf("Client ID: %s", clientID)
 	t.Logf("Misbehaviour data size: %d bytes", len(misbehaviourBytes))
 
 	// Split misbehaviour data into chunks
@@ -1052,7 +1048,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
 	chunksStart := time.Now()
 
-	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 
 	type chunkResult struct {
 		chunkIdx int
@@ -1067,14 +1063,13 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 		go func(idx int, data []byte) {
 			chunkStart := time.Now()
 
-			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(idx), ics07_tendermint.ProgramID)
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(idx), ics07_tendermint.ProgramID)
 			if err != nil {
 				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to derive chunk PDA: %w", err), duration: time.Since(chunkStart)}
 				return
 			}
 
 			params := ics07_tendermint.Ics07TendermintTypesUploadMisbehaviourChunkParams{
-				ClientId:   clientID,
 				ChunkIndex: uint8(idx),
 				ChunkData:  data,
 			}
@@ -1155,7 +1150,6 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
-		clientID,
 		uint8(len(chunks)),
 		clientStatePDA,
 		appStatePDA,
@@ -1170,7 +1164,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	// Add remaining accounts (chunk accounts) to the instruction
 	if ix, ok := assembleIx.(*solana.GenericInstruction); ok {
 		for i := 0; i < len(chunks); i++ {
-			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(i), ics07_tendermint.ProgramID)
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(i), ics07_tendermint.ProgramID)
 			require.NoError(err, "Failed to derive chunk PDA for assembly")
 			ix.AccountValues = append(ix.AccountValues, solana.Meta(chunkPDA).WRITE())
 		}

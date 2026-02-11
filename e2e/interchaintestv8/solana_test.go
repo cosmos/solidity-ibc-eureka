@@ -476,7 +476,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	simd := s.Cosmos.Chains[0]
 
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 
 		// Use confirmed commitment to match client creation confirmation level
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
@@ -1395,24 +1395,15 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	s.SetupSuite(ctx)
 	s.setupDummyApp(ctx)
 
-	simd := s.Cosmos.Chains[0]
-	cosmosChainID := simd.Config().ChainID
 	testHeight := uint64(99999)
 	submitter := s.SolanaRelayer.PublicKey()
 
-	clientStatePDA, _, err := solanago.FindProgramAddress(
-		[][]byte{
-			[]byte("client"),
-			[]byte(cosmosChainID),
-		},
-		ics07_tendermint.ProgramID,
-	)
-	s.Require().NoError(err)
+	clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 
 	chunk0Data := []byte("header chunk 0 data for testing orphaned chunks cleanup")
 	chunk1Data := []byte("header chunk 1 data for testing orphaned chunks cleanup")
 
-	// HeaderChunk PDA: [b"header_chunk", submitter, chain_id, target_height, chunk_index]
+	// HeaderChunk PDA: [b"header_chunk", submitter, target_height, chunk_index]
 	heightBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(heightBytes, testHeight)
 
@@ -1420,7 +1411,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		[][]byte{
 			[]byte("header_chunk"),
 			submitter.Bytes(),
-			[]byte(cosmosChainID),
 			heightBytes,
 			{0},
 		},
@@ -1431,7 +1421,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		[][]byte{
 			[]byte("header_chunk"),
 			submitter.Bytes(),
-			[]byte(cosmosChainID),
 			heightBytes,
 			{1},
 		},
@@ -1449,7 +1438,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 
 	s.Require().True(s.Run("Upload orphaned header chunks", func() {
 		chunk0Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
-			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   0,
 			ChunkData:    chunk0Data,
@@ -1472,7 +1460,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		s.T().Logf("Uploaded header chunk 0: %s", sig0)
 
 		chunk1Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
-			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   1,
 			ChunkData:    chunk1Data,
@@ -1587,7 +1574,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 
 		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
 
-		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
@@ -1623,15 +1610,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 			ctx,
 			s.T(),
 			s.Require(),
-			simd.Config().ChainID,
-			simd.Config().ChainID,
 			borshBytes,
 			misbehaviour.Header1.TrustedHeight.RevisionHeight,
 			misbehaviour.Header2.TrustedHeight.RevisionHeight,
 			s.SolanaRelayer,
 		)
 
-		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})

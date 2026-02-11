@@ -14,7 +14,6 @@ pub struct UploadHeaderChunk<'info> {
         seeds = [
             HeaderChunk::SEED,
             submitter.key().as_ref(),
-            params.chain_id.as_bytes(),
             &params.target_height.to_le_bytes(),
             &[params.chunk_index]
         ],
@@ -22,9 +21,9 @@ pub struct UploadHeaderChunk<'info> {
     )]
     pub chunk: Account<'info, HeaderChunk>,
 
-    /// Client state to verify this is a valid client
     #[account(
-        constraint = client_state.chain_id == params.chain_id,
+        seeds = [ClientState::SEED],
+        bump
     )]
     pub client_state: Account<'info, ClientState>,
 

@@ -13,7 +13,6 @@ pub struct UploadMisbehaviourChunk<'info> {
         seeds = [
             MisbehaviourChunk::SEED,
             submitter.key().as_ref(),
-            params.client_id.as_bytes(),
             &[params.chunk_index]
         ],
         bump
@@ -21,7 +20,8 @@ pub struct UploadMisbehaviourChunk<'info> {
     pub chunk: Account<'info, MisbehaviourChunk>,
 
     #[account(
-        constraint = client_state.chain_id == params.client_id,
+        seeds = [ClientState::SEED],
+        bump
     )]
     pub client_state: Account<'info, ClientState>,
 

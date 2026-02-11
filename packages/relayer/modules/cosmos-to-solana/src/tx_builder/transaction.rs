@@ -131,12 +131,11 @@ impl super::TxBuilder {
     /// Fetch Cosmos client state from the light client on Solana.
     pub(crate) fn cosmos_client_state(
         &self,
-        chain_id: &str,
         solana_ics07_program_id: Pubkey,
     ) -> Result<solana_ibc_types::ics07::ClientState> {
         use solana_ibc_types::ics07::ClientState;
 
-        let (client_state_pda, _) = ClientState::pda(chain_id, solana_ics07_program_id);
+        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
 
         let account = self
             .target_solana_client

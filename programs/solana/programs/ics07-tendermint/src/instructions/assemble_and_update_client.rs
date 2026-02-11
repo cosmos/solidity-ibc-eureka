@@ -11,11 +11,12 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(chain_id: String, target_height: u64, chunk_count: u8)]
+#[instruction(target_height: u64, chunk_count: u8)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
-        constraint = client_state.chain_id == chain_id.as_str(),
+        seeds = [ClientState::SEED],
+        bump
     )]
     pub client_state: Account<'info, ClientState>,
 
@@ -59,7 +60,6 @@ impl AssembleAndUpdateClient<'_> {
 
 pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
-    chain_id: String,
     target_height: u64,
     chunk_count: u8,
 ) -> Result<UpdateResult> {
@@ -78,7 +78,7 @@ pub fn assemble_and_update_client<'info>(
 
     let chunk_count = chunk_count as usize;
 
-    let header_bytes = assemble_chunks(&ctx, &chain_id, target_height, chunk_count)?;
+    let header_bytes = assemble_chunks(&ctx, target_height, chunk_count)?;
 
     let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
 
@@ -90,7 +90,6 @@ pub fn assemble_and_update_client<'info>(
 
 fn assemble_chunks(
     ctx: &Context<AssembleAndUpdateClient>,
-    chain_id: &str,
     target_height: u64,
     chunk_count: usize,
 ) -> Result<Vec<u8>> {
@@ -102,7 +101,6 @@ fn assemble_chunks(
         let expected_seeds = &[
             crate::state::HeaderChunk::SEED,
             submitter.as_ref(),
-            chain_id.as_bytes(),
             &target_height.to_le_bytes(),
             &[index as u8],
         ];

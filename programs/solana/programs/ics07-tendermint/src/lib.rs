@@ -80,13 +80,11 @@ pub mod ics07_tendermint {
     /// Automatically cleans up all chunks after successful update
     pub fn assemble_and_update_client<'info>(
         ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
-        chain_id: String,
         target_height: u64,
         chunk_count: u8,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
-            chain_id,
             target_height,
             chunk_count,
         )
@@ -111,12 +109,10 @@ pub mod ics07_tendermint {
     /// Automatically freezes the client and cleans up all chunks
     pub fn assemble_and_submit_misbehaviour<'info>(
         ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
-        client_id: String,
         chunk_count: u8,
     ) -> Result<()> {
         instructions::assemble_and_submit_misbehaviour::assemble_and_submit_misbehaviour(
             ctx,
-            client_id,
             chunk_count,
         )
     }
@@ -125,11 +121,10 @@ pub mod ics07_tendermint {
     /// This can be called to reclaim rent from failed or abandoned misbehaviour submissions
     pub fn cleanup_incomplete_misbehaviour(
         ctx: Context<CleanupIncompleteMisbehaviour>,
-        client_id: String,
         submitter: Pubkey,
     ) -> Result<()> {
         instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
-            ctx, client_id, submitter,
+            ctx, submitter,
         )
     }
 

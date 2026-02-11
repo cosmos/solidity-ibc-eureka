@@ -123,7 +123,6 @@ func NewSetAccessManagerInstruction(
 		// Account 2 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -255,7 +254,6 @@ func NewUploadHeaderChunkInstruction(
 		// The header chunk account to create (fails if already exists)
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
-		// Client state to verify this is a valid client
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 2 "submitter": Writable, Signer, Required
 		// The submitter who pays for and owns these accounts
@@ -276,7 +274,6 @@ func NewUploadHeaderChunkInstruction(
 // Assemble chunks and update the client // Automatically cleans up all chunks after successful update
 func NewAssembleAndUpdateClientInstruction(
 	// Params:
-	chainIdParam string,
 	targetHeightParam uint64,
 	chunkCountParam uint8,
 
@@ -299,11 +296,6 @@ func NewAssembleAndUpdateClientInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `targetHeightParam`:
 		err = enc__.Encode(targetHeightParam)
 		if err != nil {
@@ -324,13 +316,10 @@ func NewAssembleAndUpdateClientInstruction(
 		// Account 1 "app_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state": Read-only, Non-signer, Required
-		// Trusted consensus state at the height embedded in the header
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
 		// Account 4 "new_consensus_state_store": Read-only, Non-signer, Required
-		// New consensus state store
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
 		// Account 5 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
@@ -338,7 +327,6 @@ func NewAssembleAndUpdateClientInstruction(
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -434,7 +422,6 @@ func NewUploadMisbehaviourChunkInstruction(
 // Assemble chunks and submit misbehaviour // Automatically freezes the client and cleans up all chunks
 func NewAssembleAndSubmitMisbehaviourInstruction(
 	// Params:
-	clientIdParam string,
 	chunkCountParam uint8,
 
 	// Accounts:
@@ -455,11 +442,6 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
 		// Serialize `chunkCountParam`:
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {
@@ -475,7 +457,6 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		// Account 1 "app_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state_1": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
@@ -484,7 +465,6 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		// Account 5 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -500,11 +480,9 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 // Clean up incomplete misbehaviour uploads // This can be called to reclaim rent from failed or abandoned misbehaviour submissions
 func NewCleanupIncompleteMisbehaviourInstruction(
 	// Params:
-	clientIdParam string,
 	submitterParam solanago.PublicKey,
 
 	// Accounts:
-	clientStateAccount solanago.PublicKey,
 	submitterAccountAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -516,11 +494,6 @@ func NewCleanupIncompleteMisbehaviourInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
 		// Serialize `submitterParam`:
 		err = enc__.Encode(submitterParam)
 		if err != nil {
@@ -531,9 +504,7 @@ func NewCleanupIncompleteMisbehaviourInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "submitter_account": Writable, Signer, Required
+		// Account 0 "submitter_account": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
 	}
 
