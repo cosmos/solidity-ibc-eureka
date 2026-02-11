@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+declare_id!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
 
 pub mod instructions;
 #[cfg(test)]
@@ -12,7 +12,7 @@ use instructions::*;
 /// instruction so they can be exercised under a real BPF runtime via
 /// `ProgramTest`.
 #[program]
-pub mod cpi_test_target {
+pub mod test_cpi_target {
     use super::*;
 
     pub fn check_is_cpi(ctx: Context<CheckIsCpi>) -> Result<()> {

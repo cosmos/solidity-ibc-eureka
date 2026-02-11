@@ -22,7 +22,8 @@ ics27_gmp = "3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi"
 ift = "DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy"
 mock_ibc_app = "4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1"
 mock_light_client = "CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ"
-cpi_test_target = "HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n"
+test_cpi_proxy = "CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc"
+test_cpi_target = "GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu"
 
 [registry]
 url = "https://api.apr.dev"

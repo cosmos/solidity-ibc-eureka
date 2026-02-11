@@ -524,9 +524,9 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
 
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
-pub const MALICIOUS_CALLER_ID: Pubkey =
+pub const TEST_CPI_PROXY_ID: Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
-pub const CPI_TEST_TARGET_ID: Pubkey =
+pub const TEST_CPI_TARGET_ID: Pubkey =
     solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
@@ -551,8 +551,8 @@ pub fn setup_program_test_with_access_manager(
     }
 
     let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
-    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
-    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
     pt.add_program("ics26_router", ics26_router::ID, None);
     pt.add_program("access_manager", access_manager::ID, None);
 
@@ -614,8 +614,8 @@ pub fn setup_program_test_with_access_manager(
     pt
 }
 
-/// Wraps an instruction in malicious_caller::proxy_cpi.
-pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+/// Wraps an instruction in test_cpi_proxy::proxy_cpi.
+pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
 
@@ -641,14 +641,14 @@ pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     }
 
     Instruction {
-        program_id: MALICIOUS_CALLER_ID,
+        program_id: TEST_CPI_PROXY_ID,
         accounts,
         data,
     }
 }
 
-/// Wraps an instruction in cpi_test_target::proxy_cpi.
-pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+/// Wraps an instruction in test_cpi_target::proxy_cpi.
+pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
 
@@ -674,7 +674,7 @@ pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> I
     }
 
     Instruction {
-        program_id: CPI_TEST_TARGET_ID,
+        program_id: TEST_CPI_TARGET_ID,
         accounts,
         data,
     }

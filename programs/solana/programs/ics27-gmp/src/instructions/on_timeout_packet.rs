@@ -681,7 +681,7 @@ mod integration_tests {
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_timeout_packet_ix(payer.pubkey());
-        let ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         let err = result.expect_err("unauthorized CPI should be rejected");
@@ -701,8 +701,8 @@ mod integration_tests {
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_timeout_packet_ix(payer.pubkey());
-        let middle_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
-        let ix = wrap_in_proxy_cpi(payer.pubkey(), &middle_ix);
+        let middle_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &middle_ix);
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         let err = result.expect_err("nested CPI should be rejected");

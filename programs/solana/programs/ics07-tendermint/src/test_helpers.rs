@@ -767,9 +767,9 @@ pub mod chunk_test_utils {
 
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
-pub const MALICIOUS_CALLER_ID: solana_sdk::pubkey::Pubkey =
+pub const TEST_CPI_PROXY_ID: solana_sdk::pubkey::Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
-pub const CPI_TEST_TARGET_ID: solana_sdk::pubkey::Pubkey =
+pub const TEST_CPI_TARGET_ID: solana_sdk::pubkey::Pubkey =
     solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
@@ -794,8 +794,8 @@ pub fn setup_program_test_with_whitelist(
     }
 
     let mut pt = solana_program_test::ProgramTest::new("ics07_tendermint", crate::ID, None);
-    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
-    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
     pt.add_program("access_manager", access_manager::ID, None);
 
     // Pre-create AppState PDA
@@ -851,7 +851,7 @@ pub fn setup_program_test_with_whitelist(
     pt
 }
 
-pub fn wrap_in_proxy_cpi(
+pub fn wrap_in_test_cpi_proxy(
     payer: solana_sdk::pubkey::Pubkey,
     inner_ix: &solana_sdk::instruction::Instruction,
 ) -> solana_sdk::instruction::Instruction {
@@ -881,13 +881,13 @@ pub fn wrap_in_proxy_cpi(
     }
 
     Instruction {
-        program_id: MALICIOUS_CALLER_ID,
+        program_id: TEST_CPI_PROXY_ID,
         accounts,
         data,
     }
 }
 
-pub fn wrap_in_cpi_test_target_proxy(
+pub fn wrap_in_test_cpi_target_proxy(
     payer: solana_sdk::pubkey::Pubkey,
     inner_ix: &solana_sdk::instruction::Instruction,
 ) -> solana_sdk::instruction::Instruction {
@@ -917,7 +917,7 @@ pub fn wrap_in_cpi_test_target_proxy(
     }
 
     Instruction {
-        program_id: CPI_TEST_TARGET_ID,
+        program_id: TEST_CPI_TARGET_ID,
         accounts,
         data,
     }

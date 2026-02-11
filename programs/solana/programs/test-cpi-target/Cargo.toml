@@ -1,5 +1,5 @@
 [package]
-name = "cpi-test-target"
+name = "test-cpi-target"
 version.workspace = true
 edition.workspace = true
 description = "Test-only program for CPI validation integration tests"
@@ -11,7 +11,7 @@ categories = ["development-tools::testing"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "cpi_test_target"
+name = "test_cpi_target"
 
 [features]
 no-entrypoint = []
@@ -27,7 +27,7 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 solana-ibc-types.workspace = true
 
 [dev-dependencies]
-malicious-caller = { path = "../malicious-caller", features = ["cpi"] }
+test-cpi-proxy = { path = "../test-cpi-proxy", features = ["cpi"] }
 rstest.workspace = true
 solana-program-test.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }

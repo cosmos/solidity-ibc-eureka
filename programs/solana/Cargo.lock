@@ -1773,20 +1773,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cpi-test-target"
-version = "0.1.0"
-dependencies = [
- "access-manager",
- "anchor-lang",
- "malicious-caller",
- "rstest",
- "solana-ibc-types",
- "solana-program-test",
- "solana-sdk",
- "tokio",
-]
-
-[[package]]
 name = "cpufeatures"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4052,15 +4038,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.101",
-]
-
-[[package]]
-name = "malicious-caller"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "ics27-gmp",
- "solana-ibc-types",
 ]
 
 [[package]]
@@ -9902,6 +9879,27 @@ name = "termtree"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f50febec83f5ee1df3015341d8bd429f2d1cc62bcba7ea2076759d315084683"
+
+[[package]]
+name = "test-cpi-proxy"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+]
+
+[[package]]
+name = "test-cpi-target"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "anchor-lang",
+ "rstest",
+ "solana-ibc-types",
+ "solana-program-test",
+ "solana-sdk",
+ "test-cpi-proxy",
+ "tokio",
+]
 
 [[package]]
 name = "thiserror"

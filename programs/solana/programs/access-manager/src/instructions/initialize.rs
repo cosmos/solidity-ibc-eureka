@@ -352,8 +352,8 @@ mod integration_tests {
         }
 
         let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
-        pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
-        pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+        pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+        pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
         pt
     }
 
@@ -398,7 +398,7 @@ mod integration_tests {
 
         let admin = Pubkey::new_unique();
         let inner_ix = build_initialize_ix(payer.pubkey(), admin);
-        let wrapped_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -420,7 +420,7 @@ mod integration_tests {
 
         let admin = Pubkey::new_unique();
         let inner_ix = build_initialize_ix(payer.pubkey(), admin);
-        let wrapped_ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+        let wrapped_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],

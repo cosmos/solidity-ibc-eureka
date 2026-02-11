@@ -562,7 +562,7 @@ mod integration_tests {
         );
     }
 
-    /// CPI call (Tx -> malicious_caller -> GMP) with sender not signing should
+    /// CPI call (Tx -> test_cpi_proxy -> GMP) with sender not signing should
     /// NOT fail with SenderMustSign — proving is_cpi() returns true and the
     /// signer check is bypassed. It will fail later at the router CPI (router
     /// is not initialized) but with a different error.
@@ -573,7 +573,7 @@ mod integration_tests {
 
         let sender = Pubkey::new_unique();
         let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
-        let ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         let err = result.expect_err("CPI call should still fail (router not initialized)");
@@ -584,7 +584,7 @@ mod integration_tests {
         );
     }
 
-    /// Nested CPI (Tx -> malicious_caller -> cpi_test_target -> GMP)
+    /// Nested CPI (Tx -> test_cpi_proxy -> test_cpi_target -> GMP)
     /// must be rejected with UnauthorizedRouter (mapped from NestedCpiNotAllowed).
     #[tokio::test]
     async fn test_nested_cpi_rejected() {
@@ -593,8 +593,8 @@ mod integration_tests {
 
         let sender = Pubkey::new_unique();
         let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
-        let middle_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
-        let ix = wrap_in_proxy_cpi(payer.pubkey(), &middle_ix);
+        let middle_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &middle_ix);
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         let err = result.expect_err("nested CPI should be rejected");

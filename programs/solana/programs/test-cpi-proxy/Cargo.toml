@@ -1,8 +1,8 @@
 [package]
-name = "malicious-caller"
+name = "test-cpi-proxy"
 version.workspace = true
 edition.workspace = true
-description = "Malicious caller for testing GMP CPI security"
+description = "Generic CPI proxy for security testing"
 license.workspace = true
 repository.workspace = true
 readme = "../../../README.md"
@@ -11,7 +11,7 @@ categories = ["development-tools::testing"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "malicious_caller"
+name = "test_cpi_proxy"
 
 [features]
 no-entrypoint = []
@@ -24,8 +24,6 @@ idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
 anchor-lang.workspace = true
-solana-ibc-types.workspace = true
-ics27-gmp = { path = "../ics27-gmp", features = ["cpi"] }
 
 [lints]
 workspace = true

@@ -459,7 +459,7 @@ mod integration_tests {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
             &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
-            &[CPI_TEST_TARGET_ID],
+            &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -509,12 +509,12 @@ mod integration_tests {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
             &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
-            &[CPI_TEST_TARGET_ID],
+            &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_add_ibc_app_ix(payer.pubkey(), admin.pubkey(), "test-port");
-        let wrapped_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+        let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],

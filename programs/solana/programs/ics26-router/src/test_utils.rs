@@ -936,9 +936,9 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
 
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
-pub const MALICIOUS_CALLER_ID: Pubkey =
+pub const TEST_CPI_PROXY_ID: Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
-pub const CPI_TEST_TARGET_ID: Pubkey =
+pub const TEST_CPI_TARGET_ID: Pubkey =
     solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
@@ -969,8 +969,8 @@ pub fn setup_program_test_with_roles_and_whitelist(
     }
 
     let mut pt = solana_program_test::ProgramTest::new("ics26_router", crate::ID, None);
-    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
-    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
     pt.add_program("access_manager", access_manager::ID, None);
 
     // Pre-create RouterState PDA
@@ -1026,7 +1026,7 @@ pub fn setup_program_test_with_roles_and_whitelist(
     pt
 }
 
-pub fn pt_wrap_in_proxy_cpi(
+pub fn pt_wrap_in_test_cpi_proxy(
     payer: Pubkey,
     inner_ix: &solana_sdk::instruction::Instruction,
 ) -> solana_sdk::instruction::Instruction {
@@ -1053,13 +1053,13 @@ pub fn pt_wrap_in_proxy_cpi(
     }
 
     solana_sdk::instruction::Instruction {
-        program_id: MALICIOUS_CALLER_ID,
+        program_id: TEST_CPI_PROXY_ID,
         accounts,
         data,
     }
 }
 
-pub fn pt_wrap_in_cpi_test_target_proxy(
+pub fn pt_wrap_in_test_cpi_target_proxy(
     payer: Pubkey,
     inner_ix: &solana_sdk::instruction::Instruction,
 ) -> solana_sdk::instruction::Instruction {
@@ -1086,7 +1086,7 @@ pub fn pt_wrap_in_cpi_test_target_proxy(
     }
 
     solana_sdk::instruction::Instruction {
-        program_id: CPI_TEST_TARGET_ID,
+        program_id: TEST_CPI_TARGET_ID,
         accounts,
         data,
     }

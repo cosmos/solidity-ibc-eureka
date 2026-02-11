@@ -11,9 +11,9 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-const PROGRAM_BINARY_PATH: &str = "../../target/deploy/cpi_test_target";
+const PROGRAM_BINARY_PATH: &str = "../../target/deploy/test_cpi_target";
 
-pub const PROGRAM_A_ID: Pubkey = malicious_caller::ID;
+pub const PROGRAM_A_ID: Pubkey = test_cpi_proxy::ID;
 
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
@@ -25,8 +25,8 @@ pub fn setup_program_test() -> ProgramTest {
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
 
-    let mut pt = ProgramTest::new("cpi_test_target", crate::ID, None);
-    pt.add_program("malicious_caller", PROGRAM_A_ID, None);
+    let mut pt = ProgramTest::new("test_cpi_target", crate::ID, None);
+    pt.add_program("test_cpi_proxy", PROGRAM_A_ID, None);
     pt
 }
 
@@ -36,17 +36,17 @@ pub struct TestContext {
     pub recent_blockhash: Hash,
 }
 
-fn wrap_in_malicious_caller(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
-    let account_metas: Vec<malicious_caller::CpiAccountMeta> = inner_ix
+fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let account_metas: Vec<test_cpi_proxy::CpiAccountMeta> = inner_ix
         .accounts
         .iter()
-        .map(|m| malicious_caller::CpiAccountMeta {
+        .map(|m| test_cpi_proxy::CpiAccountMeta {
             is_signer: m.is_signer,
             is_writable: m.is_writable,
         })
         .collect();
 
-    let ix_data = malicious_caller::instruction::ProxyCpi {
+    let ix_data = test_cpi_proxy::instruction::ProxyCpi {
         instruction_data: inner_ix.data.clone(),
         account_metas,
     };
@@ -70,7 +70,7 @@ fn wrap_in_malicious_caller(payer: Pubkey, inner_ix: &Instruction) -> Instructio
     }
 }
 
-fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let account_metas: Vec<crate::CpiAccountMeta> = inner_ix
         .accounts
         .iter()
@@ -107,13 +107,13 @@ fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instr
 
 /// Wraps `inner_ix` in a single CPI hop: Tx -> A -> B
 pub fn build_single_cpi_ix(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
-    wrap_in_malicious_caller(payer, inner_ix)
+    wrap_in_test_cpi_proxy(payer, inner_ix)
 }
 
 /// Wraps `inner_ix` in a nested CPI chain: Tx -> A -> B(`proxy_cpi`) -> B(`check_*`)
 pub fn build_nested_cpi_ix(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
-    let proxy_wrapping_inner = wrap_in_cpi_test_target_proxy(payer, inner_ix);
-    wrap_in_malicious_caller(payer, &proxy_wrapping_inner)
+    let proxy_wrapping_inner = wrap_in_test_cpi_target_proxy(payer, inner_ix);
+    wrap_in_test_cpi_proxy(payer, &proxy_wrapping_inner)
 }
 
 pub async fn process_tx(

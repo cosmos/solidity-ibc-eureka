@@ -1203,7 +1203,7 @@ mod integration_tests {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
             &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
-            &[CPI_TEST_TARGET_ID],
+            &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -1253,12 +1253,12 @@ mod integration_tests {
         let admin = Keypair::new();
         let pt = setup_program_test_with_roles_and_whitelist(
             &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
-            &[CPI_TEST_TARGET_ID],
+            &[TEST_CPI_TARGET_ID],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_add_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
-        let wrapped_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+        let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -1278,7 +1278,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_migrate_direct_call_by_admin_succeeds() {
         let admin = Keypair::new();
-        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
@@ -1318,11 +1318,11 @@ mod integration_tests {
     #[tokio::test]
     async fn test_migrate_whitelisted_cpi_succeeds() {
         let admin = Keypair::new();
-        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
-        let wrapped_ix = pt_wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
+        let wrapped_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -1341,11 +1341,11 @@ mod integration_tests {
     #[tokio::test]
     async fn test_migrate_unauthorized_cpi_rejected() {
         let admin = Keypair::new();
-        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
-        let wrapped_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+        let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -1363,14 +1363,14 @@ mod integration_tests {
     #[tokio::test]
     async fn test_migrate_nested_cpi_rejected() {
         let admin = Keypair::new();
-        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         // Use admin as both authority and relayer (single signer) so the proxy
         // chain can forward signer privilege without "unauthorized signer" errors.
         let inner_ix = build_migrate_client_ix(admin.pubkey(), admin.pubkey(), CLIENT_ID);
-        let cpi_target_ix = pt_wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
-        let nested_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &cpi_target_ix);
+        let cpi_target_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+        let nested_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &cpi_target_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[nested_ix],

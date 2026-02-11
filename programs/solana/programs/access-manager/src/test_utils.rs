@@ -336,9 +336,9 @@ pub fn create_instructions_sysvar_account_with_caller(
 
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
-pub const MALICIOUS_CALLER_ID: Pubkey =
+pub const TEST_CPI_PROXY_ID: Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
-pub const CPI_TEST_TARGET_ID: Pubkey =
+pub const TEST_CPI_TARGET_ID: Pubkey =
     solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
@@ -359,8 +359,8 @@ pub fn setup_program_test_with_whitelist(
     }
 
     let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
-    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
-    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
 
     // Pre-create AccessManager PDA with admin role and whitelist
     let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
@@ -390,7 +390,7 @@ pub fn setup_program_test_with_whitelist(
     pt
 }
 
-pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
 
@@ -416,13 +416,13 @@ pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     }
 
     Instruction {
-        program_id: MALICIOUS_CALLER_ID,
+        program_id: TEST_CPI_PROXY_ID,
         accounts,
         data,
     }
 }
 
-pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
 
@@ -448,7 +448,7 @@ pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> I
     }
 
     Instruction {
-        program_id: CPI_TEST_TARGET_ID,
+        program_id: TEST_CPI_TARGET_ID,
         accounts,
         data,
     }

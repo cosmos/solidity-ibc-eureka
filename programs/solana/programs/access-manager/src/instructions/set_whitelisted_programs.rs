@@ -205,7 +205,7 @@ mod integration_tests {
     #[tokio::test]
     async fn test_direct_call_by_admin_succeeds() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let new_program = Pubkey::new_unique();
@@ -246,14 +246,14 @@ mod integration_tests {
     #[tokio::test]
     async fn test_whitelisted_cpi_succeeds() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix = build_set_whitelisted_programs_ix(
             admin.pubkey(),
-            vec![CPI_TEST_TARGET_ID, Pubkey::new_unique()],
+            vec![TEST_CPI_TARGET_ID, Pubkey::new_unique()],
         );
-        let wrapped_ix = wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -272,12 +272,12 @@ mod integration_tests {
     #[tokio::test]
     async fn test_unauthorized_cpi_rejected() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix =
             build_set_whitelisted_programs_ix(admin.pubkey(), vec![Pubkey::new_unique()]);
-        let wrapped_ix = wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+        let wrapped_ix = wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
@@ -295,13 +295,13 @@ mod integration_tests {
     #[tokio::test]
     async fn test_nested_cpi_rejected() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let inner_ix =
             build_set_whitelisted_programs_ix(admin.pubkey(), vec![Pubkey::new_unique()]);
-        let cpi_target_ix = wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
-        let nested_ix = wrap_in_proxy_cpi(admin.pubkey(), &cpi_target_ix);
+        let cpi_target_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+        let nested_ix = wrap_in_test_cpi_proxy(admin.pubkey(), &cpi_target_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[nested_ix],

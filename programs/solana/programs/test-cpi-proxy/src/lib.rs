@@ -18,7 +18,7 @@ declare_id!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
 ///
 /// This generic approach allows testing any callback without hardcoding each one.
 #[program]
-pub mod malicious_caller {
+pub mod test_cpi_proxy {
     use super::*;
 
     /// Execute an arbitrary CPI call from this program
