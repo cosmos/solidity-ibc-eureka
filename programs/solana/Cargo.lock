@@ -9,7 +9,9 @@ dependencies = [
  "anchor-lang",
  "mollusk-svm",
  "solana-ibc-types",
+ "solana-program-test",
  "solana-sdk",
+ "tokio",
 ]
 
 [[package]]

@@ -242,3 +242,188 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+    };
+
+    fn build_grant_role_ix(admin: Pubkey, role_id: u64, account: Pubkey) -> Instruction {
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[crate::state::AccessManager::SEED], &crate::ID);
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::GrantRole { role_id, account }.data(),
+        }
+    }
+
+    fn build_renounce_role_ix(caller: Pubkey, role_id: u64) -> Instruction {
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[crate::state::AccessManager::SEED], &crate::ID);
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new_readonly(caller, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::RenounceRole { role_id }.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_succeeds() {
+        let admin = Keypair::new();
+        let relayer = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Grant relayer role first
+        let grant_ix = build_grant_role_ix(
+            admin.pubkey(),
+            solana_ibc_types::roles::RELAYER_ROLE,
+            relayer.pubkey(),
+        );
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[grant_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client.process_transaction(tx).await.unwrap();
+
+        // Relayer renounces their own role
+        let renounce_ix =
+            build_renounce_role_ix(relayer.pubkey(), solana_ibc_types::roles::RELAYER_ROLE);
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[renounce_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &relayer],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct renounce should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_without_role_rejected() {
+        let admin = Keypair::new();
+        let non_member = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_renounce_role_ix(non_member.pubkey(), solana_ibc_types::roles::RELAYER_ROLE);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_member],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::errors::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_whitelisted_cpi_succeeds() {
+        let admin = Keypair::new();
+        let relayer = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Grant relayer role first
+        let grant_ix = build_grant_role_ix(
+            admin.pubkey(),
+            solana_ibc_types::roles::RELAYER_ROLE,
+            relayer.pubkey(),
+        );
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[grant_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client.process_transaction(tx).await.unwrap();
+
+        // Renounce via whitelisted CPI
+        let inner_ix =
+            build_renounce_role_ix(relayer.pubkey(), solana_ibc_types::roles::RELAYER_ROLE);
+        let wrapped_ix = wrap_in_cpi_test_target_proxy(relayer.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &relayer],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Whitelisted CPI should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix =
+            build_renounce_role_ix(admin.pubkey(), solana_ibc_types::roles::RELAYER_ROLE);
+        let wrapped_ix = wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::errors::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix =
+            build_renounce_role_ix(admin.pubkey(), solana_ibc_types::roles::RELAYER_ROLE);
+        let cpi_target_ix = wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
+        let nested_ix = wrap_in_proxy_cpi(admin.pubkey(), &cpi_target_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[nested_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::errors::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+}

@@ -334,6 +334,138 @@ pub fn create_instructions_sysvar_account_with_caller(
     )
 }
 
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const MALICIOUS_CALLER_ID: Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const CPI_TEST_TARGET_ID: Pubkey =
+    solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test_with_whitelist(
+    admin: &Pubkey,
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
+    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+
+    // Pre-create AccessManager PDA with admin role and whitelist
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+
+    let am = AccessManager {
+        roles: vec![RoleData {
+            role_id: roles::ADMIN_ROLE,
+            members: vec![*admin],
+        }],
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
+    am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
+    am.serialize(&mut &mut am_data[8..]).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: MALICIOUS_CALLER_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: CPI_TEST_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
+}
+
 /// Deserialize account data into typed struct
 pub fn get_account_data<T: anchor_lang::AccountDeserialize>(account: &Account) -> T {
     anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..])
