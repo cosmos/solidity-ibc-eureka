@@ -1366,7 +1366,9 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        // Use admin as both authority and relayer (single signer) so the proxy
+        // chain can forward signer privilege without "unauthorized signer" errors.
+        let inner_ix = build_migrate_client_ix(admin.pubkey(), admin.pubkey(), CLIENT_ID);
         let cpi_target_ix = pt_wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
         let nested_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &cpi_target_ix);
 
