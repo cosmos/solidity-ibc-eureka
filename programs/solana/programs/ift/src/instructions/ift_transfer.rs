@@ -150,6 +150,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
     token::burn(burn_ctx, msg.amount)?;
+    ctx.accounts.mint.reload()?;
+    ctx.accounts.sender_token_account.reload()?;
 
     crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
 

@@ -105,6 +105,8 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &ctx.accounts.token_program,
         msg.amount,
     )?;
+    ctx.accounts.mint.reload()?;
+    ctx.accounts.receiver_token_account.reload()?;
 
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),

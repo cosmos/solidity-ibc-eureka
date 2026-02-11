@@ -112,6 +112,8 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
+            ctx.accounts.mint.reload()?;
+            ctx.accounts.sender_token_account.reload()?;
 
             crate::helpers::increase_mint_rate_limit_usage(
                 &mut ctx.accounts.app_state,
