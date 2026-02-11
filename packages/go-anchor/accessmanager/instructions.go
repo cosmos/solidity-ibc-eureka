@@ -250,9 +250,7 @@ func NewUpgradeProgramInstruction(
 		// Account 0 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 1 "program": Writable, Non-signer, Required
-		// Must be writable because BPF Loader Upgradeable requires both program and programdata
-		// accounts to be writable during upgrade. The program account contains metadata and a
-		// pointer to the programdata account, which may be updated during the upgrade process.
+		// Writable because BPF Loader Upgradeable requires it during upgrade.
 		accounts__.Append(solanago.NewAccountMeta(programAccount, true, false))
 		// Account 2 "program_data": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(programDataAccount, true, false))

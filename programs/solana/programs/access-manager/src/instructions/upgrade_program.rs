@@ -14,23 +14,30 @@ pub struct UpgradeProgram<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
-    /// CHECK: Validated as executable program account
-    /// Must be writable because BPF Loader Upgradeable requires both program and programdata
-    /// accounts to be writable during upgrade. The program account contains metadata and a
-    /// pointer to the programdata account, which may be updated during the upgrade process.
+    /// CHECK: Must be an upgradeable program matching `target_program`.
+    /// Writable because BPF Loader Upgradeable requires it during upgrade.
     #[account(
         mut,
         executable,
+        owner = bpf_loader_upgradeable::ID,
         constraint = program.key() == target_program @ AccessManagerError::InvalidUpgradeAuthority
     )]
     pub program: AccountInfo<'info>,
 
-    /// CHECK: Validated via BPF Loader constraints
-    #[account(mut)]
+    /// CHECK: Validated via BPF Loader seeds derivation from program account
+    #[account(
+        mut,
+        seeds = [program.key().as_ref()],
+        bump,
+        seeds::program = bpf_loader_upgradeable::ID
+    )]
     pub program_data: AccountInfo<'info>,
 
-    /// CHECK: Validated via BPF Loader as buffer account
-    #[account(mut)]
+    /// CHECK: Must be a BPF Loader buffer containing the new bytecode
+    #[account(
+        mut,
+        owner = bpf_loader_upgradeable::ID
+    )]
     pub buffer: AccountInfo<'info>,
 
     /// CHECK: Validated via seeds constraint
@@ -130,6 +137,13 @@ mod tests {
     use mollusk_svm::result::Check;
     use solana_sdk::{account::Account, instruction::AccountMeta};
 
+    fn derive_program_data(target_program: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(
+            &[target_program.as_ref()],
+            &bpf_loader_upgradeable::ID,
+        ).0
+    }
+
     fn setup_upgrade_test(
         admin: Pubkey,
         target_program: Pubkey,
@@ -147,7 +161,7 @@ mod tests {
         let (upgrade_authority_pda, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 
-        let program_data_address = Pubkey::new_unique();
+        let program_data_address = derive_program_data(&target_program);
         let buffer = Pubkey::new_unique();
         let spill = Pubkey::new_unique();
 
@@ -356,7 +370,7 @@ mod tests {
         let (upgrade_authority_pda, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 
-        let program_data_address = Pubkey::new_unique();
+        let program_data_address = derive_program_data(&target_program);
         let buffer = Pubkey::new_unique();
         let spill = Pubkey::new_unique();
 

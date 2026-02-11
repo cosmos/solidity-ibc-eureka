@@ -46,6 +46,17 @@ func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanag
 	return pda, bump
 }
 
+func (accessManagerPDAs) ProgramDataWithAccountSeedPDA(programID solanago.PublicKey, program []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{program},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AccessManager.ProgramDataWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (accessManagerPDAs) UpgradeAuthorityWithArgSeedPDA(programID solanago.PublicKey, targetProgram []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("upgrade_authority"), targetProgram},
