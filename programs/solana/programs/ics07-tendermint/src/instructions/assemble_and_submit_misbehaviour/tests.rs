@@ -423,3 +423,40 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
     )];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
+
+#[test]
+fn test_assemble_and_submit_misbehaviour_wrong_client_state_pda() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
+
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    let wrong_client_pda = Pubkey::new_unique();
+    if let Some(entry) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(k, _)| *k == test_accounts.client_state_pda)
+    {
+        entry.0 = wrong_client_pda;
+    }
+    test_accounts.client_state_pda = wrong_client_pda;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+}

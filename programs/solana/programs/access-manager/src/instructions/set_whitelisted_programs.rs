@@ -39,7 +39,10 @@ pub fn set_whitelisted_programs(
     );
 
     let old = ctx.accounts.access_manager.whitelisted_programs.clone();
-    ctx.accounts.access_manager.whitelisted_programs = whitelisted_programs.clone();
+    ctx.accounts
+        .access_manager
+        .whitelisted_programs
+        .clone_from(&whitelisted_programs);
 
     emit!(WhitelistedProgramsUpdatedEvent {
         old_programs: old,

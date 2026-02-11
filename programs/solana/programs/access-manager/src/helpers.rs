@@ -2,9 +2,11 @@ use crate::errors::AccessManagerError;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 
-/// Verifies the caller has the `ADMIN_ROLE`. Allows direct calls and whitelisted
-/// CPI callers (e.g. multisig) so admin operations can go through governance.
-/// Reads the whitelist from the AccessManager account state.
+/// Verifies the caller has the `ADMIN_ROLE`.
+///
+/// Allows direct calls and whitelisted CPI callers (e.g. multisig) so admin
+/// operations can go through governance. Reads the whitelist from the
+/// `AccessManager` account state.
 pub fn require_admin(
     access_manager_account: &AccountInfo,
     signer_account: &AccountInfo,
@@ -47,7 +49,7 @@ pub fn require_role(
 }
 
 /// Verifies the caller has the given role. Allows direct calls and whitelisted
-/// CPI callers. Reads the whitelist from the AccessManager account state.
+/// CPI callers. Reads the whitelist from the `AccessManager` account state.
 pub fn require_role_with_whitelist(
     access_manager_account: &AccountInfo,
     role_id: u64,

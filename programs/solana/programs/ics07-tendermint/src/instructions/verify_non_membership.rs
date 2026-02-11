@@ -361,4 +361,26 @@ mod tests {
         let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(3012))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_verify_non_membership_wrong_client_state_pda() {
+        let (_fixture, test_accounts, msg) = setup_non_membership_test();
+
+        let wrong_client_pda = Pubkey::new_unique();
+        let mut accounts = test_accounts.accounts.clone();
+        accounts[0].0 = wrong_client_pda;
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(wrong_client_pda, false),
+                AccountMeta::new_readonly(test_accounts.consensus_state_pda, false),
+            ],
+            data: crate::instruction::VerifyNonMembership { msg }.data(),
+        };
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

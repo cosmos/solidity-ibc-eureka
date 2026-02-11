@@ -564,4 +564,32 @@ mod tests {
         let returned_timestamp = u64::from_le_bytes(result.return_data.try_into().unwrap());
         assert_eq!(returned_timestamp, timestamp);
     }
+
+    #[test]
+    fn test_verify_non_membership_wrong_client_state_pda() {
+        let test_accounts = setup_default_test_accounts(HEIGHT);
+
+        let wrong_client_pda = Pubkey::new_unique();
+        let mut accounts = test_accounts.accounts.clone();
+        accounts[0].0 = wrong_client_pda;
+
+        let msg = NonMembershipMsg {
+            height: HEIGHT,
+            proof: vec![],
+            path: vec![b"test/path".to_vec()],
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(wrong_client_pda, false),
+                AccountMeta::new_readonly(test_accounts.consensus_state_pda, false),
+            ],
+            data: crate::instruction::VerifyNonMembership { msg }.data(),
+        };
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

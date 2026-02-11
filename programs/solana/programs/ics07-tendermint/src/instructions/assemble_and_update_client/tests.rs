@@ -10,7 +10,7 @@ use crate::test_helpers::{
 };
 use crate::types::AppState;
 use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
-use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
+use mollusk_svm::{program::keyed_account_for_system_program, result::Check, Mollusk};
 use solana_sdk::account::Account;
 use solana_sdk::clock::Clock;
 use solana_sdk::instruction::{AccountMeta, Instruction};
@@ -1765,5 +1765,92 @@ fn test_assemble_and_update_with_invalid_signature() {
         result,
         crate::error::ErrorCode::UpdateClientFailed,
         "update client with corrupted signature",
+    );
+}
+
+#[test]
+fn test_assemble_wrong_client_state_pda() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    let wrong_client_pda = Pubkey::new_unique();
+    let (_, chunks) = create_test_header_and_chunks(2);
+
+    let client_state_account = create_client_state_account(chain_id, 90);
+
+    let trusted_consensus_pda = derive_consensus_state_pda(&wrong_client_pda, 90);
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            wrong_client_pda.as_ref(),
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
+        client_state_pda: wrong_client_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
+        submitter,
+        chunk_pdas: chunk_pdas.clone(),
+        target_height,
+    });
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (wrong_client_pda, client_state_account),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    let clock_data =
+        bincode::serialize(&Clock::default()).expect("Failed to serialize Clock for test");
+    accounts.push((
+        sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    mollusk.process_and_validate_instruction(
+        &instruction,
+        &accounts,
+        &[Check::err(anchor_lang::prelude::ProgramError::Custom(2006))],
     );
 }

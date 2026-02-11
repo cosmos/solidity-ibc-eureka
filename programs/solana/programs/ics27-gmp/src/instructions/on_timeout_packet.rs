@@ -599,7 +599,7 @@ mod tests {
     }
 }
 
-/// Integration tests using ProgramTest with real BPF runtime.
+/// Integration tests using `ProgramTest` with real BPF runtime.
 ///
 /// These verify that `validate_cpi_caller()` rejects direct calls, unauthorized
 /// CPI callers and nested CPI using real `get_stack_height()` behavior.

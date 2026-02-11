@@ -522,6 +522,111 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
     ))
 }
 
+// ── Router PDA account helpers ──
+
+pub const TEST_SOURCE_CLIENT: &str = "cosmoshub-1";
+
+pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
+    let (pda, _) =
+        Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
+    let state = ics26_router::state::RouterState {
+        version: ics26_router::state::AccountVersion::V1,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::RouterState::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_client_sequence_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            ics26_router::state::ClientSequence::SEED,
+            source_client.as_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::ClientSequence::default();
+    let mut data = ics26_router::state::ClientSequence::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::IBCApp::SEED, port_id.as_bytes()],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::IBCApp {
+        version: ics26_router::state::AccountVersion::V1,
+        port_id: port_id.to_string(),
+        app_program_id: crate::ID,
+        authority: Pubkey::new_unique(),
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::IBCApp::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_client_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::Client::SEED, source_client.as_bytes()],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::Client {
+        version: ics26_router::state::AccountVersion::V1,
+        client_id: source_client.to_string(),
+        client_program_id: Pubkey::new_unique(),
+        counterparty_info: ics26_router::state::CounterpartyInfo {
+            client_id: String::new(),
+            merkle_prefix: vec![],
+        },
+        active: true,
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::Client::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
 pub const TEST_CPI_PROXY_ID: Pubkey =
@@ -611,10 +716,23 @@ pub fn setup_program_test_with_access_manager(
         },
     );
 
+    // Pre-create router PDA accounts for send_call tests
+    let (router_state_pda, router_state_account) = create_router_state_pda();
+    pt.add_account(router_state_pda, router_state_account);
+
+    let (client_seq_pda, client_seq_account) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
+    pt.add_account(client_seq_pda, client_seq_account);
+
+    let (ibc_app_pda, ibc_app_account) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
+    pt.add_account(ibc_app_pda, ibc_app_account);
+
+    let (client_pda, client_account) = create_client_pda(TEST_SOURCE_CLIENT);
+    pt.add_account(client_pda, client_account);
+
     pt
 }
 
-/// Wraps an instruction in test_cpi_proxy::proxy_cpi.
+/// Wraps an instruction in `test_cpi_proxy::proxy_cpi`.
 pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
@@ -647,7 +765,7 @@ pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruct
     }
 }
 
-/// Wraps an instruction in test_cpi_target::proxy_cpi.
+/// Wraps an instruction in `test_cpi_target::proxy_cpi`.
 pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
     data.extend_from_slice(&anchor_discriminator("proxy_cpi"));

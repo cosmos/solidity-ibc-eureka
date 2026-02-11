@@ -533,13 +533,13 @@ mod integration_tests {
             .expect("access_manager.so must be built before running integration tests")
     }
 
-    /// Creates a ProgramTest with a fake upgradeable program suitable for upgrade tests.
+    /// Creates a `ProgramTest` with a fake upgradeable program suitable for upgrade tests.
     ///
     /// Sets up properly serialized BPF loader accounts using real ELF bytes
     /// so the BPF loader's upgrade handler accepts them:
-    /// - Program account pointing to its ProgramData PDA
-    /// - ProgramData with upgrade_authority set to AccessManager's PDA + real ELF
-    /// - Buffer with authority set to AccessManager's PDA + real ELF
+    /// - Program account pointing to its `ProgramData` PDA
+    /// - `ProgramData` with `upgrade_authority` set to `AccessManager`'s PDA + real ELF
+    /// - Buffer with authority set to `AccessManager`'s PDA + real ELF
     /// - Upgrade authority PDA account
     fn setup_upgrade_program_test(
         admin: &Pubkey,

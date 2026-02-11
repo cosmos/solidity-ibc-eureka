@@ -2,7 +2,7 @@ use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
 pub struct CheckRequireRoleWithWhitelist<'info> {
-    /// CHECK: Passed to access_manager::require_role_with_whitelist for deserialization
+    /// CHECK: Passed to `access_manager::require_role_with_whitelist` for deserialization
     pub access_manager: AccountInfo<'info>,
     pub signer: Signer<'info>,
     /// CHECK: Validated inside the helper

@@ -182,7 +182,7 @@ pub fn relayer_roles(relayer: Pubkey) -> Vec<RoleData> {
     }]
 }
 
-/// Adds a pre-populated AccessManager account to the ProgramTest.
+/// Adds a pre-populated `AccessManager` account to the `ProgramTest`.
 /// Returns the account's pubkey for use in instructions.
 pub fn add_access_manager_account(
     pt: &mut ProgramTest,

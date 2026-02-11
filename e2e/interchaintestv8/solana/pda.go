@@ -356,6 +356,28 @@ func (ics27GmpPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.P
 	return pda, bump
 }
 
+func (ics27GmpPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client_sequence"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.ClientSequenceWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.ClientWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics27GmpPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("gmp_result"), sourceClient, sequence},
@@ -363,6 +385,28 @@ func (ics27GmpPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, source
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics27Gmp.GmpResultWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) IbcAppGmpportPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ibc_app"), []byte("gmpport")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.IbcAppGmpportPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("router_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.RouterStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }

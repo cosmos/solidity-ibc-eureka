@@ -631,4 +631,26 @@ mod tests {
         let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::UnknownSigner);
     }
+
+    #[test]
+    fn test_update_client_wrong_client_state_pda() {
+        let mut test_accounts = setup_default_test_accounts(NEW_HEIGHT);
+
+        let wrong_client_pda = Pubkey::new_unique();
+        if let Some(entry) = test_accounts
+            .accounts
+            .iter_mut()
+            .find(|(k, _)| *k == test_accounts.client_state_pda)
+        {
+            entry.0 = wrong_client_pda;
+        }
+        test_accounts.client_state_pda = wrong_client_pda;
+
+        let params = make_proof_params(vec![], vec![]);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    }
 }

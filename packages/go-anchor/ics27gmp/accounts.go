@@ -15,6 +15,34 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek account discriminator: %w", err)
 	}
 	switch discriminator {
+	case Account_Ics26RouterStateClient:
+		value := new(Ics26RouterStateClient)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateClient: %w", err)
+		}
+		return value, nil
+	case Account_Ics26RouterStateClientSequence:
+		value := new(Ics26RouterStateClientSequence)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateClientSequence: %w", err)
+		}
+		return value, nil
+	case Account_Ics26RouterStateIbcApp:
+		value := new(Ics26RouterStateIbcApp)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateIbcApp: %w", err)
+		}
+		return value, nil
+	case Account_Ics26RouterStateRouterState:
+		value := new(Ics26RouterStateRouterState)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as Ics26RouterStateRouterState: %w", err)
+		}
+		return value, nil
 	case Account_Ics27GmpStateGmpAppState:
 		value := new(Ics27GmpStateGmpAppState)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -32,6 +60,74 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
+}
+
+func ParseAccount_Ics26RouterStateClient(accountData []byte) (*Ics26RouterStateClient, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics26RouterStateClient {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateClient, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics26RouterStateClient)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateClient: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_Ics26RouterStateClientSequence(accountData []byte) (*Ics26RouterStateClientSequence, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics26RouterStateClientSequence {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateClientSequence, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics26RouterStateClientSequence)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateClientSequence: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_Ics26RouterStateIbcApp(accountData []byte) (*Ics26RouterStateIbcApp, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics26RouterStateIbcApp {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateIbcApp, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics26RouterStateIbcApp)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateIbcApp: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_Ics26RouterStateRouterState(accountData []byte) (*Ics26RouterStateRouterState, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_Ics26RouterStateRouterState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics26RouterStateRouterState, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(Ics26RouterStateRouterState)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type Ics26RouterStateRouterState: %w", err)
+	}
+	return acc, nil
 }
 
 func ParseAccount_Ics27GmpStateGmpAppState(accountData []byte) (*Ics27GmpStateGmpAppState, error) {
