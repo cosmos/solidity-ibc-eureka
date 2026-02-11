@@ -232,37 +232,7 @@ fn test_upload_first_chunk_success() {
 }
 
 #[test]
-fn test_upload_same_chunk_twice_should_fail() {
-    let target_height = 200;
-    let chunk_index = 0;
-    let submitter = Pubkey::new_unique();
-
-    let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
-
-    let chunk_data = vec![1u8; 100];
-    let params = create_upload_chunk_params(target_height, chunk_index, chunk_data);
-
-    // First upload
-    let instruction = create_upload_instruction(&test_accounts, params.clone());
-    let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
-
-    // Update accounts with results from first upload
-    test_accounts.accounts = result.resulting_accounts.into_iter().collect();
-
-    // Second upload with same data should fail (Anchor will reject with AccountAlreadyInitialized)
-    let instruction2 = create_upload_instruction(&test_accounts, params);
-    let result2 = mollusk_svm::Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
-        .process_instruction(&instruction2, &test_accounts.accounts);
-
-    // Anchor returns error code 3000 (AccountAlreadyInitialized) when init is called on existing account
-    assert!(
-        result2.program_result.is_err(),
-        "Should fail when trying to upload chunk twice"
-    );
-}
-
-#[test]
-fn test_upload_chunk_no_overwrite_allowed() {
+fn test_reupload_chunk_overwrites_data() {
     let target_height = 200;
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
@@ -270,28 +240,27 @@ fn test_upload_chunk_no_overwrite_allowed() {
     let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
 
     // First upload
-    let chunk_data1 = vec![1u8; 100];
-    let params1 = create_upload_chunk_params(target_height, chunk_index, chunk_data1);
+    let params1 = create_upload_chunk_params(target_height, chunk_index, vec![1u8; 100]);
+    let instruction1 = create_upload_instruction(&test_accounts, params1);
+    let result1 = assert_instruction_succeeds(&instruction1, &test_accounts.accounts);
+    test_accounts.accounts = result1.resulting_accounts.into_iter().collect();
 
-    let instruction = create_upload_instruction(&test_accounts, params1);
-    let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
-
-    // Update accounts with results from first upload
-    test_accounts.accounts = result.resulting_accounts.into_iter().collect();
-
-    // Second upload with different data should fail (no overwrites allowed)
-    let chunk_data2 = vec![2u8; 100];
-    let params2 = create_upload_chunk_params(target_height, chunk_index, chunk_data2);
-
+    // Second upload with different data should succeed and overwrite
+    let new_data = vec![2u8; 80];
+    let params2 = create_upload_chunk_params(target_height, chunk_index, new_data.clone());
     let instruction2 = create_upload_instruction(&test_accounts, params2);
-    let result2 = mollusk_svm::Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH)
-        .process_instruction(&instruction2, &test_accounts.accounts);
+    let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
 
-    // Anchor's init will fail when account already exists
-    assert!(
-        result2.program_result.is_err(),
-        "Should fail when trying to overwrite chunk"
-    );
+    let chunk_account = result2
+        .resulting_accounts
+        .iter()
+        .find(|(k, _)| *k == test_accounts.chunk_pda)
+        .expect("chunk account should exist");
+
+    let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_account.1.data[..])
+        .expect("should deserialize chunk");
+
+    assert_eq!(chunk.chunk_data, new_data);
 }
 
 #[test]

@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 #[instruction(params: UploadMisbehaviourChunkParams)]
 pub struct UploadMisbehaviourChunk<'info> {
     #[account(
-        init,
+        init_if_needed,
         payer = submitter,
         space = 8 + MisbehaviourChunk::INIT_SPACE,
         seeds = [

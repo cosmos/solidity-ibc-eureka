@@ -8,7 +8,7 @@ use anchor_lang::solana_program::{
     system_program,
 };
 use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData};
-use mollusk_svm::{program::keyed_account_for_system_program, result::Check, Mollusk};
+use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_sdk::account::Account;
 
 struct TestAccounts {
@@ -19,7 +19,6 @@ struct TestAccounts {
 }
 
 fn setup_test_accounts(
-    client_id: &str,
     chunk_index: u8,
     submitter: Pubkey,
     with_existing_client: bool,
@@ -63,7 +62,7 @@ fn setup_test_accounts(
 
     if with_existing_client {
         let client_state = ClientState {
-            chain_id: client_id.to_string(),
+            chain_id: "test-chain".to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
@@ -122,47 +121,123 @@ fn create_upload_instruction(
     }
 }
 
+fn assert_instruction_succeeds(
+    instruction: &Instruction,
+    accounts: &[(Pubkey, Account)],
+) -> mollusk_svm::result::InstructionResult {
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(instruction, accounts);
+
+    if !matches!(
+        result.program_result,
+        mollusk_svm::result::ProgramResult::Success
+    ) {
+        panic!("Instruction failed: {:?}", result.program_result);
+    }
+
+    result
+}
+
+fn assert_instruction_fails_with_error(
+    instruction: &Instruction,
+    accounts: &[(Pubkey, Account)],
+    expected_error: ErrorCode,
+) {
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(instruction, accounts);
+
+    match result.program_result {
+        mollusk_svm::result::ProgramResult::Success => {
+            panic!("Expected instruction to fail with {expected_error:?}, but it succeeded");
+        }
+        mollusk_svm::result::ProgramResult::Failure(error) => {
+            assert_eq!(
+                error,
+                anchor_lang::error::Error::from(expected_error).into()
+            );
+        }
+        mollusk_svm::result::ProgramResult::UnknownError(error) => {
+            panic!("Unknown error occurred: {error:?}");
+        }
+    }
+}
+
 #[test]
 fn test_upload_misbehaviour_chunk_success() {
-    let client_id = "test-client";
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
+    let test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
+    let chunk_data = vec![1u8; 100];
     let params = UploadMisbehaviourChunkParams {
         chunk_index,
-        chunk_data: vec![1u8; 100],
+        chunk_data: chunk_data.clone(),
     };
 
     let instruction = create_upload_instruction(&test_accounts, params);
-
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-
-    assert!(
-        matches!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Success
-        ),
-        "Instruction should succeed"
-    );
+    let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
     let chunk_account = result
-        .get_account(&test_accounts.chunk_pda)
+        .resulting_accounts
+        .iter()
+        .find(|(k, _)| *k == test_accounts.chunk_pda)
         .expect("chunk account should exist");
-    let chunk = MisbehaviourChunk::try_deserialize(&mut chunk_account.data.as_ref())
+
+    assert!(chunk_account.1.lamports > 0, "chunk should be rent-exempt");
+    assert_eq!(
+        chunk_account.1.owner,
+        crate::ID,
+        "chunk should be owned by program"
+    );
+
+    let chunk = MisbehaviourChunk::try_deserialize(&mut &chunk_account.1.data[..])
         .expect("should deserialize chunk");
-    assert_eq!(chunk.chunk_data.len(), 100);
+    assert_eq!(chunk.chunk_data, chunk_data);
+}
+
+#[test]
+fn test_reupload_misbehaviour_chunk_overwrites_data() {
+    let chunk_index = 0;
+    let submitter = Pubkey::new_unique();
+
+    let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
+
+    // First upload
+    let params1 = UploadMisbehaviourChunkParams {
+        chunk_index,
+        chunk_data: vec![1u8; 100],
+    };
+    let instruction1 = create_upload_instruction(&test_accounts, params1);
+    let result1 = assert_instruction_succeeds(&instruction1, &test_accounts.accounts);
+    test_accounts.accounts = result1.resulting_accounts.into_iter().collect();
+
+    // Second upload with different data should succeed and overwrite
+    let new_data = vec![2u8; 80];
+    let params2 = UploadMisbehaviourChunkParams {
+        chunk_index,
+        chunk_data: new_data.clone(),
+    };
+    let instruction2 = create_upload_instruction(&test_accounts, params2);
+    let result2 = assert_instruction_succeeds(&instruction2, &test_accounts.accounts);
+
+    let chunk_account = result2
+        .resulting_accounts
+        .iter()
+        .find(|(k, _)| *k == test_accounts.chunk_pda)
+        .expect("chunk account should exist");
+
+    let chunk = MisbehaviourChunk::try_deserialize(&mut &chunk_account.1.data[..])
+        .expect("should deserialize chunk");
+    assert_eq!(chunk.chunk_data, new_data);
 }
 
 #[test]
 fn test_upload_chunk_with_frozen_client_fails() {
-    let client_id = "test-client";
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let mut test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
+    let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
     let client_state_pda =
         Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
@@ -173,7 +248,7 @@ fn test_upload_chunk_with_frozen_client_fails() {
         .find(|(key, _)| *key == client_state_pda)
     {
         let frozen_client_state = ClientState {
-            chain_id: client_id.to_string(),
+            chain_id: "test-chain".to_string(),
             trust_level_numerator: 2,
             trust_level_denominator: 3,
             trusting_period: 86400,
@@ -201,20 +276,19 @@ fn test_upload_chunk_with_frozen_client_fails() {
 
     let instruction = create_upload_instruction(&test_accounts, params);
 
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![Check::err(
-        anchor_lang::error::Error::from(ErrorCode::ClientFrozen).into(),
-    )];
-    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    assert_instruction_fails_with_error(
+        &instruction,
+        &test_accounts.accounts,
+        ErrorCode::ClientFrozen,
+    );
 }
 
 #[test]
 fn test_upload_chunk_data_too_large() {
-    let client_id = "test-client";
     let chunk_index = 0;
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts(client_id, chunk_index, submitter, true);
+    let test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
     let params = UploadMisbehaviourChunkParams {
         chunk_index,
@@ -223,9 +297,9 @@ fn test_upload_chunk_data_too_large() {
 
     let instruction = create_upload_instruction(&test_accounts, params);
 
-    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![Check::err(
-        anchor_lang::error::Error::from(ErrorCode::ChunkDataTooLarge).into(),
-    )];
-    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+    assert_instruction_fails_with_error(
+        &instruction,
+        &test_accounts.accounts,
+        ErrorCode::ChunkDataTooLarge,
+    );
 }

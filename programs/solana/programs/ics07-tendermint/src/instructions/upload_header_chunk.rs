@@ -6,9 +6,9 @@ use anchor_lang::prelude::*;
 #[derive(Accounts)]
 #[instruction(params: UploadChunkParams)]
 pub struct UploadHeaderChunk<'info> {
-    /// The header chunk account to create (fails if already exists)
+    /// The header chunk account to create or overwrite
     #[account(
-        init,
+        init_if_needed,
         payer = submitter,
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
