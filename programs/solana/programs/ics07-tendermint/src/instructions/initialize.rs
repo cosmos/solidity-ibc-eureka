@@ -4,7 +4,7 @@ use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
+#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
