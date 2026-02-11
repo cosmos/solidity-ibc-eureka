@@ -9,6 +9,7 @@ use solana_sdk::{
     account::Account as SolanaAccount,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
+    signer::Signer,
     system_program,
 };
 
@@ -516,4 +517,160 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
     mollusk_svm::result::Check::err(solana_sdk::program_error::ProgramError::Custom(
         anchor_lang::error::ERROR_CODE_OFFSET + CpiValidationError::UnauthorizedCaller as u32,
     ))
+}
+
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const MALICIOUS_CALLER_ID: Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const CPI_TEST_TARGET_ID: Pubkey =
+    solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub const DIRECT_CALL_NOT_ALLOWED_ERROR: u32 =
+    anchor_lang::error::ERROR_CODE_OFFSET + crate::errors::GMPError::DirectCallNotAllowed as u32;
+pub const UNAUTHORIZED_ROUTER_ERROR: u32 =
+    anchor_lang::error::ERROR_CODE_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32;
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test() -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
+    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
+    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("ics26_router", ics26_router::ID, None);
+
+    let (app_state_pda, bump) = Pubkey::find_program_address(
+        &[
+            crate::state::GMPAppState::SEED,
+            crate::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &crate::ID,
+    );
+    let app_state = crate::state::GMPAppState {
+        version: crate::state::AccountVersion::V1,
+        paused: false,
+        bump,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = Vec::new();
+    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
+    app_state.serialize(&mut data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+/// Wraps an instruction in malicious_caller::proxy_cpi.
+pub fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: MALICIOUS_CALLER_ID,
+        accounts,
+        data,
+    }
+}
+
+/// Wraps an instruction in cpi_test_target::proxy_cpi.
+pub fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: CPI_TEST_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+pub async fn process_tx(
+    banks_client: &solana_program_test::BanksClient,
+    payer: &solana_sdk::signature::Keypair,
+    recent_blockhash: solana_sdk::hash::Hash,
+    instructions: &[Instruction],
+) -> std::result::Result<(), solana_program_test::BanksClientError> {
+    let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(tx).await
+}
+
+pub fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
 }

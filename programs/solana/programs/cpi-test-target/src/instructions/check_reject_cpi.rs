@@ -16,8 +16,7 @@ mod tests {
     use anchor_lang::{InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signer::Signer,
-        sysvar::instructions as ix_sysvar,
+        instruction::Instruction, pubkey::Pubkey, signer::Signer, sysvar::instructions as ix_sysvar,
     };
 
     use crate::test_utils::*;

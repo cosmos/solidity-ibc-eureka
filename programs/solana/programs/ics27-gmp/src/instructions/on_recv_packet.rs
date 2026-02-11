@@ -1245,6 +1245,10 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
+    // NOTE: integration_tests module below covers the same CPI validation
+    // scenarios using a real BPF runtime (ProgramTest) where `get_stack_height()`
+    // works correctly. The Mollusk tests above use fake sysvar data instead.
+
     #[test]
     fn test_invalid_solana_payload_returns_error() {
         let ctx = create_gmp_test_context();
@@ -1304,5 +1308,109 @@ mod tests {
 
         ctx.mollusk
             .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+}
+
+/// Integration tests using ProgramTest with real BPF runtime.
+///
+/// These verify that `validate_cpi_caller()` rejects direct calls, unauthorized
+/// CPI callers and nested CPI using real `get_stack_height()` behavior.
+#[cfg(test)]
+mod integration_tests {
+    use crate::constants::*;
+    use crate::state::GMPAppState;
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signer::Signer,
+    };
+
+    fn build_recv_packet_ix(payer: Pubkey) -> Instruction {
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+
+        let msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: "cosmos-1".to_string(),
+            dest_client: "cosmoshub-1".to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: vec![0],
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let ix_data = crate::instruction::OnRecvPacket { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(ics26_router::ID, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+            ],
+            data: ix_data.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_recv_packet_ix(payer.pubkey());
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("direct call should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(DIRECT_CALL_NOT_ALLOWED_ERROR),
+            "expected DirectCallNotAllowed, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_recv_packet_ix(payer.pubkey());
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("unauthorized CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(UNAUTHORIZED_ROUTER_ERROR),
+            "expected UnauthorizedRouter, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_recv_packet_ix(payer.pubkey());
+        let middle_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("nested CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(UNAUTHORIZED_ROUTER_ERROR),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
     }
 }

@@ -605,3 +605,113 @@ mod tests {
         });
     }
 }
+
+/// Integration tests using ProgramTest with real BPF runtime.
+///
+/// These verify that `validate_cpi_caller()` rejects direct calls, unauthorized
+/// CPI callers and nested CPI using real `get_stack_height()` behavior.
+#[cfg(test)]
+mod integration_tests {
+    use crate::constants::*;
+    use crate::state::{GMPAppState, GMPCallResult};
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signer::Signer,
+    };
+
+    const TEST_SOURCE_CLIENT: &str = "cosmoshub-1";
+    const TEST_SEQUENCE: u64 = 1;
+
+    fn build_ack_packet_ix(payer: Pubkey) -> Instruction {
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = GMPCallResult::pda(TEST_SOURCE_CLIENT, TEST_SEQUENCE, &crate::ID);
+
+        let msg = solana_ibc_types::OnAcknowledgementPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: vec![],
+            },
+            acknowledgement: vec![1, 2, 3],
+            relayer: Pubkey::new_unique(),
+        };
+
+        let ix_data = crate::instruction::OnAcknowledgementPacket { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(ics26_router::ID, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: ix_data.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_ack_packet_ix(payer.pubkey());
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("direct call should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(DIRECT_CALL_NOT_ALLOWED_ERROR),
+            "expected DirectCallNotAllowed, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_ack_packet_ix(payer.pubkey());
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("unauthorized CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(UNAUTHORIZED_ROUTER_ERROR),
+            "expected UnauthorizedRouter, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_ack_packet_ix(payer.pubkey());
+        let middle_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("nested CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(UNAUTHORIZED_ROUTER_ERROR),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
+    }
+}

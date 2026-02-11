@@ -24,8 +24,7 @@ mod tests {
     use anchor_lang::{InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
     use solana_sdk::{
-        instruction::Instruction, pubkey::Pubkey, signer::Signer,
-        sysvar::instructions as ix_sysvar,
+        instruction::Instruction, pubkey::Pubkey, signer::Signer, sysvar::instructions as ix_sysvar,
     };
 
     use crate::test_utils::*;
@@ -48,10 +47,7 @@ mod tests {
         Instruction {
             program_id: crate::ID,
             accounts: accounts.to_account_metas(None),
-            data: crate::instruction::CheckValidateCpiCaller {
-                authorized_program,
-            }
-            .data(),
+            data: crate::instruction::CheckValidateCpiCaller { authorized_program }.data(),
         }
     }
 

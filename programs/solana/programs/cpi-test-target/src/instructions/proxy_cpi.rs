@@ -33,11 +33,13 @@ pub fn proxy_cpi<'info>(
         accounts: account_metas
             .iter()
             .enumerate()
-            .map(|(i, meta)| anchor_lang::solana_program::instruction::AccountMeta {
-                pubkey: account_infos[i].key(),
-                is_signer: meta.is_signer,
-                is_writable: meta.is_writable,
-            })
+            .map(
+                |(i, meta)| anchor_lang::solana_program::instruction::AccountMeta {
+                    pubkey: account_infos[i].key(),
+                    is_signer: meta.is_signer,
+                    is_writable: meta.is_writable,
+                },
+            )
             .collect(),
         data: instruction_data,
     };
