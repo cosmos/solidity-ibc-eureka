@@ -1422,4 +1422,30 @@ mod integration_tests {
             "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
         );
     }
+
+    /// Simulates router → proxy → GMP: even if the top-level caller is an authorized
+    /// program, an intermediary proxy makes the chain nested CPI (stack height > 2)
+    /// which is always rejected by `reject_nested_cpi`.
+    #[tokio::test]
+    async fn test_router_via_proxy_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_recv_packet_ix(payer.pubkey());
+        // test_cpi_proxy acts as an intermediary between the outer caller and GMP
+        let middle_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+        // test_cpi_target wraps the proxy (standing in for the router as outer caller)
+        let ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("router-via-proxy CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
+    }
 }
