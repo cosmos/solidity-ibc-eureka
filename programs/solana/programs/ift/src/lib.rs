@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 
-pub mod abi_encode;
 pub mod constants;
 pub mod errors;
 pub mod events;

@@ -1,3 +1,4 @@
+use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::system_instruction;
@@ -6,7 +7,6 @@ use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
 use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
-use crate::abi_encode::encode_ift_mint_call;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
@@ -232,6 +232,17 @@ fn construct_mint_call(
     }
 }
 
+/// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
+pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
+    use alloy_sol_types::private::{Address, U256};
+
+    IFT::iftMintCall {
+        receiver: Address::from(receiver),
+        amount: U256::from(amount),
+    }
+    .abi_encode()
+}
+
 /// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
 fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_hex = receiver.trim_start_matches("0x");
@@ -246,6 +257,9 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
 
     Ok(encode_ift_mint_call(receiver_array, amount))
 }
+
+// Using ABI JSON because sol! macro can't resolve Solidity imports.
+alloy_sol_types::sol!(IFT, "../../../../abi/IFTOwnable.json");
 
 /// Protojson representation of `MsgIFTMint` for Cosmos chains
 #[derive(Serialize)]
