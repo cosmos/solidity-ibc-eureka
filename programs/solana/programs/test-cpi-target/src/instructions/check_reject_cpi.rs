@@ -96,4 +96,25 @@ mod integration_tests {
             "reject_cpi should reject fake sysvar account"
         );
     }
+
+    /// Verifies that `reject_cpi` catches self-recursive CPI (A → A) via `is_cpi()`
+    /// stack height check, even though the sysvar shows our own program as the
+    /// top-level instruction.
+    #[rstest]
+    #[tokio::test]
+    async fn test_reject_cpi_rejects_self_recursive_cpi(#[future] ctx: TestContext) {
+        let TestContext {
+            banks_client,
+            payer,
+            recent_blockhash,
+        } = ctx.await;
+
+        let inner_ix = build_ix();
+        let ix = build_self_cpi_ix(payer.pubkey(), &inner_ix);
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        assert!(
+            result.is_err(),
+            "reject_cpi should reject self-recursive CPI (A → A)"
+        );
+    }
 }

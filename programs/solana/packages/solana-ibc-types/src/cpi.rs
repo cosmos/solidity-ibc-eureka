@@ -78,12 +78,12 @@ fn validate_instruction_sysvar(
 /// Validates that this instruction is called via CPI from the authorized program
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Current instruction's `program_id` is NOT self (rejects direct calls)
-/// 3. Current instruction's `program_id` is the authorized program
+/// 1. Rejects nested CPI (stack height > 2)
+/// 2. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 3. Current instruction's `program_id` is NOT self (rejects direct calls)
+/// 4. Current instruction's `program_id` is the authorized program
 ///
 /// [Wormhole-style attack]: https://github.com/sbellem/wormhole-attack-analysis
-/// [Metaplex pattern]: https://github.com/metaplex-foundation/metaplex-program-library/blob/27bd23f5884d4f0d64ae8f3c7bafeeaffc53e620/candy-machine/program/src/processor/mint.rs#L115
 pub fn validate_cpi_caller(
     instruction_sysvar: &AccountInfo<'_>,
     authorized_program: &Pubkey,
@@ -109,8 +109,9 @@ pub fn validate_cpi_caller(
 /// Validates that this instruction is either called directly OR via CPI from a whitelisted program
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Current instruction's `program_id` is either self (direct call) or in the whitelist
+/// 1. Rejects nested CPI (stack height > 2)
+/// 2. `instruction_sysvar` is the real sysvar (prevents Wormhole-style attack)
+/// 3. Current instruction's `program_id` is either self (direct call) or in the whitelist
 ///
 /// Use this for instructions that can be called both directly by users and via CPI from trusted programs.
 pub fn require_direct_call_or_whitelisted_caller(
@@ -136,18 +137,19 @@ pub fn require_direct_call_or_whitelisted_caller(
     Err(CpiValidationError::UnauthorizedCaller)
 }
 
-/// Validates that this program is the entrypoint of the current transaction instruction
+/// Validates that this program is called directly from the transaction (not via CPI)
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Top-level instruction's `program_id` IS self (rejects external CPI callers)
-///
-/// **Important**: This does NOT prevent recursive CPI (A → B → A). It only ensures
-/// our program is the top-level instruction.
+/// 1. Stack height confirms we are NOT in a CPI context (catches self-recursive A → A)
+/// 2. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 3. Top-level instruction's `program_id` IS self (rejects external CPI callers)
 pub fn reject_cpi(
     instruction_sysvar: &AccountInfo<'_>,
     self_program_id: &Pubkey,
 ) -> core::result::Result<(), CpiValidationError> {
+    if is_cpi() {
+        return Err(CpiValidationError::UnauthorizedCaller);
+    }
     require_direct_call_or_whitelisted_caller(instruction_sysvar, &[], self_program_id)
 }
 

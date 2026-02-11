@@ -110,6 +110,11 @@ pub fn build_single_cpi_ix(payer: Pubkey, inner_ix: &Instruction) -> Instruction
     wrap_in_test_cpi_proxy(payer, inner_ix)
 }
 
+/// Wraps `inner_ix` in a self-recursive CPI: Tx -> B(`proxy_cpi`) -> B(`check_*`)
+pub fn build_self_cpi_ix(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    wrap_in_test_cpi_target_proxy(payer, inner_ix)
+}
+
 /// Wraps `inner_ix` in a nested CPI chain: Tx -> A -> B(`proxy_cpi`) -> B(`check_*`)
 pub fn build_nested_cpi_ix(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let proxy_wrapping_inner = wrap_in_test_cpi_target_proxy(payer, inner_ix);
