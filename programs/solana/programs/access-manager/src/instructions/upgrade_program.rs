@@ -514,6 +514,7 @@ mod integration_tests {
     use anchor_lang::InstructionData;
     use solana_sdk::{
         account::Account,
+        bpf_loader_upgradeable::UpgradeableLoaderState,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
         signature::Keypair,
@@ -525,11 +526,29 @@ mod integration_tests {
         buffer: Pubkey,
     }
 
+    fn read_program_elf() -> Vec<u8> {
+        let deploy_dir =
+            std::env::var("SBF_OUT_DIR").unwrap_or_else(|_| "../../target/deploy".to_string());
+        std::fs::read(format!("{deploy_dir}/access_manager.so"))
+            .expect("access_manager.so must be built before running integration tests")
+    }
+
+    /// Creates a ProgramTest with a fake upgradeable program suitable for upgrade tests.
+    ///
+    /// Sets up properly serialized BPF loader accounts using real ELF bytes
+    /// so the BPF loader's upgrade handler accepts them:
+    /// - Program account pointing to its ProgramData PDA
+    /// - ProgramData with upgrade_authority set to AccessManager's PDA + real ELF
+    /// - Buffer with authority set to AccessManager's PDA + real ELF
+    /// - Upgrade authority PDA account
     fn setup_upgrade_program_test(
         admin: &Pubkey,
         whitelisted: &[Pubkey],
     ) -> (solana_program_test::ProgramTest, UpgradeTestAccounts) {
         let mut pt = setup_program_test_with_whitelist(admin, whitelisted);
+
+        let elf_bytes = read_program_elf();
+        let elf_len = elf_bytes.len();
 
         let target_program = Pubkey::new_unique();
         let (program_data_pda, _) = Pubkey::find_program_address(
@@ -540,41 +559,54 @@ mod integration_tests {
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         let buffer = Pubkey::new_unique();
 
-        pt.add_account(
-            target_program,
-            Account {
-                lamports: 1_000_000,
-                data: vec![],
-                owner: bpf_loader_upgradeable::ID,
-                executable: true,
-                ..Default::default()
+        // Program account: UpgradeableLoaderState::Program { programdata_address }
+        let mut program_account = Account::new_data_with_space(
+            10_000_000_000,
+            &UpgradeableLoaderState::Program {
+                programdata_address: program_data_pda,
             },
-        );
+            UpgradeableLoaderState::size_of_program(),
+            &bpf_loader_upgradeable::ID,
+        )
+        .unwrap();
+        program_account.executable = true;
+        pt.add_account(target_program, program_account);
 
-        pt.add_account(
-            program_data_pda,
-            Account {
-                lamports: 1_000_000,
-                data: vec![0; 100],
-                owner: bpf_loader_upgradeable::ID,
-                ..Default::default()
+        // ProgramData: upgrade_authority set to our PDA + real ELF
+        let pd_meta_len = UpgradeableLoaderState::size_of_programdata_metadata();
+        let mut pd_account = Account::new_data_with_space(
+            10_000_000_000,
+            &UpgradeableLoaderState::ProgramData {
+                slot: 0,
+                upgrade_authority_address: Some(upgrade_authority_pda),
             },
-        );
+            UpgradeableLoaderState::size_of_programdata(elf_len),
+            &bpf_loader_upgradeable::ID,
+        )
+        .unwrap();
+        pd_account.data[pd_meta_len..].copy_from_slice(&elf_bytes);
+        pt.add_account(program_data_pda, pd_account);
 
-        pt.add_account(
-            buffer,
-            Account {
-                lamports: 1_000_000,
-                data: vec![0; 100],
-                owner: bpf_loader_upgradeable::ID,
-                ..Default::default()
+        // Buffer: authority set to our PDA + real ELF
+        let buf_meta_len = UpgradeableLoaderState::size_of_buffer_metadata();
+        let mut buf_account = Account::new_data_with_space(
+            10_000_000_000,
+            &UpgradeableLoaderState::Buffer {
+                authority_address: Some(upgrade_authority_pda),
             },
-        );
+            UpgradeableLoaderState::size_of_buffer(elf_len),
+            &bpf_loader_upgradeable::ID,
+        )
+        .unwrap();
+        buf_account.data[buf_meta_len..].copy_from_slice(&elf_bytes);
+        pt.add_account(buffer, buf_account);
 
+        // Upgrade authority PDA (signs via invoke_signed)
         pt.add_account(
             upgrade_authority_pda,
             Account {
                 lamports: 1_000_000,
+                owner: solana_sdk::system_program::ID,
                 ..Default::default()
             },
         );
@@ -620,6 +652,61 @@ mod integration_tests {
             ],
             data: crate::instruction::UpgradeProgram { target_program }.data(),
         }
+    }
+
+    #[tokio::test]
+    async fn test_upgrade_direct_call_by_admin_succeeds() {
+        let admin = Keypair::new();
+        let (pt, accs) = setup_upgrade_program_test(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_upgrade_program_ix(
+            admin.pubkey(),
+            payer.pubkey(),
+            accs.target_program,
+            accs.buffer,
+        );
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Direct upgrade by admin should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_upgrade_whitelisted_cpi_succeeds() {
+        let admin = Keypair::new();
+        let (pt, accs) = setup_upgrade_program_test(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_upgrade_program_ix(
+            admin.pubkey(),
+            payer.pubkey(),
+            accs.target_program,
+            accs.buffer,
+        );
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Whitelisted CPI upgrade should succeed: {:?}",
+            result.err()
+        );
     }
 
     #[tokio::test]

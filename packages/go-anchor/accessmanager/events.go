@@ -43,6 +43,13 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsRoleRevokedEvent: %w", err)
 		}
 		return value, nil
+	case Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent:
+		value := new(AccessManagerEventsWhitelistedProgramsUpdatedEvent)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsWhitelistedProgramsUpdatedEvent: %w", err)
+		}
+		return value, nil
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
@@ -112,6 +119,23 @@ func ParseEvent_AccessManagerEventsRoleRevokedEvent(eventData []byte) (*AccessMa
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsRoleRevokedEvent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_AccessManagerEventsWhitelistedProgramsUpdatedEvent(eventData []byte) (*AccessManagerEventsWhitelistedProgramsUpdatedEvent, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(AccessManagerEventsWhitelistedProgramsUpdatedEvent)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsWhitelistedProgramsUpdatedEvent: %w", err)
 	}
 	return event, nil
 }

@@ -280,3 +280,48 @@ func NewUpgradeProgramInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "set_whitelisted_programs" instruction.
+func NewSetWhitelistedProgramsInstruction(
+	// Params:
+	whitelistedProgramsParam []solanago.PublicKey,
+
+	// Accounts:
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetWhitelistedPrograms[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `whitelistedProgramsParam`:
+		err = enc__.Encode(whitelistedProgramsParam)
+		if err != nil {
+			return nil, errors.NewField("whitelistedProgramsParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "access_manager": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
+		// Account 1 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

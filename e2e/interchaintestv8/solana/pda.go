@@ -15,7 +15,6 @@ import (
 
 type accessManagerPDAs struct{}
 type attestationPDAs struct{}
-type cpiTestTargetPDAs struct{}
 type dummyIbcAppPDAs struct{}
 type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
@@ -23,11 +22,11 @@ type ics26RouterPDAs struct{}
 type ics27GmpPDAs struct{}
 type iftPDAs struct{}
 type mockLightClientPDAs struct{}
+type testCpiTargetPDAs struct{}
 
 var (
 	AccessManager = accessManagerPDAs{}
 	Attestation = attestationPDAs{}
-	CpiTestTarget = cpiTestTargetPDAs{}
 	DummyIbcApp = dummyIbcAppPDAs{}
 	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
@@ -35,6 +34,7 @@ var (
 	Ics27Gmp = ics27GmpPDAs{}
 	Ift = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
+	TestCpiTarget = testCpiTargetPDAs{}
 )
 
 func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
@@ -99,17 +99,6 @@ func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (cpiTestTargetPDAs) CpiResultPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("cpi_result")},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive CpiTestTarget.CpiResultPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -462,6 +451,17 @@ func (mockLightClientPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive MockLightClient.ConsensusStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (testCpiTargetPDAs) CpiResultPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("cpi_result")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive TestCpiTarget.CpiResultPDA PDA: %v", err))
 	}
 	return pda, bump
 }

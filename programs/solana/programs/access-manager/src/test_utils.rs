@@ -339,7 +339,7 @@ pub fn create_instructions_sysvar_account_with_caller(
 pub const TEST_CPI_PROXY_ID: Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
 pub const TEST_CPI_TARGET_ID: Pubkey =
-    solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+    solana_sdk::pubkey!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
 pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {

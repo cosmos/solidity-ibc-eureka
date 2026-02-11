@@ -828,8 +828,8 @@ generate-solana-types build="true":
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter
 	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
-	rm -rf e2e/interchaintestv8/solana/go-anchor/maliciouscaller
-	anchor-go --idl ./programs/solana/target/idl/malicious_caller.json --output e2e/interchaintestv8/solana/go-anchor/maliciouscaller --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testcpiproxy
+	anchor-go --idl ./programs/solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
 
 # Generate Solana PDA helpers from Anchor IDL files
 [group('generate')]
