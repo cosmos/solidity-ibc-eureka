@@ -1,9 +1,9 @@
-use crate::abi_decode::decode_packet_attestation;
 use crate::error::ErrorCode;
 use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
-use crate::types::ClientState;
+use crate::types::{ClientState, PacketAttestation};
 use crate::verification::verify_attestation;
+use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_keccak_hasher::{hash as keccak256, Hash};
@@ -11,10 +11,16 @@ use solana_keccak_hasher::{hash as keccak256, Hash};
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
+    #[account(
+        seeds = [ClientState::SEED],
+        bump,
+        constraint = !client_state.is_frozen @ ErrorCode::FrozenClientState
+    )]
     pub client_state: Account<'info, ClientState>,
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
-        bump
+        seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
+        bump,
+        constraint = consensus_state_at_height.timestamp != 0 @ ErrorCode::ConsensusTimestampNotFound
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
@@ -22,24 +28,24 @@ pub struct VerifyMembership<'info> {
 pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
     require!(!msg.value.is_empty(), ErrorCode::EmptyValue);
     require!(msg.path.len() == 1, ErrorCode::InvalidPathLength);
+    require!(msg.height > 0, ErrorCode::InvalidHeight);
 
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
     require!(!client_state.is_frozen, ErrorCode::FrozenClientState);
-
-    // Ensure we have a trusted timestamp at the provided height
     require!(
-        consensus_state_store.consensus_state.timestamp != 0,
+        consensus_state_store.timestamp != 0,
         ErrorCode::ConsensusTimestampNotFound
     );
 
     let proof = deserialize_membership_proof(&msg.proof)?;
 
-    let attestation = decode_packet_attestation(&proof.attestation_data)?;
+    let attestation = PacketAttestation::abi_decode(&proof.attestation_data)
+        .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
     require!(
-        attestation.height == consensus_state_store.consensus_state.height,
+        attestation.height == consensus_state_store.height,
         ErrorCode::HeightMismatch
     );
 
@@ -76,12 +82,10 @@ mod tests {
     use crate::test_helpers::accounts::{
         create_client_state_account, create_consensus_state_account,
     };
-    use crate::test_helpers::fixtures::{
-        default_client_state, default_consensus_state, DEFAULT_CLIENT_ID,
-    };
+    use crate::test_helpers::fixtures::{default_client_state, DEFAULT_TIMESTAMP};
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
-    use crate::types::{ClientState, ConsensusState, MembershipProof};
+    use crate::types::{ClientState, MembershipProof};
     use crate::ETH_ADDRESS_LEN;
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
     use anchor_lang::InstructionData;
@@ -99,20 +103,15 @@ mod tests {
         accounts: Vec<(Pubkey, Account)>,
     }
 
-    fn setup_test_accounts(
-        client_id: &str,
-        height: u64,
-        client_state: ClientState,
-        consensus_state: ConsensusState,
-    ) -> TestAccounts {
-        let client_state_pda = ClientState::pda(client_id);
-        let consensus_state_pda = ConsensusStateStore::pda(&client_state_pda, height);
+    fn setup_test_accounts(height: u64, client_state: ClientState, timestamp: u64) -> TestAccounts {
+        let client_state_pda = ClientState::pda();
+        let consensus_state_pda = ConsensusStateStore::pda(height);
 
         let accounts = vec![
             (client_state_pda, create_client_state_account(&client_state)),
             (
                 consensus_state_pda,
-                create_consensus_state_account(height, consensus_state),
+                create_consensus_state_account(height, timestamp),
             ),
         ];
 
@@ -123,13 +122,8 @@ mod tests {
         }
     }
 
-    fn setup_default_test_accounts(client_id: &str, height: u64) -> TestAccounts {
-        setup_test_accounts(
-            client_id,
-            height,
-            default_client_state(client_id, height),
-            default_consensus_state(height),
-        )
+    fn setup_default_test_accounts(height: u64) -> TestAccounts {
+        setup_test_accounts(height, default_client_state(height), DEFAULT_TIMESTAMP)
     }
 
     fn setup_attestor_accounts(
@@ -138,18 +132,12 @@ mod tests {
     ) -> TestAccounts {
         let client_state = ClientState {
             version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses,
             min_required_sigs,
             latest_height: HEIGHT,
             is_frozen: false,
         };
-        setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            client_state,
-            default_consensus_state(HEIGHT),
-        )
+        setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP)
     }
 
     fn create_verify_membership_instruction(
@@ -224,7 +212,7 @@ mod tests {
         #[case] value: Vec<u8>,
         #[case] expected_error: ErrorCode,
     ) {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let test_accounts = setup_default_test_accounts(HEIGHT);
         let msg = MembershipMsg {
             height: HEIGHT,
             proof: vec![],
@@ -236,14 +224,9 @@ mod tests {
 
     #[test]
     fn test_verify_membership_frozen_client() {
-        let mut client_state = default_client_state(DEFAULT_CLIENT_ID, HEIGHT);
+        let mut client_state = default_client_state(HEIGHT);
         client_state.is_frozen = true;
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            client_state,
-            default_consensus_state(HEIGHT),
-        );
+        let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
         let msg = MembershipMsg {
             height: HEIGHT,
             proof: vec![],
@@ -269,7 +252,7 @@ mod tests {
         #[case] path: Vec<Vec<u8>>,
         #[case] value: Vec<u8>,
     ) {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, height);
+        let test_accounts = setup_default_test_accounts(height);
         let msg = MembershipMsg {
             height,
             proof,
@@ -282,12 +265,8 @@ mod tests {
     #[test]
     fn test_verify_membership_max_height() {
         let height = u64::MAX;
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            height,
-            default_client_state(DEFAULT_CLIENT_ID, height),
-            default_consensus_state(height),
-        );
+        let test_accounts =
+            setup_test_accounts(height, default_client_state(height), DEFAULT_TIMESTAMP);
         let msg = MembershipMsg {
             height,
             proof: vec![0xFF; 100],
@@ -299,7 +278,7 @@ mod tests {
 
     #[test]
     fn test_verify_membership_height_mismatch() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let test_accounts = setup_default_test_accounts(HEIGHT);
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(200, &[]);
         let proof = MembershipProof {
             attestation_data,
@@ -316,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_verify_membership_no_signatures() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let test_accounts = setup_default_test_accounts(HEIGHT);
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
             HEIGHT,
             &[([1u8; 32], [2u8; 32])],
@@ -336,18 +315,9 @@ mod tests {
 
     #[test]
     fn test_verify_membership_value_wrong_length() {
-        let client_state = crate::test_helpers::fixtures::create_test_client_state(
-            DEFAULT_CLIENT_ID,
-            vec![],
-            0,
-            HEIGHT,
-        );
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            client_state,
-            default_consensus_state(HEIGHT),
-        );
+        let client_state =
+            crate::test_helpers::fixtures::create_test_client_state(vec![], 0, HEIGHT);
+        let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
 
         let path = b"test/path";
         let Hash(path_hash) = solana_keccak_hasher::hash(path);
@@ -370,18 +340,9 @@ mod tests {
 
     #[test]
     fn test_verify_membership_empty_attestation_packets() {
-        let client_state = crate::test_helpers::fixtures::create_test_client_state(
-            DEFAULT_CLIENT_ID,
-            vec![],
-            0,
-            HEIGHT,
-        );
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            client_state,
-            default_consensus_state(HEIGHT),
-        );
+        let client_state =
+            crate::test_helpers::fixtures::create_test_client_state(vec![], 0, HEIGHT);
+        let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
 
         let attestation_data =
             crate::test_helpers::fixtures::encode_packet_attestation(HEIGHT, &[]);
@@ -400,7 +361,7 @@ mod tests {
 
     #[test]
     fn test_verify_membership_invalid_signature_length() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, HEIGHT);
+        let test_accounts = setup_default_test_accounts(HEIGHT);
         let path = b"test/path";
         let Hash(path_hash) = solana_keccak_hasher::hash(path);
         let attestation_data = crate::test_helpers::fixtures::encode_packet_attestation(
@@ -423,17 +384,11 @@ mod tests {
     #[test]
     fn test_verify_membership_too_few_signatures() {
         let client_state = crate::test_helpers::fixtures::create_test_client_state(
-            DEFAULT_CLIENT_ID,
             vec![[1u8; 20], [2u8; 20], [3u8; 20]],
             3,
             HEIGHT,
         );
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            client_state,
-            default_consensus_state(HEIGHT),
-        );
+        let test_accounts = setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP);
 
         let path = b"test/path";
         let Hash(path_hash) = solana_keccak_hasher::hash(path);
@@ -482,16 +437,7 @@ mod tests {
 
     #[test]
     fn test_verify_membership_zero_timestamp() {
-        let consensus_state = ConsensusState {
-            height: HEIGHT,
-            timestamp: 0,
-        };
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            HEIGHT,
-            default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
-            consensus_state,
-        );
+        let test_accounts = setup_test_accounts(HEIGHT, default_client_state(HEIGHT), 0);
         let msg = MembershipMsg {
             height: HEIGHT,
             proof: vec![],

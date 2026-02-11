@@ -9,6 +9,8 @@ pub enum AccessManagerError {
     InvalidRoleId,
     #[msg("Cannot remove the last admin")]
     CannotRemoveLastAdmin,
+    #[msg("Account does not have the specified role")]
+    RoleNotGranted,
     #[msg("Invalid sysenv: cross-program invocation from unexpected program")]
     InvalidSysenv,
     #[msg("Account must be a signer")]

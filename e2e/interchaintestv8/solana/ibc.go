@@ -222,7 +222,7 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 // These should be added in addition to the base IBC accounts.
 func (s *Solana) CreateAttestationLightClientALTAccounts(clientID string) []solana.PublicKey {
 	appStatePDA, _ := Attestation.AppStatePDA(attestation_light_client.ProgramID)
-	clientStatePDA, _ := Attestation.ClientWithArgSeedPDA(attestation_light_client.ProgramID, []byte(clientID))
+	clientStatePDA, _ := Attestation.ClientPDA(attestation_light_client.ProgramID)
 
 	return []solana.PublicKey{
 		attestation_light_client.ProgramID,

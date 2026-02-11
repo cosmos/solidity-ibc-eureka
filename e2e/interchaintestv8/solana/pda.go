@@ -68,24 +68,24 @@ func (attestationPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.Publi
 	return pda, bump
 }
 
-func (attestationPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, clientId []byte) (solanago.PublicKey, uint8) {
+func (attestationPDAs) ClientPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client"), clientId},
+		[][]byte{[]byte("client")},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Attestation.ClientWithArgSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Attestation.ClientPDA PDA: %v", err))
 	}
 	return pda, bump
 }
 
-func (attestationPDAs) ConsensusStateWithArgAndAccountSeedPDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, latestHeight []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		[][]byte{[]byte("consensus_state"), latestHeight},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgAndAccountSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }

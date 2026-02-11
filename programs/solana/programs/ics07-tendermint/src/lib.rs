@@ -83,6 +83,7 @@ pub struct SetAccessManager<'info> {
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
+    // TODO: we don't have seeds
     pub client_state: Account<'info, ClientState>,
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
@@ -94,6 +95,7 @@ pub struct VerifyMembership<'info> {
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
+    // TODO: we don't have seeds
     pub client_state: Account<'info, ClientState>,
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],

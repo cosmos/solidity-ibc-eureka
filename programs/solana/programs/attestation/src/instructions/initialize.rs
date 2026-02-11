@@ -1,17 +1,17 @@
 use crate::error::ErrorCode;
 use crate::state::ConsensusStateStore;
-use crate::types::{AccountVersion, AppState, ClientState, ConsensusState};
+use crate::types::{AccountVersion, AppState, ClientState};
 use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(client_id: String, latest_height: u64)]
+#[instruction(latest_height: u64)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
         space = 8 + ClientState::INIT_SPACE,
-        seeds = [ClientState::SEED, client_id.as_bytes()],
+        seeds = [ClientState::SEED],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -19,7 +19,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &latest_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -39,14 +39,12 @@ pub struct Initialize<'info> {
 
 pub fn initialize(
     ctx: Context<Initialize>,
-    client_id: String,
     latest_height: u64,
     attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
     min_required_sigs: u8,
     timestamp: u64,
     access_manager: Pubkey,
 ) -> Result<()> {
-    require!(!client_id.is_empty(), ErrorCode::InvalidClientId);
     require!(!attestor_addresses.is_empty(), ErrorCode::NoAttestors);
     require!(
         min_required_sigs > 0 && (min_required_sigs as usize) <= attestor_addresses.len(),
@@ -55,18 +53,17 @@ pub fn initialize(
     require!(latest_height > 0, ErrorCode::InvalidHeight);
     require!(timestamp > 0, ErrorCode::InvalidTimestamp);
 
-    // Check for duplicate attestor addresses
-    let has_duplicates = attestor_addresses.iter().enumerate().any(|(i, addr)| {
-        attestor_addresses
-            .iter()
-            .skip(i.saturating_add(1))
-            .any(|other| addr == other)
-    });
-    require!(!has_duplicates, ErrorCode::DuplicateSigner);
+    let mut attestor_addresses = attestor_addresses;
+    let original_len = attestor_addresses.len();
+    attestor_addresses.sort_unstable();
+    attestor_addresses.dedup();
+    require!(
+        attestor_addresses.len() == original_len,
+        ErrorCode::DuplicateSigner
+    );
 
     let client_state_account = &mut ctx.accounts.client_state;
     client_state_account.version = AccountVersion::V1;
-    client_state_account.client_id = client_id;
     client_state_account.attestor_addresses = attestor_addresses;
     client_state_account.min_required_sigs = min_required_sigs;
     client_state_account.latest_height = latest_height;
@@ -74,10 +71,7 @@ pub fn initialize(
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height;
-    consensus_state_store.consensus_state = ConsensusState {
-        height: latest_height,
-        timestamp,
-    };
+    consensus_state_store.timestamp = timestamp;
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
@@ -94,7 +88,7 @@ mod tests {
     use crate::test_helpers::accounts::{
         create_empty_account, create_payer_account, create_system_program_account,
     };
-    use crate::test_helpers::fixtures::{DEFAULT_CLIENT_ID, DEFAULT_TIMESTAMP};
+    use crate::test_helpers::fixtures::DEFAULT_TIMESTAMP;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{AppState, ClientState};
     use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
@@ -115,10 +109,10 @@ mod tests {
         accounts: Vec<(Pubkey, Account)>,
     }
 
-    fn setup_test_accounts(client_id: &str, latest_height: u64) -> TestAccounts {
+    fn setup_test_accounts(latest_height: u64) -> TestAccounts {
         let payer = Pubkey::new_unique();
-        let client_state_pda = ClientState::pda(client_id);
-        let consensus_state_store_pda = ConsensusStateStore::pda(&client_state_pda, latest_height);
+        let client_state_pda = ClientState::pda();
+        let consensus_state_store_pda = ConsensusStateStore::pda(latest_height);
         let app_state_pda = AppState::pda();
 
         let accounts = vec![
@@ -140,14 +134,12 @@ mod tests {
 
     fn create_initialize_instruction(
         test_accounts: &TestAccounts,
-        client_id: &str,
         latest_height: u64,
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         timestamp: u64,
     ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
-            client_id: client_id.to_string(),
             latest_height,
             attestor_addresses,
             min_required_sigs,
@@ -185,11 +177,9 @@ mod tests {
 
     #[test]
     fn test_initialize_happy_path() {
-        let client_id = "attestation-client-0";
-        let test_accounts = setup_test_accounts(client_id, HEIGHT);
+        let test_accounts = setup_test_accounts(HEIGHT);
         let instruction = create_initialize_instruction(
             &test_accounts,
-            client_id,
             HEIGHT,
             vec![[1u8; 20], [2u8; 20], [3u8; 20]],
             2,
@@ -213,59 +203,43 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case::empty_client_id("", HEIGHT, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::InvalidClientId)]
-    #[case::zero_height(DEFAULT_CLIENT_ID, 0, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::InvalidHeight)]
-    #[case::empty_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![], 1, DEFAULT_TIMESTAMP, ErrorCode::NoAttestors)]
-    #[case::zero_min_sigs(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 0, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
-    #[case::min_sigs_exceeds_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
-    #[case::zero_timestamp(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20]], 1, 0, ErrorCode::InvalidTimestamp)]
-    #[case::duplicate_attestors(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
-    #[case::duplicate_attestors_adjacent(DEFAULT_CLIENT_ID, HEIGHT, vec![[5u8; 20], [5u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
-    #[case::multiple_duplicate_groups(DEFAULT_CLIENT_ID, HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20], [2u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    #[case::zero_height(0, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::InvalidHeight)]
+    #[case::empty_attestors(HEIGHT, vec![], 1, DEFAULT_TIMESTAMP, ErrorCode::NoAttestors)]
+    #[case::zero_min_sigs(HEIGHT, vec![[1u8; 20]], 0, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
+    #[case::min_sigs_exceeds_attestors(HEIGHT, vec![[1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::BadQuorum)]
+    #[case::zero_timestamp(HEIGHT, vec![[1u8; 20]], 1, 0, ErrorCode::InvalidTimestamp)]
+    #[case::duplicate_attestors(HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    #[case::duplicate_attestors_adjacent(HEIGHT, vec![[5u8; 20], [5u8; 20]], 1, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
+    #[case::multiple_duplicate_groups(HEIGHT, vec![[1u8; 20], [2u8; 20], [1u8; 20], [2u8; 20]], 2, DEFAULT_TIMESTAMP, ErrorCode::DuplicateSigner)]
     fn test_initialize_error(
-        #[case] client_id: &str,
         #[case] height: u64,
         #[case] attestors: Vec<[u8; ETH_ADDRESS_LEN]>,
         #[case] min_sigs: u8,
         #[case] timestamp: u64,
         #[case] expected_error: ErrorCode,
     ) {
-        let test_accounts = setup_test_accounts(client_id, height);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            height,
-            attestors,
-            min_sigs,
-            timestamp,
-        );
+        let test_accounts = setup_test_accounts(height);
+        let instruction =
+            create_initialize_instruction(&test_accounts, height, attestors, min_sigs, timestamp);
         expect_error(&test_accounts, instruction, expected_error);
     }
 
     #[rstest::rstest]
-    #[case::single_attestor("single-attestor-client", 1, vec![[0xAB; 20]], 1, DEFAULT_TIMESTAMP)]
-    #[case::min_sigs_equals_count("exact-sigs-client", 50, vec![[1u8; 20], [2u8; 20], [3u8; 20]], 3, DEFAULT_TIMESTAMP)]
-    #[case::large_height("large-height-client", u64::MAX, vec![[1u8; 20]], 1, u64::MAX)]
-    #[case::max_attestors("max-attestors-client", HEIGHT, (0u8..20).map(|i| [i; 20]).collect::<Vec<_>>(), 10, DEFAULT_TIMESTAMP)]
-    #[case::max_min_required_sigs("max-sigs-client", HEIGHT, (0u8..5).map(|i| [i; 20]).collect::<Vec<_>>(), 5, DEFAULT_TIMESTAMP)]
-    #[case::long_client_id("a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]a]", HEIGHT, vec![[1u8; 20]], 1, DEFAULT_TIMESTAMP)]
-    #[case::max_timestamp("max-timestamp-client", HEIGHT, vec![[1u8; 20]], 1, u64::MAX)]
+    #[case::single_attestor(1, vec![[0xAB; 20]], 1, DEFAULT_TIMESTAMP)]
+    #[case::min_sigs_equals_count(50, vec![[1u8; 20], [2u8; 20], [3u8; 20]], 3, DEFAULT_TIMESTAMP)]
+    #[case::large_height(u64::MAX, vec![[1u8; 20]], 1, u64::MAX)]
+    #[case::max_attestors(HEIGHT, (0u8..20).map(|i| [i; 20]).collect::<Vec<_>>(), 10, DEFAULT_TIMESTAMP)]
+    #[case::max_min_required_sigs(HEIGHT, (0u8..5).map(|i| [i; 20]).collect::<Vec<_>>(), 5, DEFAULT_TIMESTAMP)]
+    #[case::max_timestamp(HEIGHT, vec![[1u8; 20]], 1, u64::MAX)]
     fn test_initialize_success(
-        #[case] client_id: &str,
         #[case] height: u64,
         #[case] attestors: Vec<[u8; ETH_ADDRESS_LEN]>,
         #[case] min_sigs: u8,
         #[case] timestamp: u64,
     ) {
-        let test_accounts = setup_test_accounts(client_id, height);
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            client_id,
-            height,
-            attestors,
-            min_sigs,
-            timestamp,
-        );
+        let test_accounts = setup_test_accounts(height);
+        let instruction =
+            create_initialize_instruction(&test_accounts, height, attestors, min_sigs, timestamp);
         expect_success(&test_accounts, instruction);
     }
 }

@@ -5,9 +5,6 @@ pub enum ErrorCode {
     #[msg("Client state is frozen")]
     FrozenClientState,
 
-    #[msg("Client ID cannot be empty")]
-    InvalidClientId,
-
     #[msg("No attestors provided")]
     NoAttestors,
 

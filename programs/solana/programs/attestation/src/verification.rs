@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::crypto::recover_eth_address;
+use crate::crypto::{recover_eth_address, sha256_digest};
 use crate::error::ErrorCode;
 use crate::types::ClientState;
 use crate::ETH_ADDRESS_LEN;
@@ -11,20 +11,20 @@ pub fn verify_attestation(
     attestation_data: &[u8],
     raw_signatures: &[Vec<u8>],
 ) -> Result<()> {
-    if raw_signatures.is_empty() {
-        return Err(error!(ErrorCode::EmptySignatures));
-    }
+    require!(!raw_signatures.is_empty(), ErrorCode::EmptySignatures);
+    require!(
+        raw_signatures.len() >= client_state.min_required_sigs as usize,
+        ErrorCode::ThresholdNotMet
+    );
 
-    if raw_signatures.len() < client_state.min_required_sigs as usize {
-        return Err(error!(ErrorCode::ThresholdNotMet));
-    }
+    let message_hash = sha256_digest(attestation_data);
 
     // Recover addresses and check for duplicates + trust in single pass
     let mut recovered_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
         Vec::with_capacity(raw_signatures.len());
 
     for raw_sig in raw_signatures {
-        let recovered_address = recover_eth_address(attestation_data, raw_sig)?;
+        let recovered_address = recover_eth_address(&message_hash, raw_sig)?;
 
         if recovered_addresses.contains(&recovered_address) {
             return Err(error!(ErrorCode::DuplicateSigner));
@@ -53,7 +53,6 @@ mod tests {
     ) -> ClientState {
         ClientState {
             version: AccountVersion::V1,
-            client_id: "test-client".to_string(),
             attestor_addresses,
             min_required_sigs,
             latest_height: 100,

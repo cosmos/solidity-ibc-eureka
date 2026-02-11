@@ -308,7 +308,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Logf("Solana attestor addresses: %v", s.SolanaAttestorAddresses)
 
 	s.T().Log("Initializing Attestation Light Client on Solana...")
-	s.initializeAttestationLightClient(ctx, s.AttestationClientID)
+	s.initializeAttestationLightClient(ctx)
 
 	s.T().Log("Starting relayer...")
 	config := relayer.NewConfigBuilder().
@@ -458,7 +458,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 }
 
 // initializeAttestationLightClient initializes the attestation light client with Cosmos attestor addresses
-func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx context.Context, clientID string) {
+func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx context.Context) {
 	var attestorAddresses [][20]uint8
 	for _, addr := range s.CosmosAttestorAddresses {
 		addrHex := addr
@@ -479,19 +479,17 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 	timestamp := uint64(time.Now().Unix())
 	minRequiredSigs := uint8(numCosmosAttestors)
 
-	clientStatePDA, _ := solana.Attestation.ClientWithArgSeedPDA(attestation.ProgramID, []byte(clientID))
+	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
 
 	heightBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(heightBytes, latestHeight)
-	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgAndAccountSeedPDA(
+	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgSeedPDA(
 		attestation.ProgramID,
-		clientStatePDA.Bytes(),
 		heightBytes,
 	)
 
 	initInstruction, err := attestation.NewInitializeInstruction(
-		clientID,
 		latestHeight,
 		attestorAddresses,
 		minRequiredSigs,
@@ -518,7 +516,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Deploy() {
 	s.SetupSuite(ctx)
 
 	s.Require().True(s.Run("Verify attestation light client on Solana", func() {
-		clientStatePDA, _ := solana.Attestation.ClientWithArgSeedPDA(attestation.ProgramID, []byte(s.AttestationClientID))
+		clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentFinalized,
@@ -528,14 +526,13 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Deploy() {
 		clientState, err := attestation.ParseAccount_AttestationTypesClientState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
-		s.Require().Equal(s.AttestationClientID, clientState.ClientId)
 		s.Require().Equal(uint8(numCosmosAttestors), clientState.MinRequiredSigs)
 		s.Require().Greater(clientState.LatestHeight, uint64(0))
 		s.Require().False(clientState.IsFrozen)
 		s.Require().Len(clientState.AttestorAddresses, len(s.CosmosAttestorAddresses))
 
-		s.T().Logf("Attestation LC: clientId=%s, latestHeight=%d, attestors=%d",
-			clientState.ClientId, clientState.LatestHeight, len(clientState.AttestorAddresses))
+		s.T().Logf("Attestation LC: latestHeight=%d, attestors=%d",
+			clientState.LatestHeight, len(clientState.AttestorAddresses))
 	}))
 
 	s.Require().True(s.Run("Verify Solana attestor is running", func() {

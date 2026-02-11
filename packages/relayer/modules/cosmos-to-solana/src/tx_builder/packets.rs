@@ -30,8 +30,8 @@ fn derive_light_client_pdas(
 ) -> (Pubkey, Pubkey) {
     match solana_ibc_constants::client_type_from_id(client_id) {
         Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-            let (cs, _) = AttestationClientState::pda(client_id, light_client_program_id);
-            let (cons, _) = AttestationConsensusState::pda(cs, height, light_client_program_id);
+            let (cs, _) = AttestationClientState::pda(light_client_program_id);
+            let (cons, _) = AttestationConsensusState::pda(height, light_client_program_id);
             (cs, cons)
         }
         Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {

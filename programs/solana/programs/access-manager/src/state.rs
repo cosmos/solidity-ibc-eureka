@@ -54,9 +54,19 @@ impl AccessManager {
             return Err(crate::errors::AccessManagerError::CannotRemoveLastAdmin.into());
         }
 
-        if let Some(role) = self.roles.iter_mut().find(|r| r.role_id == role_id) {
-            role.members.retain(|m| m != account);
-        }
+        let role = self
+            .roles
+            .iter_mut()
+            .find(|r| r.role_id == role_id)
+            .ok_or(crate::errors::AccessManagerError::RoleNotGranted)?;
+
+        let position = role
+            .members
+            .iter()
+            .position(|m| m == account)
+            .ok_or(crate::errors::AccessManagerError::RoleNotGranted)?;
+
+        role.members.swap_remove(position);
         Ok(())
     }
 
@@ -228,9 +238,8 @@ mod tests {
         let account = Pubkey::new_unique();
         let mut access_manager = create_access_manager();
 
-        // Should not panic when revoking from empty roles
         let result = access_manager.revoke_role(roles::RELAYER_ROLE, &account);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -242,22 +251,19 @@ mod tests {
             members: vec![member],
         }]);
 
-        // Should not panic when revoking non-existent member
         let result = access_manager.revoke_role(roles::RELAYER_ROLE, &non_member);
-        assert!(result.is_ok());
+        assert!(result.is_err());
 
-        // Original member should still exist
         assert!(access_manager.has_role(roles::RELAYER_ROLE, &member));
     }
 
     #[test]
-    fn test_is_last_admin_empty_roles() {
+    fn test_revoke_admin_empty_roles() {
         let account = Pubkey::new_unique();
         let mut access_manager = create_access_manager();
 
-        // Should succeed - no admin role means account isn't last admin
         let result = access_manager.revoke_role(roles::ADMIN_ROLE, &account);
-        assert!(result.is_ok());
+        assert!(result.is_err());
     }
 
     #[test]
@@ -269,11 +275,9 @@ mod tests {
             members: vec![admin],
         }]);
 
-        // Should succeed - non_admin isn't the last admin (they're not admin at all)
         let result = access_manager.revoke_role(roles::ADMIN_ROLE, &non_admin);
-        assert!(result.is_ok());
+        assert!(result.is_err());
 
-        // Original admin should still exist
         assert!(access_manager.has_role(roles::ADMIN_ROLE, &admin));
     }
 
@@ -309,12 +313,10 @@ mod tests {
             members: vec![account],
         }]);
 
-        // Revoke a role ID that doesn't exist in roles vec
         let non_existent_role = 999;
         let result = access_manager.revoke_role(non_existent_role, &account);
-        assert!(result.is_ok());
+        assert!(result.is_err());
 
-        // Original role should be unaffected
         assert!(access_manager.has_role(roles::RELAYER_ROLE, &account));
     }
 
