@@ -791,7 +791,10 @@ pub mod access_control {
             });
         }
 
-        let access_manager = access_manager::state::AccessManager { roles };
+        let access_manager = access_manager::state::AccessManager {
+            roles,
+            whitelisted_programs: vec![],
+        };
 
         let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         access_manager.serialize(&mut data).unwrap();

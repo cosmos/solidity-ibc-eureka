@@ -138,7 +138,10 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, V
         });
     }
 
-    let access_manager = access_manager::state::AccessManager { roles: role_data };
+    let access_manager = access_manager::state::AccessManager {
+        roles: role_data,
+        whitelisted_programs: vec![],
+    };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     access_manager.serialize(&mut data).unwrap();

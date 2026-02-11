@@ -1,7 +1,7 @@
 use crate::errors::AccessManagerError;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
+use solana_ibc_types::{reject_cpi, roles};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -26,18 +26,12 @@ pub struct Initialize<'info> {
 }
 
 pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
-    // Validate caller
-    require_direct_call_or_whitelisted_caller(
-        &ctx.accounts.instructions_sysvar,
-        crate::WHITELISTED_CPI_PROGRAMS,
-        &crate::ID,
-    )
-    .map_err(AccessManagerError::from)?;
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(AccessManagerError::from)?;
 
     let access_manager = &mut ctx.accounts.access_manager;
     access_manager.roles = vec![];
+    access_manager.whitelisted_programs = vec![];
 
-    // Grant ADMIN_ROLE to the initial admin
     access_manager.grant_role(roles::ADMIN_ROLE, admin)?;
 
     msg!("Global access control initialized with admin: {}", admin);

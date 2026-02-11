@@ -112,6 +112,7 @@ mod tests {
                 role_id: role,
                 members: vec![admin],
             }],
+            whitelisted_programs: vec![],
         };
 
         let mut data = vec![0u8; 8 + 10000]; // Enough space

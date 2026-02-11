@@ -4,20 +4,32 @@ use anchor_lang::prelude::*;
 
 /// Verifies the caller has the `ADMIN_ROLE`. Allows direct calls and whitelisted
 /// CPI callers (e.g. multisig) so admin operations can go through governance.
+/// Reads the whitelist from the AccessManager account state.
 pub fn require_admin(
     access_manager_account: &AccountInfo,
     signer_account: &AccountInfo,
     instructions_sysvar: &AccountInfo,
     program_id: &Pubkey,
 ) -> Result<()> {
-    require_role_with_whitelist(
-        access_manager_account,
-        solana_ibc_types::roles::ADMIN_ROLE,
-        signer_account,
+    require!(signer_account.is_signer, AccessManagerError::SignerRequired);
+
+    let data = access_manager_account.try_borrow_data()?;
+    let access_manager: AccessManager =
+        anchor_lang::AccountDeserialize::try_deserialize(&mut &data[..])?;
+
+    solana_ibc_types::require_direct_call_or_whitelisted_caller(
         instructions_sysvar,
-        crate::WHITELISTED_CPI_PROGRAMS,
+        &access_manager.whitelisted_programs,
         program_id,
     )
+    .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
+
+    require!(
+        access_manager.has_role(solana_ibc_types::roles::ADMIN_ROLE, &signer_account.key()),
+        AccessManagerError::Unauthorized
+    );
+
+    Ok(())
 }
 
 /// Verifies the caller has the given role. Rejects all CPI calls — only direct

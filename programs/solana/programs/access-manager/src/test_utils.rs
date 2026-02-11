@@ -24,6 +24,7 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
             role_id: roles::ADMIN_ROLE,
             members: vec![admin],
         }],
+        whitelisted_programs: vec![],
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -69,7 +70,10 @@ pub fn create_access_manager_with_role(
         }
     }
 
-    let access_manager = AccessManager { roles: roles_vec };
+    let access_manager = AccessManager {
+        roles: roles_vec,
+        whitelisted_programs: vec![],
+    };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];

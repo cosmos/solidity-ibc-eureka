@@ -7,6 +7,8 @@ use solana_ibc_types::roles;
 pub struct AccessManager {
     #[max_len(16)]
     pub roles: Vec<RoleData>,
+    #[max_len(8)]
+    pub whitelisted_programs: Vec<Pubkey>,
 }
 
 impl AccessManager {
@@ -86,11 +88,17 @@ mod tests {
     use super::*;
 
     fn create_access_manager() -> AccessManager {
-        AccessManager { roles: vec![] }
+        AccessManager {
+            roles: vec![],
+            whitelisted_programs: vec![],
+        }
     }
 
     fn create_access_manager_with_roles(roles: Vec<RoleData>) -> AccessManager {
-        AccessManager { roles }
+        AccessManager {
+            roles,
+            whitelisted_programs: vec![],
+        }
     }
 
     #[test]

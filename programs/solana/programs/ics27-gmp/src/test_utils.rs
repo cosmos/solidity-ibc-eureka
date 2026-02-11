@@ -71,7 +71,10 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
         });
     }
 
-    let access_manager = access_manager::state::AccessManager { roles: role_data };
+    let access_manager = access_manager::state::AccessManager {
+        roles: role_data,
+        whitelisted_programs: vec![],
+    };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     access_manager.serialize(&mut data).unwrap();
@@ -527,11 +530,6 @@ pub const CPI_TEST_TARGET_ID: Pubkey =
     solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
-pub const DIRECT_CALL_NOT_ALLOWED_ERROR: u32 =
-    anchor_lang::error::ERROR_CODE_OFFSET + crate::errors::GMPError::DirectCallNotAllowed as u32;
-pub const UNAUTHORIZED_ROUTER_ERROR: u32 =
-    anchor_lang::error::ERROR_CODE_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32;
-
 pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
     let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
     let mut disc = [0u8; 8];
@@ -540,6 +538,13 @@ pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
 }
 
 pub fn setup_program_test() -> solana_program_test::ProgramTest {
+    setup_program_test_with_access_manager(&Pubkey::new_unique(), &[])
+}
+
+pub fn setup_program_test_with_access_manager(
+    admin: &Pubkey,
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(DEPLOY_DIR);
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
@@ -549,7 +554,9 @@ pub fn setup_program_test() -> solana_program_test::ProgramTest {
     pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
     pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
     pt.add_program("ics26_router", ics26_router::ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
 
+    // Pre-create GMP app_state PDA
     let (app_state_pda, bump) = Pubkey::find_program_address(
         &[
             crate::state::GMPAppState::SEED,
@@ -574,6 +581,31 @@ pub fn setup_program_test() -> solana_program_test::ProgramTest {
             lamports: 1_000_000,
             data,
             owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create AccessManager PDA with admin role and whitelist
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    let am = access_manager::state::AccessManager {
+        roles: vec![access_manager::RoleData {
+            role_id: solana_ibc_types::roles::ADMIN_ROLE,
+            members: vec![*admin],
+        }],
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
             executable: false,
             rent_epoch: 0,
         },

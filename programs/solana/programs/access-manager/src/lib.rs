@@ -16,9 +16,6 @@ pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
 
-/// Programs whitelisted to call certain instructions via CPI
-pub const WHITELISTED_CPI_PROGRAMS: &[Pubkey] = &[];
-
 pub fn get_access_manager_program_path() -> &'static str {
     use std::sync::OnceLock;
     static PATH: OnceLock<String> = OnceLock::new();
@@ -51,5 +48,12 @@ pub mod access_manager {
 
     pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
         instructions::upgrade_program(ctx, target_program)
+    }
+
+    pub fn set_whitelisted_programs(
+        ctx: Context<SetWhitelistedPrograms>,
+        whitelisted_programs: Vec<Pubkey>,
+    ) -> Result<()> {
+        instructions::set_whitelisted_programs(ctx, whitelisted_programs)
     }
 }

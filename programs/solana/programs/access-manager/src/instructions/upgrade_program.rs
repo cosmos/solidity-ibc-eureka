@@ -69,10 +69,9 @@ pub struct UpgradeProgram<'info> {
 }
 
 pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
-    // Validate caller
     require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
-        crate::WHITELISTED_CPI_PROGRAMS,
+        &ctx.accounts.access_manager.whitelisted_programs,
         &crate::ID,
     )
     .map_err(AccessManagerError::from)?;

@@ -22,10 +22,9 @@ pub struct RevokeRole<'info> {
 }
 
 pub fn revoke_role(ctx: Context<RevokeRole>, role_id: u64, account: Pubkey) -> Result<()> {
-    // Validate caller
     require_direct_call_or_whitelisted_caller(
         &ctx.accounts.instructions_sysvar,
-        crate::WHITELISTED_CPI_PROGRAMS,
+        &ctx.accounts.access_manager.whitelisted_programs,
         &crate::ID,
     )
     .map_err(AccessManagerError::from)?;

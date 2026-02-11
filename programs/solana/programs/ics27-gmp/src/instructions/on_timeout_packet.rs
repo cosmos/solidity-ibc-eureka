@@ -667,7 +667,10 @@ mod integration_tests {
         let err = result.expect_err("direct call should be rejected");
         assert_eq!(
             extract_custom_error(&err),
-            Some(DIRECT_CALL_NOT_ALLOWED_ERROR),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::DirectCallNotAllowed as u32
+            ),
             "expected DirectCallNotAllowed, got: {err:?}"
         );
     }
@@ -684,7 +687,10 @@ mod integration_tests {
         let err = result.expect_err("unauthorized CPI should be rejected");
         assert_eq!(
             extract_custom_error(&err),
-            Some(UNAUTHORIZED_ROUTER_ERROR),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
             "expected UnauthorizedRouter, got: {err:?}"
         );
     }
@@ -702,7 +708,10 @@ mod integration_tests {
         let err = result.expect_err("nested CPI should be rejected");
         assert_eq!(
             extract_custom_error(&err),
-            Some(UNAUTHORIZED_ROUTER_ERROR),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
             "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
         );
     }
