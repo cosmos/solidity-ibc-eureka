@@ -31,6 +31,11 @@ pub fn verify_non_membership(
     let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
 
+    // Sanity check: already enforced by PDA seeds
+    require!(
+        msg.height == consensus_state_store.height,
+        ErrorCode::HeightMismatch
+    );
     require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
