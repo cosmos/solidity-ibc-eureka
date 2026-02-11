@@ -28,6 +28,9 @@ pub struct VerifyMembership<'info> {
 pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
     require!(!msg.value.is_empty(), ErrorCode::EmptyValue);
     require!(msg.path.len() == 1, ErrorCode::InvalidPathLength);
+    // msg.height is validated implicitly: PDA seeds resolve to a consensus state account
+    // that must exist and have timestamp != 0, and attestation.height must match it.
+    // This is a defense-in-depth sanity check.
     require!(msg.height > 0, ErrorCode::InvalidHeight);
 
     let client_state = &ctx.accounts.client_state;
