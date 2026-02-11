@@ -57,8 +57,13 @@ pub fn is_cpi() -> bool {
     get_stack_height() > TRANSACTION_LEVEL_STACK_HEIGHT
 }
 
-/// Rejects nested CPI chains (A -> B -> C). Only allows direct calls
+/// Rejects nested CPI chains (A → B → C). Only allows direct calls
 /// (stack height 1) or single-level CPI (stack height 2).
+///
+/// This is required because `get_instruction_relative(0)` always returns the
+/// top-level transaction instruction. In A → B → C, program C would see A as
+/// the caller instead of B. Limiting to single-level CPI ensures the top-level
+/// instruction IS the direct caller, making caller identity checks reliable.
 pub fn reject_nested_cpi() -> core::result::Result<(), CpiValidationError> {
     if get_stack_height() > SINGLE_LEVEL_CPI_STACK_HEIGHT {
         return Err(CpiValidationError::NestedCpiNotAllowed);

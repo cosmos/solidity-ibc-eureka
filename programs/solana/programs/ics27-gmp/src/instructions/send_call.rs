@@ -69,7 +69,8 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let clock = Clock::get()?;
     let current_time = clock.unix_timestamp;
 
-    // Direct call: sender signs. CPI call: use calling program ID for callback routing.
+    // Reject nested CPI so `get_instruction_relative(0)` reliably identifies the
+    // direct caller. In CPI mode we use that caller's program ID for callback routing.
     solana_ibc_types::reject_nested_cpi().map_err(GMPError::from)?;
     let sender_pubkey = if solana_ibc_types::is_cpi() {
         let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
