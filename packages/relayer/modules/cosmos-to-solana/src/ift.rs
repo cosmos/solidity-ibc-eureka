@@ -14,7 +14,7 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
-use spl_associated_token_account::get_associated_token_address;
+use spl_associated_token_account::get_associated_token_address_with_program_id;
 
 use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, Protobuf};
@@ -123,6 +123,14 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         "IFT: Building claim_refund instruction"
     );
 
+    let token_program_id = match params.solana_client.get_account(&pending_transfer.mint) {
+        Ok(mint_account) => mint_account.owner,
+        Err(e) => {
+            tracing::warn!(error = ?e, mint = %pending_transfer.mint, "IFT: Failed to fetch mint account, defaulting to spl_token");
+            spl_token::id()
+        }
+    };
+
     Some(build_claim_refund_ix(
         ift_program_id,
         params.gmp_program_id,
@@ -130,6 +138,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         params.source_client,
         params.sequence,
         params.fee_payer,
+        token_program_id,
     ))
 }
 
@@ -180,6 +189,7 @@ fn build_claim_refund_ix(
     client_id: &str,
     sequence: u64,
     fee_payer: Pubkey,
+    token_program_id: Pubkey,
 ) -> Instruction {
     let mint = pending_transfer.mint;
 
@@ -210,7 +220,11 @@ fn build_claim_refund_ix(
     let (mint_authority_pda, _) =
         Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
 
-    let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
+    let sender_token_account = get_associated_token_address_with_program_id(
+        &pending_transfer.sender,
+        &mint,
+        &token_program_id,
+    );
 
     // Account order must match IFT's ClaimRefund struct
     let accounts = vec![
@@ -221,7 +235,7 @@ fn build_claim_refund_ix(
         AccountMeta::new_readonly(mint_authority_pda, false),
         AccountMeta::new(sender_token_account, false),
         AccountMeta::new(fee_payer, true),
-        AccountMeta::new_readonly(spl_token::id(), false),
+        AccountMeta::new_readonly(token_program_id, false),
         AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
     ];
 

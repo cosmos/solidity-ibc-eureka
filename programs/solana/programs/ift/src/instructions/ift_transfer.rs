@@ -3,7 +3,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Space;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
@@ -39,7 +39,7 @@ pub struct IFTTransfer<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Sender's token account
     #[account(
@@ -48,7 +48,7 @@ pub struct IFTTransfer<'info> {
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == sender.key() @ IFTError::TokenAccountOwnerMismatch
     )]
-    pub sender_token_account: Account<'info, TokenAccount>,
+    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// Sender who owns the tokens
     pub sender: Signer<'info>,
@@ -57,7 +57,7 @@ pub struct IFTTransfer<'info> {
     pub payer: Signer<'info>,
 
     /// Required for burning tokens from sender's account
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 
     /// GMP program
@@ -149,7 +149,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         authority: ctx.accounts.sender.to_account_info(),
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
-    token::burn(burn_ctx, msg.amount)?;
+    token_interface::burn(burn_ctx, msg.amount)?;
     ctx.accounts.mint.reload()?;
     ctx.accounts.sender_token_account.reload()?;
 

@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
 use crate::constants::*;
@@ -35,7 +35,7 @@ pub struct IFTMint<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA that signs for minting
@@ -52,9 +52,10 @@ pub struct IFTMint<'info> {
         init_if_needed,
         payer = payer,
         associated_token::mint = mint,
-        associated_token::authority = receiver_owner
+        associated_token::authority = receiver_owner,
+        associated_token::token_program = token_program,
     )]
-    pub receiver_token_account: Account<'info, TokenAccount>,
+    pub receiver_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Receiver who will own the minted tokens.
     /// Constraint prevents relayer from substituting a different receiver than specified in cross-chain message.
@@ -74,7 +75,7 @@ pub struct IFTMint<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }

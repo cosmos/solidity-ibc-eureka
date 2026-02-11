@@ -3384,6 +3384,7 @@ dependencies = [
  "solana-program-test",
  "solana-sdk",
  "solana-sdk-ids",
+ "solana-sha256-hasher",
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",

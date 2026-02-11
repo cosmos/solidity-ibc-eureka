@@ -4,7 +4,7 @@
 //! after the GMP result has been recorded (either ack or timeout).
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
 use crate::constants::{IFT_APP_STATE_SEED, MINT_AUTHORITY_SEED, PENDING_TRANSFER_SEED};
@@ -56,7 +56,7 @@ pub struct ClaimRefund<'info> {
 
     /// SPL Token mint
     #[account(mut, address = app_state.mint)]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA verified by seeds constraint
@@ -72,13 +72,13 @@ pub struct ClaimRefund<'info> {
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == pending_transfer.sender @ IFTError::TokenAccountOwnerMismatch
     )]
-    pub sender_token_account: Account<'info, TokenAccount>,
+    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// Payer receives rent from closed `PendingTransfer` account
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 

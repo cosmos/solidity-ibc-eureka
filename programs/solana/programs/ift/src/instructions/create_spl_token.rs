@@ -1,11 +1,10 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token_interface::{Mint, TokenInterface};
 
 use crate::constants::*;
 use crate::events::SplTokenCreated;
 use crate::state::{AccountVersion, IFTAppState};
 
-// TODO: Add create and init spl token
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct CreateSplToken<'info> {
@@ -19,16 +18,15 @@ pub struct CreateSplToken<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    // TODO: symbol & metadata where is it set here??
-    // TODO: does it set the same for freeze and metadata???
     /// SPL Token mint (created by IFT with PDA as authority)
     #[account(
         init,
         payer = payer,
         mint::decimals = decimals,
         mint::authority = mint_authority,
+        mint::token_program = token_program,
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA set as mint authority
@@ -41,11 +39,10 @@ pub struct CreateSplToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-// TODO: check compatibility with token 2022 and write a test for it
 pub fn create_spl_token(
     ctx: Context<CreateSplToken>,
     decimals: u8,
