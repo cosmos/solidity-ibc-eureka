@@ -138,10 +138,7 @@ mod tests {
     use solana_sdk::{account::Account, instruction::AccountMeta};
 
     fn derive_program_data(target_program: &Pubkey) -> Pubkey {
-        Pubkey::find_program_address(
-            &[target_program.as_ref()],
-            &bpf_loader_upgradeable::ID,
-        ).0
+        Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID).0
     }
 
     fn setup_upgrade_test(
