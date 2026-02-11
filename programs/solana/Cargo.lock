@@ -1121,10 +1121,12 @@ dependencies = [
  "solana-ibc-constants",
  "solana-ibc-types",
  "solana-keccak-hasher",
+ "solana-program-test",
  "solana-sdk",
  "solana-sdk-ids",
  "solana-secp256k1-recover",
  "solana-sha256-hasher",
+ "tokio",
 ]
 
 [[package]]
@@ -1774,6 +1776,7 @@ dependencies = [
 name = "cpi-test-target"
 version = "0.1.0"
 dependencies = [
+ "access-manager",
  "anchor-lang",
  "malicious-caller",
  "rstest",
@@ -3455,8 +3458,10 @@ dependencies = [
  "solana-ibc-macros",
  "solana-ibc-types",
  "solana-keccak-hasher",
+ "solana-program-test",
  "solana-sdk",
  "solana-sha256-hasher",
+ "tokio",
 ]
 
 [[package]]

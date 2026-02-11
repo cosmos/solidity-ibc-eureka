@@ -12,7 +12,7 @@ pub fn check_reject_cpi(ctx: Context<CheckRejectCpi>) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+mod integration_tests {
     use anchor_lang::{InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
     use solana_sdk::{

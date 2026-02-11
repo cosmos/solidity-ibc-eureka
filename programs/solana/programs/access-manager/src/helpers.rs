@@ -11,25 +11,15 @@ pub fn require_admin(
     instructions_sysvar: &AccountInfo,
     program_id: &Pubkey,
 ) -> Result<()> {
-    require!(signer_account.is_signer, AccessManagerError::SignerRequired);
+    let access_manager = deserialize_access_manager(access_manager_account)?;
 
-    let data = access_manager_account.try_borrow_data()?;
-    let access_manager: AccessManager =
-        anchor_lang::AccountDeserialize::try_deserialize(&mut &data[..])?;
-
-    solana_ibc_types::require_direct_call_or_whitelisted_caller(
+    require_role_with_whitelist_inner(
+        &access_manager,
+        solana_ibc_types::roles::ADMIN_ROLE,
+        signer_account,
         instructions_sysvar,
-        &access_manager.whitelisted_programs,
         program_id,
     )
-    .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
-
-    require!(
-        access_manager.has_role(solana_ibc_types::roles::ADMIN_ROLE, &signer_account.key()),
-        AccessManagerError::Unauthorized
-    );
-
-    Ok(())
 }
 
 /// Verifies the caller has the given role. Rejects all CPI calls — only direct
@@ -41,42 +31,61 @@ pub fn require_role(
     instructions_sysvar: &AccountInfo,
     program_id: &Pubkey,
 ) -> Result<()> {
+    require!(signer_account.is_signer, AccessManagerError::SignerRequired);
+
     solana_ibc_types::reject_cpi(instructions_sysvar, program_id)
         .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
 
-    verify_signer_has_role(access_manager_account, role_id, signer_account)
+    let access_manager = deserialize_access_manager(access_manager_account)?;
+
+    require!(
+        access_manager.has_role(role_id, &signer_account.key()),
+        AccessManagerError::Unauthorized
+    );
+
+    Ok(())
 }
 
 /// Verifies the caller has the given role. Allows direct calls and whitelisted
-/// CPI callers.
+/// CPI callers. Reads the whitelist from the AccessManager account state.
 pub fn require_role_with_whitelist(
     access_manager_account: &AccountInfo,
     role_id: u64,
     signer_account: &AccountInfo,
     instructions_sysvar: &AccountInfo,
-    whitelisted_programs: &[Pubkey],
     program_id: &Pubkey,
 ) -> Result<()> {
-    solana_ibc_types::require_direct_call_or_whitelisted_caller(
+    let access_manager = deserialize_access_manager(access_manager_account)?;
+
+    require_role_with_whitelist_inner(
+        &access_manager,
+        role_id,
+        signer_account,
         instructions_sysvar,
-        whitelisted_programs,
         program_id,
     )
-    .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
-
-    verify_signer_has_role(access_manager_account, role_id, signer_account)
 }
 
-fn verify_signer_has_role(
-    access_manager_account: &AccountInfo,
+fn deserialize_access_manager(account: &AccountInfo) -> Result<AccessManager> {
+    let data = account.try_borrow_data()?;
+    anchor_lang::AccountDeserialize::try_deserialize(&mut &data[..])
+}
+
+fn require_role_with_whitelist_inner(
+    access_manager: &AccessManager,
     role_id: u64,
     signer_account: &AccountInfo,
+    instructions_sysvar: &AccountInfo,
+    program_id: &Pubkey,
 ) -> Result<()> {
     require!(signer_account.is_signer, AccessManagerError::SignerRequired);
 
-    let access_manager_data = access_manager_account.try_borrow_data()?;
-    let access_manager: AccessManager =
-        anchor_lang::AccountDeserialize::try_deserialize(&mut &access_manager_data[..])?;
+    solana_ibc_types::require_direct_call_or_whitelisted_caller(
+        instructions_sysvar,
+        &access_manager.whitelisted_programs,
+        program_id,
+    )
+    .map_err(|_| error!(AccessManagerError::CpiNotAllowed))?;
 
     require!(
         access_manager.has_role(role_id, &signer_account.key()),

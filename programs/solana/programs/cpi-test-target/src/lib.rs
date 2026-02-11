@@ -44,6 +44,23 @@ pub mod cpi_test_target {
         )
     }
 
+    pub fn check_require_admin(ctx: Context<CheckRequireAdmin>) -> Result<()> {
+        instructions::check_require_admin::check_require_admin(ctx)
+    }
+
+    pub fn check_require_role(ctx: Context<CheckRequireRole>, role_id: u64) -> Result<()> {
+        instructions::check_require_role::check_require_role(ctx, role_id)
+    }
+
+    pub fn check_require_role_with_whitelist(
+        ctx: Context<CheckRequireRoleWithWhitelist>,
+        role_id: u64,
+    ) -> Result<()> {
+        instructions::check_require_role_with_whitelist::check_require_role_with_whitelist(
+            ctx, role_id,
+        )
+    }
+
     pub fn proxy_cpi<'info>(
         ctx: Context<'_, '_, '_, 'info, ProxyCpi<'info>>,
         instruction_data: Vec<u8>,

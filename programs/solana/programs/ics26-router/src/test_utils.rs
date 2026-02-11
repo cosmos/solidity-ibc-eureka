@@ -933,3 +933,173 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
         anchor_lang::error::ERROR_CODE_OFFSET + CpiValidationError::UnauthorizedCaller as u32,
     ))
 }
+
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const MALICIOUS_CALLER_ID: Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const CPI_TEST_TARGET_ID: Pubkey =
+    solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test_with_whitelist(
+    admin: &Pubkey,
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
+    setup_program_test_with_roles_and_whitelist(
+        &[(solana_ibc_types::roles::ADMIN_ROLE, &[*admin])],
+        whitelisted_programs,
+    )
+}
+
+pub fn setup_program_test_with_roles_and_whitelist(
+    roles: &[(u64, &[Pubkey])],
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics26_router", crate::ID, None);
+    pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
+    pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create RouterState PDA
+    let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+    let router_state = RouterState {
+        version: AccountVersion::V1,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let router_data = create_account_data(&router_state);
+
+    pt.add_account(
+        router_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: router_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create AccessManager PDA with custom roles and whitelist
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    let role_data: Vec<access_manager::RoleData> = roles
+        .iter()
+        .map(|(role_id, members)| access_manager::RoleData {
+            role_id: *role_id,
+            members: members.to_vec(),
+        })
+        .collect();
+
+    let am = access_manager::state::AccessManager {
+        roles: role_data,
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+pub fn pt_wrap_in_proxy_cpi(
+    payer: Pubkey,
+    inner_ix: &solana_sdk::instruction::Instruction,
+) -> solana_sdk::instruction::Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        solana_sdk::instruction::AccountMeta::new_readonly(inner_ix.program_id, false),
+        solana_sdk::instruction::AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            solana_sdk::instruction::AccountMeta::new(meta.pubkey, false)
+        } else {
+            solana_sdk::instruction::AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    solana_sdk::instruction::Instruction {
+        program_id: MALICIOUS_CALLER_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn pt_wrap_in_cpi_test_target_proxy(
+    payer: Pubkey,
+    inner_ix: &solana_sdk::instruction::Instruction,
+) -> solana_sdk::instruction::Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        solana_sdk::instruction::AccountMeta::new_readonly(inner_ix.program_id, false),
+        solana_sdk::instruction::AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            solana_sdk::instruction::AccountMeta::new(meta.pubkey, false)
+        } else {
+            solana_sdk::instruction::AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    solana_sdk::instruction::Instruction {
+        program_id: CPI_TEST_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn pt_extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
+}

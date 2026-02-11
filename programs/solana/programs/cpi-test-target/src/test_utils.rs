@@ -1,6 +1,8 @@
-use anchor_lang::{InstructionData, ToAccountMetas};
+use access_manager::{state::AccessManager, RoleData};
+use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space, ToAccountMetas};
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
+    account::Account,
     hash::Hash,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -12,6 +14,8 @@ use solana_sdk::{
 const PROGRAM_BINARY_PATH: &str = "../../target/deploy/cpi_test_target";
 
 pub const PROGRAM_A_ID: Pubkey = malicious_caller::ID;
+
+pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
 pub fn setup_program_test() -> ProgramTest {
     if std::env::var("SBF_OUT_DIR").is_err() {
@@ -125,4 +129,82 @@ pub async fn process_tx(
         recent_blockhash,
     );
     banks_client.process_transaction(tx).await
+}
+
+pub async fn process_tx_with_signers(
+    banks_client: &BanksClient,
+    payer: &Keypair,
+    extra_signers: &[&Keypair],
+    recent_blockhash: Hash,
+    instructions: &[Instruction],
+) -> Result<(), BanksClientError> {
+    let mut signers: Vec<&Keypair> = vec![payer];
+    signers.extend_from_slice(extra_signers);
+    let tx = Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &signers,
+        recent_blockhash,
+    );
+    banks_client.process_transaction(tx).await
+}
+
+pub fn extract_custom_error(err: &BanksClientError) -> Option<u32> {
+    match err {
+        BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
+}
+
+// ── AccessManager account helpers ──
+
+pub fn admin_roles(admin: Pubkey) -> Vec<RoleData> {
+    vec![RoleData {
+        role_id: solana_ibc_types::roles::ADMIN_ROLE,
+        members: vec![admin],
+    }]
+}
+
+pub fn relayer_roles(relayer: Pubkey) -> Vec<RoleData> {
+    vec![RoleData {
+        role_id: solana_ibc_types::roles::RELAYER_ROLE,
+        members: vec![relayer],
+    }]
+}
+
+/// Adds a pre-populated AccessManager account to the ProgramTest.
+/// Returns the account's pubkey for use in instructions.
+pub fn add_access_manager_account(
+    pt: &mut ProgramTest,
+    roles: Vec<RoleData>,
+    whitelisted_programs: Vec<Pubkey>,
+) -> Pubkey {
+    let pubkey = Pubkey::new_unique();
+
+    let am = AccessManager {
+        roles,
+        whitelisted_programs,
+    };
+
+    let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
+    data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
+    am.serialize(&mut &mut data[8..]).unwrap();
+
+    pt.add_account(
+        pubkey,
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pubkey
 }

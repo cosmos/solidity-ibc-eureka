@@ -20,7 +20,7 @@ pub fn check_direct_or_whitelisted(
 }
 
 #[cfg(test)]
-mod tests {
+mod integration_tests {
     use anchor_lang::{InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
     use solana_sdk::{

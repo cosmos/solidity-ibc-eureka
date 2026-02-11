@@ -36,7 +36,9 @@ hex = "0.4"
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
-solana-sdk.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test.workspace = true
+tokio = { version = "1", features = ["full"] }
 bincode.workspace = true
 mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }

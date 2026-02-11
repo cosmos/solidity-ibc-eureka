@@ -34,7 +34,7 @@ pub fn check_is_cpi(ctx: Context<CheckIsCpi>) -> Result<()> {
 }
 
 #[cfg(test)]
-mod tests {
+mod integration_tests {
     use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
     use rstest::{fixture, rstest};
     use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signer::Signer};

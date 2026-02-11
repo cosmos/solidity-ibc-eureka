@@ -1087,3 +1087,299 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::state::{Client, ClientSequence, CounterpartyInfo, RouterState};
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+    };
+
+    const CLIENT_ID: &str = "test-client-01";
+
+    fn build_add_client_ix(payer: Pubkey, relayer: Pubkey, client_id: &str) -> Instruction {
+        let (router_state_pda, _) =
+            Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) = Pubkey::find_program_address(
+            &[ClientSequence::SEED, client_id.as_bytes()],
+            &crate::ID,
+        );
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::AddClient {
+                client_id: client_id.to_string(),
+                counterparty_info: CounterpartyInfo {
+                    client_id: "counterparty-client".to_string(),
+                    merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+                },
+            }
+            .data(),
+        }
+    }
+
+    fn build_migrate_client_ix(payer: Pubkey, relayer: Pubkey, client_id: &str) -> Instruction {
+        let (router_state_pda, _) =
+            Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(client_pda, false),
+                AccountMeta::new_readonly(relayer, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::MigrateClient {
+                client_id: client_id.to_string(),
+                params: super::MigrateClientParams {
+                    client_program_id: Some(Pubkey::new_unique()),
+                    counterparty_info: None,
+                    active: None,
+                },
+            }
+            .data(),
+        }
+    }
+
+    fn setup_with_client(
+        admin: &Pubkey,
+        client_id: &str,
+        whitelisted: &[Pubkey],
+    ) -> solana_program_test::ProgramTest {
+        let mut pt = setup_program_test_with_whitelist(admin, whitelisted);
+
+        let (client_pda, client_data) =
+            setup_client(client_id, Pubkey::new_unique(), "counterparty-client", true);
+
+        pt.add_account(
+            client_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        pt
+    }
+
+    // ── add_client (require_role → reject_cpi) ──
+
+    #[tokio::test]
+    async fn test_add_client_direct_call_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[CPI_TEST_TARGET_ID],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_add_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Direct call with ID_CUSTOMIZER_ROLE should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_client_without_role_rejected() {
+        let admin = Keypair::new();
+        let non_admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_add_client_ix(payer.pubkey(), non_admin.pubkey(), CLIENT_ID);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_client_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(solana_ibc_types::roles::ID_CUSTOMIZER_ROLE, &[admin.pubkey()])],
+            &[CPI_TEST_TARGET_ID],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_add_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let wrapped_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    // ── migrate_client (require_admin → whitelist-aware) ──
+
+    #[tokio::test]
+    async fn test_migrate_direct_call_by_admin_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct call by admin should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_migrate_direct_call_by_non_admin_rejected() {
+        let admin = Keypair::new();
+        let non_admin = Keypair::new();
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_migrate_client_ix(payer.pubkey(), non_admin.pubkey(), CLIENT_ID);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migrate_whitelisted_cpi_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let wrapped_ix = pt_wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Whitelisted CPI should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migrate_unauthorized_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let wrapped_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_migrate_nested_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[CPI_TEST_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let cpi_target_ix = pt_wrap_in_cpi_test_target_proxy(admin.pubkey(), &inner_ix);
+        let nested_ix = pt_wrap_in_proxy_cpi(admin.pubkey(), &cpi_target_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[nested_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+}
