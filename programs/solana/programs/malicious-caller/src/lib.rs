@@ -40,16 +40,11 @@ pub mod malicious_caller {
         instruction_data: Vec<u8>,
         account_metas: Vec<CpiAccountMeta>,
     ) -> Result<()> {
-        // Build the CPI instruction from provided data
-        let mut account_infos = Vec::new();
-
-        // Map account_metas to actual AccountInfos from remaining_accounts
-        for (i, _meta) in account_metas.iter().enumerate() {
-            if i >= ctx.remaining_accounts.len() {
-                return Err(ProgramError::NotEnoughAccountKeys.into());
-            }
-            account_infos.push(ctx.remaining_accounts[i].clone());
+        if account_metas.len() > ctx.remaining_accounts.len() {
+            return Err(ProgramError::NotEnoughAccountKeys.into());
         }
+
+        let account_infos = ctx.remaining_accounts[..account_metas.len()].to_vec();
 
         let instruction = Instruction {
             program_id: ctx.accounts.target_program.key(),
@@ -67,8 +62,6 @@ pub mod malicious_caller {
             data: instruction_data,
         };
 
-        // Execute the CPI
-        // This will fail if the target program properly validates the caller
         invoke(&instruction, &account_infos)?;
 
         Ok(())

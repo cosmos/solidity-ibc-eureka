@@ -1,0 +1,54 @@
+use anchor_lang::prelude::*;
+
+declare_id!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+
+pub mod instructions;
+#[cfg(test)]
+mod test_utils;
+
+use instructions::*;
+
+/// Test-only program that wraps each `cpi.rs` validation function as an
+/// instruction so they can be exercised under a real BPF runtime via
+/// `ProgramTest`.
+#[program]
+pub mod cpi_test_target {
+    use super::*;
+
+    pub fn check_is_cpi(ctx: Context<CheckIsCpi>) -> Result<()> {
+        instructions::check_is_cpi::check_is_cpi(ctx)
+    }
+
+    pub fn check_reject_nested_cpi(ctx: Context<NoAccounts>) -> Result<()> {
+        instructions::check_reject_nested_cpi::check_reject_nested_cpi(ctx)
+    }
+
+    pub fn check_validate_cpi_caller(
+        ctx: Context<CheckValidateCpiCaller>,
+        authorized_program: Pubkey,
+    ) -> Result<()> {
+        instructions::check_validate_cpi_caller::check_validate_cpi_caller(ctx, authorized_program)
+    }
+
+    pub fn check_reject_cpi(ctx: Context<CheckRejectCpi>) -> Result<()> {
+        instructions::check_reject_cpi::check_reject_cpi(ctx)
+    }
+
+    pub fn check_direct_or_whitelisted(
+        ctx: Context<CheckDirectOrWhitelisted>,
+        whitelisted_programs: Vec<Pubkey>,
+    ) -> Result<()> {
+        instructions::check_direct_or_whitelisted::check_direct_or_whitelisted(
+            ctx,
+            whitelisted_programs,
+        )
+    }
+
+    pub fn proxy_cpi<'info>(
+        ctx: Context<'_, '_, '_, 'info, ProxyCpi<'info>>,
+        instruction_data: Vec<u8>,
+        account_metas: Vec<CpiAccountMeta>,
+    ) -> Result<()> {
+        instructions::proxy_cpi::proxy_cpi(ctx, instruction_data, account_metas)
+    }
+}

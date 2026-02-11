@@ -35,10 +35,12 @@ solana-sha256-hasher.workspace = true
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
-solana-sdk.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test.workspace = true
 bincode.workspace = true
 gmp-counter-app = { workspace = true, features = ["cpi"] }
 rstest.workspace = true
+tokio = { version = "1", features = ["full"] }
 
 [lints]
 workspace = true

@@ -251,7 +251,7 @@ func NewUploadHeaderChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "chunk": Writable, Non-signer, Required
-		// The header chunk account to create (fails if already exists)
+		// The header chunk account to create or overwrite
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))

@@ -11,6 +11,7 @@ members = [
   "programs/mock-ibc-app",
   "programs/dummy-ibc-app",
   "programs/malicious-caller",
+  "programs/cpi-test-target",
   "packages/solana-ibc-types",
   "packages/solana-ibc-proto",
   "packages/ics25-handler",

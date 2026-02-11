@@ -154,9 +154,8 @@ pub fn migrate_client(
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
 
-    access_manager::require_role(
+    access_manager::require_admin(
         &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
         &ctx.accounts.relayer,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,

@@ -1,0 +1,36 @@
+[package]
+name = "cpi-test-target"
+version.workspace = true
+edition.workspace = true
+description = "Test-only program for CPI validation integration tests"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "security"]
+categories = ["development-tools::testing"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "cpi_test_target"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+solana-ibc-types.workspace = true
+
+[dev-dependencies]
+malicious-caller = { path = "../malicious-caller", features = ["cpi"] }
+rstest.workspace = true
+solana-program-test.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+tokio = { version = "1", features = ["full"] }
+
+[lints]
+workspace = true

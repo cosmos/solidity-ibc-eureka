@@ -3,7 +3,6 @@ use crate::errors::GMPError;
 use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::get_stack_height;
 use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
@@ -71,15 +70,15 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     let current_time = clock.unix_timestamp;
 
     // Direct call: sender signs. CPI call: use calling program ID for callback routing.
-    let stack_height = get_stack_height();
-    let sender_pubkey = if stack_height <= 1 {
-        require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
-        ctx.accounts.sender.key()
-    } else {
+    solana_ibc_types::reject_nested_cpi().map_err(GMPError::from)?;
+    let sender_pubkey = if solana_ibc_types::is_cpi() {
         let instruction_sysvar = ctx.accounts.instruction_sysvar.to_account_info();
         sysvar_instructions::get_instruction_relative(0, &instruction_sysvar)
             .map_err(|_| GMPError::InvalidSysvar)?
             .program_id
+    } else {
+        require!(ctx.accounts.sender.is_signer, GMPError::SenderMustSign);
+        ctx.accounts.sender.key()
     };
 
     // Validate IBC routing fields
@@ -482,5 +481,288 @@ mod tests {
     #[case::empty_client_id(SendCallErrorCase::EmptyClientId)]
     fn test_send_call_validation(#[case] case: SendCallErrorCase) {
         run_send_call_error_test(case);
+    }
+}
+
+/// Integration tests using ProgramTest with real BPF runtime.
+///
+/// These test the CPI detection logic (lines 72-82 of send_call) which depends
+/// on `get_stack_height()` — a syscall that returns 0 in Mollusk but works
+/// correctly under ProgramTest's BPF execution.
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use crate::state::GMPAppState;
+    use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+    use solana_program_test::ProgramTest;
+    use solana_sdk::{
+        hash::Hash,
+        instruction::{AccountMeta, Instruction, InstructionError},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+        transaction::{Transaction, TransactionError},
+    };
+
+    const MALICIOUS_CALLER_ID: Pubkey = solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+    const CPI_TEST_TARGET_ID: Pubkey = solana_sdk::pubkey!("HjJW8tAcq7PeaRDTR8bx22HPoh1AvLyNuKZtkgyk4i5n");
+    const DEPLOY_DIR: &str = "../../target/deploy";
+
+    // Anchor ERROR_CODE_OFFSET (6000) + GMPError discriminant (SenderMustSign = 6044)
+    const SENDER_MUST_SIGN_ERROR: u32 =
+        anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32;
+    // reject_nested_cpi() error is mapped through From<CpiValidationError> for GMPError,
+    // so NestedCpiNotAllowed becomes GMPError::UnauthorizedRouter.
+    const UNAUTHORIZED_ROUTER_ERROR: u32 =
+        anchor_lang::error::ERROR_CODE_OFFSET + GMPError::UnauthorizedRouter as u32;
+
+    fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+        let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+        let mut disc = [0u8; 8];
+        disc.copy_from_slice(&hash.to_bytes()[..8]);
+        disc
+    }
+
+    fn setup_program_test() -> ProgramTest {
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+            std::env::set_var("SBF_OUT_DIR", deploy_dir);
+        }
+
+        let mut pt = ProgramTest::new("ics27_gmp", crate::ID, None);
+        pt.add_program("malicious_caller", MALICIOUS_CALLER_ID, None);
+        pt.add_program("cpi_test_target", CPI_TEST_TARGET_ID, None);
+        pt.add_program("ics26_router", ics26_router::ID, None);
+
+        // Pre-create app_state PDA
+        let (app_state_pda, bump) = Pubkey::find_program_address(
+            &[GMPAppState::SEED, crate::constants::GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+        let app_state = GMPAppState {
+            version: crate::state::AccountVersion::V1,
+            paused: false,
+            bump,
+            access_manager: access_manager::ID,
+            _reserved: [0; 256],
+        };
+        let mut data = Vec::new();
+        data.extend_from_slice(GMPAppState::DISCRIMINATOR);
+        app_state.serialize(&mut data).unwrap();
+
+        pt.add_account(
+            app_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        pt
+    }
+
+    fn build_send_call_ix(
+        payer: Pubkey,
+        sender: Pubkey,
+        sender_is_signer: bool,
+    ) -> Instruction {
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[GMPAppState::SEED, crate::constants::GMP_PORT_ID.as_bytes()],
+            &crate::ID,
+        );
+
+        let msg = SendCallMsg {
+            source_client: "cosmoshub-1".to_string(),
+            receiver: Pubkey::new_unique().to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            timeout_timestamp: 3600,
+            memo: String::new(),
+        };
+
+        let ix_data = crate::instruction::SendCall { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(sender, sender_is_signer),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(ics26_router::ID, false),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false),  // router_state
+                AccountMeta::new(Pubkey::new_unique(), false),           // client_sequence
+                AccountMeta::new(Pubkey::new_unique(), false),           // packet_commitment
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false),  // ibc_app
+                AccountMeta::new_readonly(Pubkey::new_unique(), false),  // client
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+            ],
+            data: ix_data.data(),
+        }
+    }
+
+    /// Wraps an instruction in malicious_caller::proxy_cpi (manually serialized).
+    fn wrap_in_proxy_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+        // Borsh-serialize the args matching malicious_caller::proxy_cpi(instruction_data, account_metas)
+        let mut data = Vec::new();
+        data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+        // instruction_data: Vec<u8>
+        inner_ix.data.serialize(&mut data).unwrap();
+
+        // account_metas: Vec<CpiAccountMeta { is_signer: bool, is_writable: bool }>
+        let meta_count = inner_ix.accounts.len() as u32;
+        meta_count.serialize(&mut data).unwrap();
+        for meta in &inner_ix.accounts {
+            meta.is_signer.serialize(&mut data).unwrap();
+            meta.is_writable.serialize(&mut data).unwrap();
+        }
+
+        // Accounts: [target_program, payer, ...remaining_accounts]
+        let mut accounts = vec![
+            AccountMeta::new_readonly(inner_ix.program_id, false),
+            AccountMeta::new_readonly(payer, true),
+        ];
+        for meta in &inner_ix.accounts {
+            accounts.push(if meta.is_writable {
+                AccountMeta::new(meta.pubkey, false)
+            } else {
+                AccountMeta::new_readonly(meta.pubkey, false)
+            });
+        }
+
+        Instruction {
+            program_id: MALICIOUS_CALLER_ID,
+            accounts,
+            data,
+        }
+    }
+
+    /// Wraps an instruction in cpi_test_target::proxy_cpi (manually serialized).
+    fn wrap_in_cpi_test_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+        let mut data = Vec::new();
+        data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+        // instruction_data: Vec<u8>
+        inner_ix.data.serialize(&mut data).unwrap();
+
+        // account_metas: Vec<CpiAccountMeta { is_signer: bool, is_writable: bool }>
+        let meta_count = inner_ix.accounts.len() as u32;
+        meta_count.serialize(&mut data).unwrap();
+        for meta in &inner_ix.accounts {
+            meta.is_signer.serialize(&mut data).unwrap();
+            meta.is_writable.serialize(&mut data).unwrap();
+        }
+
+        // Accounts: [target_program, payer, ...remaining_accounts]
+        let mut accounts = vec![
+            AccountMeta::new_readonly(inner_ix.program_id, false),
+            AccountMeta::new_readonly(payer, true),
+        ];
+        for meta in &inner_ix.accounts {
+            accounts.push(if meta.is_writable {
+                AccountMeta::new(meta.pubkey, false)
+            } else {
+                AccountMeta::new_readonly(meta.pubkey, false)
+            });
+        }
+
+        Instruction {
+            program_id: CPI_TEST_TARGET_ID,
+            accounts,
+            data,
+        }
+    }
+
+    async fn process_tx(
+        banks_client: &solana_program_test::BanksClient,
+        payer: &Keypair,
+        recent_blockhash: Hash,
+        instructions: &[Instruction],
+    ) -> std::result::Result<(), solana_program_test::BanksClientError> {
+        let tx = Transaction::new_signed_with_payer(
+            instructions,
+            Some(&payer.pubkey()),
+            &[payer],
+            recent_blockhash,
+        );
+        banks_client.process_transaction(tx).await
+    }
+
+    fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+        match err {
+            solana_program_test::BanksClientError::TransactionError(
+                TransactionError::InstructionError(_, InstructionError::Custom(code)),
+            ) => Some(*code),
+            _ => None,
+        }
+    }
+
+    /// Direct call with sender not signing must fail with SenderMustSign.
+    /// This proves the direct-call path (is_cpi() == false) is taken.
+    #[tokio::test]
+    async fn test_direct_call_requires_sender_signer() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let ix = build_send_call_ix(payer.pubkey(), sender, false);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("direct call without signer should fail");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(SENDER_MUST_SIGN_ERROR),
+            "expected SenderMustSign (6044), got: {err:?}"
+        );
+    }
+
+    /// CPI call (Tx -> malicious_caller -> GMP) with sender not signing should
+    /// NOT fail with SenderMustSign — proving is_cpi() returns true and the
+    /// signer check is bypassed. It will fail later at the router CPI (router
+    /// is not initialized) but with a different error.
+    #[tokio::test]
+    async fn test_cpi_call_skips_sender_signer_check() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("CPI call should still fail (router not initialized)");
+        assert_ne!(
+            extract_custom_error(&err),
+            Some(SENDER_MUST_SIGN_ERROR),
+            "CPI call must NOT fail with SenderMustSign — is_cpi() should be true"
+        );
+    }
+
+    /// Nested CPI (Tx -> malicious_caller -> cpi_test_target -> GMP)
+    /// must be rejected with UnauthorizedRouter (mapped from NestedCpiNotAllowed).
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
+        let middle_ix = wrap_in_cpi_test_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_proxy_cpi(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("nested CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(UNAUTHORIZED_ROUTER_ERROR),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
     }
 }

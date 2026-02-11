@@ -30,9 +30,8 @@ pub fn set_access_manager(
     ctx: Context<SetAccessManager>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    access_manager::require_role(
+    access_manager::require_admin(
         &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,

@@ -25,9 +25,9 @@ impl From<CpiValidationError> for AccessManagerError {
     fn from(error: CpiValidationError) -> Self {
         match error {
             CpiValidationError::InvalidSysvar => Self::InvalidSysenv,
-            CpiValidationError::UnauthorizedCaller | CpiValidationError::DirectCallNotAllowed => {
-                Self::CpiNotAllowed
-            }
+            CpiValidationError::UnauthorizedCaller
+            | CpiValidationError::DirectCallNotAllowed
+            | CpiValidationError::NestedCpiNotAllowed => Self::CpiNotAllowed,
         }
     }
 }

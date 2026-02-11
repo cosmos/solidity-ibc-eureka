@@ -163,7 +163,10 @@ impl From<solana_ibc_types::CpiValidationError> for GMPError {
             solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
                 Self::DirectCallNotAllowed
             }
-            solana_ibc_types::CpiValidationError::UnauthorizedCaller => Self::UnauthorizedRouter,
+            solana_ibc_types::CpiValidationError::UnauthorizedCaller
+            | solana_ibc_types::CpiValidationError::NestedCpiNotAllowed => {
+                Self::UnauthorizedRouter
+            }
         }
     }
 }
