@@ -885,8 +885,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 
 // Test_IFT_AckFailureRefund tests that tokens are refunded on acknowledgement failure
 // Note: wfchain has IFT module but we unregister the bridge to trigger error ack
-// Test_IFT_AckFailureRefund tests that tokens are refunded on acknowledgement failure
-// Note: wfchain has IFT module but we unregister the bridge to trigger error ack
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
