@@ -440,9 +440,9 @@ func NewIftMintInstruction(
 	), nil
 }
 
-// Builds a "claim_refund" instruction.
-// Claim refund for a pending transfer after GMP result is recorded and proved ack/timeout.
-func NewClaimRefundInstruction(
+// Builds a "finalize_transfer" instruction.
+// Finalize a pending transfer after GMP result is recorded and proved ack/timeout.
+func NewFinalizeTransferInstruction(
 	// Params:
 	clientIdParam string,
 	sequenceParam uint64,
@@ -462,7 +462,7 @@ func NewClaimRefundInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_ClaimRefund[:], false)
+	err := enc__.WriteBytes(Instruction_FinalizeTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}

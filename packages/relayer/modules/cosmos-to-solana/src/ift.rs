@@ -1,7 +1,7 @@
-//! IFT `claim_refund` instruction builder for ack/timeout packets.
+//! IFT `finalize_transfer` instruction builder for ack/timeout packets.
 //!
 //! After GMP processes ack/timeout and creates `GMPCallResultAccount`,
-//! the relayer calls IFT's `claim_refund` to process refunds.
+//! the relayer calls IFT's `finalize_transfer` to process refunds.
 
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -34,9 +34,9 @@ static PENDING_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
 
-static CLAIM_REFUND_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
+static FINALIZE_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
-    hasher.update(b"global:claim_refund");
+    hasher.update(b"global:finalize_transfer");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
@@ -55,8 +55,8 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
-/// Parameters for building IFT `claim_refund` instruction
-pub struct ClaimRefundParams<'a> {
+/// Parameters for building IFT `finalize_transfer` instruction
+pub struct FinalizeTransferParams<'a> {
     pub source_port: &'a str,
     pub encoding: &'a str,
     pub payload_value: &'a [u8],
@@ -67,9 +67,11 @@ pub struct ClaimRefundParams<'a> {
     pub fee_payer: Pubkey,
 }
 
-/// Build IFT `claim_refund` instruction if this packet is from IFT.
+/// Build IFT `finalize_transfer` instruction if this packet is from IFT.
 /// Returns None if the packet is not an IFT transfer or no pending transfer exists.
-pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<Instruction> {
+pub fn build_finalize_transfer_instruction(
+    params: &FinalizeTransferParams<'_>,
+) -> Option<Instruction> {
     // Only process GMP port packets - accept empty encoding for Cosmos compatibility
     if params.source_port != GMP_PORT_ID
         || !(params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING)
@@ -120,7 +122,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         mint = %pending_transfer.mint,
         amount = pending_transfer.amount,
         sequence = params.sequence,
-        "IFT: Building claim_refund instruction"
+        "IFT: Building finalize_transfer instruction"
     );
 
     let token_program_id = match params.solana_client.get_account(&pending_transfer.mint) {
@@ -131,7 +133,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         }
     };
 
-    Some(build_claim_refund_ix(
+    Some(build_finalize_transfer_ix(
         ift_program_id,
         params.gmp_program_id,
         &pending_transfer,
@@ -182,7 +184,7 @@ fn find_pending_transfer(
     Ok(None)
 }
 
-fn build_claim_refund_ix(
+fn build_finalize_transfer_ix(
     ift_program_id: Pubkey,
     gmp_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
@@ -226,7 +228,7 @@ fn build_claim_refund_ix(
         &token_program_id,
     );
 
-    // Account order must match IFT's ClaimRefund struct
+    // Account order must match IFT's FinalizeTransfer struct
     let accounts = vec![
         AccountMeta::new(app_state_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
@@ -240,7 +242,7 @@ fn build_claim_refund_ix(
     ];
 
     // Build instruction data: discriminator + client_id (string) + sequence (u64)
-    let mut data = CLAIM_REFUND_DISCRIMINATOR.to_vec();
+    let mut data = FINALIZE_TRANSFER_DISCRIMINATOR.to_vec();
     // Anchor serializes String as length-prefixed (u32 + bytes)
     let client_id_bytes = client_id.as_bytes();
     #[allow(clippy::cast_possible_truncation)]

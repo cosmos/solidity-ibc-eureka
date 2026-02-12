@@ -103,8 +103,8 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	// Process all packets in parallel
 	packetResults := make(chan packetResult, len(batch.Packets))
 
-	// Track IFT claim_refund goroutines so we can wait for them before returning
-	var claimRefundWg sync.WaitGroup
+	// Track IFT finalize_transfer goroutines so we can wait for them before returning
+	var finalizeTransferWg sync.WaitGroup
 
 	for packetIdx, packet := range batch.Packets {
 		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
@@ -379,33 +379,33 @@ func (s *Solana) SubmitChunkedRelayPackets(
 				}(pktIdx, pkt.CleanupTx)
 			}
 
-			// Phase 4: Submit IFT claim_refund transaction (tracked, waits before function returns)
+			// Phase 4: Submit IFT finalize_transfer transaction (tracked, waits before function returns)
 			// This processes refunds for IFT transfers on ack/timeout
-			if len(pkt.IftClaimRefundTx) > 0 {
-				claimRefundWg.Add(1)
-				go func(pktIdx int, claimRefundTxBytes []byte) {
-					defer claimRefundWg.Done()
+			if len(pkt.IftFinalizeTransferTx) > 0 {
+				finalizeTransferWg.Add(1)
+				go func(pktIdx int, finalizeTransferTxBytes []byte) {
+					defer finalizeTransferWg.Done()
 
-					claimRefundTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(claimRefundTxBytes))
+					finalizeTransferTx, err := solana.TransactionFromDecoder(bin.NewBinDecoder(finalizeTransferTxBytes))
 					if err != nil {
-						t.Logf("⚠ Packet %d: Failed to decode IFT claim_refund tx: %v", pktIdx+1, err)
+						t.Logf("⚠ Packet %d: Failed to decode IFT finalize_transfer tx: %v", pktIdx+1, err)
 						return
 					}
 
 					recent, err := s.RPCClient.GetLatestBlockhash(ctx, rpc.CommitmentConfirmed)
 					if err != nil {
-						t.Logf("⚠ Packet %d: Failed to get blockhash for IFT claim_refund tx: %v", pktIdx+1, err)
+						t.Logf("⚠ Packet %d: Failed to get blockhash for IFT finalize_transfer tx: %v", pktIdx+1, err)
 						return
 					}
-					claimRefundTx.Message.RecentBlockhash = recent.Value.Blockhash
+					finalizeTransferTx.Message.RecentBlockhash = recent.Value.Blockhash
 
-					claimRefundSig, err := s.SignAndBroadcastTxWithOpts(ctx, claimRefundTx, rpc.ConfirmationStatusConfirmed, user)
+					finalizeTransferSig, err := s.SignAndBroadcastTxWithOpts(ctx, finalizeTransferTx, rpc.ConfirmationStatusConfirmed, user)
 					if err != nil {
-						t.Logf("⚠ Packet %d: IFT claim_refund tx failed: %v", pktIdx+1, err)
+						t.Logf("⚠ Packet %d: IFT finalize_transfer tx failed: %v", pktIdx+1, err)
 					} else {
-						t.Logf("✓ Packet %d: IFT claim_refund tx completed - tx: %s", pktIdx+1, claimRefundSig)
+						t.Logf("✓ Packet %d: IFT finalize_transfer tx completed - tx: %s", pktIdx+1, finalizeTransferSig)
 					}
-				}(pktIdx, pkt.IftClaimRefundTx)
+				}(pktIdx, pkt.IftFinalizeTransferTx)
 			}
 		}(packetIdx, packet)
 	}
@@ -427,9 +427,9 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	}
 	close(packetResults)
 
-	// Wait for all IFT claim_refund transactions to complete before returning
+	// Wait for all IFT finalize_transfer transactions to complete before returning
 	// This ensures tests can verify PendingTransfer PDA closure after relay completes
-	claimRefundWg.Wait()
+	finalizeTransferWg.Wait()
 
 	totalDuration := time.Since(totalStart)
 	avgChunksDuration := totalChunksDuration / time.Duration(len(batch.Packets))
@@ -856,7 +856,7 @@ func (s *Solana) VerifyPendingTransferExists(
 		pendingTransferPDA.String(), mint.String(), clientID, sequence)
 }
 
-// VerifyPendingTransferClosed verifies that an IFT PendingTransfer PDA has been closed after claim_refund
+// VerifyPendingTransferClosed verifies that an IFT PendingTransfer PDA has been closed after finalize_transfer
 func (s *Solana) VerifyPendingTransferClosed(
 	ctx context.Context,
 	t *testing.T,
@@ -888,7 +888,7 @@ func (s *Solana) VerifyPendingTransferClosed(
 		return
 	}
 
-	require.Fail("PendingTransfer PDA should have been closed after claim_refund",
+	require.Fail("PendingTransfer PDA should have been closed after finalize_transfer",
 		"Account %s still exists with %d lamports (mint: %s, client: %s, sequence: %d)",
 		pendingTransferPDA.String(), accountInfo.Value.Lamports, mint.String(), clientID, sequence)
 }

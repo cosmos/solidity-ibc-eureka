@@ -1,6 +1,6 @@
 pub mod admin;
-pub mod claim_refund;
 pub mod create_spl_token;
+pub mod finalize_transfer;
 pub mod ift_mint;
 pub mod ift_transfer;
 pub mod initialize_existing_token;
@@ -10,8 +10,8 @@ pub mod set_mint_rate_limit;
 pub mod set_paused;
 
 pub use admin::*;
-pub use claim_refund::*;
 pub use create_spl_token::*;
+pub use finalize_transfer::*;
 pub use ift_mint::*;
 pub use ift_transfer::*;
 pub use initialize_existing_token::*;

@@ -67,9 +67,13 @@ pub mod ift {
         instructions::ift_mint(ctx, msg)
     }
 
-    /// Claim refund for a pending transfer after GMP result is recorded and proved ack/timeout.
-    pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64) -> Result<()> {
-        instructions::claim_refund(ctx, client_id, sequence)
+    /// Finalize a pending transfer after GMP result is recorded and proved ack/timeout.
+    pub fn finalize_transfer(
+        ctx: Context<FinalizeTransfer>,
+        client_id: String,
+        sequence: u64,
+    ) -> Result<()> {
+        instructions::finalize_transfer(ctx, client_id, sequence)
     }
 
     /// Set the admin authority (admin only)
