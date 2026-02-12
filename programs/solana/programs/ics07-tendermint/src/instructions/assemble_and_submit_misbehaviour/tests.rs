@@ -465,11 +465,11 @@ fn test_assemble_and_submit_misbehaviour_wrong_client_state_pda() {
     let instruction = create_assemble_instruction(&test_accounts);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-    let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+    let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(
+        anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+    ))];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
-
-const CONSTRAINT_SEEDS_ERROR: u32 = 2006;
 
 /// Creates a serialized `ConsensusStateStore` account data.
 fn serialize_consensus_state_store(height: u64, root: [u8; 32]) -> Vec<u8> {
@@ -490,7 +490,7 @@ fn assert_constraint_seeds(result: &mollusk_svm::result::InstructionResult) {
     assert_eq!(
         result.program_result,
         MolluskProgramResult::Failure(anchor_lang::prelude::ProgramError::Custom(
-            CONSTRAINT_SEEDS_ERROR
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
         )),
         "wrong consensus state must be rejected by seeds constraint"
     );
@@ -501,7 +501,7 @@ fn assert_constraint_seeds(result: &mollusk_svm::result::InstructionResult) {
 // These tests verify that Anchor's seeds constraint rejects substituted
 // ConsensusStateStore accounts. The seeds bind each consensus state to
 // [SEED, client_state_key, height_le_bytes], so any account at a different
-// PDA is rejected with ConstraintSeeds (2006).
+// PDA is rejected with ConstraintSeeds.
 
 /// Regression: substituting `trusted_consensus_state_1` with a PDA for a
 /// different height is rejected by the seeds constraint.

@@ -1,4 +1,7 @@
-use anchor_lang::{AccountSerialize, AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData, ToAccountMetas};
+use anchor_lang::{
+    AccountSerialize, AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData,
+    ToAccountMetas,
+};
 use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
 use rstest::{fixture, rstest};
@@ -26,10 +29,8 @@ fn setup_program_test() -> ProgramTest {
     pt.add_program("access_manager", access_manager::ID, None);
 
     // Pre-create AppState PDA pointing to access_manager program
-    let (app_state_pda, _) = Pubkey::find_program_address(
-        &[ics07_tendermint::AppState::SEED],
-        &ics07_tendermint::ID,
-    );
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[ics07_tendermint::AppState::SEED], &ics07_tendermint::ID);
     let app_state = ics07_tendermint::AppState {
         access_manager: access_manager::ID,
         chain_id: String::new(),
@@ -199,10 +200,8 @@ fn create_pre_verify_instruction(
         &[SignatureVerification::SEED, &sig_data.signature_hash],
         &ics07_tendermint::ID,
     );
-    let (app_state_pda, _) = Pubkey::find_program_address(
-        &[ics07_tendermint::AppState::SEED],
-        &ics07_tendermint::ID,
-    );
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[ics07_tendermint::AppState::SEED], &ics07_tendermint::ID);
     let (access_manager_pda, _) = Pubkey::find_program_address(
         &[access_manager::state::AccessManager::SEED],
         &access_manager::ID,

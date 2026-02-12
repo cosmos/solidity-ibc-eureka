@@ -6,9 +6,7 @@ pub struct CleanupIncompleteMisbehaviour<'info> {
     pub submitter: Signer<'info>,
 }
 
-pub fn cleanup_incomplete_misbehaviour(
-    ctx: Context<CleanupIncompleteMisbehaviour>,
-) -> Result<()> {
+pub fn cleanup_incomplete_misbehaviour(ctx: Context<CleanupIncompleteMisbehaviour>) -> Result<()> {
     let submitter_key = ctx.accounts.submitter.key();
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         let expected_seeds = &[
@@ -29,8 +27,7 @@ pub fn cleanup_incomplete_misbehaviour(
             }
 
             let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-            let mut submitter_lamports =
-                ctx.accounts.submitter.try_borrow_mut_lamports()?;
+            let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
             **submitter_lamports = submitter_lamports
                 .checked_add(**lamports)
                 .ok_or(crate::error::ErrorCode::ArithmeticOverflow)?;

@@ -224,8 +224,9 @@ mod tests {
             create_uninitialized_account_for_pda(result_pda),
         ];
 
-        // Anchor ConstraintSeeds error (2006)
-        let checks = vec![Check::err(ProgramError::Custom(2006))];
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }

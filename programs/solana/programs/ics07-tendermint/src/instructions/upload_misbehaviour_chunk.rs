@@ -93,8 +93,7 @@ mod integration_tests {
     };
 
     fn add_client_state(pt: &mut solana_program_test::ProgramTest) {
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
 
         let client_state = ClientState {
             chain_id: "test-chain".to_string(),
@@ -128,10 +127,7 @@ mod integration_tests {
         );
     }
 
-    fn build_upload_misbehaviour_chunk_ix(
-        submitter: Pubkey,
-        chunk_index: u8,
-    ) -> Instruction {
+    fn build_upload_misbehaviour_chunk_ix(submitter: Pubkey, chunk_index: u8) -> Instruction {
         let (chunk_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::MisbehaviourChunk::SEED,
@@ -140,8 +136,7 @@ mod integration_tests {
             ],
             &crate::ID,
         );
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(

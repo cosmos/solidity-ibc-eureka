@@ -51,17 +51,12 @@ fn setup_test_accounts(
     with_existing_client: bool,
 ) -> TestAccounts {
     let chunk_pda = Pubkey::find_program_address(
-        &[
-            MisbehaviourChunk::SEED,
-            submitter.as_ref(),
-            &[chunk_index],
-        ],
+        &[MisbehaviourChunk::SEED, submitter.as_ref(), &[chunk_index]],
         &crate::ID,
     )
     .0;
 
-    let client_state_pda =
-        Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
 
     let (app_state_pda, app_state_account) = create_app_state_account();
     let (access_manager_pda, access_manager_account) =
@@ -158,10 +153,7 @@ fn create_upload_instruction(
             AccountMeta::new_readonly(test_accounts.app_state_pda, false),
             AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
-            AccountMeta::new_readonly(
-                anchor_lang::solana_program::sysvar::instructions::ID,
-                false,
-            ),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: instruction_data.data(),
@@ -284,8 +276,7 @@ fn test_upload_chunk_with_frozen_client_fails() {
 
     let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
-    let client_state_pda =
-        Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
+    let client_state_pda = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
 
     if let Some((_, account)) = test_accounts
         .accounts

@@ -1851,6 +1851,8 @@ fn test_assemble_wrong_client_state_pda() {
     mollusk.process_and_validate_instruction(
         &instruction,
         &accounts,
-        &[Check::err(anchor_lang::prelude::ProgramError::Custom(2006))],
+        &[Check::err(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))],
     );
 }

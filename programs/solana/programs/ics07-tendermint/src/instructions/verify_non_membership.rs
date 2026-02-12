@@ -302,7 +302,9 @@ mod tests {
         let instruction = create_verify_non_membership_instruction(&test_accounts, msg);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
@@ -380,7 +382,9 @@ mod tests {
         };
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(2006))];
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

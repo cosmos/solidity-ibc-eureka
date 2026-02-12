@@ -95,8 +95,7 @@ mod integration_tests {
     };
 
     fn add_client_state(pt: &mut solana_program_test::ProgramTest) {
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
 
         let client_state = ClientState {
             chain_id: "test-chain".to_string(),
@@ -144,8 +143,7 @@ mod integration_tests {
             ],
             &crate::ID,
         );
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
+        let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(

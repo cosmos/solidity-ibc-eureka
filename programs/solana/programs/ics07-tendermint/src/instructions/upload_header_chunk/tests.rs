@@ -183,10 +183,7 @@ fn create_upload_instruction(
             AccountMeta::new_readonly(test_accounts.app_state_pda, false),
             AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
-            AccountMeta::new_readonly(
-                anchor_lang::solana_program::sysvar::instructions::ID,
-                false,
-            ),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: instruction_data.data(),
