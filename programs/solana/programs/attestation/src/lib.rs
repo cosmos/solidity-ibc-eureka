@@ -32,7 +32,12 @@ pub mod attestation {
         min_required_sigs: u8,
         access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::initialize::initialize(ctx, attestor_addresses, min_required_sigs, access_manager)
+        instructions::initialize::initialize(
+            ctx,
+            attestor_addresses,
+            min_required_sigs,
+            access_manager,
+        )
     }
 
     pub fn set_access_manager(

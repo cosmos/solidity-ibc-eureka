@@ -1,8 +1,9 @@
 use crate::errors::AccessManagerError;
 use crate::events::RoleGrantedEvent;
+use crate::helpers::require_admin;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
+use solana_ibc_types::roles;
 
 #[derive(Accounts)]
 pub struct GrantRole<'info> {
@@ -22,20 +23,12 @@ pub struct GrantRole<'info> {
 }
 
 pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Result<()> {
-    require_direct_call_or_whitelisted_caller(
+    require_admin(
+        &ctx.accounts.access_manager.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
         &ctx.accounts.instructions_sysvar,
-        &ctx.accounts.access_manager.whitelisted_programs,
         &crate::ID,
-    )
-    .map_err(AccessManagerError::from)?;
-
-    // Only admins can grant roles
-    require!(
-        ctx.accounts
-            .access_manager
-            .has_role(roles::ADMIN_ROLE, &ctx.accounts.admin.key()),
-        AccessManagerError::Unauthorized
-    );
+    )?;
 
     // Cannot grant PUBLIC_ROLE
     require!(

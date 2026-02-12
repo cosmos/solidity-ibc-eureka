@@ -147,11 +147,8 @@ mod tests {
     #[test]
     fn test_initialize_happy_path() {
         let test_accounts = setup_test_accounts();
-        let instruction = create_initialize_instruction(
-            &test_accounts,
-            vec![[1u8; 20], [2u8; 20], [3u8; 20]],
-            2,
-        );
+        let instruction =
+            create_initialize_instruction(&test_accounts, vec![[1u8; 20], [2u8; 20], [3u8; 20]], 2);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let checks = vec![
@@ -179,8 +176,7 @@ mod tests {
         #[case] expected_error: ErrorCode,
     ) {
         let test_accounts = setup_test_accounts();
-        let instruction =
-            create_initialize_instruction(&test_accounts, attestors, min_sigs);
+        let instruction = create_initialize_instruction(&test_accounts, attestors, min_sigs);
         expect_error(&test_accounts, instruction, expected_error);
     }
 
@@ -194,8 +190,7 @@ mod tests {
         #[case] min_sigs: u8,
     ) {
         let test_accounts = setup_test_accounts();
-        let instruction =
-            create_initialize_instruction(&test_accounts, attestors, min_sigs);
+        let instruction = create_initialize_instruction(&test_accounts, attestors, min_sigs);
         expect_success(&test_accounts, instruction);
     }
 }

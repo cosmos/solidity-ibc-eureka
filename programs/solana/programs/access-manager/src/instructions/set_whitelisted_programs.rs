@@ -1,8 +1,7 @@
-use crate::errors::AccessManagerError;
 use crate::events::WhitelistedProgramsUpdatedEvent;
+use crate::helpers::require_admin;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 pub struct SetWhitelistedPrograms<'info> {
@@ -24,19 +23,12 @@ pub fn set_whitelisted_programs(
     ctx: Context<SetWhitelistedPrograms>,
     whitelisted_programs: Vec<Pubkey>,
 ) -> Result<()> {
-    require_direct_call_or_whitelisted_caller(
+    require_admin(
+        &ctx.accounts.access_manager.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
         &ctx.accounts.instructions_sysvar,
-        &ctx.accounts.access_manager.whitelisted_programs,
         &crate::ID,
-    )
-    .map_err(AccessManagerError::from)?;
-
-    require!(
-        ctx.accounts
-            .access_manager
-            .has_role(roles::ADMIN_ROLE, &ctx.accounts.admin.key()),
-        AccessManagerError::Unauthorized
-    );
+    )?;
 
     let old = ctx.accounts.access_manager.whitelisted_programs.clone();
     ctx.accounts
@@ -61,6 +53,7 @@ pub fn set_whitelisted_programs(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::AccessManagerError;
     use crate::test_utils::*;
     use mollusk_svm::result::Check;
     use solana_sdk::instruction::AccountMeta;

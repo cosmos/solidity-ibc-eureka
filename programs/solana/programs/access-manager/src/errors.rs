@@ -17,8 +17,8 @@ pub enum AccessManagerError {
     SignerRequired,
     #[msg("CPI calls not allowed")]
     CpiNotAllowed,
-    #[msg("Invalid upgrade authority")]
-    InvalidUpgradeAuthority,
+    #[msg("Program account does not match target_program")]
+    ProgramMismatch,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

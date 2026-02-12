@@ -1,9 +1,9 @@
 use crate::errors::AccessManagerError;
 use crate::events::ProgramUpgradedEvent;
+use crate::helpers::require_admin;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
@@ -20,7 +20,7 @@ pub struct UpgradeProgram<'info> {
         mut,
         executable,
         owner = bpf_loader_upgradeable::ID,
-        constraint = program.key() == target_program @ AccessManagerError::InvalidUpgradeAuthority
+        constraint = program.key() == target_program @ AccessManagerError::ProgramMismatch
     )]
     pub program: AccountInfo<'info>,
 
@@ -69,20 +69,12 @@ pub struct UpgradeProgram<'info> {
 }
 
 pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
-    require_direct_call_or_whitelisted_caller(
+    require_admin(
+        &ctx.accounts.access_manager.to_account_info(),
+        &ctx.accounts.authority.to_account_info(),
         &ctx.accounts.instructions_sysvar,
-        &ctx.accounts.access_manager.whitelisted_programs,
         &crate::ID,
-    )
-    .map_err(AccessManagerError::from)?;
-
-    // Only admins can upgrade programs
-    require!(
-        ctx.accounts
-            .access_manager
-            .has_role(roles::ADMIN_ROLE, &ctx.accounts.authority.key()),
-        AccessManagerError::Unauthorized
-    );
+    )?;
 
     let (upgrade_authority_pda, bump) =
         AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
