@@ -1115,15 +1115,12 @@ dependencies = [
  "mollusk-svm-bencher",
  "rstest",
  "serde",
- "serde_json",
  "sha2 0.10.9",
  "solana-allocator",
- "solana-ibc-constants",
  "solana-ibc-types",
  "solana-keccak-hasher",
  "solana-program-test",
  "solana-sdk",
- "solana-sdk-ids",
  "solana-secp256k1-recover",
  "solana-sha256-hasher",
  "tokio",
@@ -2785,11 +2782,9 @@ name = "gmp-counter-app"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
- "anchor-spl",
  "bincode",
  "mollusk-svm",
  "mollusk-svm-bencher",
- "solana-ibc-types",
  "solana-sdk",
 ]
 
@@ -3358,8 +3353,6 @@ dependencies = [
  "ibc-client-tendermint",
  "ibc-core-client-types",
  "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-primitives",
  "ibc-proto",
  "ics25-handler",
  "mollusk-svm",
@@ -3371,7 +3364,6 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "solana-allocator",
- "solana-define-syscall",
  "solana-ibc-constants",
  "solana-ibc-types",
  "solana-program-test",
@@ -3380,7 +3372,6 @@ dependencies = [
  "tendermint",
  "tendermint-light-client-membership",
  "tendermint-light-client-misbehaviour",
- "tendermint-light-client-solana",
  "tendermint-light-client-update-client",
  "time",
  "tokio",
@@ -3419,18 +3410,14 @@ version = "0.1.0"
 dependencies = [
  "access-manager",
  "anchor-lang",
- "anchor-spl",
  "bincode",
- "hex",
  "ics25-handler",
  "mock-ibc-app",
  "mock-light-client",
  "mollusk-svm",
  "mollusk-svm-bencher",
  "solana-ibc-constants",
- "solana-ibc-macros",
  "solana-ibc-types",
- "solana-keccak-hasher",
  "solana-program-test",
  "solana-sdk",
  "solana-sha256-hasher",
@@ -3444,7 +3431,6 @@ version = "0.1.0"
 dependencies = [
  "access-manager",
  "anchor-lang",
- "anchor-spl",
  "bincode",
  "gmp-counter-app",
  "ics26-router",
@@ -3456,7 +3442,6 @@ dependencies = [
  "solana-ibc-types",
  "solana-program-test",
  "solana-sdk",
- "solana-sha256-hasher",
  "tokio",
 ]
 
@@ -3577,7 +3562,6 @@ dependencies = [
 name = "ift"
 version = "0.1.0"
 dependencies = [
- "access-manager",
  "alloy-sol-types",
  "anchor-lang",
  "anchor-spl",
@@ -3591,10 +3575,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
- "solana-ibc-proto",
  "solana-ibc-types",
  "solana-sdk",
- "solana-sha256-hasher",
 ]
 
 [[package]]
@@ -6917,8 +6899,6 @@ dependencies = [
  "borsh 0.10.4",
  "ibc-client-tendermint",
  "ibc-core-client-types",
- "ibc-eureka-constrained-types",
- "prost",
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",

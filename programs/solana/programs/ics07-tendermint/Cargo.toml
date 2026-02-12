@@ -32,18 +32,14 @@ ics25-handler.workspace = true
 solana-ibc-types = { workspace = true, features = ["light-client"] }
 solana-ibc-constants.workspace = true
 solana-sdk-ids.workspace = true
-solana-define-syscall.workspace = true
 
 tendermint-light-client-update-client = { workspace = true, features = ["solana"] }
 tendermint-light-client-membership = { workspace = true, features = ["solana"] }
 tendermint-light-client-misbehaviour = { workspace = true, features = ["solana"] }
-tendermint-light-client-solana = { workspace = true }
 
 ibc-client-tendermint.workspace = true
 ibc-core-client-types.workspace = true
-ibc-core-host-types.workspace = true
 ibc-core-commitment-types.workspace = true
-ibc-primitives.workspace = true
 ibc-proto.workspace = true
 tendermint.workspace = true
 time = { workspace = true, features = ["macros"] }
