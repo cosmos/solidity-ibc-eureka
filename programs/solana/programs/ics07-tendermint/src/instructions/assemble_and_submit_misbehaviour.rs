@@ -7,6 +7,7 @@ use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
 
 #[derive(Accounts)]
+#[instruction(chunk_count: u8, trusted_height_1: u64, trusted_height_2: u64)]
 pub struct AssembleAndSubmitMisbehaviour<'info> {
     #[account(
         mut,
@@ -29,8 +30,16 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_1.to_le_bytes()],
+        bump
+    )]
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_2.to_le_bytes()],
+        bump
+    )]
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 
     #[account(mut)]
@@ -45,6 +54,8 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
 pub fn assemble_and_submit_misbehaviour<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
     chunk_count: u8,
+    _trusted_height_1: u64,
+    _trusted_height_2: u64,
 ) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,

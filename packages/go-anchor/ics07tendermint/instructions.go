@@ -423,6 +423,8 @@ func NewUploadMisbehaviourChunkInstruction(
 func NewAssembleAndSubmitMisbehaviourInstruction(
 	// Params:
 	chunkCountParam uint8,
+	trustedHeight1param uint64,
+	trustedHeight2param uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -446,6 +448,16 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {
 			return nil, errors.NewField("chunkCountParam", err)
+		}
+		// Serialize `trustedHeight1param`:
+		err = enc__.Encode(trustedHeight1param)
+		if err != nil {
+			return nil, errors.NewField("trustedHeight1param", err)
+		}
+		// Serialize `trustedHeight2param`:
+		err = enc__.Encode(trustedHeight2param)
+		if err != nil {
+			return nil, errors.NewField("trustedHeight2param", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}

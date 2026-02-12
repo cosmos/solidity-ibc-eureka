@@ -1151,6 +1151,8 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 		uint8(len(chunks)),
+		trustedHeight1,
+		trustedHeight2,
 		clientStatePDA,
 		appStatePDA,
 		accessManagerPDA,

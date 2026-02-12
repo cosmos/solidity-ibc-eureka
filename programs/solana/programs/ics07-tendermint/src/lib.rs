@@ -110,10 +110,14 @@ pub mod ics07_tendermint {
     pub fn assemble_and_submit_misbehaviour<'info>(
         ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
         chunk_count: u8,
+        trusted_height_1: u64,
+        trusted_height_2: u64,
     ) -> Result<()> {
         instructions::assemble_and_submit_misbehaviour::assemble_and_submit_misbehaviour(
             ctx,
             chunk_count,
+            trusted_height_1,
+            trusted_height_2,
         )
     }
 
