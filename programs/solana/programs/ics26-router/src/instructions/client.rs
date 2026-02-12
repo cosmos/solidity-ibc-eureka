@@ -41,14 +41,11 @@ pub struct AddClient<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    pub relayer: Signer<'info>,
-
-    /// CHECK: Light client program ID validation happens in instruction
+    /// CHECK: Unchecked; the caller decides which light client to associate
     pub light_client_program: AccountInfo<'info>,
 
     pub system_program: Program<'info, System>,
 
-    /// Instructions sysvar for CPI validation
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
@@ -81,9 +78,6 @@ pub struct MigrateClient<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    pub relayer: Signer<'info>,
-
-    /// Instructions sysvar for CPI validation
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
@@ -108,7 +102,7 @@ pub fn add_client(
     access_manager::require_role(
         &ctx.accounts.access_manager,
         solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
-        &ctx.accounts.relayer,
+        &ctx.accounts.authority,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
@@ -156,7 +150,7 @@ pub fn migrate_client(
 
     access_manager::require_admin(
         &ctx.accounts.access_manager,
-        &ctx.accounts.relayer,
+        &ctx.accounts.authority,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
@@ -284,7 +278,6 @@ mod tests {
 
     fn test_add_client(config: AddClientTestConfig) -> mollusk_svm::result::InstructionResult {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
 
         let (router_state_pda, router_state_data) = setup_router_state();
@@ -312,7 +305,6 @@ mod tests {
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -326,7 +318,6 @@ mod tests {
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
             create_uninitialized_account(client_sequence_pda, 0),
-            create_system_account(relayer),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             create_instructions_sysvar_account_with_caller(crate::ID),
@@ -498,7 +489,6 @@ mod tests {
     #[test]
     fn test_migrate_client_active_status() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-02";
 
@@ -513,7 +503,7 @@ mod tests {
             params: MigrateClientParams {
                 client_program_id: None,
                 counterparty_info: None,
-                active: Some(false), // Deactivate the client
+                active: Some(false),
             },
         };
 
@@ -524,7 +514,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -535,7 +524,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -563,7 +551,6 @@ mod tests {
     #[test]
     fn test_migrate_client_update_program_id() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let old_light_client_program = Pubkey::new_unique();
         let new_light_client_program = Pubkey::new_unique();
         let client_id = "test-client-03";
@@ -594,7 +581,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -605,7 +591,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -635,7 +620,6 @@ mod tests {
     #[test]
     fn test_migrate_client_update_counterparty_info() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-04";
 
@@ -666,7 +650,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -677,7 +660,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -710,7 +692,6 @@ mod tests {
     #[test]
     fn test_migrate_client_update_all_fields() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let old_light_client_program = Pubkey::new_unique();
         let new_light_client_program = Pubkey::new_unique();
         let client_id = "test-client-06";
@@ -746,7 +727,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -757,7 +737,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -794,7 +773,6 @@ mod tests {
     #[test]
     fn test_migrate_client_no_params_fails() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-07";
 
@@ -820,7 +798,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -831,7 +808,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -847,7 +823,6 @@ mod tests {
     #[test]
     fn test_migrate_client_invalid_counterparty_info() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client-08";
 
@@ -863,7 +838,7 @@ mod tests {
                 client_program_id: None,
                 counterparty_info: Some(CounterpartyInfo {
                     client_id: "new-counterparty".to_string(),
-                    merkle_prefix: vec![], // Invalid: empty
+                    merkle_prefix: vec![],
                 }),
                 active: None,
             },
@@ -876,7 +851,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
@@ -887,7 +861,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(client_pda, client_data, crate::ID),
-            create_system_account(relayer),
             create_instructions_sysvar_account_with_caller(crate::ID),
         ];
 
@@ -904,7 +877,6 @@ mod tests {
     fn test_add_client_unauthorized_authority() {
         let authority = Pubkey::new_unique();
         let wrong_authority = Pubkey::new_unique();
-        let relayer = wrong_authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client";
 
@@ -927,12 +899,11 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(wrong_authority, true), // Wrong authority tries to add client
+                AccountMeta::new(wrong_authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -946,7 +917,6 @@ mod tests {
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
             create_uninitialized_account(client_sequence_pda, 0),
-            create_system_account(relayer),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             create_instructions_sysvar_account_with_caller(crate::ID),
@@ -965,7 +935,6 @@ mod tests {
     #[test]
     fn test_add_client_fake_sysvar_wormhole_attack() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client";
 
@@ -993,7 +962,6 @@ mod tests {
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -1001,7 +969,6 @@ mod tests {
             data: instruction_data.data(),
         };
 
-        // Replace real sysvar with fake one (Wormhole-style attack)
         let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
 
         let accounts = vec![
@@ -1026,7 +993,6 @@ mod tests {
     #[test]
     fn test_add_client_cpi_rejection() {
         let authority = Pubkey::new_unique();
-        let relayer = authority;
         let light_client_program = Pubkey::new_unique();
         let client_id = "test-client";
 
@@ -1054,7 +1020,6 @@ mod tests {
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -1062,7 +1027,6 @@ mod tests {
             data: instruction_data.data(),
         };
 
-        // Simulate CPI call from unauthorized program
         let malicious_program = Pubkey::new_unique();
         let (instruction, cpi_sysvar_account) = setup_cpi_call_test(instruction, malicious_program);
 
@@ -1072,7 +1036,6 @@ mod tests {
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
             create_uninitialized_account(client_sequence_pda, 0),
-            create_system_account(relayer),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             cpi_sysvar_account,
@@ -1102,7 +1065,7 @@ mod integration_tests {
 
     const CLIENT_ID: &str = "test-client-01";
 
-    fn build_add_client_ix(payer: Pubkey, relayer: Pubkey, client_id: &str) -> Instruction {
+    fn build_add_client_ix(authority: Pubkey, client_id: &str) -> Instruction {
         let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
@@ -1116,12 +1079,11 @@ mod integration_tests {
         Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(payer, true),
+                AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
                 AccountMeta::new(client_sequence_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(Pubkey::new_unique(), false),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -1137,7 +1099,7 @@ mod integration_tests {
         }
     }
 
-    fn build_migrate_client_ix(payer: Pubkey, relayer: Pubkey, client_id: &str) -> Instruction {
+    fn build_migrate_client_ix(authority: Pubkey, client_id: &str) -> Instruction {
         let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
@@ -1149,11 +1111,10 @@ mod integration_tests {
         Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(payer, true),
+                AccountMeta::new(authority, true),
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new_readonly(relayer, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: crate::instruction::MigrateClient {
@@ -1192,21 +1153,32 @@ mod integration_tests {
         pt
     }
 
+    fn funded_system_account() -> solana_sdk::account::Account {
+        solana_sdk::account::Account {
+            lamports: 10_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        }
+    }
+
     // ── add_client (require_role → reject_cpi) ──
 
     #[tokio::test]
     async fn test_add_client_direct_call_succeeds() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_roles_and_whitelist(
+        let mut pt = setup_program_test_with_roles_and_whitelist(
             &[(
                 solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
                 &[admin.pubkey()],
             )],
             &[TEST_CPI_TARGET_ID],
         );
+        pt.add_account(admin.pubkey(), funded_system_account());
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_add_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let ix = build_add_client_ix(admin.pubkey(), CLIENT_ID);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
@@ -1226,16 +1198,17 @@ mod integration_tests {
     async fn test_add_client_without_role_rejected() {
         let admin = Keypair::new();
         let non_admin = Keypair::new();
-        let pt = setup_program_test_with_roles_and_whitelist(
+        let mut pt = setup_program_test_with_roles_and_whitelist(
             &[(
                 solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
                 &[admin.pubkey()],
             )],
             &[],
         );
+        pt.add_account(non_admin.pubkey(), funded_system_account());
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_add_client_ix(payer.pubkey(), non_admin.pubkey(), CLIENT_ID);
+        let ix = build_add_client_ix(non_admin.pubkey(), CLIENT_ID);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
@@ -1253,16 +1226,17 @@ mod integration_tests {
     #[tokio::test]
     async fn test_add_client_cpi_rejected() {
         let admin = Keypair::new();
-        let pt = setup_program_test_with_roles_and_whitelist(
+        let mut pt = setup_program_test_with_roles_and_whitelist(
             &[(
                 solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
                 &[admin.pubkey()],
             )],
             &[TEST_CPI_TARGET_ID],
         );
+        pt.add_account(admin.pubkey(), funded_system_account());
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let inner_ix = build_add_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let inner_ix = build_add_client_ix(admin.pubkey(), CLIENT_ID);
         let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
@@ -1286,7 +1260,7 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let ix = build_migrate_client_ix(admin.pubkey(), CLIENT_ID);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
@@ -1305,7 +1279,7 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_migrate_client_ix(payer.pubkey(), non_admin.pubkey(), CLIENT_ID);
+        let ix = build_migrate_client_ix(non_admin.pubkey(), CLIENT_ID);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
@@ -1326,7 +1300,7 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let inner_ix = build_migrate_client_ix(admin.pubkey(), CLIENT_ID);
         let wrapped_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
@@ -1349,7 +1323,7 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let inner_ix = build_migrate_client_ix(payer.pubkey(), admin.pubkey(), CLIENT_ID);
+        let inner_ix = build_migrate_client_ix(admin.pubkey(), CLIENT_ID);
         let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
@@ -1371,9 +1345,7 @@ mod integration_tests {
         let pt = setup_with_client(&admin.pubkey(), CLIENT_ID, &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        // Use admin as both authority and relayer (single signer) so the proxy
-        // chain can forward signer privilege without "unauthorized signer" errors.
-        let inner_ix = build_migrate_client_ix(admin.pubkey(), admin.pubkey(), CLIENT_ID);
+        let inner_ix = build_migrate_client_ix(admin.pubkey(), CLIENT_ID);
         let cpi_target_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
         let nested_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &cpi_target_ix);
 
