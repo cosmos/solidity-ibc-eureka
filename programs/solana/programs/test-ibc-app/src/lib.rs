@@ -14,13 +14,13 @@ pub mod state;
 use instructions::*;
 pub use state::{PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TIMED_OUT_OFFSET};
 
-/// Dummy IBC Application Program
+/// Test IBC Application Program
 ///
 /// This program demonstrates how to implement the Solana IBC App interface.
 ///
 /// It provides:
 ///
-/// - `initialize`: Initialize the dummy IBC app
+/// - `initialize`: Initialize the test IBC app
 /// - `send_transfer`: Send a transfer packet via IBC (for testing)
 /// - `send_packet`: Send an arbitrary packet via IBC (for flexible testing)
 /// - `on_recv_packet`: Handles incoming packets and returns acknowledgements
@@ -28,10 +28,10 @@ pub use state::{PACKETS_ACKNOWLEDGED_OFFSET, PACKETS_RECEIVED_OFFSET, PACKETS_TI
 /// - `on_timeout_packet`: Handles packet timeouts
 ///
 #[ibc_app]
-pub mod dummy_ibc_app {
+pub mod test_ibc_app {
     use super::*;
 
-    /// Initialize the dummy IBC app
+    /// Initialize the test IBC app
     pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
         instructions::initialize(ctx, authority)
     }

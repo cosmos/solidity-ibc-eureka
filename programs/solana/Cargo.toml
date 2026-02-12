@@ -9,7 +9,7 @@ members = [
   "programs/gmp-counter-app",
   "programs/mock-light-client",
   "programs/mock-ibc-app",
-  "programs/dummy-ibc-app",
+  "programs/test-ibc-app",
   "programs/test-cpi-proxy",
   "programs/test-cpi-target",
   "packages/solana-ibc-types",

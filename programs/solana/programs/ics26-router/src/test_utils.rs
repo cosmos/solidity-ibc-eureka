@@ -11,9 +11,9 @@ pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
 // Import program IDs directly from their lib.rs files
 // These automatically stay in sync with `anchor keys sync`
-pub use dummy_ibc_app::ID as DUMMY_IBC_APP_PROGRAM_ID;
 pub use mock_ibc_app::ID as MOCK_IBC_APP_PROGRAM_ID;
 pub use mock_light_client::ID as MOCK_LIGHT_CLIENT_ID;
+pub use test_ibc_app::ID as TEST_IBC_APP_PROGRAM_ID;
 
 pub fn get_router_program_path() -> &'static str {
     use std::sync::OnceLock;

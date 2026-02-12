@@ -6,11 +6,11 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
-        space = 8 + DummyIbcAppState::INIT_SPACE,
+        space = 8 + TestIbcAppState::INIT_SPACE,
         seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
-    pub app_state: Account<'info, DummyIbcAppState>,
+    pub app_state: Account<'info, TestIbcAppState>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -27,7 +27,7 @@ pub fn initialize(ctx: Context<Initialize>, authority: Pubkey) -> Result<()> {
     app_state.packets_timed_out = 0;
     app_state.packets_sent = 0;
 
-    msg!("Dummy IBC App initialized with authority: {}", authority);
+    msg!("Test IBC App initialized with authority: {}", authority);
 
     Ok(())
 }

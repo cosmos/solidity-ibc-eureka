@@ -1,4 +1,4 @@
-use crate::{errors::DummyIbcAppError, state::*};
+use crate::{errors::TestIbcAppError, state::*};
 use anchor_lang::prelude::*;
 use ibc_proto::ibc::applications::transfer::v2::FungibleTokenPacketData;
 use ics26_router::cpi as router_cpi;
@@ -37,7 +37,7 @@ pub struct SendTransfer<'info> {
         seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
-    pub app_state: Account<'info, DummyIbcAppState>,
+    pub app_state: Account<'info, TestIbcAppState>,
 
     /// User sending the transfer
     #[account(mut)]
@@ -47,7 +47,7 @@ pub struct SendTransfer<'info> {
     /// CHECK: PDA derived from `client_id`, will be validated
     #[account(
         mut,
-        seeds = [DummyIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
+        seeds = [TestIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: AccountInfo<'info>,
@@ -111,19 +111,19 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
 
     // Validate timeout - for this demo we'll just use a simple check
     if msg.timeout_timestamp <= clock.unix_timestamp {
-        return Err(error!(DummyIbcAppError::InvalidPacketData));
+        return Err(error!(TestIbcAppError::InvalidPacketData));
     }
 
     // Parse amount for SOL transfer
     let amount_lamports = msg
         .amount
         .parse::<u64>()
-        .map_err(|_| error!(DummyIbcAppError::InvalidPacketData))?;
+        .map_err(|_| error!(TestIbcAppError::InvalidPacketData))?;
 
     // Validate user has enough SOL
     require!(
         ctx.accounts.user.lamports() >= amount_lamports,
-        DummyIbcAppError::InvalidPacketData
+        TestIbcAppError::InvalidPacketData
     );
 
     // Transfer SOL from user to escrow account via System Program CPI
@@ -151,11 +151,11 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         // Validate existing escrow state matches current transaction
         require!(
             escrow_state.client_id == msg.source_client,
-            DummyIbcAppError::InvalidPacketData
+            TestIbcAppError::InvalidPacketData
         );
         require!(
             escrow_state.authority == ctx.accounts.user.key(),
-            DummyIbcAppError::InvalidPacketData
+            TestIbcAppError::InvalidPacketData
         );
     }
     escrow_state.total_escrowed = escrow_state.total_escrowed.saturating_add(amount_lamports);
@@ -233,7 +233,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     });
 
     msg!(
-        "Dummy app sent transfer: {} {} from {} to {} (seq: {})",
+        "Test app sent transfer: {} {} from {} to {} (seq: {})",
         msg.amount,
         msg.denom,
         ctx.accounts.user.key(),

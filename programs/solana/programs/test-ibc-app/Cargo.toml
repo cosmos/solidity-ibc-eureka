@@ -1,7 +1,7 @@
 [package]
-name = "dummy-ibc-app"
+name = "test-ibc-app"
 version.workspace = true
-description = "Dummy IBC Application for testing Solana IBC Router"
+description = "Test IBC Application for testing Solana IBC Router"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -11,7 +11,7 @@ categories = ["cryptography", "blockchain"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "dummy_ibc_app"
+name = "test_ibc_app"
 
 [features]
 no-entrypoint = []

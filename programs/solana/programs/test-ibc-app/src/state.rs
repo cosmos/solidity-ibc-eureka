@@ -3,10 +3,10 @@ pub use solana_ibc_types::{
     IBCAppError, IBCAppState, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg,
 };
 
-/// Dummy IBC App state
+/// Test IBC App state
 #[account]
 #[derive(InitSpace)]
-pub struct DummyIbcAppState {
+pub struct TestIbcAppState {
     /// Authority that can perform restricted operations
     pub authority: Pubkey,
     /// Counter for received packets (for testing)
@@ -19,7 +19,7 @@ pub struct DummyIbcAppState {
     pub packets_sent: u64,
 }
 
-impl DummyIbcAppState {
+impl TestIbcAppState {
     pub const ESCROW_SEED: &'static [u8] = b"escrow";
 }
 

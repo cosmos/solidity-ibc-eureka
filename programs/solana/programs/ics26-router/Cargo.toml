@@ -42,7 +42,7 @@ tokio = { version = "1", features = ["full"] }
 bincode.workspace = true
 mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }
-dummy-ibc-app = { path = "../dummy-ibc-app" }
+test-ibc-app = { path = "../test-ibc-app" }
 
 [lints]
 workspace = true

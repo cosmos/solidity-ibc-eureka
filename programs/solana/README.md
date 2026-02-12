@@ -16,7 +16,7 @@ This creates keypairs in `solana-keypairs/<cluster>/`:
 - `ics07_tendermint-keypair.json`
 - `ics26_router-keypair.json`
 - `ics27_gmp-keypair.json`
-- `dummy_ibc_app-keypair.json`
+- `test_ibc_app-keypair.json`
 - `mock_light_client-keypair.json`
 - `deployer_wallet.json`
 

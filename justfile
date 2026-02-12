@@ -216,7 +216,7 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
     "ics26_router"
     "ics27_gmp"
     "ics07_tendermint"
-    "dummy_ibc_app"
+    "test_ibc_app"
     "mock_ibc_app"
     "gmp_counter_app"
     "mock_light_client"
@@ -821,9 +821,9 @@ generate-solana-types build="true":
 	anchor-go --idl ./programs/solana/target/idl/attestation.json --output packages/go-anchor/attestation --no-go-mod
 	rm -rf packages/go-anchor/ift
 	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
-	# Dummy apps for testing
-	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
-	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod
+	# Test apps
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testibcapp
+	anchor-go --idl ./programs/solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter

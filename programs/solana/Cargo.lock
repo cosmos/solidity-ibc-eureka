@@ -2180,18 +2180,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1435fa1053d8b2fbbe9be7e97eca7f33d37b28409959813daefc1446a14247f1"
 
 [[package]]
-name = "dummy-ibc-app"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "ibc-proto",
- "ics26-router",
- "prost",
- "solana-ibc-macros",
- "solana-ibc-types",
-]
-
-[[package]]
 name = "dunce"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3433,7 +3421,6 @@ dependencies = [
  "anchor-lang",
  "anchor-spl",
  "bincode",
- "dummy-ibc-app",
  "hex",
  "ics25-handler",
  "mock-ibc-app",
@@ -3447,6 +3434,7 @@ dependencies = [
  "solana-program-test",
  "solana-sdk",
  "solana-sha256-hasher",
+ "test-ibc-app",
  "tokio",
 ]
 
@@ -9899,6 +9887,18 @@ dependencies = [
  "solana-sdk",
  "test-cpi-proxy",
  "tokio",
+]
+
+[[package]]
+name = "test-ibc-app"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "ibc-proto",
+ "ics26-router",
+ "prost",
+ "solana-ibc-macros",
+ "solana-ibc-types",
 ]
 
 [[package]]

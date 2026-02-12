@@ -1,25 +1,31 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::set_return_data;
-
-const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result": "AQ=="}"#;
 
 #[derive(Accounts)]
-#[instruction(msg: OnRecvPacketMsg)]
-pub struct OnRecvPacket<'info> {
+#[instruction(msg: OnTimeoutPacketMsg)]
+pub struct OnTimeoutPacket<'info> {
     #[account(
         init_if_needed,
         payer = payer,
-        space = 8 + DummyIbcAppState::INIT_SPACE,
+        space = 8 + TestIbcAppState::INIT_SPACE,
         seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
-    pub app_state: Account<'info, DummyIbcAppState>,
+    pub app_state: Account<'info, TestIbcAppState>,
 
     /// Instructions sysvar for CPI validation
     /// CHECK: Validated via address constraint
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
+
+    /// Escrow account that holds SOL (funds remain in escrow on timeout)
+    /// CHECK: PDA derived from `source_client`
+    #[account(
+        mut,
+        seeds = [TestIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
+        bump
+    )]
+    pub escrow_account: Option<AccountInfo<'info>>,
 
     /// Payer for account creation if needed
     #[account(mut)]
@@ -28,7 +34,7 @@ pub struct OnRecvPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
+pub fn on_timeout_packet(ctx: Context<OnTimeoutPacket>, msg: OnTimeoutPacketMsg) -> Result<()> {
     // Validate CPI caller using shared validation function
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
@@ -43,30 +49,22 @@ pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Resul
         app_state.authority = ctx.accounts.payer.key();
     }
 
-    // Increment packet received counter
-    app_state.packets_received = app_state.packets_received.saturating_add(1);
-
-    // Create acknowledgement in ICS-20 format: {"result": "AQ=="} where "AQ==" is base64 for []byte{1}
-    // This indicates successful packet processing
-    let acknowledgement = SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
-
-    // Return acknowledgement data to the router
-    set_return_data(&acknowledgement);
+    // Increment packet timed out counter
+    app_state.packets_timed_out = app_state.packets_timed_out.saturating_add(1);
 
     // Emit event
-    emit!(PacketReceived {
+    emit!(PacketTimedOut {
         source_client: msg.source_client.clone(),
         dest_client: msg.dest_client.clone(),
         sequence: msg.sequence,
-        acknowledgement,
     });
 
     msg!(
-        "Dummy IBC App: Received packet from {} to {} (seq: {}), total received: {}",
+        "Test IBC App: Timed out packet from {} to {} (seq: {}), total timed out: {}",
         msg.source_client,
         msg.dest_client,
         msg.sequence,
-        app_state.packets_received
+        app_state.packets_timed_out
     );
 
     Ok(())

@@ -1,4 +1,4 @@
-use crate::{errors::DummyIbcAppError, state::*};
+use crate::{errors::TestIbcAppError, state::*};
 use anchor_lang::prelude::*;
 use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
@@ -35,7 +35,7 @@ pub struct SendPacket<'info> {
         seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
         bump
     )]
-    pub app_state: Account<'info, DummyIbcAppState>,
+    pub app_state: Account<'info, TestIbcAppState>,
 
     /// User sending the packet
     #[account(mut)]
@@ -88,7 +88,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
 
     // Validate timeout
     if msg.timeout_timestamp <= clock.unix_timestamp {
-        return Err(error!(DummyIbcAppError::InvalidPacketData));
+        return Err(error!(TestIbcAppError::InvalidPacketData));
     }
 
     let payload = Payload {
@@ -143,7 +143,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     });
 
     msg!(
-        "Dummy app sent packet: {} -> {} (seq: {}, {} bytes)",
+        "Test app sent packet: {} -> {} (seq: {}, {} bytes)",
         msg.source_port,
         msg.dest_port,
         sequence,
