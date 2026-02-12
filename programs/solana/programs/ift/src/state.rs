@@ -33,27 +33,36 @@ pub enum ChainOptions {
 impl ChainOptions {
     /// Validate Chain Options params
     pub fn validate(&self) -> Result<()> {
-        if let Self::Cosmos {
-            ref denom,
-            ref type_url,
-            ref ica_address,
-        } = self
-        {
-            require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
-            require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
-            require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
-            require!(
-                denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCounterpartyDenomLength
-            );
-            require!(
-                type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCosmosTypeUrlLength
-            );
-            require!(
-                ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCosmosIcaAddressLength
-            );
+        match self {
+            Self::Evm => {}
+            Self::Cosmos {
+                denom,
+                type_url,
+                ica_address,
+            } => {
+                require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
+                require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
+                require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
+                require!(
+                    bech32::primitives::decode::CheckedHrpstring::new::<bech32::Bech32>(
+                        ica_address
+                    )
+                    .is_ok(),
+                    IFTError::InvalidCosmosIcaAddress
+                );
+                require!(
+                    denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCounterpartyDenomLength
+                );
+                require!(
+                    type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCosmosTypeUrlLength
+                );
+                require!(
+                    ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCosmosIcaAddressLength
+                );
+            }
         }
 
         Ok(())
@@ -122,10 +131,12 @@ pub struct IFTBridge {
     pub mint: Pubkey,
 
     /// IBC client identifier for this bridge
+    //TODO: Use const
     #[max_len(64)]
     pub client_id: String,
 
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
+    //TODO: Use const
     #[max_len(128)]
     pub counterparty_ift_address: String,
 
@@ -135,6 +146,7 @@ pub struct IFTBridge {
     /// Whether bridge is active
     pub active: bool,
 
+    // TODO: USE SAME 256 FOR EVERY RESERVED
     pub _reserved: [u8; 64],
 }
 

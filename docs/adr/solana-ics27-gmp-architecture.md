@@ -448,7 +448,7 @@ GMP stores results in `GMPCallResultAccount` PDAs. Sender programs read these ac
 
 1. Router calls GMP's `on_timeout_packet` or `on_ack_packet`
 2. GMP creates `GMPCallResultAccount` PDA with the result
-3. Anyone calls sender's claim instruction (e.g., `IFT.claim_refund`)
+3. Anyone calls sender's finalize instruction (e.g., `IFT.finalize_transfer`)
 4. Sender reads GMP's result PDA and processes accordingly
 
 ### Alternatives Considered

@@ -40,7 +40,7 @@ IFT for Solana uses a **burn-and-mint pattern** with ICS27-GMP for cross-chain m
 |-----------|-------------|-------|
 | **Burn** | `ift_transfer` | Burn tokens when initiating cross-chain transfer |
 | **Mint** | `ift_mint` | Mint tokens to receiver on incoming transfer |
-| **Mint** | `claim_refund` | Refund on failed transfer or timeout (mint back to sender) |
+| **Mint** | `finalize_transfer` | Refund on failed transfer or timeout (mint back to sender) |
 | **Create Mint** | `create_spl_token` | Create new SPL token mint with IFT PDA as authority |
 | **Transfer Authority** | `initialize_existing_token` | Transfer existing token's mint authority to IFT PDA |
 | **Mint** | `admin_mint` | Admin mints tokens to any account (respects rate limits and pause) |
@@ -174,7 +174,7 @@ Tx 1 - GMP records result:
 3. GMP creates GMPCallResultAccount PDA (no CPI to IFT)
 
 Tx 2 - Anyone claims refund:
-1. Relayer (or anyone) calls IFT.claim_refund(client_id, sequence)
+1. Relayer (or anyone) calls IFT.finalize_transfer(client_id, sequence)
 2. IFT reads GMPCallResultAccount (cross-program PDA)
 3. IFT matches against PendingTransfer
 4. If timeout or error ack: mint tokens back to sender
@@ -203,7 +203,7 @@ Tx 2 - Anyone claims refund:
 | Role | Capability |
 |------|------------|
 | **Admin** | Register/remove bridges, transfer admin, pause/unpause, set rate limits, admin mint |
-| **Mint Authority PDA** | Sole authority to mint tokens (used by `ift_mint`, `admin_mint`, `claim_refund`) |
+| **Mint Authority PDA** | Sole authority to mint tokens (used by `ift_mint`, `admin_mint`, `finalize_transfer`) |
 | **GMP Account PDA** | Validates incoming cross-chain mint requests |
 | **Users** | Initiate transfers (burn their own tokens) |
 
@@ -211,7 +211,7 @@ Tx 2 - Anyone claims refund:
 
 1. **Burn Authorization**: Only token owner can burn (standard SPL token semantics)
 
-2. **Mint Authorization**: Only IFT's mint authority PDA can mint, via three paths: incoming GMP calls validated against registered bridge (`ift_mint`), refund operations validated by pending transfer records (`claim_refund`), or direct admin mint (`admin_mint`). All mint paths (except refunds) respect daily rate limits and pause state.
+2. **Mint Authorization**: Only IFT's mint authority PDA can mint, via three paths: incoming GMP calls validated against registered bridge (`ift_mint`), refund operations validated by pending transfer records (`finalize_transfer`), or direct admin mint (`admin_mint`). All mint paths (except refunds) respect daily rate limits and pause state.
 
 3. **Empty Salt Requirement**: Salt is hardcoded empty on send and validated empty on receive via GMP account PDA derivation. Prevents unauthorized minting via alternate GMP account PDAs.
 
@@ -231,7 +231,7 @@ IFT maintains its own mint authority and doesn't delegate token control to GMP P
 
 ### Refund Processing
 
-IFT uses a relayer-driven `claim_refund` instruction rather than CPI callbacks. This approach:
+IFT uses a relayer-driven `finalize_transfer` instruction rather than CPI callbacks. This approach:
 - Separates concerns: GMP handles ack/timeout recording, IFT handles refund logic
 - Reduces CPI depth and compute budget requirements
 - Allows anyone to trigger refunds (permissionless)
@@ -240,7 +240,7 @@ IFT uses a relayer-driven `claim_refund` instruction rather than CPI callbacks. 
 1. **`GMPCallResultAccount` PDA** (owned by GMP program): Proves that an ack or timeout was processed
 2. **`PendingTransfer` PDA** (owned by IFT program): Proves a legitimate outbound transfer occurred
 
-The `claim_refund` instruction validates:
+The `finalize_transfer` instruction validates:
 - `GMPCallResultAccount.sender == IFT program ID` (our program initiated the GMP call)
 - `GMPCallResultAccount.source_client == pending_transfer.client_id` (same IBC client)
 - `GMPCallResultAccount.sequence == pending_transfer.sequence` (same packet)

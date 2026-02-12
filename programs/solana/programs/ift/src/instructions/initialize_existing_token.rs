@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::spl_token::instruction::AuthorityType;
-use anchor_spl::token::{set_authority, Mint, SetAuthority, Token};
+use anchor_spl::token_interface::spl_token_2022::instruction::AuthorityType;
+use anchor_spl::token_interface::{set_authority, Mint, SetAuthority, TokenInterface};
 
 use crate::constants::*;
 use crate::errors::IFTError;
@@ -22,7 +22,7 @@ pub struct InitializeExistingToken<'info> {
         mut,
         constraint = mint.mint_authority.is_some() @ IFTError::MintAuthorityNotSet
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// CHECK: PDA that will become the new mint authority
     #[account(
@@ -39,7 +39,7 @@ pub struct InitializeExistingToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 

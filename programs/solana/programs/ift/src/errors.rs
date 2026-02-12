@@ -69,6 +69,9 @@ pub enum IFTError {
     #[msg("Invalid Cosmos ICA address length")]
     InvalidCosmosIcaAddressLength,
 
+    #[msg("Invalid Cosmos ICA address - not a valid bech32 address")]
+    InvalidCosmosIcaAddress,
+
     #[msg("Invalid GMP account - not derived from expected counterparty bridge")]
     InvalidGmpAccount,
 

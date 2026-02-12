@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token_interface::{Mint, TokenInterface};
 
 use crate::constants::*;
 use crate::events::SplTokenCreated;
@@ -24,8 +24,9 @@ pub struct CreateSplToken<'info> {
         payer = payer,
         mint::decimals = decimals,
         mint::authority = mint_authority,
+        mint::token_program = token_program,
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA set as mint authority
@@ -38,7 +39,7 @@ pub struct CreateSplToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 

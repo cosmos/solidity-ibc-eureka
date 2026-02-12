@@ -1,12 +1,12 @@
+use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Space;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
-use crate::abi_encode::encode_ift_mint_call;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
@@ -22,6 +22,7 @@ pub struct IFTTransfer<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -38,15 +39,16 @@ pub struct IFTTransfer<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Sender's token account
     #[account(
         mut,
+        // TODO: add its own error
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == sender.key() @ IFTError::TokenAccountOwnerMismatch
     )]
-    pub sender_token_account: Account<'info, TokenAccount>,
+    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// Sender who owns the tokens
     pub sender: Signer<'info>,
@@ -55,7 +57,7 @@ pub struct IFTTransfer<'info> {
     pub payer: Signer<'info>,
 
     /// Required for burning tokens from sender's account
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 
     /// GMP program
@@ -103,6 +105,7 @@ pub struct IFTTransfer<'info> {
     #[account()]
     pub gmp_ibc_app: AccountInfo<'info>,
 
+    // TODO: maybe remove IBC APP for sequence and check if it won't collide
     /// IBC client account
     /// CHECK: Router program validates this
     #[account()]
@@ -114,11 +117,11 @@ pub struct IFTTransfer<'info> {
     pub pending_transfer: UncheckedAccount<'info>,
 }
 
+// TODO: validate client id non zero/less than max
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
         msg.receiver.len() <= MAX_RECEIVER_LENGTH,
@@ -145,7 +148,9 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         authority: ctx.accounts.sender.to_account_info(),
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
-    token::burn(burn_ctx, msg.amount)?;
+    token_interface::burn(burn_ctx, msg.amount)?;
+    ctx.accounts.mint.reload()?;
+    ctx.accounts.sender_token_account.reload()?;
 
     crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
 
@@ -226,18 +231,34 @@ fn construct_mint_call(
     }
 }
 
+/// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
+pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
+    use alloy_sol_types::private::{Address, U256};
+
+    IFT::iftMintCall {
+        receiver: Address::from(receiver),
+        amount: U256::from(amount),
+    }
+    .abi_encode()
+}
+
 /// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
 fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_hex = receiver.trim_start_matches("0x");
     let receiver_bytes =
         hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
+    // lagging,, lagging
+    // TODO: eth address const
     let receiver_array: [u8; 20] = receiver_bytes
         .try_into()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
 
     Ok(encode_ift_mint_call(receiver_array, amount))
 }
+
+// Using ABI JSON because sol! macro can't resolve Solidity imports.
+alloy_sol_types::sol!(IFT, "../../../../abi/IFTOwnable.json");
 
 /// Protojson representation of `MsgIFTMint` for Cosmos chains
 #[derive(Serialize)]
@@ -274,6 +295,7 @@ fn construct_cosmos_mint_call(
             amount: amount.to_string(),
         }],
     };
+    // TODO: use proto
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
 }
 

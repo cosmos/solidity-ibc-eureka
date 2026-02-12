@@ -9,6 +9,13 @@ pub fn pre_verify_signature<'info>(
     ctx: Context<'_, '_, '_, 'info, PreVerifySignature<'info>>,
     signature: SignatureData,
 ) -> Result<()> {
+    let expected_hash =
+        solana_sha256_hasher::hashv(&[&signature.pubkey, &signature.msg, &signature.signature]);
+    require!(
+        signature.signature_hash == expected_hash.to_bytes(),
+        crate::error::ErrorCode::InvalidAccountData
+    );
+
     let ix_sysvar = &ctx.accounts.instructions_sysvar;
 
     let is_valid = verify_ed25519_from_sysvar(

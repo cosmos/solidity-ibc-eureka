@@ -1,10 +1,10 @@
-//! Claim refund instruction for IFT
+//! Finalize transfer instruction for IFT
 //!
-//! This instruction allows anyone to claim a refund for a pending transfer
+//! This instruction allows anyone to finalize a pending transfer
 //! after the GMP result has been recorded (either ack or timeout).
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
 use crate::constants::{IFT_APP_STATE_SEED, MINT_AUTHORITY_SEED, PENDING_TRANSFER_SEED};
@@ -14,10 +14,10 @@ use crate::evm_selectors::ERROR_ACK_COMMITMENT;
 use crate::helpers::mint_to_account;
 use crate::state::{IFTAppState, PendingTransfer};
 
-/// Accounts for the `claim_refund` instruction
+/// Accounts for the `finalize_transfer` instruction
 #[derive(Accounts)]
 #[instruction(client_id: String, sequence: u64)]
-pub struct ClaimRefund<'info> {
+pub struct FinalizeTransfer<'info> {
     /// IFT app state
     #[account(
         mut,
@@ -54,7 +54,7 @@ pub struct ClaimRefund<'info> {
 
     /// SPL Token mint
     #[account(mut, address = app_state.mint)]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA verified by seeds constraint
@@ -70,18 +70,22 @@ pub struct ClaimRefund<'info> {
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == pending_transfer.sender @ IFTError::TokenAccountOwnerMismatch
     )]
-    pub sender_token_account: Account<'info, TokenAccount>,
+    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// Payer receives rent from closed `PendingTransfer` account
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-/// Process refund claim based on GMP result
-pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64) -> Result<()> {
+/// Finalize a pending transfer based on GMP result
+pub fn finalize_transfer(
+    ctx: Context<FinalizeTransfer>,
+    client_id: String,
+    sequence: u64,
+) -> Result<()> {
     let pending = &ctx.accounts.pending_transfer;
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
@@ -110,6 +114,8 @@ pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64)
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
+            ctx.accounts.mint.reload()?;
+            ctx.accounts.sender_token_account.reload()?;
 
             crate::helpers::increase_mint_rate_limit_usage(
                 &mut ctx.accounts.app_state,
@@ -223,17 +229,17 @@ mod tests {
         }
     }
 
-    struct ClaimRefundTestSetup {
+    struct FinalizeTransferTestSetup {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
     }
 
-    fn build_claim_refund_test_setup(
+    fn build_finalize_transfer_test_setup(
         status: CallResultStatus,
         gmp_result_sender: Pubkey,
         gmp_result_client_id: &str,
         gmp_result_sequence: u64,
-    ) -> ClaimRefundTestSetup {
+    ) -> FinalizeTransferTestSetup {
         let mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
@@ -308,7 +314,7 @@ mod tests {
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::ClaimRefund {
+            data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
                 sequence: TEST_SEQUENCE,
             }
@@ -327,7 +333,7 @@ mod tests {
             (system_program, system_account),
         ];
 
-        ClaimRefundTestSetup {
+        FinalizeTransferTestSetup {
             instruction,
             accounts,
         }
@@ -353,11 +359,11 @@ mod tests {
     }
 
     #[test]
-    fn test_claim_refund_wrong_gmp_sender_fails() {
+    fn test_finalize_transfer_wrong_gmp_sender_fails() {
         let mollusk = setup_mollusk();
 
         let wrong_sender = Pubkey::new_unique();
-        let setup = build_claim_refund_test_setup(
+        let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
             wrong_sender,
             TEST_CLIENT_ID,
@@ -369,10 +375,10 @@ mod tests {
     }
 
     #[test]
-    fn test_claim_refund_wrong_client_id_fails() {
+    fn test_finalize_transfer_wrong_client_id_fails() {
         let mollusk = setup_mollusk();
 
-        let setup = build_claim_refund_test_setup(
+        let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
             crate::ID,
             "wrong-client-id",
@@ -384,10 +390,10 @@ mod tests {
     }
 
     #[test]
-    fn test_claim_refund_wrong_sequence_fails() {
+    fn test_finalize_transfer_wrong_sequence_fails() {
         let mollusk = setup_mollusk();
 
-        let setup = build_claim_refund_test_setup(
+        let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
             crate::ID,
             TEST_CLIENT_ID,
@@ -399,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn test_claim_refund_token_account_wrong_owner_fails() {
+    fn test_finalize_transfer_token_account_wrong_owner_fails() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
@@ -477,7 +483,7 @@ mod tests {
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::ClaimRefund {
+            data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
                 sequence: TEST_SEQUENCE,
             }
@@ -499,12 +505,12 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
-            "claim_refund should fail when token account owner doesn't match pending transfer sender"
+            "finalize_transfer should fail when token account owner doesn't match pending transfer sender"
         );
     }
 
     #[test]
-    fn test_claim_refund_token_account_wrong_mint_fails() {
+    fn test_finalize_transfer_token_account_wrong_mint_fails() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
@@ -582,7 +588,7 @@ mod tests {
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::ClaimRefund {
+            data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
                 sequence: TEST_SEQUENCE,
             }
@@ -604,7 +610,7 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             result.program_result.is_err(),
-            "claim_refund should fail when token account mint doesn't match"
+            "finalize_transfer should fail when token account mint doesn't match"
         );
     }
 }

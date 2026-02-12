@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
 use crate::constants::*;
@@ -57,7 +57,7 @@ pub struct RevokeMintAuthority<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Current mint authority PDA (IFT's)
     /// CHECK: Derived PDA verified by seeds
@@ -81,7 +81,7 @@ pub struct RevokeMintAuthority<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
 }
 
 /// Revoke mint authority and close IFT app state.
@@ -97,16 +97,16 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     ];
     let signer_seeds = &[&seeds[..]];
 
-    anchor_spl::token::set_authority(
+    anchor_spl::token_interface::set_authority(
         CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),
-            anchor_spl::token::SetAuthority {
+            anchor_spl::token_interface::SetAuthority {
                 current_authority: ctx.accounts.mint_authority.to_account_info(),
                 account_or_mint: ctx.accounts.mint.to_account_info(),
             },
             signer_seeds,
         ),
-        anchor_spl::token::spl_token::instruction::AuthorityType::MintTokens,
+        anchor_spl::token_interface::spl_token_2022::instruction::AuthorityType::MintTokens,
         Some(ctx.accounts.new_mint_authority.key()),
     )?;
 
@@ -120,6 +120,8 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     Ok(())
 }
 
+// TODO: should we limit who can init it????
+// TODO: add multi mint, with testing if one state could not be enough to use for another mint
 /// Admin-callable mint instruction
 #[derive(Accounts)]
 #[instruction(msg: AdminMintMsg)]
@@ -136,7 +138,7 @@ pub struct AdminMint<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA that signs for minting
@@ -151,9 +153,10 @@ pub struct AdminMint<'info> {
         init_if_needed,
         payer = payer,
         associated_token::mint = mint,
-        associated_token::authority = receiver_owner
+        associated_token::authority = receiver_owner,
+        associated_token::token_program = token_program,
     )]
-    pub receiver_token_account: Account<'info, TokenAccount>,
+    pub receiver_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Receiver who will own the minted tokens.
     #[account(
@@ -170,7 +173,7 @@ pub struct AdminMint<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }

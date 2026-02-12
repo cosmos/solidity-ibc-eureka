@@ -1,7 +1,7 @@
 //! Shared helper functions for IFT operations
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
+use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterface};
 
 use crate::constants::{MINT_AUTHORITY_SEED, SECONDS_PER_DAY};
 use crate::errors::IFTError;
@@ -9,11 +9,11 @@ use crate::state::IFTAppState;
 
 /// Mint tokens to an account using the IFT mint authority PDA
 pub fn mint_to_account<'info>(
-    mint: &Account<'info, Mint>,
-    to: &Account<'info, TokenAccount>,
+    mint: &InterfaceAccount<'info, Mint>,
+    to: &InterfaceAccount<'info, TokenAccount>,
     mint_authority: &AccountInfo<'info>,
     mint_authority_bump: u8,
-    token_program: &Program<'info, Token>,
+    token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
     let mint_key = mint.key();
@@ -31,7 +31,7 @@ pub fn mint_to_account<'info>(
     };
     let mint_ctx =
         CpiContext::new_with_signer(token_program.to_account_info(), mint_accounts, signer_seeds);
-    token::mint_to(mint_ctx, amount)
+    token_interface::mint_to(mint_ctx, amount)
 }
 
 const fn current_day(clock: &Clock) -> u64 {
@@ -82,7 +82,8 @@ pub fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, cl
     app_state.rate_limit_daily_usage = app_state.rate_limit_daily_usage.saturating_sub(amount);
 }
 
-/// Increase mint rate limit usage for `claim_refund` (refund re-mints).
+// TODO: merge with minting & allow for refunds, remove from pub
+/// Increase mint rate limit usage for `finalize_transfer` (refund re-mints).
 /// Does not check the limit -- refunds must never be blocked.
 pub fn increase_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
     if app_state.daily_mint_limit == 0 {

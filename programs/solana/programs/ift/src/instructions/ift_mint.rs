@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
+    token_interface::{Mint, TokenAccount, TokenInterface},
 };
 
 use crate::constants::*;
@@ -18,6 +18,7 @@ pub struct IFTMint<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -35,7 +36,7 @@ pub struct IFTMint<'info> {
         mut,
         address = app_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA that signs for minting
@@ -52,9 +53,10 @@ pub struct IFTMint<'info> {
         init_if_needed,
         payer = payer,
         associated_token::mint = mint,
-        associated_token::authority = receiver_owner
+        associated_token::authority = receiver_owner,
+        associated_token::token_program = token_program,
     )]
-    pub receiver_token_account: Account<'info, TokenAccount>,
+    pub receiver_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// CHECK: Receiver who will own the minted tokens.
     /// Constraint prevents relayer from substituting a different receiver than specified in cross-chain message.
@@ -63,6 +65,7 @@ pub struct IFTMint<'info> {
     )]
     pub receiver_owner: AccountInfo<'info>,
 
+    // TODO: check if we can remove it and pull from app_state
     /// CHECK: GMP program for PDA derivation
     #[account(address = app_state.gmp_program @ IFTError::InvalidGmpProgram)]
     pub gmp_program: AccountInfo<'info>,
@@ -73,7 +76,7 @@ pub struct IFTMint<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
@@ -83,7 +86,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let bridge = &ctx.accounts.ift_bridge;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
 
     // Validate GMP account matches the bridge's (client_id, counterparty_ift_address).
     // This ensures the relayer passed the correct bridge for this GMP call.
@@ -104,6 +106,8 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &ctx.accounts.token_program,
         msg.amount,
     )?;
+    ctx.accounts.mint.reload()?;
+    ctx.accounts.receiver_token_account.reload()?;
 
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),
