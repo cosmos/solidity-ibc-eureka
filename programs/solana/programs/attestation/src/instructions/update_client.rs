@@ -8,7 +8,7 @@ use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(new_height: u64)]
+#[instruction(new_height: u64, params: UpdateClientParams)]
 pub struct UpdateClient<'info> {
     #[account(
         mut,
