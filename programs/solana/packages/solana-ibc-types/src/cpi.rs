@@ -54,7 +54,14 @@ pub enum CpiValidationError {
 
 /// Returns `true` if the current instruction is executing inside a CPI call.
 pub fn is_cpi() -> bool {
-    get_stack_height() > TRANSACTION_LEVEL_STACK_HEIGHT
+    let height = get_stack_height();
+    // Sanity check: stack height is always >= 1 in the SBF runtime.
+    // Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
+    // (the default syscall stub has no runtime context).
+    #[cfg(target_os = "solana")]
+    assert!(height > 0, "stack height must never be zero");
+
+    height > TRANSACTION_LEVEL_STACK_HEIGHT
 }
 
 /// Rejects nested CPI chains (A → B → C). Only allows direct calls
@@ -65,9 +72,17 @@ pub fn is_cpi() -> bool {
 /// the caller instead of B. Limiting to single-level CPI ensures the top-level
 /// instruction IS the direct caller, making caller identity checks reliable.
 pub fn reject_nested_cpi() -> core::result::Result<(), CpiValidationError> {
-    if get_stack_height() > SINGLE_LEVEL_CPI_STACK_HEIGHT {
+    let height = get_stack_height();
+    // Sanity check: stack height is always >= 1 in the SBF runtime.
+    // Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
+    // (the default syscall stub has no runtime context).
+    #[cfg(target_os = "solana")]
+    assert!(height > 0, "stack height must never be zero");
+
+    if height > SINGLE_LEVEL_CPI_STACK_HEIGHT {
         return Err(CpiValidationError::NestedCpiNotAllowed);
     }
+
     Ok(())
 }
 
