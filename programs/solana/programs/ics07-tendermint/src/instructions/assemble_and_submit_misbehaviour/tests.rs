@@ -471,7 +471,7 @@ fn test_assemble_and_submit_misbehaviour_wrong_client_state_pda() {
 
 const CONSTRAINT_SEEDS_ERROR: u32 = 2006;
 
-/// Creates a serialized ConsensusStateStore account data.
+/// Creates a serialized `ConsensusStateStore` account data.
 fn serialize_consensus_state_store(height: u64, root: [u8; 32]) -> Vec<u8> {
     let store = ConsensusStateStore {
         height,
@@ -503,7 +503,7 @@ fn assert_constraint_seeds(result: &mollusk_svm::result::InstructionResult) {
 // [SEED, client_state_key, height_le_bytes], so any account at a different
 // PDA is rejected with ConstraintSeeds (2006).
 
-/// Regression: substituting trusted_consensus_state_1 with a PDA for a
+/// Regression: substituting `trusted_consensus_state_1` with a PDA for a
 /// different height is rejected by the seeds constraint.
 #[test]
 fn test_height_substitution_attack_consensus_state_1() {
@@ -573,7 +573,7 @@ fn test_height_substitution_attack_consensus_state_1() {
     assert_constraint_seeds(&result);
 }
 
-/// Regression: substituting trusted_consensus_state_2 with a PDA for a
+/// Regression: substituting `trusted_consensus_state_2` with a PDA for a
 /// different height is rejected by the seeds constraint.
 #[test]
 fn test_height_substitution_attack_consensus_state_2() {
@@ -639,7 +639,7 @@ fn test_height_substitution_attack_consensus_state_2() {
     assert_constraint_seeds(&result);
 }
 
-/// Regression: a ConsensusStateStore at a non-PDA address is rejected
+/// Regression: a `ConsensusStateStore` at a non-PDA address is rejected
 /// by the seeds constraint.
 #[test]
 fn test_non_pda_consensus_state_bypasses_constraint() {
