@@ -311,8 +311,8 @@ func NewAckPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
-		// Account 5 "ibc_app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, false, false))
+		// Account 5 "ibc_app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 6 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "system_program": Read-only, Non-signer, Required
@@ -388,8 +388,8 @@ func NewTimeoutPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
-		// Account 5 "ibc_app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, false, false))
+		// Account 5 "ibc_app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 6 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "system_program": Read-only, Non-signer, Required

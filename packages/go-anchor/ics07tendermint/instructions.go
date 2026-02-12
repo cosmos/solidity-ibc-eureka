@@ -20,7 +20,7 @@ func NewInitializeInstruction(
 	accessManagerParam solanago.PublicKey,
 
 	// Accounts:
-	clientStateAccount solanago.PublicKey,
+	clientStateAccountAccount solanago.PublicKey,
 	consensusStateStoreAccount solanago.PublicKey,
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
@@ -60,8 +60,8 @@ func NewInitializeInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 0 "client_state_account": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccountAccount, true, false))
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
 		// Account 2 "app_state": Writable, Non-signer, Required

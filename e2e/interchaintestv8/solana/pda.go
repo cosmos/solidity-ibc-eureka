@@ -158,24 +158,13 @@ func (ics07TendermintPDAs) ClientPDA(programID solanago.PublicKey) (solanago.Pub
 	return pda, bump
 }
 
-func (ics07TendermintPDAs) ConsensusStateWithArgAndAccountSeedPDA(programID solanago.PublicKey, clientState []byte, height []byte) (solanago.PublicKey, uint8) {
+func (ics07TendermintPDAs) ConsensusStateWithArgAndAccountSeedPDA(programID solanago.PublicKey, clientStateAccount []byte, revisionHeight []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("consensus_state"), clientState, height},
+		[][]byte{[]byte("consensus_state"), clientStateAccount, revisionHeight},
 		programID,
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
-func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, clientState []byte, revisionHeight []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("consensus_state"), clientState, revisionHeight},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
