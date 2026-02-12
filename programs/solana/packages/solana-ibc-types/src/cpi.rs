@@ -52,16 +52,24 @@ pub enum CpiValidationError {
     NestedCpiNotAllowed,
 }
 
-/// Returns `true` if the current instruction is executing inside a CPI call.
-pub fn is_cpi() -> bool {
+/// Wrapper around `get_stack_height()` that asserts the result is non-zero
+/// in the SBF runtime. Stack height is always >= 1 (direct call = 1, CPI = 2+).
+/// Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
+/// (the default syscall stub has no runtime context).
+#[allow(
+    unexpected_cfgs,
+    reason = "solana is a valid target_os for the SBF toolchain but unknown to the relayer workspace"
+)]
+fn checked_stack_height() -> usize {
     let height = get_stack_height();
-    // Sanity check: stack height is always >= 1 in the SBF runtime.
-    // Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
-    // (the default syscall stub has no runtime context).
     #[cfg(target_os = "solana")]
     assert!(height > 0, "stack height must never be zero");
+    height
+}
 
-    height > TRANSACTION_LEVEL_STACK_HEIGHT
+/// Returns `true` if the current instruction is executing inside a CPI call.
+pub fn is_cpi() -> bool {
+    checked_stack_height() > TRANSACTION_LEVEL_STACK_HEIGHT
 }
 
 /// Rejects nested CPI chains (A → B → C). Only allows direct calls
@@ -72,14 +80,7 @@ pub fn is_cpi() -> bool {
 /// the caller instead of B. Limiting to single-level CPI ensures the top-level
 /// instruction IS the direct caller, making caller identity checks reliable.
 pub fn reject_nested_cpi() -> core::result::Result<(), CpiValidationError> {
-    let height = get_stack_height();
-    // Sanity check: stack height is always >= 1 in the SBF runtime.
-    // Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
-    // (the default syscall stub has no runtime context).
-    #[cfg(target_os = "solana")]
-    assert!(height > 0, "stack height must never be zero");
-
-    if height > SINGLE_LEVEL_CPI_STACK_HEIGHT {
+    if checked_stack_height() > SINGLE_LEVEL_CPI_STACK_HEIGHT {
         return Err(CpiValidationError::NestedCpiNotAllowed);
     }
 
