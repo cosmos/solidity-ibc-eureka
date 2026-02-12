@@ -16,10 +16,6 @@ pub struct OnRecvPacket<'info> {
     )]
     pub app_state: Account<'info, DummyIbcAppState>,
 
-    /// The IBC router program that's calling us
-    /// CHECK: Verified to be the ICS26 Router program
-    pub router_program: AccountInfo<'info>,
-
     /// Instructions sysvar for CPI validation
     /// CHECK: Validated via address constraint
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
