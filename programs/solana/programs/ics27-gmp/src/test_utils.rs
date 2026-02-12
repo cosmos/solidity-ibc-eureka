@@ -797,7 +797,7 @@ pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> I
     }
 }
 
-/// Setup ProgramTest with a CPI proxy loaded at `ics26_router::ID`.
+/// Setup `ProgramTest` with a CPI proxy loaded at `ics26_router::ID`.
 ///
 /// This allows testing authorized router CPI calls: the proxy forwards
 /// instructions via CPI and the runtime sees `ics26_router::ID` as the caller.
@@ -849,7 +849,7 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
 
 /// Wraps an instruction as a CPI call from `ics26_router::ID`.
 ///
-/// Uses the same proxy_cpi mechanism as `wrap_in_test_cpi_proxy` but
+/// Uses the same `proxy_cpi` mechanism as `wrap_in_test_cpi_proxy` but
 /// targets `ics26_router::ID` (where we loaded a test proxy program).
 pub fn wrap_as_router_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
     let mut data = Vec::new();
