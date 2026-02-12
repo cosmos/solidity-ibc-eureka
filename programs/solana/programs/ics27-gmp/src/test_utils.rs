@@ -355,7 +355,6 @@ pub fn create_recv_packet_instruction(
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(ics26_router::ID, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
@@ -793,6 +792,92 @@ pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> I
 
     Instruction {
         program_id: TEST_CPI_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+/// Setup ProgramTest with a CPI proxy loaded at `ics26_router::ID`.
+///
+/// This allows testing authorized router CPI calls: the proxy forwards
+/// instructions via CPI and the runtime sees `ics26_router::ID` as the caller.
+pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
+    // Load the proxy at the router's program ID so CPI from it is recognized as router CPI
+    pt.add_program("test_cpi_proxy", ics26_router::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create GMP app_state PDA
+    let (app_state_pda, bump) = Pubkey::find_program_address(
+        &[
+            crate::state::GMPAppState::SEED,
+            crate::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &crate::ID,
+    );
+    let app_state = crate::state::GMPAppState {
+        version: crate::state::AccountVersion::V1,
+        paused: false,
+        bump,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = Vec::new();
+    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
+    app_state.serialize(&mut data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+/// Wraps an instruction as a CPI call from `ics26_router::ID`.
+///
+/// Uses the same proxy_cpi mechanism as `wrap_in_test_cpi_proxy` but
+/// targets `ics26_router::ID` (where we loaded a test proxy program).
+pub fn wrap_as_router_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: ics26_router::ID,
         accounts,
         data,
     }

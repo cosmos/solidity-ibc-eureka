@@ -2094,13 +2094,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
-		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		// Build instruction and call it directly (not via CPI)
 		// This tests that validate_cpi_caller checks the instructions sysvar to detect direct calls
 		dummyTargetProgram := solanago.MustPublicKeyFromBase58(DummyTargetProgramID)
 		gmpIx, err := ics27_gmp.NewOnRecvPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID, // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey,
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
@@ -2168,12 +2167,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			Relayer: s.SolanaRelayer.PublicKey(),
 		}
 
-		// Build instruction with CORRECT router_program
+		// Build instruction
 		dummyTargetProgram := solanago.MustPublicKeyFromBase58(DummyTargetProgramID)
 		gmpIx, err := ics27_gmp.NewOnRecvPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID, // Correct router
 			solanago.SysVarInstructionsPubkey,
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
@@ -2249,11 +2247,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		// Derive result_account PDA
 		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
 
-		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		// Build instruction, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
 			s.SolanaRelayer.PublicKey(),       // payer
 			solanago.SystemProgramID,          // system_program
@@ -2315,11 +2312,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		// Derive result_account PDA
 		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
 
-		// Build instruction with CORRECT router_program
+		// Build instruction
 		gmpIx, err := ics27_gmp.NewOnAcknowledgementPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
 			s.SolanaRelayer.PublicKey(),       // payer
 			solanago.SystemProgramID,          // system_program
@@ -2384,11 +2380,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		// Derive result_account PDA
 		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
 
-		// Build instruction with CORRECT router_program, but call it directly (not via CPI)
+		// Build instruction, but call it directly (not via CPI)
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID,            // Correct router, but we're calling directly!
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
 			s.SolanaRelayer.PublicKey(),       // payer
 			solanago.SystemProgramID,          // system_program
@@ -2449,11 +2444,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 		// Derive result_account PDA
 		resultAccountPDA, _ := solana.GMPCallResultPDA(ics27_gmp.ProgramID, mockMsg.SourceClient, mockMsg.Sequence)
 
-		// Build instruction with CORRECT router_program
+		// Build instruction
 		gmpIx, err := ics27_gmp.NewOnTimeoutPacketInstruction(
 			mockMsg,
 			gmpAppStatePDA,
-			ics26_router.ProgramID,            // Correct router
 			solanago.SysVarInstructionsPubkey, // instruction_sysvar
 			s.SolanaRelayer.PublicKey(),       // payer
 			solanago.SystemProgramID,          // system_program

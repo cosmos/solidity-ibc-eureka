@@ -44,9 +44,6 @@ pub struct OnRecvPacket<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Router program calling this instruction
-    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
-
     /// Instructions sysvar for validating CPI caller
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
@@ -69,7 +66,7 @@ pub fn on_recv_packet<'info>(
     // Verify this function is called via CPI from the authorized router
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
-        &ctx.accounts.router_program.key(),
+        &ics26_router::ID,
         &crate::ID,
     )
     .map_err(GMPError::from)?;
@@ -315,7 +312,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, config.paused),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(caller_pubkey),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -363,7 +359,7 @@ mod tests {
             create_fake_instructions_sysvar_account(ctx.router_program);
 
         // Modify the instruction to reference the fake sysvar (simulating attacker control)
-        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+        instruction.accounts[1] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
 
         let accounts = vec![
             create_gmp_app_state_account(
@@ -371,7 +367,6 @@ mod tests {
                 ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(ctx.router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),
             create_authority_account(ctx.payer),
@@ -437,7 +432,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(wrong_app_state_pda, false), // Wrong PDA!
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, false),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -453,7 +447,6 @@ mod tests {
                 wrong_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_authority_account(payer),
             create_system_program_account(),
@@ -529,7 +522,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -576,7 +568,6 @@ mod tests {
                 ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -630,7 +621,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -677,7 +667,6 @@ mod tests {
                 ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -738,7 +727,6 @@ mod tests {
                 ctx.app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -873,7 +861,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -908,7 +895,6 @@ mod tests {
                 app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             // Counter app program (target_program) - must be executable
             (
@@ -1011,7 +997,6 @@ mod tests {
             &bpf_loader_upgradeable::ID,
         );
 
-        let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
@@ -1106,7 +1091,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
@@ -1141,7 +1125,6 @@ mod tests {
                 app_state_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account(),
             (
                 payer,
@@ -1228,7 +1211,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -1293,7 +1275,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
-            create_router_program_account(ctx.router_program),
             create_instructions_sysvar_account_with_caller(ctx.router_program),
             create_authority_account(ctx.payer),
             create_system_program_account(),
@@ -1351,7 +1332,6 @@ mod integration_tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(ics26_router::ID, false),
                 AccountMeta::new_readonly(
                     anchor_lang::solana_program::sysvar::instructions::ID,
                     false,
@@ -1447,5 +1427,33 @@ mod integration_tests {
             ),
             "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
         );
+    }
+
+    /// Verifies that a CPI call from the authorized router program passes
+    /// CPI validation. Uses a test proxy loaded at `ics26_router::ID` so the
+    /// runtime sees the correct caller program ID.
+    ///
+    /// The instruction fails later (no remaining accounts for target program),
+    /// but the error is NOT a CPI validation error — proving the rejections
+    /// in other tests are genuine access control, not false positives.
+    #[tokio::test]
+    async fn test_authorized_router_cpi_passes_validation() {
+        let pt = setup_program_test_with_router_proxy();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_recv_packet_ix(payer.pubkey());
+        let ix = wrap_as_router_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("should fail at packet level, not CPI validation");
+        let code = extract_custom_error(&err).expect("should be a custom error");
+
+        let direct_call = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::DirectCallNotAllowed as u32;
+        let unauthorized = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::UnauthorizedRouter as u32;
+
+        assert_ne!(code, direct_call, "should not be DirectCallNotAllowed");
+        assert_ne!(code, unauthorized, "should not be UnauthorizedRouter");
     }
 }

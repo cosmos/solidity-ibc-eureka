@@ -65,7 +65,7 @@ pub struct UnpauseApp<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID using stored `access_manager` program ID
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,

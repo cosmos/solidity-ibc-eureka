@@ -17,9 +17,6 @@ pub struct OnTimeoutPacket<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Router program calling this instruction
-    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
-
     /// Instructions sysvar for validating CPI caller
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
@@ -47,7 +44,7 @@ pub fn on_timeout_packet(
 ) -> Result<()> {
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
-        &ctx.accounts.router_program.key(),
+        &ics26_router::ID,
         &crate::ID,
     )
     .map_err(GMPError::from)?;
@@ -85,8 +82,7 @@ mod tests {
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
         create_instructions_sysvar_account_with_caller, create_payer_account,
-        create_router_program_account, create_system_program_account,
-        create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
+        create_system_program_account, create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
     };
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
@@ -122,7 +118,6 @@ mod tests {
 
     fn create_timeout_instruction(
         app_state_pda: Pubkey,
-        router_program: Pubkey,
         result_account_pda: Pubkey,
         payer: Pubkey,
     ) -> Instruction {
@@ -134,7 +129,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -154,8 +148,7 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(
@@ -163,7 +156,6 @@ mod tests {
                 app_state_bump,
                 true, // paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -212,7 +204,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -229,7 +220,6 @@ mod tests {
                 wrong_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -246,18 +236,15 @@ mod tests {
     fn test_on_timeout_packet_direct_call_rejected() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
             create_payer_account(payer),
             create_system_program_account(),
@@ -275,19 +262,16 @@ mod tests {
     fn test_on_timeout_packet_unauthorized_router() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let unauthorized_program = Pubkey::new_unique();
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
             create_payer_account(payer),
             create_system_program_account(),
@@ -311,19 +295,17 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let mut instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let mut instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         // Simulate Wormhole attack: pass a completely different account with fake sysvar data
         let (fake_sysvar_pubkey, fake_sysvar_account) =
             create_fake_instructions_sysvar_account(router_program);
 
         // Modify the instruction to reference the fake sysvar (simulating attacker control)
-        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+        instruction.accounts[1] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),
             create_payer_account(payer),
@@ -370,7 +352,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -381,7 +362,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -439,7 +419,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -450,7 +429,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -507,7 +485,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -518,7 +495,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -643,7 +619,6 @@ mod integration_tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(ics26_router::ID, false),
                 AccountMeta::new_readonly(
                     anchor_lang::solana_program::sysvar::instructions::ID,
                     false,

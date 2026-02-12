@@ -66,11 +66,6 @@ pub struct RecvPacket<'info> {
     /// CHECK: IBC app state account, owned by IBC app program
     pub ibc_app_state: AccountInfo<'info>,
 
-    /// The router program account (this program)
-    /// CHECK: This will be verified in the CPI as the calling program
-    #[account(address = crate::ID)]
-    pub router_program: AccountInfo<'info>,
-
     #[account(mut)]
     pub relayer: Signer<'info>,
 
@@ -213,7 +208,6 @@ pub fn recv_packet<'info>(
         ctx.accounts.ibc_app_program.clone(),
         OnRecvPacket {
             app_state: ctx.accounts.ibc_app_state.clone(),
-            router_program: ctx.accounts.router_program.clone(),
             instructions_sysvar: ctx.accounts.instructions_sysvar.clone(),
             payer: ctx.accounts.relayer.to_account_info(),
             system_program: ctx.accounts.system_program.to_account_info(),
@@ -491,7 +485,6 @@ mod tests {
             AccountMeta::new(packet_ack_pda, false),
             AccountMeta::new_readonly(ibc_app_program_id, false),
             AccountMeta::new(ibc_app_state, false),
-            AccountMeta::new_readonly(crate::ID, false), // router_program
             AccountMeta::new(relayer, true),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -526,8 +519,7 @@ mod tests {
             packet_ack_account,
             create_bpf_program_account(ibc_app_program_id),
             create_account(ibc_app_state, vec![0u8; 100], ibc_app_program_id),
-            create_bpf_program_account(crate::ID), // router_program
-            signer_account,                        // relayer
+            signer_account,
             create_program_account(system_program::ID),
             create_instructions_sysvar_account_with_caller(crate::ID),
             create_account(client_pda, client_data, crate::ID),
