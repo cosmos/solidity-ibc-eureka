@@ -15,7 +15,6 @@ use crate::state::{
     AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
 };
 
-// TODO: freeze constraint for appstate paused
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
@@ -23,6 +22,7 @@ pub struct IFTTransfer<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -122,7 +122,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
         msg.receiver.len() <= MAX_RECEIVER_LENGTH,

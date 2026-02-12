@@ -18,6 +18,7 @@ pub struct IFTMint<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -85,7 +86,6 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     let bridge = &ctx.accounts.ift_bridge;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
 
     // Validate GMP account matches the bridge's (client_id, counterparty_ift_address).
     // This ensures the relayer passed the correct bridge for this GMP call.
