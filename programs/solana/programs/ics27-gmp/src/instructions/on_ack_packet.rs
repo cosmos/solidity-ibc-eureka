@@ -725,4 +725,32 @@ mod integration_tests {
             "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
         );
     }
+
+    /// Verifies that a CPI call from the authorized router program passes
+    /// CPI validation. Uses a test proxy loaded at `ics26_router::ID` so the
+    /// runtime sees the correct caller program ID.
+    ///
+    /// The instruction fails later (missing result account data),
+    /// but the error is NOT a CPI validation error — proving the rejections
+    /// in other tests are genuine access control, not false positives.
+    #[tokio::test]
+    async fn test_authorized_router_cpi_passes_validation() {
+        let pt = setup_program_test_with_router_proxy();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_ack_packet_ix(payer.pubkey());
+        let ix = wrap_as_router_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("should fail at packet level, not CPI validation");
+        let code = extract_custom_error(&err).expect("should be a custom error");
+
+        let direct_call = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::DirectCallNotAllowed as u32;
+        let unauthorized = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::UnauthorizedRouter as u32;
+
+        assert_ne!(code, direct_call, "should not be DirectCallNotAllowed");
+        assert_ne!(code, unauthorized, "should not be UnauthorizedRouter");
+    }
 }
