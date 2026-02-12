@@ -441,7 +441,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					accessControlAccount,
 					clientAccount,
 					clientSequenceAccount,
-					s.SolanaRelayer.PublicKey(),
 					ics07_tendermint.ProgramID,
 					solanago.SystemProgramID,
 					solanago.SysVarInstructionsPubkey,
@@ -1329,9 +1328,15 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 			TotalProofChunks: 2,
 		}
 
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
 		cleanupInstruction, err := ics26_router.NewCleanupChunksInstruction(
 			cleanupMsg,
+			routerStateAccount,
+			accessControlAccount,
 			relayer,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1399,6 +1404,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	submitter := s.SolanaRelayer.PublicKey()
 
 	clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+	appStatePDA, _ := solana.Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
+	ics07AccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
 	chunk0Data := []byte("header chunk 0 data for testing orphaned chunks cleanup")
 	chunk1Data := []byte("header chunk 1 data for testing orphaned chunks cleanup")
@@ -1447,7 +1454,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 			chunk0Params,
 			chunk0PDA,
 			clientStatePDA,
+			appStatePDA,
+			ics07AccessManagerPDA,
 			submitter,
+			solanago.SysVarInstructionsPubkey,
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -1469,7 +1479,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 			chunk1Params,
 			chunk1PDA,
 			clientStatePDA,
+			appStatePDA,
+			ics07AccessManagerPDA,
 			submitter,
+			solanago.SysVarInstructionsPubkey,
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)

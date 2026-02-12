@@ -389,7 +389,6 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 		accessControlAccount,
 		clientAccount,
 		clientSequenceAccount,
-		s.SolanaUser.PublicKey(),
 		attestation.ProgramID,
 		solanago.SystemProgramID,
 		solanago.SysVarInstructionsPubkey,

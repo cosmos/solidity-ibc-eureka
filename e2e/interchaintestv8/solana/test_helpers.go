@@ -1049,6 +1049,8 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	chunksStart := time.Now()
 
 	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
+	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
 	type chunkResult struct {
 		chunkIdx int
@@ -1078,7 +1080,10 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 				params,
 				chunkPDA,
 				clientStatePDA,
+				appStatePDA,
+				accessManagerPDA,
 				user.PublicKey(),
+				solana.SysVarInstructionsPubkey,
 				solana.SystemProgramID,
 			)
 			if err != nil {
@@ -1135,9 +1140,6 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	// Phase 2: Assemble and submit misbehaviour
 	t.Logf("--- Phase 2: Assembling and submitting misbehaviour ---")
 	assemblyStart := time.Now()
-
-	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
-	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
 	// Convert heights to bytes for consensus state PDA
 	height1Bytes := make([]byte, 8)
