@@ -1,7 +1,8 @@
 use crate::error::ErrorCode;
 use crate::state::{HeaderChunk, CHUNK_DATA_SIZE};
-use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, IbcHeight, UploadChunkParams};
+use crate::test_helpers::access_control::create_access_manager_account;
+use crate::test_helpers::{create_instructions_sysvar_account, PROGRAM_BINARY_PATH};
+use crate::types::{AppState, ClientState, IbcHeight, UploadChunkParams};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -15,7 +16,33 @@ struct TestAccounts {
     submitter: Pubkey,
     chunk_pda: Pubkey,
     client_state_pda: Pubkey,
+    app_state_pda: Pubkey,
+    access_manager_pda: Pubkey,
     accounts: Vec<(Pubkey, Account)>,
+}
+
+fn create_app_state_account() -> (Pubkey, Account) {
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
+
+    let app_state = AppState {
+        access_manager: access_manager::ID,
+        chain_id: String::new(),
+        _reserved: [0; 256],
+    };
+
+    let mut data = vec![];
+    app_state.try_serialize(&mut data).unwrap();
+
+    (
+        app_state_pda,
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
 }
 
 fn setup_test_accounts(
@@ -24,7 +51,6 @@ fn setup_test_accounts(
     submitter: Pubkey,
     with_existing_client: bool,
 ) -> TestAccounts {
-    // Derive PDAs
     let chunk_pda = Pubkey::find_program_address(
         &[
             crate::state::HeaderChunk::SEED,
@@ -38,6 +64,11 @@ fn setup_test_accounts(
 
     let client_state_pda =
         Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
+
+    let (app_state_pda, app_state_account) = create_app_state_account();
+    let (access_manager_pda, access_manager_account) =
+        create_access_manager_account(submitter, vec![submitter]);
+    let instructions_sysvar_account = create_instructions_sysvar_account();
 
     let mut accounts = vec![
         (
@@ -64,7 +95,6 @@ fn setup_test_accounts(
     ];
 
     if with_existing_client {
-        // Create client state account
         let client_state = ClientState {
             chain_id: "test-chain".to_string(),
             trust_level_numerator: 2,
@@ -110,10 +140,19 @@ fn setup_test_accounts(
         ));
     }
 
+    accounts.push((app_state_pda, app_state_account));
+    accounts.push((access_manager_pda, access_manager_account));
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        instructions_sysvar_account,
+    ));
+
     TestAccounts {
         submitter,
         chunk_pda,
         client_state_pda,
+        app_state_pda,
+        access_manager_pda,
         accounts,
     }
 }
@@ -141,7 +180,13 @@ fn create_upload_instruction(
         accounts: vec![
             AccountMeta::new(test_accounts.chunk_pda, false),
             AccountMeta::new_readonly(test_accounts.client_state_pda, false),
+            AccountMeta::new_readonly(test_accounts.app_state_pda, false),
+            AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
+            AccountMeta::new_readonly(
+                anchor_lang::solana_program::sysvar::instructions::ID,
+                false,
+            ),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: instruction_data.data(),
@@ -373,5 +418,39 @@ fn test_upload_chunk_with_frozen_client_fails() {
         &instruction,
         &test_accounts.accounts,
         ErrorCode::ClientFrozen,
+    );
+}
+
+#[test]
+fn test_upload_without_relayer_role_rejected() {
+    let target_height = 200;
+    let chunk_index = 0;
+    let submitter = Pubkey::new_unique();
+
+    let mut test_accounts = setup_test_accounts(target_height, chunk_index, submitter, true);
+
+    // Replace access manager with one that has no relayers
+    let (access_manager_pda, access_manager_account) =
+        create_access_manager_account(submitter, vec![]);
+    if let Some((_, account)) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(key, _)| *key == access_manager_pda)
+    {
+        *account = access_manager_account;
+    }
+
+    let params = create_upload_chunk_params(target_height, chunk_index, vec![1u8; 100]);
+    let instruction = create_upload_instruction(&test_accounts, params);
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    assert!(
+        !matches!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Success
+        ),
+        "should reject submitter without RELAYER_ROLE"
     );
 }

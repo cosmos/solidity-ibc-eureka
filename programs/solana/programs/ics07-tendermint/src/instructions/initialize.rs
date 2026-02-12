@@ -4,7 +4,7 @@ use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
+#[instruction(chain_id: String, client_state: ClientState)]
 pub struct Initialize<'info> {
     #[account(
         init,
@@ -13,12 +13,12 @@ pub struct Initialize<'info> {
         seeds = [ClientState::SEED],
         bump
     )]
-    pub client_state: Account<'info, ClientState>,
+    pub client_state_account: Account<'info, ClientState>,
     #[account(
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, client_state_account.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -39,16 +39,10 @@ pub struct Initialize<'info> {
 pub fn initialize(
     ctx: Context<Initialize>,
     chain_id: String,
-    latest_height: u64,
     client_state: ClientState,
     consensus_state: ConsensusState,
     access_manager: Pubkey,
 ) -> Result<()> {
-    require!(
-        client_state.latest_height.revision_height == latest_height,
-        ErrorCode::InvalidHeight
-    );
-
     require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
 
     require!(
@@ -75,10 +69,8 @@ pub fn initialize(
         ErrorCode::InvalidHeight
     );
 
-    let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
-
-    client_state_account.set_inner(client_state);
+    ctx.accounts.client_state_account.set_inner(client_state);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height.revision_height;
@@ -197,7 +189,6 @@ mod tests {
     ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
             chain_id: client_state.chain_id.clone(),
-            latest_height: client_state.latest_height.revision_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -281,7 +272,6 @@ mod tests {
 
         let instruction_data = crate::instruction::Initialize {
             chain_id: client_state.chain_id.clone(),
-            latest_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -632,7 +622,6 @@ mod tests {
 
         let instruction_data = crate::instruction::Initialize {
             chain_id: client_state.chain_id.clone(),
-            latest_height,
             client_state,
             consensus_state,
             access_manager: access_manager::ID,

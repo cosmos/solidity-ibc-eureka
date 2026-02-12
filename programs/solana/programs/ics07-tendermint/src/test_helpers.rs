@@ -851,6 +851,105 @@ pub fn setup_program_test_with_whitelist(
     pt
 }
 
+pub fn setup_program_test_with_relayer(
+    relayer: &solana_sdk::pubkey::Pubkey,
+) -> solana_program_test::ProgramTest {
+    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator};
+
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics07_tendermint", crate::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    let (app_state_pda, _) = solana_sdk::pubkey::Pubkey::find_program_address(
+        &[crate::types::AppState::SEED],
+        &crate::ID,
+    );
+    let app_state = crate::types::AppState {
+        access_manager: access_manager::ID,
+        chain_id: String::new(),
+        _reserved: [0; 256],
+    };
+    let mut app_data = Vec::new();
+    app_state.try_serialize(&mut app_data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: app_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    let (access_manager_pda, _) = solana_sdk::pubkey::Pubkey::find_program_address(
+        &[access_manager::state::AccessManager::SEED],
+        &access_manager::ID,
+    );
+    let am = access_manager::state::AccessManager {
+        roles: vec![
+            access_manager::RoleData {
+                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                members: vec![*relayer],
+            },
+            access_manager::RoleData {
+                role_id: solana_ibc_types::roles::RELAYER_ROLE,
+                members: vec![*relayer],
+            },
+        ],
+        whitelisted_programs: vec![TEST_CPI_TARGET_ID],
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt.add_account(
+        *relayer,
+        solana_sdk::account::Account {
+            lamports: 10_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+pub fn fund_account(
+    pt: &mut solana_program_test::ProgramTest,
+    pubkey: &solana_sdk::pubkey::Pubkey,
+) {
+    pt.add_account(
+        *pubkey,
+        solana_sdk::account::Account {
+            lamports: 10_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+}
+
 pub fn wrap_in_test_cpi_proxy(
     payer: solana_sdk::pubkey::Pubkey,
     inner_ix: &solana_sdk::instruction::Instruction,

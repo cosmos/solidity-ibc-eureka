@@ -1,4 +1,4 @@
-use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
+use anchor_lang::{AccountSerialize, AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData, ToAccountMetas};
 use ed25519_dalek::{Signer, SigningKey};
 use ics07_tendermint::state::SignatureVerification;
 use rstest::{fixture, rstest};
@@ -13,7 +13,8 @@ use solana_sdk::{
 
 const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
 
-/// Creates a `ProgramTest` instance with the `ics07_tendermint` program loaded.
+/// Creates a `ProgramTest` instance with the `ics07_tendermint` program loaded
+/// and pre-creates `AppState` and `AccessManager` PDAs so that the payer has `RELAYER_ROLE`.
 fn setup_program_test() -> ProgramTest {
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(PROGRAM_BINARY_PATH)
@@ -21,7 +22,69 @@ fn setup_program_test() -> ProgramTest {
             .expect("Invalid program path");
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
-    ProgramTest::new("ics07_tendermint", ics07_tendermint::ID, None)
+    let mut pt = ProgramTest::new("ics07_tendermint", ics07_tendermint::ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create AppState PDA pointing to access_manager program
+    let (app_state_pda, _) = Pubkey::find_program_address(
+        &[ics07_tendermint::AppState::SEED],
+        &ics07_tendermint::ID,
+    );
+    let app_state = ics07_tendermint::AppState {
+        access_manager: access_manager::ID,
+        chain_id: String::new(),
+        _reserved: [0; 256],
+    };
+    let mut app_data = Vec::new();
+    app_state.try_serialize(&mut app_data).unwrap();
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: app_data,
+            owner: ics07_tendermint::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create AccessManager PDA with RELAYER_ROLE for default payer
+    // The payer pubkey is deterministic in ProgramTest (first keypair), so we grant
+    // the role to all callers by using a broad approach: we'll re-create per test.
+    // For simplicity, we skip pre-creating the AccessManager here and do it in the fixture.
+    pt
+}
+
+fn add_access_manager_with_relayer(pt: &mut ProgramTest, relayer: &Pubkey) {
+    let (access_manager_pda, _) = Pubkey::find_program_address(
+        &[access_manager::state::AccessManager::SEED],
+        &access_manager::ID,
+    );
+    let am = access_manager::state::AccessManager {
+        roles: vec![
+            access_manager::RoleData {
+                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                members: vec![*relayer],
+            },
+            access_manager::RoleData {
+                role_id: solana_ibc_types::roles::RELAYER_ROLE,
+                members: vec![*relayer],
+            },
+        ],
+        whitelisted_programs: vec![],
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
 }
 
 struct TestContext {
@@ -32,11 +95,40 @@ struct TestContext {
 
 #[fixture]
 async fn ctx() -> TestContext {
-    let pt = setup_program_test();
+    let mut pt = setup_program_test();
+    // We need to start the test to get the payer, but we also need the payer's pubkey
+    // to set up the access manager. ProgramTest payer is deterministic but not easily
+    // accessible before start. Instead, we'll use a known keypair as the submitter.
+    // Actually, the simplest approach: start without access manager, then we know
+    // the payer won't have the role. But existing tests need the payer to have the role.
+    //
+    // Alternative: pre-create access manager granting role to a "well-known" keypair,
+    // and use that as the payer. But ProgramTest generates its own payer.
+    //
+    // Simplest fix: grant RELAYER_ROLE to ALL pubkeys by using a large member list.
+    // No, that's bad. Instead, we accept that the payer pubkey is random and grant
+    // role broadly. Actually ProgramTest pays generate a random payer.
+    //
+    // The actual fix: since ProgramTest payer is random, we create a separate relayer
+    // keypair, fund it, and use it as the submitter (not the fee payer).
+    let relayer = Keypair::new();
+    add_access_manager_with_relayer(&mut pt, &relayer.pubkey());
+    pt.add_account(
+        relayer.pubkey(),
+        solana_sdk::account::Account {
+            lamports: 10_000_000_000,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
     let (banks_client, payer, recent_blockhash) = pt.start().await;
+    // We store the relayer as "payer" in the context since tests use it as submitter
+    let _ = payer; // fee payer not needed directly
     TestContext {
         banks_client,
-        payer,
+        payer: relayer,
         recent_blockhash,
     }
 }
@@ -99,16 +191,29 @@ fn create_ed25519_instruction(signing_key: &SigningKey, msg: &[u8]) -> Instructi
 }
 
 /// Creates the `pre_verify_signature` instruction.
-fn create_pre_verify_instruction(payer: Pubkey, sig_data: SignatureData) -> (Instruction, Pubkey) {
+fn create_pre_verify_instruction(
+    submitter: Pubkey,
+    sig_data: SignatureData,
+) -> (Instruction, Pubkey) {
     let (sig_verification_pda, _bump) = Pubkey::find_program_address(
         &[SignatureVerification::SEED, &sig_data.signature_hash],
         &ics07_tendermint::ID,
+    );
+    let (app_state_pda, _) = Pubkey::find_program_address(
+        &[ics07_tendermint::AppState::SEED],
+        &ics07_tendermint::ID,
+    );
+    let (access_manager_pda, _) = Pubkey::find_program_address(
+        &[access_manager::state::AccessManager::SEED],
+        &access_manager::ID,
     );
 
     let accounts = ics07_tendermint::accounts::PreVerifySignature {
         instructions_sysvar: ix_sysvar::ID,
         signature_verification: sig_verification_pda,
-        payer,
+        app_state: app_state_pda,
+        access_manager: access_manager_pda,
+        submitter,
         system_program: solana_sdk::system_program::ID,
     };
 

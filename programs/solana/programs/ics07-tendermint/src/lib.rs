@@ -32,7 +32,6 @@ pub mod ics07_tendermint {
     pub fn initialize(
         ctx: Context<Initialize>,
         chain_id: String,
-        latest_height: u64,
         client_state: ClientState,
         consensus_state: ConsensusState,
         access_manager: Pubkey,
@@ -40,7 +39,6 @@ pub mod ics07_tendermint {
         instructions::initialize::initialize(
             ctx,
             chain_id,
-            latest_height,
             client_state,
             consensus_state,
             access_manager,
@@ -125,11 +123,8 @@ pub mod ics07_tendermint {
     /// This can be called to reclaim rent from failed or abandoned misbehaviour submissions
     pub fn cleanup_incomplete_misbehaviour(
         ctx: Context<CleanupIncompleteMisbehaviour>,
-        submitter: Pubkey,
     ) -> Result<()> {
-        instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(
-            ctx, submitter,
-        )
+        instructions::cleanup_incomplete_misbehaviour::cleanup_incomplete_misbehaviour(ctx)
     }
 
     pub fn pre_verify_signature<'info>(

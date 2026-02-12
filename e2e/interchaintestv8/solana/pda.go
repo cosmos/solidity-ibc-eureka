@@ -169,9 +169,9 @@ func (ics07TendermintPDAs) ConsensusStateWithArgAndAccountSeedPDA(programID sola
 	return pda, bump
 }
 
-func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, clientState []byte, revisionHeight []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		[][]byte{[]byte("consensus_state"), clientState, revisionHeight},
 		programID,
 	)
 	if err != nil {

@@ -1,7 +1,8 @@
 use crate::error::ErrorCode;
 use crate::state::{MisbehaviourChunk, CHUNK_DATA_SIZE};
-use crate::test_helpers::PROGRAM_BINARY_PATH;
-use crate::types::{ClientState, IbcHeight, UploadMisbehaviourChunkParams};
+use crate::test_helpers::access_control::create_access_manager_account;
+use crate::test_helpers::{create_instructions_sysvar_account, PROGRAM_BINARY_PATH};
+use crate::types::{AppState, ClientState, IbcHeight, UploadMisbehaviourChunkParams};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -15,7 +16,33 @@ struct TestAccounts {
     submitter: Pubkey,
     chunk_pda: Pubkey,
     client_state_pda: Pubkey,
+    app_state_pda: Pubkey,
+    access_manager_pda: Pubkey,
     accounts: Vec<(Pubkey, Account)>,
+}
+
+fn create_app_state_account() -> (Pubkey, Account) {
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
+
+    let app_state = AppState {
+        access_manager: access_manager::ID,
+        chain_id: String::new(),
+        _reserved: [0; 256],
+    };
+
+    let mut data = vec![];
+    app_state.try_serialize(&mut data).unwrap();
+
+    (
+        app_state_pda,
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
 }
 
 fn setup_test_accounts(
@@ -25,7 +52,7 @@ fn setup_test_accounts(
 ) -> TestAccounts {
     let chunk_pda = Pubkey::find_program_address(
         &[
-            crate::state::MisbehaviourChunk::SEED,
+            MisbehaviourChunk::SEED,
             submitter.as_ref(),
             &[chunk_index],
         ],
@@ -34,7 +61,12 @@ fn setup_test_accounts(
     .0;
 
     let client_state_pda =
-        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
+        Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
+
+    let (app_state_pda, app_state_account) = create_app_state_account();
+    let (access_manager_pda, access_manager_account) =
+        create_access_manager_account(submitter, vec![submitter]);
+    let instructions_sysvar_account = create_instructions_sysvar_account();
 
     let mut accounts = vec![
         (
@@ -95,10 +127,19 @@ fn setup_test_accounts(
         ));
     }
 
+    accounts.push((app_state_pda, app_state_account));
+    accounts.push((access_manager_pda, access_manager_account));
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        instructions_sysvar_account,
+    ));
+
     TestAccounts {
         submitter,
         chunk_pda,
         client_state_pda,
+        app_state_pda,
+        access_manager_pda,
         accounts,
     }
 }
@@ -114,7 +155,13 @@ fn create_upload_instruction(
         accounts: vec![
             AccountMeta::new(test_accounts.chunk_pda, false),
             AccountMeta::new_readonly(test_accounts.client_state_pda, false),
+            AccountMeta::new_readonly(test_accounts.app_state_pda, false),
+            AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
+            AccountMeta::new_readonly(
+                anchor_lang::solana_program::sysvar::instructions::ID,
+                false,
+            ),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: instruction_data.data(),
@@ -203,7 +250,6 @@ fn test_reupload_misbehaviour_chunk_overwrites_data() {
 
     let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
-    // First upload
     let params1 = UploadMisbehaviourChunkParams {
         chunk_index,
         chunk_data: vec![1u8; 100],
@@ -212,7 +258,6 @@ fn test_reupload_misbehaviour_chunk_overwrites_data() {
     let result1 = assert_instruction_succeeds(&instruction1, &test_accounts.accounts);
     test_accounts.accounts = result1.resulting_accounts.into_iter().collect();
 
-    // Second upload with different data should succeed and overwrite
     let new_data = vec![2u8; 80];
     let params2 = UploadMisbehaviourChunkParams {
         chunk_index,
@@ -240,7 +285,7 @@ fn test_upload_chunk_with_frozen_client_fails() {
     let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
 
     let client_state_pda =
-        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
+        Pubkey::find_program_address(&[ClientState::SEED], &crate::ID).0;
 
     if let Some((_, account)) = test_accounts
         .accounts
@@ -301,5 +346,40 @@ fn test_upload_chunk_data_too_large() {
         &instruction,
         &test_accounts.accounts,
         ErrorCode::ChunkDataTooLarge,
+    );
+}
+
+#[test]
+fn test_upload_without_relayer_role_rejected() {
+    let chunk_index = 0;
+    let submitter = Pubkey::new_unique();
+
+    let mut test_accounts = setup_test_accounts(chunk_index, submitter, true);
+
+    let (access_manager_pda, access_manager_account) =
+        create_access_manager_account(submitter, vec![]);
+    if let Some((_, account)) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(key, _)| *key == access_manager_pda)
+    {
+        *account = access_manager_account;
+    }
+
+    let params = UploadMisbehaviourChunkParams {
+        chunk_index,
+        chunk_data: vec![1u8; 100],
+    };
+    let instruction = create_upload_instruction(&test_accounts, params);
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    assert!(
+        !matches!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Success
+        ),
+        "should reject submitter without RELAYER_ROLE"
     );
 }
