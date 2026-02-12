@@ -58,7 +58,6 @@ pub(crate) struct TimeoutAccountsParams {
     pub client_state: Pubkey,
     pub consensus_state: Pubkey,
     pub fee_payer: Pubkey,
-    pub router_program_id: Pubkey,
     pub light_client_program_id: Pubkey,
     pub chunk_accounts: Vec<Pubkey>,
 }
