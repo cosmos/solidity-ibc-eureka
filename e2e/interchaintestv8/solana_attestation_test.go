@@ -515,7 +515,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Deploy() {
 		s.Require().NoError(err)
 
 		s.Require().Equal(uint8(numCosmosAttestors), clientState.MinRequiredSigs)
-		s.Require().Greater(clientState.LatestHeight, uint64(0))
+		s.Require().Equal(uint64(0), clientState.LatestHeight)
 		s.Require().False(clientState.IsFrozen)
 		s.Require().Len(clientState.AttestorAddresses, len(s.CosmosAttestorAddresses))
 
