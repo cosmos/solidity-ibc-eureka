@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::events::{NoopEvent, TimeoutPacketEvent};
+use crate::events::TimeoutPacketEvent;
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
 use crate::utils::chunking::total_payload_chunks;
@@ -29,11 +29,15 @@ pub struct TimeoutPacket<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    // Note: Port validation is done in the handler function to avoid Anchor macro issues
+    #[account(
+        seeds = [IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
+        bump
+    )]
     pub ibc_app: Account<'info, IBCApp>,
 
     #[account(
         mut,
+        close = relayer,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
@@ -41,8 +45,7 @@ pub struct TimeoutPacket<'info> {
         ],
         bump
     )]
-    /// CHECK: We manually verify this account and handle the case where it doesn't exist
-    pub packet_commitment: AccountInfo<'info>,
+    pub packet_commitment: Account<'info, Commitment>,
 
     // IBC app accounts for CPI
     /// CHECK: IBC app program, validated against `IBCApp` account
@@ -51,7 +54,11 @@ pub struct TimeoutPacket<'info> {
     )]
     pub ibc_app_program: AccountInfo<'info>,
 
-    /// CHECK: IBC app state account, owned by IBC app program
+    /// CHECK: Ownership validated against IBC app program
+    #[account(
+        mut,
+        constraint = *ibc_app_state.owner == ibc_app.app_program_id @ RouterError::InvalidAccountOwner
+    )]
     pub ibc_app_state: AccountInfo<'info>,
 
     #[account(mut)]
@@ -72,14 +79,22 @@ pub struct TimeoutPacket<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    // Light client verification accounts
-    /// CHECK: Light client program, validated against client registry
+    /// CHECK: Validated against client registry
+    #[account(
+        constraint = light_client_program.key() == client.client_program_id @ RouterError::InvalidLightClientProgram
+    )]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Client state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(
+        constraint = *client_state.owner == light_client_program.key() @ RouterError::InvalidAccountOwner
+    )]
     pub client_state: AccountInfo<'info>,
 
-    /// CHECK: Consensus state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(
+        constraint = *consensus_state.owner == light_client_program.key() @ RouterError::InvalidAccountOwner
+    )]
     pub consensus_state: AccountInfo<'info>,
 }
 
@@ -96,7 +111,6 @@ pub fn timeout_packet<'info>(
     )?;
 
     // TODO: Support multi-payload packets #602
-    let packet_commitment_account = &ctx.accounts.packet_commitment;
     let client = &ctx.accounts.client;
 
     require_eq!(
@@ -121,15 +135,6 @@ pub fn timeout_packet<'info>(
     })?;
 
     let payload = packet::get_single_payload(&packet)?;
-
-    let (expected_ibc_app, _) =
-        Pubkey::find_program_address(&[IBCApp::SEED, payload.source_port.as_bytes()], &crate::ID);
-
-    require_keys_eq!(
-        ctx.accounts.ibc_app.key(),
-        expected_ibc_app,
-        RouterError::IbcAppNotFound
-    );
 
     let total_payload_chunks = total_payload_chunks(&msg.payloads);
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
@@ -164,28 +169,11 @@ pub fn timeout_packet<'info>(
         RouterError::InvalidTimeoutTimestamp
     );
 
-    // Check if packet commitment exists (no-op case)
-    // An uninitialized account will be owned by System Program
-    if packet_commitment_account.owner != &crate::ID || packet_commitment_account.data_is_empty() {
-        emit!(NoopEvent {});
-        return Ok(());
-    }
-
-    // Safe to deserialize since we know it's owned by our program
-    // Verify the commitment value
-    {
-        let data = packet_commitment_account.try_borrow_data()?;
-        let packet_commitment = Commitment::try_from_slice(&data[8..])?;
-        let expected_commitment = ics24::packet_commitment_bytes32(&packet);
-        require!(
-            packet_commitment.value == expected_commitment,
-            RouterError::PacketCommitmentMismatch
-        );
-    }
-
-    // Delete commitment data (modify store before callback)
-    let mut data = packet_commitment_account.try_borrow_mut_data()?;
-    data.fill(0);
+    let expected_commitment = ics24::packet_commitment_bytes32(&packet);
+    require!(
+        ctx.accounts.packet_commitment.value == expected_commitment,
+        RouterError::PacketCommitmentMismatch
+    );
 
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
@@ -214,15 +202,6 @@ pub fn timeout_packet<'info>(
 
     on_timeout_packet(cpi_ctx, timeout_msg)?;
 
-    // Close the account and return rent to relayer (after CPI to avoid UnbalancedInstruction)
-    {
-        let dest_starting_lamports = ctx.accounts.relayer.lamports();
-        **ctx.accounts.relayer.lamports.borrow_mut() = dest_starting_lamports
-            .checked_add(packet_commitment_account.lamports())
-            .ok_or(RouterError::ArithmeticOverflow)?;
-        **packet_commitment_account.lamports.borrow_mut() = 0;
-    }
-
     emit!(TimeoutPacketEvent {
         client_id: packet.source_client.clone(),
         sequence: packet.sequence,
@@ -240,6 +219,7 @@ mod tests {
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_sdk::instruction::InstructionError;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -264,7 +244,6 @@ mod tests {
         initial_sequence: u64,
         timeout_timestamp: i64,
         proof_height: u64,
-        with_existing_commitment: bool,
     }
 
     impl Default for TimeoutPacketTestParams {
@@ -280,7 +259,6 @@ mod tests {
                 initial_sequence: 1,
                 timeout_timestamp: 1000,
                 proof_height: 100,
-                with_existing_commitment: true,
             }
         }
     }
@@ -396,30 +374,24 @@ mod tests {
             data: crate::instruction::TimeoutPacket { msg }.data(),
         };
 
-        let packet_commitment_account = if params.with_existing_commitment {
-            // Reconstruct full packet with payload for commitment
-            let full_packet = Packet {
-                sequence: packet.sequence,
-                source_client: packet.source_client.clone(),
-                dest_client: packet.dest_client.clone(),
-                timeout_timestamp: packet.timeout_timestamp,
-                payloads: vec![Payload {
-                    source_port: params.port_id.to_string(),
-                    dest_port: "dest-port".to_string(),
-                    version: "1".to_string(),
-                    encoding: "json".to_string(),
-                    value: test_payload_value, // Value from chunk
-                }],
-            };
-            let (_, data) = setup_packet_commitment(
-                params.source_client_id,
-                full_packet.sequence,
-                &full_packet,
-            );
-            create_account(packet_commitment_pda, data, crate::ID)
-        } else {
-            create_uninitialized_account(packet_commitment_pda, 0)
+        // Reconstruct full packet with payload for commitment
+        let full_packet = Packet {
+            sequence: packet.sequence,
+            source_client: packet.source_client.clone(),
+            dest_client: packet.dest_client.clone(),
+            timeout_timestamp: packet.timeout_timestamp,
+            payloads: vec![Payload {
+                source_port: params.port_id.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: test_payload_value,
+            }],
         };
+        let (_, commitment_data) =
+            setup_packet_commitment(params.source_client_id, full_packet.sequence, &full_packet);
+        let packet_commitment_account =
+            create_account(packet_commitment_pda, commitment_data, crate::ID);
 
         let mut accounts = vec![
             create_account(router_state_pda, router_state_data, crate::ID),
@@ -471,35 +443,6 @@ mod tests {
         assert!(
             packet_commitment_account.data.iter().all(|&b| b == 0),
             "Packet commitment data should be zeroed"
-        );
-    }
-
-    #[test]
-    fn test_timeout_packet_noop_no_commitment() {
-        // Test the no-op path: packet_commitment doesn't exist -> emit NoopEvent.
-        // Note: Mollusk doesn't capture program logs, so we verify noop behavior by checking
-        // that the packet_commitment account remains system-owned (no IBC app callback was invoked).
-        let ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams {
-            with_existing_commitment: false, // No packet commitment exists
-            ..Default::default()
-        });
-
-        let mollusk = setup_mollusk_with_mock_programs();
-
-        // When packet commitment doesn't exist, it should succeed (noop)
-        let checks = vec![Check::success()];
-
-        let result =
-            mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
-
-        // Verify packet commitment account is still system-owned (wasn't modified)
-        let packet_commitment_account = result
-            .get_account(&ctx.packet_commitment_pubkey)
-            .expect("packet commitment account should exist");
-        assert_eq!(
-            packet_commitment_account.owner,
-            system_program::ID,
-            "packet_commitment should still be owned by system program in noop case"
         );
     }
 
@@ -556,13 +499,11 @@ mod tests {
 
     #[test]
     fn test_timeout_packet_zero_payloads() {
-        // Test that packet with zero payloads fails
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        // Modify the instruction to have zero payloads
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![], // No metadata, and packet.payloads is also empty
+            payloads: vec![],
             proof: ProofMetadata {
                 height: 100,
                 total_chunks: 1,
@@ -573,40 +514,38 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
-        ))];
+        // Empty payloads vec causes index-out-of-bounds in Anchor seed resolution
+        let checks = vec![Check::instruction_err(
+            InstructionError::ProgramFailedToComplete,
+        )];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
-    fn test_timeout_packet_multiple_payloads() {
-        // Test that packet with multiple inline payloads fails
+    fn test_timeout_packet_multiple_inline_payloads() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        // Create a packet with 2 inline payloads
-        let payload1 = solana_ibc_types::Payload {
-            source_port: "test-port".to_string(),
-            dest_port: "dest-port".to_string(),
-            version: "1".to_string(),
-            encoding: "json".to_string(),
-            value: b"data1".to_vec(),
-        };
-
-        let payload2 = solana_ibc_types::Payload {
-            source_port: "test-port".to_string(),
-            dest_port: "dest-port".to_string(),
-            version: "1".to_string(),
-            encoding: "json".to_string(),
-            value: b"data2".to_vec(),
-        };
-
-        ctx.packet.payloads = vec![payload1, payload2];
+        ctx.packet.payloads = vec![
+            solana_ibc_types::Payload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"data1".to_vec(),
+            },
+            solana_ibc_types::Payload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"data2".to_vec(),
+            },
+        ];
 
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![], // No chunked metadata
+            payloads: vec![],
             proof: ProofMetadata {
                 height: 100,
                 total_chunks: 1,
@@ -617,38 +556,35 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
-        ))];
+        // Empty payloads metadata vec causes index-out-of-bounds in Anchor seed resolution
+        let checks = vec![Check::instruction_err(
+            InstructionError::ProgramFailedToComplete,
+        )];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
     fn test_timeout_packet_conflicting_inline_and_chunked() {
-        // Test that packet with both inline payloads AND chunked metadata fails
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        // Add inline payload to packet
-        let payload = solana_ibc_types::Payload {
-            source_port: "test-port".to_string(),
+        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+            source_port: "other-port".to_string(),
             dest_port: "dest-port".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
             value: b"inline data".to_vec(),
-        };
+        }];
 
-        ctx.packet.payloads = vec![payload];
-
-        // Also provide chunked metadata (conflicting!)
+        // Metadata source_port doesn't match the ibc_app PDA ("test-port")
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
             payloads: vec![PayloadMetadata {
-                source_port: "test-port".to_string(),
+                source_port: "other-port".to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                total_chunks: 1, // This conflicts with inline payload above
+                total_chunks: 1,
             }],
             proof: ProofMetadata {
                 height: 100,
@@ -660,8 +596,9 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
+        // Anchor seeds constraint fails: ibc_app PDA derived from "other-port" != account seeded with "test-port"
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
