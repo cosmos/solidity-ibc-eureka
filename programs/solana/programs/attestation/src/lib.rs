@@ -28,20 +28,11 @@ pub mod attestation {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        latest_height: u64,
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
-        timestamp: u64,
         access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::initialize::initialize(
-            ctx,
-            latest_height,
-            attestor_addresses,
-            min_required_sigs,
-            timestamp,
-            access_manager,
-        )
+        instructions::initialize::initialize(ctx, attestor_addresses, min_required_sigs, access_manager)
     }
 
     pub fn set_access_manager(

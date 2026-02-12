@@ -475,28 +475,16 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 		attestorAddresses = append(attestorAddresses, addrArray)
 	}
 
-	latestHeight := uint64(1)
-	timestamp := uint64(time.Now().Unix())
 	minRequiredSigs := uint8(numCosmosAttestors)
 
 	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
 
-	heightBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(heightBytes, latestHeight)
-	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgSeedPDA(
-		attestation.ProgramID,
-		heightBytes,
-	)
-
 	initInstruction, err := attestation.NewInitializeInstruction(
-		latestHeight,
 		attestorAddresses,
 		minRequiredSigs,
-		timestamp,
 		access_manager.ProgramID,
 		clientStatePDA,
-		consensusStatePDA,
 		appStatePDA,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,

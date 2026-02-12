@@ -14,15 +14,12 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	latestHeightParam uint64,
 	attestorAddressesParam [][20]uint8,
 	minRequiredSigsParam uint8,
-	timestampParam uint64,
 	accessManagerParam solanago.PublicKey,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	consensusStateStoreAccount solanago.PublicKey,
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -36,11 +33,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `latestHeightParam`:
-		err = enc__.Encode(latestHeightParam)
-		if err != nil {
-			return nil, errors.NewField("latestHeightParam", err)
-		}
 		// Serialize `attestorAddressesParam`:
 		err = enc__.Encode(attestorAddressesParam)
 		if err != nil {
@@ -50,11 +42,6 @@ func NewInitializeInstruction(
 		err = enc__.Encode(minRequiredSigsParam)
 		if err != nil {
 			return nil, errors.NewField("minRequiredSigsParam", err)
-		}
-		// Serialize `timestampParam`:
-		err = enc__.Encode(timestampParam)
-		if err != nil {
-			return nil, errors.NewField("timestampParam", err)
 		}
 		// Serialize `accessManagerParam`:
 		err = enc__.Encode(accessManagerParam)
@@ -68,13 +55,11 @@ func NewInitializeInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "consensus_state_store": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
-		// Account 2 "app_state": Writable, Non-signer, Required
+		// Account 1 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 3 "payer": Writable, Signer, Required
+		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
