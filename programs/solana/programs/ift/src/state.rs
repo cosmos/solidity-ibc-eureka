@@ -33,29 +33,36 @@ pub enum ChainOptions {
 impl ChainOptions {
     /// Validate Chain Options params
     pub fn validate(&self) -> Result<()> {
-        // TODO: to match
-        if let Self::Cosmos {
-            ref denom,
-            ref type_url,
-            ref ica_address,
-        } = self
-        {
-            require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
-            require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
-            // TODO: validate a valid cosmos address
-            require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
-            require!(
-                denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCounterpartyDenomLength
-            );
-            require!(
-                type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCosmosTypeUrlLength
-            );
-            require!(
-                ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
-                IFTError::InvalidCosmosIcaAddressLength
-            );
+        match self {
+            Self::Evm => {}
+            Self::Cosmos {
+                denom,
+                type_url,
+                ica_address,
+            } => {
+                require!(!denom.is_empty(), IFTError::CosmosEmptyCounterpartyDenom);
+                require!(!type_url.is_empty(), IFTError::CosmosEmptyTypeUrl);
+                require!(!ica_address.is_empty(), IFTError::CosmosEmptyIcaAddress);
+                require!(
+                    bech32::primitives::decode::CheckedHrpstring::new::<bech32::Bech32>(
+                        ica_address
+                    )
+                    .is_ok(),
+                    IFTError::InvalidCosmosIcaAddress
+                );
+                require!(
+                    denom.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCounterpartyDenomLength
+                );
+                require!(
+                    type_url.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCosmosTypeUrlLength
+                );
+                require!(
+                    ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
+                    IFTError::InvalidCosmosIcaAddressLength
+                );
+            }
         }
 
         Ok(())
