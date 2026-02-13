@@ -80,7 +80,7 @@ pub fn assemble_and_update_client<'info>(
 
     let header_bytes = assemble_chunks(&ctx, target_height, chunk_count)?;
 
-    let result = process_header_update(&mut ctx, header_bytes, chunk_count)?;
+    let result = process_header_update(&mut ctx, header_bytes, chunk_count, target_height)?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -131,6 +131,7 @@ fn process_header_update<'info>(
     ctx: &mut Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     header_bytes: Vec<u8>,
     chunk_count: usize,
+    target_height: u64,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
@@ -159,6 +160,14 @@ fn process_header_update<'info>(
         header,
         signature_verification_accounts,
     )?;
+
+    // Sanity check: a mismatch would fail later in store_consensus_state's PDA
+    // validation (new_consensus_state_pda is derived from target_height but
+    // verified against new_height), but this gives a clearer error.
+    require!(
+        new_height.revision_height() == target_height,
+        ErrorCode::HeightMismatch
+    );
 
     let result = store_consensus_state(StoreConsensusStateParams {
         account: &ctx.accounts.new_consensus_state_store,

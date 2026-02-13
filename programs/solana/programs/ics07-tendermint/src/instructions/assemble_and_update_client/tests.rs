@@ -1856,3 +1856,114 @@ fn test_assemble_wrong_client_state_pda() {
         ))],
     );
 }
+
+#[test]
+fn test_assemble_target_height_mismatch() {
+    let mollusk = setup_mollusk();
+
+    let (client_state, consensus_state, update_message) =
+        crate::test_helpers::fixtures::load_primary_fixtures();
+    let (_header_bytes, chunks, _) = create_real_header_and_chunks();
+
+    let chain_id = &client_state.chain_id;
+    let actual_new_height = update_message.new_height;
+    let wrong_target_height = actual_new_height.saturating_add(1);
+    let submitter = Pubkey::new_unique();
+    let num_chunks = chunks.len() as u8;
+
+    let client_state_pda = derive_client_state_pda();
+    // Derive consensus state PDA using wrong target height (doesn't matter, check fails before)
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            client_state_pda.as_ref(),
+            &wrong_target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+    // Chunk PDAs must use wrong_target_height so PDA derivation in assemble_chunks passes
+    let chunk_pdas = get_chunk_pdas(&submitter, wrong_target_height, num_chunks);
+
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let mut client_state_account =
+        create_client_state_account(chain_id, client_state.latest_height.revision_height);
+    let mut client_data = vec![];
+    client_state
+        .try_serialize(&mut client_data)
+        .expect("Failed to serialize client state");
+    client_state_account.data = client_data;
+
+    let trusted_height = update_message.trusted_height;
+    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
+    let trusted_consensus_account = create_consensus_state_account(
+        consensus_state.root,
+        consensus_state.next_validators_hash,
+        consensus_state.timestamp,
+    );
+
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
+        client_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
+        submitter,
+        chunk_pdas: chunk_pdas.clone(),
+        target_height: wrong_target_height,
+    });
+
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
+    let clock_timestamp =
+        crate::test_helpers::fixtures::get_valid_clock_timestamp_for_header(&update_message);
+    let clock_data = bincode::serialize(&solana_sdk::sysvar::clock::Clock {
+        slot: 0,
+        epoch_start_timestamp: 0,
+        epoch: 0,
+        leader_schedule_epoch: 0,
+        unix_timestamp: clock_timestamp,
+    })
+    .expect("Failed to serialize Clock");
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, client_state_account),
+        (trusted_consensus_pda, trusted_consensus_account),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        keyed_account_for_system_program(),
+        (
+            sysvar::clock::ID,
+            Account {
+                lamports: 1,
+                data: clock_data,
+                owner: solana_sdk::native_loader::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        ),
+    ];
+
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    let mut mollusk_with_budget = mollusk;
+    mollusk_with_budget.compute_budget.compute_unit_limit = 20_000_000;
+
+    let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
+    assert_error_code(result, ErrorCode::HeightMismatch, "target height mismatch");
+}
