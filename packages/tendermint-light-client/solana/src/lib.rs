@@ -1,11 +1,4 @@
 //! Solana-optimized Tendermint light client verifier using precompiled Ed25519Program and brine-ed25519
-//!
-//! TODO: Additional optimizations - for upstream PR to ibc-rs/tendermint-rs:
-//! 1. tendermint-light-client-verifier/src/operations/voting_power.rs:319
-//!    Add #[cfg(not(feature = "solana"))] before `votes.sort_unstable_by_key()`
-//!    to skip on-chain sorting when signatures are pre-sorted by relayer
-//! 2. solana-ibc-types/src/borsh_header.rs `conversions::commit_to_borsh()`
-//!    Pre-sort signatures before serialization (saves ~60-80k CU on-chain for 100 validators)
 
 use ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
 use solana_account_info::AccountInfo;
