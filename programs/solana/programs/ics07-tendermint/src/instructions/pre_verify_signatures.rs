@@ -14,7 +14,7 @@ pub struct PreVerifySignature<'info> {
     #[account(
         init,
         payer = submitter,
-        space = 8 + std::mem::size_of::<crate::state::SignatureVerification>(),
+        space = 8 + crate::state::SignatureVerification::INIT_SPACE,
         seeds = [
             crate::state::SignatureVerification::SEED,
             &signature.signature_hash
