@@ -1619,6 +1619,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		borshBytes, err := solana.MisbehaviourToBorsh(SolanaClientID, misbehaviour)
 		s.Require().NoError(err)
 
+		altAddress := solanago.MustPublicKeyFromBase58(s.SolanaAltAddress)
+		altAccounts := s.Solana.Chain.CreateIBCAddressLookupTableAccounts(simd.Config().ChainID, GMPPortID, SolanaClientID, s.SolanaRelayer.PublicKey())
+		addressTables := map[solanago.PublicKey]solanago.PublicKeySlice{
+			altAddress: altAccounts,
+		}
+
 		s.Solana.Chain.SubmitChunkedMisbehaviour(
 			ctx,
 			s.T(),
@@ -1627,6 +1633,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 			misbehaviour.Header1.TrustedHeight.RevisionHeight,
 			misbehaviour.Header2.TrustedHeight.RevisionHeight,
 			s.SolanaRelayer,
+			addressTables,
 		)
 
 		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)

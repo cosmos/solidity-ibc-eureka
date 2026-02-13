@@ -1017,7 +1017,8 @@ func MisbehaviourChunkPDA(submitter solana.PublicKey, chunkIndex uint8, programI
 // ChunkDataSize is the maximum size of chunk data for multi-transaction uploads
 const ChunkDataSize = 900
 
-// SubmitChunkedMisbehaviour uploads misbehaviour data in chunks and assembles it to freeze the client
+// SubmitChunkedMisbehaviour uploads misbehaviour data in chunks and assembles it to freeze the client.
+// addressTables maps ALT addresses to their account lists for V0 transactions that reduce chunk tx size.
 func (s *Solana) SubmitChunkedMisbehaviour(
 	ctx context.Context,
 	t *testing.T,
@@ -1026,6 +1027,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	trustedHeight1 uint64,
 	trustedHeight2 uint64,
 	user *solana.Wallet,
+	addressTables map[solana.PublicKey]solana.PublicKeySlice,
 ) {
 	t.Helper()
 
@@ -1044,13 +1046,13 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	}
 	t.Logf("Split into %d chunks", len(chunks))
 
-	// Phase 1: Upload all chunks in parallel
-	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
-	chunksStart := time.Now()
-
 	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
 	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+	// Phase 1: Upload all chunks in parallel
+	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
+	chunksStart := time.Now()
 
 	type chunkResult struct {
 		chunkIdx int
@@ -1101,6 +1103,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 				[]solana.Instruction{ix},
 				recent.Value.Blockhash,
 				solana.TransactionPayer(user.PublicKey()),
+				solana.TransactionAddressTables(addressTables),
 			)
 			if err != nil {
 				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to create transaction: %w", err), duration: time.Since(chunkStart)}

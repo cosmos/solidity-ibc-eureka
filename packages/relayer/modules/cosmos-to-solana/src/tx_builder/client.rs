@@ -445,9 +445,17 @@ impl super::TxBuilder {
             &solana_ics07_program_id,
         );
 
+        let (app_state_pda, _) =
+            solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
+
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
         let accounts = vec![
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new(sig_verify_pda, false),
+            AccountMeta::new_readonly(app_state_pda, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
