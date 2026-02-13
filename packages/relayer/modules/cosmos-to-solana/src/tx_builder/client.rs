@@ -12,6 +12,7 @@ use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
 use solana_ibc_types::ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData};
+use solana_ibc_types::AccessManager;
 
 use super::{derive_header_chunk, UploadChunkParams};
 
@@ -49,7 +50,6 @@ impl super::TxBuilder {
         instruction_data.extend_from_slice(&discriminator);
 
         instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
-        instruction_data.extend_from_slice(&latest_height.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
         instruction_data.extend_from_slice(&access_manager.try_to_vec()?);
@@ -71,7 +71,6 @@ impl super::TxBuilder {
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         use super::transaction::derive_alt_address;
-        use solana_ibc_types::AccessManager;
 
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
@@ -163,8 +162,7 @@ impl super::TxBuilder {
             AccountMeta::new(sig_verify_pda, false)
         }));
 
-        let mut data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
-        data.extend_from_slice(&self.fee_payer.try_to_vec()?);
+        let data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
 
         let instruction = Instruction {
             program_id: solana_ics07_program_id,
@@ -192,6 +190,9 @@ impl super::TxBuilder {
         };
 
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
+        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
             target_height,
@@ -202,7 +203,10 @@ impl super::TxBuilder {
         let accounts = vec![
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new_readonly(client_state_pda, false),
+            AccountMeta::new_readonly(app_state_pda, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
         ];
 

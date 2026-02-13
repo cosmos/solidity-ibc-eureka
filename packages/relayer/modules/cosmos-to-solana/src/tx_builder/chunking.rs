@@ -14,7 +14,7 @@ use ibc_eureka_relayer_core::api::SolanaPacketTxs;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_types::{
     router::{router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk},
-    MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
+    AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk, RouterState,
 };
 
 use super::transaction::derive_alt_address;
@@ -598,7 +598,16 @@ impl super::TxBuilder {
         msg_payloads: &[solana_ibc_types::PayloadMetadata],
         proof_total_chunks: u8,
     ) -> Result<Vec<u8>> {
-        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
+        let mut accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
+            AccountMeta::new(self.fee_payer, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
+        ];
 
         for (payload_idx, payload_metadata) in msg_payloads.iter().enumerate() {
             let payload_index = u8::try_from(payload_idx)
