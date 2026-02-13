@@ -445,8 +445,7 @@ impl super::TxBuilder {
             &solana_ics07_program_id,
         );
 
-        let (app_state_pda, _) =
-            solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
+        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
