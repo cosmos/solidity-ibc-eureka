@@ -3,6 +3,7 @@
 use ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
 use solana_account_info::AccountInfo;
 use solana_pubkey::Pubkey;
+use solana_sha256_hasher::{hash as sha256, hashv as sha256v};
 use tendermint::crypto::signature::Error;
 use tendermint::{PublicKey, Signature};
 use tendermint_light_client_verifier::{
@@ -103,8 +104,7 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
             return Err(Error::UnsupportedKeyType);
         };
 
-        let sig_hash =
-            solana_sha256_hasher::hashv(&[pk.as_bytes(), msg, signature.as_bytes()]).to_bytes();
+        let sig_hash = sha256v(&[pk.as_bytes(), msg, signature.as_bytes()]).to_bytes();
         let (expected_pda, _) =
             Pubkey::find_program_address(&[b"sig_verify", &sig_hash], self.program_id);
 
@@ -151,7 +151,7 @@ pub struct SolanaSha256Impl;
 
 impl tendermint::crypto::Sha256 for SolanaSha256Impl {
     fn digest(data: impl AsRef<[u8]>) -> [u8; 32] {
-        solana_sha256_hasher::hashv(&[data.as_ref()]).to_bytes()
+        sha256v(&[data.as_ref()]).to_bytes()
     }
 }
 
@@ -180,7 +180,7 @@ pub struct SolanaHostFunctionsManager;
 
 impl ics23::HostFunctionsProvider for SolanaHostFunctionsManager {
     fn sha2_256(message: &[u8]) -> [u8; 32] {
-        solana_sha256_hasher::hash(message).to_bytes()
+        sha256(message).to_bytes()
     }
 
     fn sha2_512(message: &[u8]) -> [u8; 64] {
@@ -251,7 +251,7 @@ mod tests {
         sig: &[u8; 64],
         program_id: &Pubkey,
     ) -> Pubkey {
-        let sig_hash = solana_sha256_hasher::hashv(&[pk, msg, sig]).to_bytes();
+        let sig_hash = sha256v(&[pk, msg, sig]).to_bytes();
         let (pda, _) = Pubkey::find_program_address(&[b"sig_verify", &sig_hash], program_id);
         pda
     }

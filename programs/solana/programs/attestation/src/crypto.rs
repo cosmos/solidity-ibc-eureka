@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 use crate::error::ErrorCode;
 
 use solana_secp256k1_recover::{SECP256K1_PUBLIC_KEY_LENGTH, SECP256K1_SIGNATURE_LENGTH};
+use solana_sha256_hasher::hash as sha256;
 
 const SIGNATURE_LEN: usize = SECP256K1_SIGNATURE_LENGTH + 1;
 const ETH_RECOVERY_ID_OFFSET: u8 = 27;
@@ -11,7 +12,7 @@ pub const ETH_ADDRESS_LEN: usize = 20;
 pub type MessageHash = [u8; 32];
 
 pub fn sha256_digest(data: &[u8]) -> MessageHash {
-    solana_sha256_hasher::hash(data).to_bytes()
+    sha256(data).to_bytes()
 }
 
 struct ParsedSignature {
