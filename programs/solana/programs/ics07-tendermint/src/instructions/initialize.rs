@@ -1,25 +1,48 @@
 use crate::error::ErrorCode;
-use crate::types::{ClientState, ConsensusState};
-use crate::Initialize;
+use crate::state::ConsensusStateStore;
+use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
+
+#[derive(Accounts)]
+#[instruction(chain_id: String, client_state: ClientState)]
+pub struct Initialize<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + ClientState::INIT_SPACE,
+        seeds = [ClientState::SEED],
+        bump
+    )]
+    pub client_state_account: Account<'info, ClientState>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + ConsensusStateStore::INIT_SPACE,
+        seeds = [ConsensusStateStore::SEED, client_state_account.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + AppState::INIT_SPACE,
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
 
 pub fn initialize(
     ctx: Context<Initialize>,
     chain_id: String,
-    latest_height: u64,
     client_state: ClientState,
     consensus_state: ConsensusState,
     access_manager: Pubkey,
 ) -> Result<()> {
-    // NOTE: chain_id is used in the #[instruction] attribute for account validation
-    // but we also validate it matches the client_state for safety
-    require!(client_state.chain_id == chain_id, ErrorCode::InvalidChainId);
-
-    require!(
-        client_state.latest_height.revision_height == latest_height,
-        ErrorCode::InvalidHeight
-    );
-
     require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
 
     require!(
@@ -46,10 +69,8 @@ pub fn initialize(
         ErrorCode::InvalidHeight
     );
 
-    let client_state_account = &mut ctx.accounts.client_state;
     let latest_height = client_state.latest_height;
-
-    client_state_account.set_inner(client_state);
+    ctx.accounts.client_state_account.set_inner(client_state);
 
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
     consensus_state_store.height = latest_height.revision_height;
@@ -57,6 +78,7 @@ pub fn initialize(
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.access_manager = access_manager;
+    app_state.chain_id = chain_id;
     app_state._reserved = [0; 256];
 
     Ok(())
@@ -83,17 +105,10 @@ mod tests {
         accounts: Vec<(Pubkey, Account)>,
     }
 
-    fn setup_test_accounts(chain_id: &str, latest_height: u64) -> TestAccounts {
+    fn setup_test_accounts(latest_height: u64) -> TestAccounts {
         let payer = Pubkey::new_unique();
-        let chain_id_bytes = if chain_id.is_empty() {
-            b""
-        } else {
-            chain_id.as_bytes()
-        };
-        let (client_state_pda, _) = Pubkey::find_program_address(
-            &[crate::types::ClientState::SEED, chain_id_bytes],
-            &crate::ID,
-        );
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
@@ -174,7 +189,6 @@ mod tests {
     ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
             chain_id: client_state.chain_id.clone(),
-            latest_height: client_state.latest_height.revision_height,
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -225,10 +239,7 @@ mod tests {
     ) {
         setup_invalid_state(&mut client_state);
 
-        let test_accounts = setup_test_accounts(
-            &client_state.chain_id,
-            client_state.latest_height.revision_height,
-        );
+        let test_accounts = setup_test_accounts(client_state.latest_height.revision_height);
         let instruction =
             create_initialize_instruction(&test_accounts, &client_state, &consensus_state);
 
@@ -242,14 +253,10 @@ mod tests {
         // Load all fixtures efficiently (single JSON parse)
         let (client_state, consensus_state, _) = load_primary_fixtures();
 
-        let chain_id = &client_state.chain_id;
-
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) = Pubkey::find_program_address(
-            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-            &crate::ID,
-        );
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
 
         let latest_height = client_state.latest_height.revision_height;
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
@@ -264,8 +271,7 @@ mod tests {
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: chain_id.clone(),
-            latest_height,
+            chain_id: client_state.chain_id.clone(),
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -598,14 +604,11 @@ mod tests {
     fn test_initialize_cannot_reinitialize() {
         let (client_state, consensus_state, _) = load_primary_fixtures();
 
-        let chain_id = &client_state.chain_id;
         let latest_height = client_state.latest_height.revision_height;
         let payer = Pubkey::new_unique();
 
-        let (client_state_pda, _) = Pubkey::find_program_address(
-            &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-            &crate::ID,
-        );
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
@@ -618,9 +621,8 @@ mod tests {
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: chain_id.clone(),
-            latest_height,
-            client_state: client_state.clone(),
+            chain_id: client_state.chain_id.clone(),
+            client_state,
             consensus_state,
             access_manager: access_manager::ID,
         };

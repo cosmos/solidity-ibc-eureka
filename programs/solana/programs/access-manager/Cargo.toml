@@ -28,7 +28,9 @@ solana-ibc-types.workspace = true
 
 [dev-dependencies]
 mollusk-svm.workspace = true
-solana-sdk.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test.workspace = true
+tokio = { version = "1", features = ["full"] }
 
 [lints]
 workspace = true

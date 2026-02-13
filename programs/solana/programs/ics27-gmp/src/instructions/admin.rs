@@ -65,7 +65,7 @@ pub struct UnpauseApp<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID using stored `access_manager` program ID
+    /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
@@ -517,5 +517,266 @@ mod tests {
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::constants::GMP_PORT_ID;
+    use crate::state::GMPAppState;
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+    };
+
+    fn build_pause_app_ix(authority: Pubkey) -> Instruction {
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::PauseApp {}.data(),
+        }
+    }
+
+    fn build_unpause_app_ix(authority: Pubkey) -> Instruction {
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::UnpauseApp {}.data(),
+        }
+    }
+
+    fn setup_with_pauser_role(pauser: &Pubkey) -> solana_program_test::ProgramTest {
+        use anchor_lang::{AnchorSerialize, Discriminator};
+
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            std::env::set_var("SBF_OUT_DIR", std::path::Path::new("../../target/deploy"));
+        }
+
+        let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
+        pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+        pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+        pt.add_program("ics26_router", ics26_router::ID, None);
+        pt.add_program("access_manager", access_manager::ID, None);
+
+        // Pre-create GMP app_state PDA
+        let (app_state_pda, bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let app_state = GMPAppState {
+            version: crate::state::AccountVersion::V1,
+            paused: false,
+            bump,
+            access_manager: access_manager::ID,
+            _reserved: [0; 256],
+        };
+        let mut data = Vec::new();
+        data.extend_from_slice(GMPAppState::DISCRIMINATOR);
+        app_state.serialize(&mut data).unwrap();
+
+        pt.add_account(
+            app_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Pre-create AccessManager PDA with pauser + unpauser roles
+        let (access_manager_pda, _) =
+            solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+        let am = access_manager::state::AccessManager {
+            roles: vec![
+                access_manager::RoleData {
+                    role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                    members: vec![Pubkey::new_unique()],
+                },
+                access_manager::RoleData {
+                    role_id: solana_ibc_types::roles::PAUSER_ROLE,
+                    members: vec![*pauser],
+                },
+                access_manager::RoleData {
+                    role_id: solana_ibc_types::roles::UNPAUSER_ROLE,
+                    members: vec![*pauser],
+                },
+            ],
+            whitelisted_programs: vec![],
+        };
+        let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+        am.serialize(&mut am_data).unwrap();
+
+        pt.add_account(
+            access_manager_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: am_data,
+                owner: access_manager::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        pt
+    }
+
+    #[tokio::test]
+    async fn test_pause_direct_call_succeeds() {
+        let pauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_pause_app_ix(pauser.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &pauser],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct pause by pauser should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_pause_without_role_rejected() {
+        let pauser = Keypair::new();
+        let non_pauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_pause_app_ix(non_pauser.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_pauser],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_pause_cpi_rejected() {
+        let pauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_pause_app_ix(pauser.pubkey());
+        let wrapped_ix = wrap_in_test_cpi_proxy(pauser.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &pauser],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unpause_direct_call_succeeds() {
+        let pauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Pause first
+        let pause_ix = build_pause_app_ix(pauser.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[pause_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &pauser],
+            recent_blockhash,
+        );
+        banks_client.process_transaction(tx).await.unwrap();
+
+        // Then unpause
+        let unpause_ix = build_unpause_app_ix(pauser.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[unpause_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &pauser],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct unpause by unpauser should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_unpause_without_role_rejected() {
+        let pauser = Keypair::new();
+        let non_unpauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_unpause_app_ix(non_unpauser.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_unpauser],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unpause_cpi_rejected() {
+        let pauser = Keypair::new();
+        let pt = setup_with_pauser_role(&pauser.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_unpause_app_ix(pauser.pubkey());
+        let wrapped_ix = wrap_in_test_cpi_proxy(pauser.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &pauser],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
     }
 }

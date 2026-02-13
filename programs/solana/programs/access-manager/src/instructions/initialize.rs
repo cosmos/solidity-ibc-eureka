@@ -1,7 +1,7 @@
 use crate::errors::AccessManagerError;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
-use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
+use solana_ibc_types::{reject_cpi, roles};
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -26,18 +26,12 @@ pub struct Initialize<'info> {
 }
 
 pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
-    // Validate caller
-    require_direct_call_or_whitelisted_caller(
-        &ctx.accounts.instructions_sysvar,
-        crate::WHITELISTED_CPI_PROGRAMS,
-        &crate::ID,
-    )
-    .map_err(AccessManagerError::from)?;
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(AccessManagerError::from)?;
 
     let access_manager = &mut ctx.accounts.access_manager;
     access_manager.roles = vec![];
+    access_manager.whitelisted_programs = vec![];
 
-    // Grant ADMIN_ROLE to the initial admin
     access_manager.grant_role(roles::ADMIN_ROLE, admin)?;
 
     msg!("Global access control initialized with admin: {}", admin);
@@ -338,5 +332,106 @@ mod tests {
         ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signer::Signer,
+    };
+
+    fn setup_program_test_without_am() -> solana_program_test::ProgramTest {
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            let deploy_dir = std::path::Path::new("../../target/deploy");
+            std::env::set_var("SBF_OUT_DIR", deploy_dir);
+        }
+
+        let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+        pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+        pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+        pt
+    }
+
+    fn build_initialize_ix(payer: Pubkey, admin: Pubkey) -> Instruction {
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[crate::state::AccessManager::SEED], &crate::ID);
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::Initialize { admin }.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_succeeds() {
+        let pt = setup_program_test_without_am();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let admin = Pubkey::new_unique();
+        let ix = build_initialize_ix(payer.pubkey(), admin);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct initialize should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_cpi_from_whitelisted_program_rejected() {
+        let pt = setup_program_test_without_am();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let admin = Pubkey::new_unique();
+        let inner_ix = build_initialize_ix(payer.pubkey(), admin);
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::errors::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_cpi_from_unauthorized_program_rejected() {
+        let pt = setup_program_test_without_am();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let admin = Pubkey::new_unique();
+        let inner_ix = build_initialize_ix(payer.pubkey(), admin);
+        let wrapped_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::errors::AccessManagerError::CpiNotAllowed as u32),
+        );
     }
 }

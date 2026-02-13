@@ -11,27 +11,74 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Event emitted when misbehaviour is detected during client update
+type AttestationEventsAccessManagerUpdated struct {
+	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
+	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
+}
+
+func (obj AttestationEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldAccessManager`:
+	err = encoder.Encode(obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Serialize `NewAccessManager`:
+	err = encoder.Encode(obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj AttestationEventsAccessManagerUpdated) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AttestationEventsAccessManagerUpdated: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AttestationEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldAccessManager`:
+	err = decoder.Decode(&obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Deserialize `NewAccessManager`:
+	err = decoder.Decode(&obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *AttestationEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AttestationEventsAccessManagerUpdated: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAttestationEventsAccessManagerUpdated(buf []byte) (*AttestationEventsAccessManagerUpdated, error) {
+	obj := new(AttestationEventsAccessManagerUpdated)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Emitted when conflicting timestamps are submitted for the same height.
 type AttestationEventsMisbehaviourDetected struct {
-	// The client ID where misbehaviour was detected
-	ClientId string `json:"clientId"`
-
-	// The height at which conflicting timestamps were submitted
-	Height uint64 `json:"height"`
-
-	// The existing timestamp stored for this height
-	ExistingTimestamp uint64 `json:"existingTimestamp"`
-
-	// The new conflicting timestamp submitted
+	Height               uint64 `json:"height"`
+	ExistingTimestamp    uint64 `json:"existingTimestamp"`
 	ConflictingTimestamp uint64 `json:"conflictingTimestamp"`
 }
 
 func (obj AttestationEventsMisbehaviourDetected) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
 	// Serialize `Height`:
 	err = encoder.Encode(obj.Height)
 	if err != nil {
@@ -61,11 +108,6 @@ func (obj AttestationEventsMisbehaviourDetected) Marshal() ([]byte, error) {
 }
 
 func (obj *AttestationEventsMisbehaviourDetected) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
 	// Deserialize `Height`:
 	err = decoder.Decode(&obj.Height)
 	if err != nil {
@@ -151,10 +193,14 @@ func UnmarshalAttestationInstructionsUpdateClientUpdateClientParams(buf []byte) 
 	return obj, nil
 }
 
-// Storage for consensus state at a specific height
+// On-chain PDA storing the consensus state for a specific block height.
+// The height is also encoded in the PDA seeds.
 type AttestationStateConsensusStateStore struct {
-	Height         uint64                         `json:"height"`
-	ConsensusState AttestationTypesConsensusState `json:"consensusState"`
+	// Block height this consensus state corresponds to.
+	Height uint64 `json:"height"`
+
+	// Unix timestamp in seconds for this block height.
+	Timestamp uint64 `json:"timestamp"`
 }
 
 func (obj AttestationStateConsensusStateStore) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -163,10 +209,10 @@ func (obj AttestationStateConsensusStateStore) MarshalWithEncoder(encoder *binar
 	if err != nil {
 		return errors.NewField("Height", err)
 	}
-	// Serialize `ConsensusState`:
-	err = encoder.Encode(obj.ConsensusState)
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
 	if err != nil {
-		return errors.NewField("ConsensusState", err)
+		return errors.NewField("Timestamp", err)
 	}
 	return nil
 }
@@ -187,10 +233,10 @@ func (obj *AttestationStateConsensusStateStore) UnmarshalWithDecoder(decoder *bi
 	if err != nil {
 		return errors.NewField("Height", err)
 	}
-	// Deserialize `ConsensusState`:
-	err = decoder.Decode(&obj.ConsensusState)
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
 	if err != nil {
-		return errors.NewField("ConsensusState", err)
+		return errors.NewField("Timestamp", err)
 	}
 	return nil
 }
@@ -212,11 +258,15 @@ func UnmarshalAttestationStateConsensusStateStore(buf []byte) (*AttestationState
 	return obj, nil
 }
 
-// App state for access control
+// Global program configuration.
 type AttestationTypesAppState struct {
-	Version       SolanaIbcTypesAttestationAccountVersion `json:"version"`
-	AccessManager solanago.PublicKey                      `json:"accessManager"`
-	Reserved      [256]uint8                              `json:"reserved"`
+	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
+
+	// Program ID of the access manager that controls admin operations.
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Reserved for future upgrades without account migration.
+	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj AttestationTypesAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -284,16 +334,21 @@ func UnmarshalAttestationTypesAppState(buf []byte) (*AttestationTypesAppState, e
 	return obj, nil
 }
 
-// Client state for the attestation light client
+// Attestation light client state.
 type AttestationTypesClientState struct {
-	Version  SolanaIbcTypesAttestationAccountVersion `json:"version"`
-	ClientId string                                  `json:"clientId"`
+	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
 
-	// Ethereum addresses of trusted attestors (20 bytes each)
+	// 20-byte Ethereum addresses of trusted attestors.
 	AttestorAddresses [][20]uint8 `json:"attestorAddresses"`
-	MinRequiredSigs   uint8       `json:"minRequiredSigs"`
-	LatestHeight      uint64      `json:"latestHeight"`
-	IsFrozen          bool        `json:"isFrozen"`
+
+	// Minimum number of valid attestor signatures required for verification.
+	MinRequiredSigs uint8 `json:"minRequiredSigs"`
+
+	// Highest block height for which a consensus state has been stored.
+	LatestHeight uint64 `json:"latestHeight"`
+
+	// Whether the client has been frozen due to misbehaviour detection.
+	IsFrozen bool `json:"isFrozen"`
 }
 
 func (obj AttestationTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -301,11 +356,6 @@ func (obj AttestationTypesClientState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.Version)
 	if err != nil {
 		return errors.NewField("Version", err)
-	}
-	// Serialize `ClientId`:
-	err = encoder.Encode(obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
 	}
 	// Serialize `AttestorAddresses`:
 	err = encoder.Encode(obj.AttestorAddresses)
@@ -346,11 +396,6 @@ func (obj *AttestationTypesClientState) UnmarshalWithDecoder(decoder *binary.Dec
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `ClientId`:
-	err = decoder.Decode(&obj.ClientId)
-	if err != nil {
-		return errors.NewField("ClientId", err)
-	}
 	// Deserialize `AttestorAddresses`:
 	err = decoder.Decode(&obj.AttestorAddresses)
 	if err != nil {
@@ -384,69 +429,6 @@ func (obj *AttestationTypesClientState) Unmarshal(buf []byte) error {
 
 func UnmarshalAttestationTypesClientState(buf []byte) (*AttestationTypesClientState, error) {
 	obj := new(AttestationTypesClientState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Consensus state for the attestation light client
-type AttestationTypesConsensusState struct {
-	Height uint64 `json:"height"`
-
-	// Timestamp in Unix seconds
-	Timestamp uint64 `json:"timestamp"`
-}
-
-func (obj AttestationTypesConsensusState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Height`:
-	err = encoder.Encode(obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Serialize `Timestamp`:
-	err = encoder.Encode(obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj AttestationTypesConsensusState) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding AttestationTypesConsensusState: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *AttestationTypesConsensusState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Height`:
-	err = decoder.Decode(&obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Deserialize `Timestamp`:
-	err = decoder.Decode(&obj.Timestamp)
-	if err != nil {
-		return errors.NewField("Timestamp", err)
-	}
-	return nil
-}
-
-func (obj *AttestationTypesConsensusState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling AttestationTypesConsensusState: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalAttestationTypesConsensusState(buf []byte) (*AttestationTypesConsensusState, error) {
-	obj := new(AttestationTypesConsensusState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

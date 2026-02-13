@@ -5,6 +5,7 @@
 
 use anchor_lang::prelude::*;
 use borsh::BorshSerialize;
+use solana_sha256_hasher::hash as sha256;
 
 // Re-export from solana-ibc-proto
 pub use solana_ibc_proto::{
@@ -38,7 +39,7 @@ impl AccountIdentifier {
     /// Borsh automatically length-prefixes variable-length fields (strings use u32 length prefix).
     pub fn digest(&self) -> [u8; 32] {
         let data = borsh::to_vec(self).expect("borsh serialization cannot fail");
-        solana_sha256_hasher::hash(&data).to_bytes()
+        sha256(&data).to_bytes()
     }
 
     /// Verify a pubkey matches the expected GMP account PDA.

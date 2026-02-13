@@ -14,7 +14,6 @@ pub enum AccountVersion {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ClientState {
     pub version: AccountVersion,
-    pub client_id: String,
     /// Ethereum addresses of trusted attestors (20 bytes each)
     pub attestor_addresses: Vec<[u8; 20]>,
     pub min_required_sigs: u8,
@@ -25,10 +24,8 @@ pub struct ClientState {
 impl ClientState {
     pub const SEED: &'static [u8] = b"client";
 
-    /// Get attestation client state PDA.
-    /// Note: Uses `client_id` as seed (different from ICS07 which uses `chain_id`).
-    pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
+    pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], &program_id)
     }
 }
 
@@ -43,11 +40,8 @@ pub struct ConsensusState {
 impl ConsensusState {
     pub const SEED: &'static [u8] = b"consensus_state";
 
-    pub fn pda(client_state: Pubkey, height: u64, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[Self::SEED, client_state.as_ref(), &height.to_le_bytes()],
-            &program_id,
-        )
+    pub fn pda(height: u64, program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED, &height.to_le_bytes()], &program_id)
     }
 }
 

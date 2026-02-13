@@ -9,6 +9,7 @@ use solana_sdk::{
     account::Account as SolanaAccount,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
+    signer::Signer,
     system_program,
 };
 
@@ -70,7 +71,10 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
         });
     }
 
-    let access_manager = access_manager::state::AccessManager { roles: role_data };
+    let access_manager = access_manager::state::AccessManager {
+        roles: role_data,
+        whitelisted_programs: vec![],
+    };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     access_manager.serialize(&mut data).unwrap();
@@ -351,7 +355,6 @@ pub fn create_recv_packet_instruction(
         program_id: crate::ID,
         accounts: vec![
             AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(ics26_router::ID, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             AccountMeta::new(payer, true),
             AccountMeta::new_readonly(system_program::ID, false),
@@ -516,4 +519,393 @@ pub fn expect_cpi_rejection_error() -> mollusk_svm::result::Check<'static> {
     mollusk_svm::result::Check::err(solana_sdk::program_error::ProgramError::Custom(
         anchor_lang::error::ERROR_CODE_OFFSET + CpiValidationError::UnauthorizedCaller as u32,
     ))
+}
+
+// ── Router PDA account helpers ──
+
+pub const TEST_SOURCE_CLIENT: &str = "cosmoshub-1";
+
+pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
+    let (pda, _) =
+        Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
+    let state = ics26_router::state::RouterState {
+        version: ics26_router::state::AccountVersion::V1,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::RouterState::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_client_sequence_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            ics26_router::state::ClientSequence::SEED,
+            source_client.as_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::ClientSequence::default();
+    let mut data = ics26_router::state::ClientSequence::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::IBCApp::SEED, port_id.as_bytes()],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::IBCApp {
+        version: ics26_router::state::AccountVersion::V1,
+        port_id: port_id.to_string(),
+        app_program_id: crate::ID,
+        authority: Pubkey::new_unique(),
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::IBCApp::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+pub fn create_client_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
+    let (pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::Client::SEED, source_client.as_bytes()],
+        &ics26_router::ID,
+    );
+    let state = ics26_router::state::Client {
+        version: ics26_router::state::AccountVersion::V1,
+        client_id: source_client.to_string(),
+        client_program_id: Pubkey::new_unique(),
+        counterparty_info: ics26_router::state::CounterpartyInfo {
+            client_id: String::new(),
+            merkle_prefix: vec![],
+        },
+        active: true,
+        _reserved: [0; 256],
+    };
+    let mut data = ics26_router::state::Client::DISCRIMINATOR.to_vec();
+    state.serialize(&mut data).unwrap();
+    (
+        pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: ics26_router::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const TEST_CPI_PROXY_ID: Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const TEST_CPI_TARGET_ID: Pubkey =
+    solana_sdk::pubkey!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test() -> solana_program_test::ProgramTest {
+    setup_program_test_with_access_manager(&Pubkey::new_unique(), &[])
+}
+
+pub fn setup_program_test_with_access_manager(
+    admin: &Pubkey,
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+    pt.add_program("ics26_router", ics26_router::ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create GMP app_state PDA
+    let (app_state_pda, bump) = Pubkey::find_program_address(
+        &[
+            crate::state::GMPAppState::SEED,
+            crate::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &crate::ID,
+    );
+    let app_state = crate::state::GMPAppState {
+        version: crate::state::AccountVersion::V1,
+        paused: false,
+        bump,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = Vec::new();
+    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
+    app_state.serialize(&mut data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create AccessManager PDA with admin role and whitelist
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    let am = access_manager::state::AccessManager {
+        roles: vec![access_manager::RoleData {
+            role_id: solana_ibc_types::roles::ADMIN_ROLE,
+            members: vec![*admin],
+        }],
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create router PDA accounts for send_call tests
+    let (router_state_pda, router_state_account) = create_router_state_pda();
+    pt.add_account(router_state_pda, router_state_account);
+
+    let (client_seq_pda, client_seq_account) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
+    pt.add_account(client_seq_pda, client_seq_account);
+
+    let (ibc_app_pda, ibc_app_account) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
+    pt.add_account(ibc_app_pda, ibc_app_account);
+
+    let (client_pda, client_account) = create_client_pda(TEST_SOURCE_CLIENT);
+    pt.add_account(client_pda, client_account);
+
+    pt
+}
+
+/// Wraps an instruction in `test_cpi_proxy::proxy_cpi`.
+pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_PROXY_ID,
+        accounts,
+        data,
+    }
+}
+
+/// Wraps an instruction in `test_cpi_target::proxy_cpi`.
+pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+/// Setup `ProgramTest` with a CPI proxy loaded at `ics26_router::ID`.
+///
+/// This allows testing authorized router CPI calls: the proxy forwards
+/// instructions via CPI and the runtime sees `ics26_router::ID` as the caller.
+pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("ics27_gmp", crate::ID, None);
+    // Load the proxy at the router's program ID so CPI from it is recognized as router CPI
+    pt.add_program("test_cpi_proxy", ics26_router::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create GMP app_state PDA
+    let (app_state_pda, bump) = Pubkey::find_program_address(
+        &[
+            crate::state::GMPAppState::SEED,
+            crate::constants::GMP_PORT_ID.as_bytes(),
+        ],
+        &crate::ID,
+    );
+    let app_state = crate::state::GMPAppState {
+        version: crate::state::AccountVersion::V1,
+        paused: false,
+        bump,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut data = Vec::new();
+    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
+    app_state.serialize(&mut data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+/// Wraps an instruction as a CPI call from `ics26_router::ID`.
+///
+/// Uses the same `proxy_cpi` mechanism as `wrap_in_test_cpi_proxy` but
+/// targets `ics26_router::ID` (where we loaded a test proxy program).
+pub fn wrap_as_router_cpi(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    inner_ix.data.serialize(&mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts,
+        data,
+    }
+}
+
+pub async fn process_tx(
+    banks_client: &solana_program_test::BanksClient,
+    payer: &solana_sdk::signature::Keypair,
+    recent_blockhash: solana_sdk::hash::Hash,
+    instructions: &[Instruction],
+) -> std::result::Result<(), solana_program_test::BanksClientError> {
+    let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+        instructions,
+        Some(&payer.pubkey()),
+        &[payer],
+        recent_blockhash,
+    );
+    banks_client.process_transaction(tx).await
+}
+
+pub fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
 }

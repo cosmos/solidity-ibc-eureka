@@ -2,7 +2,7 @@ pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/attestation";
 
 pub mod accounts {
     use crate::state::ConsensusStateStore;
-    use crate::types::{AppState, ClientState, ConsensusState};
+    use crate::types::{AppState, ClientState};
     use anchor_lang::AccountSerialize;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
@@ -20,11 +20,8 @@ pub mod accounts {
         }
     }
 
-    pub fn create_consensus_state_account(height: u64, consensus_state: ConsensusState) -> Account {
-        let consensus_state_store = ConsensusStateStore {
-            height,
-            consensus_state,
-        };
+    pub fn create_consensus_state_account(height: u64, timestamp: u64) -> Account {
+        let consensus_state_store = ConsensusStateStore { height, timestamp };
         let mut data = vec![];
         consensus_state_store.try_serialize(&mut data).unwrap();
         Account {
@@ -116,16 +113,15 @@ pub mod accounts {
 }
 
 pub mod fixtures {
-    use crate::types::{ClientState, ConsensusState};
+    use crate::types::{ClientState, PacketAttestation, PacketCompact, StateAttestation};
     use crate::ETH_ADDRESS_LEN;
+    use alloy_sol_types::SolValue;
 
     pub const DEFAULT_TIMESTAMP: u64 = 1_700_000_000;
-    pub const DEFAULT_CLIENT_ID: &str = "test-client";
 
-    pub fn default_client_state(client_id: &str, height: u64) -> ClientState {
+    pub fn default_client_state(height: u64) -> ClientState {
         ClientState {
             version: crate::types::AccountVersion::V1,
-            client_id: client_id.to_string(),
             attestor_addresses: vec![[1u8; 20]],
             min_required_sigs: 1,
             latest_height: height,
@@ -133,22 +129,13 @@ pub mod fixtures {
         }
     }
 
-    pub fn default_consensus_state(height: u64) -> ConsensusState {
-        ConsensusState {
-            height,
-            timestamp: DEFAULT_TIMESTAMP,
-        }
-    }
-
     pub fn create_test_client_state(
-        client_id: &str,
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         latest_height: u64,
     ) -> ClientState {
         ClientState {
             version: crate::types::AccountVersion::V1,
-            client_id: client_id.to_string(),
             attestor_addresses,
             min_required_sigs,
             latest_height,
@@ -156,57 +143,22 @@ pub mod fixtures {
         }
     }
 
-    /// Create ABI-encoded `PacketAttestation` for testing.
     pub fn encode_packet_attestation(height: u64, packets: &[([u8; 32], [u8; 32])]) -> Vec<u8> {
-        let tuple_offset: u64 = 32; // Tuple wrapper points to byte 32
-        let packets_rel_offset: u64 = 64; // Relative to struct start (after height + offset fields)
-
-        let mut data = Vec::new();
-
-        // Tuple offset (u256, big-endian) = 32
-        let mut tuple_offset_bytes = [0u8; 32];
-        tuple_offset_bytes[24..32].copy_from_slice(&tuple_offset.to_be_bytes());
-        data.extend_from_slice(&tuple_offset_bytes);
-
-        // Height (u256, big-endian)
-        let mut height_bytes = [0u8; 32];
-        height_bytes[24..32].copy_from_slice(&height.to_be_bytes());
-        data.extend_from_slice(&height_bytes);
-
-        // Packets relative offset (u256, big-endian) = 64
-        let mut offset_bytes = [0u8; 32];
-        offset_bytes[24..32].copy_from_slice(&packets_rel_offset.to_be_bytes());
-        data.extend_from_slice(&offset_bytes);
-
-        // Packets array length
-        let mut length_bytes = [0u8; 32];
-        length_bytes[24..32].copy_from_slice(&(packets.len() as u64).to_be_bytes());
-        data.extend_from_slice(&length_bytes);
-
-        // Packets data (path + commitment for each)
-        for (path, commitment) in packets {
-            data.extend_from_slice(path);
-            data.extend_from_slice(commitment);
+        PacketAttestation {
+            height,
+            packets: packets
+                .iter()
+                .map(|(path, commitment)| PacketCompact {
+                    path: (*path).into(),
+                    commitment: (*commitment).into(),
+                })
+                .collect(),
         }
-
-        data
+        .abi_encode()
     }
 
-    /// Create ABI-encoded `StateAttestation` for testing.
     pub fn encode_state_attestation(height: u64, timestamp: u64) -> Vec<u8> {
-        let mut data = Vec::with_capacity(64);
-
-        // Height (u256, big-endian)
-        let mut height_bytes = [0u8; 32];
-        height_bytes[24..32].copy_from_slice(&height.to_be_bytes());
-        data.extend_from_slice(&height_bytes);
-
-        // Timestamp (u256, big-endian)
-        let mut timestamp_bytes = [0u8; 32];
-        timestamp_bytes[24..32].copy_from_slice(&timestamp.to_be_bytes());
-        data.extend_from_slice(&timestamp_bytes);
-
-        data
+        StateAttestation { height, timestamp }.abi_encode()
     }
 
     pub fn create_test_signature() -> Vec<u8> {
@@ -268,6 +220,173 @@ pub mod signing {
     }
 }
 
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const TEST_CPI_PROXY_ID: solana_sdk::pubkey::Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const TEST_CPI_TARGET_ID: solana_sdk::pubkey::Pubkey =
+    solana_sdk::pubkey!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test_with_whitelist(
+    admin: &solana_sdk::pubkey::Pubkey,
+    whitelisted_programs: &[solana_sdk::pubkey::Pubkey],
+) -> solana_program_test::ProgramTest {
+    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator};
+
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("attestation", crate::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+    pt.add_program("access_manager", access_manager::ID, None);
+
+    // Pre-create AppState PDA
+    let app_state_pda = crate::types::AppState::pda();
+    let app_state = crate::types::AppState {
+        version: crate::types::AccountVersion::V1,
+        access_manager: access_manager::ID,
+        _reserved: [0; 256],
+    };
+    let mut app_data = Vec::new();
+    app_state.try_serialize(&mut app_data).unwrap();
+
+    pt.add_account(
+        app_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: app_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    // Pre-create AccessManager PDA with admin role and whitelist
+    let (access_manager_pda, _) = solana_sdk::pubkey::Pubkey::find_program_address(
+        &[access_manager::state::AccessManager::SEED],
+        &access_manager::ID,
+    );
+    let am = access_manager::state::AccessManager {
+        roles: vec![access_manager::RoleData {
+            role_id: solana_ibc_types::roles::ADMIN_ROLE,
+            members: vec![*admin],
+        }],
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+    am.serialize(&mut am_data).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: access_manager::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+pub fn wrap_in_test_cpi_proxy(
+    payer: solana_sdk::pubkey::Pubkey,
+    inner_ix: &solana_sdk::instruction::Instruction,
+) -> solana_sdk::instruction::Instruction {
+    use anchor_lang::AnchorSerialize;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+    inner_ix.data.serialize(&mut data).unwrap();
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_PROXY_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn wrap_in_test_cpi_target_proxy(
+    payer: solana_sdk::pubkey::Pubkey,
+    inner_ix: &solana_sdk::instruction::Instruction,
+) -> solana_sdk::instruction::Instruction {
+    use anchor_lang::AnchorSerialize;
+    use solana_sdk::instruction::{AccountMeta, Instruction};
+
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+    inner_ix.data.serialize(&mut data).unwrap();
+    let meta_count = inner_ix.accounts.len() as u32;
+    meta_count.serialize(&mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        meta.is_signer.serialize(&mut data).unwrap();
+        meta.is_writable.serialize(&mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
+}
+
 pub mod access_control {
     use access_manager::RoleData;
     use anchor_lang::prelude::Pubkey;
@@ -291,7 +410,10 @@ pub mod access_control {
             });
         }
 
-        let access_manager = access_manager::state::AccessManager { roles };
+        let access_manager = access_manager::state::AccessManager {
+            roles,
+            whitelisted_programs: vec![],
+        };
 
         let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         access_manager.serialize(&mut data).unwrap();

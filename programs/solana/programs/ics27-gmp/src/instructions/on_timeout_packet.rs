@@ -17,9 +17,6 @@ pub struct OnTimeoutPacket<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Router program calling this instruction
-    pub router_program: Program<'info, ics26_router::program::Ics26Router>,
-
     /// Instructions sysvar for validating CPI caller
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
@@ -47,7 +44,7 @@ pub fn on_timeout_packet(
 ) -> Result<()> {
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
-        &ctx.accounts.router_program.key(),
+        &ics26_router::ID,
         &crate::ID,
     )
     .map_err(GMPError::from)?;
@@ -85,8 +82,7 @@ mod tests {
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
         create_instructions_sysvar_account_with_caller, create_payer_account,
-        create_router_program_account, create_system_program_account,
-        create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
+        create_system_program_account, create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
     };
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
@@ -122,7 +118,6 @@ mod tests {
 
     fn create_timeout_instruction(
         app_state_pda: Pubkey,
-        router_program: Pubkey,
         result_account_pda: Pubkey,
         payer: Pubkey,
     ) -> Instruction {
@@ -134,7 +129,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -154,8 +148,7 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(
@@ -163,7 +156,6 @@ mod tests {
                 app_state_bump,
                 true, // paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -212,7 +204,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(wrong_app_state_pda, false), // Wrong PDA!
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -229,15 +220,15 @@ mod tests {
                 wrong_bump,
                 false, // not paused
             ),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
             create_uninitialized_account_for_pda(result_pda),
         ];
 
-        // Anchor ConstraintSeeds error (2006)
-        let checks = vec![Check::err(ProgramError::Custom(2006))];
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
@@ -246,18 +237,15 @@ mod tests {
     fn test_on_timeout_packet_direct_call_rejected() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(crate::ID), // Direct call
             create_payer_account(payer),
             create_system_program_account(),
@@ -275,19 +263,16 @@ mod tests {
     fn test_on_timeout_packet_unauthorized_router() {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
-        let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         let unauthorized_program = Pubkey::new_unique();
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(unauthorized_program), // Unauthorized
             create_payer_account(payer),
             create_system_program_account(),
@@ -311,19 +296,17 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let mut instruction =
-            create_timeout_instruction(app_state_pda, router_program, result_pda, payer);
+        let mut instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
 
         // Simulate Wormhole attack: pass a completely different account with fake sysvar data
         let (fake_sysvar_pubkey, fake_sysvar_account) =
             create_fake_instructions_sysvar_account(router_program);
 
         // Modify the instruction to reference the fake sysvar (simulating attacker control)
-        instruction.accounts[2] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
+        instruction.accounts[1] = AccountMeta::new_readonly(fake_sysvar_pubkey, false);
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             // Wormhole attack: provide a DIFFERENT account instead of the real sysvar
             (fake_sysvar_pubkey, fake_sysvar_account),
             create_payer_account(payer),
@@ -370,7 +353,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -381,7 +363,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -439,7 +420,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -450,7 +430,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -507,7 +486,6 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(router_program, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
@@ -518,7 +496,6 @@ mod tests {
 
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
-            create_router_program_account(router_program),
             create_instructions_sysvar_account_with_caller(router_program),
             create_payer_account(payer),
             create_system_program_account(),
@@ -596,5 +573,174 @@ mod tests {
             payload: vec![4, 5, 6],
             memo: String::new(),
         });
+    }
+}
+
+/// Integration tests using `ProgramTest` with real BPF runtime.
+///
+/// These verify that `validate_cpi_caller()` rejects direct calls, unauthorized
+/// CPI callers and nested CPI using real `get_stack_height()` behavior.
+#[cfg(test)]
+mod integration_tests {
+    use crate::constants::*;
+    use crate::state::{GMPAppState, GMPCallResult};
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signer::Signer,
+    };
+
+    const TEST_SOURCE_CLIENT: &str = "cosmoshub-1";
+    const TEST_SEQUENCE: u64 = 1;
+
+    fn build_timeout_packet_ix(payer: Pubkey) -> Instruction {
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (result_pda, _) = GMPCallResult::pda(TEST_SOURCE_CLIENT, TEST_SEQUENCE, &crate::ID);
+
+        let msg = solana_ibc_types::OnTimeoutPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: vec![],
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let ix_data = crate::instruction::OnTimeoutPacket { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: ix_data.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_timeout_packet_ix(payer.pubkey());
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("direct call should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::DirectCallNotAllowed as u32
+            ),
+            "expected DirectCallNotAllowed, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_timeout_packet_ix(payer.pubkey());
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("unauthorized CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
+            "expected UnauthorizedRouter, got: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_timeout_packet_ix(payer.pubkey());
+        let middle_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("nested CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
+    }
+
+    /// Simulates router → proxy → GMP: even if the top-level caller is an authorized
+    /// program, an intermediary proxy makes the chain nested CPI (stack height > 2)
+    /// which is always rejected by `reject_nested_cpi`.
+    #[tokio::test]
+    async fn test_router_via_proxy_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_timeout_packet_ix(payer.pubkey());
+        let middle_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("router-via-proxy CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
+    }
+
+    /// Verifies that a CPI call from the authorized router program passes
+    /// CPI validation. Uses a test proxy loaded at `ics26_router::ID` so the
+    /// runtime sees the correct caller program ID.
+    ///
+    /// The instruction fails later (missing result account data),
+    /// but the error is NOT a CPI validation error — proving the rejections
+    /// in other tests are genuine access control, not false positives.
+    #[tokio::test]
+    async fn test_authorized_router_cpi_passes_validation() {
+        let pt = setup_program_test_with_router_proxy();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_timeout_packet_ix(payer.pubkey());
+        let ix = wrap_as_router_cpi(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("should fail at packet level, not CPI validation");
+        let code = extract_custom_error(&err).expect("should be a custom error");
+
+        let direct_call = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::DirectCallNotAllowed as u32;
+        let unauthorized = anchor_lang::error::ERROR_CODE_OFFSET
+            + crate::errors::GMPError::UnauthorizedRouter as u32;
+
+        assert_ne!(code, direct_call, "should not be DirectCallNotAllowed");
+        assert_ne!(code, unauthorized, "should not be UnauthorizedRouter");
     }
 }

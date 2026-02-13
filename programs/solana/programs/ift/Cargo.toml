@@ -25,11 +25,8 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl.workspace = true
 solana-ibc-types.workspace = true
-solana-ibc-proto.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
-access-manager = { workspace = true, features = ["cpi"] }
-solana-sha256-hasher.workspace = true
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true

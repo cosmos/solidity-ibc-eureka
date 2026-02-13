@@ -9,8 +9,9 @@ members = [
   "programs/gmp-counter-app",
   "programs/mock-light-client",
   "programs/mock-ibc-app",
-  "programs/dummy-ibc-app",
-  "programs/malicious-caller",
+  "programs/test-ibc-app",
+  "programs/test-cpi-proxy",
+  "programs/test-cpi-target",
   "packages/solana-ibc-types",
   "packages/solana-ibc-proto",
   "packages/ics25-handler",
@@ -72,16 +73,12 @@ keywords = [
 [workspace.dependencies]
 anchor-lang = { version = "0.32.1", default-features = false }
 anchor-spl = { version = "0.32.1" }
-base64 = "0.22"
 
 # Parent workspace packages referenced via path dependencies (not added to root workspace.dependencies)
 # This maintains independence between workspaces, allowing root to use borsh 1.x while Solana uses borsh 0.10.4
 tendermint-light-client-update-client = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
 tendermint-light-client-membership = { path = "../../packages/tendermint-light-client/membership", default-features = false }
 tendermint-light-client-misbehaviour = { path = "../../packages/tendermint-light-client/misbehaviour", default-features = false }
-tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-light-client/uc-and-membership", default-features = false }
-tendermint-light-client-solana = { path = "../../packages/tendermint-light-client/solana", default-features = false }
-ibc-eureka-utils = { path = "../../packages/utils" }
 ibc-eureka-constrained-types = { path = "../../packages/constrained_types", default-features = false }
 
 # Solana-specific packages (local to this workspace)
@@ -97,14 +94,10 @@ ift = { path = "./programs/ift", default-features = false }
 gmp-counter-app = { path = "./programs/gmp-counter-app", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
-ibc-core-client = { version = "0.57", default-features = false }
 ibc-core-client-types = { version = "0.57", default-features = false }
-ibc-core-host-types = { version = "0.57", default-features = false }
 ibc-core-commitment-types = { version = "0.57", default-features = false }
-ibc-primitives = { version = "0.57", default-features = false }
 ibc-proto = { version = "0.51", default-features = false }
 tendermint = { version = "0.40", default-features = false }
-tendermint-light-client-verifier = { version = "0.40", default-features = false }
 time = { version = "0.3", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
@@ -121,7 +114,6 @@ mollusk-svm = { version = "0.4.1", default-features = false }
 mollusk-svm-bencher = { version = "0.4.1", default-features = false }
 solana-program-test = "2.3"
 solana-sdk = { version = "2.3.1", default-features = false }
-solana-program = { version = "2.3.0", default-features = false }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bincode = "1.3"
@@ -136,13 +128,9 @@ alloy-signer-local = { version = "~1.0", default-features = false }
 alloy-sol-types = { version = "~1.1", default-features = false }
 
 ## TODO: Update on anchor 1.0 when it will support anchor sdk v3
-solana-account-info = { version = "2.2", default-features = false }
-solana-pubkey = { version = "2.2", default-features = false, features = ["sha2", "curve25519"] }
 solana-sha256-hasher = { version = "2.2", default-features = false }
 solana-keccak-hasher = { version = "2.2", default-features = false }
-solana-msg = { version = "2.2", default-features = false }
 solana-sdk-ids = { version = "2.2", default-features = false }
-solana-define-syscall = { version = "2.2", default-features = false }
 solana-secp256k1-recover = { version = "2.2", default-features = false }
 
 [profile.dev]

@@ -61,19 +61,12 @@ impl<const MIN: usize, const MAX: usize> ConstrainedString<MIN, MAX> {
     /// Create a new constrained string with validation
     pub fn new(s: impl Into<String>) -> Result<Self, ConstrainedError> {
         let s = s.into();
-        let len = s.len();
-
-        if MIN > 0 && len == 0 {
-            return Err(ConstrainedError::Empty);
+        match s.len() {
+            0 if MIN > 0 => Err(ConstrainedError::Empty),
+            len if len < MIN => Err(ConstrainedError::TooShort),
+            len if len > MAX => Err(ConstrainedError::TooLong),
+            _ => Ok(Self(s)),
         }
-        if len < MIN {
-            return Err(ConstrainedError::TooShort);
-        }
-        if len > MAX {
-            return Err(ConstrainedError::TooLong);
-        }
-
-        Ok(Self(s))
     }
 
     /// Consume and return the inner `String`
@@ -151,19 +144,12 @@ impl<T, const MIN: usize, const MAX: usize> ConstrainedVec<T, MIN, MAX> {
     /// Create new constrained vector with validation
     pub fn new(vec: impl Into<Vec<T>>) -> Result<Self, ConstrainedError> {
         let vec = vec.into();
-        let len = vec.len();
-
-        if MIN > 0 && len == 0 {
-            return Err(ConstrainedError::Empty);
+        match vec.len() {
+            0 if MIN > 0 => Err(ConstrainedError::Empty),
+            len if len < MIN => Err(ConstrainedError::TooShort),
+            len if len > MAX => Err(ConstrainedError::TooLong),
+            _ => Ok(Self(vec)),
         }
-        if len < MIN {
-            return Err(ConstrainedError::TooShort);
-        }
-        if len > MAX {
-            return Err(ConstrainedError::TooLong);
-        }
-
-        Ok(Self(vec))
     }
 
     /// Consume and return the inner `Vec<T>`

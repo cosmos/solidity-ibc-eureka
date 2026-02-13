@@ -1,0 +1,29 @@
+[package]
+name = "test-cpi-proxy"
+version.workspace = true
+edition.workspace = true
+description = "Generic CPI proxy for security testing"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "security"]
+categories = ["development-tools::testing"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_cpi_proxy"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+
+[dependencies]
+anchor-lang.workspace = true
+
+[lints]
+workspace = true

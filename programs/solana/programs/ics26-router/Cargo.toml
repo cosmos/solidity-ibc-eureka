@@ -19,28 +19,26 @@ cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build", "solana-ibc-types/idl-build"]
+idl-build = ["anchor-lang/idl-build", "solana-ibc-types/idl-build"]
 
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
-anchor-spl.workspace = true
 solana-ibc-types.workspace = true
 solana-ibc-constants.workspace = true
-solana-ibc-macros.workspace = true
 ics25-handler.workspace = true
 access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
-solana-keccak-hasher.workspace = true
-hex = "0.4"
 
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
-solana-sdk.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test.workspace = true
+tokio = { version = "1", features = ["full"] }
 bincode.workspace = true
 mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }
-dummy-ibc-app = { path = "../dummy-ibc-app" }
+test-ibc-app = { path = "../test-ibc-app" }
 
 [lints]
 workspace = true

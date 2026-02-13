@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	dummy_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/dummyibcapp"
 	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
-	malicious_caller "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/maliciouscaller"
+	test_cpi_proxy "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testcpiproxy"
+	test_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testibcapp"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 
@@ -69,12 +69,12 @@ type IbcEurekaSolanaTestSuite struct {
 
 	SolanaRelayer *solanago.Wallet
 
-	RelayerClient            relayertypes.RelayerServiceClient
-	ICS27GMPProgramID        solanago.PublicKey
-	IFTProgramID             solanago.PublicKey
-	GMPCounterProgramID      solanago.PublicKey
-	DummyAppProgramID        solanago.PublicKey
-	MaliciousCallerProgramID solanago.PublicKey
+	RelayerClient         relayertypes.RelayerServiceClient
+	ICS27GMPProgramID     solanago.PublicKey
+	IFTProgramID          solanago.PublicKey
+	GMPCounterProgramID   solanago.PublicKey
+	TestAppProgramID      solanago.PublicKey
+	TestCpiProxyProgramID solanago.PublicKey
 
 	// ALT configuration - if set, will be used when starting relayer
 	SolanaAltAddress string
@@ -175,8 +175,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
 				deployProgram("Deploy IFT", "ift"),
 				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
-				deployProgram("Deploy Dummy IBC App", "dummy_ibc_app"),
-				deployProgram("Deploy Malicious Caller", "malicious_caller"),
+				deployProgram("Deploy Test IBC App", "test_ibc_app"),
+				deployProgram("Deploy Test CPI Proxy", "test_cpi_proxy"),
 			)
 			s.Require().NoError(err, "Program deployment failed")
 
@@ -189,10 +189,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			ift.ProgramID = s.IFTProgramID
 			s.GMPCounterProgramID = deployResults["Deploy GMP Counter App"]
 			gmp_counter_app.ProgramID = s.GMPCounterProgramID
-			s.DummyAppProgramID = deployResults["Deploy Dummy IBC App"]
-			dummy_ibc_app.ProgramID = s.DummyAppProgramID
-			s.MaliciousCallerProgramID = deployResults["Deploy Malicious Caller"]
-			malicious_caller.ProgramID = s.MaliciousCallerProgramID
+			s.TestAppProgramID = deployResults["Deploy Test IBC App"]
+			test_ibc_app.ProgramID = s.TestAppProgramID
+			s.TestCpiProxyProgramID = deployResults["Deploy Test CPI Proxy"]
+			test_cpi_proxy.ProgramID = s.TestCpiProxyProgramID
 
 			s.T().Log("All programs deployed successfully")
 		}))
@@ -441,7 +441,6 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					accessControlAccount,
 					clientAccount,
 					clientSequenceAccount,
-					s.SolanaRelayer.PublicKey(),
 					ics07_tendermint.ProgramID,
 					solanago.SystemProgramID,
 					solanago.SysVarInstructionsPubkey,
@@ -476,7 +475,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	simd := s.Cosmos.Chains[0]
 
 	s.Require().True(s.Run("Verify ics07-svm-tendermint", func() {
-		clientStateAccount, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStateAccount, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 
 		// Use confirmed commitment to match client creation confirmation level
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStateAccount, &rpc.GetAccountInfoOpts{
@@ -523,11 +522,11 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 	}))
 }
 
-func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
-	s.Require().True(s.Run("Initialize Dummy IBC App", func() {
-		appStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+func (s *IbcEurekaSolanaTestSuite) setupTestApp(ctx context.Context) {
+	s.Require().True(s.Run("Initialize Test IBC App", func() {
+		appStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
 
-		initInstruction, err := dummy_ibc_app.NewInitializeInstruction(
+		initInstruction, err := test_ibc_app.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(),
 			appStateAccount,
 			s.SolanaRelayer.PublicKey(),
@@ -540,10 +539,10 @@ func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
-		s.T().Logf("Dummy app initialized at: %s", s.DummyAppProgramID)
+		s.T().Logf("Test app initialized at: %s", s.TestAppProgramID)
 	}))
 
-	s.Require().True(s.Run("Register Dummy App with Router", func() {
+	s.Require().True(s.Run("Register Test App with Router", func() {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
@@ -554,7 +553,7 @@ func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
 			routerStateAccount,
 			accessControlAccount,
 			ibcAppAccount,
-			s.DummyAppProgramID,
+			s.TestAppProgramID,
 			s.SolanaRelayer.PublicKey(),
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
@@ -567,7 +566,7 @@ func (s *IbcEurekaSolanaTestSuite) setupDummyApp(ctx context.Context) {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 		s.Require().NoError(err)
-		s.T().Logf("Dummy app registered with router on transfer port")
+		s.T().Logf("Test app registered with router on transfer port")
 	}))
 }
 
@@ -575,7 +574,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
-	s.setupDummyApp(ctx)
+	s.setupTestApp(ctx)
 
 	simd := s.Cosmos.Chains[0]
 
@@ -605,7 +604,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -625,7 +624,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
-				s.DummyAppProgramID,
+				s.TestAppProgramID,
 				s.SolanaRelayer.PublicKey(),
 			)
 
@@ -634,7 +633,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			packetCommitment, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 		}))
 
-		packetMsg := dummy_ibc_app.DummyIbcAppInstructionsSendPacketSendPacketMsg{
+		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     SolanaClientID,
 			SourcePort:       transfertypes.PortID,
 			DestPort:         transfertypes.PortID,
@@ -644,7 +643,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			TimeoutTimestamp: time.Now().Unix() + 3600,
 		}
 
-		sendPacketInstruction, err := dummy_ibc_app.NewSendPacketInstruction(
+		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
 			s.SolanaRelayer.PublicKey(),
@@ -749,7 +748,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 
-		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.TestAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -757,7 +756,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
-	s.setupDummyApp(ctx)
+	s.setupTestApp(ctx)
 
 	simd := s.Cosmos.Chains[0]
 
@@ -779,7 +778,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -799,7 +798,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 			namespacedSequence := solana.CalculateNamespacedSequence(
 				baseSequence,
-				s.DummyAppProgramID,
+				s.TestAppProgramID,
 				s.SolanaRelayer.PublicKey(),
 			)
 
@@ -807,13 +806,13 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
 			packetCommitment, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), namespacedSequenceBytes)
 
-			escrow, _ = solana.DummyIbcApp.EscrowWithArgSeedPDA(s.DummyAppProgramID, []byte(SolanaClientID))
-			escrowState, _ = solana.DummyIbcApp.EscrowStateWithArgSeedPDA(s.DummyAppProgramID, []byte(SolanaClientID))
+			escrow, _ = solana.TestIbcApp.EscrowWithArgSeedPDA(s.TestAppProgramID, []byte(SolanaClientID))
+			escrowState, _ = solana.TestIbcApp.EscrowStateWithArgSeedPDA(s.TestAppProgramID, []byte(SolanaClientID))
 		}))
 
 		timeoutTimestamp := time.Now().Unix() + 3600
 
-		transferMsg := dummy_ibc_app.DummyIbcAppInstructionsSendTransferSendTransferMsg{
+		transferMsg := test_ibc_app.TestIbcAppInstructionsSendTransferSendTransferMsg{
 			Denom:            SolDenom,
 			Amount:           transferAmount,
 			Receiver:         receiver,
@@ -823,7 +822,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			Memo:             memo,
 		}
 
-		sendTransferInstruction, err := dummy_ibc_app.NewSendTransferInstruction(
+		sendTransferInstruction, err := test_ibc_app.NewSendTransferInstruction(
 			transferMsg,
 			appState,
 			s.SolanaRelayer.PublicKey(),
@@ -930,7 +929,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 
-		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, sentPacketBaseSequence, s.TestAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 }
 
@@ -951,7 +950,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 	s.SkipPreVerifyThreshold = skipPreVerifyThreshold
 
 	s.SetupSuite(ctx)
-	s.setupDummyApp(ctx)
+	s.setupTestApp(ctx)
 
 	simd := s.Cosmos.Chains[0]
 
@@ -1043,24 +1042,24 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 		solanaRelayTxSig, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
 		s.Require().NoError(err)
 
-		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.DummyAppProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, 1, s.TestAppProgramID, s.SolanaRelayer.PublicKey())
 	}))
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		dummyAppStateAccount, _ := solana.DummyIbcApp.AppStateTransferPDA(s.DummyAppProgramID)
+		testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
 
 		// Use confirmed commitment to match relay transaction confirmation level
-		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, dummyAppStateAccount, &rpc.GetAccountInfoOpts{
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
 		s.Require().NoError(err)
 		s.Require().NotNil(accountInfo.Value)
 
-		appState, err := dummy_ibc_app.ParseAccount_DummyIbcAppStateDummyIbcAppState(accountInfo.Value.Data.GetBinary())
+		appState, err := test_ibc_app.ParseAccount_TestIbcAppStateTestIbcAppState(accountInfo.Value.Data.GetBinary())
 		s.Require().NoError(err)
 
-		s.Require().Greater(appState.PacketsReceived, uint64(0), "Dummy app should have received at least one packet")
+		s.Require().Greater(appState.PacketsReceived, uint64(0), "Test app should have received at least one packet")
 		s.T().Logf("Solana dummy app has received %d packets total", appState.PacketsReceived)
 
 		// Check that packet receipt was written
@@ -1115,7 +1114,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
-	s.setupDummyApp(ctx)
+	s.setupTestApp(ctx)
 
 	testClientID := SolanaClientID
 	testSequence := uint64(99999)
@@ -1329,9 +1328,15 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 			TotalProofChunks: 2,
 		}
 
+		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
 		cleanupInstruction, err := ics26_router.NewCleanupChunksInstruction(
 			cleanupMsg,
+			routerStateAccount,
+			accessControlAccount,
 			relayer,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1393,26 +1398,19 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
-	s.setupDummyApp(ctx)
+	s.setupTestApp(ctx)
 
-	simd := s.Cosmos.Chains[0]
-	cosmosChainID := simd.Config().ChainID
 	testHeight := uint64(99999)
 	submitter := s.SolanaRelayer.PublicKey()
 
-	clientStatePDA, _, err := solanago.FindProgramAddress(
-		[][]byte{
-			[]byte("client"),
-			[]byte(cosmosChainID),
-		},
-		ics07_tendermint.ProgramID,
-	)
-	s.Require().NoError(err)
+	clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+	appStatePDA, _ := solana.Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
+	ics07AccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
 	chunk0Data := []byte("header chunk 0 data for testing orphaned chunks cleanup")
 	chunk1Data := []byte("header chunk 1 data for testing orphaned chunks cleanup")
 
-	// HeaderChunk PDA: [b"header_chunk", submitter, chain_id, target_height, chunk_index]
+	// HeaderChunk PDA: [b"header_chunk", submitter, target_height, chunk_index]
 	heightBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(heightBytes, testHeight)
 
@@ -1420,7 +1418,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		[][]byte{
 			[]byte("header_chunk"),
 			submitter.Bytes(),
-			[]byte(cosmosChainID),
 			heightBytes,
 			{0},
 		},
@@ -1431,7 +1428,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		[][]byte{
 			[]byte("header_chunk"),
 			submitter.Bytes(),
-			[]byte(cosmosChainID),
 			heightBytes,
 			{1},
 		},
@@ -1449,7 +1445,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 
 	s.Require().True(s.Run("Upload orphaned header chunks", func() {
 		chunk0Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
-			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   0,
 			ChunkData:    chunk0Data,
@@ -1459,7 +1454,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 			chunk0Params,
 			chunk0PDA,
 			clientStatePDA,
+			appStatePDA,
+			ics07AccessManagerPDA,
 			submitter,
+			solanago.SysVarInstructionsPubkey,
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -1472,7 +1470,6 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 		s.T().Logf("Uploaded header chunk 0: %s", sig0)
 
 		chunk1Params := ics07_tendermint.Ics07TendermintTypesUploadChunkParams{
-			ChainId:      cosmosChainID,
 			TargetHeight: testHeight,
 			ChunkIndex:   1,
 			ChunkData:    chunk1Data,
@@ -1482,7 +1479,10 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedTendermintHeaderChunks() 
 			chunk1Params,
 			chunk1PDA,
 			clientStatePDA,
+			appStatePDA,
+			ics07AccessManagerPDA,
 			submitter,
+			solanago.SysVarInstructionsPubkey,
 			solanago.SystemProgramID,
 		)
 		s.Require().NoError(err)
@@ -1587,7 +1587,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 
 		height = clienttypes.NewHeight(clienttypes.ParseChainID(simd.Config().ChainID), uint64(latestHeight))
 
-		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
@@ -1619,19 +1619,24 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 		borshBytes, err := solana.MisbehaviourToBorsh(SolanaClientID, misbehaviour)
 		s.Require().NoError(err)
 
+		altAddress := solanago.MustPublicKeyFromBase58(s.SolanaAltAddress)
+		altAccounts := s.Solana.Chain.CreateIBCAddressLookupTableAccounts(simd.Config().ChainID, GMPPortID, SolanaClientID, s.SolanaRelayer.PublicKey())
+		addressTables := map[solanago.PublicKey]solanago.PublicKeySlice{
+			altAddress: altAccounts,
+		}
+
 		s.Solana.Chain.SubmitChunkedMisbehaviour(
 			ctx,
 			s.T(),
 			s.Require(),
-			simd.Config().ChainID,
-			simd.Config().ChainID,
 			borshBytes,
 			misbehaviour.Header1.TrustedHeight.RevisionHeight,
 			misbehaviour.Header2.TrustedHeight.RevisionHeight,
 			s.SolanaRelayer,
+			addressTables,
 		)
 
-		clientStatePDA, _ := solana.Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(simd.Config().ChainID))
+		clientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
