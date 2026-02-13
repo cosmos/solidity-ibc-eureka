@@ -293,9 +293,9 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
-        // This should fail because the account already exists (init constraint violation)
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        // System program's Allocate fails with Custom(0) when account already in use
+        let checks = vec![Check::err(ProgramError::Custom(0))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]

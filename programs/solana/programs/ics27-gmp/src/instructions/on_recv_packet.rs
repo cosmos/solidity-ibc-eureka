@@ -455,11 +455,10 @@ mod tests {
             create_dummy_target_program_account(),                 // [1] target_program
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with invalid app_state PDA"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::AccountNotSigner as u32,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[derive(Clone)]
@@ -574,11 +573,11 @@ mod tests {
             // Missing remaining accounts! (should have at least gmp_account_pda and target_program)
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail with insufficient accounts"
-        );
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InsufficientAccounts as u32,
+        ))];
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     /// Payload field overrides for testing invalid packet validation
@@ -590,7 +589,7 @@ mod tests {
         encoding: Option<&'static str>,
     }
 
-    fn run_invalid_payload_test(overrides: PayloadOverrides) {
+    fn run_invalid_payload_test(overrides: PayloadOverrides, expected_error: GMPError) {
         let ctx = create_gmp_test_context();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
@@ -628,23 +627,29 @@ mod tests {
             create_dummy_target_program_account(),
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + expected_error as u32,
+        ))];
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[rstest]
-    #[case::invalid_version(PayloadOverrides { version: Some("wrong-version"), ..Default::default() })]
-    #[case::invalid_source_port(PayloadOverrides { source_port: Some("transfer"), ..Default::default() })]
-    #[case::invalid_encoding(PayloadOverrides { encoding: Some("application/json"), ..Default::default() })]
-    #[case::invalid_dest_port(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() })]
-    fn test_on_recv_packet_payload_validation(#[case] overrides: PayloadOverrides) {
-        run_invalid_payload_test(overrides);
+    #[case::invalid_version(PayloadOverrides { version: Some("wrong-version"), ..Default::default() }, GMPError::InvalidVersion)]
+    #[case::invalid_source_port(PayloadOverrides { source_port: Some("transfer"), ..Default::default() }, GMPError::InvalidPort)]
+    #[case::invalid_encoding(PayloadOverrides { encoding: Some("application/json"), ..Default::default() }, GMPError::InvalidEncoding)]
+    #[case::invalid_dest_port(PayloadOverrides { dest_port: Some("transfer"), ..Default::default() }, GMPError::InvalidPort)]
+    fn test_on_recv_packet_payload_validation(
+        #[case] overrides: PayloadOverrides,
+        #[case] expected_error: GMPError,
+    ) {
+        run_invalid_payload_test(overrides, expected_error);
     }
 
     #[test]
     fn test_on_recv_packet_account_key_mismatch() {
         let ctx = create_gmp_test_context();
-        let (client_id, sender, salt, expected_gmp_account_pda) = create_test_account_data();
+        let (client_id, sender, salt, _expected_gmp_account_pda) = create_test_account_data();
 
         // Use a different account key than expected
         let wrong_account_key = Pubkey::new_unique();
@@ -675,11 +680,12 @@ mod tests {
             create_dummy_target_program_account(),                   // [1] target_program
         ];
 
-        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "OnRecvPacket should fail when account key doesn't match expected PDA (expected: {expected_gmp_account_pda}, got: {wrong_account_key})"
-        );
+        // Instruction has no remaining accounts, so InsufficientAccounts is hit first
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InsufficientAccounts as u32,
+        ))];
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
@@ -1165,13 +1171,11 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = mollusk.process_instruction(&instruction, &accounts);
-
-        // Transaction should FAIL due to Solana's CPI limitation
-        assert!(
-            result.program_result.is_err(),
-            "Expected transaction to fail when CPI encounters error"
-        );
+        // Instructions sysvar has no caller set, so CPI validation rejects
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::UnauthorizedRouter as u32,
+        ))];
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 
         // Verify no acknowledgement was returned (transaction aborted)
         assert!(

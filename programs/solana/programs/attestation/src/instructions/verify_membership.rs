@@ -179,11 +179,15 @@ mod tests {
         );
     }
 
-    fn expect_any_error(test_accounts: &TestAccounts, msg: MembershipMsg) {
+    fn expect_bpf_crash(test_accounts: &TestAccounts, msg: MembershipMsg) {
+        use solana_sdk::instruction::InstructionError;
         let instruction = create_verify_membership_instruction(test_accounts, msg);
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(InstructionError::ProgramFailedToComplete).into()
+        );
     }
 
     fn build_signed_msg(
@@ -243,20 +247,22 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case::invalid_proof(HEIGHT, vec![0xFF; 100], vec![b"test/path".to_vec()], vec![1; 32])]
-    #[case::large_value(HEIGHT, vec![], vec![b"test/path".to_vec()], vec![0xFF; 1000])]
-    #[case::very_long_path(HEIGHT, vec![], vec![vec![0xAB; 1000]], vec![1; 32])]
+    #[case::invalid_proof(HEIGHT, vec![0xFF; 100], vec![b"test/path".to_vec()], vec![1; 32], None)]
+    #[case::large_value(HEIGHT, vec![], vec![b"test/path".to_vec()], vec![0xFF; 1000], Some(ErrorCode::InvalidProof))]
+    #[case::very_long_path(HEIGHT, vec![], vec![vec![0xAB; 1000]], vec![1; 32], Some(ErrorCode::InvalidProof))]
     #[case::attestation_data_too_short(
         HEIGHT,
         MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
         vec![b"test/path".to_vec()],
-        vec![1; 32]
+        vec![1; 32],
+        Some(ErrorCode::HeightMismatch)
     )]
     fn test_verify_membership_rejects_bad_input(
         #[case] height: u64,
         #[case] proof: Vec<u8>,
         #[case] path: Vec<Vec<u8>>,
         #[case] value: Vec<u8>,
+        #[case] expected_error: Option<ErrorCode>,
     ) {
         let test_accounts = setup_default_test_accounts(height);
         let msg = MembershipMsg {
@@ -265,7 +271,10 @@ mod tests {
             path,
             value,
         };
-        expect_any_error(&test_accounts, msg);
+        match expected_error {
+            Some(err) => expect_error(&test_accounts, msg, err),
+            None => expect_bpf_crash(&test_accounts, msg),
+        }
     }
 
     #[test]
@@ -279,7 +288,7 @@ mod tests {
             path: vec![b"test/path".to_vec()],
             value: vec![1; 32],
         };
-        expect_any_error(&test_accounts, msg);
+        expect_bpf_crash(&test_accounts, msg);
     }
 
     #[test]
@@ -341,7 +350,7 @@ mod tests {
             path: vec![path.to_vec()],
             value: vec![1; 31],
         };
-        expect_any_error(&test_accounts, msg);
+        expect_error(&test_accounts, msg, ErrorCode::InvalidSignature);
     }
 
     #[test]
@@ -362,7 +371,7 @@ mod tests {
             path: vec![b"test/path".to_vec()],
             value: vec![1; 32],
         };
-        expect_any_error(&test_accounts, msg);
+        expect_error(&test_accounts, msg, ErrorCode::InvalidSignature);
     }
 
     #[test]

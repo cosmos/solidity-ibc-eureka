@@ -387,6 +387,13 @@ mod tests {
         }
     }
 
+    const ANCHOR_CONSTRAINT_SEEDS: u32 = 2006;
+    const ANCHOR_INVALID_PROGRAM_ID: u32 = 3008;
+
+    fn gmp_error(err: GMPError) -> u32 {
+        anchor_lang::error::ERROR_CODE_OFFSET + err as u32
+    }
+
     #[derive(Clone, Copy)]
     enum SendCallErrorCase {
         AppPaused,
@@ -410,28 +417,28 @@ mod tests {
         let ctx = TestContext::new();
         let mut msg = TestContext::create_valid_msg();
 
-        let (instruction, accounts) = match case {
+        let (instruction, accounts, expected_error) = match case {
             SendCallErrorCase::AppPaused => {
                 let instruction = ctx.build_instruction(msg, true);
-                let accounts = ctx.build_accounts(true); // paused
-                (instruction, accounts)
+                let accounts = ctx.build_accounts(true);
+                (instruction, accounts, gmp_error(GMPError::AppPaused))
             }
             SendCallErrorCase::SenderNotSigner => {
-                let instruction = ctx.build_instruction(msg, false); // sender not signer
+                let instruction = ctx.build_instruction(msg, false);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (instruction, accounts, gmp_error(GMPError::SenderMustSign))
             }
             SendCallErrorCase::InvalidAppStatePda => {
                 let wrong_pda = Pubkey::new_unique();
                 let instruction = ctx.build_instruction_with_wrong_pda(msg, wrong_pda);
                 let accounts = ctx.build_accounts_with_wrong_pda(wrong_pda);
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
             SendCallErrorCase::WrongRouterProgram => {
                 let wrong_router = Pubkey::new_unique();
                 let instruction = ctx.build_instruction_with_wrong_router(msg, wrong_router);
                 let accounts = ctx.build_accounts_with_wrong_router(wrong_router);
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_INVALID_PROGRAM_ID)
             }
             SendCallErrorCase::WrongRouterStatePda => {
                 let wrong_pda = Pubkey::new_unique();
@@ -439,7 +446,7 @@ mod tests {
                 let mut accounts = ctx.build_accounts(false);
                 instruction.accounts[4] = AccountMeta::new_readonly(wrong_pda, false);
                 accounts[4].0 = wrong_pda;
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
             SendCallErrorCase::WrongClientSequencePda => {
                 let wrong_pda = Pubkey::new_unique();
@@ -447,7 +454,7 @@ mod tests {
                 let mut accounts = ctx.build_accounts(false);
                 instruction.accounts[5] = AccountMeta::new(wrong_pda, false);
                 accounts[5].0 = wrong_pda;
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
             SendCallErrorCase::WrongIbcAppPda => {
                 let wrong_pda = Pubkey::new_unique();
@@ -455,7 +462,7 @@ mod tests {
                 let mut accounts = ctx.build_accounts(false);
                 instruction.accounts[8] = AccountMeta::new_readonly(wrong_pda, false);
                 accounts[8].0 = wrong_pda;
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
             SendCallErrorCase::WrongClientPda => {
                 let wrong_pda = Pubkey::new_unique();
@@ -463,54 +470,76 @@ mod tests {
                 let mut accounts = ctx.build_accounts(false);
                 instruction.accounts[9] = AccountMeta::new_readonly(wrong_pda, false);
                 accounts[9].0 = wrong_pda;
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
             SendCallErrorCase::EmptyPayload => {
                 msg.payload = vec![];
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidPacketData),
+                )
             }
             SendCallErrorCase::SaltTooLong => {
                 msg.salt = vec![0u8; crate::constants::MAX_SALT_LENGTH + 1];
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidPacketData),
+                )
             }
             SendCallErrorCase::MemoTooLong => {
                 msg.memo = "x".repeat(crate::constants::MAX_MEMO_LENGTH + 1);
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidPacketData),
+                )
             }
             SendCallErrorCase::ReceiverTooLong => {
                 msg.receiver = "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1);
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidPacketData),
+                )
             }
             SendCallErrorCase::TimeoutTooSoon => {
-                msg.timeout_timestamp = 1; // Too soon (less than MIN_TIMEOUT_DURATION from clock=0)
+                msg.timeout_timestamp = 1;
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (instruction, accounts, gmp_error(GMPError::TimeoutTooSoon))
             }
             SendCallErrorCase::TimeoutTooLong => {
                 msg.timeout_timestamp = i64::MAX;
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (instruction, accounts, gmp_error(GMPError::TimeoutTooLong))
             }
             SendCallErrorCase::EmptyClientId => {
                 msg.source_client = String::new();
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
-                (instruction, accounts)
+                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
         };
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                expected_error
+            ))
+            .into(),
+        );
     }
 
     #[rstest]
@@ -550,9 +579,6 @@ mod integration_tests {
         pubkey::Pubkey,
         signer::Signer,
     };
-
-    const SENDER_MUST_SIGN_ERROR: u32 =
-        anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32;
 
     fn build_send_call_ix(payer: Pubkey, sender: Pubkey, sender_is_signer: bool) -> Instruction {
         let (app_state_pda, _) = Pubkey::find_program_address(
@@ -612,7 +638,7 @@ mod integration_tests {
         let err = result.expect_err("direct call without signer should fail");
         assert_eq!(
             extract_custom_error(&err),
-            Some(SENDER_MUST_SIGN_ERROR),
+            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
             "expected SenderMustSign (6044), got: {err:?}"
         );
     }
@@ -634,7 +660,7 @@ mod integration_tests {
         let err = result.expect_err("CPI call should still fail (router not initialized)");
         assert_ne!(
             extract_custom_error(&err),
-            Some(SENDER_MUST_SIGN_ERROR),
+            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
             "CPI call must NOT fail with SenderMustSign — is_cpi() should be true"
         );
     }

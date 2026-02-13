@@ -253,10 +253,14 @@ mod tests {
         );
     }
 
-    fn expect_any_error(test_accounts: &TestAccounts, instruction: Instruction) {
+    fn expect_bpf_crash(test_accounts: &TestAccounts, instruction: Instruction) {
+        use solana_sdk::instruction::InstructionError;
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(InstructionError::ProgramFailedToComplete).into()
+        );
     }
 
     fn build_signed_params(
@@ -303,15 +307,22 @@ mod tests {
     }
 
     #[rstest::rstest]
-    #[case::invalid_proof(vec![0xFF; 100])]
+    #[case::invalid_proof(vec![0xFF; 100], None)]
     #[case::attestation_data_too_short(
-        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap()
+        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        Some(ErrorCode::InvalidSignature)
     )]
-    fn test_update_client_rejects_bad_proof(#[case] proof: Vec<u8>) {
+    fn test_update_client_rejects_bad_proof(
+        #[case] proof: Vec<u8>,
+        #[case] expected_error: Option<ErrorCode>,
+    ) {
         let test_accounts = setup_default_test_accounts(NEW_HEIGHT);
         let params = UpdateClientParams { proof };
         let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
-        expect_any_error(&test_accounts, instruction);
+        match expected_error {
+            Some(err) => expect_error(&test_accounts, instruction, err),
+            None => expect_bpf_crash(&test_accounts, instruction),
+        }
     }
 
     #[test]
@@ -395,7 +406,7 @@ mod tests {
             crate::test_helpers::fixtures::encode_state_attestation(height, 1_700_000_000);
         let params = make_proof_params(attestation_data, vec![vec![0u8; 65]]);
         let instruction = create_update_client_instruction(&test_accounts, height, params);
-        expect_any_error(&test_accounts, instruction);
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidSignature);
     }
 
     #[test]
