@@ -1858,14 +1858,14 @@ fn test_assemble_wrong_client_state_pda() {
 }
 
 /// Simulates a relayer bug: chunks contain a valid header for height N but the
-/// relayer calls assemble_and_update_client with target_height = N+1. The header
+/// relayer calls `assemble_and_update_client` with `target_height` = N+1. The header
 /// passes cryptographic verification but the sanity check catches the mismatch
-/// between the claimed target_height and the header's actual new_height.
+/// between the claimed `target_height` and the header's actual `new_height`.
 ///
 /// Without the sanity check the instruction would still fail, but later in
-/// store_consensus_state where the new_consensus_state_pda (derived off-chain
-/// from target_height) doesn't match the expected PDA (derived on-chain from
-/// new_height), producing a generic AccountValidationFailed error.
+/// `store_consensus_state` where the `new_consensus_state_pda` (derived off-chain
+/// from `target_height`) doesn't match the expected PDA (derived on-chain from
+/// `new_height`), producing a generic `AccountValidationFailed` error.
 #[test]
 fn test_assemble_target_height_mismatch() {
     let mollusk = setup_mollusk();
