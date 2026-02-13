@@ -1857,6 +1857,15 @@ fn test_assemble_wrong_client_state_pda() {
     );
 }
 
+/// Simulates a relayer bug: chunks contain a valid header for height N but the
+/// relayer calls assemble_and_update_client with target_height = N+1. The header
+/// passes cryptographic verification but the sanity check catches the mismatch
+/// between the claimed target_height and the header's actual new_height.
+///
+/// Without the sanity check the instruction would still fail, but later in
+/// store_consensus_state where the new_consensus_state_pda (derived off-chain
+/// from target_height) doesn't match the expected PDA (derived on-chain from
+/// new_height), producing a generic AccountValidationFailed error.
 #[test]
 fn test_assemble_target_height_mismatch() {
     let mollusk = setup_mollusk();
@@ -1872,7 +1881,6 @@ fn test_assemble_target_height_mismatch() {
     let num_chunks = chunks.len() as u8;
 
     let client_state_pda = derive_client_state_pda();
-    // Derive consensus state PDA using wrong target height (doesn't matter, check fails before)
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
@@ -1881,7 +1889,8 @@ fn test_assemble_target_height_mismatch() {
         ],
         &crate::ID,
     );
-    // Chunk PDAs must use wrong_target_height so PDA derivation in assemble_chunks passes
+    // Chunk PDAs use wrong_target_height so chunk assembly succeeds — the
+    // mismatch is only caught after header verification returns new_height.
     let chunk_pdas = get_chunk_pdas(&submitter, wrong_target_height, num_chunks);
 
     let (access_manager_pda, _) =
