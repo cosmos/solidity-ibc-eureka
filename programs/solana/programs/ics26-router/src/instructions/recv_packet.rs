@@ -58,12 +58,11 @@ pub struct RecvPacket<'info> {
 
     // IBC app accounts for CPI
     /// CHECK: IBC app program, validated against `IBCApp` account
-    #[account(
-        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
-    )]
+    #[account(address = ibc_app.app_program_id @ RouterError::IbcAppNotFound)]
     pub ibc_app_program: AccountInfo<'info>,
 
-    /// CHECK: IBC app state account, owned by IBC app program
+    /// CHECK: Ownership validated against IBC app program
+    #[account(owner = ibc_app.app_program_id @ RouterError::InvalidAccountOwner)]
     pub ibc_app_state: AccountInfo<'info>,
 
     #[account(mut)]
@@ -85,13 +84,16 @@ pub struct RecvPacket<'info> {
     pub client: Account<'info, Client>,
 
     // Light client verification accounts
-    /// CHECK: Light client program, validated against client registry
+    /// CHECK: Validated against client registry
+    #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Client state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
-    /// CHECK: Consensus state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub consensus_state: AccountInfo<'info>,
 }
 
@@ -993,6 +995,105 @@ mod tests {
             &ctx.accounts,
             &[expect_sysvar_attack_error()],
         );
+    }
+
+    #[test]
+    fn test_recv_packet_invalid_ibc_app_state_owner() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Replace ibc_app_state (index 6) with account owned by wrong program
+        let wrong_owner = Pubkey::new_unique();
+        let (pubkey, _) = ctx.accounts[6].clone();
+        ctx.accounts[6] = (
+            pubkey,
+            solana_sdk::account::Account {
+                lamports: 10_000_000,
+                data: vec![0u8; 100],
+                owner: wrong_owner,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_invalid_light_client_program() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Replace light_client_program (index 11) with a different program
+        let wrong_program = Pubkey::new_unique();
+        ctx.instruction.accounts[11].pubkey = wrong_program;
+        ctx.accounts[11] = create_bpf_program_account(wrong_program);
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_invalid_client_state_owner() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Replace client_state (index 12) with account owned by wrong program
+        let wrong_owner = Pubkey::new_unique();
+        let (pubkey, _) = ctx.accounts[12].clone();
+        ctx.accounts[12] = (
+            pubkey,
+            solana_sdk::account::Account {
+                lamports: 10_000_000,
+                data: vec![0u8; 100],
+                owner: wrong_owner,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_recv_packet_invalid_consensus_state_owner() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Replace consensus_state (index 13) with account owned by wrong program
+        let wrong_owner = Pubkey::new_unique();
+        let (pubkey, _) = ctx.accounts[13].clone();
+        ctx.accounts[13] = (
+            pubkey,
+            solana_sdk::account::Account {
+                lamports: 10_000_000,
+                data: vec![0u8; 100],
+                owner: wrong_owner,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]

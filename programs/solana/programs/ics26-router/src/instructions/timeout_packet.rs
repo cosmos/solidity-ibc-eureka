@@ -49,16 +49,11 @@ pub struct TimeoutPacket<'info> {
 
     // IBC app accounts for CPI
     /// CHECK: IBC app program, validated against `IBCApp` account
-    #[account(
-        constraint = ibc_app_program.key() == ibc_app.app_program_id @ RouterError::IbcAppNotFound
-    )]
+    #[account(address = ibc_app.app_program_id @ RouterError::IbcAppNotFound)]
     pub ibc_app_program: AccountInfo<'info>,
 
     /// CHECK: Ownership validated against IBC app program
-    #[account(
-        mut,
-        constraint = *ibc_app_state.owner == ibc_app.app_program_id @ RouterError::InvalidAccountOwner
-    )]
+    #[account(mut, owner = ibc_app.app_program_id @ RouterError::InvalidAccountOwner)]
     pub ibc_app_state: AccountInfo<'info>,
 
     #[account(mut)]
@@ -80,21 +75,15 @@ pub struct TimeoutPacket<'info> {
     pub client: Account<'info, Client>,
 
     /// CHECK: Validated against client registry
-    #[account(
-        constraint = light_client_program.key() == client.client_program_id @ RouterError::InvalidLightClientProgram
-    )]
+    #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
     /// CHECK: Ownership validated against light client program
-    #[account(
-        constraint = *client_state.owner == light_client_program.key() @ RouterError::InvalidAccountOwner
-    )]
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
     /// CHECK: Ownership validated against light client program
-    #[account(
-        constraint = *consensus_state.owner == light_client_program.key() @ RouterError::InvalidAccountOwner
-    )]
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub consensus_state: AccountInfo<'info>,
 }
 
