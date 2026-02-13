@@ -161,9 +161,9 @@ fn process_header_update<'info>(
         signature_verification_accounts,
     )?;
 
-    // Sanity check: a mismatch would fail later in store_consensus_state's PDA
-    // validation (new_consensus_state_pda is derived from target_height but
-    // verified against new_height), but this gives a clearer error.
+    // Sanity check: a mismatch would fail later in store_consensus_state where
+    // the passed new_consensus_state_pda (derived off-chain from target_height)
+    // is verified against new_height, but this gives a clearer error.
     require!(
         new_height.revision_height() == target_height,
         ErrorCode::HeightMismatch
