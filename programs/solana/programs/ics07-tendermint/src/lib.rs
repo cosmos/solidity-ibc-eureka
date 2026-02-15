@@ -10,6 +10,7 @@ pub mod state;
 pub mod test_helpers;
 pub mod types;
 
+use crate::error::ErrorCode;
 use crate::state::{ConsensusStateStore, HeaderChunk, MisbehaviourChunk};
 
 declare_id!("HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD");
@@ -83,6 +84,7 @@ pub struct SetAccessManager<'info> {
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
+    #[account(constraint = !client_state.is_frozen() @ ErrorCode::ClientFrozen)]
     pub client_state: Account<'info, ClientState>,
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
@@ -94,6 +96,7 @@ pub struct VerifyMembership<'info> {
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
+    #[account(constraint = !client_state.is_frozen() @ ErrorCode::ClientFrozen)]
     pub client_state: Account<'info, ClientState>,
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],

@@ -13,6 +13,7 @@ pub struct UpdateClient<'info> {
     #[account(
         mut,
         constraint = client_state.client_id == client_id,
+        constraint = !client_state.is_frozen @ ErrorCode::FrozenClientState,
     )]
     pub client_state: Account<'info, ClientState>,
 
@@ -69,8 +70,6 @@ pub fn update_client<'info>(
     )?;
 
     let client_state = &mut ctx.accounts.client_state;
-
-    require!(!client_state.is_frozen, ErrorCode::FrozenClientState);
 
     let proof = deserialize_membership_proof(&params.proof)?;
     let attestation = decode_state_attestation(&proof.attestation_data)?;

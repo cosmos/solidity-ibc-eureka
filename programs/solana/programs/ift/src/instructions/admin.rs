@@ -130,6 +130,7 @@ pub struct AdminMint<'info> {
         mut,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -183,7 +184,6 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
 
     check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
 

@@ -12,16 +12,13 @@ pub fn verify_non_membership(
     ctx: Context<VerifyNonMembership>,
     msg: NonMembershipMsg,
 ) -> Result<()> {
-    let client_state = &ctx.accounts.client_state;
     let consensus_state_store = &ctx.accounts.consensus_state_at_height;
-
-    require!(!client_state.is_frozen(), ErrorCode::ClientFrozen);
 
     let proof = deserialize_merkle_proof(&msg.proof)?;
     let kv_pair = KVPair::new(msg.path, vec![]);
     let app_hash = consensus_state_store.consensus_state.root;
 
-    tendermint_light_client_membership::membership(app_hash, &[(kv_pair, proof)])
+    tendermint_light_client_membership::membership(app_hash, [(kv_pair, proof)].into_iter())
         .map_err(|_| error!(ErrorCode::NonMembershipVerificationFailed))?;
 
     let timestamp_secs = consensus_state_store.consensus_state.timestamp / NANOS_PER_SECOND;
