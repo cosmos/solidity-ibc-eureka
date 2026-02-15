@@ -30,7 +30,9 @@ pub struct IFTTransfer<'info> {
     #[account(
         seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
-        constraint = ift_bridge.active @ IFTError::BridgeNotActive
+        constraint = !msg.client_id.is_empty() @ IFTError::EmptyClientId,
+        constraint = msg.client_id.len() <= MAX_CLIENT_ID_LENGTH @ IFTError::InvalidClientIdLength,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive,
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
@@ -117,7 +119,6 @@ pub struct IFTTransfer<'info> {
     pub pending_transfer: UncheckedAccount<'info>,
 }
 
-// TODO: validate client id non zero/less than max
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
     let clock = Clock::get()?;
 
@@ -544,6 +545,7 @@ mod tests {
         InactiveBridge,
         ZeroAmount,
         EmptyReceiver,
+        EmptyClientId,
         SenderNotSigner,
         WrongTokenAccountOwner,
         WrongTokenMint,
@@ -555,6 +557,7 @@ mod tests {
 
     #[allow(clippy::struct_excessive_bools)]
     struct TransferTestConfig {
+        client_id: String,
         bridge_active: bool,
         amount: u64,
         receiver: String,
@@ -568,6 +571,7 @@ mod tests {
     impl From<TransferErrorCase> for TransferTestConfig {
         fn from(case: TransferErrorCase) -> Self {
             let default = Self {
+                client_id: TEST_CLIENT_ID.to_string(),
                 bridge_active: true,
                 amount: 1000,
                 receiver: VALID_RECEIVER.to_string(),
@@ -589,6 +593,10 @@ mod tests {
                 },
                 TransferErrorCase::EmptyReceiver => Self {
                     receiver: String::new(),
+                    ..default
+                },
+                TransferErrorCase::EmptyClientId => Self {
+                    client_id: String::new(),
                     ..default
                 },
                 TransferErrorCase::SenderNotSigner => Self {
@@ -636,7 +644,7 @@ mod tests {
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, &config.client_id);
         let (system_program, system_account) = create_system_program_account();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
@@ -651,7 +659,7 @@ mod tests {
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
-            TEST_CLIENT_ID,
+            &config.client_id,
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
             ift_bridge_bump,
@@ -698,7 +706,7 @@ mod tests {
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
-            client_id: TEST_CLIENT_ID.to_string(),
+            client_id: config.client_id,
             receiver: config.receiver,
             amount: config.amount,
             timeout_timestamp: config.timeout_timestamp,
@@ -758,6 +766,7 @@ mod tests {
     #[case::inactive_bridge(TransferErrorCase::InactiveBridge)]
     #[case::zero_amount(TransferErrorCase::ZeroAmount)]
     #[case::empty_receiver(TransferErrorCase::EmptyReceiver)]
+    #[case::empty_client_id(TransferErrorCase::EmptyClientId)]
     #[case::sender_not_signer(TransferErrorCase::SenderNotSigner)]
     #[case::wrong_token_account_owner(TransferErrorCase::WrongTokenAccountOwner)]
     #[case::wrong_token_mint(TransferErrorCase::WrongTokenMint)]
