@@ -4,6 +4,7 @@
 //! after the GMP result has been recorded (either ack or timeout).
 
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::instruction::get_stack_height;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
@@ -86,6 +87,8 @@ pub fn finalize_transfer(
     client_id: String,
     sequence: u64,
 ) -> Result<()> {
+    require!(get_stack_height() <= 1, IFTError::CpiNotAllowed);
+
     let pending = &ctx.accounts.pending_transfer;
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
