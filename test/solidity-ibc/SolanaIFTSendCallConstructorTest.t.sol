@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable custom-errors
+// solhint-disable custom-errors,gas-small-strings
 
 import { Test } from "forge-std/Test.sol";
 
@@ -13,7 +13,7 @@ contract SolanaIFTSendCallConstructorTest is Test {
     SolanaIFTSendCallConstructor public constructor_;
 
     // Valid 32-byte Solana pubkey as hex
-    string constant VALID_RECEIVER = "0x06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9";
+    string internal constant VALID_RECEIVER = "0x06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9";
 
     function setUp() public {
         constructor_ = new SolanaIFTSendCallConstructor();
