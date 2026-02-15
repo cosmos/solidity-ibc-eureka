@@ -10,6 +10,7 @@ import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol
 /// @title Solana IFT Send Call Constructor
 /// @notice Constructs ICS27-GMP call data for minting IFT tokens on Solana counterparty chains
 contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
+    /// @notice Expected length of a 0x-prefixed hex-encoded Solana public key (2 + 64)
     uint256 private constant SOLANA_PUBKEY_HEX_LENGTH = 66;
 
     /// @notice Error thrown when the receiver address is invalid
