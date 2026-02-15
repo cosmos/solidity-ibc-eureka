@@ -138,9 +138,7 @@ impl SolanaTxBuilder {
         let account = self
             .target_solana_client
             .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
-            .map_err(|e| {
-                anyhow::anyhow!("Failed to fetch Client account for '{client_id}': {e}")
-            })?
+            .map_err(|e| anyhow::anyhow!("Failed to fetch Client account for '{client_id}': {e}"))?
             .value
             .ok_or_else(|| anyhow::anyhow!("Client account not found for '{client_id}'"))?;
 

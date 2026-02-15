@@ -7,7 +7,7 @@ use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
-    events::{SolanaEurekaEventWithHeight, solana::SolanaEurekaEvent},
+    events::{solana::SolanaEurekaEvent, SolanaEurekaEventWithHeight},
     utils::{
         cosmos as cosmos_utils,
         solana::{
@@ -133,10 +133,7 @@ impl AttestedTxBuilder {
         // Check if timestamp update is needed for timeouts
         let consensus_ts = max_timeout_ts.and_then(|_| {
             self.tx_builder
-                .attestation_consensus_state_timestamp_secs(
-                    current_height,
-                    light_client_program_id,
-                )
+                .attestation_consensus_state_timestamp_secs(current_height, light_client_program_id)
                 .ok()
         });
 
@@ -333,10 +330,7 @@ impl AttestedTxBuilder {
     }
 
     /// Update the attestation light client to the latest height.
-    pub async fn update_client(
-        &self,
-        dst_client_id: &str,
-    ) -> Result<api::SolanaUpdateClient> {
+    pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
         let latest_height = self.aggregator.get_latest_height().await?;
         tracing::info!(
             "Updating attestation client {} to latest height {}",
@@ -416,9 +410,7 @@ fn max_timeout_timestamp(events: &[SolanaEurekaEventWithHeight]) -> Option<u64> 
     events
         .iter()
         .filter_map(|e| match &e.event {
-            SolanaEurekaEvent::SendPacket(send) => {
-                u64::try_from(send.timeout_timestamp).ok()
-            }
+            SolanaEurekaEvent::SendPacket(send) => u64::try_from(send.timeout_timestamp).ok(),
             SolanaEurekaEvent::WriteAcknowledgement(_) => None,
         })
         .max()

@@ -150,7 +150,10 @@ impl RelayerService for SolanaToEthRelayerModuleService {
 
         let solana_tx_hashes = parse_solana_tx_hashes(inner_req.source_tx_ids)?;
         let eth_timeout_tx_hashes = parse_eth_tx_hashes(inner_req.timeout_tx_ids)?;
-        let eth_timeout_txs = eth_timeout_tx_hashes.into_iter().map(TxHash::from).collect();
+        let eth_timeout_txs = eth_timeout_tx_hashes
+            .into_iter()
+            .map(TxHash::from)
+            .collect();
 
         let solana_src_events = self
             .src_listener

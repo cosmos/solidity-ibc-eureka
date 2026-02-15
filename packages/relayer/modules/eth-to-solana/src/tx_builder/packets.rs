@@ -13,7 +13,10 @@ use solana_sdk::{
 use ibc_eureka_relayer_core::api::SolanaPacketTxs;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_types::{
-    router::{router_instructions, Client, Commitment, IBCApp, IBCAppState, MsgCleanupChunks, PayloadChunk, ProofChunk, RouterState},
+    router::{
+        router_instructions, Client, Commitment, IBCApp, IBCAppState, MsgCleanupChunks,
+        PayloadChunk, ProofChunk, RouterState,
+    },
     AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
 };
 
@@ -702,10 +705,7 @@ impl super::SolanaTxBuilder {
                     if self.account_exists(&acc.pubkey) {
                         alt_accounts.push(acc.pubkey);
                     } else {
-                        tracing::debug!(
-                            "Excluding non-existent account {} from ALT",
-                            acc.pubkey
-                        );
+                        tracing::debug!("Excluding non-existent account {} from ALT", acc.pubkey);
                     }
                 }
             }
@@ -819,8 +819,12 @@ impl super::SolanaTxBuilder {
             msg.proof.total_chunks,
         )?;
 
-        let recv_instruction =
-            self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data, abi_hint)?;
+        let recv_instruction = self.build_recv_packet_instruction(
+            msg,
+            remaining_account_pubkeys,
+            payload_data,
+            abi_hint,
+        )?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(recv_instruction);
@@ -883,17 +887,17 @@ impl super::SolanaTxBuilder {
             MAX_ACCOUNTS_WITHOUT_ALT
         );
 
-        let (ack_tx, alt_create_tx, alt_extend_txs) =
-            if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT {
-                tracing::debug!(
-                    "Using ALT: {} accounts exceeds {}",
-                    unique_accounts,
-                    MAX_ACCOUNTS_WITHOUT_ALT
-                );
-                self.build_tx_with_alt(&instructions)?
-            } else {
-                (self.create_tx_bytes(&instructions)?, vec![], vec![])
-            };
+        let (ack_tx, alt_create_tx, alt_extend_txs) = if unique_accounts > MAX_ACCOUNTS_WITHOUT_ALT
+        {
+            tracing::debug!(
+                "Using ALT: {} accounts exceeds {}",
+                unique_accounts,
+                MAX_ACCOUNTS_WITHOUT_ALT
+            );
+            self.build_tx_with_alt(&instructions)?
+        } else {
+            (self.create_tx_bytes(&instructions)?, vec![], vec![])
+        };
 
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.source_client,

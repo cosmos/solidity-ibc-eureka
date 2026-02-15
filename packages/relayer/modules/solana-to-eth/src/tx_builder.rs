@@ -27,10 +27,7 @@ pub struct AttestedTxBuilder {
 
 impl AttestedTxBuilder {
     /// Create a new [`AttestedTxBuilder`] instance.
-    pub async fn new(
-        aggregator_config: AggregatorConfig,
-        provider: RootProvider,
-    ) -> Result<Self> {
+    pub async fn new(aggregator_config: AggregatorConfig, provider: RootProvider) -> Result<Self> {
         let aggregator = Aggregator::from_config(aggregator_config).await?;
         Ok(Self {
             aggregator,
