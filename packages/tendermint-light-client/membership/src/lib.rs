@@ -63,6 +63,9 @@ pub struct MembershipOutput {
 /// Error type for membership verification
 #[derive(Debug, thiserror::Error)]
 pub enum MembershipError {
+    /// Empty request
+    #[error("request must not be empty")]
+    EmptyRequest,
     /// Non-membership verification failed
     #[error("non-membership verification failed")]
     NonMembershipVerificationFailed,
@@ -81,6 +84,10 @@ pub fn membership(
     app_hash: [u8; 32],
     request: &[(KVPair, MerkleProof)],
 ) -> Result<(), MembershipError> {
+    if request.is_empty() {
+        return Err(MembershipError::EmptyRequest);
+    }
+
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
     for (kv_pair, merkle_proof) in request {
         let value = kv_pair.value.clone();
