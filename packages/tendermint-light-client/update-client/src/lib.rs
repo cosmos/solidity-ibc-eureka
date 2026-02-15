@@ -69,6 +69,34 @@ pub struct ClientState {
     pub latest_height: Height,
 }
 
+impl ClientState {
+    /// Default max clock drift in seconds
+    pub const MAX_CLOCK_DRIFT_SECONDS: u64 = 15;
+}
+
+#[cfg(feature = "solidity")]
+#[allow(clippy::fallible_impl_from)]
+impl From<&ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::ClientState> for ClientState {
+    fn from(cs: &ibc_eureka_solidity_types::msgs::IICS07TendermintMsgs::ClientState) -> Self {
+        Self {
+            chain_id: cs.chainId.clone(),
+            trust_level: TrustThreshold::new(
+                cs.trustLevel.numerator.into(),
+                cs.trustLevel.denominator.into(),
+            ),
+            trusting_period_seconds: cs.trustingPeriod.into(),
+            unbonding_period_seconds: cs.unbondingPeriod.into(),
+            max_clock_drift_seconds: Self::MAX_CLOCK_DRIFT_SECONDS,
+            is_frozen: cs.isFrozen,
+            latest_height: Height::new(
+                cs.latestHeight.revisionNumber,
+                cs.latestHeight.revisionHeight,
+            )
+            .expect("valid latest height"),
+        }
+    }
+}
+
 /// Output from update client verification
 #[derive(Clone, Debug)]
 pub struct UpdateClientOutput {

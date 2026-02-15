@@ -13088,6 +13088,7 @@ dependencies = [
  "ibc-core-client-types",
  "ibc-core-commitment-types",
  "ibc-core-host-types",
+ "ibc-eureka-solidity-types 0.1.0",
  "ibc-primitives",
  "prost",
  "serde",

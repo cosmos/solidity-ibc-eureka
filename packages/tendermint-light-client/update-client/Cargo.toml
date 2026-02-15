@@ -8,7 +8,8 @@ license     = { workspace = true }
 
 [features]
 default = []
-solana = ["dep:tendermint-light-client-solana", "dep:anchor-lang"]
+solana   = ["dep:tendermint-light-client-solana", "dep:anchor-lang"]
+solidity = ["dep:ibc-eureka-solidity-types"]
 
 [dependencies]
 tendermint-light-client-verifier = { workspace = true }
@@ -22,6 +23,7 @@ ibc-primitives                   = { workspace = true }
 tendermint                       = { workspace = true }
 sha2                             = { workspace = true }
 thiserror                        = { workspace = true }
+ibc-eureka-solidity-types        = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde                            = { workspace = true, features = ["derive"] }
