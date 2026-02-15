@@ -127,8 +127,8 @@ pub fn decode_abi_gmp_packet(data: &[u8]) -> Result<AbiDecodedGmpPacket> {
 }
 
 /// Pad length up to the next 32-byte boundary.
-fn pad_to_32(len: usize) -> usize {
-    (len + 31) / 32 * 32
+const fn pad_to_32(len: usize) -> usize {
+    len.div_ceil(32) * 32
 }
 
 /// Encode a dynamic ABI field (bytes/string): 32-byte length word + padded data.

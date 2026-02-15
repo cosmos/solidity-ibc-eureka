@@ -50,6 +50,6 @@ pub struct ClosePayloadHint<'info> {
     pub payer: Signer<'info>,
 }
 
-pub fn close_payload_hint(_ctx: Context<ClosePayloadHint>) -> Result<()> {
+pub const fn close_payload_hint(_ctx: Context<ClosePayloadHint>) -> Result<()> {
     Ok(())
 }
