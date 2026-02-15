@@ -99,7 +99,7 @@ pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext
 
 pub fn execute_membership(ctx: &TestContext) -> Result<MembershipOutput, MembershipError> {
     let request = vec![(ctx.kv_pair.clone(), ctx.merkle_proof.clone())];
-    membership(ctx.app_hash, &request)
+    membership(ctx.app_hash, request.into_iter())
 }
 
 pub fn assert_membership_fails_with(

@@ -78,45 +78,49 @@ pub enum MembershipError {
 ///
 /// # Errors
 ///
-/// Returns `MembershipError::EmptyRequest` if the request slice is empty.
+/// Returns `MembershipError::EmptyRequest` if the iterator is empty.
 /// Returns `MembershipError::NonMembershipVerificationFailed` if non-membership proof verification fails.
 /// Returns `MembershipError::MembershipVerificationFailed` if membership proof verification fails.
 pub fn membership(
     app_hash: [u8; 32],
-    request: &[(KVPair, MerkleProof)],
+    request_iter: impl Iterator<Item = (KVPair, MerkleProof)>,
 ) -> Result<MembershipOutput, MembershipError> {
-    if request.is_empty() {
-        return Err(MembershipError::EmptyRequest);
-    }
-
     let commitment_root = CommitmentRoot::from_bytes(&app_hash);
-    for (kv_pair, merkle_proof) in request {
-        let value = kv_pair.value.clone();
-        let merkle_path = kv_pair.to_merkle_path();
 
-        if kv_pair.is_non_membership() {
-            merkle_proof
-                .verify_non_membership::<HostFunctions>(
-                    &ProofSpecs::cosmos(),
-                    commitment_root.clone().into(),
-                    merkle_path,
-                )
-                .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
-        } else {
-            merkle_proof
-                .verify_membership::<HostFunctions>(
-                    &ProofSpecs::cosmos(),
-                    commitment_root.clone().into(),
-                    merkle_path,
-                    value,
-                    0,
-                )
-                .map_err(|_| MembershipError::MembershipVerificationFailed)?;
-        }
+    let kv_pairs: Vec<KVPair> = request_iter
+        .map(|(kv_pair, merkle_proof)| {
+            let merkle_path = kv_pair.to_merkle_path();
+
+            if kv_pair.is_non_membership() {
+                merkle_proof
+                    .verify_non_membership::<HostFunctions>(
+                        &ProofSpecs::cosmos(),
+                        commitment_root.clone().into(),
+                        merkle_path,
+                    )
+                    .map_err(|_| MembershipError::NonMembershipVerificationFailed)?;
+            } else {
+                merkle_proof
+                    .verify_membership::<HostFunctions>(
+                        &ProofSpecs::cosmos(),
+                        commitment_root.clone().into(),
+                        merkle_path,
+                        kv_pair.value.clone(),
+                        0,
+                    )
+                    .map_err(|_| MembershipError::MembershipVerificationFailed)?;
+            }
+
+            Ok(kv_pair)
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    if kv_pairs.is_empty() {
+        return Err(MembershipError::EmptyRequest);
     }
 
     Ok(MembershipOutput {
         commitment_root: app_hash,
-        kv_pairs: request.iter().map(|(kv, _)| kv.clone()).collect(),
+        kv_pairs,
     })
 }
