@@ -130,10 +130,6 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         payload: ibc_payload,
     };
 
-    // Get signer seeds for the app_state PDA to prove GMP is the caller
-    let app_state = &ctx.accounts.app_state;
-    let signer_seeds: &[&[u8]] = &[GMPAppState::SEED, GMP_PORT_ID.as_bytes(), &[app_state.bump]];
-
     // Call router via CPI to actually send the packet
     // GMP signs its app_state PDA to cryptographically prove it's the caller
     let sequence = crate::router_cpi::send_packet_cpi(
@@ -142,7 +138,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         &ctx.accounts.client_sequence,
         &ctx.accounts.packet_commitment,
         &ctx.accounts.app_state.to_account_info(),
-        signer_seeds,
+        ctx.accounts.app_state.bump,
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.ibc_app,
         &ctx.accounts.client,

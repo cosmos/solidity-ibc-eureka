@@ -1,3 +1,5 @@
+use crate::constants::GMP_PORT_ID;
+use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use ics26_router::cpi::accounts::SendPacket;
 use solana_ibc_types::MsgSendPacket;
@@ -10,7 +12,7 @@ pub fn send_packet_cpi<'a>(
     client_sequence: &AccountInfo<'a>,
     packet_commitment: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
-    signer_seeds: &[&[u8]],
+    bump: u8,
     payer: &AccountInfo<'a>,
     ibc_app: &AccountInfo<'a>,
     client: &AccountInfo<'a>,
@@ -28,6 +30,8 @@ pub fn send_packet_cpi<'a>(
         client: client.clone(),
     };
 
+    let bump_slice = [bump];
+    let signer_seeds: &[&[u8]] = &[GMPAppState::SEED, GMP_PORT_ID.as_bytes(), &bump_slice];
     let seeds = [signer_seeds];
     let cpi_ctx = CpiContext::new_with_signer(router_program.clone(), cpi_accounts, &seeds);
     let sequence = ics26_router::cpi::send_packet(cpi_ctx, msg)?;
