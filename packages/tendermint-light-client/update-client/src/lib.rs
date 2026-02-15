@@ -112,14 +112,20 @@ pub fn update_client(
     update_client_impl(client_state, trusted_consensus_state, proposed_header, time)
 }
 
-/// IBC light client update client with Solana signature verification
+/// IBC light client update client with Solana-optimized Ed25519 signature verification.
+///
+/// # Parameters
+/// - `client_state` - On-chain client state (chain ID, trust level, periods, clock drift).
+/// - `trusted_consensus_state` - Consensus state at `proposed_header.trusted_height`.
+/// - `proposed_header` - Tendermint header to verify against the trusted state.
+/// - `time` - Current time in **nanoseconds** since Unix epoch.
+/// - `verification_accounts` - Pre-verified signature PDAs from `remaining_accounts`.
+///   Derived as `PDA(["sig_verify", sha256(pk ‖ msg ‖ sig)], program_id)`.
+///   Falls back to `brine-ed25519` when accounts are missing.
+/// - `program_id` - Light-client program ID for signature PDA derivation.
 ///
 /// # Errors
-///
-/// This function will return an error if:
-/// - The client ID cannot be created
-/// - The chain ID is invalid
-/// - Header verification fails
+/// Returns error if client/chain ID is invalid or header verification fails.
 #[cfg(feature = "solana")]
 pub fn update_client<'a>(
     client_state: &ClientState,
