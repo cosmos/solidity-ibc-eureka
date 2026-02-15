@@ -608,6 +608,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
+            encoding: GmpEncoding::default(),
         };
 
         let (router_state, _) = create_router_state_pda();
