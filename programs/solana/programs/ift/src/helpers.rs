@@ -73,24 +73,18 @@ pub fn check_and_update_mint_rate_limit(
     Ok(())
 }
 
-/// Reduce mint rate limit usage for `ift_transfer` (burn).
-pub fn reduce_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
+/// Reduce mint rate limit usage when a transfer completes successfully
+/// (tokens permanently left the system).
+pub(crate) fn reduce_mint_rate_limit_usage(
+    app_state: &mut IFTAppState,
+    amount: u64,
+    clock: &Clock,
+) {
     if app_state.daily_mint_limit == 0 {
         return;
     }
     maybe_reset_day(app_state, clock);
     app_state.rate_limit_daily_usage = app_state.rate_limit_daily_usage.saturating_sub(amount);
-}
-
-// TODO: merge with minting & allow for refunds, remove from pub
-/// Increase mint rate limit usage for `finalize_transfer` (refund re-mints).
-/// Does not check the limit -- refunds must never be blocked.
-pub fn increase_mint_rate_limit_usage(app_state: &mut IFTAppState, amount: u64, clock: &Clock) {
-    if app_state.daily_mint_limit == 0 {
-        return;
-    }
-    maybe_reset_day(app_state, clock);
-    app_state.rate_limit_daily_usage = app_state.rate_limit_daily_usage.saturating_add(amount);
 }
 
 #[cfg(test)]
@@ -192,30 +186,6 @@ mod tests {
     }
 
     #[test]
-    fn test_increase_usage_no_assert() {
-        let mut state = make_app_state(1000, 1, 900);
-        let clock = make_clock(SECONDS_PER_DAY as i64);
-        increase_mint_rate_limit_usage(&mut state, 200, &clock);
-        assert_eq!(state.rate_limit_daily_usage, 1100); // exceeds limit, no error
-    }
-
-    #[test]
-    fn test_increase_usage_no_limit() {
-        let mut state = make_app_state(0, 0, 0);
-        let clock = make_clock(100_000);
-        increase_mint_rate_limit_usage(&mut state, 500, &clock);
-        assert_eq!(state.rate_limit_daily_usage, 0);
-    }
-
-    #[test]
-    fn test_increase_usage_saturates_on_overflow() {
-        let mut state = make_app_state(1000, 1, u64::MAX - 10);
-        let clock = make_clock(SECONDS_PER_DAY as i64);
-        increase_mint_rate_limit_usage(&mut state, 100, &clock);
-        assert_eq!(state.rate_limit_daily_usage, u64::MAX);
-    }
-
-    #[test]
     fn test_at_limit_then_one_more_rejected() {
         let day = 1u64;
         let mut state = make_app_state(1000, day, 1000);
@@ -225,7 +195,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mint_burn_mint_cycle() {
+    fn test_mint_transfer_complete_mint_cycle() {
         let day = 1u64;
         let clock = make_clock(SECONDS_PER_DAY as i64);
         let mut state = make_app_state(1000, day, 0);
@@ -234,7 +204,7 @@ mod tests {
         assert!(check_and_update_mint_rate_limit(&mut state, 800, &clock).is_ok());
         assert_eq!(state.rate_limit_daily_usage, 800);
 
-        // Burn 300
+        // Transfer completes successfully — reduce usage
         reduce_mint_rate_limit_usage(&mut state, 300, &clock);
         assert_eq!(state.rate_limit_daily_usage, 500);
 
@@ -247,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mint_burn_refund_cycle() {
+    fn test_mint_transfer_refund_no_usage_change() {
         let day = 1u64;
         let clock = make_clock(SECONDS_PER_DAY as i64);
         let mut state = make_app_state(1000, day, 0);
@@ -255,15 +225,12 @@ mod tests {
         // Mint to limit
         assert!(check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_ok());
 
-        // Burn 500 (transfer out)
-        reduce_mint_rate_limit_usage(&mut state, 500, &clock);
-        assert_eq!(state.rate_limit_daily_usage, 500);
-
-        // Refund 500 (transfer failed)
-        increase_mint_rate_limit_usage(&mut state, 500, &clock);
+        // Transfer out (no rate limit change at burn time)
+        // Refund (no rate limit change — net zero)
+        // Usage stays at limit
         assert_eq!(state.rate_limit_daily_usage, 1000);
 
-        // New mint should fail — refund restored usage
+        // New mint should fail — usage unchanged
         assert!(check_and_update_mint_rate_limit(&mut state, 1, &clock).is_err());
     }
 
@@ -293,15 +260,5 @@ mod tests {
         let clock = make_clock(SECONDS_PER_DAY as i64);
         assert!(check_and_update_mint_rate_limit(&mut state, 200, &clock).is_err());
         assert_eq!(state.rate_limit_daily_usage, u64::MAX - 100); // unchanged
-    }
-
-    #[test]
-    fn test_increase_resets_on_new_day() {
-        let mut state = make_app_state(1000, 0, 800);
-        let clock = make_clock(SECONDS_PER_DAY as i64); // day 1
-        increase_mint_rate_limit_usage(&mut state, 200, &clock);
-        // Day reset to 0, then 0 + 200 = 200
-        assert_eq!(state.rate_limit_day, 1);
-        assert_eq!(state.rate_limit_daily_usage, 200);
     }
 }

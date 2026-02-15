@@ -153,8 +153,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     ctx.accounts.mint.reload()?;
     ctx.accounts.sender_token_account.reload()?;
 
-    crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
-
     let mint_call_payload = construct_mint_call(
         &ctx.accounts.ift_bridge.chain_options,
         &msg.receiver,

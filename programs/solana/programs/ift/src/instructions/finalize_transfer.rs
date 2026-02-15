@@ -120,12 +120,6 @@ pub fn finalize_transfer(
             ctx.accounts.mint.reload()?;
             ctx.accounts.sender_token_account.reload()?;
 
-            crate::helpers::increase_mint_rate_limit_usage(
-                &mut ctx.accounts.app_state,
-                pending.amount,
-                &clock,
-            );
-
             emit!(IFTTransferRefunded {
                 mint: ctx.accounts.app_state.mint,
                 client_id: pending.client_id.clone(),
@@ -147,12 +141,6 @@ pub fn finalize_transfer(
                     pending.amount,
                 )?;
 
-                crate::helpers::increase_mint_rate_limit_usage(
-                    &mut ctx.accounts.app_state,
-                    pending.amount,
-                    &clock,
-                );
-
                 emit!(IFTTransferRefunded {
                     mint: ctx.accounts.app_state.mint,
                     client_id: pending.client_id.clone(),
@@ -163,6 +151,12 @@ pub fn finalize_transfer(
                     timestamp: clock.unix_timestamp,
                 });
             } else {
+                crate::helpers::reduce_mint_rate_limit_usage(
+                    &mut ctx.accounts.app_state,
+                    pending.amount,
+                    &clock,
+                );
+
                 emit!(IFTTransferCompleted {
                     mint: ctx.accounts.app_state.mint,
                     client_id: pending.client_id.clone(),
