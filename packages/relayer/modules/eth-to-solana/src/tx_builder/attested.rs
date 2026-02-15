@@ -117,7 +117,7 @@ impl AttestedTxBuilder {
         // Get current attestation client state
         let client_state = self
             .tx_builder
-            .attestation_client_state(&params.dst_client_id, light_client_program_id)?;
+            .attestation_client_state(light_client_program_id)?;
         let current_height = client_state.latest_height;
 
         let max_height = params
@@ -134,7 +134,6 @@ impl AttestedTxBuilder {
         let consensus_ts = max_timeout_ts.and_then(|_| {
             self.tx_builder
                 .attestation_consensus_state_timestamp_secs(
-                    &params.dst_client_id,
                     current_height,
                     light_client_program_id,
                 )
@@ -225,7 +224,7 @@ impl AttestedTxBuilder {
         let light_client_program_id = self.tx_builder.resolve_client_program_id(dst_client_id)?;
         let min_sigs = self
             .tx_builder
-            .attestation_client_min_sigs(dst_client_id, light_client_program_id)?;
+            .attestation_client_min_sigs(light_client_program_id)?;
 
         let state_attestation = self.aggregator.get_state_attestation(target_height).await?;
 

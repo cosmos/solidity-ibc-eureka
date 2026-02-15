@@ -158,7 +158,6 @@ impl SolanaTxBuilder {
     /// Fetch the attestation light client state from Solana.
     pub(crate) fn attestation_client_state(
         &self,
-        client_id: &str,
         light_client_program_id: Pubkey,
     ) -> Result<solana_ibc_types::attestation::ClientState> {
         use solana_ibc_types::attestation::ClientState as AttestationClientState;
@@ -182,26 +181,20 @@ impl SolanaTxBuilder {
     /// Fetch the minimum required signatures from the attestation light client.
     pub(crate) fn attestation_client_min_sigs(
         &self,
-        client_id: &str,
         light_client_program_id: Pubkey,
     ) -> Result<usize> {
         Ok(self
-            .attestation_client_state(client_id, light_client_program_id)?
+            .attestation_client_state(light_client_program_id)?
             .min_required_sigs as usize)
     }
 
     /// Fetch the attestation consensus state timestamp at a given height (seconds).
     pub(crate) fn attestation_consensus_state_timestamp_secs(
         &self,
-        client_id: &str,
         height: u64,
         light_client_program_id: Pubkey,
     ) -> Result<u64> {
-        use solana_ibc_types::attestation::{
-            ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
-        };
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
+        use solana_ibc_types::attestation::ConsensusState as AttestationConsensusState;
         let (consensus_state_pda, _) =
             AttestationConsensusState::pda(height, light_client_program_id);
 
