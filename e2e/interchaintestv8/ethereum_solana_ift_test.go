@@ -489,7 +489,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		addClientInstruction, err := ics26_router.NewAddClientInstruction(
 			EthClientIDOnSolana, counterpartyInfo,
 			s.SolanaRelayer.PublicKey(), routerStateAccount, accessControlAccount,
-			clientAccount, clientSequenceAccount, s.SolanaRelayer.PublicKey(),
+			clientAccount, clientSequenceAccount,
 			attestation.ProgramID, solanago.SystemProgramID, solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
@@ -518,23 +518,15 @@ func (s *EthereumSolanaIFTTestSuite) initializeAttestationLightClientOnSolana(ct
 		attestorAddresses = append(attestorAddresses, addrArray)
 	}
 
-	latestHeight := uint64(1)
-	timestamp := uint64(time.Now().Unix())
 	minRequiredSigs := uint8(numEthAttestors)
 
-	clientStatePDA, _ := solana.Attestation.ClientWithArgSeedPDA(attestation.ProgramID, []byte(clientID))
+	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
 
-	heightBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(heightBytes, latestHeight)
-	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgAndAccountSeedPDA(
-		attestation.ProgramID, clientStatePDA.Bytes(), heightBytes,
-	)
-
 	initInstruction, err := attestation.NewInitializeInstruction(
-		clientID, latestHeight, attestorAddresses, minRequiredSigs, timestamp,
+		attestorAddresses, minRequiredSigs,
 		access_manager.ProgramID,
-		clientStatePDA, consensusStatePDA, appStatePDA,
+		clientStatePDA, appStatePDA,
 		s.SolanaRelayer.PublicKey(), solanago.SystemProgramID,
 	)
 	s.Require().NoError(err)
