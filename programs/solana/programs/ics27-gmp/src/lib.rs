@@ -91,7 +91,7 @@ pub mod ics27_gmp {
     }
 
     /// Close a payload hint account and refund rent
-    pub fn close_payload_hint(ctx: Context<ClosePayloadHint>) -> Result<()> {
+    pub const fn close_payload_hint(ctx: Context<ClosePayloadHint>) -> Result<()> {
         instructions::close_payload_hint(ctx)
     }
 }
