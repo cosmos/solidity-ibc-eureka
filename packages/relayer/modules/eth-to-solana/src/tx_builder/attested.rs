@@ -272,9 +272,9 @@ impl AttestedTxBuilder {
             ConsensusState as AttestationConsensusState,
         };
 
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
         let (new_consensus_state_pda, _) =
-            AttestationConsensusState::pda(client_state_pda, new_height, light_client_program_id);
+            AttestationConsensusState::pda(new_height, light_client_program_id);
         let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
 
         let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;

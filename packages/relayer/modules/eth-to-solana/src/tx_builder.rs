@@ -163,7 +163,7 @@ impl SolanaTxBuilder {
     ) -> Result<solana_ibc_types::attestation::ClientState> {
         use solana_ibc_types::attestation::ClientState as AttestationClientState;
 
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
 
         let account = self
             .target_solana_client
@@ -201,9 +201,9 @@ impl SolanaTxBuilder {
             ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
         };
 
-        let (client_state_pda, _) = AttestationClientState::pda(client_id, light_client_program_id);
+        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
         let (consensus_state_pda, _) =
-            AttestationConsensusState::pda(client_state_pda, height, light_client_program_id);
+            AttestationConsensusState::pda(height, light_client_program_id);
 
         let account = self
             .target_solana_client
