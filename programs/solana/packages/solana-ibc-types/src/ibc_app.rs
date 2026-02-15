@@ -11,7 +11,6 @@
 //!     ibc_app_program,
 //!     OnRecvPacket {
 //!         app_state,
-//!         router_program,
 //!         instructions_sysvar,
 //!         payer,
 //!         system_program,
@@ -35,7 +34,6 @@ const INSTRUCTION_DATA_CAPACITY: usize = 1024;
 #[derive(Clone)]
 pub struct OnRecvPacket<'info> {
     pub app_state: AccountInfo<'info>,
-    pub router_program: AccountInfo<'info>,
     pub instructions_sysvar: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
@@ -49,7 +47,6 @@ impl OnRecvPacket<'_> {
 #[derive(Clone)]
 pub struct OnAcknowledgementPacket<'info> {
     pub app_state: AccountInfo<'info>,
-    pub router_program: AccountInfo<'info>,
     pub instructions_sysvar: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
@@ -63,7 +60,6 @@ impl OnAcknowledgementPacket<'_> {
 #[derive(Clone)]
 pub struct OnTimeoutPacket<'info> {
     pub app_state: AccountInfo<'info>,
-    pub router_program: AccountInfo<'info>,
     pub instructions_sysvar: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
@@ -77,7 +73,6 @@ impl anchor_lang::ToAccountMetas for OnRecvPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),
-            AccountMeta::new_readonly(*self.router_program.key, false),
             AccountMeta::new_readonly(*self.instructions_sysvar.key, false),
             AccountMeta::new(*self.payer.key, true),
             AccountMeta::new_readonly(*self.system_program.key, false),
@@ -89,7 +84,6 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnRecvPacket<'info> {
     fn to_account_infos(&self) -> Vec<AccountInfo<'info>> {
         vec![
             self.app_state.clone(),
-            self.router_program.clone(),
             self.instructions_sysvar.clone(),
             self.payer.clone(),
             self.system_program.clone(),
@@ -101,7 +95,6 @@ impl anchor_lang::ToAccountMetas for OnAcknowledgementPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),
-            AccountMeta::new_readonly(*self.router_program.key, false),
             AccountMeta::new_readonly(*self.instructions_sysvar.key, false),
             AccountMeta::new(*self.payer.key, true),
             AccountMeta::new_readonly(*self.system_program.key, false),
@@ -113,7 +106,6 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnAcknowledgementPacket<'info
     fn to_account_infos(&self) -> Vec<AccountInfo<'info>> {
         vec![
             self.app_state.clone(),
-            self.router_program.clone(),
             self.instructions_sysvar.clone(),
             self.payer.clone(),
             self.system_program.clone(),
@@ -125,7 +117,6 @@ impl anchor_lang::ToAccountMetas for OnTimeoutPacket<'_> {
     fn to_account_metas(&self, _is_signer: Option<bool>) -> Vec<AccountMeta> {
         vec![
             AccountMeta::new(*self.app_state.key, false),
-            AccountMeta::new_readonly(*self.router_program.key, false),
             AccountMeta::new_readonly(*self.instructions_sysvar.key, false),
             AccountMeta::new(*self.payer.key, true),
             AccountMeta::new_readonly(*self.system_program.key, false),
@@ -137,7 +128,6 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnTimeoutPacket<'info> {
     fn to_account_infos(&self) -> Vec<AccountInfo<'info>> {
         vec![
             self.app_state.clone(),
-            self.router_program.clone(),
             self.instructions_sysvar.clone(),
             self.payer.clone(),
             self.system_program.clone(),
@@ -154,7 +144,7 @@ impl<'info> anchor_lang::ToAccountInfos<'info> for OnTimeoutPacket<'info> {
 /// ```ignore
 /// let cpi_ctx = CpiContext::new(
 ///     ibc_app_program,
-///     OnRecvPacket { app_state, router_program, instructions_sysvar, payer, system_program },
+///     OnRecvPacket { app_state, instructions_sysvar, payer, system_program },
 /// ).with_remaining_accounts(remaining);
 ///
 /// let ack = on_recv_packet(cpi_ctx, msg)?;
@@ -179,7 +169,7 @@ pub fn on_recv_packet<'info>(
 /// ```ignore
 /// let cpi_ctx = CpiContext::new(
 ///     ibc_app_program,
-///     OnAcknowledgementPacket { app_state, router_program, instructions_sysvar, payer, system_program },
+///     OnAcknowledgementPacket { app_state, instructions_sysvar, payer, system_program },
 /// ).with_remaining_accounts(remaining);
 ///
 /// on_acknowledgement_packet(cpi_ctx, msg)?;
@@ -198,7 +188,7 @@ pub fn on_acknowledgement_packet<'info>(
 /// ```ignore
 /// let cpi_ctx = CpiContext::new(
 ///     ibc_app_program,
-///     OnTimeoutPacket { app_state, router_program, instructions_sysvar, payer, system_program },
+///     OnTimeoutPacket { app_state, instructions_sysvar, payer, system_program },
 /// ).with_remaining_accounts(remaining);
 ///
 /// on_timeout_packet(cpi_ctx, msg)?;

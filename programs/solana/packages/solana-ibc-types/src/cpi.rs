@@ -1,7 +1,10 @@
 use anchor_lang::{
     error_code,
     prelude::{AccountInfo, Pubkey},
-    solana_program::sysvar::instructions::get_instruction_relative,
+    solana_program::{
+        instruction::{get_stack_height, TRANSACTION_LEVEL_STACK_HEIGHT},
+        sysvar::instructions::get_instruction_relative,
+    },
     Key,
 };
 
@@ -33,6 +36,10 @@ use anchor_lang::{
 //
 // This allows us to verify WHO initiated the call.
 
+/// `TRANSACTION_LEVEL_STACK_HEIGHT` (1) is the stack height for top-level
+/// transaction instructions. Each CPI hop adds 1, so single-level CPI = 2.
+const SINGLE_LEVEL_CPI_STACK_HEIGHT: usize = TRANSACTION_LEVEL_STACK_HEIGHT + 1;
+
 #[error_code]
 pub enum CpiValidationError {
     #[msg("Invalid sysvar account")]
@@ -41,39 +48,78 @@ pub enum CpiValidationError {
     DirectCallNotAllowed,
     #[msg("Unauthorized CPI caller")]
     UnauthorizedCaller,
+    #[msg("Nested CPI not allowed - only single-level CPI is permitted")]
+    NestedCpiNotAllowed,
+}
+
+/// Wrapper around `get_stack_height()` that asserts the result is non-zero
+/// in the SBF runtime. Stack height is always >= 1 (direct call = 1, CPI = 2+).
+/// Gated behind cfg because `get_stack_height()` returns 0 in `cargo test`
+/// (the default syscall stub has no runtime context).
+#[allow(
+    unexpected_cfgs,
+    reason = "solana is a valid target_os for the SBF toolchain but unknown to the relayer workspace"
+)]
+fn checked_stack_height() -> usize {
+    let height = get_stack_height();
+    #[cfg(target_os = "solana")]
+    assert!(height > 0, "stack height must never be zero");
+    height
+}
+
+/// Returns `true` if the current instruction is executing inside a CPI call.
+pub fn is_cpi() -> bool {
+    checked_stack_height() > TRANSACTION_LEVEL_STACK_HEIGHT
+}
+
+/// Rejects nested CPI chains (A → B → C). Only allows direct calls
+/// (stack height 1) or single-level CPI (stack height 2).
+///
+/// This is required because `get_instruction_relative(0)` always returns the
+/// top-level transaction instruction. In A → B → C, program C would see A as
+/// the caller instead of B. Limiting to single-level CPI ensures the top-level
+/// instruction IS the direct caller, making caller identity checks reliable.
+pub fn reject_nested_cpi() -> core::result::Result<(), CpiValidationError> {
+    if checked_stack_height() > SINGLE_LEVEL_CPI_STACK_HEIGHT {
+        return Err(CpiValidationError::NestedCpiNotAllowed);
+    }
+
+    Ok(())
+}
+
+fn validate_instruction_sysvar(
+    instruction_sysvar: &AccountInfo<'_>,
+) -> core::result::Result<(), CpiValidationError> {
+    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
+        return Err(CpiValidationError::InvalidSysvar);
+    }
+    Ok(())
 }
 
 /// Validates that this instruction is called via CPI from the authorized program
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Current instruction's `program_id` is NOT self (rejects direct calls)
-/// 3. Current instruction's `program_id` is the authorized program
+/// 1. Rejects nested CPI (stack height > 2)
+/// 2. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 3. Current instruction's `program_id` is NOT self (rejects direct calls)
+/// 4. Current instruction's `program_id` is the authorized program
 ///
 /// [Wormhole-style attack]: https://github.com/sbellem/wormhole-attack-analysis
-/// [Metaplex pattern]: https://github.com/metaplex-foundation/metaplex-program-library/blob/27bd23f5884d4f0d64ae8f3c7bafeeaffc53e620/candy-machine/program/src/processor/mint.rs#L115
 pub fn validate_cpi_caller(
     instruction_sysvar: &AccountInfo<'_>,
     authorized_program: &Pubkey,
     self_program_id: &Pubkey,
 ) -> Result<(), CpiValidationError> {
-    // CRITICAL: Validate that the instruction_sysvar account is actually the instructions sysvar
-    // This prevents attacks where a malicious actor passes a fake sysvar account
-    // See Wormhole attack: https://github.com/sbellem/wormhole-attack-analysis
-    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
-        return Err(CpiValidationError::InvalidSysvar);
-    }
+    reject_nested_cpi()?;
+    validate_instruction_sysvar(instruction_sysvar)?;
 
-    // Get the current instruction (0 = current, relative offset) - see above explanation
     let current_ix = get_instruction_relative(0, instruction_sysvar)
         .map_err(|_| CpiValidationError::InvalidSysvar)?;
 
-    // Reject direct calls (when current instruction is our own program)
     if current_ix.program_id == *self_program_id {
         return Err(CpiValidationError::DirectCallNotAllowed);
     }
 
-    // Verify the calling program is the authorized program
     if current_ix.program_id != *authorized_program {
         return Err(CpiValidationError::UnauthorizedCaller);
     }
@@ -84,8 +130,9 @@ pub fn validate_cpi_caller(
 /// Validates that this instruction is either called directly OR via CPI from a whitelisted program
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Current instruction's `program_id` is either self (direct call) or in the whitelist
+/// 1. Rejects nested CPI (stack height > 2)
+/// 2. `instruction_sysvar` is the real sysvar (prevents Wormhole-style attack)
+/// 3. Current instruction's `program_id` is either self (direct call) or in the whitelist
 ///
 /// Use this for instructions that can be called both directly by users and via CPI from trusted programs.
 pub fn require_direct_call_or_whitelisted_caller(
@@ -93,16 +140,12 @@ pub fn require_direct_call_or_whitelisted_caller(
     whitelisted_programs: &[Pubkey],
     self_program_id: &Pubkey,
 ) -> core::result::Result<(), CpiValidationError> {
-    // CRITICAL: Validate that the instruction_sysvar account is actually the instructions sysvar
-    if instruction_sysvar.key() != anchor_lang::solana_program::sysvar::instructions::ID {
-        return Err(CpiValidationError::InvalidSysvar);
-    }
+    reject_nested_cpi()?;
+    validate_instruction_sysvar(instruction_sysvar)?;
 
-    // Get the current instruction (0 = current, relative offset) - see above explanation
     let current_ix = get_instruction_relative(0, instruction_sysvar)
         .map_err(|_| CpiValidationError::InvalidSysvar)?;
 
-    // Allow direct calls
     if current_ix.program_id == *self_program_id {
         return Ok(());
     }
@@ -115,18 +158,19 @@ pub fn require_direct_call_or_whitelisted_caller(
     Err(CpiValidationError::UnauthorizedCaller)
 }
 
-/// Validates that this program is the entrypoint of the current transaction instruction
+/// Validates that this program is called directly from the transaction (not via CPI)
 ///
 /// Checks:
-/// 1. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
-/// 2. Top-level instruction's `program_id` IS self (rejects external CPI callers)
-///
-/// **Important**: This does NOT prevent recursive CPI (A → B → A). It only ensures
-/// our program is the top-level instruction.
+/// 1. Stack height confirms we are NOT in a CPI context (catches self-recursive A → A)
+/// 2. `instruction_sysvar` is the real sysvar (prevents [Wormhole-style attack])
+/// 3. Top-level instruction's `program_id` IS self (rejects external CPI callers)
 pub fn reject_cpi(
     instruction_sysvar: &AccountInfo<'_>,
     self_program_id: &Pubkey,
 ) -> core::result::Result<(), CpiValidationError> {
+    if is_cpi() {
+        return Err(CpiValidationError::UnauthorizedCaller);
+    }
     require_direct_call_or_whitelisted_caller(instruction_sysvar, &[], self_program_id)
 }
 

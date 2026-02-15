@@ -216,7 +216,7 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
     "ics26_router"
     "ics27_gmp"
     "ics07_tendermint"
-    "dummy_ibc_app"
+    "test_ibc_app"
     "mock_ibc_app"
     "gmp_counter_app"
     "mock_light_client"
@@ -804,7 +804,9 @@ generate-abi-bytecode: build-contracts
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
-generate-solana-types: build-solana generate-pda
+generate-solana-types build="true":
+	@if [ "{{build}}" = "true" ]; then just build-solana; fi
+	just generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
 	rm -rf packages/go-anchor/ics07tendermint
@@ -819,15 +821,15 @@ generate-solana-types: build-solana generate-pda
 	anchor-go --idl ./programs/solana/target/idl/attestation.json --output packages/go-anchor/attestation --no-go-mod
 	rm -rf packages/go-anchor/ift
 	anchor-go --idl ./programs/solana/target/idl/ift.json --output packages/go-anchor/ift --no-go-mod
-	# Dummy apps for testing
-	rm -rf e2e/interchaintestv8/solana/go-anchor/dummyibcapp
-	anchor-go --idl ./programs/solana/target/idl/dummy_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/dummyibcapp --no-go-mod
+	# Test apps
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testibcapp
+	anchor-go --idl ./programs/solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter
 	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
-	rm -rf e2e/interchaintestv8/solana/go-anchor/maliciouscaller
-	anchor-go --idl ./programs/solana/target/idl/malicious_caller.json --output e2e/interchaintestv8/solana/go-anchor/maliciouscaller --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testcpiproxy
+	anchor-go --idl ./programs/solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
 
 # Generate Solana PDA helpers from Anchor IDL files
 [group('generate')]
@@ -1011,7 +1013,7 @@ test-e2e-solana-gmp testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaSolanaGMPTestSuite/{{testname}}
 
-# Run the e2e tests in the IbcEurekaSolanaIFTTestSuite. For example, `just test-e2e-solana-ift Test_IFT_RoundtripTransferFromCosmos`
+# Run the e2e tests in the IbcEurekaSolanaIFTTestSuite. For example, `just test-e2e-solana-ift Test_IFT_CosmosToSolanaRoundtrip`
 [group('test')]
 test-e2e-solana-ift testname:
 	@echo "Running {{testname}} test..."

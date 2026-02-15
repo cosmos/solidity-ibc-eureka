@@ -198,7 +198,8 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 	ibcAppPDA, _ := Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(gmpPortID))
 	gmpAppStatePDA, _ := Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 	clientPDA, _ := Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID))
-	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
+	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+	ics07AppStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
 
 	return []solana.PublicKey{
 		solana.SystemProgramID,
@@ -215,6 +216,7 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 		gmpAppStatePDA,
 		clientPDA,
 		clientStatePDA,
+		ics07AppStatePDA,
 	}
 }
 
@@ -222,7 +224,7 @@ func (s *Solana) CreateIBCAddressLookupTableAccounts(cosmosChainID string, gmpPo
 // These should be added in addition to the base IBC accounts.
 func (s *Solana) CreateAttestationLightClientALTAccounts(clientID string) []solana.PublicKey {
 	appStatePDA, _ := Attestation.AppStatePDA(attestation_light_client.ProgramID)
-	clientStatePDA, _ := Attestation.ClientWithArgSeedPDA(attestation_light_client.ProgramID, []byte(clientID))
+	clientStatePDA, _ := Attestation.ClientPDA(attestation_light_client.ProgramID)
 
 	return []solana.PublicKey{
 		attestation_light_client.ProgramID,

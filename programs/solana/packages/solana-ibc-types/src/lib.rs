@@ -48,7 +48,8 @@ pub use events::{
 
 pub use access_manager::{roles, AccessManager};
 pub use cpi::{
-    reject_cpi, require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,
+    is_cpi, reject_cpi, reject_nested_cpi, require_direct_call_or_whitelisted_caller,
+    validate_cpi_caller, CpiValidationError,
 };
 pub use ics24::{
     packet_acknowledgement_commitment_bytes32, packet_acknowledgement_commitment_key,

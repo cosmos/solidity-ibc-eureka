@@ -31,10 +31,8 @@ pub fn set_access_manager(
     ctx: Context<SetAccessManager>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    // Performs: CPI rejection + signer verification + role check
-    access_manager::require_role(
+    access_manager::require_admin(
         &ctx.accounts.access_manager,
-        solana_ibc_types::roles::ADMIN_ROLE,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -103,7 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_access_manager_not_admin() {
+    fn test_set_access_manager_not_admin_fails() {
         let admin = Pubkey::new_unique();
         let non_admin = Pubkey::new_unique();
         let new_access_manager = Pubkey::new_unique();
@@ -214,5 +212,145 @@ mod tests {
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+    };
+
+    fn build_set_access_manager_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
+        let (router_state_pda, _) =
+            Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::SetAccessManager { new_access_manager }.data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_by_admin_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(result.is_ok(), "Direct call by admin should succeed");
+    }
+
+    #[tokio::test]
+    async fn test_direct_call_by_non_admin_rejected() {
+        let admin = Keypair::new();
+        let non_admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_set_access_manager_ix(non_admin.pubkey(), Pubkey::new_unique());
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_whitelisted_cpi_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
+        let wrapped_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Whitelisted CPI should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_unauthorized_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
+        let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
+        let cpi_target_ix = pt_wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+        let nested_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &cpi_target_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[nested_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
     }
 }

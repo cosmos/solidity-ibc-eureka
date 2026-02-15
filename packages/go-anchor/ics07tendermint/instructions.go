@@ -15,13 +15,12 @@ import (
 func NewInitializeInstruction(
 	// Params:
 	chainIdParam string,
-	latestHeightParam uint64,
 	clientStateParam Ics07TendermintTypesClientState,
 	consensusStateParam Ics07TendermintTypesConsensusState,
 	accessManagerParam solanago.PublicKey,
 
 	// Accounts:
-	clientStateAccount solanago.PublicKey,
+	clientStateAccountAccount solanago.PublicKey,
 	consensusStateStoreAccount solanago.PublicKey,
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
@@ -40,11 +39,6 @@ func NewInitializeInstruction(
 		err = enc__.Encode(chainIdParam)
 		if err != nil {
 			return nil, errors.NewField("chainIdParam", err)
-		}
-		// Serialize `latestHeightParam`:
-		err = enc__.Encode(latestHeightParam)
-		if err != nil {
-			return nil, errors.NewField("latestHeightParam", err)
 		}
 		// Serialize `clientStateParam`:
 		err = enc__.Encode(clientStateParam)
@@ -66,8 +60,8 @@ func NewInitializeInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
+		// Account 0 "client_state_account": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccountAccount, true, false))
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
 		// Account 2 "app_state": Writable, Non-signer, Required
@@ -123,7 +117,6 @@ func NewSetAccessManagerInstruction(
 		// Account 2 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -229,7 +222,10 @@ func NewUploadHeaderChunkInstruction(
 	// Accounts:
 	chunkAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	submitterAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -252,15 +248,18 @@ func NewUploadHeaderChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "chunk": Writable, Non-signer, Required
-		// The header chunk account to create (fails if already exists)
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
-		// Client state to verify this is a valid client
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 2 "submitter": Writable, Signer, Required
-		// The submitter who pays for and owns these accounts
+		// Account 2 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 3 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 4 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -276,7 +275,6 @@ func NewUploadHeaderChunkInstruction(
 // Assemble chunks and update the client // Automatically cleans up all chunks after successful update
 func NewAssembleAndUpdateClientInstruction(
 	// Params:
-	chainIdParam string,
 	targetHeightParam uint64,
 	chunkCountParam uint8,
 
@@ -299,11 +297,6 @@ func NewAssembleAndUpdateClientInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `targetHeightParam`:
 		err = enc__.Encode(targetHeightParam)
 		if err != nil {
@@ -324,13 +317,10 @@ func NewAssembleAndUpdateClientInstruction(
 		// Account 1 "app_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state": Read-only, Non-signer, Required
-		// Trusted consensus state at the height embedded in the header
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
 		// Account 4 "new_consensus_state_store": Read-only, Non-signer, Required
-		// New consensus state store
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
 		// Account 5 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
@@ -338,7 +328,6 @@ func NewAssembleAndUpdateClientInstruction(
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -390,7 +379,10 @@ func NewUploadMisbehaviourChunkInstruction(
 	// Accounts:
 	chunkAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	submitterAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -416,9 +408,15 @@ func NewUploadMisbehaviourChunkInstruction(
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 2 "submitter": Writable, Signer, Required
+		// Account 2 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 3 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 4 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -434,8 +432,9 @@ func NewUploadMisbehaviourChunkInstruction(
 // Assemble chunks and submit misbehaviour // Automatically freezes the client and cleans up all chunks
 func NewAssembleAndSubmitMisbehaviourInstruction(
 	// Params:
-	clientIdParam string,
 	chunkCountParam uint8,
+	trustedHeight1param uint64,
+	trustedHeight2param uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -455,15 +454,20 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
 		// Serialize `chunkCountParam`:
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {
 			return nil, errors.NewField("chunkCountParam", err)
+		}
+		// Serialize `trustedHeight1param`:
+		err = enc__.Encode(trustedHeight1param)
+		if err != nil {
+			return nil, errors.NewField("trustedHeight1param", err)
+		}
+		// Serialize `trustedHeight2param`:
+		err = enc__.Encode(trustedHeight2param)
+		if err != nil {
+			return nil, errors.NewField("trustedHeight2param", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -475,7 +479,6 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		// Account 1 "app_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state_1": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
@@ -484,7 +487,6 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		// Account 5 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -499,13 +501,7 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 // Builds a "cleanup_incomplete_misbehaviour" instruction.
 // Clean up incomplete misbehaviour uploads // This can be called to reclaim rent from failed or abandoned misbehaviour submissions
 func NewCleanupIncompleteMisbehaviourInstruction(
-	// Params:
-	clientIdParam string,
-	submitterParam solanago.PublicKey,
-
-	// Accounts:
-	clientStateAccount solanago.PublicKey,
-	submitterAccountAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -515,26 +511,12 @@ func NewCleanupIncompleteMisbehaviourInstruction(
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
-	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
-		// Serialize `submitterParam`:
-		err = enc__.Encode(submitterParam)
-		if err != nil {
-			return nil, errors.NewField("submitterParam", err)
-		}
-	}
 	accounts__ := solanago.AccountMetaSlice{}
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "client_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 1 "submitter_account": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(submitterAccountAccount, true, true))
+		// Account 0 "submitter": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 
 	// Create the instruction.
@@ -553,7 +535,9 @@ func NewPreVerifySignatureInstruction(
 	// Accounts:
 	instructionsSysvarAccount solanago.PublicKey,
 	signatureVerificationAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	submitterAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -579,9 +563,13 @@ func NewPreVerifySignatureInstruction(
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 1 "signature_verification": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(signatureVerificationAccount, true, false))
-		// Account 2 "payer": Writable, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Account 2 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 3 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 4 "submitter": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

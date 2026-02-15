@@ -24,6 +24,7 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
             role_id: roles::ADMIN_ROLE,
             members: vec![admin],
         }],
+        whitelisted_programs: vec![],
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -69,7 +70,10 @@ pub fn create_access_manager_with_role(
         }
     }
 
-    let access_manager = AccessManager { roles: roles_vec };
+    let access_manager = AccessManager {
+        roles: roles_vec,
+        whitelisted_programs: vec![],
+    };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
@@ -328,6 +332,138 @@ pub fn create_instructions_sysvar_account_with_caller(
             rent_epoch: 0,
         },
     )
+}
+
+// ── ProgramTest (BPF runtime) integration test helpers ──
+
+pub const TEST_CPI_PROXY_ID: Pubkey =
+    solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
+pub const TEST_CPI_TARGET_ID: Pubkey =
+    solana_sdk::pubkey!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
+const DEPLOY_DIR: &str = "../../target/deploy";
+
+pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
+    let hash = solana_sdk::hash::hash(format!("global:{instruction_name}").as_bytes());
+    let mut disc = [0u8; 8];
+    disc.copy_from_slice(&hash.to_bytes()[..8]);
+    disc
+}
+
+pub fn setup_program_test_with_whitelist(
+    admin: &Pubkey,
+    whitelisted_programs: &[Pubkey],
+) -> solana_program_test::ProgramTest {
+    if std::env::var("SBF_OUT_DIR").is_err() {
+        let deploy_dir = std::path::Path::new(DEPLOY_DIR);
+        std::env::set_var("SBF_OUT_DIR", deploy_dir);
+    }
+
+    let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+    pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+    pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+
+    // Pre-create AccessManager PDA with admin role and whitelist
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+
+    let am = AccessManager {
+        roles: vec![RoleData {
+            role_id: roles::ADMIN_ROLE,
+            members: vec![*admin],
+        }],
+        whitelisted_programs: whitelisted_programs.to_vec(),
+    };
+    let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
+    am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
+    am.serialize(&mut &mut am_data[8..]).unwrap();
+
+    pt.add_account(
+        access_manager_pda,
+        Account {
+            lamports: 1_000_000,
+            data: am_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+
+    pt
+}
+
+pub fn wrap_in_test_cpi_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_PROXY_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn wrap_in_test_cpi_target_proxy(payer: Pubkey, inner_ix: &Instruction) -> Instruction {
+    let mut data = Vec::new();
+    data.extend_from_slice(&anchor_discriminator("proxy_cpi"));
+
+    AnchorSerialize::serialize(&inner_ix.data, &mut data).unwrap();
+
+    let meta_count = inner_ix.accounts.len() as u32;
+    AnchorSerialize::serialize(&meta_count, &mut data).unwrap();
+    for meta in &inner_ix.accounts {
+        AnchorSerialize::serialize(&meta.is_signer, &mut data).unwrap();
+        AnchorSerialize::serialize(&meta.is_writable, &mut data).unwrap();
+    }
+
+    let mut accounts = vec![
+        AccountMeta::new_readonly(inner_ix.program_id, false),
+        AccountMeta::new_readonly(payer, true),
+    ];
+    for meta in &inner_ix.accounts {
+        accounts.push(if meta.is_writable {
+            AccountMeta::new(meta.pubkey, false)
+        } else {
+            AccountMeta::new_readonly(meta.pubkey, false)
+        });
+    }
+
+    Instruction {
+        program_id: TEST_CPI_TARGET_ID,
+        accounts,
+        data,
+    }
+}
+
+pub fn extract_custom_error(err: &solana_program_test::BanksClientError) -> Option<u32> {
+    match err {
+        solana_program_test::BanksClientError::TransactionError(
+            solana_sdk::transaction::TransactionError::InstructionError(
+                _,
+                solana_sdk::instruction::InstructionError::Custom(code),
+            ),
+        ) => Some(*code),
+        _ => None,
+    }
 }
 
 /// Deserialize account data into typed struct

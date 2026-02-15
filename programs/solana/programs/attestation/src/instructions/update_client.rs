@@ -1,20 +1,30 @@
-use crate::abi_decode::decode_state_attestation;
 use crate::error::ErrorCode;
 use crate::events::MisbehaviourDetected;
 use crate::proof::deserialize_membership_proof;
 use crate::state::ConsensusStateStore;
-use crate::types::{AppState, ClientState, ConsensusState};
+use crate::types::{AppState, ClientState, StateAttestation};
 use crate::verification::verify_attestation;
+use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(client_id: String, new_height: u64)]
+#[instruction(new_height: u64, params: UpdateClientParams)]
 pub struct UpdateClient<'info> {
     #[account(
         mut,
-        constraint = client_state.client_id == client_id,
+        seeds = [ClientState::SEED],
+        bump
     )]
     pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        init_if_needed,
+        payer = submitter,
+        space = 8 + ConsensusStateStore::INIT_SPACE,
+        seeds = [ConsensusStateStore::SEED, &new_height.to_le_bytes()],
+        bump
+    )]
+    pub consensus_state_store: Account<'info, ConsensusStateStore>,
 
     #[account(
         seeds = [AppState::SEED],
@@ -33,15 +43,6 @@ pub struct UpdateClient<'info> {
     /// CHECK: Instructions sysvar for role verification
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
-
-    #[account(
-        init_if_needed,
-        payer = submitter,
-        space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &new_height.to_le_bytes()],
-        bump
-    )]
-    pub consensus_state_store: Account<'info, ConsensusStateStore>,
 
     #[account(mut)]
     pub submitter: Signer<'info>,
@@ -73,7 +74,8 @@ pub fn update_client<'info>(
     require!(!client_state.is_frozen, ErrorCode::FrozenClientState);
 
     let proof = deserialize_membership_proof(&params.proof)?;
-    let attestation = decode_state_attestation(&proof.attestation_data)?;
+    let attestation = StateAttestation::abi_decode(&proof.attestation_data)
+        .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
     verify_attestation(client_state, &proof.attestation_data, &proof.signatures)?;
 
@@ -87,12 +89,11 @@ pub fn update_client<'info>(
     let consensus_state_store = &mut ctx.accounts.consensus_state_store;
 
     // Return Ok on misbehaviour so the client freeze persists (errors revert state in Solana)
-    let existing_timestamp = consensus_state_store.consensus_state.timestamp;
+    let existing_timestamp = consensus_state_store.timestamp;
     if existing_timestamp != 0 {
         if existing_timestamp != attestation.timestamp {
             client_state.is_frozen = true;
             emit!(MisbehaviourDetected {
-                client_id: client_state.client_id.clone(),
                 height: attestation.height,
                 existing_timestamp,
                 conflicting_timestamp: attestation.timestamp,
@@ -106,10 +107,7 @@ pub fn update_client<'info>(
     }
 
     consensus_state_store.height = attestation.height;
-    consensus_state_store.consensus_state = ConsensusState {
-        height: attestation.height,
-        timestamp: attestation.timestamp,
-    };
+    consensus_state_store.timestamp = attestation.timestamp;
 
     Ok(())
 }
@@ -124,7 +122,7 @@ mod tests {
         create_empty_account, create_instructions_sysvar_account, create_payer_account,
         create_system_program_account,
     };
-    use crate::test_helpers::fixtures::{default_client_state, DEFAULT_CLIENT_ID};
+    use crate::test_helpers::fixtures::default_client_state;
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{AppState, ClientState, MembershipProof};
@@ -151,22 +149,17 @@ mod tests {
         accounts: Vec<(Pubkey, Account)>,
     }
 
-    fn setup_test_accounts(
-        client_id: &str,
-        height: u64,
-        client_state: ClientState,
-    ) -> TestAccounts {
-        setup_test_accounts_with_consensus(client_id, height, client_state, None)
+    fn setup_test_accounts(height: u64, client_state: ClientState) -> TestAccounts {
+        setup_test_accounts_with_consensus(height, client_state, None)
     }
 
     fn setup_test_accounts_with_consensus(
-        client_id: &str,
         height: u64,
         client_state: ClientState,
-        existing_consensus_state: Option<ConsensusState>,
+        existing_consensus: Option<(u64, u64)>,
     ) -> TestAccounts {
-        let client_state_pda = ClientState::pda(client_id);
-        let consensus_state_pda = ConsensusStateStore::pda(&client_state_pda, height);
+        let client_state_pda = ClientState::pda();
+        let consensus_state_pda = ConsensusStateStore::pda(height);
         let app_state_pda = AppState::pda();
         let submitter = Pubkey::new_unique();
 
@@ -176,8 +169,8 @@ mod tests {
         let (instructions_sysvar, instructions_sysvar_account) =
             create_instructions_sysvar_account();
 
-        let consensus_account = existing_consensus_state.map_or_else(create_empty_account, |cs| {
-            create_consensus_state_account(height, cs)
+        let consensus_account = existing_consensus.map_or_else(create_empty_account, |(h, t)| {
+            create_consensus_state_account(h, t)
         });
 
         let accounts = vec![
@@ -201,12 +194,8 @@ mod tests {
         }
     }
 
-    fn setup_default_test_accounts(client_id: &str, new_height: u64) -> TestAccounts {
-        setup_test_accounts(
-            client_id,
-            new_height,
-            default_client_state(client_id, HEIGHT),
-        )
+    fn setup_default_test_accounts(new_height: u64) -> TestAccounts {
+        setup_test_accounts(new_height, default_client_state(HEIGHT))
     }
 
     fn setup_attestor_accounts(
@@ -216,23 +205,20 @@ mod tests {
     ) -> TestAccounts {
         let client_state = ClientState {
             version: crate::types::AccountVersion::V1,
-            client_id: DEFAULT_CLIENT_ID.to_string(),
             attestor_addresses,
             min_required_sigs,
             latest_height: HEIGHT,
             is_frozen: false,
         };
-        setup_test_accounts(DEFAULT_CLIENT_ID, new_height, client_state)
+        setup_test_accounts(new_height, client_state)
     }
 
     fn create_update_client_instruction(
         test_accounts: &TestAccounts,
-        client_id: &str,
         height: u64,
         params: UpdateClientParams,
     ) -> Instruction {
         let instruction_data = crate::instruction::UpdateClient {
-            client_id: client_id.to_string(),
             new_height: height,
             params,
         };
@@ -241,10 +227,10 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(test_accounts.client_state_pda, false),
+                AccountMeta::new(test_accounts.consensus_state_pda, false),
                 AccountMeta::new_readonly(test_accounts.app_state_pda, false),
                 AccountMeta::new_readonly(test_accounts.access_manager_pda, false),
                 AccountMeta::new_readonly(test_accounts.instructions_sysvar, false),
-                AccountMeta::new(test_accounts.consensus_state_pda, false),
                 AccountMeta::new(test_accounts.submitter, true),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
@@ -267,10 +253,14 @@ mod tests {
         );
     }
 
-    fn expect_any_error(test_accounts: &TestAccounts, instruction: Instruction) {
+    fn expect_bpf_crash(test_accounts: &TestAccounts, instruction: Instruction) {
+        use solana_sdk::instruction::InstructionError;
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(InstructionError::ProgramFailedToComplete).into()
+        );
     }
 
     fn build_signed_params(
@@ -307,37 +297,41 @@ mod tests {
 
     #[test]
     fn test_update_client_frozen() {
-        let mut client_state = default_client_state(DEFAULT_CLIENT_ID, HEIGHT);
+        let mut client_state = default_client_state(HEIGHT);
         client_state.is_frozen = true;
-        let test_accounts = setup_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT, client_state);
+        let test_accounts = setup_test_accounts(NEW_HEIGHT, client_state);
 
         let params = make_proof_params(vec![], vec![]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::FrozenClientState);
     }
 
     #[rstest::rstest]
-    #[case::invalid_proof(vec![0xFF; 100])]
+    #[case::invalid_proof(vec![0xFF; 100], None)]
     #[case::attestation_data_too_short(
-        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap()
+        MembershipProof { attestation_data: vec![0u8; 64], signatures: vec![vec![0u8; 65]] }.try_to_vec().unwrap(),
+        Some(ErrorCode::InvalidSignature)
     )]
-    fn test_update_client_rejects_bad_proof(#[case] proof: Vec<u8>) {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
+    fn test_update_client_rejects_bad_proof(
+        #[case] proof: Vec<u8>,
+        #[case] expected_error: Option<ErrorCode>,
+    ) {
+        let test_accounts = setup_default_test_accounts(NEW_HEIGHT);
         let params = UpdateClientParams { proof };
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
-        expect_any_error(&test_accounts, instruction);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
+        match expected_error {
+            Some(err) => expect_error(&test_accounts, instruction, err),
+            None => expect_bpf_crash(&test_accounts, instruction),
+        }
     }
 
     #[test]
     fn test_update_client_no_signatures() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
+        let test_accounts = setup_default_test_accounts(NEW_HEIGHT);
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
         let params = make_proof_params(attestation_data, vec![]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::EmptySignatures);
     }
 
@@ -347,8 +341,7 @@ mod tests {
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
         let params = make_proof_params(attestation_data, vec![vec![0u8; 65]]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::ThresholdNotMet);
     }
 
@@ -361,28 +354,25 @@ mod tests {
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
         let sig = attestor.sign(&attestation_data);
         let params = make_proof_params(attestation_data, vec![sig.clone(), sig]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::DuplicateSigner);
     }
 
     #[test]
     fn test_update_client_empty_proof_bytes() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
+        let test_accounts = setup_default_test_accounts(NEW_HEIGHT);
         let params = UpdateClientParams { proof: vec![] };
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::InvalidProof);
     }
 
     #[test]
     fn test_update_client_invalid_signature_length() {
-        let test_accounts = setup_default_test_accounts(DEFAULT_CLIENT_ID, NEW_HEIGHT);
+        let test_accounts = setup_default_test_accounts(NEW_HEIGHT);
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
         let params = make_proof_params(attestation_data, vec![vec![0u8; 64]]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::InvalidSignature);
     }
 
@@ -402,8 +392,7 @@ mod tests {
                 vec![5u8; 65],
             ],
         );
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::ThresholdNotMet);
     }
 
@@ -412,17 +401,12 @@ mod tests {
     #[case::lower_height(50)]
     #[case::max_height(u64::MAX)]
     fn test_update_client_default_accounts_bad_height(#[case] height: u64) {
-        let test_accounts = setup_test_accounts(
-            DEFAULT_CLIENT_ID,
-            height,
-            default_client_state(DEFAULT_CLIENT_ID, HEIGHT),
-        );
+        let test_accounts = setup_test_accounts(height, default_client_state(HEIGHT));
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(height, 1_700_000_000);
         let params = make_proof_params(attestation_data, vec![vec![0u8; 65]]);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, height, params);
-        expect_any_error(&test_accounts, instruction);
+        let instruction = create_update_client_instruction(&test_accounts, height, params);
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidSignature);
     }
 
     #[test]
@@ -431,28 +415,20 @@ mod tests {
         let conflicting_timestamp = 1_800_000_000u64;
         let attestor = TestAttestor::new(1);
 
-        let existing_consensus = ConsensusState {
-            height: HEIGHT,
-            timestamp: existing_timestamp,
-        };
-
         let test_accounts = setup_test_accounts_with_consensus(
-            DEFAULT_CLIENT_ID,
             HEIGHT,
             ClientState {
                 version: crate::types::AccountVersion::V1,
-                client_id: DEFAULT_CLIENT_ID.to_string(),
                 attestor_addresses: vec![attestor.eth_address],
                 min_required_sigs: 1,
                 latest_height: HEIGHT,
                 is_frozen: false,
             },
-            Some(existing_consensus),
+            Some((HEIGHT, existing_timestamp)),
         );
 
         let params = build_signed_params(&[&attestor], HEIGHT, conflicting_timestamp);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_and_validate_instruction(
@@ -478,28 +454,20 @@ mod tests {
         let timestamp = 1_700_000_000u64;
         let attestor = TestAttestor::new(1);
 
-        let existing_consensus = ConsensusState {
-            height: HEIGHT,
-            timestamp,
-        };
-
         let test_accounts = setup_test_accounts_with_consensus(
-            DEFAULT_CLIENT_ID,
             HEIGHT,
             ClientState {
                 version: crate::types::AccountVersion::V1,
-                client_id: DEFAULT_CLIENT_ID.to_string(),
                 attestor_addresses: vec![attestor.eth_address],
                 min_required_sigs: 1,
                 latest_height: HEIGHT,
                 is_frozen: false,
             },
-            Some(existing_consensus),
+            Some((HEIGHT, timestamp)),
         );
 
         let params = build_signed_params(&[&attestor], HEIGHT, timestamp);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_and_validate_instruction(
@@ -527,8 +495,7 @@ mod tests {
 
         let new_timestamp = 1_800_000_000u64;
         let params = build_signed_params(&[&attestor], NEW_HEIGHT, new_timestamp);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_and_validate_instruction(
@@ -555,11 +522,7 @@ mod tests {
             )
             .expect("Failed to deserialize consensus state");
         assert_eq!(consensus_state_store.height, NEW_HEIGHT);
-        assert_eq!(consensus_state_store.consensus_state.height, NEW_HEIGHT);
-        assert_eq!(
-            consensus_state_store.consensus_state.timestamp,
-            new_timestamp
-        );
+        assert_eq!(consensus_state_store.timestamp, new_timestamp);
     }
 
     #[test]
@@ -569,8 +532,7 @@ mod tests {
 
         // PDA seed uses NEW_HEIGHT (200), but attestation contains a different height (150)
         let params = build_signed_params(&[&attestor], 150, 1_800_000_000);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::HeightMismatch);
     }
 
@@ -582,8 +544,7 @@ mod tests {
         let attestor = TestAttestor::new(1);
         let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1, NEW_HEIGHT);
         let params = build_signed_params(&[&attestor], attestation_height, timestamp);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::InvalidState);
     }
 
@@ -595,12 +556,7 @@ mod tests {
 
         let new_timestamp = 1_600_000_000u64;
         let params = build_signed_params(&[&attestor], lower_height, new_timestamp);
-        let instruction = create_update_client_instruction(
-            &test_accounts,
-            DEFAULT_CLIENT_ID,
-            lower_height,
-            params,
-        );
+        let instruction = create_update_client_instruction(&test_accounts, lower_height, params);
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
         let result = mollusk.process_and_validate_instruction(
@@ -629,10 +585,7 @@ mod tests {
             )
             .expect("Failed to deserialize consensus state");
         assert_eq!(consensus_state_store.height, lower_height);
-        assert_eq!(
-            consensus_state_store.consensus_state.timestamp,
-            new_timestamp
-        );
+        assert_eq!(consensus_state_store.timestamp, new_timestamp);
     }
 
     #[test]
@@ -646,8 +599,7 @@ mod tests {
         // Sign with 2 out of 3 attestors
         let params =
             build_signed_params(&[&attestors[0], &attestors[2]], NEW_HEIGHT, 1_800_000_000);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_success(&test_accounts, instruction);
     }
 
@@ -659,8 +611,7 @@ mod tests {
             setup_attestor_accounts(vec![trusted_attestor.eth_address], 1, NEW_HEIGHT);
 
         let params = build_signed_params(&[&untrusted_attestor], NEW_HEIGHT, 1_800_000_000);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::UnknownSigner);
     }
 
@@ -672,8 +623,7 @@ mod tests {
 
         let attestor_refs: Vec<_> = attestors.iter().collect();
         let params = build_signed_params(&attestor_refs, NEW_HEIGHT, 1_800_000_000);
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_success(&test_accounts, instruction);
     }
 
@@ -689,8 +639,31 @@ mod tests {
             NEW_HEIGHT,
             1_800_000_000,
         );
-        let instruction =
-            create_update_client_instruction(&test_accounts, DEFAULT_CLIENT_ID, NEW_HEIGHT, params);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::UnknownSigner);
+    }
+
+    #[test]
+    fn test_update_client_wrong_client_state_pda() {
+        let mut test_accounts = setup_default_test_accounts(NEW_HEIGHT);
+
+        let wrong_client_pda = Pubkey::new_unique();
+        if let Some(entry) = test_accounts
+            .accounts
+            .iter_mut()
+            .find(|(k, _)| *k == test_accounts.client_state_pda)
+        {
+            entry.0 = wrong_client_pda;
+        }
+        test_accounts.client_state_pda = wrong_client_pda;
+
+        let params = make_proof_params(vec![], vec![]);
+        let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 }

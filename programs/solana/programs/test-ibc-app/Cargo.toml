@@ -1,0 +1,34 @@
+[package]
+name = "test-ibc-app"
+version.workspace = true
+description = "Test IBC Application for testing Solana IBC Router"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_ibc_app"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+default = []
+
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+solana-ibc-types.workspace = true
+solana-ibc-macros.workspace = true
+ics26-router = { workspace = true, features = ["cpi"] }
+prost = { workspace = true }
+ibc-proto = { workspace = true }
+
+[lints]
+workspace = true

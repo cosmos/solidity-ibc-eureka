@@ -306,8 +306,80 @@ func UnmarshalAccessManagerEventsRoleRevokedEvent(buf []byte) (*AccessManagerEve
 	return obj, nil
 }
 
+type AccessManagerEventsWhitelistedProgramsUpdatedEvent struct {
+	OldPrograms []solanago.PublicKey `json:"oldPrograms"`
+	NewPrograms []solanago.PublicKey `json:"newPrograms"`
+	UpdatedBy   solanago.PublicKey   `json:"updatedBy"`
+}
+
+func (obj AccessManagerEventsWhitelistedProgramsUpdatedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldPrograms`:
+	err = encoder.Encode(obj.OldPrograms)
+	if err != nil {
+		return errors.NewField("OldPrograms", err)
+	}
+	// Serialize `NewPrograms`:
+	err = encoder.Encode(obj.NewPrograms)
+	if err != nil {
+		return errors.NewField("NewPrograms", err)
+	}
+	// Serialize `UpdatedBy`:
+	err = encoder.Encode(obj.UpdatedBy)
+	if err != nil {
+		return errors.NewField("UpdatedBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsWhitelistedProgramsUpdatedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsWhitelistedProgramsUpdatedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsWhitelistedProgramsUpdatedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldPrograms`:
+	err = decoder.Decode(&obj.OldPrograms)
+	if err != nil {
+		return errors.NewField("OldPrograms", err)
+	}
+	// Deserialize `NewPrograms`:
+	err = decoder.Decode(&obj.NewPrograms)
+	if err != nil {
+		return errors.NewField("NewPrograms", err)
+	}
+	// Deserialize `UpdatedBy`:
+	err = decoder.Decode(&obj.UpdatedBy)
+	if err != nil {
+		return errors.NewField("UpdatedBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsWhitelistedProgramsUpdatedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsWhitelistedProgramsUpdatedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsWhitelistedProgramsUpdatedEvent(buf []byte) (*AccessManagerEventsWhitelistedProgramsUpdatedEvent, error) {
+	obj := new(AccessManagerEventsWhitelistedProgramsUpdatedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerStateAccessManager struct {
-	Roles []AccessManagerTypesRoleData `json:"roles"`
+	Roles               []AccessManagerTypesRoleData `json:"roles"`
+	WhitelistedPrograms []solanago.PublicKey         `json:"whitelistedPrograms"`
 }
 
 func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -315,6 +387,11 @@ func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.En
 	err = encoder.Encode(obj.Roles)
 	if err != nil {
 		return errors.NewField("Roles", err)
+	}
+	// Serialize `WhitelistedPrograms`:
+	err = encoder.Encode(obj.WhitelistedPrograms)
+	if err != nil {
+		return errors.NewField("WhitelistedPrograms", err)
 	}
 	return nil
 }
@@ -334,6 +411,11 @@ func (obj *AccessManagerStateAccessManager) UnmarshalWithDecoder(decoder *binary
 	err = decoder.Decode(&obj.Roles)
 	if err != nil {
 		return errors.NewField("Roles", err)
+	}
+	// Deserialize `WhitelistedPrograms`:
+	err = decoder.Decode(&obj.WhitelistedPrograms)
+	if err != nil {
+		return errors.NewField("WhitelistedPrograms", err)
 	}
 	return nil
 }

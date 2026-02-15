@@ -5,7 +5,7 @@ use crate::Payload;
 use anchor_lang::prelude::*;
 use solana_ibc_constants::IBC_VERSION;
 use solana_keccak_hasher::hash as keccak256;
-use solana_sha256_hasher::{hash as sha256_single, hashv as sha256_multi};
+use solana_sha256_hasher::{hash as sha256, hashv as sha256v};
 use std::mem::size_of;
 
 pub use solana_ibc_constants::UNIVERSAL_ERROR_ACK;
@@ -90,22 +90,22 @@ pub fn packet_commitment_bytes32(packet: &Packet) -> [u8; 32] {
         app_bytes.extend_from_slice(&payload_hash);
     }
 
-    let dest_client_hash = sha256_single(packet.dest_client.as_bytes()).to_bytes();
-    let timeout_hash = sha256_single(&packet.timeout_timestamp.to_be_bytes()).to_bytes();
-    let app_hash = sha256_single(&app_bytes).to_bytes();
-    sha256_multi(&[&[IBC_VERSION], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
+    let dest_client_hash = sha256(packet.dest_client.as_bytes()).to_bytes();
+    let timeout_hash = sha256(&packet.timeout_timestamp.to_be_bytes()).to_bytes();
+    let app_hash = sha256(&app_bytes).to_bytes();
+    sha256v(&[&[IBC_VERSION], &dest_client_hash, &timeout_hash, &app_hash]).to_bytes()
 }
 
 /// Computes the hash of a payload.
 fn hash_payload(payload: &Payload) -> [u8; 32] {
     let mut buf = Vec::with_capacity(5 * HASH_OUTPUT_SIZE);
-    buf.extend_from_slice(&sha256_single(payload.source_port.as_bytes()).to_bytes());
-    buf.extend_from_slice(&sha256_single(payload.dest_port.as_bytes()).to_bytes());
-    buf.extend_from_slice(&sha256_single(payload.version.as_bytes()).to_bytes());
-    buf.extend_from_slice(&sha256_single(payload.encoding.as_bytes()).to_bytes());
-    buf.extend_from_slice(&sha256_single(&payload.value).to_bytes());
+    buf.extend_from_slice(&sha256(payload.source_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.dest_port.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.version.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(payload.encoding.as_bytes()).to_bytes());
+    buf.extend_from_slice(&sha256(&payload.value).to_bytes());
 
-    sha256_single(&buf).to_bytes()
+    sha256(&buf).to_bytes()
 }
 
 /// Computes the acknowledgement commitment hash.
@@ -120,10 +120,10 @@ pub fn packet_acknowledgement_commitment_bytes32(acks: &[Vec<u8>]) -> Ics24Resul
 
     let mut ack_bytes = Vec::with_capacity(acks.len() * HASH_OUTPUT_SIZE);
     for ack in acks {
-        ack_bytes.extend_from_slice(&sha256_single(ack).to_bytes());
+        ack_bytes.extend_from_slice(&sha256(ack).to_bytes());
     }
 
-    Ok(sha256_multi(&[&[IBC_VERSION], &ack_bytes]).to_bytes())
+    Ok(sha256v(&[&[IBC_VERSION], &ack_bytes]).to_bytes())
 }
 
 /// Computes the packet receipt commitment hash (keccak256 of serialized packet).
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn test_universal_error_ack_is_sha256_of_string() {
-        let computed = sha256_single(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT").to_bytes();
+        let computed = sha256(b"UNIVERSAL_ERROR_ACKNOWLEDGEMENT").to_bytes();
 
         assert_eq!(
             UNIVERSAL_ERROR_ACK, computed,

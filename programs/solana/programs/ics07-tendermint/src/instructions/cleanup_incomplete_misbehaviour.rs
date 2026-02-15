@@ -1,16 +1,17 @@
-use crate::CleanupIncompleteMisbehaviour;
 use anchor_lang::prelude::*;
 
-pub fn cleanup_incomplete_misbehaviour(
-    ctx: Context<CleanupIncompleteMisbehaviour>,
-    client_id: String,
-    submitter: Pubkey,
-) -> Result<()> {
+#[derive(Accounts)]
+pub struct CleanupIncompleteMisbehaviour<'info> {
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+}
+
+pub fn cleanup_incomplete_misbehaviour(ctx: Context<CleanupIncompleteMisbehaviour>) -> Result<()> {
+    let submitter_key = ctx.accounts.submitter.key();
     for (index, chunk_account) in ctx.remaining_accounts.iter().enumerate() {
         let expected_seeds = &[
             crate::state::MisbehaviourChunk::SEED,
-            submitter.as_ref(),
-            client_id.as_bytes(),
+            submitter_key.as_ref(),
             &[index as u8],
         ];
         let (expected_chunk_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
@@ -26,8 +27,7 @@ pub fn cleanup_incomplete_misbehaviour(
             }
 
             let mut lamports = chunk_account.try_borrow_mut_lamports()?;
-            let mut submitter_lamports =
-                ctx.accounts.submitter_account.try_borrow_mut_lamports()?;
+            let mut submitter_lamports = ctx.accounts.submitter.try_borrow_mut_lamports()?;
             **submitter_lamports = submitter_lamports
                 .checked_add(**lamports)
                 .ok_or(crate::error::ErrorCode::ArithmeticOverflow)?;

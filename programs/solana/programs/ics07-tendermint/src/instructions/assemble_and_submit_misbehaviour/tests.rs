@@ -9,7 +9,7 @@ use anchor_lang::solana_program::{
 };
 use anchor_lang::AccountSerialize;
 use anchor_lang::InstructionData;
-use mollusk_svm::result::Check;
+use mollusk_svm::result::{Check, ProgramResult as MolluskProgramResult};
 use mollusk_svm::Mollusk;
 use solana_sdk::account::Account;
 
@@ -18,6 +18,8 @@ struct TestAccounts {
     app_state_pda: Pubkey,
     trusted_consensus_state_1_pda: Pubkey,
     trusted_consensus_state_2_pda: Pubkey,
+    height_1: u64,
+    height_2: u64,
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
     accounts: Vec<(Pubkey, Account)>,
@@ -45,11 +47,8 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         with_chunks,
         misbehaviour_bytes,
     } = config;
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, chain_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
+    let client_state_pda =
+        Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0;
 
     let trusted_consensus_state_1_pda = Pubkey::find_program_address(
         &[
@@ -125,6 +124,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     // Add app_state account
     let app_state = AppState {
         access_manager: access_manager::ID,
+        chain_id: String::new(),
         _reserved: [0; 256],
     };
     let mut app_state_data = vec![];
@@ -264,7 +264,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
                 &[
                     crate::state::MisbehaviourChunk::SEED,
                     submitter.as_ref(),
-                    chain_id.as_bytes(),
                     &[i as u8],
                 ],
                 &crate::ID,
@@ -302,17 +301,20 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         app_state_pda,
         trusted_consensus_state_1_pda,
         trusted_consensus_state_2_pda,
+        height_1,
+        height_2,
         submitter,
         chunk_pdas,
         accounts,
     }
 }
 
-fn create_assemble_instruction(test_accounts: &TestAccounts, client_id: &str) -> Instruction {
+fn create_assemble_instruction(test_accounts: &TestAccounts) -> Instruction {
     let chunk_count = test_accounts.chunk_pdas.len() as u8;
     let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
-        client_id: client_id.to_string(),
         chunk_count,
+        trusted_height_1: test_accounts.height_1,
+        trusted_height_2: test_accounts.height_2,
     };
 
     let (access_manager_pda, _) =
@@ -374,7 +376,7 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
         misbehaviour_bytes: &misbehaviour_bytes,
     });
 
-    let instruction = create_assemble_instruction(&test_accounts, chain_id);
+    let instruction = create_assemble_instruction(&test_accounts);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![Check::err(
@@ -421,11 +423,267 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
         }
     }
 
-    let instruction = create_assemble_instruction(&test_accounts, chain_id);
+    let instruction = create_assemble_instruction(&test_accounts);
 
     let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
     let checks = vec![Check::err(
         anchor_lang::error::Error::from(ErrorCode::InvalidChunkAccount).into(),
     )];
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+}
+
+#[test]
+fn test_assemble_and_submit_misbehaviour_wrong_client_state_pda() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
+
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    let wrong_client_pda = Pubkey::new_unique();
+    if let Some(entry) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(k, _)| *k == test_accounts.client_state_pda)
+    {
+        entry.0 = wrong_client_pda;
+    }
+    test_accounts.client_state_pda = wrong_client_pda;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let checks = vec![Check::err(anchor_lang::prelude::ProgramError::Custom(
+        anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+    ))];
+    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+}
+
+/// Creates a serialized `ConsensusStateStore` account data.
+fn serialize_consensus_state_store(height: u64, root: [u8; 32]) -> Vec<u8> {
+    let store = ConsensusStateStore {
+        height,
+        consensus_state: crate::types::ConsensusState {
+            timestamp: 1_000_000_000_000_000_000,
+            root,
+            next_validators_hash: [2u8; 32],
+        },
+    };
+    let mut data = vec![];
+    store.try_serialize(&mut data).unwrap();
+    data
+}
+
+fn assert_constraint_seeds(result: &mollusk_svm::result::InstructionResult) {
+    assert_eq!(
+        result.program_result,
+        MolluskProgramResult::Failure(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        )),
+        "wrong consensus state must be rejected by seeds constraint"
+    );
+}
+
+// ── Consensus state substitution attack regression tests ──
+//
+// These tests verify that Anchor's seeds constraint rejects substituted
+// ConsensusStateStore accounts. The seeds bind each consensus state to
+// [SEED, client_state_key, height_le_bytes], so any account at a different
+// PDA is rejected with ConstraintSeeds.
+
+/// Regression: substituting `trusted_consensus_state_1` with a PDA for a
+/// different height is rejected by the seeds constraint.
+#[test]
+fn test_height_substitution_attack_consensus_state_1() {
+    let chain_id = "test-chain";
+    let correct_height_1 = 90;
+    let attacker_height = 80; // different legitimate height
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    // Attacker crafts misbehaviour with trusted_height_1 = attacker_height
+    let misbehaviour_bytes =
+        crate::test_helpers::fixtures::misbehaviour::create_mock_tendermint_misbehaviour(
+            chain_id,
+            100,
+            100,
+            attacker_height,
+            height_2,
+            true,
+        );
+
+    // Set up with the "correct" heights for consensus states and chunks
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1: correct_height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    // Create the attacker's ConsensusStateStore at the PDA for attacker_height
+    let attacker_pda = Pubkey::find_program_address(
+        &[
+            ConsensusStateStore::SEED,
+            test_accounts.client_state_pda.as_ref(),
+            &attacker_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+    .0;
+    let attacker_data = serialize_consensus_state_store(attacker_height, [0xAA; 32]);
+
+    // Swap trusted_consensus_state_1: correct PDA -> attacker's PDA
+    let old_pda = test_accounts.trusted_consensus_state_1_pda;
+    if let Some(entry) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(k, _)| *k == old_pda)
+    {
+        entry.0 = attacker_pda;
+        entry.1 = Account {
+            lamports: 1_000_000,
+            data: attacker_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+    }
+    test_accounts.trusted_consensus_state_1_pda = attacker_pda;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    assert_constraint_seeds(&result);
+}
+
+/// Regression: substituting `trusted_consensus_state_2` with a PDA for a
+/// different height is rejected by the seeds constraint.
+#[test]
+fn test_height_substitution_attack_consensus_state_2() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let correct_height_2 = 95;
+    let attacker_height = 80;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes =
+        crate::test_helpers::fixtures::misbehaviour::create_mock_tendermint_misbehaviour(
+            chain_id,
+            100,
+            100,
+            height_1,
+            attacker_height,
+            true,
+        );
+
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2: correct_height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    let attacker_pda = Pubkey::find_program_address(
+        &[
+            ConsensusStateStore::SEED,
+            test_accounts.client_state_pda.as_ref(),
+            &attacker_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    )
+    .0;
+    let attacker_data = serialize_consensus_state_store(attacker_height, [0xBB; 32]);
+
+    let old_pda = test_accounts.trusted_consensus_state_2_pda;
+    if let Some(entry) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(k, _)| *k == old_pda)
+    {
+        entry.0 = attacker_pda;
+        entry.1 = Account {
+            lamports: 1_000_000,
+            data: attacker_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+    }
+    test_accounts.trusted_consensus_state_2_pda = attacker_pda;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    assert_constraint_seeds(&result);
+}
+
+/// Regression: a `ConsensusStateStore` at a non-PDA address is rejected
+/// by the seeds constraint.
+#[test]
+fn test_non_pda_consensus_state_bypasses_constraint() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
+
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    let fake_address = Pubkey::new_unique();
+    let fake_data = serialize_consensus_state_store(height_1, [0xCC; 32]);
+
+    let old_pda = test_accounts.trusted_consensus_state_1_pda;
+    if let Some(entry) = test_accounts
+        .accounts
+        .iter_mut()
+        .find(|(k, _)| *k == old_pda)
+    {
+        entry.0 = fake_address;
+        entry.1 = Account {
+            lamports: 1_000_000,
+            data: fake_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+    }
+    test_accounts.trusted_consensus_state_1_pda = fake_address;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
+
+    assert_constraint_seeds(&result);
 }

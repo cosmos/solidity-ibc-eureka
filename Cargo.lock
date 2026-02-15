@@ -10261,8 +10261,6 @@ dependencies = [
  "borsh 0.10.4",
  "ibc-client-tendermint",
  "ibc-core-client-types",
- "ibc-eureka-constrained-types",
- "prost",
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",
