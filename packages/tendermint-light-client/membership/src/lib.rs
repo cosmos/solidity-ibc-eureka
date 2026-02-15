@@ -78,12 +78,13 @@ pub enum MembershipError {
 ///
 /// # Errors
 ///
+/// Returns `MembershipError::EmptyRequest` if the request slice is empty.
 /// Returns `MembershipError::NonMembershipVerificationFailed` if non-membership proof verification fails.
 /// Returns `MembershipError::MembershipVerificationFailed` if membership proof verification fails.
 pub fn membership(
     app_hash: [u8; 32],
     request: &[(KVPair, MerkleProof)],
-) -> Result<(), MembershipError> {
+) -> Result<MembershipOutput, MembershipError> {
     if request.is_empty() {
         return Err(MembershipError::EmptyRequest);
     }
@@ -113,5 +114,9 @@ pub fn membership(
                 .map_err(|_| MembershipError::MembershipVerificationFailed)?;
         }
     }
-    Ok(())
+
+    Ok(MembershipOutput {
+        commitment_root: app_hash,
+        kv_pairs: request.iter().map(|(kv, _)| kv.clone()).collect(),
+    })
 }

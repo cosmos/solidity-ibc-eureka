@@ -8,7 +8,7 @@ use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_proto::ibc::core::commitment::v1::MerkleProof as ProtoMerkleProof;
 use ibc_proto::ibc::lightclients::tendermint::v1::ConsensusState as ProtoConsensusState;
 use prost::Message;
-use tendermint_light_client_membership::{membership, KVPair, MembershipError};
+use tendermint_light_client_membership::{membership, KVPair, MembershipError, MembershipOutput};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct MembershipMsgFixture {
@@ -97,7 +97,7 @@ pub fn setup_test_context(fixture: MembershipVerificationFixture) -> TestContext
     }
 }
 
-pub fn execute_membership(ctx: &TestContext) -> Result<(), MembershipError> {
+pub fn execute_membership(ctx: &TestContext) -> Result<MembershipOutput, MembershipError> {
     let request = vec![(ctx.kv_pair.clone(), ctx.merkle_proof.clone())];
     membership(ctx.app_hash, &request)
 }
