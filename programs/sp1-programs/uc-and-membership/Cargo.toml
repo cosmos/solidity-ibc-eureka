@@ -13,7 +13,7 @@ test = false
 [dependencies]
 tendermint-light-client-uc-and-membership = { workspace = true }
 
-tendermint-light-client-update-client = { workspace = true, features = ["solidity"] }
+tendermint-light-client-update-client = { workspace = true }
 
 sp1-zkvm                           = { workspace = true, default-features = true }
 ibc-core-commitment-types          = { workspace = true }
