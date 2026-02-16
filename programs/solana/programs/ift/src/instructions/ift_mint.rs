@@ -31,9 +31,10 @@ pub struct IFTMint<'info> {
     pub app_mint_state: Account<'info, IFTAppMintState>,
 
     /// IFT bridge - provides counterparty info for GMP account validation.
-    /// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
-    /// Security: Anchor verifies ownership, `validate_gmp_account` verifies (`client_id`, counterparty) match.
+    /// Seeds use self-referencing `ift_bridge.client_id` (Anchor deserializes before checking seeds).
     #[account(
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), ift_bridge.client_id.as_bytes()],
+        bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
     )]
@@ -504,5 +505,117 @@ mod tests {
         let token = anchor_spl::token::spl_token::state::Account::unpack(&receiver_acc.data)
             .expect("valid token account");
         assert_eq!(token.amount, 1000);
+    }
+
+    /// Verifies that passing a valid bridge at the wrong PDA address is rejected.
+    /// The bridge has matching mint and is active, but its `client_id` doesn't match
+    /// the PDA derivation address — the seeds constraint catches this.
+    #[test]
+    fn test_ift_mint_bridge_pda_mismatch_rejected() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let receiver = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let gmp_program = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (system_program, system_account) = create_system_program_account();
+
+        // Derive PDA for TEST_CLIENT_ID but create bridge data with a different client_id.
+        // The seeds constraint will recompute PDA from the deserialized client_id and reject.
+        let (bridge_pda_wrong_addr, _) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let different_client_id = "07-tendermint-999";
+        let (_, bridge_bump) = get_bridge_pda(&mint, different_client_id);
+
+        let bridge_account = create_ift_bridge_account(
+            mint,
+            different_client_id,
+            TEST_COUNTERPARTY_ADDRESS,
+            ChainOptions::Evm,
+            bridge_bump,
+            true,
+        );
+
+        let (gmp_account_pda, _) =
+            get_gmp_account_pda(different_client_id, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+        let mint_account = create_mint_account(mint_authority_pda, 6);
+
+        let receiver_token_pda =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        let receiver_token_account = create_token_account(mint, receiver, 0);
+
+        let token_program_account = solana_sdk::account::Account {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        };
+        let associated_token_program_account = solana_sdk::account::Account {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        };
+
+        let msg = IFTMintMsg {
+            receiver,
+            amount: 1000,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(bridge_pda_wrong_addr, false), // wrong PDA for this client_id
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new(receiver_token_pda, false),
+                AccountMeta::new_readonly(receiver, false),
+                AccountMeta::new_readonly(gmp_account_pda, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(anchor_spl::token::ID, false),
+                AccountMeta::new_readonly(anchor_spl::associated_token::ID, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::IftMint { msg }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (bridge_pda_wrong_addr, bridge_account),
+            (mint, mint_account),
+            (mint_authority_pda, create_signer_account()),
+            (receiver_token_pda, receiver_token_account),
+            (receiver, create_signer_account()),
+            (gmp_account_pda, create_signer_account()),
+            (payer, create_signer_account()),
+            (anchor_spl::token::ID, token_program_account),
+            (
+                anchor_spl::associated_token::ID,
+                associated_token_program_account,
+            ),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+            ))
+            .into(),
+        );
     }
 }
