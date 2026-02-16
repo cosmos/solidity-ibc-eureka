@@ -9742,7 +9742,7 @@ dependencies = [
 [[package]]
 name = "tendermint"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
+source = "git+https://github.com/cometbft/tendermint-rs?rev=a2aa5bf#a2aa5bffcb2a2b62f775ba0c150819ff3341f881"
 dependencies = [
  "bytes",
  "digest 0.10.7",
@@ -9830,7 +9830,7 @@ dependencies = [
 [[package]]
 name = "tendermint-light-client-verifier"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
+source = "git+https://github.com/cometbft/tendermint-rs?rev=a2aa5bf#a2aa5bffcb2a2b62f775ba0c150819ff3341f881"
 dependencies = [
  "derive_more 0.99.20",
  "flex-error",
@@ -9842,7 +9842,7 @@ dependencies = [
 [[package]]
 name = "tendermint-proto"
 version = "0.40.4"
-source = "git+https://github.com/vaporif/tendermint-rs?branch=verifier-with-instance#b401eac3b7e52116e94bfd261659e50427233550"
+source = "git+https://github.com/cometbft/tendermint-rs?rev=a2aa5bf#a2aa5bffcb2a2b62f775ba0c150819ff3341f881"
 dependencies = [
  "bytes",
  "flex-error",
