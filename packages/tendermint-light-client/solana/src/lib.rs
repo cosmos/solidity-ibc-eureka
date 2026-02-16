@@ -18,10 +18,6 @@ use tendermint::merkle::Hash;
 
 /// Solana-optimized predicates that skip redundant Merkle hashing
 ///
-/// The validator set hashes are already validated in `validate_basic()` and
-/// `check_trusted_next_validator_set()` before the verifier is called, so we can
-/// safely skip recomputing them here.
-///
 /// **Performance (100 validators):** Saves ~290k compute units total (~145k per validator set hash)
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct SolanaPredicates;
@@ -29,14 +25,11 @@ pub struct SolanaPredicates;
 impl VerificationPredicates for SolanaPredicates {
     type Sha256 = SolanaSha256;
 
-    /// Skip validator set hash validation - already done in `validate_basic()`
+    /// No-op: validator set hash already verified by [`Header::validate_basic()`][src].
     ///
-    /// SAFETY: The hash of `validators` against `header_validators_hash` is
-    /// already validated in `Header::validate_basic()` (line 166 of `header.rs`)
-    /// before this function is called, so we can safely skip the redundant
-    /// Merkle hash computation here.
+    /// Skipping the redundant Merkle hash saves ~145k CU (100 validators).
     ///
-    /// **Performance:** Saves ~145k compute units (tested with 100 validators)
+    /// [src]: https://github.com/informalsystems/ibc-rs/blob/v0.57.0/ibc-clients/ics07-tendermint/types/src/header.rs#L151-L157
     fn validator_sets_match(
         &self,
         _validators: &ValidatorSet,
@@ -46,20 +39,20 @@ impl VerificationPredicates for SolanaPredicates {
         Ok(())
     }
 
-    /// Skip next validator set hash validation - already done in `check_trusted_next_validator_set()`
+    /// No-op: trusted next-validators hash already verified by
+    /// [`check_trusted_next_validator_set()`][trusted], and the untrusted state
+    /// [passes `next_validators: None`][untrusted] so this predicate is skipped.
     ///
-    /// SAFETY: The hash of `trusted_next_validator_set` is already validated in
-    /// `Header::check_trusted_next_validator_set()` (line 123 of header.rs)
-    /// before this function is called, so we can safely skip the redundant
-    /// Merkle hash computation here.
+    /// Saves ~145k CU (100 validators).
     ///
-    /// **Performance:** Saves ~145k compute units (tested with 100 validators)
+    /// [trusted]: https://github.com/informalsystems/ibc-rs/blob/be82d123448a59ccea305c9e918f07aca5ec1a6f/ibc-clients/ics07-tendermint/src/client_state/update_client.rs#L52-L54
+    /// [untrusted]: https://github.com/informalsystems/ibc-rs/blob/be82d123448a59ccea305c9e918f07aca5ec1a6f/ibc-clients/ics07-tendermint/src/client_state/update_client.rs#L78-L85
     fn next_validators_match(
         &self,
         _next_validators: &ValidatorSet,
         _header_next_validators_hash: tendermint::Hash,
     ) -> Result<(), VerificationError> {
-        // Return Ok immediately - validation already done in Header::check_trusted_next_validator_set()
+        // Redundant — already checked upstream
         Ok(())
     }
 }
