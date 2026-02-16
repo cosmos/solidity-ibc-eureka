@@ -325,10 +325,7 @@ mod tests {
 
         // Pre-create TestIbcAppState PDA (the app_signer for CPI)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[
-                solana_ibc_types::IBCAppState::SEED,
-                TEST_PORT.as_bytes(),
-            ],
+            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {
@@ -396,26 +393,16 @@ mod tests {
         mock_client_state: Pubkey,
     ) -> Instruction {
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[
-                solana_ibc_types::IBCAppState::SEED,
-                TEST_PORT.as_bytes(),
-            ],
+            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
             &TEST_IBC_APP_PROGRAM_ID,
         );
-        let (router_state_pda, _) =
-            Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
-        let (ibc_app_pda, _) = Pubkey::find_program_address(
-            &[IBCApp::SEED, TEST_PORT.as_bytes()],
-            &crate::ID,
-        );
-        let (client_sequence_pda, _) = Pubkey::find_program_address(
-            &[ClientSequence::SEED, client_id.as_bytes()],
-            &crate::ID,
-        );
-        let (client_pda, _) = Pubkey::find_program_address(
-            &[Client::SEED, client_id.as_bytes()],
-            &crate::ID,
-        );
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, TEST_PORT.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
 
         // Build instruction data using anchor discriminator.
         // packet_commitment uses a placeholder; the caller fills it via
@@ -437,17 +424,17 @@ mod tests {
         Instruction {
             program_id: TEST_IBC_APP_PROGRAM_ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),       // app_state
-                AccountMeta::new(user, true),                  // user (signer)
+                AccountMeta::new(app_state_pda, false), // app_state
+                AccountMeta::new(user, true),           // user (signer)
                 AccountMeta::new_readonly(router_state_pda, false), // router_state
                 AccountMeta::new_readonly(ibc_app_pda, false), // ibc_app
-                AccountMeta::new(client_sequence_pda, false),  // client_sequence
+                AccountMeta::new(client_sequence_pda, false), // client_sequence
                 // packet_commitment - will be filled by caller
-                AccountMeta::new(Pubkey::default(), false),    // placeholder
-                AccountMeta::new_readonly(client_pda, false),  // client
+                AccountMeta::new(Pubkey::default(), false), // placeholder
+                AccountMeta::new_readonly(client_pda, false), // client
                 AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false), // light_client_program
                 AccountMeta::new_readonly(mock_client_state, false), // client_state
-                AccountMeta::new_readonly(crate::ID, false),   // router_program
+                AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(system_program::ID, false), // system_program
             ],
             data,
@@ -531,7 +518,11 @@ mod tests {
         );
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
-        assert!(result.is_ok(), "send_packet should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "send_packet should succeed: {:?}",
+            result.err()
+        );
 
         // Verify packet commitment was created
         let commitment_account = banks_client
@@ -565,7 +556,8 @@ mod tests {
                 value: b"test data".to_vec(),
             }],
         };
-        let expected_commitment = solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet);
+        let expected_commitment =
+            solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet);
         assert_eq!(commitment_value, &expected_commitment);
 
         // Verify sequence was incremented
@@ -578,8 +570,7 @@ mod tests {
             .await
             .unwrap()
             .expect("client sequence account should exist");
-        let client_seq =
-            ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
+        let client_seq = ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
         assert_eq!(client_seq.next_sequence_send, initial_sequence + 1);
     }
 
@@ -616,12 +607,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_packet_invalid_timeout() {
-        let (pt, mock_client_state) = setup_send_packet_program_test(
-            TEST_CLIENT_ID,
-            COUNTERPARTY_CLIENT_ID,
-            true,
-            1,
-        );
+        let (pt, mock_client_state) =
+            setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true, 1);
 
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -642,7 +629,10 @@ mod tests {
         // test_ibc_app validates timeout before CPI: TestIbcAppError::InvalidPacketData
         // (error code 6000 + 0 = 6000 for the test app's first error variant)
         let code = pt_extract_custom_error(&err);
-        assert!(code.is_some(), "Expected a custom error for invalid timeout");
+        assert!(
+            code.is_some(),
+            "Expected a custom error for invalid timeout"
+        );
     }
 
     #[tokio::test]
@@ -667,7 +657,11 @@ mod tests {
         );
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
-        assert!(result.is_ok(), "send_packet should succeed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "send_packet should succeed: {:?}",
+            result.err()
+        );
 
         // Verify commitment was created
         let commitment_account = banks_client
@@ -688,8 +682,7 @@ mod tests {
             .await
             .unwrap()
             .expect("client sequence account should exist");
-        let client_seq =
-            ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
+        let client_seq = ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
         assert_eq!(client_seq.next_sequence_send, 6);
     }
 
@@ -703,12 +696,8 @@ mod tests {
         let client_id_2 = "test-client-2";
 
         // Set up the ProgramTest with client_id_1
-        let (mut pt, mock_client_state) = setup_send_packet_program_test(
-            client_id_1,
-            "counterparty-client-1",
-            true,
-            10,
-        );
+        let (mut pt, mock_client_state) =
+            setup_send_packet_program_test(client_id_1, "counterparty-client-1", true, 10);
 
         // Also add client_id_2 accounts
         let (client_pda_2, client_data_2) = setup_client(
@@ -751,7 +740,11 @@ mod tests {
             mock_client_state,
         );
         let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
-        assert!(result1.is_ok(), "Client 1 send should succeed: {:?}", result1.err());
+        assert!(
+            result1.is_ok(),
+            "Client 1 send should succeed: {:?}",
+            result1.err()
+        );
 
         // Verify client 1 sequence incremented from 10 to 11
         let (client_seq_pda_1, _) = Pubkey::find_program_address(
@@ -767,10 +760,7 @@ mod tests {
         assert_eq!(seq1.next_sequence_send, 11);
 
         // Send packet on client 2 (need a fresh blockhash to avoid duplicate tx)
-        let recent_blockhash2 = banks_client
-            .get_latest_blockhash()
-            .await
-            .unwrap();
+        let recent_blockhash2 = banks_client.get_latest_blockhash().await.unwrap();
         let (ix2, _) = build_send_packet_ix_with_commitment(
             &payer,
             client_id_2,
@@ -780,7 +770,11 @@ mod tests {
             mock_client_state,
         );
         let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
-        assert!(result2.is_ok(), "Client 2 send should succeed: {:?}", result2.err());
+        assert!(
+            result2.is_ok(),
+            "Client 2 send should succeed: {:?}",
+            result2.err()
+        );
 
         // Verify client 2 sequence incremented from 20 to 21
         let seq2_account = banks_client
@@ -819,7 +813,11 @@ mod tests {
             mock_client_state,
         );
         let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
-        assert!(result1.is_ok(), "First send should succeed: {:?}", result1.err());
+        assert!(
+            result1.is_ok(),
+            "First send should succeed: {:?}",
+            result1.err()
+        );
 
         // Verify the commitment account was created
         let commitment_exists = banks_client
@@ -827,7 +825,10 @@ mod tests {
             .await
             .unwrap()
             .is_some();
-        assert!(commitment_exists, "Commitment account should exist after first send");
+        assert!(
+            commitment_exists,
+            "Commitment account should exist after first send"
+        );
 
         // The sequence always increments, so a true duplicate can't occur in
         // normal operation. Verify the commitment is properly owned by the router.
@@ -940,10 +941,7 @@ mod tests {
 
         // TestIbcAppState PDA (signed by test_ibc_app, but router expects PDA from wrong_program_id)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[
-                solana_ibc_types::IBCAppState::SEED,
-                TEST_PORT.as_bytes(),
-            ],
+            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {
