@@ -108,12 +108,12 @@ pub struct IFTTransfer<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// GMP's IBC app registration account
+    /// GMP's IBC app registration account — required by the router for
+    /// authorization and deterministic sequence namespacing (the router hashes
+    /// `app_program_id` to derive a collision-resistant sequence suffix).
     /// CHECK: Router program validates this
     #[account()]
     pub gmp_ibc_app: AccountInfo<'info>,
-
-    // TODO: maybe remove IBC APP for sequence and check if it won't collide
     /// IBC client account
     /// CHECK: Router program validates this
     #[account()]
