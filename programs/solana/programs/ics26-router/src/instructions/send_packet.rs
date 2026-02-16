@@ -218,14 +218,14 @@ mod tests {
     /// Fixed clock time for deterministic tests. The timeout must be
     /// between `TEST_CLOCK_TIME + 1` and `TEST_CLOCK_TIME + MAX_TIMEOUT_DURATION`.
     const TEST_CLOCK_TIME: i64 = 1000;
-    /// Default timeout used in success-path tests (within MAX_TIMEOUT_DURATION of TEST_CLOCK_TIME).
+    /// Default timeout used in success-path tests (within `MAX_TIMEOUT_DURATION` of `TEST_CLOCK_TIME`).
     const TEST_TIMEOUT: i64 = TEST_CLOCK_TIME + 1000;
 
-    /// Set up a ProgramTest environment for send_packet integration tests.
+    /// Set up a `ProgramTest` environment for `send_packet` integration tests.
     ///
     /// This loads the router, mock light client, test IBC app, and access manager
-    /// programs, and pre-creates the necessary accounts (RouterState, Client,
-    /// ClientSequence, IBCApp, TestIbcAppState, mock client state).
+    /// programs, and pre-creates the necessary accounts (`RouterState`, `Client`,
+    /// `ClientSequence`, `IBCApp`, `TestIbcAppState`, mock client state).
     fn setup_send_packet_program_test(
         client_id: &str,
         counterparty_client_id: &str,
@@ -384,7 +384,7 @@ mod tests {
         (pt, mock_client_state)
     }
 
-    /// Build a test_ibc_app::send_packet instruction that will CPI into the router.
+    /// Build a `test_ibc_app::send_packet` instruction that will CPI into the router.
     fn build_test_app_send_packet_ix(
         user: Pubkey,
         client_id: &str,
@@ -441,8 +441,8 @@ mod tests {
         }
     }
 
-    /// Build a complete test_ibc_app::send_packet instruction with the correct
-    /// packet_commitment PDA pre-computed.
+    /// Build a complete `test_ibc_app::send_packet` instruction with the correct
+    /// `packet_commitment` PDA pre-computed.
     fn build_send_packet_ix_with_commitment(
         user: &Keypair,
         client_id: &str,
