@@ -54,7 +54,7 @@ pub mod mock_light_client {
     }
 
     pub fn client_status(_ctx: Context<ClientStatusCheck>) -> Result<()> {
-        set_return_data(&[ics25_handler::client_status::ACTIVE]);
+        set_return_data(&[ics25_handler::ClientStatus::Active.into()]);
         Ok(())
     }
 }

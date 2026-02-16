@@ -65,7 +65,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         &ctx.accounts.client_state,
     )?;
     require!(
-        status == ics25_handler::client_status::ACTIVE,
+        status == ics25_handler::ClientStatus::Active,
         RouterError::ClientFrozen
     );
 

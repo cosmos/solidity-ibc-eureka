@@ -37,9 +37,30 @@ pub struct NonMembershipMsg {
     pub path: Vec<Vec<u8>>,
 }
 
-/// Client status values returned by `client_status` instruction via `set_return_data`
-pub mod client_status {
-    pub const ACTIVE: u8 = 0;
-    pub const FROZEN: u8 = 1;
-    pub const EXPIRED: u8 = 2;
+/// Client status returned by `client_status` instruction via `set_return_data`
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ClientStatus {
+    Active = 0,
+    Frozen = 1,
+    Expired = 2,
+}
+
+impl From<ClientStatus> for u8 {
+    fn from(status: ClientStatus) -> Self {
+        status as Self
+    }
+}
+
+impl TryFrom<u8> for ClientStatus {
+    type Error = u8;
+
+    fn try_from(value: u8) -> core::result::Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Active),
+            1 => Ok(Self::Frozen),
+            2 => Ok(Self::Expired),
+            other => Err(other),
+        }
+    }
 }

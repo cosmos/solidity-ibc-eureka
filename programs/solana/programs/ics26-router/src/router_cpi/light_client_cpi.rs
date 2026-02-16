@@ -36,7 +36,7 @@ impl<'a> LightClientCpi<'a> {
         &self,
         light_client_program: &AccountInfo<'b>,
         client_state: &AccountInfo<'b>,
-    ) -> Result<u8> {
+    ) -> Result<ics25_handler::ClientStatus> {
         self.validate_client(light_client_program)?;
 
         require_eq!(
@@ -69,7 +69,8 @@ impl<'a> LightClientCpi<'a> {
         );
         require!(!data.is_empty(), RouterError::InvalidAppResponse);
 
-        Ok(data[0])
+        ics25_handler::ClientStatus::try_from(data[0])
+            .map_err(|_| RouterError::InvalidAppResponse.into())
     }
 
     /// Verify non-membership (absence) of a value at a given path

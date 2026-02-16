@@ -14,11 +14,11 @@ pub struct ClientStatus<'info> {
 
 pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
     let status = if ctx.accounts.client_state.is_frozen {
-        ics25_handler::client_status::FROZEN
+        ics25_handler::ClientStatus::Frozen
     } else {
-        ics25_handler::client_status::ACTIVE
+        ics25_handler::ClientStatus::Active
     };
-    set_return_data(&[status]);
+    set_return_data(&[status.into()]);
     Ok(())
 }
 
@@ -73,7 +73,7 @@ mod tests {
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
         assert_eq!(
             result.return_data,
-            vec![ics25_handler::client_status::ACTIVE]
+            vec![u8::from(ics25_handler::ClientStatus::Active)]
         );
     }
 
@@ -85,7 +85,7 @@ mod tests {
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
         assert_eq!(
             result.return_data,
-            vec![ics25_handler::client_status::FROZEN]
+            vec![u8::from(ics25_handler::ClientStatus::Frozen)]
         );
     }
 }
