@@ -87,6 +87,11 @@ pub struct SolanaSignatureVerifier<'a> {
     program_id: &'a Pubkey,
 }
 
+// SAFETY: Solana programs are single-threaded; `AccountInfo` contains `Rc` which
+// prevents auto-impl of `Send`/`Sync`, but there is no concurrent access.
+unsafe impl Send for SolanaSignatureVerifier<'_> {}
+unsafe impl Sync for SolanaSignatureVerifier<'_> {}
+
 impl<'a> SolanaSignatureVerifier<'a> {
     pub fn new(verification_accounts: &'a [AccountInfo<'a>], program_id: &'a Pubkey) -> Self {
         Self {

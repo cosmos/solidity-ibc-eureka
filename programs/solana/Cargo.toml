@@ -154,7 +154,7 @@ incremental = false
 codegen-units = 1
 
 [patch.crates-io]
-# Patch tendermint-rs crates to use fork with instance-based Verifier trait
-tendermint = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-proto = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
-tendermint-light-client-verifier = { git = "https://github.com/vaporif/tendermint-rs", branch = "verifier-with-instance" }
+# TODO: remove once cometbft/tendermint-rs publishes a release with instance-based `Verifier` trait (`&self`)
+tendermint = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
+tendermint-proto = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
+tendermint-light-client-verifier = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
