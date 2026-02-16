@@ -35,7 +35,6 @@ impl VerificationPredicates for SolanaPredicates {
         _validators: &ValidatorSet,
         _header_validators_hash: tendermint::Hash,
     ) -> Result<(), VerificationError> {
-        // Return Ok immediately - validation already done in Header::validate_basic()
         Ok(())
     }
 
@@ -52,7 +51,6 @@ impl VerificationPredicates for SolanaPredicates {
         _next_validators: &ValidatorSet,
         _header_next_validators_hash: tendermint::Hash,
     ) -> Result<(), VerificationError> {
-        // Redundant — already checked upstream
         Ok(())
     }
 }
