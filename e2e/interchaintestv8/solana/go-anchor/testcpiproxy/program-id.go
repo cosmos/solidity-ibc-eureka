@@ -5,4 +5,4 @@ package test_cpi_proxy
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("6ZKR3pE55GVMxwi5UvfCKqwpcFMZBt19qfygd5cS6Pzr")
+var ProgramID = solanago.MustPublicKeyFromBase58("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc")
