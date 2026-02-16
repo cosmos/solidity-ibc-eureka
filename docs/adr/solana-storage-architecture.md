@@ -279,21 +279,20 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 ### Namespaced Sequence Calculation
 
-The sequence used in packet PDAs is NOT a simple incrementing counter. It uses a namespaced formula for collision resistance:
+Multiple IBC apps share one `ClientSequence` counter per client. To avoid collisions, each packet sequence is namespaced:
 
 ```
-sequence = base_sequence * 10000 + suffix
-
-where:
-  suffix = SHA256(app_program_id || sender)[0..2] % 10000
+sequence = base_sequence * 10000 + SHA256(app_program_id || sender)[0..2] % 10000
 ```
 
-**Purpose**: Creates unique sequence ranges per `(app_program, sender)` pair, preventing collisions when multiple apps/senders send packets concurrently.
+- `base_sequence` — on-chain counter, increments on each `send_packet`
+- suffix — deterministic per `(app, sender)` pair, gives each combination its own lane
 
-**Example** (with suffix `1234`):
-- `base_sequence = 1` → `sequence = 11234`
-- `base_sequence = 2` → `sequence = 21234`
-- Same `(app, sender)` always produces the same suffix
+**Why not use a timestamp?** The relayer needs to predict the sequence off-chain to derive PDAs (packet commitments, pending transfers). Timestamps are unknown until execution and would collide across apps in the same slot.
+
+The `IBCApp` account is required by `send_packet` both for authorization (verify caller's PDA) and to read `app_program_id` for the suffix. Downstream programs (e.g. IFT) pass it through via CPI.
+
+**Example** (suffix `1234`): base 1 → `11234`, base 2 → `21234`
 
 **Implementation**: `programs/solana/programs/ics26-router/src/utils/sequence.rs`
 

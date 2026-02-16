@@ -9,7 +9,7 @@ use crate::state::{IFTAppState, SetPausedMsg};
 pub struct SetPaused<'info> {
     #[account(
         mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -25,7 +25,6 @@ pub fn set_paused(ctx: Context<SetPaused>, msg: SetPausedMsg) -> Result<()> {
 
     let clock = Clock::get()?;
     emit!(TokenPausedUpdated {
-        mint: ctx.accounts.app_state.mint,
         paused: msg.paused,
         timestamp: clock.unix_timestamp,
     });
@@ -48,18 +47,11 @@ mod tests {
     fn run_set_paused_success_test(paused: bool) {
         let mollusk = setup_mollusk();
 
-        let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
 
         let msg = SetPausedMsg { paused };
 
@@ -106,20 +98,13 @@ mod tests {
     fn test_set_paused_unauthorized() {
         let mollusk = setup_mollusk();
 
-        let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
 
         let msg = SetPausedMsg { paused: true };
 

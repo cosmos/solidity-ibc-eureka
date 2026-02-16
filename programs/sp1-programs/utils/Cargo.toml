@@ -7,10 +7,3 @@ repository  = { workspace = true }
 license     = { workspace = true }
 
 [dependencies]
-tendermint-light-client-update-client = { workspace = true }
-tendermint-light-client-verifier     = { workspace = true }
-tendermint                           = { version = "0.40", default-features = false }
-
-ibc-eureka-solidity-types          = { workspace = true }
-ibc-client-tendermint              = { workspace = true, features = ["serde"] }
-ibc-core-client-types              = { workspace = true }

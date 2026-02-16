@@ -18,9 +18,10 @@ time      = { workspace = true }
 sha2      = { workspace = true }
 thiserror = { workspace = true }
 
-ibc-proto-eureka                 = { workspace = true }
-tendermint-light-client-verifier = { workspace = true }
-ibc-client-tendermint-types      = { workspace = true }
-tendermint                       = { workspace = true }
-ibc-core-commitment-types        = { workspace = true }
-ibc-core-client-types            = { workspace = true }
+ibc-proto-eureka                     = { workspace = true }
+tendermint-light-client-verifier     = { workspace = true }
+tendermint-light-client-update-client = { workspace = true }
+ibc-client-tendermint-types          = { workspace = true }
+tendermint                           = { workspace = true }
+ibc-core-commitment-types            = { workspace = true }
+ibc-core-client-types                = { workspace = true }

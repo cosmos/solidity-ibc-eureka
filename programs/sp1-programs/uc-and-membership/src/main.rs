@@ -10,22 +10,18 @@
 sp1_zkvm::entrypoint!(main);
 
 use alloy_sol_types::SolValue;
-
-use sp1_ics07_utils::{
-    to_sol_consensus_state, to_sol_height, to_tendermint_client_state,
-    to_tendermint_consensus_state,
-};
-use tendermint_light_client_membership::KVPair;
-use tendermint_light_client_uc_and_membership::update_client_and_membership;
-
 use ibc_client_tendermint::types::Header;
 use ibc_core_commitment_types::merkle::MerkleProof;
 use ibc_eureka_solidity_types::msgs::{
     IICS07TendermintMsgs::{ClientState as SolClientState, ConsensusState as SolConsensusState},
     IMembershipMsgs::KVPair as SolKVPair,
     IUpdateClientAndMembershipMsgs::UcAndMembershipOutput as SolUcAndMembershipOutput,
+    IUpdateClientMsgs::UpdateClientOutput as SolUpdateClientOutput,
 };
 use ibc_proto::{ibc::lightclients::tendermint::v1::Header as RawHeader, Protobuf};
+use tendermint_light_client_membership::KVPair;
+use tendermint_light_client_uc_and_membership::update_client_and_membership;
+use tendermint_light_client_update_client::ClientState;
 
 /// The main function of the program.
 ///
@@ -43,10 +39,10 @@ pub fn main() {
 
     // input 1: the client state
     let sol_client_state = SolClientState::abi_decode(&encoded_1).unwrap();
-    let client_state = to_tendermint_client_state(&sol_client_state);
+    let client_state: ClientState = (&sol_client_state).into();
     // input 2: the trusted consensus state
     let sol_consensus_state = SolConsensusState::abi_decode(&encoded_2).unwrap();
-    let trusted_consensus_state = to_tendermint_consensus_state(&sol_consensus_state);
+    let trusted_consensus_state = sol_consensus_state.clone().into();
     // input 3: the proposed header
     let proposed_header = <Header as Protobuf<RawHeader>>::decode_vec(&encoded_3).unwrap();
     // input 4: time
@@ -81,20 +77,13 @@ pub fn main() {
     .unwrap();
 
     // Convert output to Solidity format
-    let sol_update_output =
-        ibc_eureka_solidity_types::msgs::IUpdateClientMsgs::UpdateClientOutput {
-            clientState: sol_client_state,
-            trustedConsensusState: sol_consensus_state,
-            newConsensusState: to_sol_consensus_state(output.update_output.new_consensus_state),
-            time,
-            trustedHeight: to_sol_height(output.update_output.trusted_height),
-            newHeight: to_sol_height(output.update_output.latest_height),
-        };
-
-    let sol_output = SolUcAndMembershipOutput {
-        updateClientOutput: sol_update_output,
-        kvPairs: sol_kv_pairs,
-    };
+    let sol_update_output = SolUpdateClientOutput::new(
+        sol_client_state,
+        sol_consensus_state,
+        output.update_output,
+        time,
+    );
+    let sol_output = SolUcAndMembershipOutput::new(sol_update_output, sol_kv_pairs);
 
     sp1_zkvm::io::commit_slice(&sol_output.abi_encode());
 }

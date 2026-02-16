@@ -424,13 +424,24 @@ func (iftPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.Public
 	return pda, bump
 }
 
-func (iftPDAs) IftAppStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftAppMintStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("ift_app_state"), mint},
+		[][]byte{[]byte("ift_app_mint_state"), mint},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ift.IftAppStateWithAccountSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftAppMintStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.IftAppStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -468,9 +479,9 @@ func (iftPDAs) PendingTransferWithArgAndAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
-func (iftPDAs) ReceiverTokenAccountWithAccountSeedPDA(programID solanago.PublicKey, receiverOwner []byte, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) ReceiverTokenAccountWithAccountSeedPDA(programID solanago.PublicKey, receiverOwner []byte, tokenProgram []byte, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{receiverOwner, []byte{0x06, 0xdd, 0xf6, 0xe1, 0xd7, 0x65, 0xa1, 0x93, 0xd9, 0xcb, 0xe1, 0x46, 0xce, 0xeb, 0x79, 0xac, 0x1c, 0xb4, 0x85, 0xed, 0x5f, 0x5b, 0x37, 0x91, 0x3a, 0x8c, 0xf5, 0x85, 0x7e, 0xff, 0x00, 0xa9}, mint},
+		[][]byte{receiverOwner, tokenProgram, mint},
 		programID,
 	)
 	if err != nil {

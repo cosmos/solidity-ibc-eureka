@@ -102,6 +102,7 @@ time = { version = "0.3", default-features = false }
 
 sha2 = { version = "0.10", default-features = false }
 thiserror = { version = "2.0", default-features = false }
+bech32 = { version = "0.11", default-features = false }
 hex = { version = "0.4", default-features = false }
 prost = { version = "0.13", default-features = false }
 borsh = { version = "0.10.4", default-features = false }

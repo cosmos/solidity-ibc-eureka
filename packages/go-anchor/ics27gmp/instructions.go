@@ -74,6 +74,8 @@ func NewSendCallInstruction(
 	instructionSysvarAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
+	lightClientProgramAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -121,7 +123,11 @@ func NewSendCallInstruction(
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 9 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 10 "system_program": Read-only, Non-signer, Required
+		// Account 10 "light_client_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
+		// Account 11 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 12 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

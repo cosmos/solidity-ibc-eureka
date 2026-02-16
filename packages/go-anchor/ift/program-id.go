@@ -5,4 +5,4 @@ package ift
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy")
+var ProgramID = solanago.MustPublicKeyFromBase58("5MtAR8WzGFMJvziLt83mqb35AUgY1AWeXH3HVRTbuRf1")

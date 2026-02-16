@@ -133,6 +133,10 @@ pub mod ics07_tendermint {
     ) -> Result<()> {
         instructions::pre_verify_signatures::pre_verify_signature(ctx, signature)
     }
+
+    pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
+        instructions::client_status::client_status(ctx)
+    }
 }
 
 #[cfg(test)]

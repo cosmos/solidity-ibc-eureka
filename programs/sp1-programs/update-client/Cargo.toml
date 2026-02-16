@@ -14,7 +14,6 @@ test = false
 tendermint-light-client-update-client = { workspace = true }
 
 sp1-zkvm                         = { workspace = true, default-features = true }
-sp1-ics07-utils                  = { workspace = true }
 ibc-eureka-solidity-types        = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
 ibc-client-tendermint            = { workspace = true, features = ["serde"] }

@@ -2,6 +2,17 @@ use anchor_lang::prelude::*;
 
 use crate::state::ChainOptions;
 
+/// Event emitted when IFT is initialized (global state created)
+#[event]
+pub struct IFTInitialized {
+    /// Admin authority
+    pub admin: Pubkey,
+    /// GMP program for cross-chain calls
+    pub gmp_program: Pubkey,
+    /// Initialization timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when a new SPL token is created for IFT
 #[event]
 pub struct SplTokenCreated {
@@ -9,10 +20,6 @@ pub struct SplTokenCreated {
     pub mint: Pubkey,
     /// Token decimals
     pub decimals: u8,
-    /// Admin authority
-    pub admin: Pubkey,
-    /// GMP program for cross-chain calls
-    pub gmp_program: Pubkey,
     /// Initialization timestamp
     pub timestamp: i64,
 }
@@ -146,12 +153,10 @@ pub struct MintRateLimitUpdated {
     pub timestamp: i64,
 }
 
-/// Event emitted when a token's paused state is updated
+/// Event emitted when the paused state is updated
 #[event]
 pub struct TokenPausedUpdated {
-    /// SPL Token mint address
-    pub mint: Pubkey,
-    /// Whether the token is now paused
+    /// Whether IFT is now paused
     pub paused: bool,
     /// Update timestamp
     pub timestamp: i64,
@@ -166,10 +171,6 @@ pub struct ExistingTokenInitialized {
     pub decimals: u8,
     /// Previous mint authority that transferred ownership
     pub previous_authority: Pubkey,
-    /// Admin authority
-    pub admin: Pubkey,
-    /// GMP program for cross-chain calls
-    pub gmp_program: Pubkey,
     /// Initialization timestamp
     pub timestamp: i64,
 }
@@ -177,8 +178,6 @@ pub struct ExistingTokenInitialized {
 /// Event emitted when the admin authority is updated
 #[event]
 pub struct AdminUpdated {
-    /// SPL Token mint address
-    pub mint: Pubkey,
     /// New admin authority
     pub new_admin: Pubkey,
     /// Update timestamp

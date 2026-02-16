@@ -97,6 +97,12 @@ pub struct SendTransfer<'info> {
     )]
     pub client: Account<'info, Client>,
 
+    /// CHECK: Light client program, forwarded to router for status check
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state account, forwarded to router for status check
+    pub client_state: AccountInfo<'info>,
+
     /// Router program for CPI
     pub router_program: Program<'info, Ics26Router>,
 
@@ -204,6 +210,8 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         payer: ctx.accounts.user.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
         client: ctx.accounts.client.to_account_info(),
+        light_client_program: ctx.accounts.light_client_program.to_account_info(),
+        client_state: ctx.accounts.client_state.to_account_info(),
     };
 
     // Sign the app_state PDA to prove this app is the immediate caller

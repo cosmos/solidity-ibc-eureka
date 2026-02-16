@@ -27,11 +27,11 @@ anchor-spl.workspace = true
 solana-ibc-types.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
+bech32 = { workspace = true }
 hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 alloy-sol-types = { workspace = true, features = ["json"] }
-
 
 [build-dependencies]
 sha2.workspace = true

@@ -52,6 +52,11 @@ pub mod mock_light_client {
         // This matches the UpdateResult enum: Update = 0, NoOp = 1
         Ok(0)
     }
+
+    pub fn client_status(_ctx: Context<ClientStatusCheck>) -> Result<()> {
+        set_return_data(&[ics25_handler::client_status::ACTIVE]);
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
@@ -94,6 +99,12 @@ pub struct VerifyNonMembership<'info> {
     pub client_state: AccountInfo<'info>,
     /// CHECK: Mock consensus state - not actually used
     pub consensus_state: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct ClientStatusCheck<'info> {
+    /// CHECK: Mock client state - not actually used
+    pub client_state: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]

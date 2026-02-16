@@ -73,6 +73,8 @@ func NewSendTransferInstruction(
 	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
+	lightClientProgramAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -117,10 +119,14 @@ func NewSendTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 8 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 9 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Account 9 "light_client_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
+		// Account 10 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 11 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// Router program for CPI
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 10 "system_program": Read-only, Non-signer, Required
+		// Account 12 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -146,6 +152,8 @@ func NewSendPacketInstruction(
 	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
+	lightClientProgramAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -184,10 +192,14 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 6 "client": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 7 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Account 7 "light_client_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
+		// Account 8 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 9 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// Router program for CPI
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 8 "system_program": Read-only, Non-signer, Required
+		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
