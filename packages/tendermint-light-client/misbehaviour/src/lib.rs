@@ -111,7 +111,7 @@ pub fn check_for_misbehaviour<'a>(
     let verifier = tendermint_light_client_solana::SolanaVerifier::new(
         tendermint_light_client_solana::SolanaPredicates,
         tendermint_light_client_solana::SolanaVotingPowerCalculator::new(
-            tendermint_light_client_solana::SolanaSignatureVerifier::from_accounts(
+            tendermint_light_client_solana::SolanaSignatureVerifier::new(
                 verification_accounts,
                 program_id,
             ),

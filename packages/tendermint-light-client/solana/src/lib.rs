@@ -2,7 +2,6 @@
 
 use ibc_core_commitment_types::proto::ics23::HostFunctionsManager;
 use solana_account_info::AccountInfo;
-use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
 use solana_pubkey::Pubkey;
 use solana_sha256_hasher::{hash as sha256, hashv as sha256v};
 use tendermint::crypto::signature::Error;
@@ -72,64 +71,42 @@ impl VerificationPredicates for SolanaPredicates {
 /// **Real-world costs:**
 /// - Noble (20 validators): ~548k CU total (~$0.025-0.033 USD)
 /// - Celestia (100 validators): ~2.16M CU total (~$0.11-0.14 USD)
-pub type SolanaVerifier =
-    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator, ProdCommitValidator>;
+pub type SolanaVerifier<'a> =
+    PredicateVerifier<SolanaPredicates, SolanaVotingPowerCalculator<'a>, ProdCommitValidator>;
 
 /// Solana voting power calculator using optimized signature verification
-pub type SolanaVotingPowerCalculator = ProvidedVotingPowerCalculator<SolanaSignatureVerifier>;
+pub type SolanaVotingPowerCalculator<'a> =
+    ProvidedVotingPowerCalculator<SolanaSignatureVerifier<'a>>;
 
-/// Pre-extracted verification entry: account key and the validity byte (if present).
+/// Solana optimised signature verifier with pre-verification account support
 #[derive(Clone, Debug)]
-struct VerificationEntry {
-    key: Pubkey,
-    /// `Some(1)` = valid, `Some(0)` = invalid, other/None = data missing or unexpected
-    is_valid: Option<u8>,
+pub struct SolanaSignatureVerifier<'a> {
+    /// Pre-verified signature accounts from `remaining_accounts`
+    verification_accounts: &'a [AccountInfo<'a>],
+    /// Program ID for PDA derivation
+    program_id: &'a Pubkey,
 }
 
-/// Solana optimised signature verifier with pre-verification account support.
-///
-/// Verification data is extracted from `AccountInfo` at construction time so
-/// the struct contains only owned types and is `Send + Sync`.
-#[derive(Clone, Debug)]
-pub struct SolanaSignatureVerifier {
-    entries: Vec<VerificationEntry>,
-    program_id: Pubkey,
-}
-
-impl SolanaSignatureVerifier {
-    /// Build from `remaining_accounts` by pre-extracting the validity byte
-    /// from each account at `SIGNATURE_VERIFICATION_IS_VALID_OFFSET`.
-    pub fn from_accounts(accounts: &[AccountInfo<'_>], program_id: &Pubkey) -> Self {
-        let entries = accounts
-            .iter()
-            .map(|a| {
-                let is_valid = a
-                    .try_borrow_data()
-                    .ok()
-                    .and_then(|d| d.get(SIGNATURE_VERIFICATION_IS_VALID_OFFSET).copied());
-                VerificationEntry {
-                    key: *a.key,
-                    is_valid,
-                }
-            })
-            .collect();
-
+impl<'a> SolanaSignatureVerifier<'a> {
+    pub fn new(verification_accounts: &'a [AccountInfo<'a>], program_id: &'a Pubkey) -> Self {
         Self {
-            entries,
-            program_id: *program_id,
+            verification_accounts,
+            program_id,
         }
     }
 }
 
-impl tendermint::crypto::signature::Verifier for SolanaSignatureVerifier {
+impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a> {
     fn verify(&self, pubkey: PublicKey, msg: &[u8], signature: &Signature) -> Result<(), Error> {
+        use solana_ibc_types::ics07::SIGNATURE_VERIFICATION_IS_VALID_OFFSET;
+
         let PublicKey::Ed25519(pk) = pubkey else {
             return Err(Error::UnsupportedKeyType);
         };
 
         let sig_hash = sha256v(&[pk.as_bytes(), msg, signature.as_bytes()]).to_bytes();
         let (expected_pda, _) =
-            Pubkey::find_program_address(&[b"sig_verify", &sig_hash], &self.program_id);
+            Pubkey::find_program_address(&[b"sig_verify", &sig_hash], self.program_id);
 
         // Fallback: brine-ed25519 (~30k CU/sig, audited by OtterSec)
         let fallback = || {
@@ -137,13 +114,21 @@ impl tendermint::crypto::signature::Verifier for SolanaSignatureVerifier {
                 .map_err(|_| Error::VerificationFailed)
         };
 
-        let Some(entry) = self.entries.iter().find(|e| e.key == expected_pda) else {
+        let Some(account) = self
+            .verification_accounts
+            .iter()
+            .find(|a| a.key == &expected_pda)
+        else {
             return fallback();
         };
 
-        match entry.is_valid {
-            Some(1) => Ok(()),
-            Some(0) => Err(Error::VerificationFailed),
+        let Ok(data) = account.try_borrow_data() else {
+            return fallback();
+        };
+
+        match data.get(SIGNATURE_VERIFICATION_IS_VALID_OFFSET) {
+            Some(&1) => Ok(()),
+            Some(&0) => Err(Error::VerificationFailed),
             Some(v) => {
                 solana_msg::msg!("Unexpected verification value: {}", v);
                 fallback()
@@ -287,7 +272,7 @@ mod tests {
         let mut lamports = 1_000_000u64;
         let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
 
-        let verifier = SolanaSignatureVerifier::from_accounts(&accounts, &program_id);
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
         let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
         let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
 
@@ -307,7 +292,7 @@ mod tests {
         let mut lamports = 1_000_000u64;
         let accounts = [create_account_info(&pda, &mut data, &mut lamports, &owner)];
 
-        let verifier = SolanaSignatureVerifier::from_accounts(&accounts, &program_id);
+        let verifier = SolanaSignatureVerifier::new(&accounts, &program_id);
         let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
         let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
 
@@ -321,7 +306,7 @@ mod tests {
         let msg = b"test message";
         let sig_bytes = [2u8; 64];
 
-        let verifier = SolanaSignatureVerifier::from_accounts(&[], &program_id);
+        let verifier = SolanaSignatureVerifier::new(&[], &program_id);
         let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
         let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
 
