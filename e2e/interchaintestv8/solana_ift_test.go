@@ -1339,8 +1339,10 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 		mint,
 		mintAuthorityPDA,
 		s.SolanaRelayer.PublicKey(),
+		s.SolanaRelayer.PublicKey(),
 		tokenProgramID,
 		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
 	)
 	s.Require().NoError(err)
 

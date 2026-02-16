@@ -75,9 +75,11 @@ func NewCreateSplTokenInstruction(
 	appMintStateAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
 	mintAuthorityAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -110,12 +112,17 @@ func NewCreateSplTokenInstruction(
 		// Account 3 "mint_authority": Read-only, Non-signer, Required
 		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 4 "payer": Writable, Signer, Required
+		// Account 4 "admin": Read-only, Signer, Required
+		// Admin authority
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 5 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 5 "token_program": Read-only, Non-signer, Required
+		// Account 6 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Account 7 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 8 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -462,8 +469,7 @@ func NewIftMintInstruction(
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
 		// Account 2 "ift_bridge": Read-only, Non-signer, Required
 		// IFT bridge - provides counterparty info for GMP account validation.
-		// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
-		// Security: Anchor verifies ownership, `validate_gmp_account` verifies (`client_id`, counterparty) match.
+		// Seeds use self-referencing `ift_bridge.client_id` (Anchor deserializes before checking seeds).
 		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
 		// Account 3 "mint": Writable, Non-signer, Required
 		// SPL Token mint
