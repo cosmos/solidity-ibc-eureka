@@ -65,12 +65,12 @@ impl super::TxBuilder {
         }
     }
 
-    /// Builds IFT `claim_refund` transaction for ack/timeout packets.
+    /// Builds IFT `finalize_transfer` transaction for ack/timeout packets.
     ///
     /// Returns `None` if not applicable (non-IFT packet, no pending transfer).
     /// Logs warnings for unexpected failures but continues - tokens are safe in
-    /// `PendingTransfer` and user can manually claim later.
-    fn build_ift_claim_refund_tx(
+    /// `PendingTransfer` and user can manually finalize later.
+    fn build_ift_finalize_transfer_tx(
         &self,
         payloads: &[solana_ibc_types::PayloadMetadata],
         payload_data: &[Vec<u8>],
@@ -92,13 +92,13 @@ impl super::TxBuilder {
                 tracing::warn!(
                     source_port = %payload.source_port,
                     error = ?e,
-                    "IFT: Failed to resolve port program ID for claim_refund"
+                    "IFT: Failed to resolve port program ID for finalize_transfer"
                 );
                 return None;
             }
         };
 
-        let params = ift::ClaimRefundParams {
+        let params = ift::FinalizeTransferParams {
             source_port: &payload.source_port,
             encoding: &payload.encoding,
             payload_value: data,
@@ -109,8 +109,8 @@ impl super::TxBuilder {
             fee_payer: self.fee_payer,
         };
 
-        // build_claim_refund_instruction logs internally for unexpected failures
-        let instruction = ift::build_claim_refund_instruction(&params)?;
+        // build_finalize_transfer_instruction logs internally for unexpected failures
+        let instruction = ift::build_finalize_transfer_instruction(&params)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
@@ -122,7 +122,7 @@ impl super::TxBuilder {
                     source_client = %source_client,
                     sequence = sequence,
                     error = ?e,
-                    "IFT: Failed to create claim_refund transaction"
+                    "IFT: Failed to create finalize_transfer transaction"
                 );
                 None
             }
@@ -352,7 +352,7 @@ impl super::TxBuilder {
         )?;
 
         // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
-        // No claim_refund needed for recv packets (only for ack/timeout on source chain)
+        // No finalize_transfer needed for recv packets (only for ack/timeout on source chain)
         Ok(SolanaPacketTxs {
             chunks: chunk_txs,
             final_tx: recv_tx,
@@ -360,7 +360,7 @@ impl super::TxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda: Vec::new(),
-            ift_claim_refund_tx: vec![],
+            ift_finalize_transfer_tx: vec![],
         })
     }
 
@@ -429,8 +429,8 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
-        let ift_claim_refund_tx = self
-            .build_ift_claim_refund_tx(
+        let ift_finalize_transfer_tx = self
+            .build_ift_finalize_transfer_tx(
                 &msg.payloads,
                 payload_data,
                 &msg.packet.source_client,
@@ -445,7 +445,7 @@ impl super::TxBuilder {
             alt_create_tx,
             alt_extend_txs,
             gmp_result_pda,
-            ift_claim_refund_tx,
+            ift_finalize_transfer_tx,
         })
     }
 
@@ -571,8 +571,8 @@ impl super::TxBuilder {
             msg.packet.sequence,
         )?;
 
-        let ift_claim_refund_tx = self
-            .build_ift_claim_refund_tx(
+        let ift_finalize_transfer_tx = self
+            .build_ift_finalize_transfer_tx(
                 &msg.payloads,
                 payload_data,
                 &msg.packet.source_client,
@@ -587,7 +587,7 @@ impl super::TxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda,
-            ift_claim_refund_tx,
+            ift_finalize_transfer_tx,
         })
     }
 

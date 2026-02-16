@@ -22,6 +22,13 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal account as Ics27GmpStateGmpCallResultAccount: %w", err)
 		}
 		return value, nil
+	case Account_IftStateIftAppMintState:
+		value := new(IftStateIftAppMintState)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal account as IftStateIftAppMintState: %w", err)
+		}
+		return value, nil
 	case Account_IftStateIftAppState:
 		value := new(IftStateIftAppState)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -61,6 +68,23 @@ func ParseAccount_Ics27GmpStateGmpCallResultAccount(accountData []byte) (*Ics27G
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal account of type Ics27GmpStateGmpCallResultAccount: %w", err)
+	}
+	return acc, nil
+}
+
+func ParseAccount_IftStateIftAppMintState(accountData []byte) (*IftStateIftAppMintState, error) {
+	decoder := binary.NewBorshDecoder(accountData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Account_IftStateIftAppMintState {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_IftStateIftAppMintState, binary.FormatDiscriminator(discriminator))
+	}
+	acc := new(IftStateIftAppMintState)
+	err = acc.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal account of type IftStateIftAppMintState: %w", err)
 	}
 	return acc, nil
 }

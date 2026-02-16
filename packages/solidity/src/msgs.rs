@@ -183,6 +183,64 @@ impl From<ibc_core_client_types::Height> for IICS02ClientMsgs::Height {
     }
 }
 
+#[allow(clippy::fallible_impl_from)]
+impl From<&IICS07TendermintMsgs::ClientState>
+    for tendermint_light_client_update_client::ClientState
+{
+    fn from(cs: &IICS07TendermintMsgs::ClientState) -> Self {
+        Self {
+            chain_id: cs.chainId.clone(),
+            trust_level: tendermint_light_client_update_client::TrustThreshold::new(
+                cs.trustLevel.numerator.into(),
+                cs.trustLevel.denominator.into(),
+            ),
+            trusting_period_seconds: cs.trustingPeriod.into(),
+            unbonding_period_seconds: cs.unbondingPeriod.into(),
+            max_clock_drift_seconds: Self::MAX_CLOCK_DRIFT_SECONDS,
+            is_frozen: cs.isFrozen,
+            latest_height: ibc_core_client_types::Height::new(
+                cs.latestHeight.revisionNumber,
+                cs.latestHeight.revisionHeight,
+            )
+            .expect("valid latest height"),
+        }
+    }
+}
+
+impl IUpdateClientMsgs::UpdateClientOutput {
+    /// Create from original Solidity inputs and the light client verification output.
+    #[must_use]
+    pub fn new(
+        client_state: IICS07TendermintMsgs::ClientState,
+        trusted_consensus_state: IICS07TendermintMsgs::ConsensusState,
+        output: tendermint_light_client_update_client::UpdateClientOutput,
+        time: u128,
+    ) -> Self {
+        Self {
+            clientState: client_state,
+            trustedConsensusState: trusted_consensus_state,
+            newConsensusState: output.new_consensus_state.into(),
+            time,
+            trustedHeight: output.trusted_height.into(),
+            newHeight: output.latest_height.into(),
+        }
+    }
+}
+
+impl IUpdateClientAndMembershipMsgs::UcAndMembershipOutput {
+    /// Create from an update client output and verified key-value pairs.
+    #[must_use]
+    pub fn new(
+        update_client_output: IUpdateClientMsgs::UpdateClientOutput,
+        kv_pairs: Vec<IMembershipMsgs::KVPair>,
+    ) -> Self {
+        Self {
+            updateClientOutput: update_client_output,
+            kvPairs: kv_pairs,
+        }
+    }
+}
+
 impl FromStr for IICS07TendermintMsgs::SupportedZkAlgorithm {
     type Err = FromStrError;
 

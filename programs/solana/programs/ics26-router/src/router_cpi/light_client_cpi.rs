@@ -31,6 +31,47 @@ impl<'a> LightClientCpi<'a> {
         Ok(())
     }
 
+    /// Query the light client's status (active, frozen, expired)
+    pub fn client_status<'b>(
+        &self,
+        light_client_program: &AccountInfo<'b>,
+        client_state: &AccountInfo<'b>,
+    ) -> Result<u8> {
+        self.validate_client(light_client_program)?;
+
+        require_eq!(
+            *client_state.owner,
+            self.client.client_program_id,
+            RouterError::InvalidAccountOwner
+        );
+
+        let mut ix_data = Vec::new();
+        ix_data.extend_from_slice(&discriminators::CLIENT_STATUS);
+
+        let ix = Instruction::new_with_bytes(
+            self.client.client_program_id,
+            &ix_data,
+            vec![AccountMeta::new_readonly(client_state.key(), false)],
+        );
+
+        let account_infos = vec![
+            client_state.to_account_info(),
+            light_client_program.to_account_info(),
+        ];
+
+        invoke(&ix, &account_infos)?;
+
+        let (program_id, data) = get_return_data().ok_or(RouterError::InvalidAppResponse)?;
+        require_eq!(
+            program_id,
+            self.client.client_program_id,
+            RouterError::InvalidLightClientProgram
+        );
+        require!(!data.is_empty(), RouterError::InvalidAppResponse);
+
+        Ok(data[0])
+    }
+
     /// Verify non-membership (absence) of a value at a given path
     /// Returns the timestamp from the consensus state at the proof height
     pub fn verify_non_membership<'b>(

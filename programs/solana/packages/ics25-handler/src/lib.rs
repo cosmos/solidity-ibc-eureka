@@ -36,3 +36,10 @@ pub struct NonMembershipMsg {
     /// The merkle path to the value
     pub path: Vec<Vec<u8>>,
 }
+
+/// Client status values returned by `client_status` instruction via `set_return_data`
+pub mod client_status {
+    pub const ACTIVE: u8 = 0;
+    pub const FROZEN: u8 = 1;
+    pub const EXPIRED: u8 = 2;
+}

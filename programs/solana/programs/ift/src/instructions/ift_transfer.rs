@@ -1,52 +1,62 @@
+use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Space;
-use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount};
+use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
-use crate::abi_encode::encode_ift_mint_call;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
-    AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
+    AccountVersion, ChainOptions, IFTAppMintState, IFTAppState, IFTBridge, IFTTransferMsg,
+    PendingTransfer,
 };
 
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    #[account(
+        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        bump = app_mint_state.bump,
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
     /// IFT bridge for the destination
     #[account(
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
-        constraint = ift_bridge.active @ IFTError::BridgeNotActive
+        constraint = !msg.client_id.is_empty() @ IFTError::EmptyClientId,
+        constraint = msg.client_id.len() <= MAX_CLIENT_ID_LENGTH @ IFTError::InvalidClientIdLength,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive,
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
     /// SPL Token mint
     #[account(
         mut,
-        address = app_state.mint
+        address = app_mint_state.mint
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Sender's token account
     #[account(
         mut,
+        // TODO: add its own error
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
         constraint = sender_token_account.owner == sender.key() @ IFTError::TokenAccountOwnerMismatch
     )]
-    pub sender_token_account: Account<'info, TokenAccount>,
+    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
     /// Sender who owns the tokens
     pub sender: Signer<'info>,
@@ -55,7 +65,7 @@ pub struct IFTTransfer<'info> {
     pub payer: Signer<'info>,
 
     /// Required for burning tokens from sender's account
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 
     /// GMP program
@@ -98,15 +108,22 @@ pub struct IFTTransfer<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// GMP's IBC app registration account
+    /// GMP's IBC app registration account — required by the router for
+    /// authorization and deterministic sequence namespacing (the router hashes
+    /// `app_program_id` to derive a collision-resistant sequence suffix).
     /// CHECK: Router program validates this
     #[account()]
     pub gmp_ibc_app: AccountInfo<'info>,
-
     /// IBC client account
     /// CHECK: Router program validates this
     #[account()]
     pub ibc_client: AccountInfo<'info>,
+
+    /// CHECK: Light client program, forwarded through GMP to router
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state for light client status check
+    pub light_client_state: AccountInfo<'info>,
 
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
@@ -118,7 +135,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let clock = Clock::get()?;
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
-    require!(!ctx.accounts.app_state.paused, IFTError::TokenPaused);
     require!(!msg.receiver.is_empty(), IFTError::EmptyReceiver);
     require!(
         msg.receiver.len() <= MAX_RECEIVER_LENGTH,
@@ -145,9 +161,9 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         authority: ctx.accounts.sender.to_account_info(),
     };
     let burn_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), burn_accounts);
-    token::burn(burn_ctx, msg.amount)?;
-
-    crate::helpers::reduce_mint_rate_limit_usage(&mut ctx.accounts.app_state, msg.amount, &clock);
+    token_interface::burn(burn_ctx, msg.amount)?;
+    ctx.accounts.mint.reload()?;
+    ctx.accounts.sender_token_account.reload()?;
 
     let mint_call_payload = construct_mint_call(
         &ctx.accounts.ift_bridge.chain_options,
@@ -167,6 +183,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
         ibc_app: ctx.accounts.gmp_ibc_app.clone(),
         client: ctx.accounts.ibc_client.clone(),
+        light_client_program: ctx.accounts.light_client_program.clone(),
+        client_state: ctx.accounts.light_client_state.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -180,7 +198,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
     create_pending_transfer_account(CreatePendingTransferParams {
-        mint: &ctx.accounts.app_state.mint,
+        mint: &ctx.accounts.app_mint_state.mint,
         client_id: &msg.client_id,
         sequence,
         sender: &ctx.accounts.sender.key(),
@@ -192,7 +210,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     })?;
 
     emit!(IFTTransferInitiated {
-        mint: ctx.accounts.app_state.mint,
+        mint: ctx.accounts.app_mint_state.mint,
         client_id: msg.client_id.clone(),
         sequence,
         sender: ctx.accounts.sender.key(),
@@ -226,6 +244,17 @@ fn construct_mint_call(
     }
 }
 
+/// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
+pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
+    use alloy_sol_types::private::{Address, U256};
+
+    IFT::iftMintCall {
+        receiver: Address::from(receiver),
+        amount: U256::from(amount),
+    }
+    .abi_encode()
+}
+
 /// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
 fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_hex = receiver.trim_start_matches("0x");
@@ -238,6 +267,9 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
 
     Ok(encode_ift_mint_call(receiver_array, amount))
 }
+
+// Using ABI JSON because sol! macro can't resolve Solidity imports.
+alloy_sol_types::sol!(IFT, "../../../../abi/IFTOwnable.json");
 
 /// Protojson representation of `MsgIFTMint` for Cosmos chains
 #[derive(Serialize)]
@@ -274,6 +306,7 @@ fn construct_cosmos_mint_call(
             amount: amount.to_string(),
         }],
     };
+    // TODO: use proto
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
 }
 
@@ -522,6 +555,7 @@ mod tests {
         InactiveBridge,
         ZeroAmount,
         EmptyReceiver,
+        EmptyClientId,
         SenderNotSigner,
         WrongTokenAccountOwner,
         WrongTokenMint,
@@ -533,6 +567,7 @@ mod tests {
 
     #[allow(clippy::struct_excessive_bools)]
     struct TransferTestConfig {
+        client_id: String,
         bridge_active: bool,
         amount: u64,
         receiver: String,
@@ -546,6 +581,7 @@ mod tests {
     impl From<TransferErrorCase> for TransferTestConfig {
         fn from(case: TransferErrorCase) -> Self {
             let default = Self {
+                client_id: TEST_CLIENT_ID.to_string(),
                 bridge_active: true,
                 amount: 1000,
                 receiver: VALID_RECEIVER.to_string(),
@@ -567,6 +603,10 @@ mod tests {
                 },
                 TransferErrorCase::EmptyReceiver => Self {
                     receiver: String::new(),
+                    ..default
+                },
+                TransferErrorCase::EmptyClientId => Self {
+                    client_id: String::new(),
                     ..default
                 },
                 TransferErrorCase::SenderNotSigner => Self {
@@ -612,24 +652,26 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, &config.client_id);
         let (system_program, system_account) = create_system_program_account();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
         let app_state_account = create_ift_app_state_account_with_options(
-            mint,
             app_state_bump,
-            mint_authority_bump,
             Pubkey::new_unique(),
             gmp_program,
             config.token_paused,
         );
 
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
         let ift_bridge_account = create_ift_bridge_account(
             mint,
-            TEST_CLIENT_ID,
+            &config.client_id,
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
             ift_bridge_bump,
@@ -673,10 +715,12 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let gmp_ibc_app = Pubkey::new_unique();
         let ibc_client = Pubkey::new_unique();
+        let light_client_program = Pubkey::new_unique();
+        let light_client_state = Pubkey::new_unique();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
-            client_id: TEST_CLIENT_ID.to_string(),
+            client_id: config.client_id,
             receiver: config.receiver,
             amount: config.amount,
             timeout_timestamp: config.timeout_timestamp,
@@ -685,7 +729,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(ift_bridge_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new(sender_token_pda, false),
@@ -702,6 +747,8 @@ mod tests {
                 AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new_readonly(gmp_ibc_app, false),
                 AccountMeta::new_readonly(ibc_client, false),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(light_client_state, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -709,6 +756,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (ift_bridge_pda, ift_bridge_account),
             (mint, mint_account),
             (sender_token_pda, sender_token_account),
@@ -725,6 +773,8 @@ mod tests {
             (instructions_sysvar, instructions_account),
             (gmp_ibc_app, create_signer_account()),
             (ibc_client, create_signer_account()),
+            (light_client_program, create_signer_account()),
+            (light_client_state, create_signer_account()),
             (pending_transfer, create_uninitialized_pda()),
         ];
 
@@ -736,6 +786,7 @@ mod tests {
     #[case::inactive_bridge(TransferErrorCase::InactiveBridge)]
     #[case::zero_amount(TransferErrorCase::ZeroAmount)]
     #[case::empty_receiver(TransferErrorCase::EmptyReceiver)]
+    #[case::empty_client_id(TransferErrorCase::EmptyClientId)]
     #[case::sender_not_signer(TransferErrorCase::SenderNotSigner)]
     #[case::wrong_token_account_owner(TransferErrorCase::WrongTokenAccountOwner)]
     #[case::wrong_token_mint(TransferErrorCase::WrongTokenMint)]

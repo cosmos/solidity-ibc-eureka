@@ -488,3 +488,43 @@ async fn test_pre_verify_signature_duplicate_pda_fails() {
         "Second verification with same signature should fail"
     );
 }
+
+/// Attack scenario: attacker passes a valid ed25519 signature for key B but uses
+/// a `signature_hash` computed from key A's data, trying to create a valid PDA
+/// for a signature that was never actually verified.
+#[tokio::test]
+async fn test_mismatched_signature_hash_rejected() {
+    let TestContext {
+        banks_client,
+        payer,
+        recent_blockhash,
+    } = ctx().await;
+
+    let key_a = SigningKey::generate(&mut rand::thread_rng());
+    let key_b = SigningKey::generate(&mut rand::thread_rng());
+    let msg = b"test message";
+
+    let target_sig_data = create_signature_data(&key_a, msg);
+
+    let attacker_sig_data = SignatureData {
+        signature_hash: target_sig_data.signature_hash,
+        pubkey: key_b.verifying_key().to_bytes(),
+        msg: msg.to_vec(),
+        signature: key_b.sign(msg).to_bytes(),
+    };
+
+    let ed25519_ix = create_ed25519_instruction(&key_b, msg);
+    let (pre_verify_ix, _) = create_pre_verify_instruction(payer.pubkey(), attacker_sig_data);
+
+    let tx = Transaction::new_signed_with_payer(
+        &[ed25519_ix, pre_verify_ix],
+        Some(&payer.pubkey()),
+        &[&payer],
+        recent_blockhash,
+    );
+
+    assert!(
+        banks_client.process_transaction(tx).await.is_err(),
+        "Mismatched signature_hash should be rejected"
+    );
+}

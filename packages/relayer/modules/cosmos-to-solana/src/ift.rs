@@ -1,7 +1,7 @@
-//! IFT `claim_refund` instruction builder for ack/timeout packets.
+//! IFT `finalize_transfer` instruction builder for ack/timeout packets.
 //!
 //! After GMP processes ack/timeout and creates `GMPCallResultAccount`,
-//! the relayer calls IFT's `claim_refund` to process refunds.
+//! the relayer calls IFT's `finalize_transfer` to process refunds.
 
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
@@ -14,13 +14,15 @@ use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
 };
-use spl_associated_token_account::get_associated_token_address;
+use spl_associated_token_account::get_associated_token_address_with_program_id;
 
 use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, Protobuf};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
+const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
+const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";
 const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
@@ -34,9 +36,9 @@ static PENDING_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
 
-static CLAIM_REFUND_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
+static FINALIZE_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
-    hasher.update(b"global:claim_refund");
+    hasher.update(b"global:finalize_transfer");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
@@ -55,8 +57,8 @@ struct PendingTransfer {
     pub _reserved: [u8; 32],
 }
 
-/// Parameters for building IFT `claim_refund` instruction
-pub struct ClaimRefundParams<'a> {
+/// Parameters for building IFT `finalize_transfer` instruction
+pub struct FinalizeTransferParams<'a> {
     pub source_port: &'a str,
     pub encoding: &'a str,
     pub payload_value: &'a [u8],
@@ -67,9 +69,11 @@ pub struct ClaimRefundParams<'a> {
     pub fee_payer: Pubkey,
 }
 
-/// Build IFT `claim_refund` instruction if this packet is from IFT.
+/// Build IFT `finalize_transfer` instruction if this packet is from IFT.
 /// Returns None if the packet is not an IFT transfer or no pending transfer exists.
-pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<Instruction> {
+pub fn build_finalize_transfer_instruction(
+    params: &FinalizeTransferParams<'_>,
+) -> Option<Instruction> {
     // Only process GMP port packets - accept empty encoding for Cosmos compatibility
     if params.source_port != GMP_PORT_ID
         || !(params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING)
@@ -120,16 +124,25 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         mint = %pending_transfer.mint,
         amount = pending_transfer.amount,
         sequence = params.sequence,
-        "IFT: Building claim_refund instruction"
+        "IFT: Building finalize_transfer instruction"
     );
 
-    Some(build_claim_refund_ix(
+    let token_program_id = match params.solana_client.get_account(&pending_transfer.mint) {
+        Ok(mint_account) => mint_account.owner,
+        Err(e) => {
+            tracing::warn!(error = ?e, mint = %pending_transfer.mint, "IFT: Failed to fetch mint account, defaulting to spl_token");
+            spl_token::id()
+        }
+    };
+
+    Some(build_finalize_transfer_ix(
         ift_program_id,
         params.gmp_program_id,
         &pending_transfer,
         params.source_client,
         params.sequence,
         params.fee_payer,
+        token_program_id,
     ))
 }
 
@@ -152,10 +165,6 @@ fn find_pending_transfer(
         .collect();
 
     for (pubkey, account) in accounts {
-        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
-            continue;
-        }
-
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let pending = match PendingTransfer::deserialize(&mut data) {
             Ok(p) => p,
@@ -173,19 +182,27 @@ fn find_pending_transfer(
     Ok(None)
 }
 
-fn build_claim_refund_ix(
+fn build_finalize_transfer_ix(
     ift_program_id: Pubkey,
     gmp_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
     client_id: &str,
     sequence: u64,
     fee_payer: Pubkey,
+    token_program_id: Pubkey,
 ) -> Instruction {
     let mint = pending_transfer.mint;
 
     // Derive PDAs
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
+    let (app_state_pda, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+
+    let (app_mint_state_pda, _) =
+        Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
+
+    let (ift_bridge_pda, _) = Pubkey::find_program_address(
+        &[IFT_BRIDGE_SEED, mint.as_ref(), client_id.as_bytes()],
+        &ift_program_id,
+    );
 
     let (pending_transfer_pda, _) = Pubkey::find_program_address(
         &[
@@ -210,23 +227,29 @@ fn build_claim_refund_ix(
     let (mint_authority_pda, _) =
         Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
 
-    let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
+    let sender_token_account = get_associated_token_address_with_program_id(
+        &pending_transfer.sender,
+        &mint,
+        &token_program_id,
+    );
 
-    // Account order must match IFT's ClaimRefund struct
+    // Account order must match IFT's FinalizeTransfer struct
     let accounts = vec![
-        AccountMeta::new(app_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new(app_mint_state_pda, false),
+        AccountMeta::new_readonly(ift_bridge_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
         AccountMeta::new_readonly(gmp_result_pda, false),
         AccountMeta::new(mint, false),
         AccountMeta::new_readonly(mint_authority_pda, false),
         AccountMeta::new(sender_token_account, false),
         AccountMeta::new(fee_payer, true),
-        AccountMeta::new_readonly(spl_token::id(), false),
+        AccountMeta::new_readonly(token_program_id, false),
         AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
     ];
 
     // Build instruction data: discriminator + client_id (string) + sequence (u64)
-    let mut data = CLAIM_REFUND_DISCRIMINATOR.to_vec();
+    let mut data = FINALIZE_TRANSFER_DISCRIMINATOR.to_vec();
     // Anchor serializes String as length-prefixed (u32 + bytes)
     let client_id_bytes = client_id.as_bytes();
     #[allow(clippy::cast_possible_truncation)]

@@ -31,4 +31,5 @@ var (
 	Instruction_AssembleAndSubmitMisbehaviour = [8]byte{182, 151, 225, 14, 100, 151, 177, 234}
 	Instruction_CleanupIncompleteMisbehaviour = [8]byte{128, 250, 150, 138, 153, 111, 26, 224}
 	Instruction_PreVerifySignature            = [8]byte{121, 29, 68, 190, 85, 124, 111, 45}
+	Instruction_ClientStatus                  = [8]byte{75, 93, 126, 21, 10, 112, 109, 139}
 )

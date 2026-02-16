@@ -96,7 +96,7 @@ fn test_verify_multiple_kv_pairs() {
         ),
     ];
 
-    membership(membership_ctx.app_hash, &request)
+    membership(membership_ctx.app_hash, request.into_iter())
         .expect("Multiple KV pairs verification should succeed");
 }
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	solanago "github.com/gagliardetto/solana-go"
-	associatedtokenaccount "github.com/gagliardetto/solana-go/programs/associated-token-account"
 	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -103,17 +102,20 @@ func (s *Solana) CreateTokenAccount(ctx context.Context, payer *solanago.Wallet,
 	return tokenAccountPubkey, nil
 }
 
-// AssociatedTokenAccountAddress derives the Associated Token Account address for a given owner and mint.
-// This is the canonical ATA address used by the Associated Token Program.
+// AssociatedTokenAccountAddress derives the Associated Token Account address for a given owner and mint
+// using the standard SPL Token program.
 func AssociatedTokenAccountAddress(owner, mint solanago.PublicKey) (solanago.PublicKey, error) {
-	// ATA seeds: [owner, TOKEN_PROGRAM_ID, mint]
-	// Program: ASSOCIATED_TOKEN_PROGRAM_ID
+	return AssociatedTokenAccountAddressWithProgram(owner, mint, token.ProgramID)
+}
+
+// AssociatedTokenAccountAddressWithProgram derives the ATA address for a given owner, mint, and token program.
+func AssociatedTokenAccountAddressWithProgram(owner, mint, tokenProgramID solanago.PublicKey) (solanago.PublicKey, error) {
 	associatedTokenProgramID := solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
 
 	addr, _, err := solanago.FindProgramAddress(
 		[][]byte{
 			owner[:],
-			token.ProgramID[:],
+			tokenProgramID[:],
 			mint[:],
 		},
 		associatedTokenProgramID,
@@ -121,11 +123,15 @@ func AssociatedTokenAccountAddress(owner, mint solanago.PublicKey) (solanago.Pub
 	return addr, err
 }
 
-// CreateOrGetAssociatedTokenAccount creates an Associated Token Account (ATA) for the given owner and mint.
-// If the ATA already exists, it returns the existing address. ATAs are deterministic addresses derived
-// from the owner and mint, which IFT expects for refund processing.
+// CreateOrGetAssociatedTokenAccount creates an Associated Token Account (ATA) for the given owner and mint
+// using the standard SPL Token program.
 func (s *Solana) CreateOrGetAssociatedTokenAccount(ctx context.Context, payer *solanago.Wallet, mint, owner solanago.PublicKey) (solanago.PublicKey, error) {
-	ata, err := AssociatedTokenAccountAddress(owner, mint)
+	return s.CreateOrGetAssociatedTokenAccountWithProgram(ctx, payer, mint, owner, token.ProgramID)
+}
+
+// CreateOrGetAssociatedTokenAccountWithProgram creates an ATA for the given owner, mint, and token program.
+func (s *Solana) CreateOrGetAssociatedTokenAccountWithProgram(ctx context.Context, payer *solanago.Wallet, mint, owner, tokenProgramID solanago.PublicKey) (solanago.PublicKey, error) {
+	ata, err := AssociatedTokenAccountAddressWithProgram(owner, mint, tokenProgramID)
 	if err != nil {
 		return solanago.PublicKey{}, err
 	}
@@ -136,12 +142,22 @@ func (s *Solana) CreateOrGetAssociatedTokenAccount(ctx context.Context, payer *s
 		return ata, nil // Already exists
 	}
 
-	// Create ATA instruction
-	createATAIx := associatedtokenaccount.NewCreateInstruction(
-		payer.PublicKey(),
-		owner,
-		mint,
-	).Build()
+	associatedTokenProgramID := solanago.MustPublicKeyFromBase58("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL")
+
+	// Build CreateIdempotent ATA instruction with explicit token program
+	// Instruction index 1 = CreateIdempotent (works for both Token and Token2022)
+	createATAIx := solanago.NewInstruction(
+		associatedTokenProgramID,
+		solanago.AccountMetaSlice{
+			solanago.NewAccountMeta(payer.PublicKey(), true, true),
+			solanago.NewAccountMeta(ata, true, false),
+			solanago.NewAccountMeta(owner, false, false),
+			solanago.NewAccountMeta(mint, false, false),
+			solanago.NewAccountMeta(solanago.SystemProgramID, false, false),
+			solanago.NewAccountMeta(tokenProgramID, false, false),
+		},
+		[]byte{1}, // CreateIdempotent instruction index
+	)
 
 	tx, err := s.NewTransactionFromInstructions(payer.PublicKey(), createATAIx)
 	if err != nil {

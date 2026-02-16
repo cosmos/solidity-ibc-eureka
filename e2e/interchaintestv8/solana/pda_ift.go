@@ -13,13 +13,13 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftAppMintStatePDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("ift_app_state"), mint},
+		[][]byte{[]byte("ift_app_mint_state"), mint},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ift.IftAppStatePDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftAppMintStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }

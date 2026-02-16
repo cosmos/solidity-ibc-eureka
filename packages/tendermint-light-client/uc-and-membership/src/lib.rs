@@ -54,7 +54,7 @@ pub fn update_client_and_membership(
         time,
     )?;
 
-    tendermint_light_client_membership::membership(app_hash, request)?;
+    tendermint_light_client_membership::membership(app_hash, request.iter().cloned())?;
 
     Ok(UcAndMembershipOutput {
         update_output: uc_output,

@@ -592,6 +592,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 			TimeoutTimestamp: timeoutTimestamp,
 		}
 
+		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
@@ -601,6 +602,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 			clientSequence,
 			packetCommitmentPDA,
 			client,
+			attestation.ProgramID,
+			attestationClientStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -1098,6 +1101,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 				TimeoutTimestamp: timeoutTimestamp,
 			}
 
+			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 			sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 				packetMsg,
 				appState,
@@ -1107,6 +1111,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 				clientSequence,
 				packetCommitmentPDA,
 				client,
+				attestation.ProgramID,
+				attestationClientStatePDA,
 				ics26_router.ProgramID,
 				solanago.SystemProgramID,
 			)

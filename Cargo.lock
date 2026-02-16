@@ -5964,6 +5964,7 @@ dependencies = [
  "ibc-proto 0.52.0",
  "sha2 0.10.9",
  "tendermint",
+ "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
  "thiserror 2.0.18",
  "time",

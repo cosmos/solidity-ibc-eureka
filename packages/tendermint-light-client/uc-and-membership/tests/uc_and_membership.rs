@@ -8,12 +8,10 @@ use tendermint_light_client_uc_and_membership::UcAndMembershipError;
 const ONE_HOUR_IN_SECONDS: u64 = 3600;
 
 #[test]
-fn test_uc_and_membership_happy_path_with_empty_membership() {
-    // Test with empty membership request - this should succeed as a true happy path
+fn test_uc_and_membership_empty_membership_fails() {
     let fixture = load_combined_happy_path_fixture();
     let ctx = setup_test_context(fixture);
 
-    // Use empty membership request to avoid app hash compatibility issues
     let empty_request = vec![];
 
     let result = tendermint_light_client_uc_and_membership::update_client_and_membership(
@@ -24,17 +22,14 @@ fn test_uc_and_membership_happy_path_with_empty_membership() {
         &empty_request,
     );
 
-    // This should succeed - update client validation passes, empty membership is valid
-    let output = result.expect("Happy path with empty membership should succeed");
     assert!(
-        output.update_output.latest_height.revision_height()
-            > output.update_output.trusted_height.revision_height(),
-        "New height should be greater than trusted height"
-    );
-    assert_eq!(
-        output.update_output.latest_height.revision_number(),
-        output.update_output.trusted_height.revision_number(),
-        "Revision number should remain consistent"
+        matches!(
+            result,
+            Err(UcAndMembershipError::Membership(
+                tendermint_light_client_membership::MembershipError::EmptyRequest,
+            ))
+        ),
+        "Empty membership request should fail with EmptyRequest"
     );
 }
 
@@ -77,7 +72,6 @@ fn test_uc_and_membership_membership_fails_mismatched_path() {
 
 #[test]
 fn test_uc_and_membership_empty_request() {
-    // Test with empty membership request - should succeed as empty membership is valid
     let fixture = load_combined_happy_path_fixture();
     let ctx = setup_test_context(fixture);
 
@@ -91,33 +85,14 @@ fn test_uc_and_membership_empty_request() {
         &empty_request,
     );
 
-    let output =
-        result.expect("Empty membership request with valid update client should always succeed");
-
-    // Validate that update client actually progressed properly
-    assert_eq!(
-        output.update_output.latest_height.revision_height(),
-        ctx.proposed_header.height().revision_height(),
-        "Latest height should match proposed header height exactly"
-    );
-    assert_eq!(
-        output.update_output.latest_height.revision_number(),
-        ctx.proposed_header.height().revision_number(),
-        "Latest revision should match proposed header revision exactly"
-    );
-    assert_eq!(
-        output.update_output.trusted_height.revision_height(),
-        ctx.client_state.latest_height.revision_height(),
-        "Trusted height should match original client state height exactly"
-    );
-
-    // Ensure meaningful progression occurred
     assert!(
-        output.update_output.latest_height.revision_height()
-            > output.update_output.trusted_height.revision_height(),
-        "Update must represent actual height progression: {} > {}",
-        output.update_output.latest_height.revision_height(),
-        output.update_output.trusted_height.revision_height()
+        matches!(
+            result,
+            Err(UcAndMembershipError::Membership(
+                tendermint_light_client_membership::MembershipError::EmptyRequest,
+            ))
+        ),
+        "Empty membership request should fail with EmptyRequest"
     );
 }
 

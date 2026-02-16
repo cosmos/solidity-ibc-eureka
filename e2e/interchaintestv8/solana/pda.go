@@ -15,6 +15,7 @@ import (
 
 type accessManagerPDAs struct{}
 type attestationPDAs struct{}
+type dummyIbcAppPDAs struct{}
 type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
 type ics26RouterPDAs struct{}
@@ -27,6 +28,7 @@ type testIbcAppPDAs struct{}
 var (
 	AccessManager = accessManagerPDAs{}
 	Attestation = attestationPDAs{}
+	DummyIbcApp = dummyIbcAppPDAs{}
 	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
 	Ics26Router = ics26RouterPDAs{}
@@ -99,6 +101,94 @@ func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) AppStateTransferPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("app_state"), []byte("transfer")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.AppStateTransferPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client_sequence"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.ClientSequenceWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("client"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.ClientWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) EscrowStateWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("escrow_state"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.EscrowStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) EscrowWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("escrow"), sourceClient},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.EscrowWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) IbcAppTransferPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ibc_app"), []byte("transfer")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.IbcAppTransferPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) IbcAppWithArgSeedPDA(programID solanago.PublicKey, sourcePort []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ibc_app"), sourcePort},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.IbcAppWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (dummyIbcAppPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("router_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive DummyIbcApp.RouterStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -323,13 +413,24 @@ func (iftPDAs) AppStateGmpportPDA(programID solanago.PublicKey) (solanago.Public
 	return pda, bump
 }
 
-func (iftPDAs) IftAppStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) IftAppMintStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("ift_app_state"), mint},
+		[][]byte{[]byte("ift_app_mint_state"), mint},
 		programID,
 	)
 	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ift.IftAppStateWithAccountSeedPDA PDA: %v", err))
+		panic(fmt.Sprintf("failed to derive Ift.IftAppMintStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.IftAppStatePDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -367,9 +468,9 @@ func (iftPDAs) PendingTransferWithArgAndAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
-func (iftPDAs) ReceiverTokenAccountWithAccountSeedPDA(programID solanago.PublicKey, receiverOwner []byte, mint []byte) (solanago.PublicKey, uint8) {
+func (iftPDAs) ReceiverTokenAccountWithAccountSeedPDA(programID solanago.PublicKey, receiverOwner []byte, tokenProgram []byte, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{receiverOwner, []byte{0x06, 0xdd, 0xf6, 0xe1, 0xd7, 0x65, 0xa1, 0x93, 0xd9, 0xcb, 0xe1, 0x46, 0xce, 0xeb, 0x79, 0xac, 0x1c, 0xb4, 0x85, 0xed, 0x5f, 0x5b, 0x37, 0x91, 0x3a, 0x8c, 0xf5, 0x85, 0x7e, 0xff, 0x00, 0xa9}, mint},
+		[][]byte{receiverOwner, tokenProgram, mint},
 		programID,
 	)
 	if err != nil {

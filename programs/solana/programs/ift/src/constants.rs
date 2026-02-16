@@ -24,8 +24,11 @@ pub const MAX_COUNTERPARTY_ADDRESS_LENGTH: usize = 128;
 /// Maximum receiver address length
 pub const MAX_RECEIVER_LENGTH: usize = 128;
 
-/// PDA seed for IFT app state
+/// PDA seed for IFT app state (global singleton)
 pub const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
+
+/// PDA seed for IFT app mint state (per-mint)
+pub const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
 
 /// PDA seed for IFT bridge
 pub const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";

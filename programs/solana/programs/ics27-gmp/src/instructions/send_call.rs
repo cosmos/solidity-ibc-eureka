@@ -71,6 +71,12 @@ pub struct SendCall<'info> {
     )]
     pub client: Account<'info, Client>,
 
+    /// CHECK: Light client program, forwarded to router
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state for status check, forwarded to router
+    pub client_state: AccountInfo<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -139,10 +145,6 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         payload: ibc_payload,
     };
 
-    // Get signer seeds for the app_state PDA to prove GMP is the caller
-    let app_state = &ctx.accounts.app_state;
-    let signer_seeds: &[&[u8]] = &[GMPAppState::SEED, GMP_PORT_ID.as_bytes(), &[app_state.bump]];
-
     // Call router via CPI to actually send the packet
     // GMP signs its app_state PDA to cryptographically prove it's the caller
     let sequence = crate::router_cpi::send_packet_cpi(
@@ -151,10 +153,12 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         &ctx.accounts.client_sequence.to_account_info(),
         &ctx.accounts.packet_commitment,
         &ctx.accounts.app_state.to_account_info(),
-        signer_seeds,
+        ctx.accounts.app_state.bump,
         &ctx.accounts.payer.to_account_info(),
         &ctx.accounts.ibc_app.to_account_info(),
         &ctx.accounts.client.to_account_info(),
+        &ctx.accounts.light_client_program,
+        &ctx.accounts.client_state,
         &ctx.accounts.system_program.to_account_info(),
         router_msg,
     )?;
@@ -204,6 +208,8 @@ mod tests {
         packet_commitment: Pubkey,
         ibc_app: Pubkey,
         client: Pubkey,
+        light_client_program: Pubkey,
+        client_state: Pubkey,
         app_state_pda: Pubkey,
         app_state_bump: u8,
     }
@@ -218,6 +224,8 @@ mod tests {
             let packet_commitment = Pubkey::new_unique();
             let (ibc_app, _) = create_ibc_app_pda(GMP_PORT_ID);
             let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
+            let light_client_program = Pubkey::new_unique();
+            let client_state = Pubkey::new_unique();
             let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
                 &[GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
                 &crate::ID,
@@ -233,6 +241,8 @@ mod tests {
                 packet_commitment,
                 ibc_app,
                 client,
+                light_client_program,
+                client_state,
                 app_state_pda,
                 app_state_bump,
             }
@@ -268,6 +278,8 @@ mod tests {
                     ),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(self.light_client_program, false),
+                    AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -286,6 +298,8 @@ mod tests {
                 create_instructions_sysvar_account(),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT),
+                create_authority_account(self.light_client_program),
+                create_authority_account(self.client_state),
                 create_system_program_account(),
             ]
         }
@@ -313,6 +327,8 @@ mod tests {
                     ),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(self.light_client_program, false),
+                    AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -334,6 +350,8 @@ mod tests {
                 create_instructions_sysvar_account(),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT),
+                create_authority_account(self.light_client_program),
+                create_authority_account(self.client_state),
                 create_system_program_account(),
             ]
         }
@@ -361,6 +379,8 @@ mod tests {
                     ),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
+                    AccountMeta::new_readonly(self.light_client_program, false),
+                    AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -382,6 +402,8 @@ mod tests {
                 create_instructions_sysvar_account(),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT),
+                create_authority_account(self.light_client_program),
+                create_authority_account(self.client_state),
                 create_system_program_account(),
             ]
         }
@@ -618,6 +640,8 @@ mod integration_tests {
                 ),
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false), // light_client_program
+                AccountMeta::new_readonly(Pubkey::new_unique(), false), // client_state
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
             data: ix_data.data(),

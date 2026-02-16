@@ -83,6 +83,9 @@ pub enum RouterError {
 
     #[msg("Failed to serialize packet")]
     PacketSerializationError,
+
+    #[msg("Client is frozen")]
+    ClientFrozen,
 }
 
 /// Convert CPI validation errors to Router errors
