@@ -108,7 +108,8 @@ pub fn finalize_transfer(
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
 
-    // Verify the GMP result was initiated by this IFT program (app_state PDA)
+    // Verify the GMP result was initiated by this IFT program's app_state PDA.
+    // When IFT calls GMP `send_call`, the sender is the app_state PDA.
     require!(
         gmp_result.sender == ctx.accounts.app_state.key(),
         IFTError::GmpResultSenderMismatch

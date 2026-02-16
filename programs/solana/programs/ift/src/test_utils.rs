@@ -438,7 +438,7 @@ pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
 }
 
 /// Create instructions sysvar that simulates a CPI call from another program.
-/// Uses the real sysvar address but with a different program_id to simulate CPI context.
+/// Uses the real sysvar address but with a different `program_id` to simulate CPI context.
 pub fn create_cpi_instructions_sysvar_account(
     caller_program_id: Pubkey,
 ) -> (Pubkey, SolanaAccount) {
