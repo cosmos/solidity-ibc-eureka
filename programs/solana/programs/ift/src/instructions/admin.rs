@@ -8,13 +8,13 @@ use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::{AdminMintExecuted, AdminUpdated, MintAuthorityRevoked};
 use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
-use crate::state::{AdminMintMsg, IFTAppState};
+use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
 pub struct SetAdmin<'info> {
     #[account(
         mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -32,7 +32,6 @@ pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
 
     let clock = Clock::get()?;
     emit!(AdminUpdated {
-        mint: ctx.accounts.app_state.mint,
         new_admin,
         timestamp: clock.unix_timestamp,
     });
@@ -43,17 +42,24 @@ pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
 /// Revoke mint authority from IFT and transfer it to a new authority.
 #[derive(Accounts)]
 pub struct RevokeMintAuthority<'info> {
-    /// IFT app state
+    /// Global IFT app state (read-only, for admin check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Per-mint IFT app state (for mint_authority_bump)
+    #[account(
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        bump = app_mint_state.bump
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
     /// SPL Token mint - authority will be transferred
     #[account(
         mut,
-        address = app_state.mint
+        address = app_mint_state.mint
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
@@ -61,7 +67,7 @@ pub struct RevokeMintAuthority<'info> {
     /// CHECK: Derived PDA verified by seeds
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        bump = app_state.mint_authority_bump
+        bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
 
@@ -81,7 +87,7 @@ pub struct RevokeMintAuthority<'info> {
 /// Revoke mint authority and transfer it to the specified new authority.
 pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     let mint_key = ctx.accounts.mint.key();
-    let mint_authority_bump = ctx.accounts.app_state.mint_authority_bump;
+    let mint_authority_bump = ctx.accounts.app_mint_state.mint_authority_bump;
 
     let seeds = &[
         MINT_AUTHORITY_SEED,
@@ -113,24 +119,30 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     Ok(())
 }
 
-// TODO: should we limit who can init it????
-// TODO: add multi mint, with testing if one state could not be enough to use for another mint
 /// Admin-callable mint instruction
 #[derive(Accounts)]
 #[instruction(msg: AdminMintMsg)]
 pub struct AdminMint<'info> {
+    /// Global IFT app state (read-only, for admin + pause check)
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Per-mint IFT app state (mut for rate limits)
+    #[account(
+        mut,
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        bump = app_mint_state.bump
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
     /// SPL Token mint
     #[account(
         mut,
-        address = app_state.mint
+        address = app_mint_state.mint
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
@@ -138,7 +150,7 @@ pub struct AdminMint<'info> {
     /// CHECK: Derived PDA that signs for minting
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        bump = app_state.mint_authority_bump
+        bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
 
@@ -178,13 +190,13 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
 
-    check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
+    check_and_update_mint_rate_limit(&mut ctx.accounts.app_mint_state, msg.amount, &clock)?;
 
     mint_to_account(
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        ctx.accounts.app_state.mint_authority_bump,
+        ctx.accounts.app_mint_state.mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
@@ -215,19 +227,12 @@ mod tests {
     fn test_set_admin_success() {
         let mollusk = setup_mollusk();
 
-        let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let new_admin = Pubkey::new_unique();
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -265,21 +270,14 @@ mod tests {
     fn test_set_admin_unauthorized() {
         let mollusk = setup_mollusk();
 
-        let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
         let new_admin = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -357,22 +355,28 @@ mod tests {
         let receiver = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = create_token_program_account();
 
-        let app_state_account = create_ift_app_state_account_full(IftAppStateParams {
-            mint,
-            bump: app_state_bump,
-            mint_authority_bump,
+        let app_state_account = create_ift_app_state_account_with_options(
+            app_state_bump,
             admin,
-            gmp_program: Pubkey::new_unique(),
-            paused: config.paused,
-            daily_mint_limit: config.daily_mint_limit,
-            rate_limit_day: 0,
-            rate_limit_daily_usage: config.rate_limit_daily_usage,
-        });
+            Pubkey::new_unique(),
+            config.paused,
+        );
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account_full(IftAppMintStateParams {
+                mint,
+                bump: app_mint_state_bump,
+                mint_authority_bump,
+                daily_mint_limit: config.daily_mint_limit,
+                rate_limit_day: 0,
+                rate_limit_daily_usage: config.rate_limit_daily_usage,
+            });
 
         let mint_account = create_mint_account(mint_authority_pda, 6);
 
@@ -410,7 +414,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(receiver_token_pda, false),
@@ -426,6 +431,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (mint, mint_account),
             (mint_authority_pda, create_signer_account()),
             (receiver_token_pda, receiver_token_account),
@@ -462,17 +468,16 @@ mod tests {
         let unauthorized = Pubkey::new_unique();
         let new_mint_authority = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (token_program_id, token_program_account) = create_token_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let mint_account = create_mint_account(mint_authority_pda, 6);
 
@@ -480,6 +485,7 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new_readonly(new_mint_authority, false),
@@ -491,6 +497,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (mint, mint_account),
             (mint_authority_pda, create_signer_account()),
             (new_mint_authority, create_signer_account()),

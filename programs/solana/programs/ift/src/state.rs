@@ -69,11 +69,38 @@ impl ChainOptions {
     }
 }
 
-/// Main IFT application state
-/// PDA Seeds: [`IFT_APP_STATE_SEED`, `mint.as_ref()`]
+/// Global IFT application state (singleton)
+/// PDA Seeds: [`IFT_APP_STATE_SEED`]
 #[account]
 #[derive(InitSpace)]
 pub struct IFTAppState {
+    pub version: AccountVersion,
+    pub bump: u8,
+
+    /// Admin authority for IFT
+    pub admin: Pubkey,
+
+    /// GMP program address for sending cross-chain calls
+    pub gmp_program: Pubkey,
+
+    /// Whether IFT is paused (blocks mint and transfer, not refunds)
+    pub paused: bool,
+
+    pub _reserved: [u8; 128],
+}
+
+impl IFTAppState {
+    /// Get PDA seeds for global app state
+    pub fn seeds() -> Vec<Vec<u8>> {
+        vec![IFT_APP_STATE_SEED.to_vec()]
+    }
+}
+
+/// Per-mint IFT application state
+/// PDA Seeds: [`IFT_APP_MINT_STATE_SEED`, `mint.as_ref()`]
+#[account]
+#[derive(InitSpace)]
+pub struct IFTAppMintState {
     pub version: AccountVersion,
     pub bump: u8,
 
@@ -85,12 +112,6 @@ pub struct IFTAppState {
     /// `find_program_address` (~10k CUs) on each mint/refund.
     pub mint_authority_bump: u8,
 
-    /// Admin authority for this IFT token
-    pub admin: Pubkey,
-
-    /// GMP program address for sending cross-chain calls
-    pub gmp_program: Pubkey,
-
     /// Daily mint rate limit (0 = no limit)
     pub daily_mint_limit: u64,
     /// Current rate limit day (`unix_timestamp` / `SECONDS_PER_DAY`)
@@ -98,16 +119,13 @@ pub struct IFTAppState {
     /// Net mint usage for the current day
     pub rate_limit_daily_usage: u64,
 
-    /// Whether this token is paused (blocks mint and transfer, not refunds)
-    pub paused: bool,
-
     pub _reserved: [u8; 128],
 }
 
-impl IFTAppState {
-    /// Get PDA seeds for app state
+impl IFTAppMintState {
+    /// Get PDA seeds for per-mint app state
     pub fn seeds(mint: &Pubkey) -> Vec<Vec<u8>> {
-        vec![IFT_APP_STATE_SEED.to_vec(), mint.as_ref().to_vec()]
+        vec![IFT_APP_MINT_STATE_SEED.to_vec(), mint.as_ref().to_vec()]
     }
 }
 

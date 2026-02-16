@@ -8,25 +8,33 @@ use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
 use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
-use crate::state::{IFTAppState, IFTBridge, IFTMintMsg};
+use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request.
 #[derive(Accounts)]
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
+    /// Global IFT app state (read-only, for gmp_program and paused check)
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Per-mint IFT app state (mut, for rate limits)
+    #[account(
+        mut,
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        bump = app_mint_state.bump
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
     /// IFT bridge - provides counterparty info for GMP account validation.
     /// Relayer passes the correct bridge; validation ensures bridge matches GMP account.
     /// Security: Anchor verifies ownership, `validate_gmp_account` verifies (`client_id`, counterparty) match.
     #[account(
-        constraint = ift_bridge.mint == app_state.mint @ IFTError::InvalidBridge,
+        constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
@@ -34,7 +42,7 @@ pub struct IFTMint<'info> {
     /// SPL Token mint
     #[account(
         mut,
-        address = app_state.mint
+        address = app_mint_state.mint
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
@@ -44,7 +52,7 @@ pub struct IFTMint<'info> {
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
         // Use stored bump to avoid expensive `find_program_address` computation.
         // The bump is needed for PDA signing during the mint CPI call.
-        bump = app_state.mint_authority_bump
+        bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
 
@@ -64,11 +72,6 @@ pub struct IFTMint<'info> {
         constraint = receiver_owner.key() == msg.receiver @ IFTError::InvalidReceiver
     )]
     pub receiver_owner: AccountInfo<'info>,
-
-    // TODO: check if we can remove it and pull from app_state
-    /// CHECK: GMP program for PDA derivation
-    #[account(address = app_state.gmp_program @ IFTError::InvalidGmpProgram)]
-    pub gmp_program: AccountInfo<'info>,
 
     /// GMP account PDA - validated to match counterparty bridge
     pub gmp_account: Signer<'info>,
@@ -93,16 +96,16 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &ctx.accounts.gmp_account.key(),
         &bridge.client_id,
         &bridge.counterparty_ift_address,
-        &ctx.accounts.gmp_program.key(),
+        &ctx.accounts.app_state.gmp_program,
     )?;
 
-    check_and_update_mint_rate_limit(&mut ctx.accounts.app_state, msg.amount, &clock)?;
+    check_and_update_mint_rate_limit(&mut ctx.accounts.app_mint_state, msg.amount, &clock)?;
 
     mint_to_account(
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        ctx.accounts.app_state.mint_authority_bump,
+        ctx.accounts.app_mint_state.mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
@@ -238,7 +241,8 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
@@ -247,28 +251,33 @@ mod tests {
         let wrong_gmp_account = Pubkey::new_unique();
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = if config.rate_limit_exceeded {
+        let (app_state_account, app_mint_state_account) = if config.rate_limit_exceeded {
             // Set daily limit to 100 with usage already at 100, so any mint exceeds the limit
-            create_ift_app_state_account_full(IftAppStateParams {
-                mint,
-                bump: app_state_bump,
-                mint_authority_bump,
-                admin: Pubkey::new_unique(),
-                gmp_program,
-                paused: config.token_paused,
-                daily_mint_limit: 100,
-                rate_limit_day: 0,
-                rate_limit_daily_usage: 100,
-            })
-        } else {
-            create_ift_app_state_account_with_options(
-                mint,
+            let global = create_ift_app_state_account_with_options(
                 app_state_bump,
-                mint_authority_bump,
                 Pubkey::new_unique(),
                 gmp_program,
                 config.token_paused,
-            )
+            );
+            let per_mint = create_ift_app_mint_state_account_full(IftAppMintStateParams {
+                mint,
+                bump: app_mint_state_bump,
+                mint_authority_bump,
+                daily_mint_limit: 100,
+                rate_limit_day: 0,
+                rate_limit_daily_usage: 100,
+            });
+            (global, per_mint)
+        } else {
+            let global = create_ift_app_state_account_with_options(
+                app_state_bump,
+                Pubkey::new_unique(),
+                gmp_program,
+                config.token_paused,
+            );
+            let per_mint =
+                create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+            (global, per_mint)
         };
 
         let ift_bridge_account = create_ift_bridge_account(
@@ -350,13 +359,13 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
                 AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(receiver_token_pda, false),
                 AccountMeta::new_readonly(receiver_owner_key, false),
-                AccountMeta::new_readonly(gmp_program, false),
                 AccountMeta::new_readonly(gmp_account_key, config.gmp_is_signer),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
@@ -368,12 +377,12 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (ift_bridge_pda, ift_bridge_account),
             (mint, mint_account),
             (mint_authority_pda, mint_authority_account),
             (receiver_token_pda, receiver_token_account),
             (receiver_owner_key, create_signer_account()),
-            (gmp_program, create_gmp_program_account()),
             (gmp_account_key, create_signer_account()),
             (payer, create_signer_account()),
             (anchor_spl::token::ID, token_program_account),

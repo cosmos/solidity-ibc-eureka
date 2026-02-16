@@ -8,24 +8,42 @@ use anchor_lang::solana_program::instruction::get_stack_height;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
-use crate::constants::{IFT_APP_STATE_SEED, MINT_AUTHORITY_SEED, PENDING_TRANSFER_SEED};
+use crate::constants::{
+    IFT_APP_MINT_STATE_SEED, IFT_APP_STATE_SEED, IFT_BRIDGE_SEED, MINT_AUTHORITY_SEED,
+    PENDING_TRANSFER_SEED,
+};
 use crate::errors::IFTError;
 use crate::events::{IFTTransferCompleted, IFTTransferRefunded, RefundReason};
 use crate::evm_selectors::ERROR_ACK_COMMITMENT;
 use crate::helpers::mint_to_account;
-use crate::state::{IFTAppState, PendingTransfer};
+use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, PendingTransfer};
 
 /// Accounts for the `finalize_transfer` instruction
 #[derive(Accounts)]
 #[instruction(client_id: String, sequence: u64)]
 pub struct FinalizeTransfer<'info> {
-    /// IFT app state
+    /// Global IFT app state (read-only)
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
+
+    /// Per-mint IFT app state (mut for rate limit updates)
+    #[account(
+        mut,
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        bump = app_mint_state.bump
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
+    /// IFT bridge for this client
+    #[account(
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
+        bump = ift_bridge.bump,
+        constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
+    )]
+    pub ift_bridge: Account<'info, IFTBridge>,
 
     /// Pending transfer to process
     #[account(
@@ -33,12 +51,12 @@ pub struct FinalizeTransfer<'info> {
         close = payer,
         seeds = [
             PENDING_TRANSFER_SEED,
-            app_state.mint.as_ref(),
+            app_mint_state.mint.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes()
         ],
         bump = pending_transfer.bump,
-        constraint = pending_transfer.mint == app_state.mint @ IFTError::PendingTransferNotFound,
+        constraint = pending_transfer.mint == app_mint_state.mint @ IFTError::PendingTransferNotFound,
         constraint = pending_transfer.client_id == client_id @ IFTError::GmpResultClientMismatch,
         constraint = pending_transfer.sequence == sequence @ IFTError::GmpResultSequenceMismatch,
     )]
@@ -54,14 +72,14 @@ pub struct FinalizeTransfer<'info> {
     pub gmp_result: Account<'info, ics27_gmp::state::GMPCallResultAccount>,
 
     /// SPL Token mint
-    #[account(mut, address = app_state.mint)]
+    #[account(mut, address = app_mint_state.mint)]
     pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA verified by seeds constraint
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
-        bump = app_state.mint_authority_bump
+        bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
 
@@ -113,7 +131,7 @@ pub fn finalize_transfer(
                 &ctx.accounts.mint,
                 &ctx.accounts.sender_token_account,
                 &ctx.accounts.mint_authority,
-                ctx.accounts.app_state.mint_authority_bump,
+                ctx.accounts.app_mint_state.mint_authority_bump,
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
@@ -121,7 +139,7 @@ pub fn finalize_transfer(
             ctx.accounts.sender_token_account.reload()?;
 
             emit!(IFTTransferRefunded {
-                mint: ctx.accounts.app_state.mint,
+                mint: ctx.accounts.app_mint_state.mint,
                 client_id: pending.client_id.clone(),
                 sequence: pending.sequence,
                 sender: pending.sender,
@@ -136,13 +154,13 @@ pub fn finalize_transfer(
                     &ctx.accounts.mint,
                     &ctx.accounts.sender_token_account,
                     &ctx.accounts.mint_authority,
-                    ctx.accounts.app_state.mint_authority_bump,
+                    ctx.accounts.app_mint_state.mint_authority_bump,
                     &ctx.accounts.token_program,
                     pending.amount,
                 )?;
 
                 emit!(IFTTransferRefunded {
-                    mint: ctx.accounts.app_state.mint,
+                    mint: ctx.accounts.app_mint_state.mint,
                     client_id: pending.client_id.clone(),
                     sequence: pending.sequence,
                     sender: pending.sender,
@@ -152,13 +170,13 @@ pub fn finalize_transfer(
                 });
             } else {
                 crate::helpers::reduce_mint_rate_limit_usage(
-                    &mut ctx.accounts.app_state,
+                    &mut ctx.accounts.app_mint_state,
                     pending.amount,
                     &clock,
                 );
 
                 emit!(IFTTransferCompleted {
-                    mint: ctx.accounts.app_state.mint,
+                    mint: ctx.accounts.app_mint_state.mint,
                     client_id: pending.client_id.clone(),
                     sequence: pending.sequence,
                     sender: pending.sender,
@@ -182,9 +200,11 @@ mod tests {
     };
 
     use crate::evm_selectors::ERROR_ACK_COMMITMENT;
+    use crate::state::ChainOptions;
     use crate::test_utils::*;
 
     const TEST_CLIENT_ID: &str = "07-tendermint-0";
+    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
     const TEST_SEQUENCE: u64 = 42;
     const TEST_AMOUNT: u64 = 1_000_000;
 
@@ -242,20 +262,29 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
         let (gmp_result_pda, gmp_result_bump) =
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let ift_bridge_account = create_ift_bridge_account(
             mint,
-            app_state_bump,
-            mint_authority_bump,
-            Pubkey::new_unique(),
-            gmp_program,
+            TEST_CLIENT_ID,
+            TEST_COUNTERPARTY_ADDRESS,
+            crate::state::ChainOptions::Evm,
+            ift_bridge_bump,
+            true,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -301,7 +330,9 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -320,6 +351,8 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (ift_bridge_pda, ift_bridge_account),
             (pending_transfer_pda, pending_transfer_account),
             (gmp_result_pda, gmp_result_account),
             (mint, mint_account),
@@ -411,20 +444,29 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
         let (gmp_result_pda, gmp_result_bump) =
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let ift_bridge_account = create_ift_bridge_account(
             mint,
-            app_state_bump,
-            mint_authority_bump,
-            Pubkey::new_unique(),
-            gmp_program,
+            TEST_CLIENT_ID,
+            TEST_COUNTERPARTY_ADDRESS,
+            ChainOptions::Evm,
+            ift_bridge_bump,
+            true,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -470,7 +512,9 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -489,6 +533,8 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (ift_bridge_pda, ift_bridge_account),
             (pending_transfer_pda, pending_transfer_account),
             (gmp_result_pda, gmp_result_account),
             (mint, mint_account),
@@ -516,20 +562,29 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
         let (gmp_result_pda, gmp_result_bump) =
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let ift_bridge_account = create_ift_bridge_account(
             mint,
-            app_state_bump,
-            mint_authority_bump,
-            Pubkey::new_unique(),
-            gmp_program,
+            TEST_CLIENT_ID,
+            TEST_COUNTERPARTY_ADDRESS,
+            ChainOptions::Evm,
+            ift_bridge_bump,
+            true,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -575,7 +630,9 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -594,6 +651,8 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (ift_bridge_pda, ift_bridge_account),
             (pending_transfer_pda, pending_transfer_account),
             (gmp_result_pda, gmp_result_account),
             (mint, mint_account),

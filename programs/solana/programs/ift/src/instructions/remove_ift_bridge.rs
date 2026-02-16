@@ -3,25 +3,32 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTBridgeRemoved;
-use crate::state::{IFTAppState, IFTBridge};
+use crate::state::{IFTAppMintState, IFTAppState, IFTBridge};
 
 #[derive(Accounts)]
 #[instruction(client_id: String)]
 pub struct RemoveIFTBridge<'info> {
+    /// Global IFT app state (read-only, for admin check)
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
     )]
     pub app_state: Account<'info, IFTAppState>,
+
+    /// Per-mint IFT app state (for mint reference)
+    #[account(
+        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        bump = app_mint_state.bump,
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
 
     /// IFT bridge to remove (close and refund rent)
     #[account(
         mut,
         close = payer,
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), client_id.as_bytes()],
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
         bump = ift_bridge.bump,
-        constraint = ift_bridge.mint == app_state.mint @ IFTError::BridgeNotFound
+        constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::BridgeNotFound
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
@@ -40,7 +47,7 @@ pub struct RemoveIFTBridge<'info> {
 pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Result<()> {
     let clock = Clock::get()?;
     emit!(IFTBridgeRemoved {
-        mint: ctx.accounts.app_state.mint,
+        mint: ctx.accounts.app_mint_state.mint,
         client_id,
         timestamp: clock.unix_timestamp,
     });
@@ -70,18 +77,17 @@ mod tests {
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let bridge_account = create_ift_bridge_account(
             mint,
@@ -95,7 +101,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new(payer, true),
@@ -109,6 +116,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (bridge_pda, bridge_account),
             (admin, create_signer_account()),
             (payer, create_signer_account()),
@@ -156,18 +164,17 @@ mod tests {
             RemoveBridgeErrorCase::MintMismatch => (false, true),
         };
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let bridge_mint = if use_wrong_mint { wrong_mint } else { mint };
         let bridge_account = create_ift_bridge_account(
@@ -188,7 +195,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
                 AccountMeta::new_readonly(signer, true),
                 AccountMeta::new(payer, true),
@@ -202,6 +210,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (bridge_pda, bridge_account),
             (signer, create_signer_account()),
             (payer, create_signer_account()),

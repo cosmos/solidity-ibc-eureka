@@ -6,6 +6,7 @@ package ift
 // Account discriminators
 var (
 	Account_Ics27GmpStateGmpCallResultAccount = [8]byte{236, 115, 234, 143, 137, 175, 113, 32}
+	Account_IftStateIftAppMintState           = [8]byte{220, 4, 127, 229, 68, 20, 226, 46}
 	Account_IftStateIftAppState               = [8]byte{108, 253, 111, 191, 49, 100, 45, 183}
 	Account_IftStateIftBridge                 = [8]byte{161, 157, 28, 24, 241, 204, 4, 61}
 	Account_IftStatePendingTransfer           = [8]byte{136, 107, 78, 115, 95, 81, 142, 155}
@@ -18,6 +19,7 @@ var (
 	Event_IftEventsExistingTokenInitialized = [8]byte{208, 76, 129, 169, 87, 75, 247, 38}
 	Event_IftEventsIftBridgeRegistered      = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
 	Event_IftEventsIftBridgeRemoved         = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
+	Event_IftEventsIftInitialized           = [8]byte{156, 72, 181, 138, 204, 179, 52, 105}
 	Event_IftEventsIftMintReceived          = [8]byte{231, 237, 212, 47, 70, 180, 189, 161}
 	Event_IftEventsIftTransferCompleted     = [8]byte{108, 70, 78, 147, 62, 29, 217, 203}
 	Event_IftEventsIftTransferInitiated     = [8]byte{207, 26, 115, 209, 217, 24, 194, 232}
@@ -30,6 +32,7 @@ var (
 
 // Instruction discriminators
 var (
+	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
 	Instruction_CreateSplToken          = [8]byte{206, 61, 13, 166, 215, 118, 38, 2}
 	Instruction_InitializeExistingToken = [8]byte{202, 36, 198, 101, 164, 90, 18, 233}
 	Instruction_RegisterIftBridge       = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}

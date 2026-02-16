@@ -12,23 +12,29 @@ use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
-    AccountVersion, ChainOptions, IFTAppState, IFTBridge, IFTTransferMsg, PendingTransfer,
+    AccountVersion, ChainOptions, IFTAppMintState, IFTAppState, IFTBridge, IFTTransferMsg,
+    PendingTransfer,
 };
 
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::TokenPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    #[account(
+        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        bump = app_mint_state.bump,
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
+
     /// IFT bridge for the destination
     #[account(
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = !msg.client_id.is_empty() @ IFTError::EmptyClientId,
         constraint = msg.client_id.len() <= MAX_CLIENT_ID_LENGTH @ IFTError::InvalidClientIdLength,
@@ -39,7 +45,7 @@ pub struct IFTTransfer<'info> {
     /// SPL Token mint
     #[account(
         mut,
-        address = app_state.mint
+        address = app_mint_state.mint
     )]
     pub mint: InterfaceAccount<'info, Mint>,
 
@@ -192,7 +198,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
     create_pending_transfer_account(CreatePendingTransferParams {
-        mint: &ctx.accounts.app_state.mint,
+        mint: &ctx.accounts.app_mint_state.mint,
         client_id: &msg.client_id,
         sequence,
         sender: &ctx.accounts.sender.key(),
@@ -204,7 +210,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     })?;
 
     emit!(IFTTransferInitiated {
-        mint: ctx.accounts.app_state.mint,
+        mint: ctx.accounts.app_mint_state.mint,
         client_id: msg.client_id.clone(),
         sequence,
         sender: ctx.accounts.sender.key(),
@@ -646,20 +652,22 @@ mod tests {
         let payer = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, &config.client_id);
         let (system_program, system_account) = create_system_program_account();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
         let app_state_account = create_ift_app_state_account_with_options(
-            mint,
             app_state_bump,
-            mint_authority_bump,
             Pubkey::new_unique(),
             gmp_program,
             config.token_paused,
         );
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
@@ -721,7 +729,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(ift_bridge_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new(sender_token_pda, false),
@@ -747,6 +756,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (ift_bridge_pda, ift_bridge_account),
             (mint, mint_account),
             (sender_token_pda, sender_token_account),

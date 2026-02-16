@@ -7,7 +7,9 @@ use mollusk_svm::Mollusk;
 use solana_sdk::{account::Account as SolanaAccount, pubkey::Pubkey, system_program};
 
 use crate::constants::*;
-use crate::state::{AccountVersion, ChainOptions, IFTAppState, IFTBridge, PendingTransfer};
+use crate::state::{
+    AccountVersion, ChainOptions, IFTAppMintState, IFTAppState, IFTBridge, PendingTransfer,
+};
 
 /// Path to the compiled IFT program binary
 pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ift";
@@ -20,77 +22,80 @@ pub fn setup_mollusk() -> Mollusk {
     Mollusk::new(&crate::ID, IFT_PROGRAM_PATH)
 }
 
-/// Create a serialized IFT app state account
-pub fn create_ift_app_state_account(
-    mint: Pubkey,
-    bump: u8,
-    mint_authority_bump: u8,
-    admin: Pubkey,
-    gmp_program: Pubkey,
-) -> SolanaAccount {
-    create_ift_app_state_account_with_options(
-        mint,
-        bump,
-        mint_authority_bump,
-        admin,
-        gmp_program,
-        false,
-    )
+/// Create a serialized global IFT app state account
+pub fn create_ift_app_state_account(bump: u8, admin: Pubkey, gmp_program: Pubkey) -> SolanaAccount {
+    create_ift_app_state_account_with_options(bump, admin, gmp_program, false)
 }
 
-/// Create a serialized IFT app state account with configurable paused state
+/// Create a serialized global IFT app state account with configurable paused state
 pub fn create_ift_app_state_account_with_options(
-    mint: Pubkey,
     bump: u8,
-    mint_authority_bump: u8,
     admin: Pubkey,
     gmp_program: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
-    create_ift_app_state_account_full(IftAppStateParams {
-        mint,
+    let app_state = IFTAppState {
+        version: AccountVersion::V1,
         bump,
-        mint_authority_bump,
         admin,
         gmp_program,
         paused,
+        _reserved: [0; 128],
+    };
+
+    let mut data = IFTAppState::DISCRIMINATOR.to_vec();
+    app_state.serialize(&mut data).unwrap();
+
+    SolanaAccount {
+        lamports: 1_000_000,
+        data,
+        owner: crate::ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+/// Parameters for creating a full IFT app mint state account
+pub struct IftAppMintStateParams {
+    pub mint: Pubkey,
+    pub bump: u8,
+    pub mint_authority_bump: u8,
+    pub daily_mint_limit: u64,
+    pub rate_limit_day: u64,
+    pub rate_limit_daily_usage: u64,
+}
+
+/// Create a serialized per-mint IFT app state account
+pub fn create_ift_app_mint_state_account(
+    mint: Pubkey,
+    bump: u8,
+    mint_authority_bump: u8,
+) -> SolanaAccount {
+    create_ift_app_mint_state_account_full(IftAppMintStateParams {
+        mint,
+        bump,
+        mint_authority_bump,
         daily_mint_limit: 0,
         rate_limit_day: 0,
         rate_limit_daily_usage: 0,
     })
 }
 
-/// Parameters for creating a full IFT app state account
-pub struct IftAppStateParams {
-    pub mint: Pubkey,
-    pub bump: u8,
-    pub mint_authority_bump: u8,
-    pub admin: Pubkey,
-    pub gmp_program: Pubkey,
-    pub paused: bool,
-    pub daily_mint_limit: u64,
-    pub rate_limit_day: u64,
-    pub rate_limit_daily_usage: u64,
-}
-
-/// Create a serialized IFT app state account with all configurable fields
-pub fn create_ift_app_state_account_full(params: IftAppStateParams) -> SolanaAccount {
-    let app_state = IFTAppState {
+/// Create a serialized per-mint IFT app state account with all configurable fields
+pub fn create_ift_app_mint_state_account_full(params: IftAppMintStateParams) -> SolanaAccount {
+    let mint_state = IFTAppMintState {
         version: AccountVersion::V1,
         bump: params.bump,
         mint: params.mint,
         mint_authority_bump: params.mint_authority_bump,
-        admin: params.admin,
-        gmp_program: params.gmp_program,
         daily_mint_limit: params.daily_mint_limit,
         rate_limit_day: params.rate_limit_day,
         rate_limit_daily_usage: params.rate_limit_daily_usage,
-        paused: params.paused,
         _reserved: [0; 128],
     };
 
-    let mut data = IFTAppState::DISCRIMINATOR.to_vec();
-    app_state.serialize(&mut data).unwrap();
+    let mut data = IFTAppMintState::DISCRIMINATOR.to_vec();
+    mint_state.serialize(&mut data).unwrap();
 
     SolanaAccount {
         lamports: 1_000_000,
@@ -263,9 +268,14 @@ pub fn create_clock_sysvar_account(unix_timestamp: i64) -> (Pubkey, SolanaAccoun
     )
 }
 
-/// Get the IFT app state PDA
-pub fn get_app_state_pda(mint: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &crate::ID)
+/// Get the global IFT app state PDA (singleton, no mint param)
+pub fn get_app_state_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &crate::ID)
+}
+
+/// Get the per-mint IFT app state PDA
+pub fn get_app_mint_state_pda(mint: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &crate::ID)
 }
 
 /// Get the IFT bridge PDA
@@ -294,10 +304,16 @@ pub fn get_mint_authority_pda(mint: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &crate::ID)
 }
 
-/// Deserialize IFT app state from account
+/// Deserialize global IFT app state from account
 pub fn deserialize_app_state(account: &SolanaAccount) -> IFTAppState {
     anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..])
         .expect("Failed to deserialize IFTAppState")
+}
+
+/// Deserialize per-mint IFT app state from account
+pub fn deserialize_app_mint_state(account: &SolanaAccount) -> IFTAppMintState {
+    anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..])
+        .expect("Failed to deserialize IFTAppMintState")
 }
 
 /// Deserialize IFT bridge from account

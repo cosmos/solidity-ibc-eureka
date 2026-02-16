@@ -24,23 +24,19 @@ declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 pub mod ift {
     use super::*;
 
+    /// Initialize global IFT state (once-only)
+    pub fn initialize(ctx: Context<Initialize>, admin: Pubkey, gmp_program: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, admin, gmp_program)
+    }
+
     /// Create a new SPL token mint for IFT
-    pub fn create_spl_token(
-        ctx: Context<CreateSplToken>,
-        decimals: u8,
-        admin: Pubkey,
-        gmp_program: Pubkey,
-    ) -> Result<()> {
-        instructions::create_spl_token(ctx, decimals, admin, gmp_program)
+    pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
+        instructions::create_spl_token(ctx, decimals)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority
-    pub fn initialize_existing_token(
-        ctx: Context<InitializeExistingToken>,
-        admin: Pubkey,
-        gmp_program: Pubkey,
-    ) -> Result<()> {
-        instructions::initialize_existing_token(ctx, admin, gmp_program)
+    pub fn initialize_existing_token(ctx: Context<InitializeExistingToken>) -> Result<()> {
+        instructions::initialize_existing_token(ctx)
     }
 
     /// Register an IFT bridge to a counterparty chain

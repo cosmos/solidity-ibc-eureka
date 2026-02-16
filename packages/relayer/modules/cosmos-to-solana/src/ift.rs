@@ -21,6 +21,8 @@ use crate::proto::{GmpPacketData, Protobuf};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
+const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
+const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";
 const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
@@ -163,10 +165,6 @@ fn find_pending_transfer(
         .collect();
 
     for (pubkey, account) in accounts {
-        if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
-            continue;
-        }
-
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
         let pending = match PendingTransfer::deserialize(&mut data) {
             Ok(p) => p,
@@ -196,8 +194,15 @@ fn build_finalize_transfer_ix(
     let mint = pending_transfer.mint;
 
     // Derive PDAs
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
+    let (app_state_pda, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+
+    let (app_mint_state_pda, _) =
+        Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
+
+    let (ift_bridge_pda, _) = Pubkey::find_program_address(
+        &[IFT_BRIDGE_SEED, mint.as_ref(), client_id.as_bytes()],
+        &ift_program_id,
+    );
 
     let (pending_transfer_pda, _) = Pubkey::find_program_address(
         &[
@@ -230,7 +235,9 @@ fn build_finalize_transfer_ix(
 
     // Account order must match IFT's FinalizeTransfer struct
     let accounts = vec![
-        AccountMeta::new(app_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new(app_mint_state_pda, false),
+        AccountMeta::new_readonly(ift_bridge_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
         AccountMeta::new_readonly(gmp_result_pda, false),
         AccountMeta::new(mint, false),

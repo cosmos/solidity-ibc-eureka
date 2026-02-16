@@ -929,11 +929,10 @@ func (s *Solana) VerifyIftAppStateExists(
 	t *testing.T,
 	require *require.Assertions,
 	iftProgramID solana.PublicKey,
-	mint solana.PublicKey,
 ) {
 	t.Helper()
 
-	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID, mint.Bytes())
+	appStatePDA, _ := Ift.IftAppStatePDA(iftProgramID)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,

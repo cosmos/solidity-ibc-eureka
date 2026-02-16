@@ -5,11 +5,19 @@ use solana_sdk::pubkey::Pubkey;
 
 #[test]
 fn test_ift_app_state_seeds() {
+    let seeds = IFTAppState::seeds();
+
+    assert_eq!(seeds.len(), 1);
+    assert_eq!(seeds[0], IFT_APP_STATE_SEED.to_vec());
+}
+
+#[test]
+fn test_ift_app_mint_state_seeds() {
     let mint = Pubkey::new_unique();
-    let seeds = IFTAppState::seeds(&mint);
+    let seeds = IFTAppMintState::seeds(&mint);
 
     assert_eq!(seeds.len(), 2);
-    assert_eq!(seeds[0], IFT_APP_STATE_SEED.to_vec());
+    assert_eq!(seeds[0], IFT_APP_MINT_STATE_SEED.to_vec());
     assert_eq!(seeds[1], mint.as_ref().to_vec());
 }
 
