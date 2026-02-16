@@ -293,9 +293,9 @@ mod tests {
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
-        // This should fail because the account already exists (init constraint violation)
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        // System program's Allocate fails with Custom(0) when account already in use
+        let checks = vec![Check::err(ProgramError::Custom(0))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
     #[test]
@@ -410,5 +410,130 @@ mod tests {
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+}
+
+#[cfg(test)]
+mod integration_tests {
+    use crate::state::{IBCApp, RouterState};
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signature::Keypair,
+        signer::Signer,
+    };
+
+    fn build_add_ibc_app_ix(payer: Pubkey, authority: Pubkey, port_id: &str) -> Instruction {
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[access_manager::state::AccessManager::SEED],
+            &access_manager::ID,
+        );
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(ibc_app_pda, false),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: crate::instruction::AddIbcApp {
+                port_id: port_id.to_string(),
+            }
+            .data(),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_add_ibc_app_direct_call_succeeds() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
+            &[TEST_CPI_TARGET_ID],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_add_ibc_app_ix(payer.pubkey(), admin.pubkey(), "test-port");
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Direct call with ID_CUSTOMIZER_ROLE should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_ibc_app_without_role_rejected() {
+        let admin = Keypair::new();
+        let non_admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
+            &[],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_add_ibc_app_ix(payer.pubkey(), non_admin.pubkey(), "test-port");
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &non_admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_add_ibc_app_cpi_rejected() {
+        let admin = Keypair::new();
+        let pt = setup_program_test_with_roles_and_whitelist(
+            &[(
+                solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                &[admin.pubkey()],
+            )],
+            &[TEST_CPI_TARGET_ID],
+        );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_add_ibc_app_ix(payer.pubkey(), admin.pubkey(), "test-port");
+        let wrapped_ix = pt_wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
+        );
     }
 }

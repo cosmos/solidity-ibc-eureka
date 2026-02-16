@@ -9,23 +9,25 @@ pub enum AccessManagerError {
     InvalidRoleId,
     #[msg("Cannot remove the last admin")]
     CannotRemoveLastAdmin,
+    #[msg("Account does not have the specified role")]
+    RoleNotGranted,
     #[msg("Invalid sysenv: cross-program invocation from unexpected program")]
     InvalidSysenv,
     #[msg("Account must be a signer")]
     SignerRequired,
     #[msg("CPI calls not allowed")]
     CpiNotAllowed,
-    #[msg("Invalid upgrade authority")]
-    InvalidUpgradeAuthority,
+    #[msg("Program account does not match target_program")]
+    ProgramMismatch,
 }
 
 impl From<CpiValidationError> for AccessManagerError {
     fn from(error: CpiValidationError) -> Self {
         match error {
             CpiValidationError::InvalidSysvar => Self::InvalidSysenv,
-            CpiValidationError::UnauthorizedCaller | CpiValidationError::DirectCallNotAllowed => {
-                Self::CpiNotAllowed
-            }
+            CpiValidationError::UnauthorizedCaller
+            | CpiValidationError::DirectCallNotAllowed
+            | CpiValidationError::NestedCpiNotAllowed => Self::CpiNotAllowed,
         }
     }
 }

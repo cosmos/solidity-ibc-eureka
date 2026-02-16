@@ -1,10 +1,12 @@
 use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
 use gmp_counter_app::{state::*, ID};
+use mollusk_svm::result::Check;
 use mollusk_svm::Mollusk;
 use solana_sdk::{
     account::Account,
     instruction::{AccountMeta, Instruction},
     native_loader,
+    program_error::ProgramError,
     pubkey::Pubkey,
     system_program,
 };
@@ -287,8 +289,11 @@ fn test_counter_underflow_fails() {
         ),
     ];
 
-    let result = mollusk.process_instruction(&instruction, &accounts);
-    assert!(result.program_result.is_err()); // Should fail due to underflow
+    let checks = vec![Check::err(ProgramError::Custom(
+        anchor_lang::error::ERROR_CODE_OFFSET
+            + gmp_counter_app::errors::CounterError::CounterUnderflow as u32,
+    ))];
+    mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 }
 
 #[test]

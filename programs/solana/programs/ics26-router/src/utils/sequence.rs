@@ -1,9 +1,9 @@
 use anchor_lang::prelude::*;
-use solana_sha256_hasher::hashv;
+use solana_sha256_hasher::hashv as sha256v;
 
 /// Derives a deterministic suffix in range [0, 9999] from `hash(calling_program || sender)`.
 pub fn derive_sequence_suffix(calling_program: &Pubkey, sender: &Pubkey) -> u16 {
-    let hash = hashv(&[calling_program.as_ref(), sender.as_ref()]);
+    let hash = sha256v(&[calling_program.as_ref(), sender.as_ref()]);
     let bytes = hash.to_bytes();
     let raw_u16 = u16::from_le_bytes([bytes[0], bytes[1]]);
     raw_u16 % 10000

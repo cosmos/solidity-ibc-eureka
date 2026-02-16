@@ -26,6 +26,14 @@ pub struct ProgramUpgradedEvent {
 
 #[event]
 #[derive(Debug, Clone)]
+pub struct WhitelistedProgramsUpdatedEvent {
+    pub old_programs: Vec<Pubkey>,
+    pub new_programs: Vec<Pubkey>,
+    pub updated_by: Pubkey,
+}
+
+#[event]
+#[derive(Debug, Clone)]
 pub struct ProgramExtendedEvent {
     pub program: Pubkey,
     pub authority: Pubkey,

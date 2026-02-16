@@ -10,14 +10,11 @@ pub mod test_utils;
 pub mod types;
 
 pub use errors::AccessManagerError;
-pub use helpers::require_role;
+pub use helpers::{require_admin, require_role, require_role_with_whitelist};
 use instructions::*;
 pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
-
-/// Programs whitelisted to call certain instructions via CPI
-pub const WHITELISTED_CPI_PROGRAMS: &[Pubkey] = &[];
 
 pub fn get_access_manager_program_path() -> &'static str {
     use std::sync::OnceLock;
@@ -51,5 +48,12 @@ pub mod access_manager {
 
     pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
         instructions::upgrade_program(ctx, target_program)
+    }
+
+    pub fn set_whitelisted_programs(
+        ctx: Context<SetWhitelistedPrograms>,
+        whitelisted_programs: Vec<Pubkey>,
+    ) -> Result<()> {
+        instructions::set_whitelisted_programs(ctx, whitelisted_programs)
     }
 }

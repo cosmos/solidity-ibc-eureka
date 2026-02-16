@@ -9,3 +9,15 @@ pub mod upload_header_chunk;
 pub mod upload_misbehaviour_chunk;
 pub mod verify_membership;
 pub mod verify_non_membership;
+
+pub use assemble_and_submit_misbehaviour::*;
+pub use assemble_and_update_client::*;
+pub use cleanup_incomplete_misbehaviour::*;
+pub use cleanup_incomplete_upload::*;
+pub use initialize::*;
+pub use pre_verify_signatures::*;
+pub use set_access_manager::*;
+pub use upload_header_chunk::*;
+pub use upload_misbehaviour_chunk::*;
+pub use verify_membership::*;
+pub use verify_non_membership::*;

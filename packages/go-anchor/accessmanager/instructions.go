@@ -250,9 +250,7 @@ func NewUpgradeProgramInstruction(
 		// Account 0 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 1 "program": Writable, Non-signer, Required
-		// Must be writable because BPF Loader Upgradeable requires both program and programdata
-		// accounts to be writable during upgrade. The program account contains metadata and a
-		// pointer to the programdata account, which may be updated during the upgrade process.
+		// Writable because BPF Loader Upgradeable requires it during upgrade.
 		accounts__.Append(solanago.NewAccountMeta(programAccount, true, false))
 		// Account 2 "program_data": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(programDataAccount, true, false))
@@ -273,6 +271,51 @@ func NewUpgradeProgramInstruction(
 		// Account 10 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
 		// Required by BPF Loader Upgradeable's upgrade instruction
 		accounts__.Append(solanago.NewAccountMeta(clockAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "set_whitelisted_programs" instruction.
+func NewSetWhitelistedProgramsInstruction(
+	// Params:
+	whitelistedProgramsParam []solanago.PublicKey,
+
+	// Accounts:
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetWhitelistedPrograms[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `whitelistedProgramsParam`:
+		err = enc__.Encode(whitelistedProgramsParam)
+		if err != nil {
+			return nil, errors.NewField("whitelistedProgramsParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "access_manager": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
+		// Account 1 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

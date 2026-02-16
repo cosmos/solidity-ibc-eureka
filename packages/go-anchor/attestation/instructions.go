@@ -14,16 +14,12 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	clientIdParam string,
-	latestHeightParam uint64,
 	attestorAddressesParam [][20]uint8,
 	minRequiredSigsParam uint8,
-	timestampParam uint64,
 	accessManagerParam solanago.PublicKey,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
-	consensusStateStoreAccount solanago.PublicKey,
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
@@ -37,16 +33,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
-		// Serialize `latestHeightParam`:
-		err = enc__.Encode(latestHeightParam)
-		if err != nil {
-			return nil, errors.NewField("latestHeightParam", err)
-		}
 		// Serialize `attestorAddressesParam`:
 		err = enc__.Encode(attestorAddressesParam)
 		if err != nil {
@@ -56,11 +42,6 @@ func NewInitializeInstruction(
 		err = enc__.Encode(minRequiredSigsParam)
 		if err != nil {
 			return nil, errors.NewField("minRequiredSigsParam", err)
-		}
-		// Serialize `timestampParam`:
-		err = enc__.Encode(timestampParam)
-		if err != nil {
-			return nil, errors.NewField("timestampParam", err)
 		}
 		// Serialize `accessManagerParam`:
 		err = enc__.Encode(accessManagerParam)
@@ -74,14 +55,60 @@ func NewInitializeInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "consensus_state_store": Writable, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
-		// Account 2 "app_state": Writable, Non-signer, Required
+		// Account 1 "app_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 3 "payer": Writable, Signer, Required
+		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "set_access_manager" instruction.
+func NewSetAccessManagerInstruction(
+	// Params:
+	newAccessManagerParam solanago.PublicKey,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `newAccessManagerParam`:
+		err = enc__.Encode(newAccessManagerParam)
+		if err != nil {
+			return nil, errors.NewField("newAccessManagerParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -179,16 +206,15 @@ func NewVerifyNonMembershipInstruction(
 // Builds a "update_client" instruction.
 func NewUpdateClientInstruction(
 	// Params:
-	clientIdParam string,
 	newHeightParam uint64,
 	paramsParam AttestationInstructionsUpdateClientUpdateClientParams,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
+	consensusStateStoreAccount solanago.PublicKey,
 	appStateAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
-	consensusStateStoreAccount solanago.PublicKey,
 	submitterAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -201,11 +227,6 @@ func NewUpdateClientInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `clientIdParam`:
-		err = enc__.Encode(clientIdParam)
-		if err != nil {
-			return nil, errors.NewField("clientIdParam", err)
-		}
 		// Serialize `newHeightParam`:
 		err = enc__.Encode(newHeightParam)
 		if err != nil {
@@ -223,14 +244,14 @@ func NewUpdateClientInstruction(
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
-		// Account 1 "app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 2 "access_manager": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
-		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-		// Account 4 "consensus_state_store": Writable, Non-signer, Required
+		// Account 1 "consensus_state_store": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
+		// Account 2 "app_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
+		// Account 3 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 4 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 5 "submitter": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required

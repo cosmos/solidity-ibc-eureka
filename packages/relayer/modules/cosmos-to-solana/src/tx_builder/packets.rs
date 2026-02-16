@@ -24,18 +24,17 @@ use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 /// Derives client state and consensus state PDAs based on client type.
 fn derive_light_client_pdas(
     client_id: &str,
-    chain_id: &str,
     height: u64,
     light_client_program_id: Pubkey,
 ) -> (Pubkey, Pubkey) {
     match solana_ibc_constants::client_type_from_id(client_id) {
         Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-            let (cs, _) = AttestationClientState::pda(client_id, light_client_program_id);
-            let (cons, _) = AttestationConsensusState::pda(cs, height, light_client_program_id);
+            let (cs, _) = AttestationClientState::pda(light_client_program_id);
+            let (cons, _) = AttestationConsensusState::pda(height, light_client_program_id);
             (cs, cons)
         }
         Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-            let (cs, _) = ClientState::pda(chain_id, light_client_program_id);
+            let (cs, _) = ClientState::pda(light_client_program_id);
             let (cons, _) = ConsensusState::pda(cs, height, light_client_program_id);
             (cs, cons)
         }
@@ -109,7 +108,6 @@ fn extract_recv_payload_info<'a>(
 impl super::TxBuilder {
     pub(crate) fn build_recv_packet_instruction(
         &self,
-        chain_id: &str,
         msg: &MsgRecvPacket,
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
@@ -134,7 +132,6 @@ impl super::TxBuilder {
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.dest_client,
-            chain_id,
             msg.proof.height,
             light_client_program_id,
         );
@@ -152,7 +149,6 @@ impl super::TxBuilder {
             AccountMeta::new(packet_ack, false),
             AccountMeta::new_readonly(ibc_app_program_id, false),
             AccountMeta::new(ibc_app_state, false),
-            AccountMeta::new_readonly(self.solana_ics26_program_id, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
@@ -222,10 +218,8 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let chain_id = self.chain_id().await?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.source_client,
-            &chain_id,
             msg.proof.height,
             light_client_program_id,
         );
@@ -240,7 +234,6 @@ impl super::TxBuilder {
             AccountMeta::new(packet_commitment, false),
             AccountMeta::new_readonly(ibc_app_program, false),
             AccountMeta::new(app_state, false),
-            AccountMeta::new_readonly(self.solana_ics26_program_id, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
@@ -278,18 +271,13 @@ impl super::TxBuilder {
 
     pub(crate) fn build_timeout_packet_instruction(
         &self,
-        chain_id: &str,
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
         let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
 
-        let mut accounts = self.build_timeout_accounts_with_derived_keys(
-            chain_id,
-            msg,
-            source_port,
-            chunk_accounts,
-        )?;
+        let mut accounts =
+            self.build_timeout_accounts_with_derived_keys(msg, source_port, chunk_accounts)?;
 
         // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
         // Note: IFT finalize_transfer is handled as a separate transaction after timeout completes
@@ -314,7 +302,6 @@ impl super::TxBuilder {
 
     pub(crate) fn build_timeout_accounts_with_derived_keys(
         &self,
-        chain_id: &str,
         msg: &MsgTimeoutPacket,
         source_port: &str,
         chunk_accounts: Vec<Pubkey>,
@@ -335,7 +322,6 @@ impl super::TxBuilder {
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.source_client,
-            chain_id,
             msg.proof.height,
             light_client_program_id,
         );
@@ -354,7 +340,6 @@ impl super::TxBuilder {
             client_state,
             consensus_state,
             fee_payer: self.fee_payer,
-            router_program_id: self.solana_ics26_program_id,
             light_client_program_id,
             chunk_accounts,
         }))
@@ -368,7 +353,6 @@ impl super::TxBuilder {
             AccountMeta::new(params.packet_commitment, false),
             AccountMeta::new_readonly(params.ibc_app_program_id, false),
             AccountMeta::new(params.ibc_app_state, false),
-            AccountMeta::new_readonly(params.router_program_id, false),
             AccountMeta::new(params.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),

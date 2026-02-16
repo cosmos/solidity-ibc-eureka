@@ -1003,12 +1003,11 @@ func (s *Solana) CreateIBCAddressLookupTableWithAttestation(ctx context.Context,
 }
 
 // MisbehaviourChunkPDA computes the PDA for a misbehaviour chunk account
-func MisbehaviourChunkPDA(submitter solana.PublicKey, clientID string, chunkIndex uint8, programID solana.PublicKey) (solana.PublicKey, uint8, error) {
+func MisbehaviourChunkPDA(submitter solana.PublicKey, chunkIndex uint8, programID solana.PublicKey) (solana.PublicKey, uint8, error) {
 	return solana.FindProgramAddress(
 		[][]byte{
 			[]byte("misbehaviour_chunk"),
 			submitter.Bytes(),
-			[]byte(clientID),
 			{chunkIndex},
 		},
 		programID,
@@ -1018,23 +1017,22 @@ func MisbehaviourChunkPDA(submitter solana.PublicKey, clientID string, chunkInde
 // ChunkDataSize is the maximum size of chunk data for multi-transaction uploads
 const ChunkDataSize = 900
 
-// SubmitChunkedMisbehaviour uploads misbehaviour data in chunks and assembles it to freeze the client
+// SubmitChunkedMisbehaviour uploads misbehaviour data in chunks and assembles it to freeze the client.
+// addressTables maps ALT addresses to their account lists for V0 transactions that reduce chunk tx size.
 func (s *Solana) SubmitChunkedMisbehaviour(
 	ctx context.Context,
 	t *testing.T,
 	require *require.Assertions,
-	clientID string,
-	cosmosChainID string,
 	misbehaviourBytes []byte,
 	trustedHeight1 uint64,
 	trustedHeight2 uint64,
 	user *solana.Wallet,
+	addressTables map[solana.PublicKey]solana.PublicKeySlice,
 ) {
 	t.Helper()
 
 	totalStart := time.Now()
 	t.Logf("=== Starting Chunked Misbehaviour Submission ===")
-	t.Logf("Client ID: %s", clientID)
 	t.Logf("Misbehaviour data size: %d bytes", len(misbehaviourBytes))
 
 	// Split misbehaviour data into chunks
@@ -1048,11 +1046,13 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	}
 	t.Logf("Split into %d chunks", len(chunks))
 
+	clientStatePDA, _ := Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
+	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
 	// Phase 1: Upload all chunks in parallel
 	t.Logf("--- Phase 1: Uploading %d chunks in parallel ---", len(chunks))
 	chunksStart := time.Now()
-
-	clientStatePDA, _ := Ics07Tendermint.ClientWithArgSeedPDA(ics07_tendermint.ProgramID, []byte(cosmosChainID))
 
 	type chunkResult struct {
 		chunkIdx int
@@ -1067,14 +1067,13 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 		go func(idx int, data []byte) {
 			chunkStart := time.Now()
 
-			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(idx), ics07_tendermint.ProgramID)
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(idx), ics07_tendermint.ProgramID)
 			if err != nil {
 				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to derive chunk PDA: %w", err), duration: time.Since(chunkStart)}
 				return
 			}
 
 			params := ics07_tendermint.Ics07TendermintTypesUploadMisbehaviourChunkParams{
-				ClientId:   clientID,
 				ChunkIndex: uint8(idx),
 				ChunkData:  data,
 			}
@@ -1083,7 +1082,10 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 				params,
 				chunkPDA,
 				clientStatePDA,
+				appStatePDA,
+				accessManagerPDA,
 				user.PublicKey(),
+				solana.SysVarInstructionsPubkey,
 				solana.SystemProgramID,
 			)
 			if err != nil {
@@ -1101,6 +1103,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 				[]solana.Instruction{ix},
 				recent.Value.Blockhash,
 				solana.TransactionPayer(user.PublicKey()),
+				solana.TransactionAddressTables(addressTables),
 			)
 			if err != nil {
 				chunkResults <- chunkResult{chunkIdx: idx, err: fmt.Errorf("failed to create transaction: %w", err), duration: time.Since(chunkStart)}
@@ -1141,9 +1144,6 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	t.Logf("--- Phase 2: Assembling and submitting misbehaviour ---")
 	assemblyStart := time.Now()
 
-	appStatePDA, _ := Ics07Tendermint.AppStatePDA(ics07_tendermint.ProgramID)
-	accessManagerPDA, _ := AccessManager.AccessManagerPDA(access_manager.ProgramID)
-
 	// Convert heights to bytes for consensus state PDA
 	height1Bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(height1Bytes, trustedHeight1)
@@ -1155,8 +1155,9 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
-		clientID,
 		uint8(len(chunks)),
+		trustedHeight1,
+		trustedHeight2,
 		clientStatePDA,
 		appStatePDA,
 		accessManagerPDA,
@@ -1170,7 +1171,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	// Add remaining accounts (chunk accounts) to the instruction
 	if ix, ok := assembleIx.(*solana.GenericInstruction); ok {
 		for i := 0; i < len(chunks); i++ {
-			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), clientID, uint8(i), ics07_tendermint.ProgramID)
+			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(i), ics07_tendermint.ProgramID)
 			require.NoError(err, "Failed to derive chunk PDA for assembly")
 			ix.AccountValues = append(ix.AccountValues, solana.Meta(chunkPDA).WRITE())
 		}

@@ -2,7 +2,6 @@ use super::*;
 use crate::error::ErrorCode;
 use crate::state::MisbehaviourChunk;
 use crate::test_helpers::{fixtures::assert_error_code, PROGRAM_BINARY_PATH};
-use crate::types::{ClientState, IbcHeight};
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -15,12 +14,10 @@ use solana_sdk::account::Account;
 struct TestAccounts {
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
-    client_state_pda: Pubkey,
     accounts: Vec<(Pubkey, Account)>,
 }
 
 fn setup_test_accounts_with_chunks(
-    client_id: &str,
     submitter: Pubkey,
     num_chunks: u8,
     with_populated_chunks: bool,
@@ -31,7 +28,6 @@ fn setup_test_accounts_with_chunks(
             &[
                 crate::state::MisbehaviourChunk::SEED,
                 submitter.as_ref(),
-                client_id.as_bytes(),
                 &[i],
             ],
             &crate::ID,
@@ -39,12 +35,6 @@ fn setup_test_accounts_with_chunks(
         .0;
         chunk_pdas.push(chunk_pda);
     }
-
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, client_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
 
     let mut accounts = vec![];
 
@@ -54,37 +44,6 @@ fn setup_test_accounts_with_chunks(
             lamports: 10_000_000_000, // Will receive refunds
             data: vec![],
             owner: system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    ));
-
-    let client_state = ClientState {
-        chain_id: client_id.to_string(),
-        trust_level_numerator: 2,
-        trust_level_denominator: 3,
-        trusting_period: 86400,
-        unbonding_period: 172_800,
-        max_clock_drift: 600,
-        frozen_height: IbcHeight {
-            revision_number: 0,
-            revision_height: 0,
-        },
-        latest_height: IbcHeight {
-            revision_number: 0,
-            revision_height: 100,
-        },
-    };
-
-    let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
-
-    accounts.push((
-        client_state_pda,
-        Account {
-            lamports: 1_000_000,
-            data: client_data,
-            owner: crate::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -126,25 +85,14 @@ fn setup_test_accounts_with_chunks(
     TestAccounts {
         submitter,
         chunk_pdas,
-        client_state_pda,
         accounts,
     }
 }
 
-fn create_cleanup_instruction(
-    test_accounts: &TestAccounts,
-    client_id: String,
-    submitter: Pubkey,
-) -> Instruction {
-    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {
-        client_id,
-        submitter,
-    };
+fn create_cleanup_instruction(test_accounts: &TestAccounts) -> Instruction {
+    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {};
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(test_accounts.client_state_pda, false),
-        AccountMeta::new(test_accounts.submitter, true),
-    ];
+    let mut account_metas = vec![AccountMeta::new(test_accounts.submitter, true)];
 
     for chunk_pda in &test_accounts.chunk_pdas {
         account_metas.push(AccountMeta::new(*chunk_pda, false));
@@ -187,12 +135,11 @@ fn assert_instruction_fails_with_error(
 
 #[test]
 fn test_cleanup_successful_with_rent_reclaim() {
-    let client_id = "test-client";
     let num_chunks = 3;
     let submitter = Pubkey::new_unique();
 
     let test_accounts = setup_test_accounts_with_chunks(
-        client_id, submitter, num_chunks, true, // with populated chunks
+        submitter, num_chunks, true, // with populated chunks
     );
 
     // Calculate expected rent to be reclaimed
@@ -200,7 +147,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
     let total_expected_rent = chunk_rent_per * u64::from(num_chunks);
     let initial_submitter_balance = 10_000_000_000u64;
 
-    let instruction = create_cleanup_instruction(&test_accounts, client_id.to_string(), submitter);
+    let instruction = create_cleanup_instruction(&test_accounts);
 
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);
 
@@ -240,15 +187,7 @@ fn test_cleanup_successful_with_rent_reclaim() {
 
 #[test]
 fn test_cleanup_with_missing_chunks() {
-    let client_id = "test-client";
     let submitter = Pubkey::new_unique();
-
-    // Set up with only 2 out of 3 chunks actually created
-    let client_state_pda = Pubkey::find_program_address(
-        &[crate::types::ClientState::SEED, client_id.as_bytes()],
-        &crate::ID,
-    )
-    .0;
 
     let mut accounts = vec![];
 
@@ -264,45 +203,12 @@ fn test_cleanup_with_missing_chunks() {
         },
     ));
 
-    // Add client state
-    let client_state = ClientState {
-        chain_id: client_id.to_string(),
-        trust_level_numerator: 2,
-        trust_level_denominator: 3,
-        trusting_period: 86400,
-        unbonding_period: 172_800,
-        max_clock_drift: 600,
-        frozen_height: IbcHeight {
-            revision_number: 0,
-            revision_height: 0,
-        },
-        latest_height: IbcHeight {
-            revision_number: 0,
-            revision_height: 100,
-        },
-    };
-
-    let mut client_data = vec![];
-    client_state.try_serialize(&mut client_data).unwrap();
-
-    accounts.push((
-        client_state_pda,
-        Account {
-            lamports: 1_000_000,
-            data: client_data,
-            owner: crate::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    ));
-
     // Only add chunks 0 and 2, skip chunk 1
     for i in [0u8, 2u8] {
         let chunk_pda = Pubkey::find_program_address(
             &[
                 crate::state::MisbehaviourChunk::SEED,
                 submitter.as_ref(),
-                client_id.as_bytes(),
                 &[i],
             ],
             &crate::ID,
@@ -333,7 +239,6 @@ fn test_cleanup_with_missing_chunks() {
         &[
             crate::state::MisbehaviourChunk::SEED,
             submitter.as_ref(),
-            client_id.as_bytes(),
             &[1],
         ],
         &crate::ID,
@@ -351,15 +256,11 @@ fn test_cleanup_with_missing_chunks() {
         },
     ));
 
-    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {
-        client_id: client_id.to_string(),
-        submitter,
-    };
+    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {};
 
     let instruction = Instruction {
         program_id: crate::ID,
         accounts: vec![
-            AccountMeta::new_readonly(client_state_pda, false),
             AccountMeta::new(submitter, true),
             // Pass all chunk PDAs even though one is missing
             AccountMeta::new(
@@ -367,7 +268,6 @@ fn test_cleanup_with_missing_chunks() {
                     &[
                         crate::state::MisbehaviourChunk::SEED,
                         submitter.as_ref(),
-                        client_id.as_bytes(),
                         &[0],
                     ],
                     &crate::ID,
@@ -381,7 +281,6 @@ fn test_cleanup_with_missing_chunks() {
                     &[
                         crate::state::MisbehaviourChunk::SEED,
                         submitter.as_ref(),
-                        client_id.as_bytes(),
                         &[2],
                     ],
                     &crate::ID,
@@ -413,21 +312,16 @@ fn test_cleanup_with_missing_chunks() {
 
 #[test]
 fn test_cleanup_with_wrong_chunk_order() {
-    let client_id = "test-client";
     let submitter = Pubkey::new_unique();
 
-    let test_accounts = setup_test_accounts_with_chunks(client_id, submitter, 3, true);
+    let test_accounts = setup_test_accounts_with_chunks(submitter, 3, true);
 
-    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {
-        client_id: client_id.to_string(),
-        submitter,
-    };
+    let instruction_data = crate::instruction::CleanupIncompleteMisbehaviour {};
 
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
     let instruction = Instruction {
         program_id: crate::ID,
         accounts: vec![
-            AccountMeta::new_readonly(test_accounts.client_state_pda, false),
             AccountMeta::new(test_accounts.submitter, true),
             AccountMeta::new(test_accounts.chunk_pdas[2], false),
             AccountMeta::new(test_accounts.chunk_pdas[0], false),
@@ -451,13 +345,12 @@ fn test_cleanup_with_wrong_chunk_order() {
 
 #[test]
 fn test_cleanup_with_no_chunks() {
-    let client_id = "test-client";
     let submitter = Pubkey::new_unique();
 
     // Setup with no chunks at all
-    let test_accounts = setup_test_accounts_with_chunks(client_id, submitter, 0, false);
+    let test_accounts = setup_test_accounts_with_chunks(submitter, 0, false);
 
-    let instruction = create_cleanup_instruction(&test_accounts, client_id.to_string(), submitter);
+    let instruction = create_cleanup_instruction(&test_accounts);
 
     // Should succeed even with no chunks - it's a no-op
     let result = assert_instruction_succeeds(&instruction, &test_accounts.accounts);

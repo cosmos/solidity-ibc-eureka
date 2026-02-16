@@ -1,15 +1,61 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_misbehaviour;
-use crate::state::MisbehaviourChunk;
-use crate::AssembleAndSubmitMisbehaviour;
+use crate::state::{ConsensusStateStore, MisbehaviourChunk};
+use crate::types::{AppState, ClientState};
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
 
+#[derive(Accounts)]
+#[instruction(chunk_count: u8, trusted_height_1: u64, trusted_height_2: u64)]
+pub struct AssembleAndSubmitMisbehaviour<'info> {
+    #[account(
+        mut,
+        seeds = [ClientState::SEED],
+        bump
+    )]
+    pub client_state: Account<'info, ClientState>,
+
+    #[account(
+        seeds = [AppState::SEED],
+        bump
+    )]
+    pub app_state: Account<'info, AppState>,
+
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.access_manager
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_1.to_le_bytes()],
+        bump
+    )]
+    pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
+
+    #[account(
+        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_2.to_le_bytes()],
+        bump
+    )]
+    pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
+
+    #[account(mut)]
+    pub submitter: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+    // Remaining accounts are the chunk accounts in order
+}
+
 pub fn assemble_and_submit_misbehaviour<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndSubmitMisbehaviour<'info>>,
-    client_id: String,
     chunk_count: u8,
+    _trusted_height_1: u64,
+    _trusted_height_2: u64,
 ) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -27,7 +73,7 @@ pub fn assemble_and_submit_misbehaviour<'info>(
     let chunk_count = chunk_count as usize;
     let submitter = ctx.accounts.submitter.key();
 
-    let misbehaviour_bytes = assemble_chunks(&ctx, &client_id, submitter, chunk_count)?;
+    let misbehaviour_bytes = assemble_chunks(&ctx, submitter, chunk_count)?;
 
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
 
@@ -37,14 +83,13 @@ pub fn assemble_and_submit_misbehaviour<'info>(
         signature_verification_accounts,
     )?;
 
-    cleanup_chunks(&ctx, &client_id, submitter, chunk_count)?;
+    cleanup_chunks(&ctx, submitter, chunk_count)?;
 
     Ok(())
 }
 
 fn assemble_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
-    client_id: &str,
     submitter: Pubkey,
     chunk_count: usize,
 ) -> Result<Vec<u8>> {
@@ -53,7 +98,6 @@ fn assemble_chunks(
     for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         validate_and_load_chunk(
             chunk_account,
-            client_id,
             submitter,
             index as u8,
             &mut misbehaviour_bytes,
@@ -65,7 +109,6 @@ fn assemble_chunks(
 
 fn validate_and_load_chunk(
     chunk_account: &AccountInfo,
-    client_id: &str,
     submitter: Pubkey,
     index: u8,
     misbehaviour_bytes: &mut Vec<u8>,
@@ -73,7 +116,6 @@ fn validate_and_load_chunk(
     let expected_seeds = &[
         crate::state::MisbehaviourChunk::SEED,
         submitter.as_ref(),
-        client_id.as_bytes(),
         &[index],
     ];
     let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
@@ -159,7 +201,6 @@ fn process_misbehaviour<'info>(
 
 fn cleanup_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
-    client_id: &str,
     submitter: Pubkey,
     chunk_count: usize,
 ) -> Result<()> {
@@ -167,7 +208,6 @@ fn cleanup_chunks(
         let expected_seeds = &[
             crate::state::MisbehaviourChunk::SEED,
             submitter.as_ref(),
-            client_id.as_bytes(),
             &[index as u8],
         ];
         let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);

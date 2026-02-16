@@ -67,6 +67,7 @@ pub struct ClientState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
     pub access_manager: Pubkey,
+    pub chain_id: String,
     pub _reserved: [u8; 256],
 }
 
@@ -83,8 +84,8 @@ impl ClientState {
     pub const SEED: &'static [u8] = b"client";
 
     /// Get ICS07 client state PDA
-    pub fn pda(chain_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, chain_id.as_bytes()], &program_id)
+    pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], &program_id)
     }
 }
 
