@@ -16,7 +16,11 @@ pub fn derive_sequence_suffix(calling_program: &Pubkey, sender: &Pubkey) -> u16 
 }
 
 /// Calculates namespaced sequence: `base_sequence * 10000 + suffix`.
-/// Creates unique sequence ranges per (program, sender) pair for collision resistance.
+///
+/// `base_sequence` is a monotonically increasing counter stored on-chain per
+/// client, guaranteeing uniqueness across time. The suffix partitions the
+/// sequence space per (program, sender) pair so that different apps sharing
+/// the same client cannot produce colliding sequences.
 pub fn calculate_namespaced_sequence(
     base_sequence: u64,
     calling_program: &Pubkey,
