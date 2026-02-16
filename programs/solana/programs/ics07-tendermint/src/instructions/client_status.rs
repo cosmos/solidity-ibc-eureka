@@ -23,7 +23,6 @@ pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::test_helpers::chunk_test_utils::derive_client_state_pda;
     use crate::test_helpers::fixtures::*;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
