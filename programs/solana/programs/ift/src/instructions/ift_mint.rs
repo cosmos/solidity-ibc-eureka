@@ -14,7 +14,7 @@ use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, IFTMintMsg};
 #[derive(Accounts)]
 #[instruction(msg: IFTMintMsg)]
 pub struct IFTMint<'info> {
-    /// Global IFT app state (read-only, for gmp_program and paused check)
+    /// Global IFT app state (read-only, for `gmp_program` and paused check)
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
@@ -251,33 +251,24 @@ mod tests {
         let wrong_gmp_account = Pubkey::new_unique();
         let (system_program, system_account) = create_system_program_account();
 
-        let (app_state_account, app_mint_state_account) = if config.rate_limit_exceeded {
+        let app_state_account = create_ift_app_state_account_with_options(
+            app_state_bump,
+            Pubkey::new_unique(),
+            gmp_program,
+            config.token_paused,
+        );
+        let app_mint_state_account = if config.rate_limit_exceeded {
             // Set daily limit to 100 with usage already at 100, so any mint exceeds the limit
-            let global = create_ift_app_state_account_with_options(
-                app_state_bump,
-                Pubkey::new_unique(),
-                gmp_program,
-                config.token_paused,
-            );
-            let per_mint = create_ift_app_mint_state_account_full(IftAppMintStateParams {
+            create_ift_app_mint_state_account_full(IftAppMintStateParams {
                 mint,
                 bump: app_mint_state_bump,
                 mint_authority_bump,
                 daily_mint_limit: 100,
                 rate_limit_day: 0,
                 rate_limit_daily_usage: 100,
-            });
-            (global, per_mint)
+            })
         } else {
-            let global = create_ift_app_state_account_with_options(
-                app_state_bump,
-                Pubkey::new_unique(),
-                gmp_program,
-                config.token_paused,
-            );
-            let per_mint =
-                create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
-            (global, per_mint)
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump)
         };
 
         let ift_bridge_account = create_ift_bridge_account(

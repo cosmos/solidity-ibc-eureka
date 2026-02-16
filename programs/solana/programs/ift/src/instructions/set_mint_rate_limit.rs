@@ -14,7 +14,7 @@ pub struct SetMintRateLimit<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    /// Per-mint IFT app state (mut, for daily_mint_limit)
+    /// Per-mint IFT app state (mut, for `daily_mint_limit`)
     #[account(
         mut,
         seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],

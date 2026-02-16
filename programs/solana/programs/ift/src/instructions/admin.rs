@@ -49,7 +49,7 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    /// Per-mint IFT app state (for mint_authority_bump)
+    /// Per-mint IFT app state (for `mint_authority_bump`)
     #[account(
         seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump = app_mint_state.bump
