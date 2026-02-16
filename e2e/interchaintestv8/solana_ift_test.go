@@ -521,6 +521,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosToken2022() {
 			tokenProgramID,
 			associatedtokenaccount.ProgramID,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -712,6 +713,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 			newAuthorityWallet.PublicKey(),
 			s.SolanaRelayer.PublicKey(), // admin
 			token.ProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1104,6 +1106,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminMint() {
 			token.ProgramID,
 			associatedtokenaccount.ProgramID,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1273,6 +1276,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) registerSolanaIFTBridge(ctx context.Contex
 			s.SolanaRelayer.PublicKey(), // admin
 			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 

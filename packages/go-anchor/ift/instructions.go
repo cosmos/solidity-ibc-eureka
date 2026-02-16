@@ -191,6 +191,7 @@ func NewRegisterIftBridgeInstruction(
 	adminAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -227,6 +228,8 @@ func NewRegisterIftBridgeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -250,6 +253,7 @@ func NewRemoveIftBridgeInstruction(
 	adminAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -286,6 +290,8 @@ func NewRemoveIftBridgeInstruction(
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -587,6 +593,7 @@ func NewSetAdminInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -611,6 +618,8 @@ func NewSetAdminInstruction(
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -631,6 +640,7 @@ func NewRevokeMintAuthorityInstruction(
 	newMintAuthorityAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -664,6 +674,8 @@ func NewRevokeMintAuthorityInstruction(
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 6 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
+		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -684,6 +696,7 @@ func NewSetMintRateLimitInstruction(
 	appStateAccount solanago.PublicKey,
 	appMintStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -712,6 +725,8 @@ func NewSetMintRateLimitInstruction(
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
 		// Account 2 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -731,6 +746,7 @@ func NewSetPausedInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -755,6 +771,8 @@ func NewSetPausedInstruction(
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -783,6 +801,7 @@ func NewAdminMintInstruction(
 	tokenProgramAccount solanago.PublicKey,
 	associatedTokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -831,6 +850,8 @@ func NewAdminMintInstruction(
 		accounts__.Append(solanago.NewAccountMeta(associatedTokenProgramAccount, false, false))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 11 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

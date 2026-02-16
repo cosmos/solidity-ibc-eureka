@@ -404,6 +404,74 @@ pub fn create_token_program_account() -> (Pubkey, SolanaAccount) {
     )
 }
 
+/// Create instructions sysvar account for direct call (not CPI).
+/// The sysvar data indicates IFT program is the top-level caller.
+pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &crate::ID,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create instructions sysvar that simulates a CPI call from another program.
+/// Uses the real sysvar address but with a different program_id to simulate CPI context.
+pub fn create_cpi_instructions_sysvar_account(
+    caller_program_id: Pubkey,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &caller_program_id,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub fn get_gmp_result_pda(client_id: &str, sequence: u64, gmp_program: &Pubkey) -> (Pubkey, u8) {
     use solana_ibc_types::GMPCallResult;
     Pubkey::find_program_address(

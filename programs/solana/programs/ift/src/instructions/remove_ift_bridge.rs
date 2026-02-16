@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use solana_ibc_types::reject_cpi;
 
 use crate::constants::*;
 use crate::errors::IFTError;
@@ -42,9 +43,15 @@ pub struct RemoveIFTBridge<'info> {
     pub payer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn remove_ift_bridge(ctx: Context<RemoveIFTBridge>, client_id: String) -> Result<()> {
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
+
     let clock = Clock::get()?;
     emit!(IFTBridgeRemoved {
         mint: ctx.accounts.app_mint_state.mint,
@@ -83,6 +90,7 @@ mod tests {
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
             create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
@@ -108,6 +116,7 @@ mod tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::RemoveIftBridge {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -122,6 +131,7 @@ mod tests {
             (admin, create_signer_account()),
             (payer, create_signer_account()),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -178,6 +188,7 @@ mod tests {
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
             create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
@@ -210,6 +221,7 @@ mod tests {
                 AccountMeta::new_readonly(signer, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::RemoveIftBridge {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -224,6 +236,7 @@ mod tests {
             (signer, create_signer_account()),
             (payer, create_signer_account()),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -256,6 +269,7 @@ mod tests {
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
             create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
@@ -281,6 +295,7 @@ mod tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::RemoveIftBridge {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -295,6 +310,7 @@ mod tests {
             (admin, create_signer_account()),
             (payer, create_signer_account()),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -315,6 +331,74 @@ mod tests {
         assert_eq!(
             bridge_result.lamports, 0,
             "Bridge lamports should be zero after close"
+        );
+    }
+
+    #[test]
+    fn test_remove_ift_bridge_cpi_rejected() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (system_program, system_account) = create_system_program_account();
+        let (sysvar_id, sysvar_account) =
+            create_cpi_instructions_sysvar_account(Pubkey::new_unique());
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let bridge_account = create_ift_bridge_account(
+            mint,
+            TEST_CLIENT_ID,
+            "0x1234",
+            ChainOptions::Evm,
+            bridge_bump,
+            true,
+        );
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(bridge_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::RemoveIftBridge {
+                client_id: TEST_CLIENT_ID.to_string(),
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (bridge_pda, bridge_account),
+            (admin, create_signer_account()),
+            (payer, create_signer_account()),
+            (system_program, system_account),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::CpiNotAllowed as u32,
+            ))
+            .into(),
         );
     }
 }

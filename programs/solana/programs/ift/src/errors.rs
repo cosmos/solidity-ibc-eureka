@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use solana_ibc_types::CpiValidationError;
 
 /// Custom errors for ICS27 IFT program
 #[error_code]
@@ -101,4 +102,13 @@ pub enum IFTError {
 
     #[msg("Unauthorized: signer is not the admin")]
     UnauthorizedAdmin,
+
+    #[msg("CPI calls not allowed for this instruction")]
+    CpiNotAllowed,
+}
+
+impl From<CpiValidationError> for IFTError {
+    fn from(_: CpiValidationError) -> Self {
+        Self::CpiNotAllowed
+    }
 }
