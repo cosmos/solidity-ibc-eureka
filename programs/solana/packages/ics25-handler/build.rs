@@ -15,6 +15,7 @@ fn main() {
     // Light client discriminators
     let verify_membership_discm = compute_discriminator("global", "verify_membership");
     let verify_non_membership_discm = compute_discriminator("global", "verify_non_membership");
+    let client_status_discm = compute_discriminator("global", "client_status");
 
     let out_dir = env::var("OUT_DIR").expect("OUT_DIR environment variable not set");
     let dest_path = Path::new(&out_dir).join("discriminators.rs");
@@ -33,6 +34,10 @@ pub mod discriminators {{
     /// Discriminator for `verify_non_membership` instruction
     /// Computed from `sha256("global:verify_non_membership")`
     pub const VERIFY_NON_MEMBERSHIP: [u8; {ANCHOR_DISCRIMINATOR_SIZE}] = {verify_non_membership_discm:?};
+
+    /// Discriminator for `client_status` instruction
+    /// Computed from `sha256("global:client_status")`
+    pub const CLIENT_STATUS: [u8; {ANCHOR_DISCRIMINATOR_SIZE}] = {client_status_discm:?};
 }}
 "#
     );

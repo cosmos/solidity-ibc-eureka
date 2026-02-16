@@ -109,15 +109,6 @@ impl IFTAppState {
     pub fn seeds(mint: &Pubkey) -> Vec<Vec<u8>> {
         vec![IFT_APP_STATE_SEED.to_vec(), mint.as_ref().to_vec()]
     }
-
-    /// Get signer seeds for this app state
-    pub fn signer_seeds(&self) -> Vec<Vec<u8>> {
-        vec![
-            IFT_APP_STATE_SEED.to_vec(),
-            self.mint.as_ref().to_vec(),
-            vec![self.bump],
-        ]
-    }
 }
 
 /// IFT Bridge configuration for a counterparty chain
@@ -131,13 +122,11 @@ pub struct IFTBridge {
     pub mint: Pubkey,
 
     /// IBC client identifier for this bridge
-    //TODO: Use const
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
 
     /// IFT contract address on counterparty chain (EVM address or Cosmos bech32)
-    //TODO: Use const
-    #[max_len(128)]
+    #[max_len(MAX_COUNTERPARTY_ADDRESS_LENGTH)]
     pub counterparty_ift_address: String,
 
     /// Chain-specific options for constructing mint calls

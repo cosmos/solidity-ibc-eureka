@@ -16,6 +16,8 @@ pub fn send_packet_cpi<'a>(
     payer: &AccountInfo<'a>,
     ibc_app: &AccountInfo<'a>,
     client: &AccountInfo<'a>,
+    light_client_program: &AccountInfo<'a>,
+    client_state: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     msg: MsgSendPacket,
 ) -> Result<u64> {
@@ -28,6 +30,8 @@ pub fn send_packet_cpi<'a>(
         payer: payer.clone(),
         system_program: system_program.clone(),
         client: client.clone(),
+        light_client_program: light_client_program.clone(),
+        client_state: client_state.clone(),
     };
 
     let bump_slice = [bump];

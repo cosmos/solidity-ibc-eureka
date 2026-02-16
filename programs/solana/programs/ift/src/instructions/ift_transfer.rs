@@ -113,6 +113,12 @@ pub struct IFTTransfer<'info> {
     #[account()]
     pub ibc_client: AccountInfo<'info>,
 
+    /// CHECK: Light client program, forwarded through GMP to router
+    pub light_client_program: AccountInfo<'info>,
+
+    /// CHECK: Client state for light client status check
+    pub light_client_state: AccountInfo<'info>,
+
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
     #[account(mut)]
@@ -171,6 +177,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
         ibc_app: ctx.accounts.gmp_ibc_app.clone(),
         client: ctx.accounts.ibc_client.clone(),
+        light_client_program: ctx.accounts.light_client_program.clone(),
+        client_state: ctx.accounts.light_client_state.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -247,8 +255,6 @@ fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     let receiver_bytes =
         hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    // lagging,, lagging
-    // TODO: eth address const
     let receiver_array: [u8; 20] = receiver_bytes
         .try_into()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
@@ -701,6 +707,8 @@ mod tests {
         let packet_commitment = Pubkey::new_unique();
         let gmp_ibc_app = Pubkey::new_unique();
         let ibc_client = Pubkey::new_unique();
+        let light_client_program = Pubkey::new_unique();
+        let light_client_state = Pubkey::new_unique();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -730,6 +738,8 @@ mod tests {
                 AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new_readonly(gmp_ibc_app, false),
                 AccountMeta::new_readonly(ibc_client, false),
+                AccountMeta::new_readonly(light_client_program, false),
+                AccountMeta::new_readonly(light_client_state, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -753,6 +763,8 @@ mod tests {
             (instructions_sysvar, instructions_account),
             (gmp_ibc_app, create_signer_account()),
             (ibc_client, create_signer_account()),
+            (light_client_program, create_signer_account()),
+            (light_client_state, create_signer_account()),
             (pending_transfer, create_uninitialized_pda()),
         ];
 

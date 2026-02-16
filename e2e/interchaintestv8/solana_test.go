@@ -643,6 +643,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			TimeoutTimestamp: time.Now().Unix() + 3600,
 		}
 
+		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
@@ -652,6 +653,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			clientSequence,
 			packetCommitment,
 			client,
+			ics07_tendermint.ProgramID,
+			lightClientStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -822,6 +825,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			Memo:             memo,
 		}
 
+		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 		sendTransferInstruction, err := test_ibc_app.NewSendTransferInstruction(
 			transferMsg,
 			appState,
@@ -833,6 +837,8 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			clientSequence,
 			packetCommitment,
 			client,
+			ics07_tendermint.ProgramID,
+			lightClientStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)

@@ -459,7 +459,6 @@ func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keyp
 	return programID, nil
 }
 
-// TODO: Remove after merge
 func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
 	s.submitChunkedUpdateClient(ctx, t, require, resp, user, false)

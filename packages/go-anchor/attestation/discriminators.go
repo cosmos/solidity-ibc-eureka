@@ -23,4 +23,5 @@ var (
 	Instruction_VerifyMembership    = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
 	Instruction_VerifyNonMembership = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
 	Instruction_UpdateClient        = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
+	Instruction_ClientStatus        = [8]byte{75, 93, 126, 21, 10, 112, 109, 139}
 )

@@ -67,7 +67,7 @@ func NewCreateSplTokenInstruction(
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
 		// Account 3 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 4 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 5 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -131,7 +131,7 @@ func NewInitializeExistingTokenInstruction(
 		accounts__.Append(solanago.NewAccountMeta(currentAuthorityAccount, false, true))
 		// Account 4 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 5 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 5 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -277,6 +277,8 @@ func NewIftTransferInstruction(
 	instructionSysvarAccount solanago.PublicKey,
 	gmpIbcAppAccount solanago.PublicKey,
 	ibcClientAccount solanago.PublicKey,
+	lightClientProgramAccount solanago.PublicKey,
+	lightClientStateAccount solanago.PublicKey,
 	pendingTransferAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -314,7 +316,7 @@ func NewIftTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, true))
 		// Account 5 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 6 "token_program": Read-only, Non-signer, Required
 		// Required for burning tokens from sender's account
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 7 "system_program": Read-only, Non-signer, Required
@@ -346,7 +348,11 @@ func NewIftTransferInstruction(
 		// Account 16 "ibc_client": Read-only, Non-signer, Required
 		// IBC client account
 		accounts__.Append(solanago.NewAccountMeta(ibcClientAccount, false, false))
-		// Account 17 "pending_transfer": Writable, Non-signer, Required
+		// Account 17 "light_client_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
+		// Account 18 "light_client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientStateAccount, false, false))
+		// Account 19 "pending_transfer": Writable, Non-signer, Required
 		// Pending transfer account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
@@ -424,7 +430,7 @@ func NewIftMintInstruction(
 		accounts__.Append(solanago.NewAccountMeta(gmpAccountAccount, false, true))
 		// Account 8 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 9 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 9 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 10 "associated_token_program": Read-only, Non-signer, Required, Address: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
 		accounts__.Append(solanago.NewAccountMeta(associatedTokenProgramAccount, false, false))
@@ -504,7 +510,7 @@ func NewFinalizeTransferInstruction(
 		// Account 6 "payer": Writable, Signer, Required
 		// Payer receives rent from closed `PendingTransfer` account
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 7 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 7 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 8 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -602,7 +608,7 @@ func NewRevokeMintAuthorityInstruction(
 		// Account 5 "payer": Writable, Signer, Required
 		// Payer receives rent from closed `app_state`
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 6 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 	}
 
@@ -755,7 +761,7 @@ func NewAdminMintInstruction(
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 6 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 7 "token_program": Read-only, Non-signer, Required, Address: TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA
+		// Account 7 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 8 "associated_token_program": Read-only, Non-signer, Required, Address: ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL
 		accounts__.Append(solanago.NewAccountMeta(associatedTokenProgramAccount, false, false))

@@ -65,4 +65,8 @@ pub mod attestation {
     ) -> Result<()> {
         instructions::update_client::update_client(ctx, new_height, params)
     }
+
+    pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
+        instructions::client_status::client_status(ctx)
+    }
 }
