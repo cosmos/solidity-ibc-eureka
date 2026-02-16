@@ -238,7 +238,6 @@ impl AttestedTxBuilder {
         );
 
         let update_tx = self.build_attestation_update_client_tx(
-            dst_client_id,
             target_height,
             proof_bytes,
             light_client_program_id,
@@ -257,7 +256,6 @@ impl AttestedTxBuilder {
     /// Build update_client transaction bytes for attestation light client.
     fn build_attestation_update_client_tx(
         &self,
-        client_id: &str,
         new_height: u64,
         proof: Vec<u8>,
         light_client_program_id: Pubkey,
@@ -292,10 +290,6 @@ impl AttestedTxBuilder {
         }
 
         let mut data = discriminator.to_vec();
-        client_id
-            .to_string()
-            .serialize(&mut data)
-            .context("Failed to serialize client_id")?;
         new_height
             .serialize(&mut data)
             .context("Failed to serialize new_height")?;
@@ -307,13 +301,13 @@ impl AttestedTxBuilder {
             program_id: light_client_program_id,
             accounts: vec![
                 solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
+                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
                 solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
                 solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
                 solana_sdk::instruction::AccountMeta::new_readonly(
                     solana_sdk::sysvar::instructions::ID,
                     false,
                 ),
-                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
                 solana_sdk::instruction::AccountMeta::new(self.tx_builder.fee_payer, true),
                 solana_sdk::instruction::AccountMeta::new_readonly(
                     solana_sdk::system_program::ID,
