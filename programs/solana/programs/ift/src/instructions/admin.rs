@@ -43,10 +43,8 @@ pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
 /// Revoke mint authority from IFT and transfer it to a new authority.
 #[derive(Accounts)]
 pub struct RevokeMintAuthority<'info> {
-    /// IFT app state (will be closed)
+    /// IFT app state
     #[account(
-        mut,
-        close = payer,
         seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
         bump = app_state.bump
     )]
@@ -77,15 +75,10 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub admin: Signer<'info>,
 
-    /// Payer receives rent from closed `app_state`
-    #[account(mut)]
-    pub payer: Signer<'info>,
-
     pub token_program: Interface<'info, TokenInterface>,
 }
 
-/// Revoke mint authority and close IFT app state.
-/// Transfers mint authority back to the specified new authority.
+/// Revoke mint authority and transfer it to the specified new authority.
 pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
     let mint_key = ctx.accounts.mint.key();
     let mint_authority_bump = ctx.accounts.app_state.mint_authority_bump;
@@ -467,7 +460,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
         let new_mint_authority = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
@@ -487,12 +479,11 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new_readonly(new_mint_authority, false),
                 AccountMeta::new_readonly(unauthorized, true),
-                AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(token_program_id, false),
             ],
             data: crate::instruction::RevokeMintAuthority {}.data(),
@@ -504,7 +495,6 @@ mod tests {
             (mint_authority_pda, create_signer_account()),
             (new_mint_authority, create_signer_account()),
             (unauthorized, create_signer_account()),
-            (payer, create_signer_account()),
             (token_program_id, token_program_account),
         ];
 

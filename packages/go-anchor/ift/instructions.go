@@ -575,7 +575,6 @@ func NewRevokeMintAuthorityInstruction(
 	mintAuthorityAccount solanago.PublicKey,
 	newMintAuthorityAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
-	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -590,9 +589,9 @@ func NewRevokeMintAuthorityInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "app_state": Writable, Non-signer, Required
-		// IFT app state (will be closed)
-		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 0 "app_state": Read-only, Non-signer, Required
+		// IFT app state
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "mint": Writable, Non-signer, Required
 		// SPL Token mint - authority will be transferred
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
@@ -605,10 +604,7 @@ func NewRevokeMintAuthorityInstruction(
 		// Account 4 "admin": Read-only, Signer, Required
 		// Admin signer
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
-		// Account 5 "payer": Writable, Signer, Required
-		// Payer receives rent from closed `app_state`
-		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "token_program": Read-only, Non-signer, Required
+		// Account 5 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 	}
 
