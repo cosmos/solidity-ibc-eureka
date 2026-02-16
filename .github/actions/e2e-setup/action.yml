@@ -22,7 +22,7 @@ runs:
         timeout_minutes: 10
         max_attempts: 3
         retry_wait_seconds: 5
-        command: docker pull ghcr.io/cosmos/wfchain:latest
+        command: docker pull ghcr.io/cosmos/wfchain:mariuszzak-ift-pda-sender-validationt
       continue-on-error: true
 
     - name: Set up foundry tooling
