@@ -708,7 +708,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 			iftMintAuthorityPDA,
 			newAuthorityWallet.PublicKey(),
 			s.SolanaRelayer.PublicKey(), // admin
-			s.SolanaRelayer.PublicKey(), // payer
 			token.ProgramID,
 		)
 		s.Require().NoError(err)
@@ -726,8 +725,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_RevokeMintAuthority() {
 		s.T().Logf("Mint authority transferred to: %s", newAuthorityWallet.PublicKey())
 	}))
 
-	s.Require().True(s.Run("Verify IFT app state closed", func() {
-		s.Solana.Chain.VerifyIftAppStateClosed(ctx, s.T(), s.Require(), ift.ProgramID, s.IFTMint())
+	s.Require().True(s.Run("Verify IFT app state still exists", func() {
+		s.Solana.Chain.VerifyIftAppStateExists(ctx, s.T(), s.Require(), ift.ProgramID, s.IFTMint())
 	}))
 
 	s.Require().True(s.Run("Verify new authority can mint tokens", func() {
