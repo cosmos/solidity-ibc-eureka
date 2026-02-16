@@ -1,28 +1,36 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::spl_token::instruction::AuthorityType;
-use anchor_spl::token::{set_authority, Mint, SetAuthority, Token};
+use anchor_spl::token_interface::spl_token_2022::instruction::AuthorityType;
+use anchor_spl::token_interface::{set_authority, Mint, SetAuthority, TokenInterface};
 
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::ExistingTokenInitialized;
-use crate::state::{AccountVersion, IFTAppState};
+use crate::state::{AccountVersion, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
 pub struct InitializeExistingToken<'info> {
+    /// Global IFT app state (must exist)
+    #[account(
+        seeds = [IFT_APP_STATE_SEED],
+        bump = app_state.bump
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// Per-mint IFT app state PDA (to be created)
     #[account(
         init,
         payer = payer,
-        space = 8 + IFTAppState::INIT_SPACE,
-        seeds = [IFT_APP_STATE_SEED, mint.key().as_ref()],
+        space = 8 + IFTAppMintState::INIT_SPACE,
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump
     )]
-    pub app_state: Account<'info, IFTAppState>,
+    pub app_mint_state: Account<'info, IFTAppMintState>,
 
     #[account(
         mut,
         constraint = mint.mint_authority.is_some() @ IFTError::MintAuthorityNotSet
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// CHECK: PDA that will become the new mint authority
     #[account(
@@ -39,15 +47,11 @@ pub struct InitializeExistingToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn initialize_existing_token(
-    ctx: Context<InitializeExistingToken>,
-    admin: Pubkey,
-    gmp_program: Pubkey,
-) -> Result<()> {
+pub fn initialize_existing_token(ctx: Context<InitializeExistingToken>) -> Result<()> {
     let cpi_accounts = SetAuthority {
         account_or_mint: ctx.accounts.mint.to_account_info(),
         current_authority: ctx.accounts.current_authority.to_account_info(),
@@ -59,21 +63,17 @@ pub fn initialize_existing_token(
         Some(ctx.accounts.mint_authority.key()),
     )?;
 
-    let app_state = &mut ctx.accounts.app_state;
-    app_state.version = AccountVersion::V1;
-    app_state.bump = ctx.bumps.app_state;
-    app_state.mint = ctx.accounts.mint.key();
-    app_state.mint_authority_bump = ctx.bumps.mint_authority;
-    app_state.admin = admin;
-    app_state.gmp_program = gmp_program;
+    let app_mint_state = &mut ctx.accounts.app_mint_state;
+    app_mint_state.version = AccountVersion::V1;
+    app_mint_state.bump = ctx.bumps.app_mint_state;
+    app_mint_state.mint = ctx.accounts.mint.key();
+    app_mint_state.mint_authority_bump = ctx.bumps.mint_authority;
 
     let clock = Clock::get()?;
     emit!(ExistingTokenInitialized {
         mint: ctx.accounts.mint.key(),
         decimals: ctx.accounts.mint.decimals,
         previous_authority: ctx.accounts.current_authority.key(),
-        admin,
-        gmp_program,
         timestamp: clock.unix_timestamp,
     });
 
@@ -120,6 +120,8 @@ mod tests {
         current_authority: Pubkey,
         payer: Pubkey,
         app_state_pda: Pubkey,
+        app_state_bump: u8,
+        app_mint_state_pda: Pubkey,
         mint_authority_pda: Pubkey,
         admin: Pubkey,
         gmp_program: Pubkey,
@@ -130,7 +132,8 @@ mod tests {
         let mint = Pubkey::new_unique();
         let current_authority = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let (app_state_pda, _) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
         let admin = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
@@ -141,6 +144,8 @@ mod tests {
             current_authority,
             payer,
             app_state_pda,
+            app_state_bump,
+            app_mint_state_pda,
             mint_authority_pda,
             admin,
             gmp_program,
@@ -151,7 +156,8 @@ mod tests {
         Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(ctx.app_state_pda, false),
+                AccountMeta::new_readonly(ctx.app_state_pda, false),
+                AccountMeta::new(ctx.app_mint_state_pda, false),
                 AccountMeta::new(ctx.mint, false),
                 AccountMeta::new_readonly(ctx.mint_authority_pda, false),
                 AccountMeta::new_readonly(ctx.current_authority, true),
@@ -159,11 +165,7 @@ mod tests {
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
-            data: crate::instruction::InitializeExistingToken {
-                admin: ctx.admin,
-                gmp_program: ctx.gmp_program,
-            }
-            .data(),
+            data: crate::instruction::InitializeExistingToken {}.data(),
         }
     }
 
@@ -177,7 +179,11 @@ mod tests {
         let (clock_sysvar, clock_account) = create_clock_sysvar_account(1_700_000_000);
 
         let accounts = vec![
-            (ctx.app_state_pda, create_uninitialized_pda()),
+            (
+                ctx.app_state_pda,
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+            ),
+            (ctx.app_mint_state_pda, create_uninitialized_pda()),
             (ctx.mint, create_mint_account_no_authority(6)),
             (
                 ctx.mint_authority_pda,
@@ -211,7 +217,11 @@ mod tests {
         let (clock_sysvar, clock_account) = create_clock_sysvar_account(1_700_000_000);
 
         let accounts = vec![
-            (ctx.app_state_pda, create_uninitialized_pda()),
+            (
+                ctx.app_state_pda,
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+            ),
+            (ctx.app_mint_state_pda, create_uninitialized_pda()),
             (ctx.mint, create_mint_account(actual_authority, 6)), // Different authority
             (
                 ctx.mint_authority_pda,
@@ -235,25 +245,27 @@ mod tests {
     }
 
     #[test]
-    fn test_app_state_already_exists_fails() {
+    fn test_app_mint_state_already_exists_fails() {
         let ctx = setup_test();
         let instruction = build_instruction(&ctx);
 
         let (token_program, token_program_account) = create_token_program_account();
         let (system_program, system_program_account) = create_system_program_account();
         let (clock_sysvar, clock_account) = create_clock_sysvar_account(1_700_000_000);
-        let (_, app_state_bump) = get_app_state_pda(&ctx.mint);
+        let (_, app_mint_state_bump) = get_app_mint_state_pda(&ctx.mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&ctx.mint);
 
         let accounts = vec![
             (
                 ctx.app_state_pda,
-                create_ift_app_state_account(
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+            ),
+            (
+                ctx.app_mint_state_pda,
+                create_ift_app_mint_state_account(
                     ctx.mint,
-                    app_state_bump,
+                    app_mint_state_bump,
                     mint_authority_bump,
-                    ctx.admin,
-                    ctx.gmp_program,
                 ),
             ),
             (ctx.mint, create_mint_account(ctx.current_authority, 6)),

@@ -1,6 +1,5 @@
 use anchor_lang::prelude::*;
 
-pub mod abi_encode;
 pub mod constants;
 pub mod errors;
 pub mod events;
@@ -25,23 +24,19 @@ declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
 pub mod ift {
     use super::*;
 
+    /// Initialize global IFT state (once-only)
+    pub fn initialize(ctx: Context<Initialize>, admin: Pubkey, gmp_program: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, admin, gmp_program)
+    }
+
     /// Create a new SPL token mint for IFT
-    pub fn create_spl_token(
-        ctx: Context<CreateSplToken>,
-        decimals: u8,
-        admin: Pubkey,
-        gmp_program: Pubkey,
-    ) -> Result<()> {
-        instructions::create_spl_token(ctx, decimals, admin, gmp_program)
+    pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
+        instructions::create_spl_token(ctx, decimals)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority
-    pub fn initialize_existing_token(
-        ctx: Context<InitializeExistingToken>,
-        admin: Pubkey,
-        gmp_program: Pubkey,
-    ) -> Result<()> {
-        instructions::initialize_existing_token(ctx, admin, gmp_program)
+    pub fn initialize_existing_token(ctx: Context<InitializeExistingToken>) -> Result<()> {
+        instructions::initialize_existing_token(ctx)
     }
 
     /// Register an IFT bridge to a counterparty chain
@@ -68,9 +63,13 @@ pub mod ift {
         instructions::ift_mint(ctx, msg)
     }
 
-    /// Claim refund for a pending transfer after GMP result is recorded and proved ack/timeout.
-    pub fn claim_refund(ctx: Context<ClaimRefund>, client_id: String, sequence: u64) -> Result<()> {
-        instructions::claim_refund(ctx, client_id, sequence)
+    /// Finalize a pending transfer after GMP result is recorded and proved ack/timeout.
+    pub fn finalize_transfer(
+        ctx: Context<FinalizeTransfer>,
+        client_id: String,
+        sequence: u64,
+    ) -> Result<()> {
+        instructions::finalize_transfer(ctx, client_id, sequence)
     }
 
     /// Set the admin authority (admin only)

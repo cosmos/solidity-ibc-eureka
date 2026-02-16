@@ -52,7 +52,7 @@ pub fn main() {
         })
         .unzip();
 
-    membership(app_hash, &kv_pairs).unwrap();
+    membership(app_hash, kv_pairs.into_iter()).unwrap();
 
     // Convert output to Solidity format
     let sol_output = SolMembershipOutput {

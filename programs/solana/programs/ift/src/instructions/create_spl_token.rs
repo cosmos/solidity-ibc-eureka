@@ -1,22 +1,29 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{Mint, Token};
+use anchor_spl::token_interface::{Mint, TokenInterface};
 
 use crate::constants::*;
 use crate::events::SplTokenCreated;
-use crate::state::{AccountVersion, IFTAppState};
+use crate::state::{AccountVersion, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
 #[instruction(decimals: u8)]
 pub struct CreateSplToken<'info> {
-    /// IFT app state PDA (to be created)
+    /// Global IFT app state (must exist)
+    #[account(
+        seeds = [IFT_APP_STATE_SEED],
+        bump = app_state.bump
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// Per-mint IFT app state PDA (to be created)
     #[account(
         init,
         payer = payer,
-        space = 8 + IFTAppState::INIT_SPACE,
-        seeds = [IFT_APP_STATE_SEED, mint.key().as_ref()],
+        space = 8 + IFTAppMintState::INIT_SPACE,
+        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump
     )]
-    pub app_state: Account<'info, IFTAppState>,
+    pub app_mint_state: Account<'info, IFTAppMintState>,
 
     /// SPL Token mint (created by IFT with PDA as authority)
     #[account(
@@ -24,8 +31,9 @@ pub struct CreateSplToken<'info> {
         payer = payer,
         mint::decimals = decimals,
         mint::authority = mint_authority,
+        mint::token_program = token_program,
     )]
-    pub mint: Account<'info, Mint>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     /// Mint authority PDA
     /// CHECK: Derived PDA set as mint authority
@@ -38,30 +46,21 @@ pub struct CreateSplToken<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    pub token_program: Program<'info, Token>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_spl_token(
-    ctx: Context<CreateSplToken>,
-    decimals: u8,
-    admin: Pubkey,
-    gmp_program: Pubkey,
-) -> Result<()> {
-    let app_state = &mut ctx.accounts.app_state;
-    app_state.version = AccountVersion::V1;
-    app_state.bump = ctx.bumps.app_state;
-    app_state.mint = ctx.accounts.mint.key();
-    app_state.mint_authority_bump = ctx.bumps.mint_authority;
-    app_state.admin = admin;
-    app_state.gmp_program = gmp_program;
+pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
+    let app_mint_state = &mut ctx.accounts.app_mint_state;
+    app_mint_state.version = AccountVersion::V1;
+    app_mint_state.bump = ctx.bumps.app_mint_state;
+    app_mint_state.mint = ctx.accounts.mint.key();
+    app_mint_state.mint_authority_bump = ctx.bumps.mint_authority;
 
     let clock = Clock::get()?;
     emit!(SplTokenCreated {
         mint: ctx.accounts.mint.key(),
         decimals,
-        admin,
-        gmp_program,
         timestamp: clock.unix_timestamp,
     });
 
@@ -77,7 +76,7 @@ mod tests {
         rent::Rent,
     };
 
-    use crate::state::IFTAppState;
+    use crate::state::IFTAppMintState;
     use crate::test_utils::*;
 
     fn create_empty_mint_account() -> solana_sdk::account::Account {
@@ -100,13 +99,14 @@ mod tests {
         let admin = Pubkey::new_unique();
         let gmp_program = Pubkey::new_unique();
 
-        // Use wrong mint for PDA derivation
-        let (wrong_app_state_pda, _) = get_app_state_pda(&wrong_mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        // Use wrong mint for per-mint PDA derivation
+        let (wrong_app_mint_state_pda, _) = get_app_mint_state_pda(&wrong_mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = solana_sdk::account::Account {
-            lamports: Rent::default().minimum_balance(8 + IFTAppState::INIT_SPACE),
+        let app_mint_state_account = solana_sdk::account::Account {
+            lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
             data: vec![],
             owner: solana_sdk::system_program::ID,
             executable: false,
@@ -132,23 +132,23 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(wrong_app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(wrong_app_mint_state_pda, false),
                 AccountMeta::new(mint, true), // mint must sign for init
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::CreateSplToken {
-                decimals: 6,
-                admin,
-                gmp_program,
-            }
-            .data(),
+            data: crate::instruction::CreateSplToken { decimals: 6 }.data(),
         };
 
         let accounts = vec![
-            (wrong_app_state_pda, app_state_account),
+            (
+                app_state_pda,
+                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+            ),
+            (wrong_app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),
             (mint_authority_pda, mint_authority_account),
             (payer, create_signer_account()),

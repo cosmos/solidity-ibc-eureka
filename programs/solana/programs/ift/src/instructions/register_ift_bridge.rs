@@ -3,24 +3,31 @@ use anchor_lang::prelude::*;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTBridgeRegistered;
-use crate::state::{AccountVersion, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
+use crate::state::{AccountVersion, IFTAppMintState, IFTAppState, IFTBridge, RegisterIFTBridgeMsg};
 
 #[derive(Accounts)]
 #[instruction(msg: RegisterIFTBridgeMsg)]
 pub struct RegisterIFTBridge<'info> {
+    /// Global IFT app state (read-only, for admin check)
     #[account(
-        mut,
-        seeds = [IFT_APP_STATE_SEED, app_state.mint.as_ref()],
+        seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
     )]
     pub app_state: Account<'info, IFTAppState>,
+
+    /// Per-mint IFT app state (for mint reference)
+    #[account(
+        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        bump = app_mint_state.bump,
+    )]
+    pub app_mint_state: Account<'info, IFTAppMintState>,
 
     /// IFT bridge PDA (to be created)
     #[account(
         init,
         payer = payer,
         space = 8 + IFTBridge::INIT_SPACE,
-        seeds = [IFT_BRIDGE_SEED, app_state.mint.as_ref(), msg.client_id.as_bytes()],
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
@@ -60,7 +67,7 @@ pub fn register_ift_bridge(
     let bridge = &mut ctx.accounts.ift_bridge;
     bridge.version = AccountVersion::V1;
     bridge.bump = ctx.bumps.ift_bridge;
-    bridge.mint = ctx.accounts.app_state.mint;
+    bridge.mint = ctx.accounts.app_mint_state.mint;
     bridge.client_id.clone_from(&msg.client_id);
     bridge
         .counterparty_ift_address
@@ -70,7 +77,7 @@ pub fn register_ift_bridge(
 
     let clock = Clock::get()?;
     emit!(IFTBridgeRegistered {
-        mint: ctx.accounts.app_state.mint,
+        mint: ctx.accounts.app_mint_state.mint,
         client_id: msg.client_id,
         counterparty_ift_address: msg.counterparty_ift_address,
         chain_options: msg.chain_options,
@@ -104,18 +111,17 @@ mod tests {
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, _) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
@@ -134,7 +140,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new(payer, true),
@@ -145,6 +152,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (bridge_pda, bridge_account),
             (admin, create_signer_account()),
             (payer, create_signer_account()),
@@ -304,18 +312,17 @@ mod tests {
             &config.client_id
         };
 
-        let (app_state_pda, app_state_bump) = get_app_state_pda(&mint);
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (bridge_pda, _) = get_bridge_pda(&mint, pda_client_id);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(
-            mint,
-            app_state_bump,
-            mint_authority_bump,
-            admin,
-            Pubkey::new_unique(),
-        );
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
 
         let bridge_account = solana_sdk::account::Account {
             lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
@@ -340,7 +347,8 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
                 AccountMeta::new(bridge_pda, false),
                 AccountMeta::new_readonly(signer, true),
                 AccountMeta::new(payer, true),
@@ -351,6 +359,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
             (bridge_pda, bridge_account),
             (signer, create_signer_account()),
             (payer, create_signer_account()),

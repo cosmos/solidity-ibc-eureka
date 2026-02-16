@@ -249,7 +249,7 @@ impl super::TxBuilder {
         );
 
         // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
-        // Note: IFT claim_refund is handled as a separate transaction after ack completes
+        // Note: IFT finalize_transfer is handled as a separate transaction after ack completes
         if let Some(result_pda) = gmp::find_gmp_result_pda(
             source_port,
             &msg.packet.source_client,
@@ -280,7 +280,7 @@ impl super::TxBuilder {
             self.build_timeout_accounts_with_derived_keys(msg, source_port, chunk_accounts)?;
 
         // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
-        // Note: IFT claim_refund is handled as a separate transaction after timeout completes
+        // Note: IFT finalize_transfer is handled as a separate transaction after timeout completes
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         if let Some(result_pda) = gmp::find_gmp_result_pda(
             source_port,

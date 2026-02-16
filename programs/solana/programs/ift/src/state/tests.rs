@@ -5,37 +5,20 @@ use solana_sdk::pubkey::Pubkey;
 
 #[test]
 fn test_ift_app_state_seeds() {
-    let mint = Pubkey::new_unique();
-    let seeds = IFTAppState::seeds(&mint);
+    let seeds = IFTAppState::seeds();
 
-    assert_eq!(seeds.len(), 2);
+    assert_eq!(seeds.len(), 1);
     assert_eq!(seeds[0], IFT_APP_STATE_SEED.to_vec());
-    assert_eq!(seeds[1], mint.as_ref().to_vec());
 }
 
 #[test]
-fn test_ift_app_state_signer_seeds() {
+fn test_ift_app_mint_state_seeds() {
     let mint = Pubkey::new_unique();
-    let app_state = IFTAppState {
-        version: AccountVersion::V1,
-        bump: 255,
-        mint,
-        mint_authority_bump: 254,
-        admin: Pubkey::new_unique(),
-        gmp_program: Pubkey::new_unique(),
-        daily_mint_limit: 0,
-        rate_limit_day: 0,
-        rate_limit_daily_usage: 0,
-        paused: false,
-        _reserved: [0; 128],
-    };
+    let seeds = IFTAppMintState::seeds(&mint);
 
-    let signer_seeds = app_state.signer_seeds();
-
-    assert_eq!(signer_seeds.len(), 3);
-    assert_eq!(signer_seeds[0], IFT_APP_STATE_SEED.to_vec());
-    assert_eq!(signer_seeds[1], mint.as_ref().to_vec());
-    assert_eq!(signer_seeds[2], vec![255u8]);
+    assert_eq!(seeds.len(), 2);
+    assert_eq!(seeds[0], IFT_APP_MINT_STATE_SEED.to_vec());
+    assert_eq!(seeds[1], mint.as_ref().to_vec());
 }
 
 #[test]

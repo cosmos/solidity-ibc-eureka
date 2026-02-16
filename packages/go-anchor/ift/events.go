@@ -50,6 +50,13 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as IftEventsIftBridgeRemoved: %w", err)
 		}
 		return value, nil
+	case Event_IftEventsIftInitialized:
+		value := new(IftEventsIftInitialized)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as IftEventsIftInitialized: %w", err)
+		}
+		return value, nil
 	case Event_IftEventsIftMintReceived:
 		value := new(IftEventsIftMintReceived)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -192,6 +199,23 @@ func ParseEvent_IftEventsIftBridgeRemoved(eventData []byte) (*IftEventsIftBridge
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsIftBridgeRemoved: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_IftEventsIftInitialized(eventData []byte) (*IftEventsIftInitialized, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_IftEventsIftInitialized {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_IftEventsIftInitialized, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(IftEventsIftInitialized)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsIftInitialized: %w", err)
 	}
 	return event, nil
 }
