@@ -82,12 +82,16 @@ pub fn initialize_existing_token(ctx: Context<InitializeExistingToken>) -> Resul
 
 #[cfg(test)]
 mod tests {
-    use anchor_lang::InstructionData;
+    use anchor_lang::{InstructionData, Space};
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
+        program_pack::Pack,
         pubkey::Pubkey,
+        rent::Rent,
     };
 
+    use crate::errors::IFTError;
+    use crate::state::IFTAppMintState;
     use crate::test_utils::*;
 
     fn create_mint_account_no_authority(decimals: u8) -> solana_sdk::account::Account {
@@ -203,7 +207,13 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::MintAuthorityNotSet as u32,
+            ))
+            .into(),
+        );
     }
 
     #[test]
@@ -241,7 +251,13 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::InvalidMintAuthority as u32,
+            ))
+            .into(),
+        );
     }
 
     #[test]
@@ -287,6 +303,84 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        // System program returns AccountAlreadyInUse (0) when init tries to
+        // create_account for an account that already has data/lamports
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(0)).into(),
+        );
+    }
+
+    #[test]
+    fn test_initialize_existing_token_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let current_authority = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let gmp_program = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
+        let (system_program, system_program_account) = create_system_program_account();
+        let (token_program, token_program_account) = token_program_keyed_account();
+
+        let app_mint_state_account = solana_sdk::account::Account {
+            lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new_readonly(current_authority, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(token_program, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::InitializeExistingToken {}.data(),
+        };
+
+        let accounts = vec![
+            (
+                app_state_pda,
+                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+            ),
+            (app_mint_state_pda, app_mint_state_account),
+            (mint, create_mint_account(current_authority, 6)),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (current_authority, create_signer_account()),
+            (payer, create_signer_account()),
+            (token_program, token_program_account),
+            (system_program, system_program_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "initialize_existing_token should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_acc) = &result.resulting_accounts[2];
+        let updated_mint =
+            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
+        assert_eq!(
+            updated_mint.mint_authority,
+            solana_sdk::program_option::COption::Some(mint_authority_pda),
+        );
+
+        let (_, mint_state_acc) = &result.resulting_accounts[1];
+        let mint_state = deserialize_app_mint_state(mint_state_acc);
+        assert_eq!(mint_state.mint, mint);
     }
 }

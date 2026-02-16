@@ -92,11 +92,12 @@ mod tests {
     use anchor_lang::{InstructionData, Space};
     use rstest::rstest;
     use solana_sdk::{
-        instruction::{AccountMeta, Instruction},
+        instruction::{AccountMeta, Instruction, InstructionError},
         pubkey::Pubkey,
         rent::Rent,
     };
 
+    use crate::errors::IFTError;
     use crate::state::{ChainOptions, IFTBridge, RegisterIFTBridgeMsg};
     use crate::test_utils::*;
 
@@ -184,6 +185,87 @@ mod tests {
         assert!(bridge.active);
     }
 
+    #[test]
+    fn test_register_ift_bridge_cosmos_success() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (bridge_pda, _) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (system_program, system_account) = create_system_program_account();
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let bridge_account = solana_sdk::account::Account {
+            lamports: Rent::default().minimum_balance(8 + IFTBridge::INIT_SPACE),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let cosmos_counterparty = valid_cosmos_address();
+        let msg = RegisterIFTBridgeMsg {
+            client_id: TEST_CLIENT_ID.to_string(),
+            counterparty_ift_address: cosmos_counterparty.clone(),
+            chain_options: ChainOptions::Cosmos {
+                denom: "uatom".to_string(),
+                type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+                ica_address: valid_cosmos_address(),
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(bridge_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::RegisterIftBridge { msg }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (bridge_pda, bridge_account),
+            (admin, create_signer_account()),
+            (payer, create_signer_account()),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "register_ift_bridge cosmos should succeed: {:?}",
+            result.program_result
+        );
+
+        let bridge_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(k, _)| *k == bridge_pda)
+            .expect("bridge should exist")
+            .1
+            .clone();
+        let bridge = deserialize_bridge(&bridge_account);
+        assert_eq!(bridge.counterparty_ift_address, cosmos_counterparty);
+        assert!(bridge.active);
+        assert!(matches!(bridge.chain_options, ChainOptions::Cosmos { .. }));
+    }
+
     #[derive(Clone, Copy)]
     enum RegisterBridgeErrorCase {
         EmptyClientId,
@@ -197,6 +279,7 @@ mod tests {
         CosmosDenomTooLong,
         CosmosTypeUrlTooLong,
         CosmosIcaAddressTooLong,
+        CosmosInvalidBech32IcaAddress,
     }
 
     #[derive(Clone)]
@@ -205,6 +288,7 @@ mod tests {
         counterparty_address: String,
         chain_options: ChainOptions,
         use_unauthorized_signer: bool,
+        expected_result: mollusk_svm::result::ProgramResult,
     }
 
     impl Default for RegisterBridgeTestConfig {
@@ -214,8 +298,13 @@ mod tests {
                 counterparty_address: "0x1234".to_string(),
                 chain_options: ChainOptions::Evm,
                 use_unauthorized_signer: false,
+                expected_result: mollusk_svm::result::ProgramResult::Success,
             }
         }
+    }
+
+    fn custom_error(code: u32) -> mollusk_svm::result::ProgramResult {
+        Err(InstructionError::Custom(code)).into()
     }
 
     impl From<RegisterBridgeErrorCase> for RegisterBridgeTestConfig {
@@ -223,39 +312,58 @@ mod tests {
             match case {
                 RegisterBridgeErrorCase::EmptyClientId => Self {
                     client_id: String::new(),
+                    expected_result: custom_error(
+                        anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::EmptyCounterparty => Self {
                     counterparty_address: String::new(),
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::EmptyCounterpartyAddress as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::Unauthorized => Self {
                     use_unauthorized_signer: true,
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::ClientIdTooLong => Self {
                     client_id: "x".repeat(crate::constants::MAX_CLIENT_ID_LENGTH + 1),
+                    expected_result: Err(InstructionError::ProgramFailedToComplete).into(),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CounterpartyTooLong => Self {
                     counterparty_address: "x"
                         .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::InvalidCounterpartyAddressLength as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosEmptyDenom => Self {
                     chain_options: ChainOptions::Cosmos {
                         denom: String::new(),
                         type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
-                        ica_address: "cosmos1abc".to_string(),
+                        ica_address: valid_cosmos_address(),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::CosmosEmptyCounterpartyDenom as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosEmptyTypeUrl => Self {
                     chain_options: ChainOptions::Cosmos {
                         denom: "uatom".to_string(),
                         type_url: String::new(),
-                        ica_address: "cosmos1abc".to_string(),
+                        ica_address: valid_cosmos_address(),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::CosmosEmptyTypeUrl as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosEmptyIcaAddress => Self {
@@ -264,22 +372,31 @@ mod tests {
                         type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
                         ica_address: String::new(),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::CosmosEmptyIcaAddress as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosDenomTooLong => Self {
                     chain_options: ChainOptions::Cosmos {
                         denom: "x".repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
                         type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
-                        ica_address: "cosmos1abc".to_string(),
+                        ica_address: valid_cosmos_address(),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::InvalidCounterpartyDenomLength as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosTypeUrlTooLong => Self {
                     chain_options: ChainOptions::Cosmos {
                         denom: "uatom".to_string(),
                         type_url: "x".repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
-                        ica_address: "cosmos1abc".to_string(),
+                        ica_address: valid_cosmos_address(),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::InvalidCosmosTypeUrlLength as u32,
+                    ),
                     ..Default::default()
                 },
                 RegisterBridgeErrorCase::CosmosIcaAddressTooLong => Self {
@@ -289,6 +406,20 @@ mod tests {
                         ica_address: "x"
                             .repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
                     },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::InvalidCosmosIcaAddress as u32,
+                    ),
+                    ..Default::default()
+                },
+                RegisterBridgeErrorCase::CosmosInvalidBech32IcaAddress => Self {
+                    chain_options: ChainOptions::Cosmos {
+                        denom: "uatom".to_string(),
+                        type_url: "/cosmos.bank.v1beta1.MsgSend".to_string(),
+                        ica_address: "not-valid-bech32".to_string(),
+                    },
+                    expected_result: custom_error(
+                        ANCHOR_ERROR_OFFSET + IFTError::InvalidCosmosIcaAddress as u32,
+                    ),
                     ..Default::default()
                 },
             }
@@ -367,7 +498,7 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(result.program_result, config.expected_result);
     }
 
     #[rstest]
@@ -382,6 +513,9 @@ mod tests {
     #[case::cosmos_denom_too_long(RegisterBridgeErrorCase::CosmosDenomTooLong)]
     #[case::cosmos_type_url_too_long(RegisterBridgeErrorCase::CosmosTypeUrlTooLong)]
     #[case::cosmos_ica_address_too_long(RegisterBridgeErrorCase::CosmosIcaAddressTooLong)]
+    #[case::cosmos_invalid_bech32_ica_address(
+        RegisterBridgeErrorCase::CosmosInvalidBech32IcaAddress
+    )]
     fn test_register_ift_bridge_validation(#[case] case: RegisterBridgeErrorCase) {
         run_register_bridge_error_test(case);
     }

@@ -41,6 +41,7 @@ mod tests {
         pubkey::Pubkey,
     };
 
+    use crate::errors::IFTError;
     use crate::state::SetPausedMsg;
     use crate::test_utils::*;
 
@@ -123,6 +124,12 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+            ))
+            .into(),
+        );
     }
 }

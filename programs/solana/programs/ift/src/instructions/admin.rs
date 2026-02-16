@@ -218,9 +218,12 @@ mod tests {
     use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
+        program_pack::Pack,
         pubkey::Pubkey,
     };
 
+    use crate::errors::IFTError;
+    use crate::state::AdminMintMsg;
     use crate::test_utils::*;
 
     #[test]
@@ -294,7 +297,13 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+            ))
+            .into(),
+        );
     }
 
     #[derive(Clone, Copy)]
@@ -303,14 +312,18 @@ mod tests {
         ZeroAmount,
         TokenPaused,
         RateLimitExceeded,
+        ReceiverMismatch,
     }
 
+    #[allow(clippy::struct_excessive_bools)]
     struct AdminMintTestConfig {
         amount: u64,
         use_real_admin: bool,
+        use_wrong_receiver: bool,
         paused: bool,
         daily_mint_limit: u64,
         rate_limit_daily_usage: u64,
+        expected_error: u32,
     }
 
     impl From<AdminMintErrorCase> for AdminMintTestConfig {
@@ -318,27 +331,38 @@ mod tests {
             let default = Self {
                 amount: 1000,
                 use_real_admin: true,
+                use_wrong_receiver: false,
                 paused: false,
                 daily_mint_limit: 0,
                 rate_limit_daily_usage: 0,
+                expected_error: 0,
             };
 
             match case {
                 AdminMintErrorCase::Unauthorized => Self {
                     use_real_admin: false,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
                     ..default
                 },
                 AdminMintErrorCase::ZeroAmount => Self {
                     amount: 0,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::ZeroAmount as u32,
                     ..default
                 },
                 AdminMintErrorCase::TokenPaused => Self {
                     paused: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
                     ..default
                 },
                 AdminMintErrorCase::RateLimitExceeded => Self {
                     daily_mint_limit: 100,
                     rate_limit_daily_usage: 100,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+                    ..default
+                },
+                AdminMintErrorCase::ReceiverMismatch => Self {
+                    use_wrong_receiver: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidReceiver as u32,
                     ..default
                 },
             }
@@ -353,6 +377,7 @@ mod tests {
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
         let receiver = Pubkey::new_unique();
+        let wrong_receiver = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
@@ -380,17 +405,15 @@ mod tests {
 
         let mint_account = create_mint_account(mint_authority_pda, 6);
 
-        let receiver_token_pda = Pubkey::new_unique();
-        let mut receiver_token_data = vec![0u8; 165];
-        receiver_token_data[0..32].copy_from_slice(&mint.to_bytes());
-        receiver_token_data[32..64].copy_from_slice(&receiver.to_bytes());
-        let receiver_token_account = solana_sdk::account::Account {
-            lamports: 1_000_000,
-            data: receiver_token_data,
-            owner: anchor_spl::token::ID,
-            executable: false,
-            rent_epoch: 0,
+        let receiver_owner_key = if config.use_wrong_receiver {
+            wrong_receiver
+        } else {
+            receiver
         };
+
+        let receiver_token_pda =
+            anchor_spl::associated_token::get_associated_token_address(&receiver_owner_key, &mint);
+        let receiver_token_account = create_token_account(mint, receiver_owner_key, 0);
 
         let associated_token_program_account = solana_sdk::account::Account {
             lamports: 1,
@@ -419,7 +442,7 @@ mod tests {
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(receiver_token_pda, false),
-                AccountMeta::new_readonly(receiver, false),
+                AccountMeta::new_readonly(receiver_owner_key, false),
                 AccountMeta::new_readonly(signer_key, true),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(token_program_id, false),
@@ -435,7 +458,7 @@ mod tests {
             (mint, mint_account),
             (mint_authority_pda, create_signer_account()),
             (receiver_token_pda, receiver_token_account),
-            (receiver, create_signer_account()),
+            (receiver_owner_key, create_signer_account()),
             (signer_key, create_signer_account()),
             (payer, create_signer_account()),
             (token_program_id, token_program_account),
@@ -447,7 +470,13 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                config.expected_error,
+            ))
+            .into(),
+        );
     }
 
     #[rstest]
@@ -455,6 +484,7 @@ mod tests {
     #[case::zero_amount(AdminMintErrorCase::ZeroAmount)]
     #[case::token_paused(AdminMintErrorCase::TokenPaused)]
     #[case::rate_limit_exceeded(AdminMintErrorCase::RateLimitExceeded)]
+    #[case::receiver_mismatch(AdminMintErrorCase::ReceiverMismatch)]
     fn test_admin_mint_validation(#[case] case: AdminMintErrorCase) {
         run_admin_mint_error_test(case);
     }
@@ -506,6 +536,157 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_admin_mint_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let receiver = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+        let mint_account = create_mint_account(mint_authority_pda, 6);
+
+        let receiver_token_pda =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        let receiver_token_account = create_token_account(mint, receiver, 0);
+
+        let associated_token_program_account = solana_sdk::account::Account {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        };
+
+        let msg = AdminMintMsg {
+            receiver,
+            amount: 500,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new(receiver_token_pda, false),
+                AccountMeta::new_readonly(receiver, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(token_program_id, false),
+                AccountMeta::new_readonly(anchor_spl::associated_token::ID, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::AdminMint { msg }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (mint, mint_account),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (receiver_token_pda, receiver_token_account),
+            (receiver, create_signer_account()),
+            (admin, create_signer_account()),
+            (payer, create_signer_account()),
+            (token_program_id, token_program_account),
+            (
+                anchor_spl::associated_token::ID,
+                associated_token_program_account,
+            ),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "admin_mint should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, receiver_acc) = &result.resulting_accounts[4];
+        let token = anchor_spl::token::spl_token::state::Account::unpack(&receiver_acc.data)
+            .expect("valid token account");
+        assert_eq!(token.amount, 500);
+    }
+
+    #[test]
+    fn test_revoke_mint_authority_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let new_mint_authority = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+        let mint_account = create_mint_account(mint_authority_pda, 6);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new_readonly(new_mint_authority, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(token_program_id, false),
+            ],
+            data: crate::instruction::RevokeMintAuthority {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (mint, mint_account),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (new_mint_authority, create_signer_account()),
+            (admin, create_signer_account()),
+            (token_program_id, token_program_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "revoke_mint_authority should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_acc) = &result.resulting_accounts[2];
+        let updated_mint = anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data)
+            .expect("valid mint account");
+        assert_eq!(
+            updated_mint.mint_authority,
+            solana_sdk::program_option::COption::Some(new_mint_authority),
+        );
     }
 }

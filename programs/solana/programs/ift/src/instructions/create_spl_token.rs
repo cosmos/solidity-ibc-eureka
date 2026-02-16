@@ -76,6 +76,8 @@ mod tests {
         rent::Rent,
     };
 
+    use solana_sdk::program_pack::Pack;
+
     use crate::state::IFTAppMintState;
     use crate::test_utils::*;
 
@@ -157,9 +159,146 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "create_spl_token should fail with wrong PDA seeds"
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+            ))
+            .into(),
         );
+    }
+
+    #[test]
+    fn test_create_spl_token_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let gmp_program = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+
+        let app_mint_state_account = solana_sdk::account::Account {
+            lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new(mint, true),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(token_program_id, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::CreateSplToken { decimals: 6 }.data(),
+        };
+
+        let accounts = vec![
+            (
+                app_state_pda,
+                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+            ),
+            (app_mint_state_pda, app_mint_state_account),
+            (mint, create_empty_mint_account()),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (payer, create_signer_account()),
+            (token_program_id, token_program_account),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "create_spl_token should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_acc) = &result.resulting_accounts[2];
+        let created_mint =
+            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
+        assert_eq!(created_mint.decimals, 6);
+        assert_eq!(
+            created_mint.mint_authority,
+            solana_sdk::program_option::COption::Some(mint_authority_pda),
+        );
+
+        let (_, mint_state_acc) = &result.resulting_accounts[1];
+        let mint_state = deserialize_app_mint_state(mint_state_acc);
+        assert_eq!(mint_state.mint, mint);
+    }
+
+    #[test]
+    fn test_create_spl_token_zero_decimals_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let gmp_program = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+
+        let app_mint_state_account = solana_sdk::account::Account {
+            lamports: Rent::default().minimum_balance(8 + IFTAppMintState::INIT_SPACE),
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new(mint, true),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(token_program_id, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::CreateSplToken { decimals: 0 }.data(),
+        };
+
+        let accounts = vec![
+            (
+                app_state_pda,
+                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+            ),
+            (app_mint_state_pda, app_mint_state_account),
+            (mint, create_empty_mint_account()),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (payer, create_signer_account()),
+            (token_program_id, token_program_account),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "create_spl_token with 0 decimals should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_acc) = &result.resulting_accounts[2];
+        let created_mint =
+            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
+        assert_eq!(created_mint.decimals, 0);
     }
 }

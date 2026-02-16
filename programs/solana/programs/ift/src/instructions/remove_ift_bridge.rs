@@ -64,6 +64,7 @@ mod tests {
         pubkey::Pubkey,
     };
 
+    use crate::errors::IFTError;
     use crate::state::ChainOptions;
     use crate::test_utils::*;
 
@@ -159,9 +160,17 @@ mod tests {
         let unauthorized = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
-        let (use_unauthorized, use_wrong_mint) = match case {
-            RemoveBridgeErrorCase::Unauthorized => (true, false),
-            RemoveBridgeErrorCase::MintMismatch => (false, true),
+        let (use_unauthorized, use_wrong_mint, expected_error) = match case {
+            RemoveBridgeErrorCase::Unauthorized => (
+                true,
+                false,
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+            ),
+            RemoveBridgeErrorCase::MintMismatch => (
+                false,
+                true,
+                ANCHOR_ERROR_OFFSET + IFTError::BridgeNotFound as u32,
+            ),
         };
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
@@ -218,7 +227,13 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                expected_error
+            ))
+            .into(),
+        );
     }
 
     #[rstest]
@@ -226,5 +241,80 @@ mod tests {
     #[case::mint_mismatch(RemoveBridgeErrorCase::MintMismatch)]
     fn test_remove_ift_bridge_validation(#[case] case: RemoveBridgeErrorCase) {
         run_remove_bridge_error_test(case);
+    }
+
+    #[test]
+    fn test_remove_inactive_bridge_success() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (bridge_pda, bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (system_program, system_account) = create_system_program_account();
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+
+        let bridge_account = create_ift_bridge_account(
+            mint,
+            TEST_CLIENT_ID,
+            "0x1234",
+            ChainOptions::Evm,
+            bridge_bump,
+            false, // inactive bridge
+        );
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(bridge_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::RemoveIftBridge {
+                client_id: TEST_CLIENT_ID.to_string(),
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (bridge_pda, bridge_account),
+            (admin, create_signer_account()),
+            (payer, create_signer_account()),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "removing inactive bridge should succeed: {:?}",
+            result.program_result
+        );
+
+        let bridge_result = result
+            .resulting_accounts
+            .iter()
+            .find(|(k, _)| *k == bridge_pda)
+            .expect("bridge should exist")
+            .1
+            .clone();
+
+        assert_eq!(
+            bridge_result.lamports, 0,
+            "Bridge lamports should be zero after close"
+        );
     }
 }

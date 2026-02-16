@@ -163,7 +163,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
 			ics07_tendermint.ProgramID, s.LightClientStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
@@ -417,7 +417,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
 			ics07_tendermint.ProgramID, s.LightClientStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
@@ -575,7 +575,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosToken2022() {
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			tokenProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
 			ics07_tendermint.ProgramID, s.LightClientStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
@@ -820,7 +820,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 			s.RouterStatePDA,
 			s.ClientSequencePDA,
 			packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey,
 			s.GMPIBCAppPDA,
 			s.IBCClientPDA,
 			ics07_tendermint.ProgramID,
@@ -977,7 +976,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			s.RouterStatePDA,
 			s.ClientSequencePDA,
 			packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey,
 			s.GMPIBCAppPDA,
 			s.IBCClientPDA,
 			ics07_tendermint.ProgramID,
@@ -1121,6 +1119,78 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AdminMint() {
 		balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverATA)
 		s.Require().NoError(err)
 		s.Require().Equal(adminMintAmount, balance)
+	}))
+}
+
+// Test_IFT_InvalidPendingTransfer tests that ift_transfer rejects a wrong pending_transfer PDA
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_InvalidPendingTransfer() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	var mint solanago.PublicKey
+	s.Require().True(s.Run("Create SPL token with initial balance on Solana", func() {
+		mint = s.initializeExistingToken(ctx, IFTMintAmount)
+	}))
+
+	var cosmosDenom string
+	s.Require().True(s.Run("Create tokenfactory denom on Cosmos", func() {
+		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
+	}))
+
+	s.Require().True(s.Run("Register IFT Bridges", func() {
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		iftModuleAddr := s.getCosmosIFTModuleAddress()
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
+	}))
+
+	s.Require().True(s.Run("Transfer with wrong pending_transfer PDA fails", func() {
+		baseSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence := solana.CalculateNamespacedSequence(baseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		seqBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
+
+		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
+
+		// Derive pending transfer PDA with WRONG sequence to trigger InvalidPendingTransfer
+		wrongSeqBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(wrongSeqBytes, 999_999)
+		wrongPendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, mint[:], []byte(SolanaClientID), wrongSeqBytes)
+
+		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
+		s.Require().NoError(err)
+
+		transferMsg := ift.IftStateIftTransferMsg{
+			ClientId:         SolanaClientID,
+			Receiver:         s.CosmosUser.FormattedAddress(),
+			Amount:           IFTTransferAmount,
+			TimeoutTimestamp: solanaClockTime + 900,
+		}
+
+		transferIx, err := ift.NewIftTransferInstruction(
+			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, s.SenderTokenAccount,
+			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
+			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
+			ics07_tendermint.ProgramID, s.LightClientStatePDA, wrongPendingTransferPDA,
+		)
+		s.Require().NoError(err)
+
+		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().Error(err, "Transaction should fail with InvalidPendingTransfer")
+		s.T().Logf("Transfer correctly rejected with wrong pending_transfer PDA: %v", err)
+	}))
+
+	s.Require().True(s.Run("Verify tokens not burned (transaction rolled back)", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(IFTMintAmount, balance, "Tokens should not be burned when transaction fails")
 	}))
 }
 

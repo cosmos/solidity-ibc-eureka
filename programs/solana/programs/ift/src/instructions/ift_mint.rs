@@ -155,9 +155,11 @@ mod tests {
     use rstest::rstest;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
+        program_pack::Pack,
         pubkey::Pubkey,
     };
 
+    use crate::errors::IFTError;
     use crate::state::{ChainOptions, IFTMintMsg};
     use crate::test_utils::*;
 
@@ -170,6 +172,7 @@ mod tests {
         ReceiverMismatch,
         GmpNotSigner,
         BridgeNotActive,
+        InvalidBridge,
         InvalidGmpAccount,
         TokenPaused,
         MintRateLimitExceeded,
@@ -181,9 +184,11 @@ mod tests {
         use_wrong_receiver: bool,
         gmp_is_signer: bool,
         bridge_active: bool,
+        use_wrong_bridge_mint: bool,
         use_wrong_gmp_account: bool,
         token_paused: bool,
         rate_limit_exceeded: bool,
+        expected_error: u32,
     }
 
     impl From<MintErrorCase> for MintTestConfig {
@@ -193,38 +198,52 @@ mod tests {
                 use_wrong_receiver: false,
                 gmp_is_signer: true,
                 bridge_active: true,
+                use_wrong_bridge_mint: false,
                 use_wrong_gmp_account: false,
                 token_paused: false,
                 rate_limit_exceeded: false,
+                expected_error: 0,
             };
 
             match case {
                 MintErrorCase::ZeroAmount => Self {
                     amount: 0,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::ZeroAmount as u32,
                     ..default
                 },
                 MintErrorCase::ReceiverMismatch => Self {
                     use_wrong_receiver: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidReceiver as u32,
                     ..default
                 },
                 MintErrorCase::GmpNotSigner => Self {
                     gmp_is_signer: false,
+                    expected_error: anchor_lang::error::ErrorCode::AccountNotSigner as u32,
                     ..default
                 },
                 MintErrorCase::BridgeNotActive => Self {
                     bridge_active: false,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::BridgeNotActive as u32,
+                    ..default
+                },
+                MintErrorCase::InvalidBridge => Self {
+                    use_wrong_bridge_mint: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidBridge as u32,
                     ..default
                 },
                 MintErrorCase::InvalidGmpAccount => Self {
                     use_wrong_gmp_account: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpAccount as u32,
                     ..default
                 },
                 MintErrorCase::TokenPaused => Self {
                     token_paused: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
                     ..default
                 },
                 MintErrorCase::MintRateLimitExceeded => Self {
                     rate_limit_exceeded: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
                     ..default
                 },
             }
@@ -243,8 +262,7 @@ mod tests {
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
-        let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (gmp_account_pda, _) =
             get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
@@ -258,7 +276,6 @@ mod tests {
             config.token_paused,
         );
         let app_mint_state_account = if config.rate_limit_exceeded {
-            // Set daily limit to 100 with usage already at 100, so any mint exceeds the limit
             create_ift_app_mint_state_account_full(IftAppMintStateParams {
                 mint,
                 bump: app_mint_state_bump,
@@ -271,8 +288,13 @@ mod tests {
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump)
         };
 
+        let bridge_mint = if config.use_wrong_bridge_mint {
+            Pubkey::new_unique()
+        } else {
+            mint
+        };
         let ift_bridge_account = create_ift_bridge_account(
-            mint,
+            bridge_mint,
             TEST_CLIENT_ID,
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
@@ -280,21 +302,7 @@ mod tests {
             config.bridge_active,
         );
 
-        let mint_account = solana_sdk::account::Account {
-            lamports: 1_000_000,
-            data: vec![0; 82],
-            owner: anchor_spl::token::ID,
-            executable: false,
-            rent_epoch: 0,
-        };
-
-        let mint_authority_account = solana_sdk::account::Account {
-            lamports: 0,
-            data: vec![],
-            owner: solana_sdk::system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        };
+        let mint_account = create_mint_account(mint_authority_pda, 6);
 
         let token_account_owner = if config.use_wrong_receiver {
             wrong_receiver
@@ -302,17 +310,15 @@ mod tests {
             receiver
         };
 
-        let receiver_token_pda = Pubkey::new_unique();
-        let mut receiver_token_data = vec![0u8; 165];
-        receiver_token_data[0..32].copy_from_slice(&mint.to_bytes());
-        receiver_token_data[32..64].copy_from_slice(&token_account_owner.to_bytes());
-        let receiver_token_account = solana_sdk::account::Account {
-            lamports: 1_000_000,
-            data: receiver_token_data,
-            owner: anchor_spl::token::ID,
-            executable: false,
-            rent_epoch: 0,
+        let receiver_owner_key = if config.use_wrong_receiver {
+            wrong_receiver
+        } else {
+            receiver
         };
+
+        let receiver_token_pda =
+            anchor_spl::associated_token::get_associated_token_address(&receiver_owner_key, &mint);
+        let receiver_token_account = create_token_account(mint, token_account_owner, 0);
 
         let token_program_account = solana_sdk::account::Account {
             lamports: 1,
@@ -334,12 +340,6 @@ mod tests {
             wrong_gmp_account
         } else {
             gmp_account_pda
-        };
-
-        let receiver_owner_key = if config.use_wrong_receiver {
-            wrong_receiver
-        } else {
-            receiver
         };
 
         let msg = IFTMintMsg {
@@ -371,7 +371,7 @@ mod tests {
             (app_mint_state_pda, app_mint_state_account),
             (ift_bridge_pda, ift_bridge_account),
             (mint, mint_account),
-            (mint_authority_pda, mint_authority_account),
+            (mint_authority_pda, create_signer_account()),
             (receiver_token_pda, receiver_token_account),
             (receiver_owner_key, create_signer_account()),
             (gmp_account_key, create_signer_account()),
@@ -385,7 +385,13 @@ mod tests {
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                config.expected_error,
+            ))
+            .into(),
+        );
     }
 
     #[rstest]
@@ -393,10 +399,110 @@ mod tests {
     #[case::receiver_mismatch(MintErrorCase::ReceiverMismatch)]
     #[case::gmp_not_signer(MintErrorCase::GmpNotSigner)]
     #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
+    #[case::invalid_bridge(MintErrorCase::InvalidBridge)]
     #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
     #[case::token_paused(MintErrorCase::TokenPaused)]
     #[case::mint_rate_limit_exceeded(MintErrorCase::MintRateLimitExceeded)]
     fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);
+    }
+
+    #[test]
+    fn test_ift_mint_success() {
+        let mollusk = setup_mollusk_with_token();
+
+        let mint = Pubkey::new_unique();
+        let receiver = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let gmp_program = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (gmp_account_pda, _) =
+            get_gmp_account_pda(TEST_CLIENT_ID, TEST_COUNTERPARTY_ADDRESS, &gmp_program);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+
+        let app_state_account =
+            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+        let app_mint_state_account =
+            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+        let ift_bridge_account = create_ift_bridge_account(
+            mint,
+            TEST_CLIENT_ID,
+            TEST_COUNTERPARTY_ADDRESS,
+            ChainOptions::Evm,
+            ift_bridge_bump,
+            true,
+        );
+        let mint_account = create_mint_account(mint_authority_pda, 6);
+
+        let receiver_token_pda =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        let receiver_token_account = create_token_account(mint, receiver, 0);
+
+        let associated_token_program_account = solana_sdk::account::Account {
+            lamports: 1,
+            data: vec![],
+            owner: solana_sdk::native_loader::ID,
+            executable: true,
+            rent_epoch: 0,
+        };
+
+        let msg = IFTMintMsg {
+            receiver,
+            amount: 1000,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
+                AccountMeta::new(mint, false),
+                AccountMeta::new_readonly(mint_authority_pda, false),
+                AccountMeta::new(receiver_token_pda, false),
+                AccountMeta::new_readonly(receiver, false),
+                AccountMeta::new_readonly(gmp_account_pda, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(token_program_id, false),
+                AccountMeta::new_readonly(anchor_spl::associated_token::ID, false),
+                AccountMeta::new_readonly(system_program, false),
+            ],
+            data: crate::instruction::IftMint { msg }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (app_mint_state_pda, app_mint_state_account),
+            (ift_bridge_pda, ift_bridge_account),
+            (mint, mint_account),
+            (mint_authority_pda, create_uninitialized_pda()),
+            (receiver_token_pda, receiver_token_account),
+            (receiver, create_signer_account()),
+            (gmp_account_pda, create_signer_account()),
+            (payer, create_signer_account()),
+            (token_program_id, token_program_account),
+            (
+                anchor_spl::associated_token::ID,
+                associated_token_program_account,
+            ),
+            (system_program, system_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "ift_mint should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, receiver_acc) = &result.resulting_accounts[5];
+        let token = anchor_spl::token::spl_token::state::Account::unpack(&receiver_acc.data)
+            .expect("valid token account");
+        assert_eq!(token.amount, 1000);
     }
 }
