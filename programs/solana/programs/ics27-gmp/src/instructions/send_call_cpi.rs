@@ -16,7 +16,7 @@ use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
 pub struct SendCallCpi<'info> {
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -140,10 +140,8 @@ mod tests {
             let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
             let light_client_program = Pubkey::new_unique();
             let client_state = Pubkey::new_unique();
-            let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-                &[GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-                &crate::ID,
-            );
+            let (app_state_pda, app_state_bump) =
+                Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
             Self {
                 mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),
@@ -446,10 +444,7 @@ mod integration_tests {
     };
 
     fn build_send_call_cpi_ix(payer: Pubkey) -> Instruction {
-        let (app_state_pda, _) = Pubkey::find_program_address(
-            &[GMPAppState::SEED, crate::constants::GMP_PORT_ID.as_bytes()],
-            &crate::ID,
-        );
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let msg = SendCallMsg {
             source_client: TEST_SOURCE_CLIENT.to_string(),

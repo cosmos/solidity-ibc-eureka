@@ -658,8 +658,8 @@ mod integration_tests {
         }
     }
 
-    /// Direct call with sender not signing must fail with `SenderMustSign`.
-    /// This proves the direct-call path (`is_cpi()` == false) is taken.
+    /// Direct call with sender not signing must fail with `AccountNotSigner`.
+    /// Anchor enforces this via the `Signer<'info>` constraint on sender.
     #[tokio::test]
     async fn test_direct_call_requires_sender_signer() {
         let pt = setup_program_test();
@@ -672,54 +672,8 @@ mod integration_tests {
         let err = result.expect_err("direct call without signer should fail");
         assert_eq!(
             extract_custom_error(&err),
-            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
-            "expected SenderMustSign (6044), got: {err:?}"
-        );
-    }
-
-    /// CPI call (Tx -> `test_cpi_proxy` -> GMP) with sender not signing should
-    /// NOT fail with `SenderMustSign` — proving `is_cpi()` returns true and the
-    /// signer check is bypassed. It will fail later at the router CPI (router
-    /// is not initialized) but with a different error.
-    #[tokio::test]
-    async fn test_cpi_call_skips_sender_signer_check() {
-        let pt = setup_program_test();
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let sender = Pubkey::new_unique();
-        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
-        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
-
-        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
-        let err = result.expect_err("CPI call should still fail (router not initialized)");
-        assert_ne!(
-            extract_custom_error(&err),
-            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
-            "CPI call must NOT fail with SenderMustSign — is_cpi() should be true"
-        );
-    }
-
-    /// Nested CPI (Tx -> `test_cpi_proxy` -> `test_cpi_target` -> GMP)
-    /// must be rejected with `UnauthorizedRouter` (mapped from `NestedCpiNotAllowed`).
-    #[tokio::test]
-    async fn test_nested_cpi_rejected() {
-        let pt = setup_program_test();
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let sender = Pubkey::new_unique();
-        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
-        let middle_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
-        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &middle_ix);
-
-        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
-        let err = result.expect_err("nested CPI should be rejected");
-        assert_eq!(
-            extract_custom_error(&err),
-            Some(
-                anchor_lang::error::ERROR_CODE_OFFSET
-                    + crate::errors::GMPError::UnauthorizedRouter as u32
-            ),
-            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+            Some(anchor_lang::error::ErrorCode::AccountNotSigner as u32),
+            "expected AccountNotSigner, got: {err:?}"
         );
     }
 }
