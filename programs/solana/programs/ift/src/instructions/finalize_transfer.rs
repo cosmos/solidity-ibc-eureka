@@ -42,6 +42,7 @@ pub struct FinalizeTransfer<'info> {
         seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive,
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
