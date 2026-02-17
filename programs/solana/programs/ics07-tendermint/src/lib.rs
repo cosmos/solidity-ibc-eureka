@@ -31,18 +31,11 @@ pub mod ics07_tendermint {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        chain_id: String,
         client_state: ClientState,
         consensus_state: ConsensusState,
         access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::initialize::initialize(
-            ctx,
-            chain_id,
-            client_state,
-            consensus_state,
-            access_manager,
-        )
+        instructions::initialize::initialize(ctx, client_state, consensus_state, access_manager)
     }
 
     pub fn set_access_manager(

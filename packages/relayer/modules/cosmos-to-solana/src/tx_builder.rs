@@ -180,7 +180,6 @@ impl TxBuilder {
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
         let instruction = self.build_create_client_instruction(
-            &client_state.chain_id,
             latest_height,
             &client_state,
             &consensus_state,

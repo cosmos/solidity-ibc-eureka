@@ -118,7 +118,6 @@ fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Accou
 
     let app_state = AppState {
         access_manager: access_manager_program_id,
-        chain_id: String::new(),
         _reserved: [0; 256],
     };
 

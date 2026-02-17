@@ -67,7 +67,6 @@ pub struct ClientState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
     pub access_manager: Pubkey,
-    pub chain_id: String,
     pub _reserved: [u8; 256],
 }
 
