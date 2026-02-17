@@ -524,7 +524,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 
 func (s *IbcEurekaSolanaTestSuite) setupTestApp(ctx context.Context) {
 	s.Require().True(s.Run("Initialize Test IBC App", func() {
-		appStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		appStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		initInstruction, err := test_ibc_app.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(),
@@ -604,7 +604,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -781,7 +781,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1053,7 +1053,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		// Use confirmed commitment to match relay transaction confirmation level
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{

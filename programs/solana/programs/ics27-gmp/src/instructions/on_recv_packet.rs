@@ -392,10 +392,9 @@ mod tests {
 
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
 
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();

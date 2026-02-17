@@ -315,8 +315,8 @@ impl IBCAppState {
     pub const SEED: &'static [u8] = b"app_state";
 
     /// Get app state PDA for IBC applications
-    pub fn pda(port_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, port_id.as_bytes()], &program_id)
+    pub fn pda(program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED], &program_id)
     }
 }
 

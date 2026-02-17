@@ -414,7 +414,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Counterparty registered on Cosmos")
 
 	s.T().Log("Initializing Test IBC App...")
-	appStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+	appStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 	initAppInstruction, err := test_ibc_app.NewInitializeInstruction(
 		s.SolanaUser.PublicKey(),
@@ -560,7 +560,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 	var slot uint64
 
 	s.Require().True(s.Run("Send packet on Solana", func() {
-		appState, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
@@ -782,7 +782,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 	}))
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
-		testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
@@ -970,7 +970,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 
 	s.Require().True(s.Run("Relay packet to Solana via attestation LC", func() {
 		s.Require().True(s.Run("Record initial packets received on Solana", func() {
-			testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
 				Commitment: rpc.CommitmentConfirmed,
 			})
@@ -1024,7 +1024,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Verify packet received on Solana", func() {
-			testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
 				Commitment: rpc.CommitmentConfirmed,
 			})
@@ -1073,7 +1073,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 		clientSequence, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-		appState, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		s.Require().True(s.Run("Send packet from Solana", func() {
 			clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{

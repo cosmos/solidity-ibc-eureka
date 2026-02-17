@@ -8,7 +8,7 @@ pub struct OnAcknowledgementPacket<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + TestIbcAppState::INIT_SPACE,
-        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,
