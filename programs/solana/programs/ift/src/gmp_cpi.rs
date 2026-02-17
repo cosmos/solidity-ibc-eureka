@@ -17,6 +17,7 @@ pub struct SendGmpCallAccounts<'info> {
     pub client: AccountInfo<'info>,
     pub light_client_program: AccountInfo<'info>,
     pub client_state: AccountInfo<'info>,
+    pub consensus_state: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
 }
 
@@ -35,6 +36,7 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
             client: accounts.client,
             light_client_program: accounts.light_client_program,
             client_state: accounts.client_state,
+            consensus_state: accounts.consensus_state,
             system_program: accounts.system_program,
         }
     }

@@ -105,6 +105,8 @@ pub struct VerifyNonMembership<'info> {
 pub struct ClientStatusCheck<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
+    /// CHECK: Mock consensus state - not actually used
+    pub consensus_state: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]

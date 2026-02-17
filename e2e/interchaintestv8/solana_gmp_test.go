@@ -834,7 +834,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA, consensusStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
@@ -842,6 +842,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			lightClientStatePDA, _ = solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+			consensusStatePDA = s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
@@ -889,6 +890,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				consensusStatePDA,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)
@@ -1147,7 +1149,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes)", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA, consensusStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
@@ -1155,6 +1157,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			lightClientStatePDA, _ = solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+			consensusStatePDA = s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 
 			s.T().Logf("Derived PDAs: gmpAppState=%s, routerState=%s, client=%s",
 				gmpAppStatePDA.String(), routerStatePDA.String(), clientPDA.String())
@@ -1209,6 +1212,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				consensusStatePDA,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)
@@ -1861,7 +1865,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			s.T().Logf("Encoded GMP payload (%d bytes) - will fail due to insufficient balance", len(payload))
 		}))
 
-		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
+		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA, consensusStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
 			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
@@ -1869,6 +1873,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 			clientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			lightClientStatePDA, _ = solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+			consensusStatePDA = s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 		}))
 
 		var packetCommitmentPDA solanago.PublicKey
@@ -1914,6 +1919,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				consensusStatePDA,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)

@@ -125,6 +125,9 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Client state for light client status check
     pub light_client_state: AccountInfo<'info>,
 
+    /// CHECK: Consensus state for light client expiry check, forwarded through GMP to router
+    pub consensus_state: AccountInfo<'info>,
+
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
     #[account(mut)]
@@ -185,6 +188,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         client: ctx.accounts.ibc_client.clone(),
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.light_client_state.clone(),
+        consensus_state: ctx.accounts.consensus_state.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -717,6 +721,7 @@ mod tests {
         let ibc_client = Pubkey::new_unique();
         let light_client_program = Pubkey::new_unique();
         let light_client_state = Pubkey::new_unique();
+        let consensus_state = Pubkey::new_unique();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -749,6 +754,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_client, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(light_client_state, false),
+                AccountMeta::new_readonly(consensus_state, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -775,6 +781,7 @@ mod tests {
             (ibc_client, create_signer_account()),
             (light_client_program, create_signer_account()),
             (light_client_state, create_signer_account()),
+            (consensus_state, create_signer_account()),
             (pending_transfer, create_uninitialized_pda()),
         ];
 

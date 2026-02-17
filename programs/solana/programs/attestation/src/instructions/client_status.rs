@@ -10,6 +10,8 @@ pub struct ClientStatus<'info> {
         bump
     )]
     pub client_state: Account<'info, ClientState>,
+    /// CHECK: Consensus state account, required by the CPI interface but unused for attestation
+    pub consensus_state: AccountInfo<'info>,
 }
 
 pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
@@ -45,22 +47,39 @@ mod tests {
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
 
+        let consensus_state_key = solana_sdk::pubkey::Pubkey::new_unique();
+
         let instruction = Instruction {
             program_id: crate::ID,
-            accounts: vec![AccountMeta::new_readonly(client_state_pda, false)],
+            accounts: vec![
+                AccountMeta::new_readonly(client_state_pda, false),
+                AccountMeta::new_readonly(consensus_state_key, false),
+            ],
             data: crate::instruction::ClientStatus {}.data(),
         };
 
-        let accounts = vec![(
-            client_state_pda,
-            Account {
-                lamports: 1_000_000,
-                data: client_data,
-                owner: crate::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        )];
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: client_data,
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_key,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![0u8; 64],
+                    owner: crate::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
 
         (instruction, accounts)
     }

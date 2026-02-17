@@ -584,6 +584,7 @@ func NewPreVerifySignatureInstruction(
 // Builds a "client_status" instruction.
 func NewClientStatusInstruction(
 	clientStateAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -599,6 +600,8 @@ func NewClientStatusInstruction(
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
 	// Create the instruction.

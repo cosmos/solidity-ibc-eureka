@@ -162,7 +162,7 @@ fn process_misbehaviour<'info>(
         .clone()
         .into();
 
-    let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
+    let current_time = crate::secs_to_nanos(Clock::get()?.unix_timestamp);
 
     let output = tendermint_light_client_misbehaviour::check_for_misbehaviour(
         &tm_client_state,
