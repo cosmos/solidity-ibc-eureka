@@ -389,7 +389,9 @@ func NewIftTransferInstruction(
 		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 16 "gmp_ibc_app": Read-only, Non-signer, Required
-		// GMP's IBC app registration account
+		// GMP's IBC app registration account — required by the router for
+		// authorization and deterministic sequence namespacing (the router hashes
+		// `app_program_id` to derive a collision-resistant sequence suffix).
 		accounts__.Append(solanago.NewAccountMeta(gmpIbcAppAccount, false, false))
 		// Account 17 "ibc_client": Read-only, Non-signer, Required
 		// IBC client account
@@ -451,7 +453,7 @@ func NewIftMintInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// Global IFT app state (read-only, for gmp_program and paused check)
+		// Global IFT app state (read-only, for `gmp_program` and paused check)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
 		// Per-mint IFT app state (mut, for rate limits)
@@ -650,7 +652,7 @@ func NewRevokeMintAuthorityInstruction(
 		// Global IFT app state (read-only, for admin check)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Read-only, Non-signer, Required
-		// Per-mint IFT app state (for mint_authority_bump)
+		// Per-mint IFT app state (for `mint_authority_bump`)
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, false, false))
 		// Account 2 "mint": Writable, Non-signer, Required
 		// SPL Token mint - authority will be transferred
@@ -710,7 +712,7 @@ func NewSetMintRateLimitInstruction(
 		// Global IFT app state (read-only, for admin check)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
-		// Per-mint IFT app state (mut, for daily_mint_limit)
+		// Per-mint IFT app state (mut, for `daily_mint_limit`)
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
 		// Account 2 "admin": Read-only, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
