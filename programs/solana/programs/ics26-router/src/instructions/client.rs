@@ -143,10 +143,14 @@ pub fn add_client(
 
 pub fn migrate_client(
     ctx: Context<MigrateClient>,
-    _client_id: String,
+    client_id: String,
     params: MigrateClientParams,
 ) -> Result<()> {
     let client = &mut ctx.accounts.client;
+    require!(
+        client.client_id == client_id,
+        RouterError::ClientMismatch
+    );
 
     access_manager::require_admin(
         &ctx.accounts.access_manager,
