@@ -68,9 +68,10 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         &ctx.accounts.client_state,
         &ctx.accounts.consensus_state,
     )?;
-    require!(
-        status == ics25_handler::ClientStatus::Active,
-        RouterError::ClientFrozen
+    require_eq!(
+        status,
+        ics25_handler::ClientStatus::Active,
+        RouterError::ClientNotActive
     );
 
     let ibc_app = &ctx.accounts.ibc_app;

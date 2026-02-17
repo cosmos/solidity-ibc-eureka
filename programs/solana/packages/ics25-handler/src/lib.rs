@@ -46,6 +46,12 @@ pub enum ClientStatus {
     Expired = 2,
 }
 
+impl core::fmt::Display for ClientStatus {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        core::fmt::Debug::fmt(self, f)
+    }
+}
+
 impl From<ClientStatus> for u8 {
     fn from(status: ClientStatus) -> Self {
         status as Self
