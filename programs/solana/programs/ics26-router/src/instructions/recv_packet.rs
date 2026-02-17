@@ -1122,4 +1122,500 @@ mod tests {
         ))];
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
+
+    // ── ProgramTest-based recv_packet tests ──
+
+    use solana_ibc_types::ics24;
+    use solana_program_test::ProgramTest;
+    use solana_sdk::signature::Keypair;
+    use solana_sdk::signer::Signer as SdkSigner;
+    use solana_sdk::transaction::Transaction;
+
+    const RECV_TEST_PORT: &str = "test-port";
+    const RECV_DEST_CLIENT: &str = "dest-client";
+    const RECV_SOURCE_CLIENT: &str = "source-client";
+    const RECV_TEST_CLOCK_TIME: i64 = 1000;
+    const RECV_TEST_TIMEOUT: i64 = RECV_TEST_CLOCK_TIME + 2000;
+
+    fn setup_recv_two_packets_program_test(relayer_pubkey: Pubkey) -> ProgramTest {
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            let deploy_dir = std::path::Path::new("../../target/deploy");
+            std::env::set_var("SBF_OUT_DIR", deploy_dir);
+        }
+
+        let mut pt = ProgramTest::new("ics26_router", crate::ID, None);
+        pt.add_program("mock_light_client", MOCK_LIGHT_CLIENT_ID, None);
+        pt.add_program("mock_ibc_app", MOCK_IBC_APP_PROGRAM_ID, None);
+        pt.add_program("access_manager", access_manager::ID, None);
+
+        // RouterState
+        let (router_state_pda, router_state_data) = setup_router_state();
+        pt.add_account(
+            router_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: router_state_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // AccessManager with RELAYER_ROLE for the relayer
+        let (access_manager_pda, access_manager_data) = setup_access_manager_with_roles(&[(
+            solana_ibc_types::roles::RELAYER_ROLE,
+            &[relayer_pubkey],
+        )]);
+        pt.add_account(
+            access_manager_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: access_manager_data,
+                owner: access_manager::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Client: dest-client with counterparty source-client
+        let (client_pda, client_data) = setup_client(
+            RECV_DEST_CLIENT,
+            MOCK_LIGHT_CLIENT_ID,
+            RECV_SOURCE_CLIENT,
+            true,
+        );
+        pt.add_account(
+            client_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // IBCApp for test-port registered to mock_ibc_app
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(RECV_TEST_PORT, MOCK_IBC_APP_PROGRAM_ID);
+        pt.add_account(
+            ibc_app_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: ibc_app_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Mock light client state and consensus state
+        let mock_client_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_client_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+        let mock_consensus_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_consensus_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Mock IBC app state (owned by mock_ibc_app program)
+        let mock_ibc_app_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_ibc_app_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 100],
+                owner: MOCK_IBC_APP_PROGRAM_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Override clock for deterministic timestamps
+        let clock = solana_sdk::clock::Clock {
+            slot: 1,
+            epoch_start_timestamp: RECV_TEST_CLOCK_TIME,
+            epoch: 0,
+            leader_schedule_epoch: 0,
+            unix_timestamp: RECV_TEST_CLOCK_TIME,
+        };
+        let mut clock_data = vec![0u8; solana_sdk::clock::Clock::size_of()];
+        bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
+        pt.add_account(
+            solana_sdk::sysvar::clock::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: clock_data,
+                owner: solana_sdk::sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        pt
+    }
+
+    /// Build a `recv_packet` instruction for `ProgramTest`.
+    ///
+    /// Returns (instruction, `packet_receipt_pda`, `packet_ack_pda`).
+    /// The caller must pre-create the chunk accounts in `ProgramTest`.
+    fn build_recv_packet_ix(
+        relayer: Pubkey,
+        sequence: u64,
+        mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
+        mock_ibc_app_state: Pubkey,
+        payload_chunk_pda: Pubkey,
+        proof_chunk_pda: Pubkey,
+    ) -> (Instruction, Pubkey, Pubkey) {
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (access_manager_pda, _) =
+            solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, RECV_TEST_PORT.as_bytes()], &crate::ID);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, RECV_DEST_CLIENT.as_bytes()], &crate::ID);
+
+        let packet = Packet {
+            sequence,
+            source_client: RECV_SOURCE_CLIENT.to_string(),
+            dest_client: RECV_DEST_CLIENT.to_string(),
+            timeout_timestamp: RECV_TEST_TIMEOUT,
+            payloads: vec![],
+        };
+
+        let msg = MsgRecvPacket {
+            packet,
+            payloads: vec![PayloadMetadata {
+                source_port: "source-port".to_string(),
+                dest_port: RECV_TEST_PORT.to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 1,
+            }],
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        let (packet_receipt_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_RECEIPT_SEED,
+                RECV_DEST_CLIENT.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let (packet_ack_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_ACK_SEED,
+                RECV_DEST_CLIENT.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let mut accounts = vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(access_manager_pda, false),
+            AccountMeta::new_readonly(ibc_app_pda, false),
+            AccountMeta::new(packet_receipt_pda, false),
+            AccountMeta::new(packet_ack_pda, false),
+            AccountMeta::new_readonly(MOCK_IBC_APP_PROGRAM_ID, false),
+            AccountMeta::new(mock_ibc_app_state, false),
+            AccountMeta::new(relayer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(client_pda, false),
+            AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
+            AccountMeta::new_readonly(mock_client_state, false),
+            AccountMeta::new_readonly(mock_consensus_state, false),
+        ];
+
+        // Remaining accounts: payload chunk, then proof chunk
+        accounts.push(AccountMeta::new(payload_chunk_pda, false));
+        accounts.push(AccountMeta::new(proof_chunk_pda, false));
+
+        let ix = Instruction {
+            program_id: crate::ID,
+            accounts,
+            data: crate::instruction::RecvPacket { msg }.data(),
+        };
+
+        (ix, packet_receipt_pda, packet_ack_pda)
+    }
+
+    #[tokio::test]
+    async fn test_relay_two_packets_single_transaction() {
+        let relayer = Keypair::new();
+        let relayer_pubkey = relayer.pubkey();
+
+        let mut pt = setup_recv_two_packets_program_test(relayer_pubkey);
+
+        // Pre-fund the relayer
+        pt.add_account(
+            relayer_pubkey,
+            solana_sdk::account::Account {
+                lamports: 10_000_000_000,
+                data: vec![],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Fixed account pubkeys for mock light client and app state
+        let mock_client_state = Pubkey::new_unique();
+        let mock_consensus_state = Pubkey::new_unique();
+        let mock_ibc_app_state = Pubkey::new_unique();
+
+        pt.add_account(
+            mock_client_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+        pt.add_account(
+            mock_consensus_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+        pt.add_account(
+            mock_ibc_app_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 100],
+                owner: MOCK_IBC_APP_PROGRAM_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let payload_data_1 = b"packet one".to_vec();
+        let payload_data_2 = b"packet two".to_vec();
+        let proof_data = vec![0u8; 32];
+
+        // Create chunk accounts for packet 1 (sequence=1)
+        let (payload_chunk_pda_1, _) = Pubkey::find_program_address(
+            &[
+                PayloadChunk::SEED,
+                relayer_pubkey.as_ref(),
+                RECV_DEST_CLIENT.as_bytes(),
+                &1u64.to_le_bytes(),
+                &[0u8], // payload_index
+                &[0u8], // chunk_index
+            ],
+            &crate::ID,
+        );
+        let payload_chunk_1 = PayloadChunk {
+            client_id: RECV_DEST_CLIENT.to_string(),
+            sequence: 1,
+            payload_index: 0,
+            chunk_index: 0,
+            chunk_data: payload_data_1.clone(),
+        };
+        pt.add_account(
+            payload_chunk_pda_1,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: create_account_data(&payload_chunk_1),
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (proof_chunk_pda_1, _) = Pubkey::find_program_address(
+            &[
+                ProofChunk::SEED,
+                relayer_pubkey.as_ref(),
+                RECV_DEST_CLIENT.as_bytes(),
+                &1u64.to_le_bytes(),
+                &[0u8], // chunk_index
+            ],
+            &crate::ID,
+        );
+        let proof_chunk_1 = ProofChunk {
+            client_id: RECV_DEST_CLIENT.to_string(),
+            sequence: 1,
+            chunk_index: 0,
+            chunk_data: proof_data.clone(),
+        };
+        pt.add_account(
+            proof_chunk_pda_1,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: create_account_data(&proof_chunk_1),
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Create chunk accounts for packet 2 (sequence=2)
+        let (payload_chunk_pda_2, _) = Pubkey::find_program_address(
+            &[
+                PayloadChunk::SEED,
+                relayer_pubkey.as_ref(),
+                RECV_DEST_CLIENT.as_bytes(),
+                &2u64.to_le_bytes(),
+                &[0u8],
+                &[0u8],
+            ],
+            &crate::ID,
+        );
+        let payload_chunk_2 = PayloadChunk {
+            client_id: RECV_DEST_CLIENT.to_string(),
+            sequence: 2,
+            payload_index: 0,
+            chunk_index: 0,
+            chunk_data: payload_data_2.clone(),
+        };
+        pt.add_account(
+            payload_chunk_pda_2,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: create_account_data(&payload_chunk_2),
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (proof_chunk_pda_2, _) = Pubkey::find_program_address(
+            &[
+                ProofChunk::SEED,
+                relayer_pubkey.as_ref(),
+                RECV_DEST_CLIENT.as_bytes(),
+                &2u64.to_le_bytes(),
+                &[0u8],
+            ],
+            &crate::ID,
+        );
+        let proof_chunk_2 = ProofChunk {
+            client_id: RECV_DEST_CLIENT.to_string(),
+            sequence: 2,
+            chunk_index: 0,
+            chunk_data: proof_data.clone(),
+        };
+        pt.add_account(
+            proof_chunk_pda_2,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: create_account_data(&proof_chunk_2),
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, _payer, recent_blockhash) = pt.start().await;
+
+        // Build recv_packet instructions for both packets
+        let (ix1, receipt_pda_1, ack_pda_1) = build_recv_packet_ix(
+            relayer_pubkey,
+            1,
+            mock_client_state,
+            mock_consensus_state,
+            mock_ibc_app_state,
+            payload_chunk_pda_1,
+            proof_chunk_pda_1,
+        );
+
+        let (ix2, receipt_pda_2, ack_pda_2) = build_recv_packet_ix(
+            relayer_pubkey,
+            2,
+            mock_client_state,
+            mock_consensus_state,
+            mock_ibc_app_state,
+            payload_chunk_pda_2,
+            proof_chunk_pda_2,
+        );
+
+        // Execute both recv_packet instructions in a single transaction
+        let tx = Transaction::new_signed_with_payer(
+            &[ix1, ix2],
+            Some(&relayer_pubkey),
+            &[&relayer],
+            recent_blockhash,
+        );
+
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "Both recv_packet instructions should succeed in a single tx: {:?}",
+            result.err()
+        );
+
+        // Verify packet_receipt exists for packet 1
+        let receipt_1 = banks_client
+            .get_account(receipt_pda_1)
+            .await
+            .unwrap()
+            .expect("packet receipt #1 should exist");
+        assert_eq!(receipt_1.owner, crate::ID);
+        let receipt_value_1 = &receipt_1.data[8..40];
+        assert_ne!(receipt_value_1, &[0u8; 32], "Receipt #1 should be set");
+
+        // Verify packet_ack exists for packet 1
+        let ack_1 = banks_client
+            .get_account(ack_pda_1)
+            .await
+            .unwrap()
+            .expect("packet ack #1 should exist");
+        assert_eq!(ack_1.owner, crate::ID);
+        let ack_value_1 = &ack_1.data[8..40];
+        assert_ne!(ack_value_1, &[0u8; 32], "Ack #1 should be set");
+
+        // Verify packet_receipt exists for packet 2
+        let receipt_2 = banks_client
+            .get_account(receipt_pda_2)
+            .await
+            .unwrap()
+            .expect("packet receipt #2 should exist");
+        assert_eq!(receipt_2.owner, crate::ID);
+        let receipt_value_2 = &receipt_2.data[8..40];
+        assert_ne!(receipt_value_2, &[0u8; 32], "Receipt #2 should be set");
+
+        // Verify packet_ack exists for packet 2
+        let ack_2 = banks_client
+            .get_account(ack_pda_2)
+            .await
+            .unwrap()
+            .expect("packet ack #2 should exist");
+        assert_eq!(ack_2.owner, crate::ID);
+        let ack_value_2 = &ack_2.data[8..40];
+        assert_ne!(ack_value_2, &[0u8; 32], "Ack #2 should be set");
+
+        // Verify receipts are distinct (different packet content -> different commitments)
+        assert_ne!(
+            receipt_value_1, receipt_value_2,
+            "Receipts should differ for distinct packets"
+        );
+    }
 }

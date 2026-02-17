@@ -288,6 +288,156 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 	}))
 }
 
+// Test_IFT_TwoConsecutiveTransfersWithBatchRelay sends two IFT transfers from Solana,
+// batch relays both packets to Cosmos in a single relay call, then relays the ack back.
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TwoConsecutiveTransfersWithBatchRelay() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	var mint solanago.PublicKey
+	s.Require().True(s.Run("Create SPL token with initial balance on Solana", func() {
+		mint = s.initializeExistingToken(ctx, IFTMintAmount)
+		s.T().Logf("SPL token initialized with IFT: %s", mint)
+	}))
+
+	var cosmosDenom string
+	s.Require().True(s.Run("Create tokenfactory denom on Cosmos", func() {
+		cosmosDenom = s.createTokenFactoryDenom(ctx, testvalues.IFTTestDenom)
+	}))
+
+	s.Require().True(s.Run("Register IFT Bridges", func() {
+		s.registerCosmosIFTBridge(ctx, cosmosDenom, testvalues.FirstAttestationsClientID, ift.ProgramID.String(), SolanaClientID, ics27_gmp.ProgramID, mint)
+		iftModuleAddr := s.getCosmosIFTModuleAddress()
+		s.registerSolanaIFTBridge(ctx, SolanaClientID, iftModuleAddr, cosmosDenom)
+	}))
+
+	// Helper to build and send an IFT transfer, returning the base sequence and tx signature.
+	sendIFTTransfer := func(label string) (uint64, uint64, solanago.Signature) {
+		var baseSeq, namespacedSeq uint64
+		var txSig solanago.Signature
+
+		s.Require().True(s.Run(label, func() {
+			var err error
+			baseSeq, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+			s.Require().NoError(err)
+
+			namespacedSeq = solana.CalculateNamespacedSequence(baseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+			seqBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(seqBytes, namespacedSeq)
+
+			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), seqBytes)
+			pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, mint[:], []byte(SolanaClientID), seqBytes)
+
+			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
+			s.Require().NoError(err)
+
+			transferMsg := ift.IftStateIftTransferMsg{
+				ClientId:         SolanaClientID,
+				Receiver:         s.CosmosUser.FormattedAddress(),
+				Amount:           IFTTransferAmount,
+				TimeoutTimestamp: solanaClockTime + 900,
+			}
+
+			transferIx, err := ift.NewIftTransferInstruction(
+				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, s.SenderTokenAccount,
+				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+				token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
+				ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+				solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
+				ics07_tendermint.ProgramID, s.LightClientStatePDA, pendingTransferPDA,
+			)
+			s.Require().NoError(err)
+
+			computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
+			s.Require().NoError(err)
+
+			txSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			s.Require().NoError(err)
+			s.T().Logf("%s tx: %s (base seq: %d, namespaced seq: %d)", label, txSig, baseSeq, namespacedSeq)
+		}))
+
+		return baseSeq, namespacedSeq, txSig
+	}
+
+	// Transfer #1
+	baseSeq1, namespacedSeq1, txSig1 := sendIFTTransfer("Transfer #1: Solana → Cosmos")
+
+	s.Require().True(s.Run("Verify sequence incremented after transfer #1", func() {
+		nextSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+		s.Require().NoError(err)
+		s.Require().Equal(baseSeq1+1, nextSeq, "Base sequence should have incremented by 1")
+	}))
+
+	// Transfer #2
+	baseSeq2, namespacedSeq2, txSig2 := sendIFTTransfer("Transfer #2: Solana → Cosmos")
+
+	s.Require().True(s.Run("Verify sequence incremented after transfer #2", func() {
+		nextSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+		s.Require().NoError(err)
+		s.Require().Equal(baseSeq2+1, nextSeq, "Base sequence should have incremented again")
+		s.Require().Equal(baseSeq1+2, nextSeq, "Base sequence should be initial + 2")
+	}))
+
+	s.Require().True(s.Run("Verify both pending transfers exist", func() {
+		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(), ift.ProgramID, mint, SolanaClientID, namespacedSeq1)
+		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(), ift.ProgramID, mint, SolanaClientID, namespacedSeq2)
+	}))
+
+	s.Require().True(s.Run("Verify tokens burned on Solana", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(IFTMintAmount-2*IFTTransferAmount, balance)
+	}))
+
+	// Batch relay both packets to Cosmos
+	var cosmosRecvTxHash string
+	s.Require().True(s.Run("Batch relay both packets to Cosmos", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    testvalues.SolanaChainID,
+			DstChain:    s.Wfchain.Config().ChainID,
+			SourceTxIds: [][]byte{[]byte(txSig1.String()), []byte(txSig2.String())},
+			SrcClientId: SolanaClientID,
+			DstClientId: CosmosClientID,
+		})
+		s.Require().NoError(err)
+
+		receipt := s.MustBroadcastSdkTxBody(ctx, s.Wfchain, s.CosmosUser, 2_000_000, resp.Tx)
+		cosmosRecvTxHash = receipt.TxHash
+		s.T().Logf("Cosmos recv tx (batch): %s", cosmosRecvTxHash)
+	}))
+
+	s.Require().True(s.Run("Verify tokens minted on Cosmos", func() {
+		balance, err := s.Wfchain.GetBalance(ctx, s.CosmosUser.FormattedAddress(), cosmosDenom)
+		s.Require().NoError(err)
+		s.Require().Equal(sdkmath.NewInt(int64(2*IFTTransferAmount)), balance)
+	}))
+
+	s.Require().True(s.Run("Relay ack to Solana", func() {
+		cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxHash)
+		s.Require().NoError(err)
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    s.Wfchain.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Verify both pending transfers closed and commitments deleted", func() {
+		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(), ift.ProgramID, mint, SolanaClientID, namespacedSeq1)
+		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(), ift.ProgramID, mint, SolanaClientID, namespacedSeq2)
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSeq1, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), SolanaClientID, baseSeq2, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+	}))
+}
+
 // Test_IFT_CosmosToSolanaRoundtrip test: Cosmos → Solana → Cosmos
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 	ctx := context.Background()
