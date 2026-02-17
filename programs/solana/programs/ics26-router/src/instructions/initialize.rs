@@ -2,6 +2,7 @@ use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,

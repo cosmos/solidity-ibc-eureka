@@ -11,6 +11,7 @@ use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
 use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
+#[instruction(new_admin: Pubkey)]
 pub struct SetAdmin<'info> {
     #[account(
         mut,

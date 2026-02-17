@@ -4,6 +4,7 @@ use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>, min_required_sigs: u8, access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,

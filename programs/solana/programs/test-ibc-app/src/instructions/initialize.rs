@@ -2,6 +2,7 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(authority: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,

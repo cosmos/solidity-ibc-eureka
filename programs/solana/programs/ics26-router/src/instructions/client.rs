@@ -4,7 +4,7 @@ use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, Rou
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
-#[instruction(client_id: String)]
+#[instruction(client_id: String, counterparty_info: CounterpartyInfo)]
 pub struct AddClient<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
@@ -52,7 +52,7 @@ pub struct AddClient<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(client_id: String)]
+#[instruction(client_id: String, params: MigrateClientParams)]
 pub struct MigrateClient<'info> {
     #[account(mut)]
     pub authority: Signer<'info>,
