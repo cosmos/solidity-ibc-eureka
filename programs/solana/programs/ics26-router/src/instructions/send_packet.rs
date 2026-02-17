@@ -75,10 +75,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    let (expected_app_signer, _) = Pubkey::find_program_address(
-        &[IBCAppState::SEED, ibc_app.port_id.as_bytes()],
-        &ibc_app.app_program_id,
-    );
+    let (expected_app_signer, _) =
+        Pubkey::find_program_address(&[IBCAppState::SEED], &ibc_app.app_program_id);
     require!(
         ctx.accounts.app_signer.key() == expected_app_signer,
         RouterError::UnauthorizedSender
@@ -325,7 +323,7 @@ mod tests {
 
         // Pre-create TestIbcAppState PDA (the app_signer for CPI)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {
@@ -393,7 +391,7 @@ mod tests {
         mock_client_state: Pubkey,
     ) -> Instruction {
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
@@ -941,7 +939,7 @@ mod tests {
 
         // TestIbcAppState PDA (signed by test_ibc_app, but router expects PDA from wrong_program_id)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {

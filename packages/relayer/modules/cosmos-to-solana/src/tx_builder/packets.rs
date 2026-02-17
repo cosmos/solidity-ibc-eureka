@@ -137,7 +137,7 @@ impl super::TxBuilder {
         );
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(payload_info.dest_port, ibc_app_program_id);
+        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
 
@@ -208,7 +208,7 @@ impl super::TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
         let ibc_app_program = ibc_app.app_program_id;
 
-        let (app_state, _) = IBCAppState::pda(source_port, ibc_app_program);
+        let (app_state, _) = IBCAppState::pda(ibc_app_program);
         let (packet_commitment, _) = Commitment::packet_commitment_pda(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -315,7 +315,7 @@ impl super::TxBuilder {
         );
 
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(source_port, ibc_app_program_id);
+        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
         // Resolve the light client program ID for this client

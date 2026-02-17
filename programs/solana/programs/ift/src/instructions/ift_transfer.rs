@@ -4,7 +4,6 @@ use anchor_lang::solana_program::program::invoke_signed;
 use anchor_lang::solana_program::system_instruction;
 use anchor_lang::Space;
 use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
-use ics27_gmp::constants::GMP_PORT_ID;
 use serde::Serialize;
 
 use crate::constants::*;
@@ -79,7 +78,7 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Validated by GMP program via CPI
     #[account(
         mut,
-        seeds = [solana_ibc_types::GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [solana_ibc_types::GMPAppState::SEED],
         bump,
         seeds::program = gmp_program.key()
     )]
@@ -744,13 +743,8 @@ mod tests {
             gmp_program
         };
 
-        let (gmp_app_state_pda, _) = Pubkey::find_program_address(
-            &[
-                solana_ibc_types::GMPAppState::SEED,
-                ics27_gmp::constants::GMP_PORT_ID.as_bytes(),
-            ],
-            &gmp_program_key,
-        );
+        let (gmp_app_state_pda, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::GMPAppState::SEED], &gmp_program_key);
 
         let router_state = Pubkey::new_unique();
         let client_sequence = Pubkey::new_unique();

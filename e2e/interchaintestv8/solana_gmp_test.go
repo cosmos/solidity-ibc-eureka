@@ -140,7 +140,7 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		// Program already deployed, just initialize
 
 		// Find GMP app state PDA (using standard pattern with port_id)
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		// Initialize ICS27 GMP app
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
@@ -836,7 +836,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
@@ -1149,7 +1149,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
@@ -1863,7 +1863,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 
 		var gmpAppStatePDA, routerStatePDA, clientPDA, ibcAppPDA, clientSequencePDA, lightClientStatePDA solanago.PublicKey
 		s.Require().True(s.Run("Derive required PDAs", func() {
-			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+			gmpAppStatePDA, _ = solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 			routerStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			clientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 			ibcAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
@@ -2077,7 +2077,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 1A: on_recv_packet - Direct Call Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_recv_packet - Should Reject Direct Call", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
@@ -2150,7 +2150,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 1B: on_recv_packet - CPI Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_recv_packet - Should Reject Unauthorized CPI", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
@@ -2226,7 +2226,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 2A: on_ack_packet - Direct Call Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_ack_packet - Should Reject Direct Call", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
@@ -2291,7 +2291,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 2B: on_ack_packet - CPI Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_ack_packet - Check CPI Validation", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
@@ -2360,7 +2360,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 3A: on_timeout_packet - Direct Call Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_timeout_packet - Should Reject Direct Call", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",
@@ -2424,7 +2424,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	// Test 3B: on_timeout_packet - CPI Attack
 	// ========================================================================
 	s.Require().True(s.Run("Test on_timeout_packet - Check CPI Validation", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		mockPacketData := gmptypes.GMPPacketData{
 			Sender:   "cosmos1test",

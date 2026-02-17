@@ -13,7 +13,7 @@ use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 pub struct SendCall<'info> {
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -234,10 +234,8 @@ mod tests {
             let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
             let light_client_program = Pubkey::new_unique();
             let client_state = Pubkey::new_unique();
-            let (app_state_pda, app_state_bump) = Pubkey::find_program_address(
-                &[GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
-                &crate::ID,
-            );
+            let (app_state_pda, app_state_bump) =
+                Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
             Self {
                 mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),
@@ -597,5 +595,131 @@ mod tests {
     #[case::empty_client_id(SendCallErrorCase::EmptyClientId)]
     fn test_send_call_validation(#[case] case: SendCallErrorCase) {
         run_send_call_error_test(case);
+    }
+}
+
+/// Integration tests using `ProgramTest` with real BPF runtime.
+///
+/// These test the CPI detection logic (lines 72-82 of `send_call`) which depends
+/// on `get_stack_height()` — a syscall that returns 0 in Mollusk but works
+/// correctly under `ProgramTest`'s BPF execution.
+#[cfg(test)]
+mod integration_tests {
+    use super::*;
+    use crate::state::GMPAppState;
+    use crate::test_utils::*;
+    use anchor_lang::InstructionData;
+    use solana_sdk::{
+        instruction::{AccountMeta, Instruction},
+        pubkey::Pubkey,
+        signer::Signer,
+    };
+
+    fn build_send_call_ix(payer: Pubkey, sender: Pubkey, sender_is_signer: bool) -> Instruction {
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+
+        let msg = SendCallMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            receiver: Pubkey::new_unique().to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6],
+            timeout_timestamp: 3600,
+            memo: String::new(),
+        };
+
+        let (router_state, _) = create_router_state_pda();
+        let (client_sequence, _) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
+        let (ibc_app, _) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
+        let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
+
+        let ix_data = crate::instruction::SendCall { msg };
+
+        Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(sender, sender_is_signer),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(ics26_router::ID, false),
+                AccountMeta::new_readonly(router_state, false),
+                AccountMeta::new(client_sequence, false),
+                AccountMeta::new(Pubkey::new_unique(), false), // packet_commitment
+                AccountMeta::new_readonly(
+                    anchor_lang::solana_program::sysvar::instructions::ID,
+                    false,
+                ),
+                AccountMeta::new_readonly(ibc_app, false),
+                AccountMeta::new_readonly(client, false),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false), // light_client_program
+                AccountMeta::new_readonly(Pubkey::new_unique(), false), // client_state
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+            ],
+            data: ix_data.data(),
+        }
+    }
+
+    /// Direct call with sender not signing must fail with `SenderMustSign`.
+    /// This proves the direct-call path (`is_cpi()` == false) is taken.
+    #[tokio::test]
+    async fn test_direct_call_requires_sender_signer() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let ix = build_send_call_ix(payer.pubkey(), sender, false);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("direct call without signer should fail");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
+            "expected SenderMustSign (6044), got: {err:?}"
+        );
+    }
+
+    /// CPI call (Tx -> `test_cpi_proxy` -> GMP) with sender not signing should
+    /// NOT fail with `SenderMustSign` — proving `is_cpi()` returns true and the
+    /// signer check is bypassed. It will fail later at the router CPI (router
+    /// is not initialized) but with a different error.
+    #[tokio::test]
+    async fn test_cpi_call_skips_sender_signer_check() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("CPI call should still fail (router not initialized)");
+        assert_ne!(
+            extract_custom_error(&err),
+            Some(anchor_lang::error::ERROR_CODE_OFFSET + GMPError::SenderMustSign as u32),
+            "CPI call must NOT fail with SenderMustSign — is_cpi() should be true"
+        );
+    }
+
+    /// Nested CPI (Tx -> `test_cpi_proxy` -> `test_cpi_target` -> GMP)
+    /// must be rejected with `UnauthorizedRouter` (mapped from `NestedCpiNotAllowed`).
+    #[tokio::test]
+    async fn test_nested_cpi_rejected() {
+        let pt = setup_program_test();
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let sender = Pubkey::new_unique();
+        let inner_ix = build_send_call_ix(payer.pubkey(), sender, false);
+        let middle_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        let ix = wrap_in_test_cpi_proxy(payer.pubkey(), &middle_ix);
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
+        let err = result.expect_err("nested CPI should be rejected");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(
+                anchor_lang::error::ERROR_CODE_OFFSET
+                    + crate::errors::GMPError::UnauthorizedRouter as u32
+            ),
+            "expected UnauthorizedRouter (from NestedCpiNotAllowed), got: {err:?}"
+        );
     }
 }
