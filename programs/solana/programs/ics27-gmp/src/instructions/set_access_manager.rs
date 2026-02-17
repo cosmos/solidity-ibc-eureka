@@ -1,4 +1,3 @@
-use crate::constants::GMP_PORT_ID;
 use crate::events::AccessManagerUpdated;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
@@ -8,7 +7,7 @@ use anchor_lang::prelude::*;
 pub struct SetAccessManager<'info> {
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -227,13 +226,8 @@ mod integration_tests {
     };
 
     fn build_set_access_manager_ix(admin: Pubkey) -> Instruction {
-        let (app_state_pda, _) = Pubkey::find_program_address(
-            &[
-                crate::state::GMPAppState::SEED,
-                crate::constants::GMP_PORT_ID.as_bytes(),
-            ],
-            &crate::ID,
-        );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::state::GMPAppState::SEED], &crate::ID);
         let (access_manager_pda, _) =
             solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
 

@@ -295,7 +295,7 @@ pub fn create_gmp_test_context() -> GmpTestContext {
     let authority = Pubkey::new_unique();
     let payer = Pubkey::new_unique();
     let (app_state_pda, app_state_bump) =
-        Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
     GmpTestContext {
         mollusk: Mollusk::new(&crate::ID, crate::get_gmp_program_path()),
@@ -365,8 +365,7 @@ pub fn create_recv_packet_instruction(
 
 /// Create initialized app state for tests
 pub fn create_initialized_app_state(_access_manager_program_id: Pubkey) -> (Pubkey, SolanaAccount) {
-    let (app_state_pda, bump) =
-        Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+    let (app_state_pda, bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
     create_gmp_app_state_account(app_state_pda, bump, false)
 }
@@ -661,13 +660,8 @@ pub fn setup_program_test_with_access_manager(
     pt.add_program("access_manager", access_manager::ID, None);
 
     // Pre-create GMP app_state PDA
-    let (app_state_pda, bump) = Pubkey::find_program_address(
-        &[
-            crate::state::GMPAppState::SEED,
-            crate::constants::GMP_PORT_ID.as_bytes(),
-        ],
-        &crate::ID,
-    );
+    let (app_state_pda, bump) =
+        Pubkey::find_program_address(&[crate::state::GMPAppState::SEED], &crate::ID);
     let app_state = crate::state::GMPAppState {
         version: crate::state::AccountVersion::V1,
         paused: false,
@@ -815,13 +809,8 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
     pt.add_program("access_manager", access_manager::ID, None);
 
     // Pre-create GMP app_state PDA
-    let (app_state_pda, bump) = Pubkey::find_program_address(
-        &[
-            crate::state::GMPAppState::SEED,
-            crate::constants::GMP_PORT_ID.as_bytes(),
-        ],
-        &crate::ID,
-    );
+    let (app_state_pda, bump) =
+        Pubkey::find_program_address(&[crate::state::GMPAppState::SEED], &crate::ID);
     let app_state = crate::state::GMPAppState {
         version: crate::state::AccountVersion::V1,
         paused: false,

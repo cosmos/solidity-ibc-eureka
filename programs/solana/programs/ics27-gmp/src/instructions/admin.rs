@@ -1,4 +1,3 @@
-use crate::constants::*;
 use crate::events::{GMPAppPaused, GMPAppUnpaused};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
@@ -9,7 +8,7 @@ pub struct PauseApp<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -60,7 +59,7 @@ pub struct UnpauseApp<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -130,8 +129,7 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let payer = Pubkey::new_unique();
-        let (app_state_pda, _bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
             access_manager: access_manager::ID,
@@ -167,7 +165,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::PAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -214,7 +212,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::UNPAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let app_state = GMPAppState {
             version: AccountVersion::V1,
@@ -279,7 +277,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::PAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -322,7 +320,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::PAUSER_ROLE, &[authority])]);
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -367,7 +365,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::PAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -407,7 +405,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::PAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::PauseApp {};
 
@@ -447,7 +445,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::UNPAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::UnpauseApp {};
 
@@ -487,7 +485,7 @@ mod tests {
         let (access_manager_pda, access_manager_account) =
             setup_access_manager_with_roles(&[(roles::UNPAUSER_ROLE, &[authority])]);
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::UnpauseApp {};
 
@@ -522,7 +520,6 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use crate::constants::GMP_PORT_ID;
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -534,8 +531,7 @@ mod integration_tests {
     };
 
     fn build_pause_app_ix(authority: Pubkey) -> Instruction {
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
@@ -554,8 +550,7 @@ mod integration_tests {
     }
 
     fn build_unpause_app_ix(authority: Pubkey) -> Instruction {
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
@@ -587,8 +582,7 @@ mod integration_tests {
         pt.add_program("access_manager", access_manager::ID, None);
 
         // Pre-create GMP app_state PDA
-        let (app_state_pda, bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let app_state = GMPAppState {
             version: crate::state::AccountVersion::V1,
             paused: false,
