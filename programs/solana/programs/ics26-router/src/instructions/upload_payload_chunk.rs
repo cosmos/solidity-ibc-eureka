@@ -6,7 +6,21 @@ use anchor_lang::prelude::*;
 #[instruction(msg: MsgUploadChunk)]
 pub struct UploadPayloadChunk<'info> {
     #[account(
-        init,
+        seeds = [RouterState::SEED],
+        bump
+    )]
+    pub router_state: Account<'info, RouterState>,
+
+    /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = router_state.access_manager,
+    )]
+    pub access_manager: AccountInfo<'info>,
+
+    #[account(
+        init_if_needed,
         payer = relayer,
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
@@ -25,9 +39,21 @@ pub struct UploadPayloadChunk<'info> {
     pub relayer: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn upload_payload_chunk(ctx: Context<UploadPayloadChunk>, msg: MsgUploadChunk) -> Result<()> {
+    access_manager::require_role(
+        &ctx.accounts.access_manager,
+        solana_ibc_types::roles::RELAYER_ROLE,
+        &ctx.accounts.relayer,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     let chunk = &mut ctx.accounts.chunk;
 
     require!(
@@ -49,111 +75,39 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
+    use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use solana_ibc_types::roles;
     use solana_sdk::instruction::{AccountMeta, Instruction};
+    use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
     use solana_sdk::system_program;
 
-    #[test]
-    fn test_upload_payload_chunk_success() {
-        let payer = Pubkey::new_unique();
+    struct UploadPayloadChunkTestContext {
+        instruction: Instruction,
+        accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
+        chunk_pda: Pubkey,
+    }
+
+    fn setup_upload_payload_chunk_test(
+        relayer_override: Option<Pubkey>,
+    ) -> UploadPayloadChunkTestContext {
+        let authority = Pubkey::new_unique();
+        let relayer = relayer_override.unwrap_or(authority);
         let client_id = "test-client";
         let sequence = 42u64;
         let payload_index = 0u8;
         let chunk_index = 0u8;
         let chunk_data = vec![1u8; 100];
 
-        // Derive chunk PDA
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::RELAYER_ROLE, &[authority])]);
+
         let chunk_pda = Pubkey::find_program_address(
             &[
                 PayloadChunk::SEED,
-                payer.as_ref(),
-                client_id.as_bytes(),
-                &sequence.to_le_bytes(),
-                &[payload_index],
-                &[chunk_index],
-            ],
-            &crate::ID,
-        )
-        .0;
-
-        let instruction_data = crate::instruction::UploadPayloadChunk {
-            msg: MsgUploadChunk {
-                client_id: client_id.to_string(),
-                sequence,
-                payload_index,
-                chunk_index,
-                chunk_data: chunk_data.clone(),
-            },
-        };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(chunk_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-            ],
-            data: instruction_data.data(),
-        };
-
-        let accounts = vec![
-            create_uninitialized_account(chunk_pda, 0),
-            create_system_account(payer),
-            create_program_account(system_program::ID),
-        ];
-
-        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
-        let result = mollusk.process_instruction(&instruction, &accounts);
-
-        // Check success
-        assert!(
-            matches!(
-                result.program_result,
-                mollusk_svm::result::ProgramResult::Success
-            ),
-            "Instruction should succeed"
-        );
-
-        // Verify chunk account was created and initialized
-        let chunk_account = result
-            .get_account(&chunk_pda)
-            .expect("chunk account should exist");
-        assert_eq!(
-            chunk_account.owner,
-            crate::ID,
-            "chunk should be owned by program"
-        );
-        assert!(
-            chunk_account.lamports > 0,
-            "chunk should have lamports for rent"
-        );
-
-        // Deserialize and verify chunk data
-        let chunk_data_raw = &chunk_account.data[8..]; // Skip discriminator
-        let chunk: PayloadChunk = AnchorDeserialize::deserialize(&mut &chunk_data_raw[..])
-            .expect("should deserialize chunk");
-        assert_eq!(chunk.client_id, client_id);
-        assert_eq!(chunk.sequence, sequence);
-        assert_eq!(chunk.payload_index, payload_index);
-        assert_eq!(chunk.chunk_index, chunk_index);
-        assert_eq!(chunk.chunk_data, chunk_data);
-    }
-
-    #[test]
-    fn test_upload_payload_chunk_data_too_large() {
-        let payer = Pubkey::new_unique();
-        let client_id = "test-client";
-        let sequence = 42u64;
-        let payload_index = 0u8;
-        let chunk_index = 0u8;
-        let chunk_data = vec![1u8; CHUNK_DATA_SIZE + 1]; // Too large
-
-        // Derive chunk PDA
-        let chunk_pda = Pubkey::find_program_address(
-            &[
-                PayloadChunk::SEED,
-                payer.as_ref(),
+                relayer.as_ref(),
                 client_id.as_bytes(),
                 &sequence.to_le_bytes(),
                 &[payload_index],
@@ -176,27 +130,264 @@ mod tests {
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(chunk_pda, false),
-                AccountMeta::new(payer, true),
+                AccountMeta::new(relayer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: instruction_data.data(),
         };
 
         let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(chunk_pda, 0),
-            create_system_account(payer),
+            create_system_account(relayer),
             create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+            create_program_account(access_manager::ID),
+        ];
+
+        UploadPayloadChunkTestContext {
+            instruction,
+            accounts,
+            chunk_pda,
+        }
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_success() {
+        let ctx = setup_upload_payload_chunk_test(None);
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        let result = mollusk.process_and_validate_instruction(
+            &ctx.instruction,
+            &ctx.accounts,
+            &[Check::success()],
+        );
+
+        let chunk_account = result
+            .get_account(&ctx.chunk_pda)
+            .expect("chunk account should exist");
+        assert_eq!(chunk_account.owner, crate::ID);
+        assert!(chunk_account.lamports > 0);
+
+        let chunk_data_raw = &chunk_account.data[8..];
+        let chunk: PayloadChunk = AnchorDeserialize::deserialize(&mut &chunk_data_raw[..])
+            .expect("should deserialize chunk");
+        assert_eq!(chunk.client_id, "test-client");
+        assert_eq!(chunk.sequence, 42);
+        assert_eq!(chunk.payload_index, 0);
+        assert_eq!(chunk.chunk_index, 0);
+        assert_eq!(chunk.chunk_data, vec![1u8; 100]);
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_reupload_overwrites() {
+        let authority = Pubkey::new_unique();
+        let client_id = "test-client";
+        let sequence = 42u64;
+        let payload_index = 0u8;
+        let chunk_index = 0u8;
+        let new_chunk_data = vec![9u8; 50];
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::RELAYER_ROLE, &[authority])]);
+
+        let chunk_pda = Pubkey::find_program_address(
+            &[
+                PayloadChunk::SEED,
+                authority.as_ref(),
+                client_id.as_bytes(),
+                &sequence.to_le_bytes(),
+                &[payload_index],
+                &[chunk_index],
+            ],
+            &crate::ID,
+        )
+        .0;
+
+        let existing_chunk = PayloadChunk {
+            client_id: client_id.to_string(),
+            sequence,
+            payload_index,
+            chunk_index,
+            chunk_data: vec![1u8; 100],
+        };
+        let existing_data = create_account_data(&existing_chunk);
+        let space = 8 + PayloadChunk::INIT_SPACE;
+        let mut padded_data = existing_data;
+        padded_data.resize(space, 0);
+
+        let instruction_data = crate::instruction::UploadPayloadChunk {
+            msg: MsgUploadChunk {
+                client_id: client_id.to_string(),
+                sequence,
+                payload_index,
+                chunk_index,
+                chunk_data: new_chunk_data.clone(),
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(chunk_pda, false),
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_account(chunk_pda, padded_data, crate::ID),
+            create_system_account(authority),
+            create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+            create_program_account(access_manager::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let chunk_account = result
+            .get_account(&chunk_pda)
+            .expect("chunk account should exist");
+        let chunk_data_raw = &chunk_account.data[8..];
+        let chunk: PayloadChunk = AnchorDeserialize::deserialize(&mut &chunk_data_raw[..])
+            .expect("should deserialize chunk");
+        assert_eq!(chunk.chunk_data, new_chunk_data);
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_data_too_large() {
+        let authority = Pubkey::new_unique();
+        let client_id = "test-client";
+        let sequence = 42u64;
+        let payload_index = 0u8;
+        let chunk_index = 0u8;
+        let chunk_data = vec![1u8; CHUNK_DATA_SIZE + 1];
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::RELAYER_ROLE, &[authority])]);
+
+        let chunk_pda = Pubkey::find_program_address(
+            &[
+                PayloadChunk::SEED,
+                authority.as_ref(),
+                client_id.as_bytes(),
+                &sequence.to_le_bytes(),
+                &[payload_index],
+                &[chunk_index],
+            ],
+            &crate::ID,
+        )
+        .0;
+
+        let instruction_data = crate::instruction::UploadPayloadChunk {
+            msg: MsgUploadChunk {
+                client_id: client_id.to_string(),
+                sequence,
+                payload_index,
+                chunk_index,
+                chunk_data,
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(chunk_pda, false),
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_uninitialized_account(chunk_pda, 0),
+            create_system_account(authority),
+            create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+            create_program_account(access_manager::ID),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
         let result = mollusk.process_instruction(&instruction, &accounts);
 
-        // Should fail with ChunkDataTooLarge error
         assert_error_code(
             result,
             RouterError::ChunkDataTooLarge,
             "upload_payload_chunk_data_too_large",
+        );
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_unauthorized() {
+        let ctx = setup_upload_payload_chunk_test(Some(Pubkey::new_unique()));
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        mollusk.process_and_validate_instruction(
+            &ctx.instruction,
+            &ctx.accounts,
+            &[Check::err(ProgramError::Custom(
+                ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32,
+            ))],
+        );
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_cpi_rejection() {
+        let mut ctx = setup_upload_payload_chunk_test(None);
+
+        let malicious_program = Pubkey::new_unique();
+        let (instruction, cpi_sysvar_account) =
+            setup_cpi_call_test(ctx.instruction, malicious_program);
+        ctx.instruction = instruction;
+
+        ctx.accounts
+            .retain(|(pubkey, _)| *pubkey != solana_sdk::sysvar::instructions::ID);
+        ctx.accounts.push(cpi_sysvar_account);
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        mollusk.process_and_validate_instruction(
+            &ctx.instruction,
+            &ctx.accounts,
+            &[Check::err(ProgramError::Custom(
+                ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
+            ))],
+        );
+    }
+
+    #[test]
+    fn test_upload_payload_chunk_fake_sysvar_attack() {
+        let mut ctx = setup_upload_payload_chunk_test(None);
+
+        let (instruction, fake_sysvar_account) =
+            setup_fake_sysvar_attack(ctx.instruction, crate::ID);
+        ctx.instruction = instruction;
+        ctx.accounts.push(fake_sysvar_account);
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        mollusk.process_and_validate_instruction(
+            &ctx.instruction,
+            &ctx.accounts,
+            &[expect_sysvar_attack_error()],
         );
     }
 }
