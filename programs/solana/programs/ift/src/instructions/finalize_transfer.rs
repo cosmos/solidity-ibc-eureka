@@ -5,7 +5,7 @@
 
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use solana_ibc_types::{CallResultStatus, GMPCallResult};
+use solana_ibc_types::{reject_cpi, CallResultStatus, GMPCallResult};
 
 use crate::constants::{
     IFT_APP_MINT_STATE_SEED, IFT_APP_STATE_SEED, IFT_BRIDGE_SEED, MINT_AUTHORITY_SEED,
@@ -96,6 +96,10 @@ pub struct FinalizeTransfer<'info> {
 
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 /// Finalize a pending transfer based on GMP result
@@ -104,6 +108,8 @@ pub fn finalize_transfer(
     client_id: String,
     sequence: u64,
 ) -> Result<()> {
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
+
     let pending = &ctx.accounts.pending_transfer;
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
@@ -272,6 +278,7 @@ mod tests {
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
             create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
@@ -337,6 +344,7 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -357,6 +365,7 @@ mod tests {
             (payer, create_signer_account()),
             (token_program_id, token_program_account),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         FinalizeTransferTestSetup {
@@ -533,6 +542,7 @@ mod tests {
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let sender_token_pda = Pubkey::new_unique();
 
@@ -551,6 +561,7 @@ mod tests {
                     AccountMeta::new(payer, true),
                     AccountMeta::new_readonly(token_program_id, false),
                     AccountMeta::new_readonly(system_program, false),
+                    AccountMeta::new_readonly(sysvar_id, false),
                 ],
                 data: crate::instruction::FinalizeTransfer {
                     client_id: TEST_CLIENT_ID.to_string(),
@@ -614,6 +625,7 @@ mod tests {
                 (payer, create_signer_account()),
                 (token_program_id, token_program_account),
                 (system_program, system_account),
+                (sysvar_id, sysvar_account),
             ],
         };
 
@@ -794,6 +806,7 @@ mod tests {
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let sender_token_pda = Pubkey::new_unique();
 
@@ -811,6 +824,7 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -874,6 +888,7 @@ mod tests {
             (payer, create_signer_account()),
             (token_program_id, token_program_account),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);

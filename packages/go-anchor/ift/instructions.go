@@ -527,6 +527,7 @@ func NewFinalizeTransferInstruction(
 	payerAccount solanago.PublicKey,
 	tokenProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -584,6 +585,8 @@ func NewFinalizeTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 11 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

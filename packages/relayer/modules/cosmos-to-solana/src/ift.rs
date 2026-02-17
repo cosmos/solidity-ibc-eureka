@@ -247,6 +247,7 @@ fn build_finalize_transfer_ix(
         AccountMeta::new(fee_payer, true),
         AccountMeta::new_readonly(token_program_id, false),
         AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
     ];
 
     // Build instruction data: discriminator + client_id (string) + sequence (u64)
