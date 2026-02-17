@@ -63,7 +63,6 @@ type IbcEurekaSolanaIFTTestSuite struct {
 	GMPIBCAppPDA        solanago.PublicKey
 	ClientSequencePDA   solanago.PublicKey
 	LightClientStatePDA solanago.PublicKey
-	ConsensusStatePDA   solanago.PublicKey
 }
 
 // IFTMint returns the mint public key
@@ -108,7 +107,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
 	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 	s.LightClientStatePDA, _ = solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
-	s.ConsensusStatePDA = s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 }
 
 // Test_IFT_SolanaToCosmosRoundtrip test: Solana → Cosmos → Solana
@@ -160,13 +158,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosRoundtrip() {
 			TimeoutTimestamp: solanaClockTime + 900,
 		}
 
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, s.SenderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
 			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
-			ics07_tendermint.ProgramID, s.LightClientStatePDA, s.ConsensusStatePDA, pendingTransferPDA,
+			ics07_tendermint.ProgramID, s.LightClientStatePDA, consensusStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -414,13 +413,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 			TimeoutTimestamp: solanaClockTime + 900,
 		}
 
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, solanaTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
 			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
-			ics07_tendermint.ProgramID, s.LightClientStatePDA, s.ConsensusStatePDA, pendingTransferPDA,
+			ics07_tendermint.ProgramID, s.LightClientStatePDA, consensusStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -572,13 +572,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_SolanaToCosmosToken2022() {
 			TimeoutTimestamp: solanaClockTime + 900,
 		}
 
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, s.SenderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			tokenProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
 			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA,
-			ics07_tendermint.ProgramID, s.LightClientStatePDA, s.ConsensusStatePDA, pendingTransferPDA,
+			ics07_tendermint.ProgramID, s.LightClientStatePDA, consensusStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -805,6 +806,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 			TimeoutTimestamp: timeoutTimestamp,
 		}
 
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg,
 			s.IFTAppState,
@@ -827,7 +829,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TimeoutRefund() {
 			s.IBCClientPDA,
 			ics07_tendermint.ProgramID,
 			s.LightClientStatePDA,
-			s.ConsensusStatePDA,
+			consensusStatePDA,
 			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
@@ -963,6 +965,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			TimeoutTimestamp: timeoutTimestamp,
 		}
 
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg,
 			s.IFTAppState,
@@ -985,7 +988,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_AckFailureRefund() {
 			s.IBCClientPDA,
 			ics07_tendermint.ProgramID,
 			s.LightClientStatePDA,
-			s.ConsensusStatePDA,
+			consensusStatePDA,
 			pendingTransferPDA,
 		)
 		s.Require().NoError(err)
