@@ -37,7 +37,7 @@ pub struct SendPacket<'info> {
 
     /// App signer - PDA signed by the calling IBC app program
     #[account(
-        seeds = [IBCAppState::SEED, ibc_app.port_id.as_bytes()],
+        seeds = [IBCAppState::SEED],
         bump,
         seeds::program = ibc_app.app_program_id
     )]
@@ -480,6 +480,98 @@ mod tests {
         );
 
         // Replace the placeholder packet_commitment account
+        ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
+
+        (ix, packet_commitment_pda)
+    }
+
+    /// Build a `test_ibc_app::send_packet` instruction for a specific port.
+    fn build_test_app_send_packet_ix_for_port(
+        user: Pubkey,
+        client_id: &str,
+        source_port: &str,
+        timeout_timestamp: i64,
+        packet_data: &[u8],
+        mock_client_state: Pubkey,
+    ) -> Instruction {
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED],
+            &TEST_IBC_APP_PROGRAM_ID,
+        );
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, source_port.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+
+        let msg = test_ibc_app::instructions::SendPacketMsg {
+            source_client: client_id.to_string(),
+            source_port: source_port.to_string(),
+            dest_port: "dest-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            packet_data: packet_data.to_vec(),
+            timeout_timestamp,
+        };
+
+        let mut data = anchor_discriminator("send_packet").to_vec();
+        msg.serialize(&mut data).unwrap();
+
+        Instruction {
+            program_id: TEST_IBC_APP_PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(user, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new(Pubkey::default(), false), // placeholder
+                AccountMeta::new_readonly(client_pda, false),
+                AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
+                AccountMeta::new_readonly(mock_client_state, false),
+                AccountMeta::new_readonly(crate::ID, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data,
+        }
+    }
+
+    fn build_send_packet_ix_with_commitment_for_port(
+        user: &Keypair,
+        client_id: &str,
+        source_port: &str,
+        next_sequence_send: u64,
+        timeout_timestamp: i64,
+        packet_data: &[u8],
+        mock_client_state: Pubkey,
+    ) -> (Instruction, Pubkey) {
+        let namespaced_sequence = sequence::calculate_namespaced_sequence(
+            next_sequence_send,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &user.pubkey(),
+        )
+        .expect("sequence calculation failed");
+
+        let (packet_commitment_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                client_id.as_bytes(),
+                &namespaced_sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let mut ix = build_test_app_send_packet_ix_for_port(
+            user.pubkey(),
+            client_id,
+            source_port,
+            timeout_timestamp,
+            packet_data,
+            mock_client_state,
+        );
+
         ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
 
         (ix, packet_commitment_pda)
@@ -1015,9 +1107,101 @@ mod tests {
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
             .await
             .unwrap_err();
+        // Anchor's seeds constraint catches the PDA mismatch (ConstraintSeeds = 2006)
+        // before the manual require! check for UnauthorizedSender.
         assert_eq!(
             pt_extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32),
+            Some(anchor_lang::error::ErrorCode::ConstraintSeeds as u32),
+        );
+    }
+
+    #[test]
+    fn test_app_state_pda_does_not_include_port_id() {
+        // Verify that IBCAppState PDA is derived from [SEED] only, not [SEED, port_id].
+        let program_id = TEST_IBC_APP_PROGRAM_ID;
+
+        let (pda_without_port, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &program_id);
+
+        let (pda_with_port, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED, b"transfer"],
+            &program_id,
+        );
+
+        assert_ne!(
+            pda_without_port, pda_with_port,
+            "PDA with port_id in seeds must differ from PDA without"
+        );
+
+        // Helper must agree with the seedless derivation
+        let (pda_from_helper, _) = solana_ibc_types::IBCAppState::pda(program_id);
+        assert_eq!(pda_without_port, pda_from_helper);
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_app_signer_port_independent() {
+        // App signer seeds are port-independent: the `IBCApp` account already
+        // provides per-port authorization (mapping port → `app_program_id`),
+        // so the PDA only needs to prove the caller's program identity.
+        // Registering the same program under two ports must share one signer.
+        let second_port = "oracle";
+        let initial_sequence = 1u64;
+
+        let (mut pt, mock_client_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        // Register the same app program under a second port
+        let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(second_port, TEST_IBC_APP_PROGRAM_ID);
+        pt.add_account(
+            ibc_app_pda_2,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: ibc_app_data_2,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Send on the original port
+        let (ix1, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data 1",
+            mock_client_state,
+        );
+        let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
+        assert!(
+            result1.is_ok(),
+            "send on first port should succeed: {:?}",
+            result1.err()
+        );
+
+        // Send on the second port (same app program, different port).
+        // The sequence was incremented after the first send.
+        let recent_blockhash2 = banks_client.get_latest_blockhash().await.unwrap();
+        let (ix2, _) = build_send_packet_ix_with_commitment_for_port(
+            &payer,
+            TEST_CLIENT_ID,
+            second_port,
+            initial_sequence.saturating_add(1),
+            TEST_TIMEOUT,
+            b"test data 2",
+            mock_client_state,
+        );
+        let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
+        assert!(
+            result2.is_ok(),
+            "send on second port (same app) should succeed: {:?}",
+            result2.err()
         );
     }
 }
