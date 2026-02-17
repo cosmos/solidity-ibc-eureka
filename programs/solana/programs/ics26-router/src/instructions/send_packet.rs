@@ -18,7 +18,8 @@ pub struct SendPacket<'info> {
 
     #[account(
         seeds = [IBCApp::SEED, msg.payload.source_port.as_bytes()],
-        bump
+        bump,
+        constraint = ibc_app.port_id == msg.payload.source_port @ RouterError::PortIdentifierMismatch,
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
@@ -35,6 +36,11 @@ pub struct SendPacket<'info> {
     pub packet_commitment: UncheckedAccount<'info>,
 
     /// App signer - PDA signed by the calling IBC app program
+    #[account(
+        seeds = [IBCAppState::SEED, ibc_app.port_id.as_bytes()],
+        bump,
+        seeds::program = ibc_app.app_program_id
+    )]
     pub app_signer: Signer<'info>,
 
     /// Allow payer to be separate from IBC app
