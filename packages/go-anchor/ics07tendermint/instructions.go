@@ -14,7 +14,6 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	chainIdParam string,
 	clientStateParam Ics07TendermintTypesClientState,
 	consensusStateParam Ics07TendermintTypesConsensusState,
 	accessManagerParam solanago.PublicKey,
@@ -35,11 +34,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `clientStateParam`:
 		err = enc__.Encode(clientStateParam)
 		if err != nil {
