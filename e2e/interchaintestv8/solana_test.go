@@ -1182,6 +1182,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		ics26_router.ProgramID,
 	)
 
+	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
 	var initialRelayerBalance uint64
 
 	s.Require().True(s.Run("Get initial relayer balance", func() {
@@ -1202,9 +1205,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadPayload0Instruction, err := ics26_router.NewUploadPayloadChunkInstruction(
 			uploadPayload0Msg,
+			routerStateAccount,
+			accessControlAccount,
 			payloadChunk0PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1225,9 +1231,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadPayload1Instruction, err := ics26_router.NewUploadPayloadChunkInstruction(
 			uploadPayload1Msg,
+			routerStateAccount,
+			accessControlAccount,
 			payloadChunk1PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1250,9 +1259,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadProof0Instruction, err := ics26_router.NewUploadProofChunkInstruction(
 			uploadProof0Msg,
+			routerStateAccount,
+			accessControlAccount,
 			proofChunk0PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1274,9 +1286,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadProof1Instruction, err := ics26_router.NewUploadProofChunkInstruction(
 			uploadProof1Msg,
+			routerStateAccount,
+			accessControlAccount,
 			proofChunk1PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
