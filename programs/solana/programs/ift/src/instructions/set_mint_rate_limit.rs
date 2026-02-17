@@ -6,6 +6,7 @@ use crate::events::MintRateLimitUpdated;
 use crate::state::{IFTAppMintState, IFTAppState, SetMintRateLimitMsg};
 
 #[derive(Accounts)]
+#[instruction(msg: SetMintRateLimitMsg)]
 pub struct SetMintRateLimit<'info> {
     /// Global IFT app state (read-only, for admin check)
     #[account(

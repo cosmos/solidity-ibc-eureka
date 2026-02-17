@@ -9,6 +9,7 @@ pub struct CpiAccountMeta {
 }
 
 #[derive(Accounts)]
+#[instruction(instruction_data: Vec<u8>, account_metas: Vec<CpiAccountMeta>)]
 pub struct ProxyCpi<'info> {
     /// CHECK: The target program to CPI into
     #[account(executable)]

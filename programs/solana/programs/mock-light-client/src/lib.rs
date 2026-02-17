@@ -60,7 +60,7 @@ pub mod mock_light_client {
 }
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: Vec<u8>)]
+#[instruction(chain_id: String, latest_height: u64, client_state: Vec<u8>, consensus_state: Vec<u8>)]
 pub struct Initialize<'info> {
     /// CHECK: Mock client state - account will be created but not used
     #[account(
@@ -86,6 +86,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: MembershipMsg)]
 pub struct VerifyMembership<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
@@ -94,6 +95,7 @@ pub struct VerifyMembership<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
@@ -108,6 +110,7 @@ pub struct ClientStatusCheck<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,

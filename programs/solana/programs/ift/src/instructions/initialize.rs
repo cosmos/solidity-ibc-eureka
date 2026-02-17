@@ -5,6 +5,7 @@ use crate::events::IFTInitialized;
 use crate::state::{AccountVersion, IFTAppState};
 
 #[derive(Accounts)]
+#[instruction(admin: Pubkey, gmp_program: Pubkey)]
 pub struct Initialize<'info> {
     /// Global IFT app state PDA (to be created, singleton)
     #[account(
