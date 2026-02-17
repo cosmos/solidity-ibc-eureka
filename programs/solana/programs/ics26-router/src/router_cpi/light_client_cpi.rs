@@ -107,12 +107,6 @@ impl<'a> LightClientCpi<'a> {
             RouterError::InvalidAccountOwner
         );
 
-        require_eq!(
-            *consensus_state.owner,
-            self.client.client_program_id,
-            RouterError::InvalidAccountOwner
-        );
-
         // Build the instruction with standard account layout
         // All light clients must accept: [client_state, consensus_state]
         let ix = Instruction::new_with_bytes(
