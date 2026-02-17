@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
+#[instruction(access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,

@@ -50,6 +50,7 @@ pub mod mock_ibc_app {
 }
 
 #[derive(Accounts)]
+#[instruction(msg: OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
     pub app_state: AccountInfo<'info>,
@@ -59,6 +60,7 @@ pub struct OnRecvPacket<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: OnAcknowledgementPacketMsg)]
 pub struct OnAcknowledgementPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
     pub app_state: AccountInfo<'info>,
@@ -68,6 +70,7 @@ pub struct OnAcknowledgementPacket<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
     /// CHECK: Mock app doesn't validate or use this account
     pub app_state: AccountInfo<'info>,

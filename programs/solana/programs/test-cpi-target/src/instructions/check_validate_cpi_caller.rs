@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::validate_cpi_caller;
 
 #[derive(Accounts)]
+#[instruction(authorized_program: Pubkey)]
 pub struct CheckValidateCpiCaller<'info> {
     /// CHECK: Validated inside the CPI validation functions
     pub instruction_sysvar: AccountInfo<'info>,

@@ -6,6 +6,7 @@ use anchor_lang::solana_program::program::set_return_data;
 /// Increment a user's counter
 /// Note: `user_authority` must be a signer to ensure only the legitimate owner can increment their counter
 #[derive(Accounts)]
+#[instruction(amount: u64)]
 pub struct IncrementCounter<'info> {
     #[account(
         mut,
@@ -35,7 +36,7 @@ pub struct IncrementCounter<'info> {
 
 /// Decrement a user's counter
 #[derive(Accounts)]
-#[instruction(user: Pubkey)]
+#[instruction(user: Pubkey, amount: u64)]
 pub struct DecrementCounter<'info> {
     #[account(
         mut,
