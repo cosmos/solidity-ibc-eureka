@@ -38,7 +38,7 @@ pub struct OnRecvPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
         mut,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -392,10 +392,9 @@ mod tests {
 
         let router_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
 
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -775,7 +774,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Create packet data that will call the counter app
         let authority = Pubkey::new_unique();
@@ -1005,7 +1004,7 @@ mod tests {
 
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Create packet data
         let authority = Pubkey::new_unique();
@@ -1313,8 +1312,7 @@ mod integration_tests {
     };
 
     fn build_recv_packet_ix(payer: Pubkey) -> Instruction {
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),

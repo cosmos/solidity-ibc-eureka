@@ -6,6 +6,7 @@ use crate::events::TokenPausedUpdated;
 use crate::state::{IFTAppState, SetPausedMsg};
 
 #[derive(Accounts)]
+#[instruction(msg: SetPausedMsg)]
 pub struct SetPaused<'info> {
     #[account(
         mut,
