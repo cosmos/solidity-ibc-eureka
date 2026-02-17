@@ -20,7 +20,7 @@ pub struct UploadProofChunk<'info> {
     pub access_manager: AccountInfo<'info>,
 
     #[account(
-        init,
+        init_if_needed,
         payer = relayer,
         space = 8 + ProofChunk::INIT_SPACE,
         seeds = [
@@ -177,6 +177,87 @@ mod tests {
         assert_eq!(chunk.sequence, 42);
         assert_eq!(chunk.chunk_index, 0);
         assert_eq!(chunk.chunk_data, vec![2u8; 200]);
+    }
+
+    #[test]
+    fn test_upload_proof_chunk_reupload_overwrites() {
+        let authority = Pubkey::new_unique();
+        let client_id = "test-client";
+        let sequence = 42u64;
+        let chunk_index = 0u8;
+        let new_chunk_data = vec![9u8; 50];
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::RELAYER_ROLE, &[authority])]);
+
+        let chunk_pda = Pubkey::find_program_address(
+            &[
+                ProofChunk::SEED,
+                authority.as_ref(),
+                client_id.as_bytes(),
+                &sequence.to_le_bytes(),
+                &[chunk_index],
+            ],
+            &crate::ID,
+        )
+        .0;
+
+        let existing_chunk = ProofChunk {
+            client_id: client_id.to_string(),
+            sequence,
+            chunk_index,
+            chunk_data: vec![2u8; 200],
+        };
+        let existing_data = create_account_data(&existing_chunk);
+        let space = 8 + ProofChunk::INIT_SPACE;
+        let mut padded_data = existing_data;
+        padded_data.resize(space, 0);
+
+        let instruction_data = crate::instruction::UploadProofChunk {
+            msg: MsgUploadChunk {
+                client_id: client_id.to_string(),
+                sequence,
+                payload_index: 0,
+                chunk_index,
+                chunk_data: new_chunk_data.clone(),
+            },
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(chunk_pda, false),
+                AccountMeta::new(authority, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_account(chunk_pda, padded_data, crate::ID),
+            create_system_account(authority),
+            create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+            create_program_account(access_manager::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let chunk_account = result
+            .get_account(&chunk_pda)
+            .expect("chunk account should exist");
+        let chunk_data_raw = &chunk_account.data[8..];
+        let chunk: ProofChunk = AnchorDeserialize::deserialize(&mut &chunk_data_raw[..])
+            .expect("should deserialize chunk");
+        assert_eq!(chunk.chunk_data, new_chunk_data);
     }
 
     #[test]
