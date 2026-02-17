@@ -4,6 +4,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::{reject_cpi, roles};
 
 #[derive(Accounts)]
+#[instruction(admin: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,

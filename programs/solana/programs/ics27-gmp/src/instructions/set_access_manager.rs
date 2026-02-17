@@ -4,6 +4,7 @@ use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
     #[account(
         mut,

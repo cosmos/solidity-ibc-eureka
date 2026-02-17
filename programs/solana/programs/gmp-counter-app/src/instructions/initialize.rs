@@ -3,6 +3,7 @@ use anchor_lang::prelude::*;
 
 /// Initialize the counter app
 #[derive(Accounts)]
+#[instruction(authority: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
