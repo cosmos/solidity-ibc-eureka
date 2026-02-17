@@ -58,7 +58,7 @@ func NewInitializeInstruction(
 }
 
 // Builds a "send_call" instruction.
-// Send a GMP call packet
+// Send a GMP call packet (direct wallet call only)
 func NewSendCallInstruction(
 	// Params:
 	msgParam Ics27GmpStateSendCallMsg,
@@ -75,6 +75,7 @@ func NewSendCallInstruction(
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -97,23 +98,18 @@ func NewSendCallInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// App state account - validated by Anchor PDA constraints
-		// This account will be signed when calling the router to prove GMP is the caller
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "sender": Read-only, Signer, Required
-		// Sender account — wallet for direct calls, PDA for CPI callers
 		accounts__.Append(solanago.NewAccountMeta(senderAccount, false, true))
 		// Account 2 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 3 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program for sending packets
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 4 "router_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 5 "client_sequence": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 6 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment account to be created by the router
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 7 "ibc_app": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
@@ -123,6 +119,81 @@ func NewSendCallInstruction(
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 10 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 11 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 12 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "send_call_cpi" instruction.
+// Send a GMP call packet via CPI (program callers only)
+func NewSendCallCpiInstruction(
+	// Params:
+	msgParam Ics27GmpStateSendCallMsg,
+
+	// Accounts:
+	appStateAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	routerProgramAccount solanago.PublicKey,
+	routerStateAccount solanago.PublicKey,
+	clientSequenceAccount solanago.PublicKey,
+	packetCommitmentAccount solanago.PublicKey,
+	ibcAppAccount solanago.PublicKey,
+	clientAccount solanago.PublicKey,
+	lightClientProgramAccount solanago.PublicKey,
+	clientStateAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_SendCallCpi[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `msgParam`:
+		err = enc__.Encode(msgParam)
+		if err != nil {
+			return nil, errors.NewField("msgParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 2 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
+		// Account 3 "router_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
+		// Account 4 "client_sequence": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
+		// Account 5 "packet_commitment": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
+		// Account 6 "ibc_app": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
+		// Account 7 "client": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
+		// Account 8 "light_client_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
+		// Account 9 "client_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 10 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 11 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}

@@ -5,4 +5,4 @@ package test_ibc_app
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("8jmKPAswyWKqjHVpiNgGF9Yi4vbxeqvEhMbhmz5YvdwX")
+var ProgramID = solanago.MustPublicKeyFromBase58("5E73beFMq9QZvbwPN5i84psh2WcyJ9PgqF4avBaRDgCC")

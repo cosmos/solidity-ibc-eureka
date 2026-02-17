@@ -120,6 +120,11 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Client state for light client status check
     pub light_client_state: AccountInfo<'info>,
 
+    /// Instructions sysvar for CPI caller detection by GMP
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
+
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
     #[account(mut)]
@@ -169,7 +174,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let gmp_accounts = SendGmpCallAccounts {
         gmp_program: ctx.accounts.gmp_program.clone(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
-        sender: ctx.accounts.app_state.to_account_info(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
         router_state: ctx.accounts.router_state.clone(),
@@ -179,6 +183,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         client: ctx.accounts.ibc_client.clone(),
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.light_client_state.clone(),
+        instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -189,8 +194,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         payload: mint_call_payload,
     };
 
-    let app_state_seeds: &[&[u8]] = &[IFT_APP_STATE_SEED, &[ctx.accounts.app_state.bump]];
-    let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg, app_state_seeds)?;
+    let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
     create_pending_transfer_account(CreatePendingTransferParams {
         mint: &ctx.accounts.app_mint_state.mint,
@@ -755,6 +759,7 @@ mod tests {
         let ibc_client = Pubkey::new_unique();
         let light_client_program = Pubkey::new_unique();
         let light_client_state = Pubkey::new_unique();
+        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -786,6 +791,7 @@ mod tests {
                 AccountMeta::new_readonly(ibc_client, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(light_client_state, false),
+                AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -811,6 +817,7 @@ mod tests {
             (ibc_client, create_signer_account()),
             (light_client_program, create_signer_account()),
             (light_client_state, create_signer_account()),
+            (instructions_sysvar, instructions_account),
             (pending_transfer, create_uninitialized_pda()),
         ];
 

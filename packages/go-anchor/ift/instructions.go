@@ -335,6 +335,7 @@ func NewIftTransferInstruction(
 	ibcClientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	lightClientStateAccount solanago.PublicKey,
+	instructionSysvarAccount solanago.PublicKey,
 	pendingTransferAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -409,7 +410,10 @@ func NewIftTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 18 "light_client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientStateAccount, false, false))
-		// Account 19 "pending_transfer": Writable, Non-signer, Required
+		// Account 19 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI caller detection by GMP
+		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
+		// Account 20 "pending_transfer": Writable, Non-signer, Required
 		// Pending transfer account - manually created with runtime-calculated sequence
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}

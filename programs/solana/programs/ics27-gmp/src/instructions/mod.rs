@@ -4,6 +4,7 @@ pub mod on_ack_packet;
 pub mod on_recv_packet;
 pub mod on_timeout_packet;
 pub mod send_call;
+pub mod send_call_cpi;
 pub mod set_access_manager;
 
 pub use admin::*;
@@ -12,4 +13,5 @@ pub use on_ack_packet::*;
 pub use on_recv_packet::*;
 pub use on_timeout_packet::*;
 pub use send_call::*;
+pub use send_call_cpi::*;
 pub use set_access_manager::*;

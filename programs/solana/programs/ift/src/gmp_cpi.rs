@@ -2,11 +2,10 @@
 
 use anchor_lang::prelude::*;
 
-/// Accounts required for GMP `send_call` CPI
+/// Accounts required for GMP `send_call_cpi` CPI
 pub struct SendGmpCallAccounts<'info> {
     pub gmp_program: AccountInfo<'info>,
     pub gmp_app_state: AccountInfo<'info>,
-    pub sender: AccountInfo<'info>,
     pub payer: AccountInfo<'info>,
     pub router_program: AccountInfo<'info>,
     pub router_state: AccountInfo<'info>,
@@ -16,14 +15,14 @@ pub struct SendGmpCallAccounts<'info> {
     pub client: AccountInfo<'info>,
     pub light_client_program: AccountInfo<'info>,
     pub client_state: AccountInfo<'info>,
+    pub instruction_sysvar: AccountInfo<'info>,
     pub system_program: AccountInfo<'info>,
 }
 
-impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendCall<'info> {
+impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendCallCpi<'info> {
     fn from(accounts: SendGmpCallAccounts<'info>) -> Self {
         Self {
             app_state: accounts.gmp_app_state,
-            sender: accounts.sender,
             payer: accounts.payer,
             router_program: accounts.router_program,
             router_state: accounts.router_state,
@@ -33,12 +32,13 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
             client: accounts.client,
             light_client_program: accounts.light_client_program,
             client_state: accounts.client_state,
+            instruction_sysvar: accounts.instruction_sysvar,
             system_program: accounts.system_program,
         }
     }
 }
 
-/// Message parameters for GMP `send_call`
+/// Message parameters for GMP `send_call_cpi`
 pub struct SendGmpCallMsg {
     pub source_client: String,
     pub timeout_timestamp: i64,
@@ -60,16 +60,13 @@ impl From<SendGmpCallMsg> for ics27_gmp::state::SendCallMsg {
 }
 
 /// Send a GMP call via CPI to the ICS27-GMP program.
-/// The `sender` account is the IFT `app_state` PDA, signed via `invoke_signed`.
-pub fn send_gmp_call(
-    accounts: SendGmpCallAccounts,
-    msg: SendGmpCallMsg,
-    signer_seeds: &[&[u8]],
-) -> Result<u64> {
+///
+/// The calling program's ID is automatically extracted by GMP from the
+/// instruction sysvar and used as the sender.
+pub fn send_gmp_call(accounts: SendGmpCallAccounts, msg: SendGmpCallMsg) -> Result<u64> {
     let gmp_program = accounts.gmp_program.clone();
-    let signer = &[signer_seeds];
-    let cpi_ctx = CpiContext::new_with_signer(gmp_program, accounts.into(), signer);
-    let sequence = ics27_gmp::cpi::send_call(cpi_ctx, msg.into())
+    let cpi_ctx = CpiContext::new(gmp_program, accounts.into());
+    let sequence = ics27_gmp::cpi::send_call_cpi(cpi_ctx, msg.into())
         .map_err(|_| error!(crate::errors::IFTError::GmpCallFailed))?;
     Ok(sequence.get())
 }

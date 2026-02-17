@@ -89,21 +89,12 @@ pub fn build_finalize_transfer_instruction(
         }
     };
 
-    // Parse sender as Pubkey (the IFT app_state PDA).
-    // When IFT calls GMP via CPI, the sender is the app_state PDA.
-    // We fetch its on-chain account to get the owner (IFT program ID).
-    let sender_pda = match Pubkey::from_str(&gmp_packet.sender) {
+    // Parse sender as Pubkey (the IFT program ID).
+    // GMP's `send_call_cpi` uses the calling program ID as the sender.
+    let ift_program_id = match Pubkey::from_str(&gmp_packet.sender) {
         Ok(pk) => pk,
         Err(e) => {
             tracing::warn!(error = ?e, sender = %gmp_packet.sender, "IFT: GMP sender is not a valid Pubkey");
-            return None;
-        }
-    };
-
-    let ift_program_id = match params.solana_client.get_account(&sender_pda) {
-        Ok(account) => account.owner,
-        Err(e) => {
-            tracing::warn!(error = ?e, sender = %sender_pda, "IFT: Failed to fetch sender account");
             return None;
         }
     };

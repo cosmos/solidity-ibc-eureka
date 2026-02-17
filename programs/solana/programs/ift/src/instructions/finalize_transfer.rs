@@ -108,10 +108,10 @@ pub fn finalize_transfer(
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
 
-    // Verify the GMP result was initiated by this IFT program's app_state PDA.
-    // When IFT calls GMP `send_call`, the sender is the app_state PDA.
+    // Verify the GMP result was initiated by this IFT program.
+    // GMP's `send_call_cpi` extracts the calling program ID as the sender.
     require!(
-        gmp_result.sender == ctx.accounts.app_state.key(),
+        gmp_result.sender == crate::ID,
         IFTError::GmpResultSenderMismatch
     );
     require!(
@@ -262,7 +262,7 @@ mod tests {
         let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
-        let gmp_result_sender = gmp_result_sender.unwrap_or(app_state_pda);
+        let gmp_result_sender = gmp_result_sender.unwrap_or(crate::ID);
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
@@ -596,7 +596,7 @@ mod tests {
                 (
                     gmp_result_pda,
                     create_gmp_result_account(
-                        app_state_pda,
+                        crate::ID,
                         TEST_SEQUENCE,
                         TEST_CLIENT_ID,
                         "dest-client",
@@ -853,7 +853,7 @@ mod tests {
             (
                 gmp_result_pda,
                 create_gmp_result_account(
-                    app_state_pda,
+                    crate::ID,
                     TEST_SEQUENCE,
                     TEST_CLIENT_ID,
                     "dest-client",
