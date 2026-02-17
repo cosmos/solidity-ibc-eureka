@@ -135,7 +135,6 @@ pub struct GMPAppState;
 
 impl GMPAppState {
     /// Seed for the main GMP application state PDA
-    /// Follows the standard IBC app pattern: [`APP_STATE_SEED`, `port_id`]
     pub const SEED: &'static [u8] = b"app_state";
 }
 
