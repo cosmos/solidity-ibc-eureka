@@ -25,7 +25,8 @@ pub struct FinalizeTransfer<'info> {
     /// Global IFT app state (read-only)
     #[account(
         seeds = [IFT_APP_STATE_SEED],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::TokenPaused
     )]
     pub app_state: Account<'info, IFTAppState>,
 
