@@ -2,9 +2,11 @@ use crate::events::AccessManagerUpdated;
 use crate::types::AppState;
 use anchor_lang::prelude::*;
 
+/// Updates the `access_manager` program ID stored in `AppState`. Only callable by an admin.
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
+    /// PDA holding program-level settings; the `access_manager` field is overwritten on success.
     #[account(
         mut,
         seeds = [AppState::SEED],
@@ -12,6 +14,7 @@ pub struct SetAccessManager<'info> {
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// Current access-manager PDA used to verify the caller holds the admin role.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -20,8 +23,10 @@ pub struct SetAccessManager<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Admin signer authorized to change the access manager.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

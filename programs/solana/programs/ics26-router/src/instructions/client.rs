@@ -3,18 +3,23 @@ use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
 use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
 use anchor_lang::prelude::*;
 
+/// Registers a new IBC light client with the router and initializes its
+/// sequence counter.
 #[derive(Accounts)]
 #[instruction(client_id: String, counterparty_info: CounterpartyInfo)]
 pub struct AddClient<'info> {
+    /// Signer with the `ID_CUSTOMIZER_ROLE`; also pays for account creation.
     #[account(mut)]
     pub authority: Signer<'info>,
 
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control state used for role verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -23,6 +28,7 @@ pub struct AddClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// PDA mapping `client_id` to its light client program and counterparty info.
     #[account(
         init,
         payer = authority,
@@ -32,6 +38,7 @@ pub struct AddClient<'info> {
     )]
     pub client: Account<'info, Client>,
 
+    /// PDA tracking the next send-side packet sequence for this client.
     #[account(
         init,
         payer = authority,
@@ -41,28 +48,36 @@ pub struct AddClient<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
+    /// Light client program to associate with this client.
     /// CHECK: Unchecked; the caller decides which light client to associate
     pub light_client_program: AccountInfo<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 }
 
+/// Updates an existing client's program ID, counterparty info or active status.
+/// Requires admin privileges.
 #[derive(Accounts)]
 #[instruction(client_id: String, params: MigrateClientParams)]
 pub struct MigrateClient<'info> {
+    /// Admin signer authorized to migrate clients.
     #[account(mut)]
     pub authority: Signer<'info>,
 
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control state used for admin verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -71,6 +86,7 @@ pub struct MigrateClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Mutable client PDA whose fields will be updated.
     #[account(
         mut,
         seeds = [Client::SEED, client_id.as_bytes()],
@@ -78,6 +94,7 @@ pub struct MigrateClient<'info> {
     )]
     pub client: Account<'info, Client>,
 
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

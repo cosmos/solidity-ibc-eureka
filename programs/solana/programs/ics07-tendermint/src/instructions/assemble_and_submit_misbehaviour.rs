@@ -6,9 +6,15 @@ use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use tendermint_light_client_update_client::ClientState as TmClientState;
 
+/// Reassembles previously uploaded misbehaviour chunks, verifies the evidence
+/// against two trusted consensus states and freezes the client on confirmed misbehaviour.
+///
+/// Remaining accounts must contain misbehaviour chunk PDAs in order, optionally
+/// followed by `SignatureVerification` accounts for pre-verified Ed25519 signatures.
 #[derive(Accounts)]
 #[instruction(chunk_count: u8, trusted_height_1: u64, trusted_height_2: u64)]
 pub struct AssembleAndSubmitMisbehaviour<'info> {
+    /// PDA holding the light client configuration; frozen when misbehaviour is confirmed.
     #[account(
         mut,
         seeds = [ClientState::SEED],
@@ -16,12 +22,14 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
         seeds = [AppState::SEED],
         bump
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -30,25 +38,29 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// First trusted consensus state referenced by the misbehaviour evidence.
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_1.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
+    /// Second trusted consensus state referenced by the misbehaviour evidence.
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_2.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,
 
+    /// Relayer that uploaded the chunks, signs the assembly transaction and receives rent refunds.
     #[account(mut)]
     pub submitter: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
-    // Remaining accounts are the chunk accounts in order
+    // Remaining accounts are the chunk accounts in order, followed by signature verification accounts.
 }
 
 pub fn assemble_and_submit_misbehaviour<'info>(

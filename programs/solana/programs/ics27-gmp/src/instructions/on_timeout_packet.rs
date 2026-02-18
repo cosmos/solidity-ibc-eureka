@@ -4,11 +4,12 @@ use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
 use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 
-/// Process IBC packet timeout (called by router via CPI)
+/// Processes an IBC packet timeout received from the router via CPI.
+/// Creates a `GMPCallResultAccount` PDA to record the timeout status.
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
-    /// App state account - validated by Anchor PDA constraints
+    /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         seeds = [GMPAppState::SEED],
         bump = app_state.bump,
@@ -16,17 +17,20 @@ pub struct OnTimeoutPacket<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Instructions sysvar for validating CPI caller
+    /// Instructions sysvar used to verify the CPI caller is the authorized router.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
+    /// Fee payer that funds the `result_account` creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used for `result_account` allocation.
     pub system_program: Program<'info, System>,
 
-    /// Result account storing the timeout (passed as remaining account by router)
+    /// Newly created PDA that stores the timeout status and metadata,
+    /// keyed by `source_client` and `sequence`.
     #[account(
         init,
         payer = payer,

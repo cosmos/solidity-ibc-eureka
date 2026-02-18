@@ -3,13 +3,17 @@ use crate::types::ClientState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 
+/// Returns the current status of the light client (active, frozen or expired) via return data.
 #[derive(Accounts)]
 pub struct ClientStatus<'info> {
+    /// PDA holding the light client configuration; checked for frozen state and trusting period.
     #[account(
         seeds = [ClientState::SEED],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
+    /// Consensus state at the latest height; its timestamp is compared against the
+    /// current clock to determine whether the client has expired.
     #[account(
         seeds = [
             ConsensusStateStore::SEED,

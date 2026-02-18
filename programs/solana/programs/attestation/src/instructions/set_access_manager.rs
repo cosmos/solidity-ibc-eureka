@@ -2,9 +2,11 @@ use crate::events::AccessManagerUpdated;
 use crate::types::AppState;
 use anchor_lang::prelude::*;
 
+/// Updates the attestation program's access manager reference. Requires admin authorization.
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
+    /// The attestation app state PDA whose access manager will be updated.
     #[account(
         mut,
         seeds = [AppState::SEED],
@@ -12,6 +14,7 @@ pub struct SetAccessManager<'info> {
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// The current access manager account for admin verification.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -20,8 +23,10 @@ pub struct SetAccessManager<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// The admin signer authorizing this change.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar for CPI validation.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

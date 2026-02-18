@@ -1,9 +1,11 @@
 use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
 
+/// Initializes the ICS26 router by creating the global `RouterState` PDA.
 #[derive(Accounts)]
 #[instruction(access_manager: Pubkey)]
 pub struct Initialize<'info> {
+    /// Global router configuration PDA storing the access manager address.
     #[account(
         init,
         payer = payer,
@@ -13,9 +15,11 @@ pub struct Initialize<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Pays for creating the `RouterState` account.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 }
 

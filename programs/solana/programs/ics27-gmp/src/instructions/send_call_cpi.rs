@@ -6,7 +6,8 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::sysvar::instructions as sysvar_instructions;
 use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
 
-/// Send a GMP call packet via CPI (program callers only, rejects nested CPI)
+/// Sends a GMP call packet via CPI from another program. Rejects direct calls
+/// and nested CPI.
 ///
 /// The calling program's ID is extracted from the instruction sysvar and used
 /// as the sender. This ensures the sender matches the executable program,
@@ -14,6 +15,7 @@ use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
 #[derive(Accounts)]
 #[instruction(msg: SendCallMsg)]
 pub struct SendCallCpi<'info> {
+    /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -22,11 +24,14 @@ pub struct SendCallCpi<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Fee payer for the packet commitment account creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// ICS26 router program invoked via CPI to submit the packet.
     pub router_program: Program<'info, ics26_router::program::Ics26Router>,
 
+    /// Router's global state PDA, forwarded to the router CPI.
     #[account(
         seeds = [RouterState::SEED],
         bump,
@@ -34,6 +39,7 @@ pub struct SendCallCpi<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Packet sequence counter for the source client, incremented by the router.
     #[account(
         mut,
         seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
@@ -42,10 +48,12 @@ pub struct SendCallCpi<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
+    /// Stores the packet commitment hash after the router processes the packet.
     /// CHECK: PDA validated by router (sequence computed at runtime)
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
+    /// Port-to-program mapping that authorizes this GMP program for the GMP port.
     #[account(
         seeds = [IBCApp::SEED, GMP_PORT_ID.as_bytes()],
         bump,
@@ -53,6 +61,7 @@ pub struct SendCallCpi<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
+    /// IBC client account that identifies the destination chain for routing.
     #[account(
         seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
@@ -60,19 +69,24 @@ pub struct SendCallCpi<'info> {
     )]
     pub client: Account<'info, Client>,
 
+    /// Light client program used by the router to check client status.
     /// CHECK: Light client program, forwarded to router
     pub light_client_program: AccountInfo<'info>,
 
+    /// Light client's state account, forwarded to the router for status verification.
     /// CHECK: Client state for status check, forwarded to router
     pub client_state: AccountInfo<'info>,
 
+    /// Instructions sysvar used to enforce single-level CPI and extract the caller program ID.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
+    /// Consensus state account, forwarded to the router for client expiry check.
     /// CHECK: Consensus state account, forwarded to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
+    /// Solana system program used for account allocation.
     pub system_program: Program<'info, System>,
 }
 

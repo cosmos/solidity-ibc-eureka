@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 
 /// On-chain PDA storing the consensus state for a specific block height.
-/// The height is also encoded in the PDA seeds.
+///
+/// Created or updated when enough attestor signatures confirm a new block.
+/// The ICS26 router reads this account to verify packet membership proofs
+/// against the confirmed state. The block height is also encoded in the
+/// PDA seeds so each height maps to exactly one account.
 #[account]
 #[derive(InitSpace)]
 pub struct ConsensusStateStore {

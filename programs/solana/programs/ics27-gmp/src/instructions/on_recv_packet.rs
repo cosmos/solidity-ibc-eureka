@@ -16,7 +16,8 @@ const GMP_ACCOUNT_INDEX: usize = 0;
 /// Index of target program in `remaining_accounts`
 const TARGET_PROGRAM_INDEX: usize = 1;
 
-/// Receive IBC packet and execute call (called by router via CPI)
+/// Receives an IBC packet from the router via CPI and executes the target
+/// program call.
 ///
 /// # Account Layout
 /// The router is generic and passes all IBC-app-specific accounts via `remaining_accounts`.
@@ -35,7 +36,7 @@ const TARGET_PROGRAM_INDEX: usize = 1;
 #[derive(Accounts)]
 #[instruction(msg: solana_ibc_types::OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
-    /// App state account - validated by Anchor PDA constraints
+    /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -44,18 +45,19 @@ pub struct OnRecvPacket<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
-    /// Instructions sysvar for validating CPI caller
+    /// Instructions sysvar used to verify the CPI caller is the authorized router.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Relayer fee payer - used for account creation rent
+    /// Relayer-provided fee payer used for account creation rent.
     /// NOTE: This cannot be the GMP account PDA because PDAs with data cannot
     /// be used as payers in System Program transfers. The relayer's fee payer
     /// is used for rent, while the GMP account PDA signs via `invoke_signed`.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used for account allocation during target CPI.
     pub system_program: Program<'info, System>,
 }
 

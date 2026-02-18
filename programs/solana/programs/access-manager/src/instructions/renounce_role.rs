@@ -4,9 +4,11 @@ use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
+/// Allows a caller to voluntarily give up one of their own roles.
 #[derive(Accounts)]
 #[instruction(role_id: u64)]
 pub struct RenounceRole<'info> {
+    /// The access manager PDA storing all role assignments.
     #[account(
         mut,
         seeds = [AccessManager::SEED],
@@ -14,6 +16,7 @@ pub struct RenounceRole<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// The signer renouncing their own role.
     pub caller: Signer<'info>,
 
     /// Instructions sysvar for CPI validation

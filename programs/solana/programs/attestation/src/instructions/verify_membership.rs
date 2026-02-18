@@ -8,15 +8,18 @@ use anchor_lang::prelude::*;
 use ics25_handler::MembershipMsg;
 use solana_keccak_hasher::{hash as keccak256, Hash};
 
+/// Verifies that a commitment exists at the given path and height using attestor signatures.
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::MembershipMsg)]
 pub struct VerifyMembership<'info> {
+    /// The attestation client state holding the trusted attestor set and frozen flag.
     #[account(
         seeds = [ClientState::SEED],
         bump,
         constraint = !client_state.is_frozen @ ErrorCode::FrozenClientState
     )]
     pub client_state: Account<'info, ClientState>,
+    /// The consensus state at the requested proof height (must already exist on-chain).
     #[account(
         seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
         bump,

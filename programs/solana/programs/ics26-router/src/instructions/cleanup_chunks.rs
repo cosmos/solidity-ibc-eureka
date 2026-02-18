@@ -2,15 +2,21 @@ use crate::errors::RouterError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
+/// Reclaims rent from previously uploaded payload and proof chunk accounts.
+///
+/// Chunk accounts to close are passed as remaining accounts, validated by
+/// PDA derivation, zeroed and their lamports returned to the relayer.
 #[derive(Accounts)]
 #[instruction(msg: MsgCleanupChunks)]
 pub struct CleanupChunks<'info> {
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -19,9 +25,12 @@ pub struct CleanupChunks<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Relayer reclaiming rent; must hold the `RELAYER_ROLE`.
+    /// Receives lamports from closed chunk accounts.
     #[account(mut)]
     pub relayer: Signer<'info>,
 
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

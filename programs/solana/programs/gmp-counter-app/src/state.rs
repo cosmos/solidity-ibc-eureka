@@ -1,6 +1,11 @@
 use anchor_lang::prelude::*;
 
-/// Global counter app state
+/// Global state for the GMP counter demo application.
+///
+/// Singleton PDA that tracks aggregate statistics (total user counters
+/// created and total GMP calls processed) and stores the authority
+/// allowed to manage the app. Serves as the program's signer PDA
+/// when calling into the GMP program via CPI to send cross-chain calls.
 #[account]
 #[derive(InitSpace)]
 pub struct CounterAppState {
@@ -18,7 +23,11 @@ impl CounterAppState {
     pub const SEED: &'static [u8] = b"counter_app_state";
 }
 
-/// Per-user counter state
+/// Per-user counter value and statistics.
+///
+/// Each user gets their own PDA derived from `["user_counter", user_pubkey]`.
+/// Tracks the current counter value and the number of increments/decrements
+/// applied, whether triggered locally or via incoming GMP cross-chain calls.
 #[account]
 #[derive(InitSpace)]
 pub struct UserCounter {
@@ -60,7 +69,12 @@ impl UserCounter {
     }
 }
 
-/// GMP callback data for tracking calls
+/// Record of an outgoing GMP cross-chain call initiated by a user.
+///
+/// Created when the counter app sends a cross-chain increment/decrement
+/// via the GMP program. Stores the payload hash so the app can correlate
+/// the callback (acknowledgement or timeout) with the original request
+/// and update the success status accordingly.
 #[account]
 #[derive(InitSpace)]
 pub struct GMPCallState {

@@ -8,11 +8,15 @@ use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
-/// Context for assembling chunks and updating the client
-/// This will automatically clean up any old chunks at the same height
+/// Reassembles previously uploaded header chunks, verifies the Tendermint header
+/// and updates the light client state.
+///
+/// Remaining accounts must contain chunk PDAs in order, optionally followed by
+/// `SignatureVerification` accounts for pre-verified Ed25519 signatures.
 #[derive(Accounts)]
 #[instruction(target_height: u64, chunk_count: u8)]
 pub struct AssembleAndUpdateClient<'info> {
+    /// PDA holding the light client configuration; updated with the new latest height on success.
     #[account(
         mut,
         seeds = [ClientState::SEED],
@@ -20,12 +24,14 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
         seeds = [AppState::SEED],
         bump
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -34,23 +40,27 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Consensus state the header declares as its trust anchor; validated against PDA seeds at runtime.
     /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
 
+    /// Destination PDA for the newly derived consensus state; created if it does not already exist.
     /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
     pub new_consensus_state_store: UncheckedAccount<'info>,
 
-    /// The submitter who uploaded the chunks
+    /// Relayer that uploaded the chunks, signs the assembly transaction and receives rent refunds.
     #[account(mut)]
     pub submitter: Signer<'info>,
 
+    /// Required by Anchor for creating the new consensus-state PDA.
     pub system_program: Program<'info, System>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
-    // Remaining accounts are the chunk accounts in order
-    // They will be validated and closed in the instruction handler
+    // Remaining accounts are the chunk accounts in order, followed by signature verification accounts.
+    // They will be validated and closed in the instruction handler.
 }
 
 impl AssembleAndUpdateClient<'_> {

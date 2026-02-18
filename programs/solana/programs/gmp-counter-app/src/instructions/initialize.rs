@@ -1,10 +1,16 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
-/// Initialize the counter app
+/// Accounts required to initialize the GMP counter application.
+///
+/// Creates the singleton [`CounterAppState`] PDA that stores
+/// the designated authority and aggregate statistics.
 #[derive(Accounts)]
 #[instruction(authority: Pubkey)]
 pub struct Initialize<'info> {
+    /// Global app configuration PDA derived from a fixed seed.
+    /// Created here and populated with the provided `authority`
+    /// and zeroed counters.
     #[account(
         init,
         payer = payer,
@@ -14,9 +20,11 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, CounterAppState>,
 
+    /// Mutable signer that funds the `app_state` PDA creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used to allocate the `app_state` account.
     pub system_program: Program<'info, System>,
 }
 

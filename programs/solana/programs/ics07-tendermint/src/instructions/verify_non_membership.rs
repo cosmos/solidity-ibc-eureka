@@ -7,14 +7,17 @@ use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
 use tendermint_light_client_membership::KVPair;
 
+/// Verifies that a key does not exist in the Tendermint state at a given height using an absence proof.
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
+    /// PDA holding the light client configuration; used to check the frozen status.
     #[account(
         seeds = [ClientState::SEED],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
+    /// PDA storing the verified consensus state at the requested proof height.
     #[account(
         seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
         bump
