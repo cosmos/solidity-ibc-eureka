@@ -7,8 +7,15 @@ use crate::constants::{MINT_AUTHORITY_SEED, SECONDS_PER_DAY};
 use crate::errors::IFTError;
 use crate::state::IFTAppMintState;
 
-/// Mint tokens to an account using the IFT mint authority PDA
+/// Rate-limited mint: checks the daily rate limit, updates usage, then mints
+/// tokens via the IFT mint authority PDA.
+///
+/// Every token mint in the program goes through this function, ensuring no
+/// unchecked mint paths exist.
+#[allow(clippy::too_many_arguments)]
 pub fn mint_to_account<'info>(
+    mint_state: &mut IFTAppMintState,
+    clock: &Clock,
     mint: &InterfaceAccount<'info, Mint>,
     to: &InterfaceAccount<'info, TokenAccount>,
     mint_authority: &AccountInfo<'info>,
@@ -16,6 +23,8 @@ pub fn mint_to_account<'info>(
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
+    check_and_update_mint_rate_limit(mint_state, amount, clock)?;
+
     let mint_key = mint.key();
     let seeds = &[
         MINT_AUTHORITY_SEED,
@@ -52,7 +61,7 @@ fn maybe_reset_day(mint_state: &mut IFTAppMintState, clock: &Clock) {
 
 /// Update mint rate limit usage for `ift_mint`.
 /// Resets usage on new day, adds amount, returns error if limit exceeded.
-pub fn check_and_update_mint_rate_limit(
+fn check_and_update_mint_rate_limit(
     mint_state: &mut IFTAppMintState,
     amount: u64,
     clock: &Clock,
@@ -257,5 +266,98 @@ mod tests {
         let clock = make_clock(SECONDS_PER_DAY as i64);
         assert!(check_and_update_mint_rate_limit(&mut state, 200, &clock).is_err());
         assert_eq!(state.rate_limit_daily_usage, u64::MAX - 100); // unchanged
+    }
+
+    // ─── Attack simulation tests ─────────────────────────────────────
+
+    #[test]
+    fn test_cycling_attack_blocked_without_success_ack() {
+        let day = 1u64;
+        let clock = make_clock(SECONDS_PER_DAY as i64);
+        let mut state = make_mint_state(1000, day, 0);
+
+        // Mint 1000 (to limit)
+        assert!(check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_ok());
+
+        // Attacker burns tokens (transfers out) — no rate limit change
+        // Attacker triggers timeout/refund — now rate-limited
+        // Simulate: refund mint should fail because usage is already at cap
+        assert!(check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_err());
+        assert_eq!(state.rate_limit_daily_usage, 1000);
+
+        // Even minting 1 token fails
+        assert!(check_and_update_mint_rate_limit(&mut state, 1, &clock).is_err());
+    }
+
+    #[test]
+    fn test_cycling_with_success_ack_respects_cap() {
+        let day = 1u64;
+        let clock = make_clock(SECONDS_PER_DAY as i64);
+        let mut state = make_mint_state(1000, day, 0);
+
+        // Simulate 5 rounds of mint → success_ack → mint ...
+        // Each round: mint full limit, then success ack frees it
+        for round in 0..5 {
+            assert!(
+                check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_ok(),
+                "round {round}: mint should succeed after previous ack freed budget"
+            );
+            assert_eq!(state.rate_limit_daily_usage, 1000);
+
+            // Tokens left the system (success ack)
+            reduce_mint_rate_limit_usage(&mut state, 1000, &clock);
+            assert_eq!(state.rate_limit_daily_usage, 0);
+        }
+
+        // At any point during a round, exceeding the cap is blocked
+        assert!(check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_ok());
+        assert!(check_and_update_mint_rate_limit(&mut state, 1, &clock).is_err());
+    }
+
+    #[test]
+    fn test_partial_ack_then_refund_respects_cap() {
+        let day = 1u64;
+        let clock = make_clock(SECONDS_PER_DAY as i64);
+        let mut state = make_mint_state(1000, day, 0);
+
+        // Mint 600 (transfer A)
+        assert!(check_and_update_mint_rate_limit(&mut state, 600, &clock).is_ok());
+        // Mint 400 (transfer B)
+        assert!(check_and_update_mint_rate_limit(&mut state, 400, &clock).is_ok());
+        assert_eq!(state.rate_limit_daily_usage, 1000);
+
+        // Transfer A succeeds — frees 600
+        reduce_mint_rate_limit_usage(&mut state, 600, &clock);
+        assert_eq!(state.rate_limit_daily_usage, 400);
+
+        // Transfer B times out — refund mint consumes 400 more
+        assert!(check_and_update_mint_rate_limit(&mut state, 400, &clock).is_ok());
+        assert_eq!(state.rate_limit_daily_usage, 800);
+
+        // 200 remaining budget
+        assert!(check_and_update_mint_rate_limit(&mut state, 200, &clock).is_ok());
+        assert!(check_and_update_mint_rate_limit(&mut state, 1, &clock).is_err());
+    }
+
+    #[test]
+    fn test_repeated_refund_mints_cumulate_to_limit() {
+        let day = 1u64;
+        let clock = make_clock(SECONDS_PER_DAY as i64);
+        let mut state = make_mint_state(1000, day, 0);
+
+        // Simulate multiple timeouts, each minting a refund
+        for i in 0..10 {
+            let result = check_and_update_mint_rate_limit(&mut state, 100, &clock);
+            assert!(
+                result.is_ok(),
+                "refund {i} of 100 should succeed (usage {})",
+                state.rate_limit_daily_usage
+            );
+        }
+        assert_eq!(state.rate_limit_daily_usage, 1000);
+
+        // 11th refund is blocked
+        assert!(check_and_update_mint_rate_limit(&mut state, 100, &clock).is_err());
+        assert_eq!(state.rate_limit_daily_usage, 1000);
     }
 }
