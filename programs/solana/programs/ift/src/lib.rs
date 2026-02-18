@@ -29,9 +29,16 @@ pub mod ift {
         instructions::initialize(ctx, admin, gmp_program)
     }
 
-    /// Create a new SPL token mint for IFT
-    pub fn create_spl_token(ctx: Context<CreateSplToken>, decimals: u8) -> Result<()> {
-        instructions::create_spl_token(ctx, decimals)
+    /// Create and initialize a new SPL token mint for IFT.
+    /// When using Token 2022, sets on-chain metadata (name, symbol, URI).
+    pub fn create_and_initialize_spl_token(
+        ctx: Context<CreateAndInitializeSplToken>,
+        decimals: u8,
+        name: String,
+        symbol: String,
+        uri: String,
+    ) -> Result<()> {
+        instructions::create_and_initialize_spl_token(ctx, decimals, name, symbol, uri)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority

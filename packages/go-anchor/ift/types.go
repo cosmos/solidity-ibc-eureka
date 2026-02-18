@@ -1370,6 +1370,15 @@ type IftEventsSplTokenCreated struct {
 	// Token decimals
 	Decimals uint8 `json:"decimals"`
 
+	// Token name (set via Token 2022 metadata; empty for legacy SPL Token)
+	Name string `json:"name"`
+
+	// Token symbol (set via Token 2022 metadata; empty for legacy SPL Token)
+	Symbol string `json:"symbol"`
+
+	// Token URI (set via Token 2022 metadata; empty for legacy SPL Token)
+	Uri string `json:"uri"`
+
 	// Initialization timestamp
 	Timestamp int64 `json:"timestamp"`
 }
@@ -1384,6 +1393,21 @@ func (obj IftEventsSplTokenCreated) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Decimals)
 	if err != nil {
 		return errors.NewField("Decimals", err)
+	}
+	// Serialize `Name`:
+	err = encoder.Encode(obj.Name)
+	if err != nil {
+		return errors.NewField("Name", err)
+	}
+	// Serialize `Symbol`:
+	err = encoder.Encode(obj.Symbol)
+	if err != nil {
+		return errors.NewField("Symbol", err)
+	}
+	// Serialize `Uri`:
+	err = encoder.Encode(obj.Uri)
+	if err != nil {
+		return errors.NewField("Uri", err)
 	}
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
@@ -1413,6 +1437,21 @@ func (obj *IftEventsSplTokenCreated) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Decimals)
 	if err != nil {
 		return errors.NewField("Decimals", err)
+	}
+	// Deserialize `Name`:
+	err = decoder.Decode(&obj.Name)
+	if err != nil {
+		return errors.NewField("Name", err)
+	}
+	// Deserialize `Symbol`:
+	err = decoder.Decode(&obj.Symbol)
+	if err != nil {
+		return errors.NewField("Symbol", err)
+	}
+	// Deserialize `Uri`:
+	err = decoder.Decode(&obj.Uri)
+	if err != nil {
+		return errors.NewField("Uri", err)
 	}
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)

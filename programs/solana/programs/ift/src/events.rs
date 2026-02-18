@@ -20,6 +20,12 @@ pub struct SplTokenCreated {
     pub mint: Pubkey,
     /// Token decimals
     pub decimals: u8,
+    /// Token name (set via Token 2022 metadata; empty for legacy SPL Token)
+    pub name: String,
+    /// Token symbol (set via Token 2022 metadata; empty for legacy SPL Token)
+    pub symbol: String,
+    /// Token URI (set via Token 2022 metadata; empty for legacy SPL Token)
+    pub uri: String,
     /// Initialization timestamp
     pub timestamp: i64,
 }
