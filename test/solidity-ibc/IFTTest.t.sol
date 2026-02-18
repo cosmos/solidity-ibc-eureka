@@ -909,13 +909,20 @@ contract IFTTest is Test {
     }
 
     struct UpgradeTestCase {
-        string name;
-        address caller;
-        bool ownable;
-        bytes expectedRevert;
-    }
-
-    // CosmosIFTSendCallConstructor Tests
+         string name;
+         address caller;
+         bool ownable;
+         bytes expectedRevert;
+     }
+ 
+     struct CosmosMintCallTestCase {
+         string name;
+         string receiver;
+         uint256 amount;
+         bytes expectedRevert;
+     }
+ 
+     // CosmosIFTSendCallConstructor Tests
 
     function test_cosmosCallConstructor_constructor() public {
         string memory typeUrl = "/wfchain.ift.MsgIFTMint";
@@ -929,104 +936,136 @@ contract IFTTest is Test {
         assertEq(constructor_.icaAddress(), ica);
     }
 
-    function test_cosmosCallConstructor_constructMintCall() public {
-        string memory typeUrl = "/wfchain.ift.MsgIFTMint";
-        string memory tokenDenom = "testift";
-        string memory ica = "wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63";
-
-        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
-
-        string memory receiver = "wf1receiver123";
-        uint256 amount = 1_000_000;
-
-        bytes memory callData = constructor_.constructMintCall(receiver, amount);
-
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"",
-            typeUrl,
-            "\",\"signer\":\"",
-            ica,
-            "\",\"denom\":\"",
-            tokenDenom,
-            "\",\"receiver\":\"",
-            receiver,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\"}]}"
-        );
-
-        assertEq(callData, expected);
-    }
-
-    function testFuzz_cosmosCallConstructor_constructMintCall(uint256 amount) public {
-        string memory typeUrl = "/custom.module.MsgMint";
-        string memory tokenDenom = "ibc/ABC123";
-        string memory ica = "cosmos1ica456";
-
-        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
-
-        string memory receiver = "cosmos1receiver789";
-
-        bytes memory callData = constructor_.constructMintCall(receiver, amount);
-
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"",
-            typeUrl,
-            "\",\"signer\":\"",
-            ica,
-            "\",\"denom\":\"",
-            tokenDenom,
-            "\",\"receiver\":\"",
-            receiver,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\"}]}"
-        );
-
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_constructMintCall_zeroAmount() public {
-        CosmosIFTSendCallConstructor constructor_ =
-            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
-
-        bytes memory callData = constructor_.constructMintCall("wf1receiver", 0);
-
-        assertTrue(callData.length > 0);
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"0\"}]}"
-        );
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_constructMintCall_largeAmount() public {
-        CosmosIFTSendCallConstructor constructor_ =
-            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
-
-        uint256 largeAmount = type(uint256).max;
-        bytes memory callData = constructor_.constructMintCall("wf1receiver", largeAmount);
-
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"",
-            Strings.toString(largeAmount),
-            "\"}]}"
-        );
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_emptyStrings() public {
-        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor("", "", "");
-
-        assertEq(constructor_.bridgeReceiveTypeUrl(), "");
-        assertEq(constructor_.denom(), "");
-        assertEq(constructor_.icaAddress(), "");
-
-        bytes memory callData = constructor_.constructMintCall("receiver", 100);
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"\",\"signer\":\"\",\"denom\":\"\",\"receiver\":\"receiver\",\"amount\":\"100\"}]}"
-        );
-        assertEq(callData, expected);
-    }
+    function fixtureCosmosMintCallTC() public returns (CosmosMintCallTestCase[] memory) {
+         CosmosMintCallTestCase[] memory testCases = new CosmosMintCallTestCase[](11);
+ 
+         testCases[0] = CosmosMintCallTestCase({
+             name: "success: bech32 receiver",
+             receiver: "wf1address234",
+             amount: 1_000_000,
+             expectedRevert: ""
+         });
+         testCases[1] = CosmosMintCallTestCase({
+             name: "success: hex address receiver",
+             receiver: Strings.toHexString(makeAddr("receiver")),
+             amount: 2,
+             expectedRevert: ""
+         });
+         testCases[2] = CosmosMintCallTestCase({
+             name: "revert: empty receiver",
+             receiver: "",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, ""
+             )
+         });
+         testCases[3] = CosmosMintCallTestCase({
+             name: "revert: missing separator",
+             receiver: "wf2345a",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf2345a"
+             )
+         });
+         testCases[4] = CosmosMintCallTestCase({
+             name: "revert: invalid hrp capital",
+             receiver: "WF12345a",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "WF12345a"
+             )
+         });
+         testCases[5] = CosmosMintCallTestCase({
+             name: "revert: invalid data char 1",
+             receiver: "wf1rece1ver",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1rece1ver"
+             )
+         });
+         testCases[6] = CosmosMintCallTestCase({
+             name: "revert: invalid data char i",
+             receiver: "wf1receiver",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1receiver"
+             )
+         });
+         testCases[7] = CosmosMintCallTestCase({
+             name: "revert: invalid data char o",
+             receiver: "wf1receiver",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1receiver"
+             )
+         });
+         testCases[8] = CosmosMintCallTestCase({
+             name: "revert: invalid data char b",
+             receiver: "wf1recebr",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1recebr"
+             )
+         });
+         testCases[9] = CosmosMintCallTestCase({
+             name: "revert: invalid data char {",
+             receiver: "wf1address{",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1address{"
+             )
+         });
+         testCases[10] = CosmosMintCallTestCase({
+             name: "revert: invalid data char \"",
+             receiver: "wf1address\"",
+             amount: 10,
+             expectedRevert: abi.encodeWithSelector(
+                 CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1address\""
+             )
+         });
+ 
+         return testCases;
+     }
+ 
+     function tableCosmosMintCallTest(CosmosMintCallTestCase memory cosmosMintCallTC) public {
+         string memory typeUrl = "/wfchain.ift.MsgIFTMint";
+         string memory tokenDenom = "testift";
+         string memory ica = "wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63";
+ 
+         CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
+ 
+         if (cosmosMintCallTC.expectedRevert.length != 0) {
+             vm.expectRevert(cosmosMintCallTC.expectedRevert);
+             constructor_.constructMintCall(cosmosMintCallTC.receiver, cosmosMintCallTC.amount);
+             return;
+         }
+ 
+         bytes memory callData = constructor_.constructMintCall(cosmosMintCallTC.receiver, cosmosMintCallTC.amount);
+ 
+         bytes memory expected = abi.encodePacked(
+             "{\"messages\":[{\"@type\":\"",
+             typeUrl,
+             "\",\"signer\":\"",
+             ica,
+             "\",\"denom\":\"",
+             tokenDenom,
+             "\",\"receiver\":\"",
+             cosmosMintCallTC.receiver,
+             "\",\"amount\":\"",
+             Strings.toString(cosmosMintCallTC.amount),
+             "\"}]}"
+         );
+ 
+         assertEq(callData, expected);
+     }
+ 
+     function test_cosmosCallConstructor_constructMintCall() public {
+         CosmosMintCallTestCase[] memory testCases = fixtureCosmosMintCallTC();
+         for (uint256 i = 0; i < testCases.length; i++) {
+             CosmosMintCallTestCase memory testCase = testCases[i];
+             tableCosmosMintCallTest(testCase);
+         }
+     }
 
     function test_cosmosCallConstructor_supportsInterface() public {
         CosmosIFTSendCallConstructor constructor_ =
