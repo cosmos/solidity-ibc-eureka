@@ -345,6 +345,17 @@ func (iftPDAs) IftAppStatePDA(programID solanago.PublicKey) (solanago.PublicKey,
 	return pda, bump
 }
 
+func (iftPDAs) IftBridgeWithAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("ift_bridge"), mint, clientId},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.IftBridgeWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (iftPDAs) IftBridgeWithArgAndAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ift_bridge"), mint, clientId},

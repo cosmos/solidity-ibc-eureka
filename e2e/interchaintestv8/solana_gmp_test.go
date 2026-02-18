@@ -884,11 +884,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				solanago.SysVarInstructionsPubkey,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)
@@ -1204,11 +1204,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				solanago.SysVarInstructionsPubkey,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)
@@ -1909,11 +1909,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 				routerStatePDA,
 				clientSequencePDA,
 				packetCommitmentPDA,
-				solanago.SysVarInstructionsPubkey,
 				ibcAppPDA,
 				clientPDA,
 				ics07_tendermint.ProgramID,
 				lightClientStatePDA,
+				solanago.SysVarInstructionsPubkey,
 				solanago.SystemProgramID,
 			)
 			s.Require().NoError(err)

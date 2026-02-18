@@ -102,11 +102,6 @@ pub struct IFTTransfer<'info> {
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
-    /// Instructions sysvar for CPI validation
-    /// CHECK: Address constraint verifies this is the instructions sysvar
-    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
-    pub instruction_sysvar: AccountInfo<'info>,
-
     /// GMP's IBC app registration account — required by the router for
     /// authorization and deterministic sequence namespacing (the router hashes
     /// `app_program_id` to derive a collision-resistant sequence suffix).
@@ -123,6 +118,11 @@ pub struct IFTTransfer<'info> {
 
     /// CHECK: Client state for light client status check
     pub light_client_state: AccountInfo<'info>,
+
+    /// Instructions sysvar for CPI caller detection by GMP
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instruction_sysvar: AccountInfo<'info>,
 
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
@@ -173,17 +173,16 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     let gmp_accounts = SendGmpCallAccounts {
         gmp_program: ctx.accounts.gmp_program.clone(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
-        sender: ctx.accounts.sender.to_account_info(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
         router_state: ctx.accounts.router_state.clone(),
         client_sequence: ctx.accounts.client_sequence.clone(),
         packet_commitment: ctx.accounts.packet_commitment.clone(),
-        instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
         ibc_app: ctx.accounts.gmp_ibc_app.clone(),
         client: ctx.accounts.ibc_client.clone(),
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.light_client_state.clone(),
+        instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -402,6 +401,7 @@ fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::errors::IFTError;
     use crate::state::IFTTransferMsg;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -562,6 +562,9 @@ mod tests {
         TimeoutTooLong,
         ReceiverTooLong,
         TokenPaused,
+        InvalidGmpProgram,
+        TimeoutAtExactCurrent,
+        TimeoutOneOverMax,
     }
 
     #[allow(clippy::struct_excessive_bools)]
@@ -573,8 +576,10 @@ mod tests {
         sender_is_signer: bool,
         use_wrong_token_owner: bool,
         use_wrong_token_mint: bool,
+        use_wrong_gmp_program: bool,
         timeout_timestamp: i64,
         token_paused: bool,
+        expected_error: u32,
     }
 
     impl From<TransferErrorCase> for TransferTestConfig {
@@ -587,53 +592,83 @@ mod tests {
                 sender_is_signer: true,
                 use_wrong_token_owner: false,
                 use_wrong_token_mint: false,
+                use_wrong_gmp_program: false,
                 timeout_timestamp: 0,
                 token_paused: false,
+                expected_error: 0,
             };
 
             match case {
                 TransferErrorCase::InactiveBridge => Self {
                     bridge_active: false,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::BridgeNotActive as u32,
                     ..default
                 },
                 TransferErrorCase::ZeroAmount => Self {
                     amount: 0,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::ZeroAmount as u32,
                     ..default
                 },
                 TransferErrorCase::EmptyReceiver => Self {
                     receiver: String::new(),
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::EmptyReceiver as u32,
                     ..default
                 },
                 TransferErrorCase::EmptyClientId => Self {
                     client_id: String::new(),
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::EmptyClientId as u32,
                     ..default
                 },
                 TransferErrorCase::SenderNotSigner => Self {
                     sender_is_signer: false,
+                    expected_error: anchor_lang::error::ErrorCode::AccountNotSigner as u32,
                     ..default
                 },
                 TransferErrorCase::WrongTokenAccountOwner => Self {
                     use_wrong_token_owner: true,
+                    expected_error: ANCHOR_ERROR_OFFSET
+                        + IFTError::TokenAccountOwnerMismatch as u32,
                     ..default
                 },
                 TransferErrorCase::WrongTokenMint => Self {
                     use_wrong_token_mint: true,
+                    expected_error: ANCHOR_ERROR_OFFSET
+                        + IFTError::TokenAccountOwnerMismatch as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutInPast => Self {
                     timeout_timestamp: 1,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutTooLong => Self {
                     timeout_timestamp: i64::MAX,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutTooLong as u32,
                     ..default
                 },
                 TransferErrorCase::ReceiverTooLong => Self {
                     receiver: "x".repeat(crate::constants::MAX_RECEIVER_LENGTH + 1),
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidReceiver as u32,
                     ..default
                 },
                 TransferErrorCase::TokenPaused => Self {
                     token_paused: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    ..default
+                },
+                TransferErrorCase::InvalidGmpProgram => Self {
+                    use_wrong_gmp_program: true,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpProgram as u32,
+                    ..default
+                },
+                TransferErrorCase::TimeoutAtExactCurrent => Self {
+                    timeout_timestamp: 1_700_000_000, // exactly == clock
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
+                    ..default
+                },
+                TransferErrorCase::TimeoutOneOverMax => Self {
+                    timeout_timestamp: 1_700_000_000 + crate::constants::MAX_TIMEOUT_DURATION + 1,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutTooLong as u32,
                     ..default
                 },
             }
@@ -642,7 +677,8 @@ mod tests {
 
     fn run_transfer_error_test(case: TransferErrorCase) {
         let config = TransferTestConfig::from(case);
-        let mollusk = setup_mollusk();
+        let mut mollusk = setup_mollusk();
+        mollusk.sysvars.clock.unix_timestamp = 1_700_000_000;
 
         let mint = Pubkey::new_unique();
         let wrong_mint = Pubkey::new_unique();
@@ -656,7 +692,6 @@ mod tests {
         let (_, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, &config.client_id);
         let (system_program, system_account) = create_system_program_account();
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
 
         let app_state_account = create_ift_app_state_account_with_options(
             app_state_bump,
@@ -701,8 +736,15 @@ mod tests {
             rent_epoch: 0,
         };
 
+        let wrong_gmp_program = Pubkey::new_unique();
+        let gmp_program_key = if config.use_wrong_gmp_program {
+            wrong_gmp_program
+        } else {
+            gmp_program
+        };
+
         let (gmp_app_state_pda, _) =
-            Pubkey::find_program_address(&[solana_ibc_types::GMPAppState::SEED], &gmp_program);
+            Pubkey::find_program_address(&[solana_ibc_types::GMPAppState::SEED], &gmp_program_key);
 
         let router_state = Pubkey::new_unique();
         let client_sequence = Pubkey::new_unique();
@@ -711,6 +753,7 @@ mod tests {
         let ibc_client = Pubkey::new_unique();
         let light_client_program = Pubkey::new_unique();
         let light_client_state = Pubkey::new_unique();
+        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -732,17 +775,17 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(anchor_spl::token::ID, false),
                 AccountMeta::new_readonly(system_program, false),
-                AccountMeta::new_readonly(gmp_program, false),
+                AccountMeta::new_readonly(gmp_program_key, false),
                 AccountMeta::new(gmp_app_state_pda, false),
                 AccountMeta::new_readonly(ics26_router::ID, false),
                 AccountMeta::new_readonly(router_state, false),
                 AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
-                AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new_readonly(gmp_ibc_app, false),
                 AccountMeta::new_readonly(ibc_client, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(light_client_state, false),
+                AccountMeta::new_readonly(instructions_sysvar, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -758,22 +801,28 @@ mod tests {
             (payer, create_signer_account()),
             (anchor_spl::token::ID, token_program_account.clone()),
             (system_program, system_account),
-            (gmp_program, create_gmp_program_account()),
+            (gmp_program_key, create_gmp_program_account()),
             (gmp_app_state_pda, create_signer_account()),
             (ics26_router::ID, token_program_account),
             (router_state, create_signer_account()),
             (client_sequence, create_signer_account()),
             (packet_commitment, create_uninitialized_pda()),
-            (instructions_sysvar, instructions_account),
             (gmp_ibc_app, create_signer_account()),
             (ibc_client, create_signer_account()),
             (light_client_program, create_signer_account()),
             (light_client_state, create_signer_account()),
+            (instructions_sysvar, instructions_account),
             (pending_transfer, create_uninitialized_pda()),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(result.program_result.is_err());
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                config.expected_error,
+            ))
+            .into(),
+        );
     }
 
     #[rstest]
@@ -788,6 +837,9 @@ mod tests {
     #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
     #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
     #[case::token_paused(TransferErrorCase::TokenPaused)]
+    #[case::invalid_gmp_program(TransferErrorCase::InvalidGmpProgram)]
+    #[case::timeout_at_exact_current(TransferErrorCase::TimeoutAtExactCurrent)]
+    #[case::timeout_one_over_max(TransferErrorCase::TimeoutOneOverMax)]
     fn test_ift_transfer_validation(#[case] case: TransferErrorCase) {
         run_transfer_error_test(case);
     }
