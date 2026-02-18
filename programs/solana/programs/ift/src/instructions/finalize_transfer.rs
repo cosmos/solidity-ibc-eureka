@@ -201,6 +201,7 @@ mod tests {
         pubkey::Pubkey,
     };
 
+    use crate::errors::IFTError;
     use crate::evm_selectors::ERROR_ACK_COMMITMENT;
     use crate::state::ChainOptions;
     use crate::test_utils::*;
@@ -259,10 +260,28 @@ mod tests {
         gmp_result_client_id: &str,
         gmp_result_sequence: u64,
     ) -> FinalizeTransferTestSetup {
+        build_finalize_transfer_test_setup_with_options(
+            status,
+            gmp_result_sender,
+            gmp_result_client_id,
+            gmp_result_sequence,
+            true,
+            false,
+        )
+    }
+
+    fn build_finalize_transfer_test_setup_with_options(
+        status: CallResultStatus,
+        gmp_result_sender: Pubkey,
+        gmp_result_client_id: &str,
+        gmp_result_sequence: u64,
+        bridge_active: bool,
+        app_paused: bool,
+    ) -> FinalizeTransferTestSetup {
         let mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -274,8 +293,12 @@ mod tests {
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+        let app_state_account = create_ift_app_state_account_with_options(
+            app_state_bump,
+            Pubkey::new_unique(),
+            gmp_program,
+            app_paused,
+        );
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
@@ -286,7 +309,7 @@ mod tests {
             TEST_COUNTERPARTY_ADDRESS,
             crate::state::ChainOptions::Evm,
             ift_bridge_bump,
-            true,
+            bridge_active,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -444,7 +467,7 @@ mod tests {
         let sender = Pubkey::new_unique();
         let wrong_owner = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -562,7 +585,7 @@ mod tests {
         let wrong_mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -669,6 +692,52 @@ mod tests {
         assert!(
             result.program_result.is_err(),
             "finalize_transfer should fail when token account mint doesn't match"
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_bridge_not_active_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup = build_finalize_transfer_test_setup_with_options(
+            CallResultStatus::Timeout,
+            crate::ID,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            false, // bridge_active
+            false, // app_paused
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(
+                solana_sdk::program_error::ProgramError::Custom(
+                    IFTError::BridgeNotActive as u32 + 6000
+                )
+            ),
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_app_paused_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup = build_finalize_transfer_test_setup_with_options(
+            CallResultStatus::Timeout,
+            crate::ID,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            true, // bridge_active
+            true, // app_paused
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(
+                solana_sdk::program_error::ProgramError::Custom(IFTError::AppPaused as u32 + 6000)
+            ),
         );
     }
 }

@@ -1116,6 +1116,165 @@ mod tests {
     }
 
     #[test]
+    fn test_send_packet_port_identifier_mismatch() {
+        let mollusk = setup_mollusk_with_light_client();
+
+        let app_program_id = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        // RouterState
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let router_state_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: router_state_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // IBCApp at TEST_PORT PDA but with a different port_id in the data
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, TEST_PORT.as_bytes()], &crate::ID);
+        let ibc_app = IBCApp {
+            version: AccountVersion::V1,
+            port_id: "wrong-port".to_string(),
+            app_program_id,
+            authority: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+        let ibc_app_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: create_account_data(&ibc_app),
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // ClientSequence
+        let (client_seq_pda, client_seq_data) = setup_client_sequence(TEST_CLIENT_ID, 1);
+        let client_seq_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: client_seq_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // packet_commitment placeholder
+        let packet_commitment = Pubkey::new_unique();
+
+        // app_signer - PDA derived from IBCAppState::SEED under app_program_id
+        let (app_signer_pda, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &app_program_id);
+
+        // Client
+        let (client_pda, client_data) = setup_client(
+            TEST_CLIENT_ID,
+            MOCK_LIGHT_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+        );
+        let client_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: client_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let mock_client_state = Pubkey::new_unique();
+
+        // Build instruction data: discriminator + MsgSendPacket
+        let msg = MsgSendPacket {
+            source_client: TEST_CLIENT_ID.to_string(),
+            timeout_timestamp: 9_999_999_999,
+            payload: Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            },
+        };
+        let mut data = anchor_discriminator("send_packet").to_vec();
+        msg.serialize(&mut data).unwrap();
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda, false),
+                AccountMeta::new(client_seq_pda, false),
+                AccountMeta::new(packet_commitment, false),
+                AccountMeta::new_readonly(app_signer_pda, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(client_pda, false),
+                AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
+                AccountMeta::new_readonly(mock_client_state, false),
+            ],
+            data,
+        };
+
+        let empty_account = || solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let (sys_program, sys_account) = (
+            system_program::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: vec![],
+                owner: solana_sdk::native_loader::ID,
+                executable: true,
+                rent_epoch: 0,
+            },
+        );
+
+        let accounts = vec![
+            (router_state_pda, router_state_account),
+            (ibc_app_pda, ibc_app_account),
+            (client_seq_pda, client_seq_account),
+            (packet_commitment, empty_account()),
+            (app_signer_pda, empty_account()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 10_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (sys_program, sys_account),
+            (client_pda, client_account),
+            (
+                MOCK_LIGHT_CLIENT_ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    data: vec![],
+                    owner: solana_sdk::native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (mock_client_state, empty_account()),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_error_code(
+            result,
+            RouterError::PortIdentifierMismatch,
+            "port_identifier_mismatch",
+        );
+    }
+
+    #[test]
     fn test_app_state_pda_does_not_include_port_id() {
         // Verify that IBCAppState PDA is derived from [SEED] only, not [SEED, port_id].
         let program_id = TEST_IBC_APP_PROGRAM_ID;
