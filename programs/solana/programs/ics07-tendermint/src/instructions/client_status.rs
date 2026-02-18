@@ -13,7 +13,6 @@ pub struct ClientStatus<'info> {
     #[account(
         seeds = [
             ConsensusStateStore::SEED,
-            client_state.key().as_ref(),
             &client_state.latest_height.revision_height.to_le_bytes()
         ],
         bump
