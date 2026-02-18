@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+// solhint-disable gas-strict-inequalities,code-complexity
+
 import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -65,6 +67,9 @@ contract CosmosIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         return interfaceId == type(IIFTSendCallConstructor).interfaceId || super.supportsInterface(interfaceId);
     }
 
+    /// @notice Validates the receiver string to ensure it is either a valid Ethereum address or a valid bech32 address
+    /// with an appropriate HRP @param receiver The receiver string to validate
+    /// @return True if the receiver is valid, false otherwise
     function _validateReceiver(string calldata receiver) internal pure returns (bool) {
         if (bytes(receiver).length == 0) {
             return false;
@@ -83,7 +88,7 @@ contract CosmosIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         // We only allow lowercase alphanumeric characters excluding "1", "b", "i", and "o" as per bech32 specification,
         // but we do not enforce the full bech32 checksum as it is not critical for our use case.
         bool isHrp = true;
-        for (uint256 i = 0; i < bytes(receiver).length; i++) {
+        for (uint256 i = 0; i < bytes(receiver).length; ++i) {
             uint256 c = uint256(uint8(bytes(receiver)[i]));
             if (isHrp) {
                 if (c == 0x31) {
