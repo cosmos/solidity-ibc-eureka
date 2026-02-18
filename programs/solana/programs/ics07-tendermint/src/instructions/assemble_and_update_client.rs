@@ -37,7 +37,11 @@ pub struct AssembleAndUpdateClient<'info> {
     /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
     pub trusted_consensus_state: UncheckedAccount<'info>,
 
-    /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
+    /// CHECK: May not exist yet; PDA seeds validated by Anchor constraint.
+    #[account(
+        seeds = [ConsensusStateStore::SEED, &target_height.to_le_bytes()],
+        bump
+    )]
     pub new_consensus_state_store: UncheckedAccount<'info>,
 
     /// The submitter who uploaded the chunks
@@ -139,11 +143,8 @@ fn process_header_update<'info>(
 
     let trusted_height = header.trusted_height.revision_height();
 
-    let trusted_consensus_state = load_consensus_state(
-        &ctx.accounts.trusted_consensus_state,
-        client_state.key(),
-        trusted_height,
-    )?;
+    let trusted_consensus_state =
+        load_consensus_state(&ctx.accounts.trusted_consensus_state, trusted_height)?;
 
     // Signature verification accounts come after chunk accounts
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
@@ -161,9 +162,9 @@ fn process_header_update<'info>(
         signature_verification_accounts,
     )?;
 
-    // Sanity check: a mismatch would fail later in store_consensus_state where
-    // the passed new_consensus_state_pda (derived off-chain from target_height)
-    // is verified against new_height, but this gives a clearer error.
+    // Sanity check: the Anchor seeds constraint already validates that the
+    // new_consensus_state_store PDA matches target_height, but if the header's
+    // actual new_height differs from target_height this gives a clearer error.
     require!(
         new_height.revision_height() == target_height,
         ErrorCode::HeightMismatch
@@ -173,7 +174,7 @@ fn process_header_update<'info>(
         account: &ctx.accounts.new_consensus_state_store,
         submitter: &ctx.accounts.submitter,
         system_program: &ctx.accounts.system_program,
-        client_key: client_state.key(),
+        bump: ctx.bumps.new_consensus_state_store,
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
@@ -221,16 +222,11 @@ fn verify_and_update_header<'info>(
 }
 
 // Helper function to load and validate consensus state
-fn load_consensus_state(
-    account: &UncheckedAccount,
-    client_key: Pubkey,
-    height: u64,
-) -> Result<ConsensusStateStore> {
+fn load_consensus_state(account: &UncheckedAccount, height: u64) -> Result<ConsensusStateStore> {
     // Validate PDA
     let (expected_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_key.as_ref(),
             &height.to_le_bytes(),
         ],
         &crate::ID,
@@ -253,7 +249,7 @@ struct StoreConsensusStateParams<'a, 'info> {
     account: &'a UncheckedAccount<'info>,
     submitter: &'a Signer<'info>,
     system_program: &'a Program<'info, System>,
-    client_key: Pubkey,
+    bump: u8,
     height: u64,
     new_consensus_state: &'a ConsensusState,
     trusted_consensus_state: &'a ConsensusState,
@@ -261,22 +257,6 @@ struct StoreConsensusStateParams<'a, 'info> {
 }
 
 fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
-    // Validate PDA
-    let (expected_pda, bump) = Pubkey::find_program_address(
-        &[
-            crate::state::ConsensusStateStore::SEED,
-            params.client_key.as_ref(),
-            &params.height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-
-    require_keys_eq!(
-        expected_pda,
-        params.account.key(),
-        ErrorCode::AccountValidationFailed
-    );
-
     // Check if account exists
     if params.account.lamports() > 0 {
         // Account exists - check for conflicts
@@ -304,12 +284,10 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 
     let seeds_with_bump = [
         crate::state::ConsensusStateStore::SEED,
-        params.client_key.as_ref(),
         &params.height.to_le_bytes(),
-        &[bump],
+        &[params.bump],
     ];
 
-    // IMPORTANT TODO: check again if anchor could simplify pda validation
     let cpi_accounts = system_program::CreateAccount {
         from: params.submitter.to_account_info(),
         to: params.account.to_account_info(),
