@@ -82,6 +82,10 @@ const (
 	IFTMintAmount              = uint64(10_000_000) // 10 tokens with 6 decimals
 	IFTTransferAmount          = uint64(1_000_000)  // 1 token with 6 decimals
 	MockCosmosCounterpartyAddr = "cosmos1test123456789"
+
+	IFT2022Name   = "IFT Test Token"
+	IFT2022Symbol = "IFT"
+	IFT2022Uri    = ""
 )
 
 func TestWithIbcEurekaSolanaIFTTestSuite(t *testing.T) {
@@ -1460,9 +1464,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 	if tokenProgramID == solanago.Token2022ProgramID {
 		createTokenParams = &ift.IftStateCreateTokenParams_Token2022{
 			Decimals: IFTTokenDecimals,
-			Name:     "IFT Test Token",
-			Symbol:   "IFT",
-			Uri:      "",
+			Name:     IFT2022Name,
+			Symbol:   IFT2022Symbol,
+			Uri:      IFT2022Uri,
 		}
 	} else {
 		createTokenParams = &ift.IftStateCreateTokenParams_SplToken{Decimals: IFTTokenDecimals}
