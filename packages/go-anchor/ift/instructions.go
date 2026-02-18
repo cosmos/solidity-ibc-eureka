@@ -6,7 +6,6 @@ package ift
 import (
 	"bytes"
 	"fmt"
-
 	errors "github.com/gagliardetto/anchor-go/errors"
 	binary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
@@ -66,14 +65,10 @@ func NewInitializeInstruction(
 }
 
 // Builds a "create_and_initialize_spl_token" instruction.
-// Create and initialize a new SPL token mint for IFT.
-// When using Token 2022, sets on-chain metadata (name, symbol, URI).
+// Create and initialize a new SPL token mint for IFT. // Pass `CreateTokenParams::SplToken` for legacy or `CreateTokenParams::Token2022` // for a mint with `MetadataPointer` and on-chain metadata.
 func NewCreateAndInitializeSplTokenInstruction(
 	// Params:
-	decimalsParam uint8,
-	nameParam string,
-	symbolParam string,
-	uriParam string,
+	paramsParam IftStateCreateTokenParams,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
@@ -95,25 +90,12 @@ func NewCreateAndInitializeSplTokenInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `decimalsParam`:
-		err = enc__.Encode(decimalsParam)
-		if err != nil {
-			return nil, errors.NewField("decimalsParam", err)
-		}
-		// Serialize `nameParam`:
-		err = enc__.Encode(nameParam)
-		if err != nil {
-			return nil, errors.NewField("nameParam", err)
-		}
-		// Serialize `symbolParam`:
-		err = enc__.Encode(symbolParam)
-		if err != nil {
-			return nil, errors.NewField("symbolParam", err)
-		}
-		// Serialize `uriParam`:
-		err = enc__.Encode(uriParam)
-		if err != nil {
-			return nil, errors.NewField("uriParam", err)
+		// Serialize `paramsParam`:
+		{
+			err := EncodeIftStateCreateTokenParams(enc__, paramsParam)
+			if err != nil {
+				return nil, errors.NewField("paramsParam", err)
+			}
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}

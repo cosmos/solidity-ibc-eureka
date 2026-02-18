@@ -14,8 +14,8 @@ pub mod test_utils;
 
 use instructions::*;
 use state::{
-    AdminMintMsg, IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg, SetMintRateLimitMsg,
-    SetPausedMsg,
+    AdminMintMsg, CreateTokenParams, IFTMintMsg, IFTTransferMsg, RegisterIFTBridgeMsg,
+    SetMintRateLimitMsg, SetPausedMsg,
 };
 
 declare_id!("DQU7WYvJTdpbLSzpLjHtCRF7wiaWe7thXwboafEN4kcy");
@@ -30,15 +30,13 @@ pub mod ift {
     }
 
     /// Create and initialize a new SPL token mint for IFT.
-    /// When using Token 2022, sets on-chain metadata (name, symbol, URI).
+    /// Pass `CreateTokenParams::SplToken` for legacy or `CreateTokenParams::Token2022`
+    /// for a mint with `MetadataPointer` and on-chain metadata.
     pub fn create_and_initialize_spl_token(
         ctx: Context<CreateAndInitializeSplToken>,
-        decimals: u8,
-        name: String,
-        symbol: String,
-        uri: String,
+        params: CreateTokenParams,
     ) -> Result<()> {
-        instructions::create_and_initialize_spl_token(ctx, decimals, name, symbol, uri)
+        instructions::create_and_initialize_spl_token(ctx, params)
     }
 
     /// Initialize IFT for an existing SPL token by transferring mint authority

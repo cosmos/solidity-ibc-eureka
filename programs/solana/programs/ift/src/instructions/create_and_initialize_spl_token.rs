@@ -10,10 +10,10 @@ use solana_ibc_types::reject_cpi;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::SplTokenCreated;
-use crate::state::{AccountVersion, IFTAppMintState, IFTAppState};
+use crate::state::{AccountVersion, CreateTokenParams, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
-#[instruction(decimals: u8, name: String, symbol: String, uri: String)]
+#[instruction(params: CreateTokenParams)]
 pub struct CreateAndInitializeSplToken<'info> {
     /// Global IFT app state (must exist)
     #[account(
@@ -63,13 +63,11 @@ pub struct CreateAndInitializeSplToken<'info> {
 }
 
 const TOKEN_2022_PROGRAM_ID: Pubkey = anchor_spl::token_interface::spl_token_2022::ID;
+const SPL_TOKEN_PROGRAM_ID: Pubkey = anchor_spl::token::spl_token::ID;
 
 pub fn create_and_initialize_spl_token(
     ctx: Context<CreateAndInitializeSplToken>,
-    decimals: u8,
-    name: String,
-    symbol: String,
-    uri: String,
+    params: CreateTokenParams,
 ) -> Result<()> {
     reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
@@ -77,18 +75,36 @@ pub fn create_and_initialize_spl_token(
     let mint_key = ctx.accounts.mint.key();
     let mint_authority_key = ctx.accounts.mint_authority.key();
 
-    if token_program_id == TOKEN_2022_PROGRAM_ID {
-        create_token_2022_mint(
-            &ctx,
+    match &params {
+        CreateTokenParams::SplToken { decimals } => {
+            require_keys_eq!(
+                token_program_id,
+                SPL_TOKEN_PROGRAM_ID,
+                IFTError::TokenProgramMismatch
+            );
+            create_legacy_mint(&ctx, *decimals, &mint_key, &mint_authority_key)?;
+        }
+        CreateTokenParams::Token2022 {
             decimals,
-            &mint_key,
-            &mint_authority_key,
-            &name,
-            &symbol,
-            &uri,
-        )?;
-    } else {
-        create_legacy_mint(&ctx, decimals, &mint_key, &mint_authority_key)?;
+            name,
+            symbol,
+            uri,
+        } => {
+            require_keys_eq!(
+                token_program_id,
+                TOKEN_2022_PROGRAM_ID,
+                IFTError::TokenProgramMismatch
+            );
+            create_token_2022_mint(
+                &ctx,
+                *decimals,
+                &mint_key,
+                &mint_authority_key,
+                name,
+                symbol,
+                uri,
+            )?;
+        }
     }
 
     let app_mint_state = &mut ctx.accounts.app_mint_state;
@@ -100,10 +116,7 @@ pub fn create_and_initialize_spl_token(
     let clock = Clock::get()?;
     emit!(SplTokenCreated {
         mint: mint_key,
-        decimals,
-        name,
-        symbol,
-        uri,
+        params,
         timestamp: clock.unix_timestamp,
     });
 
@@ -285,7 +298,7 @@ mod tests {
     };
 
     use crate::errors::IFTError;
-    use crate::state::IFTAppMintState;
+    use crate::state::{CreateTokenParams, IFTAppMintState};
     use crate::test_utils::*;
 
     fn create_empty_mint_account() -> solana_sdk::account::Account {
@@ -298,21 +311,21 @@ mod tests {
         }
     }
 
-    fn test_instruction_data(decimals: u8) -> Vec<u8> {
-        test_instruction_data_with_metadata(decimals, "", "", "")
+    fn spl_token_instruction_data(decimals: u8) -> Vec<u8> {
+        crate::instruction::CreateAndInitializeSplToken {
+            params: CreateTokenParams::SplToken { decimals },
+        }
+        .data()
     }
 
-    fn test_instruction_data_with_metadata(
-        decimals: u8,
-        name: &str,
-        symbol: &str,
-        uri: &str,
-    ) -> Vec<u8> {
+    fn token_2022_instruction_data(decimals: u8, name: &str, symbol: &str, uri: &str) -> Vec<u8> {
         crate::instruction::CreateAndInitializeSplToken {
-            decimals,
-            name: name.to_string(),
-            symbol: symbol.to_string(),
-            uri: uri.to_string(),
+            params: CreateTokenParams::Token2022 {
+                decimals,
+                name: name.to_string(),
+                symbol: symbol.to_string(),
+                uri: uri.to_string(),
+            },
         }
         .data()
     }
@@ -322,13 +335,37 @@ mod tests {
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
     }
 
-    fn build_create_token_setup(
+    fn build_spl_token_setup(
+        token_program_id: Pubkey,
+        token_program_account: solana_sdk::account::Account,
+        decimals: u8,
+    ) -> CreateTokenTestSetup {
+        build_create_token_setup(
+            token_program_id,
+            token_program_account,
+            spl_token_instruction_data(decimals),
+        )
+    }
+
+    fn build_token_2022_setup(
         token_program_id: Pubkey,
         token_program_account: solana_sdk::account::Account,
         decimals: u8,
         name: &str,
         symbol: &str,
         uri: &str,
+    ) -> CreateTokenTestSetup {
+        build_create_token_setup(
+            token_program_id,
+            token_program_account,
+            token_2022_instruction_data(decimals, name, symbol, uri),
+        )
+    }
+
+    fn build_create_token_setup(
+        token_program_id: Pubkey,
+        token_program_account: solana_sdk::account::Account,
+        instruction_data: Vec<u8>,
     ) -> CreateTokenTestSetup {
         let mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
@@ -362,7 +399,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data_with_metadata(decimals, name, symbol, uri),
+            data: instruction_data,
         };
 
         let accounts = vec![
@@ -440,7 +477,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data(6),
+            data: spl_token_instruction_data(6),
         };
 
         let accounts = vec![
@@ -505,7 +542,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data(6),
+            data: spl_token_instruction_data(6),
         };
 
         let accounts = vec![
@@ -581,7 +618,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data(0),
+            data: spl_token_instruction_data(0),
         };
 
         let accounts = vec![
@@ -650,7 +687,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data(6),
+            data: spl_token_instruction_data(6),
         };
 
         let accounts = vec![
@@ -716,7 +753,7 @@ mod tests {
                 AccountMeta::new_readonly(system_program, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: test_instruction_data(6),
+            data: spl_token_instruction_data(6),
         };
 
         let accounts = vec![
@@ -751,7 +788,7 @@ mod tests {
         let mollusk = setup_mollusk_with_token_2022();
         let (token_program_id, token_program_account) = token_2022_keyed_account();
 
-        let setup = build_create_token_setup(
+        let setup = build_token_2022_setup(
             token_program_id,
             token_program_account,
             9,
@@ -806,7 +843,7 @@ mod tests {
         let mollusk = setup_mollusk_with_token_2022();
         let (token_program_id, token_program_account) = token_2022_keyed_account();
 
-        let setup = build_create_token_setup(
+        let setup = build_token_2022_setup(
             token_program_id,
             token_program_account,
             0,
@@ -833,8 +870,7 @@ mod tests {
         let mollusk = setup_mollusk_with_token_2022();
         let (token_program_id, token_program_account) = token_2022_keyed_account();
 
-        let setup =
-            build_create_token_setup(token_program_id, token_program_account, 6, "", "", "");
+        let setup = build_token_2022_setup(token_program_id, token_program_account, 6, "", "", "");
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
         assert!(
@@ -865,7 +901,7 @@ mod tests {
         let long_symbol = "B".repeat(16);
         let long_uri = "https://example.com/".to_string() + &"x".repeat(128);
 
-        let setup = build_create_token_setup(
+        let setup = build_token_2022_setup(
             token_program_id,
             token_program_account,
             6,
@@ -894,42 +930,39 @@ mod tests {
     }
 
     #[test]
-    fn test_legacy_token_ignores_metadata_params() {
+    fn test_spl_token_with_token_2022_program_fails() {
+        let mollusk = setup_mollusk_with_token_2022();
+        let (token_program_id, token_program_account) = token_2022_keyed_account();
+
+        let setup = build_spl_token_setup(token_program_id, token_program_account, 6);
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::TokenProgramMismatch as u32,
+            ))
+            .into(),
+            "SplToken variant with Token 2022 program should fail"
+        );
+    }
+
+    #[test]
+    fn test_token_2022_with_spl_token_program_fails() {
         let mollusk = setup_mollusk_with_token();
         let (token_program_id, token_program_account) = token_program_keyed_account();
 
-        let setup = build_create_token_setup(
-            token_program_id,
-            token_program_account,
-            6,
-            "Should Be Ignored",
-            "IGN",
-            "https://ignored.example.com",
-        );
+        let setup =
+            build_token_2022_setup(token_program_id, token_program_account, 6, "T", "T", "");
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "legacy token with metadata params should succeed: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
         assert_eq!(
-            mint_acc.owner,
-            anchor_spl::token::spl_token::ID,
-            "mint should be owned by legacy SPL Token"
-        );
-
-        let created_mint =
-            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
-        assert_eq!(created_mint.decimals, 6);
-
-        // Legacy mint is only 82 bytes — no extension data
-        assert_eq!(
-            mint_acc.data.len(),
-            anchor_spl::token::spl_token::state::Mint::LEN,
-            "legacy mint should have no extension data"
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::TokenProgramMismatch as u32,
+            ))
+            .into(),
+            "Token2022 variant with SPL Token program should fail"
         );
     }
 }

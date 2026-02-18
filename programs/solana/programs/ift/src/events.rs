@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::state::ChainOptions;
+use crate::state::{ChainOptions, CreateTokenParams};
 
 /// Event emitted when IFT is initialized (global state created)
 #[event]
@@ -18,14 +18,8 @@ pub struct IFTInitialized {
 pub struct SplTokenCreated {
     /// SPL Token mint address
     pub mint: Pubkey,
-    /// Token decimals
-    pub decimals: u8,
-    /// Token name (set via Token 2022 metadata; empty for legacy SPL Token)
-    pub name: String,
-    /// Token symbol (set via Token 2022 metadata; empty for legacy SPL Token)
-    pub symbol: String,
-    /// Token URI (set via Token 2022 metadata; empty for legacy SPL Token)
-    pub uri: String,
+    /// Token type and configuration
+    pub params: CreateTokenParams,
     /// Initialization timestamp
     pub timestamp: i64,
 }

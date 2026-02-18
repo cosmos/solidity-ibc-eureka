@@ -1341,11 +1341,9 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 	// Ignore error - may already be initialized
 	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 
+	splTokenParams := ift.IftStateCreateTokenParams_SplToken{Decimals: IFTTokenDecimals}
 	createTokenIx, err := ift.NewCreateAndInitializeSplTokenInstruction(
-		IFTTokenDecimals,
-		"", // name (metadata only used with Token 2022)
-		"", // symbol
-		"", // uri
+		&splTokenParams,
 		appStatePDA,
 		appMintStatePDA,
 		mint,
