@@ -68,7 +68,8 @@ contract CosmosIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     }
 
     /// @notice Validates the receiver string to ensure it is either a valid Ethereum address or a valid bech32 address
-    /// with an appropriate HRP @param receiver The receiver string to validate
+    /// with an appropriate HRP
+    /// @param receiver The receiver string to validate
     /// @return True if the receiver is valid, false otherwise
     function _validateReceiver(string calldata receiver) internal pure returns (bool) {
         if (bytes(receiver).length == 0) {
