@@ -685,8 +685,8 @@ mod tests {
             None,
             None,
             None,
-            true,  // bridge_active
-            true,  // app_paused
+            true, // bridge_active
+            true, // app_paused
         );
 
         assert_finalize_error(
