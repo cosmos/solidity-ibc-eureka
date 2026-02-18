@@ -1157,9 +1157,9 @@ mod tests {
 
     // ─── Multi-step attack simulation tests ─────────────────────────
 
-    /// Shared context for multi-step finalize_transfer tests.
+    /// Shared context for multi-step `finalize_transfer` tests.
     /// All steps share the same mint, sender, bridge and static accounts;
-    /// only the sequence (and thus PendingTransfer + GMPCallResult PDAs) varies.
+    /// only the sequence (and thus `PendingTransfer` + `GMPCallResult` PDAs) varies.
     struct MultiStepContext {
         mint: Pubkey,
         sender: Pubkey,
@@ -1183,7 +1183,7 @@ mod tests {
     }
 
     impl MultiStepContext {
-        fn new(daily_mint_limit: u64, rate_limit_day: u64) -> Self {
+        fn new() -> Self {
             let mint = Pubkey::new_unique();
             let sender = Pubkey::new_unique();
             let payer = Pubkey::new_unique();
@@ -1248,7 +1248,7 @@ mod tests {
         }
 
         /// Build instruction + accounts for one `finalize_transfer` step.
-        /// Mutable accounts (app_mint_state, mint, sender_token) are passed in
+        /// Mutable accounts (`app_mint_state`, mint, `sender_token`) are passed in
         /// so callers can carry forward state from previous steps.
         fn build_step(
             &self,
@@ -1352,7 +1352,7 @@ mod tests {
         let mut mollusk = setup_mollusk_with_token();
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
-        let ctx = MultiStepContext::new(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let ctx = MultiStepContext::new();
         let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
         let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
         let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
@@ -1407,7 +1407,7 @@ mod tests {
         let mut mollusk = setup_mollusk_with_token();
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
-        let ctx = MultiStepContext::new(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let ctx = MultiStepContext::new();
         let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
         let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
         let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
@@ -1478,7 +1478,7 @@ mod tests {
         let mut mollusk = setup_mollusk_with_token();
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
-        let ctx = MultiStepContext::new(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let ctx = MultiStepContext::new();
         let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
         let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
         let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
@@ -1566,7 +1566,7 @@ mod tests {
         let mut mollusk = setup_mollusk_with_token();
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
-        let ctx = MultiStepContext::new(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let ctx = MultiStepContext::new();
         let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
         let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
         let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
