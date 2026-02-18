@@ -150,6 +150,10 @@ impl super::TxBuilder {
             chunk_data,
         };
 
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
         let (chunk_pda, _) = PayloadChunk::pda(
             self.fee_payer,
             client_id,
@@ -160,9 +164,12 @@ impl super::TxBuilder {
         );
 
         let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
         let mut data = router_instructions::upload_payload_chunk_discriminator().to_vec();
@@ -190,6 +197,10 @@ impl super::TxBuilder {
             chunk_data,
         };
 
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
         let (chunk_pda, _) = ProofChunk::pda(
             self.fee_payer,
             client_id,
@@ -199,9 +210,12 @@ impl super::TxBuilder {
         );
 
         let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
         let mut data = router_instructions::upload_proof_chunk_discriminator().to_vec();

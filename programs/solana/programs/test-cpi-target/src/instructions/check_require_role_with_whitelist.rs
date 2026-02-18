@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(role_id: u64)]
 pub struct CheckRequireRoleWithWhitelist<'info> {
     /// CHECK: Passed to `access_manager::require_role_with_whitelist` for deserialization
     pub access_manager: AccountInfo<'info>,

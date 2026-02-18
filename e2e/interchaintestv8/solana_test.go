@@ -524,7 +524,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 
 func (s *IbcEurekaSolanaTestSuite) setupTestApp(ctx context.Context) {
 	s.Require().True(s.Run("Initialize Test IBC App", func() {
-		appStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		appStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		initInstruction, err := test_ibc_app.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(),
@@ -604,7 +604,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -783,7 +783,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -1057,7 +1057,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		// Use confirmed commitment to match relay transaction confirmation level
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
@@ -1186,6 +1186,9 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 		ics26_router.ProgramID,
 	)
 
+	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
 	var initialRelayerBalance uint64
 
 	s.Require().True(s.Run("Get initial relayer balance", func() {
@@ -1206,9 +1209,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadPayload0Instruction, err := ics26_router.NewUploadPayloadChunkInstruction(
 			uploadPayload0Msg,
+			routerStateAccount,
+			accessControlAccount,
 			payloadChunk0PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1229,9 +1235,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadPayload1Instruction, err := ics26_router.NewUploadPayloadChunkInstruction(
 			uploadPayload1Msg,
+			routerStateAccount,
+			accessControlAccount,
 			payloadChunk1PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1254,9 +1263,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadProof0Instruction, err := ics26_router.NewUploadProofChunkInstruction(
 			uploadProof0Msg,
+			routerStateAccount,
+			accessControlAccount,
 			proofChunk0PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 
@@ -1278,9 +1290,12 @@ func (s *IbcEurekaSolanaTestSuite) Test_CleanupOrphanedChunks() {
 
 		uploadProof1Instruction, err := ics26_router.NewUploadProofChunkInstruction(
 			uploadProof1Msg,
+			routerStateAccount,
+			accessControlAccount,
 			proofChunk1PDA,
 			relayer,
 			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
 

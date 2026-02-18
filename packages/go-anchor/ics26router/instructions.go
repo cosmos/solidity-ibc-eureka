@@ -243,8 +243,8 @@ func NewRecvPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(packetAckAccount, true, false))
 		// Account 5 "ibc_app_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
-		// Account 6 "ibc_app_state": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, false, false))
+		// Account 6 "ibc_app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 7 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 8 "system_program": Read-only, Non-signer, Required
@@ -553,9 +553,12 @@ func NewUploadPayloadChunkInstruction(
 	msgParam SolanaIbcTypesRouterMsgUploadChunk,
 
 	// Accounts:
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	chunkAccount solanago.PublicKey,
 	relayerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -576,12 +579,18 @@ func NewUploadPayloadChunkInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "chunk": Writable, Non-signer, Required
+		// Account 0 "router_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "chunk": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
-		// Account 1 "relayer": Writable, Signer, Required
+		// Account 3 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
-		// Account 2 "system_program": Read-only, Non-signer, Required
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.
@@ -598,9 +607,12 @@ func NewUploadProofChunkInstruction(
 	msgParam SolanaIbcTypesRouterMsgUploadChunk,
 
 	// Accounts:
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
 	chunkAccount solanago.PublicKey,
 	relayerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -621,12 +633,18 @@ func NewUploadProofChunkInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "chunk": Writable, Non-signer, Required
+		// Account 0 "router_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "chunk": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
-		// Account 1 "relayer": Writable, Signer, Required
+		// Account 3 "relayer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
-		// Account 2 "system_program": Read-only, Non-signer, Required
+		// Account 4 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

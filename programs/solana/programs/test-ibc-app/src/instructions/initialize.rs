@@ -2,12 +2,13 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(authority: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
         space = 8 + TestIbcAppState::INIT_SPACE,
-        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,

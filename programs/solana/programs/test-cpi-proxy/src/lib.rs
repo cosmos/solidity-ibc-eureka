@@ -77,6 +77,7 @@ pub struct CpiAccountMeta {
 
 /// Accounts for the generic CPI proxy
 #[derive(Accounts)]
+#[instruction(instruction_data: Vec<u8>, account_metas: Vec<CpiAccountMeta>)]
 pub struct ProxyCpi<'info> {
     /// CHECK: The target program we're calling via CPI. This is intentionally
     /// unconstrained beyond executable check, as this is a test utility program

@@ -5,7 +5,6 @@
 /// space enable seamless upgrades without breaking existing deployments.
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
-use ics27_gmp::constants::GMP_PORT_ID;
 use ics27_gmp::state::{AccountVersion, GMPAppState};
 use solana_sdk::pubkey::Pubkey;
 
@@ -18,8 +17,7 @@ fn create_account_data<T: Discriminator + AnchorSerialize>(account: &T) -> Vec<u
 }
 
 fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
-    let (app_state_pda, bump) =
-        Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &ics27_gmp::ID);
+    let (app_state_pda, bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &ics27_gmp::ID);
     let app_state = GMPAppState {
         version: AccountVersion::V1,
         paused,
@@ -154,7 +152,7 @@ fn test_gmp_app_state_pda_derivation_preserved() {
 
     // Verify PDA derivation still works (bump is preserved)
     let (derived_pda, derived_bump) =
-        Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &ics27_gmp::ID);
+        Pubkey::find_program_address(&[GMPAppState::SEED], &ics27_gmp::ID);
 
     assert_eq!(derived_pda, original_pda);
     assert_eq!(derived_bump, state.bump);

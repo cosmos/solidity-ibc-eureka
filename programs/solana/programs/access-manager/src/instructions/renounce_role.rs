@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::{require_direct_call_or_whitelisted_caller, roles};
 
 #[derive(Accounts)]
+#[instruction(role_id: u64)]
 pub struct RenounceRole<'info> {
     #[account(
         mut,

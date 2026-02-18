@@ -17,9 +17,31 @@ pub const IFT_PROGRAM_PATH: &str = "../../target/deploy/ift";
 /// Anchor error code offset
 pub const ANCHOR_ERROR_OFFSET: u32 = 6000;
 
+/// Generate a valid bech32 cosmos address for testing
+pub fn valid_cosmos_address() -> String {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+    addr
+}
+
 /// Setup mollusk with the IFT program
 pub fn setup_mollusk() -> Mollusk {
     Mollusk::new(&crate::ID, IFT_PROGRAM_PATH)
+}
+
+/// Setup mollusk with the IFT program and SPL Token program (for CPI tests)
+pub fn setup_mollusk_with_token() -> Mollusk {
+    let mut mollusk = Mollusk::new(&crate::ID, IFT_PROGRAM_PATH);
+    mollusk_svm_programs_token::token::add_program(&mut mollusk);
+    mollusk
+}
+
+/// Get the SPL Token program keyed account for use in CPI tests.
+/// Unlike `create_token_program_account()`, this includes the real program ELF.
+pub fn token_program_keyed_account() -> (Pubkey, SolanaAccount) {
+    mollusk_svm_programs_token::token::keyed_account()
 }
 
 /// Create a serialized global IFT app state account
@@ -207,45 +229,6 @@ pub fn create_system_program_account() -> (Pubkey, SolanaAccount) {
     )
 }
 
-/// Create instructions sysvar account for direct call
-pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
-    create_instructions_sysvar_account_with_caller(crate::ID)
-}
-
-/// Create instructions sysvar account with specific caller program ID
-pub fn create_instructions_sysvar_account_with_caller(
-    caller_program_id: Pubkey,
-) -> (Pubkey, SolanaAccount) {
-    use solana_sdk::sysvar::instructions::{
-        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
-    };
-
-    let account_pubkey = Pubkey::new_unique();
-    let account = BorrowedAccountMeta {
-        pubkey: &account_pubkey,
-        is_signer: false,
-        is_writable: true,
-    };
-    let mock_instruction = BorrowedInstruction {
-        program_id: &caller_program_id,
-        accounts: vec![account],
-        data: &[],
-    };
-
-    let ixs_data = construct_instructions_data(&[mock_instruction]);
-
-    (
-        solana_sdk::sysvar::instructions::ID,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data: ixs_data,
-            owner: solana_sdk::sysvar::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
 /// Create clock sysvar account
 pub fn create_clock_sysvar_account(unix_timestamp: i64) -> (Pubkey, SolanaAccount) {
     let clock = solana_sdk::sysvar::clock::Clock {
@@ -322,6 +305,34 @@ pub fn deserialize_bridge(account: &SolanaAccount) -> IFTBridge {
         .expect("Failed to deserialize IFTBridge")
 }
 
+/// Create a mock SPL Token account with specified mint, owner, and amount
+pub fn create_token_account(mint: Pubkey, owner: Pubkey, amount: u64) -> SolanaAccount {
+    use anchor_spl::token::spl_token;
+    use solana_sdk::{program_pack::Pack, rent::Rent};
+
+    let account = spl_token::state::Account {
+        mint,
+        owner,
+        amount,
+        delegate: solana_sdk::program_option::COption::None,
+        state: spl_token::state::AccountState::Initialized,
+        is_native: solana_sdk::program_option::COption::None,
+        delegated_amount: 0,
+        close_authority: solana_sdk::program_option::COption::None,
+    };
+
+    let mut data = vec![0u8; spl_token::state::Account::LEN];
+    account.pack_into_slice(&mut data);
+
+    SolanaAccount {
+        lamports: Rent::default().minimum_balance(spl_token::state::Account::LEN),
+        data,
+        owner: spl_token::ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
 pub fn get_gmp_account_pda(
     client_id: &str,
     counterparty_address: &str,
@@ -388,6 +399,74 @@ pub fn create_token_program_account() -> (Pubkey, SolanaAccount) {
             data: vec![],
             owner: solana_sdk::native_loader::ID,
             executable: true,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create instructions sysvar account for direct call (not CPI).
+/// The sysvar data indicates IFT program is the top-level caller.
+pub fn create_instructions_sysvar_account() -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &crate::ID,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create instructions sysvar that simulates a CPI call from another program.
+/// Uses the real sysvar address but with a different `program_id` to simulate CPI context.
+pub fn create_cpi_instructions_sysvar_account(
+    caller_program_id: Pubkey,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::sysvar::instructions::{
+        construct_instructions_data, BorrowedAccountMeta, BorrowedInstruction,
+    };
+
+    let account_pubkey = Pubkey::new_unique();
+    let account = BorrowedAccountMeta {
+        pubkey: &account_pubkey,
+        is_signer: false,
+        is_writable: true,
+    };
+    let mock_instruction = BorrowedInstruction {
+        program_id: &caller_program_id,
+        accounts: vec![account],
+        data: &[],
+    };
+
+    let ixs_data = construct_instructions_data(&[mock_instruction]);
+
+    (
+        solana_sdk::sysvar::instructions::ID,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: ixs_data,
+            owner: solana_sdk::sysvar::ID,
+            executable: false,
             rent_epoch: 0,
         },
     )
