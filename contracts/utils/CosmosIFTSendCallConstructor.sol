@@ -76,6 +76,8 @@ contract CosmosIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         }
 
         // We allow eth addresses as receivers due to cosmos/evm
+        // NOTE: We ignore the return value of tryParseAddress because we just want to check if it is a valid address format
+        // slither-disable-next-line unused-return
         (bool isAddress,) = Strings.tryParseAddress(receiver);
         if (isAddress) {
             return true;
