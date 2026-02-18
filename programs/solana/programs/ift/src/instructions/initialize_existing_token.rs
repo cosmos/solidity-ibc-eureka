@@ -26,6 +26,7 @@ pub struct InitializeExistingToken<'info> {
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
 
+    /// Existing SPL Token mint whose authority will be transferred to the IFT PDA
     #[account(
         mut,
         constraint = mint.mint_authority.is_some() @ IFTError::MintAuthorityNotSet
@@ -39,15 +40,19 @@ pub struct InitializeExistingToken<'info> {
     )]
     pub mint_authority: AccountInfo<'info>,
 
+    /// Current mint authority that must sign to transfer ownership to the IFT PDA
     #[account(
         constraint = mint.mint_authority.unwrap() == current_authority.key() @ IFTError::InvalidMintAuthority
     )]
     pub current_authority: Signer<'info>,
 
+    /// Pays for account creation and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the `set_authority` CPI
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required for PDA account creation
     pub system_program: Program<'info, System>,
 }
 

@@ -111,7 +111,9 @@ pub struct FinalizeTransfer<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for refund minting
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required by Anchor for the `close` constraint
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar

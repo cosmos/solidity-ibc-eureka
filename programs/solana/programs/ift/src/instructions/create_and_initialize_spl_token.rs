@@ -51,10 +51,13 @@ pub struct CreateAndInitializeSplToken<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Pays for account creation and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program, must match the `CreateTokenParams` variant
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required for mint and PDA account creation
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar

@@ -14,6 +14,7 @@ use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 #[derive(Accounts)]
 #[instruction(new_admin: Pubkey)]
 pub struct SetAdmin<'info> {
+    /// Global IFT app state (mut, admin field will be updated)
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED],
@@ -21,6 +22,7 @@ pub struct SetAdmin<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Current admin authority, must match `app_state.admin`
     #[account(
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
@@ -89,6 +91,7 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the `set_authority` CPI
     pub token_program: Interface<'info, TokenInterface>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -190,11 +193,15 @@ pub struct AdminMint<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Pays for ATA creation (if needed) and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the mint CPI
     pub token_program: Interface<'info, TokenInterface>,
+    /// Creates the receiver's associated token account if it doesn't exist
     pub associated_token_program: Program<'info, AssociatedToken>,
+    /// Required for ATA creation
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
