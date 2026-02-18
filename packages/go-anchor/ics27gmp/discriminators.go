@@ -29,6 +29,7 @@ var (
 var (
 	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
 	Instruction_SendCall                = [8]byte{254, 95, 190, 68, 194, 140, 28, 103}
+	Instruction_SendCallCpi             = [8]byte{97, 64, 45, 56, 8, 199, 98, 206}
 	Instruction_OnRecvPacket            = [8]byte{153, 133, 78, 48, 156, 128, 229, 104}
 	Instruction_OnAcknowledgementPacket = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
 	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}

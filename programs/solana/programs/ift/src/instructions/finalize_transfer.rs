@@ -4,9 +4,8 @@
 //! after the GMP result has been recorded (either ack or timeout).
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::instruction::get_stack_height;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
-use solana_ibc_types::{CallResultStatus, GMPCallResult};
+use solana_ibc_types::{reject_cpi, CallResultStatus, GMPCallResult};
 
 use crate::constants::{
     IFT_APP_MINT_STATE_SEED, IFT_APP_STATE_SEED, IFT_BRIDGE_SEED, MINT_AUTHORITY_SEED,
@@ -99,6 +98,10 @@ pub struct FinalizeTransfer<'info> {
 
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 /// Finalize a pending transfer based on GMP result
@@ -107,13 +110,14 @@ pub fn finalize_transfer(
     client_id: String,
     sequence: u64,
 ) -> Result<()> {
-    require!(get_stack_height() <= 1, IFTError::CpiNotAllowed);
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
     let pending = &ctx.accounts.pending_transfer;
     let gmp_result = &ctx.accounts.gmp_result;
     let clock = Clock::get()?;
 
-    // Verify the GMP result matches expectations
+    // Verify the GMP result was initiated by this IFT program.
+    // GMP's `send_call_cpi` extracts the calling program ID as the sender.
     require!(
         gmp_result.sender == crate::ID,
         IFTError::GmpResultSenderMismatch
@@ -198,6 +202,7 @@ mod tests {
     use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, CallResultStatus};
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
+        program_pack::Pack,
         pubkey::Pubkey,
     };
 
@@ -210,40 +215,19 @@ mod tests {
     const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
     const TEST_SEQUENCE: u64 = 42;
     const TEST_AMOUNT: u64 = 1_000_000;
+    const TOKEN_DECIMALS: u8 = 9;
 
-    fn create_token_account(
-        mint: &Pubkey,
-        owner: &Pubkey,
-        amount: u64,
-    ) -> solana_sdk::account::Account {
-        let mut data = vec![0u8; 165];
-        data[0..32].copy_from_slice(&mint.to_bytes());
-        data[32..64].copy_from_slice(&owner.to_bytes());
-        data[64..72].copy_from_slice(&amount.to_le_bytes());
-        data[108] = 1; // Initialized
+    // Account indices in instruction's account list
+    const APP_MINT_STATE_IDX: usize = 1;
+    const PENDING_TRANSFER_IDX: usize = 3;
+    const MINT_IDX: usize = 5;
+    const SENDER_TOKEN_IDX: usize = 7;
 
+    fn empty_pda_account() -> solana_sdk::account::Account {
         solana_sdk::account::Account {
-            lamports: 1_000_000,
-            data,
-            owner: anchor_spl::token::ID,
-            executable: false,
-            rent_epoch: 0,
-        }
-    }
-
-    fn create_mint_account(mint_authority: Option<&Pubkey>) -> solana_sdk::account::Account {
-        let mut data = vec![0u8; 82];
-        if let Some(authority) = mint_authority {
-            data[0..4].copy_from_slice(&1u32.to_le_bytes()); // Some
-            data[4..36].copy_from_slice(&authority.to_bytes());
-        }
-        data[44] = 9; // decimals
-        data[45] = 1; // is_initialized
-
-        solana_sdk::account::Account {
-            lamports: 1_000_000,
-            data,
-            owner: anchor_spl::token::ID,
+            lamports: 0,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
             executable: false,
             rent_epoch: 0,
         }
@@ -256,25 +240,31 @@ mod tests {
 
     fn build_finalize_transfer_test_setup(
         status: CallResultStatus,
-        gmp_result_sender: Pubkey,
+        gmp_result_sender: Option<Pubkey>,
         gmp_result_client_id: &str,
         gmp_result_sequence: u64,
     ) -> FinalizeTransferTestSetup {
-        build_finalize_transfer_test_setup_with_options(
+        build_finalize_transfer_test_setup_ext(
             status,
             gmp_result_sender,
             gmp_result_client_id,
             gmp_result_sequence,
+            None,
+            None,
+            None,
             true,
             false,
         )
     }
 
-    fn build_finalize_transfer_test_setup_with_options(
+    fn build_finalize_transfer_test_setup_ext(
         status: CallResultStatus,
-        gmp_result_sender: Pubkey,
+        gmp_result_sender: Option<Pubkey>,
         gmp_result_client_id: &str,
         gmp_result_sequence: u64,
+        app_mint_state_override: Option<IftAppMintStateParams>,
+        token_owner_override: Option<Pubkey>,
+        token_mint_override: Option<Pubkey>,
         bridge_active: bool,
         app_paused: bool,
     ) -> FinalizeTransferTestSetup {
@@ -284,6 +274,7 @@ mod tests {
         let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let gmp_result_sender = gmp_result_sender.unwrap_or(crate::ID);
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
@@ -292,6 +283,8 @@ mod tests {
         let (gmp_result_pda, gmp_result_bump) =
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account = create_ift_app_state_account_with_options(
             app_state_bump,
@@ -300,14 +293,23 @@ mod tests {
             app_paused,
         );
 
-        let app_mint_state_account =
-            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
+        let app_mint_state_account = app_mint_state_override.map_or_else(
+            || create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump),
+            |params| {
+                create_ift_app_mint_state_account_full(IftAppMintStateParams {
+                    mint,
+                    bump: app_mint_state_bump,
+                    mint_authority_bump,
+                    ..params
+                })
+            },
+        );
 
         let ift_bridge_account = create_ift_bridge_account(
             mint,
             TEST_CLIENT_ID,
             TEST_COUNTERPARTY_ADDRESS,
-            crate::state::ChainOptions::Evm,
+            ChainOptions::Evm,
             ift_bridge_bump,
             bridge_active,
         );
@@ -331,26 +333,12 @@ mod tests {
             &gmp_program,
         );
 
-        let mint_account = create_mint_account(Some(&mint_authority_pda));
+        let mint_account = create_mint_account(mint_authority_pda, TOKEN_DECIMALS);
 
-        let mint_authority_account = solana_sdk::account::Account {
-            lamports: 0,
-            data: vec![],
-            owner: solana_sdk::system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        };
-
+        let token_account_mint = token_mint_override.unwrap_or(mint);
+        let token_account_owner = token_owner_override.unwrap_or(sender);
         let sender_token_pda = Pubkey::new_unique();
-        let sender_token_account = create_token_account(&mint, &sender, 0);
-
-        let token_program_account = solana_sdk::account::Account {
-            lamports: 1,
-            data: vec![],
-            owner: solana_sdk::native_loader::ID,
-            executable: true,
-            rent_epoch: 0,
-        };
+        let sender_token_account = create_token_account(token_account_mint, token_account_owner, 0);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -364,8 +352,9 @@ mod tests {
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(sender_token_pda, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(anchor_spl::token::ID, false),
+                AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -381,11 +370,12 @@ mod tests {
             (pending_transfer_pda, pending_transfer_account),
             (gmp_result_pda, gmp_result_account),
             (mint, mint_account),
-            (mint_authority_pda, mint_authority_account),
+            (mint_authority_pda, empty_pda_account()),
             (sender_token_pda, sender_token_account),
             (payer, create_signer_account()),
-            (anchor_spl::token::ID, token_program_account),
+            (token_program_id, token_program_account),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         FinalizeTransferTestSetup {
@@ -393,6 +383,22 @@ mod tests {
             accounts,
         }
     }
+
+    fn unpack_token_balance(result: &mollusk_svm::result::InstructionResult, index: usize) -> u64 {
+        let (_, account) = &result.resulting_accounts[index];
+        anchor_spl::token::spl_token::state::Account::unpack(&account.data)
+            .expect("valid token account")
+            .amount
+    }
+
+    fn unpack_mint_supply(result: &mollusk_svm::result::InstructionResult, index: usize) -> u64 {
+        let (_, account) = &result.resulting_accounts[index];
+        anchor_spl::token::spl_token::state::Mint::unpack(&account.data)
+            .expect("valid mint account")
+            .supply
+    }
+
+    // ─── Constant tests ─────────────────────────────────────────────
 
     #[test]
     fn test_error_ack_commitment_matches_runtime_computation() {
@@ -413,20 +419,39 @@ mod tests {
         assert!(ERROR_ACK_COMMITMENT.iter().any(|&b| b != 0));
     }
 
+    // ─── Validation failure tests ───────────────────────────────────
+
+    fn assert_finalize_error(
+        mollusk: &mollusk_svm::Mollusk,
+        setup: &FinalizeTransferTestSetup,
+        expected_error: u32,
+    ) {
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                expected_error
+            ))
+            .into(),
+        );
+    }
+
     #[test]
     fn test_finalize_transfer_wrong_gmp_sender_fails() {
         let mollusk = setup_mollusk();
 
-        let wrong_sender = Pubkey::new_unique();
         let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
-            wrong_sender,
+            Some(Pubkey::new_unique()),
             TEST_CLIENT_ID,
             TEST_SEQUENCE,
         );
 
-        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(result.program_result.is_err());
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::GmpResultSenderMismatch as u32,
+        );
     }
 
     #[test]
@@ -435,13 +460,16 @@ mod tests {
 
         let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
-            crate::ID,
+            None,
             "wrong-client-id",
             TEST_SEQUENCE,
         );
 
-        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(result.program_result.is_err());
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::GmpResultClientMismatch as u32,
+        );
     }
 
     #[test]
@@ -450,135 +478,66 @@ mod tests {
 
         let setup = build_finalize_transfer_test_setup(
             CallResultStatus::Timeout,
-            crate::ID,
+            None,
             TEST_CLIENT_ID,
             999,
         );
 
-        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(result.program_result.is_err());
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::GmpResultSequenceMismatch as u32,
+        );
     }
 
     #[test]
     fn test_finalize_transfer_token_account_wrong_owner_fails() {
         let mollusk = setup_mollusk();
 
-        let mint = Pubkey::new_unique();
-        let sender = Pubkey::new_unique();
-        let wrong_owner = Pubkey::new_unique();
-        let payer = Pubkey::new_unique();
-        let gmp_program = ics27_gmp::ID;
-
-        let (app_state_pda, app_state_bump) = get_app_state_pda();
-        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
-        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
-        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
-        let (pending_transfer_pda, pending_transfer_bump) =
-            get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
-        let (gmp_result_pda, gmp_result_bump) =
-            get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
-        let (system_program, system_account) = create_system_program_account();
-
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
-
-        let app_mint_state_account =
-            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
-
-        let ift_bridge_account = create_ift_bridge_account(
-            mint,
-            TEST_CLIENT_ID,
-            TEST_COUNTERPARTY_ADDRESS,
-            ChainOptions::Evm,
-            ift_bridge_bump,
-            true,
-        );
-
-        let pending_transfer_account = create_pending_transfer_account(
-            mint,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            sender,
-            TEST_AMOUNT,
-            pending_transfer_bump,
-        );
-
-        let gmp_result_account = create_gmp_result_account(
-            crate::ID,
-            TEST_SEQUENCE,
-            TEST_CLIENT_ID,
-            "dest-client",
+        let setup = build_finalize_transfer_test_setup_ext(
             CallResultStatus::Timeout,
-            gmp_result_bump,
-            &gmp_program,
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            None,
+            Some(Pubkey::new_unique()), // wrong owner
+            None,
+            true,
+            false,
         );
 
-        let mint_account = create_mint_account(Some(&mint_authority_pda));
-
-        let mint_authority_account = solana_sdk::account::Account {
-            lamports: 0,
-            data: vec![],
-            owner: solana_sdk::system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        };
-
-        let sender_token_pda = Pubkey::new_unique();
-        let sender_token_account = create_token_account(&mint, &wrong_owner, 0);
-
-        let token_program_account = solana_sdk::account::Account {
-            lamports: 1,
-            data: vec![],
-            owner: solana_sdk::native_loader::ID,
-            executable: true,
-            rent_epoch: 0,
-        };
-
-        let instruction = Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new(app_mint_state_pda, false),
-                AccountMeta::new_readonly(ift_bridge_pda, false),
-                AccountMeta::new(pending_transfer_pda, false),
-                AccountMeta::new_readonly(gmp_result_pda, false),
-                AccountMeta::new(mint, false),
-                AccountMeta::new_readonly(mint_authority_pda, false),
-                AccountMeta::new(sender_token_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(anchor_spl::token::ID, false),
-                AccountMeta::new_readonly(system_program, false),
-            ],
-            data: crate::instruction::FinalizeTransfer {
-                client_id: TEST_CLIENT_ID.to_string(),
-                sequence: TEST_SEQUENCE,
-            }
-            .data(),
-        };
-
-        let accounts = vec![
-            (app_state_pda, app_state_account),
-            (app_mint_state_pda, app_mint_state_account),
-            (ift_bridge_pda, ift_bridge_account),
-            (pending_transfer_pda, pending_transfer_account),
-            (gmp_result_pda, gmp_result_account),
-            (mint, mint_account),
-            (mint_authority_pda, mint_authority_account),
-            (sender_token_pda, sender_token_account),
-            (payer, create_signer_account()),
-            (anchor_spl::token::ID, token_program_account),
-            (system_program, system_account),
-        ];
-
-        let result = mollusk.process_instruction(&instruction, &accounts);
-        assert!(
-            result.program_result.is_err(),
-            "finalize_transfer should fail when token account owner doesn't match pending transfer sender"
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::TokenAccountOwnerMismatch as u32,
         );
     }
 
     #[test]
     fn test_finalize_transfer_token_account_wrong_mint_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup = build_finalize_transfer_test_setup_ext(
+            CallResultStatus::Timeout,
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            None,
+            None,
+            Some(Pubkey::new_unique()), // wrong mint
+            true,
+            false,
+        );
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::TokenAccountOwnerMismatch as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_bridge_mint_mismatch_fails() {
         let mollusk = setup_mollusk();
 
         let mint = Pubkey::new_unique();
@@ -596,61 +555,322 @@ mod tests {
         let (gmp_result_pda, gmp_result_bump) =
             get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
         let (system_program, system_account) = create_system_program_account();
-
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
-
-        let app_mint_state_account =
-            create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
-
-        let ift_bridge_account = create_ift_bridge_account(
-            mint,
-            TEST_CLIENT_ID,
-            TEST_COUNTERPARTY_ADDRESS,
-            ChainOptions::Evm,
-            ift_bridge_bump,
-            true,
-        );
-
-        let pending_transfer_account = create_pending_transfer_account(
-            mint,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            sender,
-            TEST_AMOUNT,
-            pending_transfer_bump,
-        );
-
-        let gmp_result_account = create_gmp_result_account(
-            crate::ID,
-            TEST_SEQUENCE,
-            TEST_CLIENT_ID,
-            "dest-client",
-            CallResultStatus::Timeout,
-            gmp_result_bump,
-            &gmp_program,
-        );
-
-        let mint_account = create_mint_account(Some(&mint_authority_pda));
-
-        let mint_authority_account = solana_sdk::account::Account {
-            lamports: 0,
-            data: vec![],
-            owner: solana_sdk::system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        };
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let sender_token_pda = Pubkey::new_unique();
-        let sender_token_account = create_token_account(&wrong_mint, &sender, 0);
 
-        let token_program_account = solana_sdk::account::Account {
-            lamports: 1,
-            data: vec![],
-            owner: solana_sdk::native_loader::ID,
-            executable: true,
-            rent_epoch: 0,
+        let setup = FinalizeTransferTestSetup {
+            instruction: Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new_readonly(app_state_pda, false),
+                    AccountMeta::new(app_mint_state_pda, false),
+                    AccountMeta::new_readonly(ift_bridge_pda, false),
+                    AccountMeta::new(pending_transfer_pda, false),
+                    AccountMeta::new_readonly(gmp_result_pda, false),
+                    AccountMeta::new(mint, false),
+                    AccountMeta::new_readonly(mint_authority_pda, false),
+                    AccountMeta::new(sender_token_pda, false),
+                    AccountMeta::new(payer, true),
+                    AccountMeta::new_readonly(token_program_id, false),
+                    AccountMeta::new_readonly(system_program, false),
+                    AccountMeta::new_readonly(sysvar_id, false),
+                ],
+                data: crate::instruction::FinalizeTransfer {
+                    client_id: TEST_CLIENT_ID.to_string(),
+                    sequence: TEST_SEQUENCE,
+                }
+                .data(),
+            },
+            accounts: vec![
+                (
+                    app_state_pda,
+                    create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program),
+                ),
+                (
+                    app_mint_state_pda,
+                    create_ift_app_mint_state_account(
+                        mint,
+                        app_mint_state_bump,
+                        mint_authority_bump,
+                    ),
+                ),
+                (
+                    ift_bridge_pda,
+                    create_ift_bridge_account(
+                        wrong_mint, // mint mismatch triggers InvalidBridge
+                        TEST_CLIENT_ID,
+                        TEST_COUNTERPARTY_ADDRESS,
+                        ChainOptions::Evm,
+                        ift_bridge_bump,
+                        true,
+                    ),
+                ),
+                (
+                    pending_transfer_pda,
+                    create_pending_transfer_account(
+                        mint,
+                        TEST_CLIENT_ID,
+                        TEST_SEQUENCE,
+                        sender,
+                        TEST_AMOUNT,
+                        pending_transfer_bump,
+                    ),
+                ),
+                (
+                    gmp_result_pda,
+                    create_gmp_result_account(
+                        crate::ID,
+                        TEST_SEQUENCE,
+                        TEST_CLIENT_ID,
+                        "dest-client",
+                        CallResultStatus::Timeout,
+                        gmp_result_bump,
+                        &gmp_program,
+                    ),
+                ),
+                (
+                    mint,
+                    create_mint_account(mint_authority_pda, TOKEN_DECIMALS),
+                ),
+                (mint_authority_pda, empty_pda_account()),
+                (sender_token_pda, create_token_account(mint, sender, 0)),
+                (payer, create_signer_account()),
+                (token_program_id, token_program_account),
+                (system_program, system_account),
+                (sysvar_id, sysvar_account),
+            ],
         };
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::InvalidBridge as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_bridge_not_active_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup = build_finalize_transfer_test_setup_ext(
+            CallResultStatus::Timeout,
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            None,
+            None,
+            None,
+            false, // bridge_active
+            false, // app_paused
+        );
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::BridgeNotActive as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_app_paused_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup = build_finalize_transfer_test_setup_ext(
+            CallResultStatus::Timeout,
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            None,
+            None,
+            None,
+            true,  // bridge_active
+            true,  // app_paused
+        );
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
+        );
+    }
+
+    // ─── Happy path tests ───────────────────────────────────────────
+
+    #[test]
+    fn test_finalize_transfer_timeout_refund_succeeds() {
+        let mollusk = setup_mollusk_with_token();
+
+        let setup = build_finalize_transfer_test_setup(
+            CallResultStatus::Timeout,
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "timeout refund should succeed: {:?}",
+            result.program_result
+        );
+
+        assert_eq!(
+            unpack_token_balance(&result, SENDER_TOKEN_IDX),
+            TEST_AMOUNT,
+            "sender should receive refund"
+        );
+        assert_eq!(
+            unpack_mint_supply(&result, MINT_IDX),
+            1_000_000_000 + TEST_AMOUNT,
+            "mint supply should increase by refund amount"
+        );
+
+        let (_, pending) = &result.resulting_accounts[PENDING_TRANSFER_IDX];
+        assert_eq!(pending.lamports, 0, "pending transfer should be closed");
+    }
+
+    #[test]
+    fn test_finalize_transfer_error_ack_refund_succeeds() {
+        let mollusk = setup_mollusk_with_token();
+
+        let setup = build_finalize_transfer_test_setup(
+            CallResultStatus::Acknowledgement(ERROR_ACK_COMMITMENT),
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "error ack refund should succeed: {:?}",
+            result.program_result
+        );
+
+        assert_eq!(
+            unpack_token_balance(&result, SENDER_TOKEN_IDX),
+            TEST_AMOUNT,
+            "sender should receive refund on error ack"
+        );
+        assert_eq!(
+            unpack_mint_supply(&result, MINT_IDX),
+            1_000_000_000 + TEST_AMOUNT,
+            "mint supply should increase by refund amount"
+        );
+
+        let (_, pending) = &result.resulting_accounts[PENDING_TRANSFER_IDX];
+        assert_eq!(pending.lamports, 0, "pending transfer should be closed");
+    }
+
+    #[test]
+    fn test_finalize_transfer_success_ack_succeeds() {
+        let mollusk = setup_mollusk_with_token();
+
+        let success_commitment = [42u8; 32];
+        let setup = build_finalize_transfer_test_setup(
+            CallResultStatus::Acknowledgement(success_commitment),
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "success ack should succeed: {:?}",
+            result.program_result
+        );
+
+        assert_eq!(
+            unpack_token_balance(&result, SENDER_TOKEN_IDX),
+            0,
+            "no tokens should be minted on success"
+        );
+        assert_eq!(
+            unpack_mint_supply(&result, MINT_IDX),
+            1_000_000_000,
+            "mint supply should be unchanged on success"
+        );
+
+        let (_, pending) = &result.resulting_accounts[PENDING_TRANSFER_IDX];
+        assert_eq!(pending.lamports, 0, "pending transfer should be closed");
+    }
+
+    #[test]
+    fn test_finalize_transfer_success_ack_reduces_rate_limit() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 10_000_000;
+        const INITIAL_USAGE: u64 = 5_000_000;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let success_commitment = [42u8; 32];
+        let setup = build_finalize_transfer_test_setup_ext(
+            CallResultStatus::Acknowledgement(success_commitment),
+            None,
+            TEST_CLIENT_ID,
+            TEST_SEQUENCE,
+            Some(IftAppMintStateParams {
+                mint: Pubkey::default(), // overridden by build fn
+                bump: 0,                 // overridden by build fn
+                mint_authority_bump: 0,  // overridden by build fn
+                daily_mint_limit: DAILY_LIMIT,
+                rate_limit_day: RATE_LIMIT_DAY,
+                rate_limit_daily_usage: INITIAL_USAGE,
+            }),
+            None,
+            None,
+            true,
+            false,
+        );
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "success ack with rate limit should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
+        let mint_state: crate::state::IFTAppMintState =
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &mint_state_account.data[..])
+                .expect("valid IFTAppMintState");
+
+        assert_eq!(
+            mint_state.rate_limit_daily_usage,
+            INITIAL_USAGE - TEST_AMOUNT,
+            "rate limit usage should be reduced by transfer amount"
+        );
+        assert_eq!(mint_state.rate_limit_day, RATE_LIMIT_DAY);
+    }
+
+    #[test]
+    fn test_finalize_transfer_timeout_refund_with_existing_balance() {
+        const EXISTING_BALANCE: u64 = 500_000;
+
+        let mollusk = setup_mollusk_with_token();
+        let mint = Pubkey::new_unique();
+        let sender = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (pending_transfer_pda, pending_transfer_bump) =
+            get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
+        let (gmp_result_pda, gmp_result_bump) =
+            get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let sender_token_pda = Pubkey::new_unique();
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -664,8 +884,9 @@ mod tests {
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new(sender_token_pda, false),
                 AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(anchor_spl::token::ID, false),
+                AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::FinalizeTransfer {
                 client_id: TEST_CLIENT_ID.to_string(),
@@ -675,69 +896,123 @@ mod tests {
         };
 
         let accounts = vec![
-            (app_state_pda, app_state_account),
-            (app_mint_state_pda, app_mint_state_account),
-            (ift_bridge_pda, ift_bridge_account),
-            (pending_transfer_pda, pending_transfer_account),
-            (gmp_result_pda, gmp_result_account),
-            (mint, mint_account),
-            (mint_authority_pda, mint_authority_account),
-            (sender_token_pda, sender_token_account),
+            (
+                app_state_pda,
+                create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program),
+            ),
+            (
+                app_mint_state_pda,
+                create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump),
+            ),
+            (
+                ift_bridge_pda,
+                create_ift_bridge_account(
+                    mint,
+                    TEST_CLIENT_ID,
+                    TEST_COUNTERPARTY_ADDRESS,
+                    ChainOptions::Evm,
+                    ift_bridge_bump,
+                    true,
+                ),
+            ),
+            (
+                pending_transfer_pda,
+                create_pending_transfer_account(
+                    mint,
+                    TEST_CLIENT_ID,
+                    TEST_SEQUENCE,
+                    sender,
+                    TEST_AMOUNT,
+                    pending_transfer_bump,
+                ),
+            ),
+            (
+                gmp_result_pda,
+                create_gmp_result_account(
+                    crate::ID,
+                    TEST_SEQUENCE,
+                    TEST_CLIENT_ID,
+                    "dest-client",
+                    CallResultStatus::Timeout,
+                    gmp_result_bump,
+                    &gmp_program,
+                ),
+            ),
+            (
+                mint,
+                create_mint_account(mint_authority_pda, TOKEN_DECIMALS),
+            ),
+            (mint_authority_pda, empty_pda_account()),
+            (
+                sender_token_pda,
+                create_token_account(mint, sender, EXISTING_BALANCE),
+            ),
             (payer, create_signer_account()),
-            (anchor_spl::token::ID, token_program_account),
+            (token_program_id, token_program_account),
             (system_program, system_account),
+            (sysvar_id, sysvar_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
-            result.program_result.is_err(),
-            "finalize_transfer should fail when token account mint doesn't match"
+            !result.program_result.is_err(),
+            "timeout refund with existing balance should succeed: {:?}",
+            result.program_result
+        );
+
+        assert_eq!(
+            unpack_token_balance(&result, SENDER_TOKEN_IDX),
+            EXISTING_BALANCE + TEST_AMOUNT,
+            "sender should receive refund on top of existing balance"
         );
     }
 
     #[test]
-    fn test_finalize_transfer_bridge_not_active_fails() {
-        let mollusk = setup_mollusk();
+    fn test_finalize_transfer_success_ack_saturating_rate_limit_reduction() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 10_000_000;
+        // Usage less than TEST_AMOUNT — reduction should saturate to 0
+        const INITIAL_USAGE: u64 = 500_000;
 
-        let setup = build_finalize_transfer_test_setup_with_options(
-            CallResultStatus::Timeout,
-            crate::ID,
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let success_commitment = [42u8; 32];
+        let setup = build_finalize_transfer_test_setup_ext(
+            CallResultStatus::Acknowledgement(success_commitment),
+            None,
             TEST_CLIENT_ID,
             TEST_SEQUENCE,
-            false, // bridge_active
-            false, // app_paused
+            Some(IftAppMintStateParams {
+                mint: Pubkey::default(),
+                bump: 0,
+                mint_authority_bump: 0,
+                daily_mint_limit: DAILY_LIMIT,
+                rate_limit_day: RATE_LIMIT_DAY,
+                rate_limit_daily_usage: INITIAL_USAGE,
+            }),
+            None,
+            None,
+            true,
+            false,
         );
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert_eq!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(
-                solana_sdk::program_error::ProgramError::Custom(
-                    IFTError::BridgeNotActive as u32 + 6000
-                )
-            ),
-        );
-    }
-
-    #[test]
-    fn test_finalize_transfer_app_paused_fails() {
-        let mollusk = setup_mollusk();
-
-        let setup = build_finalize_transfer_test_setup_with_options(
-            CallResultStatus::Timeout,
-            crate::ID,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            true, // bridge_active
-            true, // app_paused
+        assert!(
+            !result.program_result.is_err(),
+            "success ack with saturating rate limit should succeed: {:?}",
+            result.program_result
         );
 
-        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
+        let mint_state: crate::state::IFTAppMintState =
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &mint_state_account.data[..])
+                .expect("valid IFTAppMintState");
+
         assert_eq!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(
-                solana_sdk::program_error::ProgramError::Custom(IFTError::AppPaused as u32 + 6000)
-            ),
+            mint_state.rate_limit_daily_usage, 0,
+            "rate limit usage should saturate to 0 when amount > usage"
         );
     }
 }
