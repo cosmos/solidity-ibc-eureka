@@ -72,7 +72,7 @@ mod tests {
 
         let client_state_pda = derive_client_state_pda();
         let height = client_state.latest_height.revision_height;
-        let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
+        let consensus_state_pda = derive_consensus_state_pda(height);
 
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();

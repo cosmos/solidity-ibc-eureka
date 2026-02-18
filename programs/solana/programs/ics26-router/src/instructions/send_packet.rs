@@ -1063,7 +1063,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_packet_wrong_light_client_program() {
         let initial_sequence = 1u64;
-        let (pt, mock_client_state) = setup_send_packet_program_test(
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             true,
@@ -1079,6 +1079,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         // Replace light_client_program (index 7) with a wrong pubkey.
@@ -1248,6 +1249,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            Pubkey::new_unique(),
         );
 
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
