@@ -76,6 +76,7 @@ func NewSendCallInstruction(
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
 	instructionSysvarAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -121,7 +122,9 @@ func NewSendCallInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 11 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 12 "system_program": Read-only, Non-signer, Required
+		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
+		// Account 13 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -151,6 +154,7 @@ func NewSendCallCpiInstruction(
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
 	instructionSysvarAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -194,7 +198,9 @@ func NewSendCallCpiInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 10 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 11 "system_program": Read-only, Non-signer, Required
+		// Account 11 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
+		// Account 12 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

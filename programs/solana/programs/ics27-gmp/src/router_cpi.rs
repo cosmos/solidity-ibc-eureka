@@ -17,6 +17,7 @@ pub fn send_packet_cpi<'a>(
     client: &AccountInfo<'a>,
     light_client_program: &AccountInfo<'a>,
     client_state: &AccountInfo<'a>,
+    consensus_state: &AccountInfo<'a>,
     system_program: &AccountInfo<'a>,
     msg: MsgSendPacket,
 ) -> Result<u64> {
@@ -31,6 +32,7 @@ pub fn send_packet_cpi<'a>(
         client: client.clone(),
         light_client_program: light_client_program.clone(),
         client_state: client_state.clone(),
+        consensus_state: consensus_state.clone(),
     };
 
     let bump_slice = [bump];
