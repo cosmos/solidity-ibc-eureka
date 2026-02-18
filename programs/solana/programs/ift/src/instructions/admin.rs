@@ -210,14 +210,12 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
 
-    let mint_authority_bump = ctx.accounts.app_mint_state.mint_authority_bump;
     mint_to_account(
         &mut ctx.accounts.app_mint_state,
         &clock,
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;

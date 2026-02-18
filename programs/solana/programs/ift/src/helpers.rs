@@ -12,14 +12,12 @@ use crate::state::IFTAppMintState;
 ///
 /// Every token mint in the program goes through this function, ensuring no
 /// unchecked mint paths exist.
-#[allow(clippy::too_many_arguments)]
 pub fn mint_to_account<'info>(
     mint_state: &mut IFTAppMintState,
     clock: &Clock,
     mint: &InterfaceAccount<'info, Mint>,
     to: &InterfaceAccount<'info, TokenAccount>,
     mint_authority: &AccountInfo<'info>,
-    mint_authority_bump: u8,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
 ) -> Result<()> {
@@ -29,7 +27,7 @@ pub fn mint_to_account<'info>(
     let seeds = &[
         MINT_AUTHORITY_SEED,
         mint_key.as_ref(),
-        &[mint_authority_bump],
+        &[mint_state.mint_authority_bump],
     ];
     let signer_seeds = &[&seeds[..]];
 

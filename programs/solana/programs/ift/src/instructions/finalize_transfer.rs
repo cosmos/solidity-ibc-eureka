@@ -129,8 +129,6 @@ pub fn finalize_transfer(
         IFTError::GmpResultSequenceMismatch
     );
 
-    let mint_authority_bump = ctx.accounts.app_mint_state.mint_authority_bump;
-
     match gmp_result.status {
         CallResultStatus::Timeout => {
             mint_to_account(
@@ -139,7 +137,6 @@ pub fn finalize_transfer(
                 &ctx.accounts.mint,
                 &ctx.accounts.sender_token_account,
                 &ctx.accounts.mint_authority,
-                mint_authority_bump,
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
@@ -164,7 +161,6 @@ pub fn finalize_transfer(
                     &ctx.accounts.mint,
                     &ctx.accounts.sender_token_account,
                     &ctx.accounts.mint_authority,
-                    mint_authority_bump,
                     &ctx.accounts.token_program,
                     pending.amount,
                 )?;
