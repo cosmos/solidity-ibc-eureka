@@ -116,9 +116,12 @@ Seeds: [b"packet_ack", dest_client.as_bytes(), sequence.to_le_bytes()]
 
 ### 4. Chunked Storage Pattern
 
-Large data exceeding transaction limits is split into 900-byte chunks uploaded in separate transactions, then assembled.
+Large data exceeding transaction limits is split into 900-byte chunks uploaded in separate transactions, then assembled. Chunking is split across two programs:
 
-**Header Chunk (for client updates):**
+- **ICS07-Tendermint**: Header chunks, misbehaviour chunks, and signature verification PDAs (light client data)
+- **ICS26-Router**: Payload chunks and proof chunks (packet lifecycle data)
+
+**Header Chunk (for client updates) — ICS07-Tendermint:**
 ```
 Seeds: [b"header_chunk", submitter.as_ref(), chain_id.as_bytes(), target_height.to_le_bytes(), chunk_index]
 ```
@@ -126,7 +129,7 @@ Stores:
 - `submitter`: Pubkey
 - `chunk_data`: Vec<u8> (max 900 bytes)
 
-**Payload Chunk (for large packet payloads):**
+**Payload Chunk (for large packet payloads) — ICS26-Router:**
 ```
 Seeds: [b"payload_chunk", payer.as_ref(), client_id.as_bytes(), sequence.to_le_bytes(), payload_index, chunk_index]
 ```
@@ -137,7 +140,7 @@ Stores:
 - `chunk_index`: u8
 - `chunk_data`: Vec<u8> (max 900 bytes)
 
-**Proof Chunk (for membership/verification proofs):**
+**Proof Chunk (for membership/verification proofs) — ICS26-Router:**
 ```
 Seeds: [b"proof_chunk", payer.as_ref(), client_id.as_bytes(), sequence.to_le_bytes(), chunk_index]
 ```
@@ -147,20 +150,30 @@ Stores:
 - `chunk_index`: u8
 - `chunk_data`: Vec<u8> (max 900 bytes)
 
-**Misbehaviour Chunk (for misbehaviour reports):**
+**Misbehaviour Chunk (for misbehaviour reports) — ICS07-Tendermint:**
 ```
 Seeds: [b"misbehaviour_chunk", submitter.as_ref(), client_id.as_bytes(), chunk_index]
 ```
 Stores:
 - `chunk_data`: Vec<u8> (max 900 bytes)
 
-**Signature Verification (cached verification results):**
+**Signature Verification (cached verification results) — ICS07-Tendermint:**
 ```
 Seeds: [b"sig_verify", signature_hash]
 ```
 Stores:
 - `submitter`: Pubkey
 - `is_valid`: bool
+
+**Inline vs Chunked Mode (ICS26-Router payloads and proofs):**
+
+Payloads and proofs can be sent in two modes:
+- **Inline**: Data fits in a single transaction and is included directly in the instruction data (`packet.payloads` non-empty). No chunk accounts needed.
+- **Chunked**: Data exceeds transaction limits and is uploaded via separate chunk transactions first, then assembled during `recv_packet`/`ack_packet`/`timeout_packet` (`packet.payloads` empty, metadata with `total_chunks > 0` provided instead).
+
+The router's `validate_and_reconstruct_packet` handles both modes transparently. Inline and chunked modes are mutually exclusive per packet — providing both is an error.
+
+Note: Header and misbehaviour uploads in ICS07-Tendermint are always chunked (Tendermint headers always exceed transaction size limits).
 
 ### 5. Chunked Upload Workflow
 

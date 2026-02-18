@@ -92,6 +92,17 @@ func (attestationPDAs) ClientPDA(programID solanago.PublicKey) (solanago.PublicK
 	return pda, bump
 }
 
+func (attestationPDAs) ConsensusStateWithAccountSeedPDA(programID solanago.PublicKey, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, height []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("consensus_state"), height},

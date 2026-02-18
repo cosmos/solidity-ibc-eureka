@@ -133,6 +133,7 @@ func NewSendPacketInstruction(
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -176,6 +177,8 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 9 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 10 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
 	// Create the instruction.

@@ -137,10 +137,7 @@ pub mod fixtures {
 
     /// Convert protobuf Timestamp to nanoseconds since Unix epoch
     pub fn timestamp_to_nanoseconds(seconds: i64, nanos: i32) -> u64 {
-        const NANOS_PER_SECOND: u64 = 1_000_000_000;
-        (seconds as u64)
-            .saturating_mul(NANOS_PER_SECOND)
-            .saturating_add(nanos as u64)
+        crate::secs_to_nanos(seconds) as u64 + nanos as u64
     }
 
     /// Convert Protobuf header bytes to Borsh format (like the relayer does)
@@ -177,7 +174,7 @@ pub mod fixtures {
 
         // Extract timestamp from header and convert to Unix seconds
         let header_time_nanos = header.signed_header.header.time.unix_timestamp_nanos() as u64;
-        (header_time_nanos / 1_000_000_000) as i64
+        crate::nanos_to_secs(header_time_nanos) as i64
     }
 
     /// Create a clock timestamp valid for the given header

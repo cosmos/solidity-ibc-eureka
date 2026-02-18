@@ -213,7 +213,7 @@ fn verify_and_update_header<'info>(
     let update_client_state: UpdateClientState = client_state.into();
     let trusted_ibc_state: IbcConsensusState = trusted_state.into();
 
-    let current_time = Clock::get()?.unix_timestamp as u128 * 1_000_000_000;
+    let current_time = crate::secs_to_nanos(Clock::get()?.unix_timestamp);
 
     let output = tendermint_light_client_update_client::update_client(
         &update_client_state,

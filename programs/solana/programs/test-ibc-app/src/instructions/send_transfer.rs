@@ -103,6 +103,9 @@ pub struct SendTransfer<'info> {
     /// CHECK: Client state account, forwarded to router for status check
     pub client_state: AccountInfo<'info>,
 
+    /// CHECK: Consensus state account, forwarded to router for expiry check
+    pub consensus_state: AccountInfo<'info>,
+
     /// Router program for CPI
     pub router_program: Program<'info, Ics26Router>,
 
@@ -212,6 +215,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         client: ctx.accounts.client.to_account_info(),
         light_client_program: ctx.accounts.light_client_program.to_account_info(),
         client_state: ctx.accounts.client_state.to_account_info(),
+        consensus_state: ctx.accounts.consensus_state.to_account_info(),
     };
 
     // Sign the app_state PDA to prove this app is the immediate caller

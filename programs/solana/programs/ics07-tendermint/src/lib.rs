@@ -22,6 +22,16 @@ pub use types::{
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
+/// Convert nanosecond timestamp to seconds
+pub const fn nanos_to_secs(nanos: u64) -> u64 {
+    nanos / 1_000_000_000
+}
+
+/// Convert seconds to nanoseconds (u128 to avoid overflow)
+pub const fn secs_to_nanos(secs: i64) -> u128 {
+    secs as u128 * 1_000_000_000
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
