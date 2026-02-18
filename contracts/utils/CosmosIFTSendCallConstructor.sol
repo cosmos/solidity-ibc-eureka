@@ -77,26 +77,32 @@ contract CosmosIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         }
 
         // We also allow bech32 addresses for cosmos chains
-        // We will only allow HRPs which consist of [a-z0-9] and do not contain "1". If the HRP contains "1", then we will reject the address.
-        // All known Cosmos SDK chains have HRPs that do not contain "1", so this is a reasonable heuristic.
-        // We only allow lowercase alphanumeric characters excluding "1", "b", "i", and "o" as per bech32 specification, but we do not enforce the full bech32 checksum as it is not critical for our use case.
+        // We will only allow HRPs which consist of [a-z0-9] and do not contain "1". If the HRP contains "1", then we
+        // will reject the address. All known Cosmos SDK chains have HRPs that do not contain "1", so this is a
+        // reasonable heuristic.
+        // We only allow lowercase alphanumeric characters excluding "1", "b", "i", and "o" as per bech32 specification,
+        // but we do not enforce the full bech32 checksum as it is not critical for our use case.
         bool isHrp = true;
         for (uint256 i = 0; i < bytes(receiver).length; i++) {
             uint256 c = uint256(uint8(bytes(receiver)[i]));
             if (isHrp) {
-                if (c == 0x31) { // "1"
+                if (c == 0x31) {
+                    // "1"
                     isHrp = false;
                     continue;
                 }
-                if ((c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39)) { // a-z, 0-9
+                if ((c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39)) {
+                    // a-z, 0-9
                     continue;
                 }
                 return false;
             } else {
-                if ((c == 0x31) || (c == 0x62) || (c == 0x69) || (c == 0x6F)) { // "1", "b", "i", "o"
+                if ((c == 0x31) || (c == 0x62) || (c == 0x69) || (c == 0x6F)) {
+                    // "1", "b", "i", "o"
                     return false;
                 }
-                if ((c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39)) { // a-z, 0-9
+                if ((c >= 0x61 && c <= 0x7A) || (c >= 0x30 && c <= 0x39)) {
+                    // a-z, 0-9
                     continue;
                 }
                 return false;
