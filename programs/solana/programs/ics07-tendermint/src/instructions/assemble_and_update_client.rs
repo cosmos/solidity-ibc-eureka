@@ -11,7 +11,7 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 /// Context for assembling chunks and updating the client
 /// This will automatically clean up any old chunks at the same height
 #[derive(Accounts)]
-#[instruction(target_height: u64, chunk_count: u8)]
+#[instruction(target_height: u64, chunk_count: u8, trusted_height: u64)]
 pub struct AssembleAndUpdateClient<'info> {
     #[account(
         mut,
@@ -34,8 +34,11 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
-    pub trusted_consensus_state: UncheckedAccount<'info>,
+    #[account(
+        seeds = [ConsensusStateStore::SEED, &trusted_height.to_le_bytes()],
+        bump
+    )]
+    pub trusted_consensus_state: Account<'info, ConsensusStateStore>,
 
     /// CHECK: May not exist yet; PDA seeds validated by Anchor constraint.
     #[account(
@@ -66,6 +69,7 @@ pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     target_height: u64,
     chunk_count: u8,
+    trusted_height: u64,
 ) -> Result<UpdateResult> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -84,7 +88,13 @@ pub fn assemble_and_update_client<'info>(
 
     let header_bytes = assemble_chunks(&ctx, target_height, chunk_count)?;
 
-    let result = process_header_update(&mut ctx, header_bytes, chunk_count, target_height)?;
+    let result = process_header_update(
+        &mut ctx,
+        header_bytes,
+        chunk_count,
+        target_height,
+        trusted_height,
+    )?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -136,15 +146,20 @@ fn process_header_update<'info>(
     header_bytes: Vec<u8>,
     chunk_count: usize,
     target_height: u64,
+    trusted_height: u64,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
     let header = deserialize_header(&header_bytes)?;
 
-    let trusted_height = header.trusted_height.revision_height();
+    // Sanity check: Anchor seeds already enforce the PDA, but verify the
+    // header's embedded trusted height matches the instruction argument.
+    require!(
+        header.trusted_height.revision_height() == trusted_height,
+        ErrorCode::HeightMismatch
+    );
 
-    let trusted_consensus_state =
-        load_consensus_state(&ctx.accounts.trusted_consensus_state, trusted_height)?;
+    let trusted_consensus_state = &ctx.accounts.trusted_consensus_state;
 
     // Signature verification accounts come after chunk accounts
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
@@ -219,30 +234,6 @@ fn verify_and_update_header<'info>(
         .map_err(|_| ErrorCode::SerializationError)?;
 
     Ok((output.latest_height, new_consensus_state))
-}
-
-// Helper function to load and validate consensus state
-fn load_consensus_state(account: &UncheckedAccount, height: u64) -> Result<ConsensusStateStore> {
-    // Validate PDA
-    let (expected_pda, _) = Pubkey::find_program_address(
-        &[
-            crate::state::ConsensusStateStore::SEED,
-            &height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-
-    require_keys_eq!(
-        account.key(),
-        expected_pda,
-        ErrorCode::AccountValidationFailed
-    );
-
-    let account_data = account.try_borrow_data()?;
-    require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
-
-    ConsensusStateStore::try_deserialize(&mut &account_data[..])
-        .map_err(|_| error!(ErrorCode::SerializationError))
 }
 
 struct StoreConsensusStateParams<'a, 'info> {

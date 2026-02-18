@@ -35,7 +35,7 @@ fn derive_light_client_pdas(
         }
         Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
             let (cs, _) = ClientState::pda(light_client_program_id);
-            let (cons, _) = ConsensusState::pda(cs, height, light_client_program_id);
+            let (cons, _) = ConsensusState::pda(height, light_client_program_id);
             (cs, cons)
         }
     }

@@ -80,11 +80,13 @@ pub mod ics07_tendermint {
         ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
         target_height: u64,
         chunk_count: u8,
+        trusted_height: u64,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             target_height,
             chunk_count,
+            trusted_height,
         )
     }
 
