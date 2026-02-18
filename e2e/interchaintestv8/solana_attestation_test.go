@@ -559,6 +559,30 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 	var packetCommitmentPDA solanago.PublicKey
 	var slot uint64
 
+	simd := s.Cosmos.Chains[0]
+
+	s.Require().True(s.Run("Update attestation client on Solana", func() {
+		resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: s.AttestationClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		var solanaUpdateClient relayertypes.SolanaUpdateClient
+		err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
+
+		unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Attestation client updated - tx: %s", sig)
+	}))
+
 	s.Require().True(s.Run("Send packet on Solana", func() {
 		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
