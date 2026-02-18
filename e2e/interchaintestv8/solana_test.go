@@ -644,6 +644,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		}
 
 		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
@@ -655,6 +656,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			client,
 			ics07_tendermint.ProgramID,
 			lightClientStatePDA,
+			consensusStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -826,6 +828,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		}
 
 		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 		sendTransferInstruction, err := test_ibc_app.NewSendTransferInstruction(
 			transferMsg,
 			appState,
@@ -839,6 +842,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			client,
 			ics07_tendermint.ProgramID,
 			lightClientStatePDA,
+			consensusStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -1672,6 +1676,28 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 }
 
 // Helpers
+
+// deriveIcs07ConsensusStatePDA fetches the client state to get the latest revision height,
+// then derives the consensus state PDA for the ics07-tendermint light client.
+func (s *IbcEurekaSolanaTestSuite) deriveIcs07ConsensusStatePDA(ctx context.Context, clientStatePDA solanago.PublicKey) solanago.PublicKey {
+	accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	s.Require().NoError(err)
+
+	clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+	s.Require().NoError(err)
+
+	revisionHeightBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(revisionHeightBytes, clientState.LatestHeight.RevisionHeight)
+
+	consensusStatePDA, _ := solana.Ics07Tendermint.ConsensusStateWithAccountSeedPDA(
+		ics07_tendermint.ProgramID,
+		clientStatePDA.Bytes(),
+		revisionHeightBytes,
+	)
+	return consensusStatePDA
+}
 
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))

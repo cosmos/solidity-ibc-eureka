@@ -124,6 +124,9 @@ pub struct IFTTransfer<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
+    /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
+    pub consensus_state: AccountInfo<'info>,
+
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
     #[account(mut)]
@@ -183,6 +186,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.light_client_state.clone(),
         instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
+        consensus_state: ctx.accounts.consensus_state.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -754,6 +758,7 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
         let light_client_state = Pubkey::new_unique();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+        let consensus_state = Pubkey::new_unique();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -786,6 +791,7 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(light_client_state, false),
                 AccountMeta::new_readonly(instructions_sysvar, false),
+                AccountMeta::new_readonly(consensus_state, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -812,6 +818,7 @@ mod tests {
             (light_client_program, create_signer_account()),
             (light_client_state, create_signer_account()),
             (instructions_sysvar, instructions_account),
+            (consensus_state, create_signer_account()),
             (pending_transfer, create_uninitialized_pda()),
         ];
 

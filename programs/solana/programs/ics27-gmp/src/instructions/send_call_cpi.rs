@@ -70,6 +70,9 @@ pub struct SendCallCpi<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
+    /// CHECK: Consensus state account, forwarded to router for expiry check
+    pub consensus_state: AccountInfo<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
@@ -93,6 +96,7 @@ pub fn send_call_cpi(ctx: Context<SendCallCpi>, msg: SendCallMsg) -> Result<u64>
         &ctx.accounts.client,
         &ctx.accounts.light_client_program,
         &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
         &ctx.accounts.system_program,
         sender_pubkey,
         msg,
@@ -125,6 +129,7 @@ mod tests {
         client: Pubkey,
         light_client_program: Pubkey,
         client_state: Pubkey,
+        consensus_state: Pubkey,
         app_state_pda: Pubkey,
         app_state_bump: u8,
     }
@@ -140,6 +145,7 @@ mod tests {
             let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
             let light_client_program = Pubkey::new_unique();
             let client_state = Pubkey::new_unique();
+            let consensus_state = Pubkey::new_unique();
             let (app_state_pda, app_state_bump) =
                 Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
@@ -154,6 +160,7 @@ mod tests {
                 client,
                 light_client_program,
                 client_state,
+                consensus_state,
                 app_state_pda,
                 app_state_bump,
             }
@@ -187,6 +194,7 @@ mod tests {
                     AccountMeta::new_readonly(self.light_client_program, false),
                     AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(instruction_sysvar, false),
+                    AccountMeta::new_readonly(self.consensus_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -210,6 +218,7 @@ mod tests {
                 create_authority_account(self.light_client_program),
                 create_authority_account(self.client_state),
                 sysvar_account,
+                create_authority_account(self.consensus_state),
                 create_system_program_account(),
             ]
         }
@@ -235,6 +244,7 @@ mod tests {
                     AccountMeta::new_readonly(self.light_client_program, false),
                     AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                    AccountMeta::new_readonly(self.consensus_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -257,6 +267,7 @@ mod tests {
                 create_authority_account(self.light_client_program),
                 create_authority_account(self.client_state),
                 create_instructions_sysvar_account(),
+                create_authority_account(self.consensus_state),
                 create_system_program_account(),
             ]
         }
@@ -282,6 +293,7 @@ mod tests {
                     AccountMeta::new_readonly(self.light_client_program, false),
                     AccountMeta::new_readonly(self.client_state, false),
                     AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                    AccountMeta::new_readonly(self.consensus_state, false),
                     AccountMeta::new_readonly(system_program::ID, false),
                 ],
                 data: instruction_data.data(),
@@ -304,6 +316,7 @@ mod tests {
                 create_authority_account(self.light_client_program),
                 create_authority_account(self.client_state),
                 create_instructions_sysvar_account(),
+                create_authority_account(self.consensus_state),
                 create_system_program_account(),
             ]
         }
@@ -479,6 +492,7 @@ mod integration_tests {
                     anchor_lang::solana_program::sysvar::instructions::ID,
                     false,
                 ),
+                AccountMeta::new_readonly(Pubkey::new_unique(), false), // consensus_state
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
             ],
             data: ix_data.data(),
