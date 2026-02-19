@@ -1351,7 +1351,7 @@ mod tests {
         let second_port = "oracle";
         let initial_sequence = 1u64;
 
-        let (mut pt, mock_client_state) = setup_send_packet_program_test(
+        let (mut pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             true,
@@ -1381,6 +1381,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data 1",
             mock_client_state,
+            mock_consensus_state,
         );
         let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
         assert!(
