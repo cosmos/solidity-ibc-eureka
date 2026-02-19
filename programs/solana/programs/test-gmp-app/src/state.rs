@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-/// Global state for the GMP counter demo application.
+/// Global state for the test GMP application.
 ///
 /// Singleton PDA that tracks aggregate statistics (total user counters
 /// created and total GMP calls processed) and stores the authority

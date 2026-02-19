@@ -218,7 +218,7 @@ mod tests {
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
-    use gmp_counter_app::ID as COUNTER_APP_ID;
+    use test_gmp_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use rstest::rstest;
@@ -769,7 +769,7 @@ mod tests {
         // Use BPF loader upgradeable for Anchor programs
         mollusk.add_program(
             &COUNTER_APP_ID,
-            "../../target/deploy/gmp_counter_app",
+            "../../target/deploy/test_gmp_app",
             &bpf_loader_upgradeable::ID,
         );
 
@@ -784,20 +784,20 @@ mod tests {
 
         // Counter app state and user counter PDAs
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
-            &[gmp_counter_app::state::CounterAppState::SEED],
+            &[test_gmp_app::state::CounterAppState::SEED],
             &COUNTER_APP_ID,
         );
 
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
-                gmp_counter_app::state::UserCounter::SEED,
+                test_gmp_app::state::UserCounter::SEED,
                 gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
 
         // Create counter instruction that will increment the counter
-        let counter_instruction = gmp_counter_app::instruction::Increment { amount: 5 };
+        let counter_instruction = test_gmp_app::instruction::Increment { amount: 5 };
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
         // Build GMPSolanaPayload for the payload
@@ -883,7 +883,7 @@ mod tests {
         };
 
         // Create counter app state
-        let counter_app_state = gmp_counter_app::state::CounterAppState {
+        let counter_app_state = test_gmp_app::state::CounterAppState {
             authority,
             total_counters: 0,
             total_gmp_calls: 0,
@@ -891,7 +891,7 @@ mod tests {
         };
         let mut counter_app_state_data = Vec::new();
         counter_app_state_data
-            .extend_from_slice(gmp_counter_app::state::CounterAppState::DISCRIMINATOR);
+            .extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
         counter_app_state
             .serialize(&mut counter_app_state_data)
             .unwrap();
@@ -1000,7 +1000,7 @@ mod tests {
         // Add the counter app program so CPI will be attempted
         mollusk.add_program(
             &COUNTER_APP_ID,
-            "../../target/deploy/gmp_counter_app",
+            "../../target/deploy/test_gmp_app",
             &bpf_loader_upgradeable::ID,
         );
 
@@ -1014,20 +1014,20 @@ mod tests {
 
         // Counter app state PDA
         let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
-            &[gmp_counter_app::state::CounterAppState::SEED],
+            &[test_gmp_app::state::CounterAppState::SEED],
             &COUNTER_APP_ID,
         );
 
         let (user_counter_pda, _user_counter_bump) = Pubkey::find_program_address(
             &[
-                gmp_counter_app::state::UserCounter::SEED,
+                test_gmp_app::state::UserCounter::SEED,
                 gmp_account_pda.as_ref(),
             ],
             &COUNTER_APP_ID,
         );
 
         // Create counter instruction - will fail due to insufficient payer lamports
-        let counter_instruction = gmp_counter_app::instruction::Increment { amount: 5 };
+        let counter_instruction = test_gmp_app::instruction::Increment { amount: 5 };
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
         // Build GMPSolanaPayload for the payload
@@ -1113,7 +1113,7 @@ mod tests {
         };
 
         // Create counter app state (properly initialized)
-        let counter_app_state = gmp_counter_app::state::CounterAppState {
+        let counter_app_state = test_gmp_app::state::CounterAppState {
             authority,
             total_counters: 0,
             total_gmp_calls: 0,
@@ -1121,7 +1121,7 @@ mod tests {
         };
         let mut counter_app_state_data = Vec::new();
         counter_app_state_data
-            .extend_from_slice(gmp_counter_app::state::CounterAppState::DISCRIMINATOR);
+            .extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
         counter_app_state
             .serialize(&mut counter_app_state_data)
             .unwrap();

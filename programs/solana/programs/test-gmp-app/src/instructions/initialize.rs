@@ -1,7 +1,7 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
-/// Accounts required to initialize the GMP counter application.
+/// Accounts required to initialize the test GMP application.
 ///
 /// Creates the singleton [`CounterAppState`] PDA that stores
 /// the designated authority and aggregate statistics.

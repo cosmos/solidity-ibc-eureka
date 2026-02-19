@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
+	test_gmp_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testgmpapp"
 	test_cpi_proxy "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testcpiproxy"
 	test_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testibcapp"
 	bin "github.com/gagliardetto/binary"
@@ -174,7 +174,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				deployProgram("Deploy ICS26 Router", "ics26_router"),
 				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
 				deployProgram("Deploy IFT", "ift"),
-				deployProgram("Deploy GMP Counter App", "gmp_counter_app"),
+				deployProgram("Deploy GMP Counter App", "test_gmp_app"),
 				deployProgram("Deploy Test IBC App", "test_ibc_app"),
 				deployProgram("Deploy Test CPI Proxy", "test_cpi_proxy"),
 			)
@@ -188,7 +188,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			s.IFTProgramID = deployResults["Deploy IFT"]
 			ift.ProgramID = s.IFTProgramID
 			s.GMPCounterProgramID = deployResults["Deploy GMP Counter App"]
-			gmp_counter_app.ProgramID = s.GMPCounterProgramID
+			test_gmp_app.ProgramID = s.GMPCounterProgramID
 			s.TestAppProgramID = deployResults["Deploy Test IBC App"]
 			test_ibc_app.ProgramID = s.TestAppProgramID
 			s.TestCpiProxyProgramID = deployResults["Deploy Test CPI Proxy"]
