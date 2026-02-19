@@ -733,11 +733,10 @@ pub mod chunk_test_utils {
         Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID).0
     }
 
-    pub fn derive_consensus_state_pda(client_state_key: &Pubkey, height: u64) -> Pubkey {
+    pub fn derive_consensus_state_pda(height: u64) -> Pubkey {
         Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_key.as_ref(),
                 &height.to_le_bytes(),
             ],
             &crate::ID,

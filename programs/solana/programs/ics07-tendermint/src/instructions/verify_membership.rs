@@ -15,7 +15,7 @@ pub struct VerifyMembership<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
         bump
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
@@ -78,7 +78,7 @@ mod tests {
         consensus_state: ConsensusState,
     ) -> TestAccounts {
         let client_state_pda = derive_client_state_pda();
-        let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
+        let consensus_state_pda = derive_consensus_state_pda(height);
 
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
@@ -313,8 +313,7 @@ mod tests {
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
 
-        let nonexistent_consensus_pda =
-            derive_consensus_state_pda(&client_state_pda, nonexistent_height);
+        let nonexistent_consensus_pda = derive_consensus_state_pda(nonexistent_height);
 
         let accounts = vec![
             (
