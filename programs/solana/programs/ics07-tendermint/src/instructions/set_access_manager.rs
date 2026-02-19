@@ -87,7 +87,6 @@ mod tests {
 
         let app_state = AppState {
             access_manager,
-            chain_id: String::new(),
             _reserved: [0; 256],
         };
 

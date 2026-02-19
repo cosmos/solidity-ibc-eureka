@@ -26,7 +26,6 @@ fn create_app_state_account() -> (Pubkey, Account) {
 
     let app_state = AppState {
         access_manager: access_manager::ID,
-        chain_id: String::new(),
         _reserved: [0; 256],
     };
 
