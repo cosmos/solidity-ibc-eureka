@@ -4,7 +4,7 @@
 package test_gmp_app
 
 // Documentation from the IDL:
-// GMP Counter App Program
+// Test GMP App Program
 //
 // This program demonstrates a simple counter application that can be called
 // via the ICS27 GMP program through cross-chain IBC messages.

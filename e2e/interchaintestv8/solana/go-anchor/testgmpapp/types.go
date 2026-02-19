@@ -11,7 +11,12 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Global counter app state
+// Global state for the test GMP application.
+//
+// Singleton PDA that tracks aggregate statistics (total user counters
+// created and total GMP calls processed) and stores the authority
+// allowed to manage the app. Serves as the program's signer PDA
+// when calling into the GMP program via CPI to send cross-chain calls.
 type TestGmpAppStateCounterAppState struct {
 	// Authority that can manage the app
 	Authority solanago.PublicKey `json:"authority"`
@@ -101,7 +106,11 @@ func UnmarshalTestGmpAppStateCounterAppState(buf []byte) (*TestGmpAppStateCounte
 	return obj, nil
 }
 
-// Per-user counter state
+// Per-user counter value and statistics.
+//
+// Each user gets their own PDA derived from `["user_counter", user_pubkey]`.
+// Tracks the current counter value and the number of increments/decrements
+// applied, whether triggered locally or via incoming GMP cross-chain calls.
 type TestGmpAppStateUserCounter struct {
 	// User's public key
 	User solanago.PublicKey `json:"user"`
