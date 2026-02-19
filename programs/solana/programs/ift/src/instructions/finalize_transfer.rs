@@ -1,7 +1,9 @@
-//! Finalize transfer instruction for IFT
+//! Finalize transfer instruction for IFT.
 //!
-//! This instruction allows anyone to finalize a pending transfer
-//! after the GMP result has been recorded (either ack or timeout).
+//! This instruction is **permissionless** — anyone can call it, no sender signature
+//! is required. It is designed so relayers can finalize transfers without the
+//! original sender's involvement. The `payer` (only required signer) receives
+//! rent from the closed `PendingTransfer` PDA as an incentive.
 
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
@@ -17,7 +19,12 @@ use crate::evm_selectors::ERROR_ACK_COMMITMENT;
 use crate::helpers::mint_to_account;
 use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, PendingTransfer};
 
-/// Accounts for the `finalize_transfer` instruction
+/// Accounts for the `finalize_transfer` instruction.
+///
+/// This instruction is permissionless: the `payer` is the only required signer
+/// and does not need to be the original sender. Refund safety is guaranteed by
+/// on-chain constraints — the caller cannot redirect funds because
+/// `sender_token_account.owner` must equal `pending_transfer.sender`.
 #[derive(Accounts)]
 #[instruction(client_id: String, sequence: u64)]
 pub struct FinalizeTransfer<'info> {
@@ -82,7 +89,16 @@ pub struct FinalizeTransfer<'info> {
     )]
     pub mint_authority: AccountInfo<'info>,
 
-    /// Original sender's token account (for refunds)
+    /// Original sender's token account for refunds.
+    ///
+    /// The caller provides this account but cannot redirect funds — the owner
+    /// constraint ensures refunds always go to the original sender. Owning the
+    /// `sender_token_account` private key is NOT required; the refund is
+    /// authorized by the program via the mint authority PDA.
+    ///
+    /// If the sender's token account no longer exists (e.g. was closed), the
+    /// transaction will fail. A new ATA must be created for the sender before
+    /// calling this instruction.
     #[account(
         mut,
         constraint = sender_token_account.mint == mint.key() @ IFTError::TokenAccountOwnerMismatch,
@@ -90,11 +106,14 @@ pub struct FinalizeTransfer<'info> {
     )]
     pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
 
-    /// Payer receives rent from closed `PendingTransfer` account
+    /// Only required signer. Receives rent from the closed `PendingTransfer`
+    /// account as an incentive. Does not need to be the original sender.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for refund minting
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required by Anchor for the `close` constraint
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar

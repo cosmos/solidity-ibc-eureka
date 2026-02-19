@@ -39,9 +39,11 @@ pub struct RemoveIFTBridge<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Receives rent refund from the closed bridge account
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required by Anchor for the `close` constraint
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
