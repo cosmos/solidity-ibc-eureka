@@ -25,8 +25,8 @@ pub mod ift {
     use super::*;
 
     /// Initialize global IFT state (once-only)
-    pub fn initialize(ctx: Context<Initialize>, admin: Pubkey, gmp_program: Pubkey) -> Result<()> {
-        instructions::initialize(ctx, admin, gmp_program)
+    pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
+        instructions::initialize(ctx, admin)
     }
 
     /// Create a new SPL token mint for IFT

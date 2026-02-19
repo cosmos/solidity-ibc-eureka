@@ -97,7 +97,6 @@ func NewAddIbcAppInstruction(
 		// Account 2 "ibc_app": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, true, false))
 		// Account 3 "app_program": Read-only, Non-signer, Required
-		// The IBC application program to register
 		accounts__.Append(solanago.NewAccountMeta(appProgramAccount, false, false))
 		// Account 4 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
@@ -134,6 +133,7 @@ func NewSendPacketInstruction(
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	clientStateAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -177,6 +177,8 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 9 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 10 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
 	// Create the instruction.

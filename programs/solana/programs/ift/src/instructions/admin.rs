@@ -255,8 +255,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -303,8 +302,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -342,8 +340,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -452,12 +449,8 @@ mod tests {
         let (token_program_id, token_program_account) = create_token_program_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account = create_ift_app_state_account_with_options(
-            app_state_bump,
-            admin,
-            Pubkey::new_unique(),
-            config.paused,
-        );
+        let app_state_account =
+            create_ift_app_state_account_with_options(app_state_bump, admin, config.paused);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account_full(IftAppMintStateParams {
@@ -572,8 +565,7 @@ mod tests {
         let (token_program_id, token_program_account) = create_token_program_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
@@ -632,8 +624,7 @@ mod tests {
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
         let mint_account = create_mint_account(mint_authority_pda, 6);
@@ -722,8 +713,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
         let mint_account = create_mint_account(mint_authority_pda, 6);
@@ -806,8 +796,7 @@ mod tests {
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
         let mint_account = create_mint_account(mint_authority_pda, 6);
@@ -869,8 +858,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
         let mint_account = create_mint_account(mint_authority_pda, 6);
