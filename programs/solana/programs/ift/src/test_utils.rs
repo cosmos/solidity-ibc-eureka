@@ -44,6 +44,18 @@ pub fn token_program_keyed_account() -> (Pubkey, SolanaAccount) {
     mollusk_svm_programs_token::token::keyed_account()
 }
 
+/// Setup mollusk with the IFT program and Token 2022 program (for CPI tests)
+pub fn setup_mollusk_with_token_2022() -> Mollusk {
+    let mut mollusk = Mollusk::new(&crate::ID, IFT_PROGRAM_PATH);
+    mollusk_svm_programs_token::token2022::add_program(&mut mollusk);
+    mollusk
+}
+
+/// Get the Token 2022 program keyed account for use in CPI tests.
+pub fn token_2022_keyed_account() -> (Pubkey, SolanaAccount) {
+    mollusk_svm_programs_token::token2022::keyed_account()
+}
+
 /// Create a serialized global IFT app state account
 pub fn create_ift_app_state_account(bump: u8, admin: Pubkey) -> SolanaAccount {
     create_ift_app_state_account_with_options(bump, admin, false)
