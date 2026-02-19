@@ -246,27 +246,18 @@ fn construct_mint_call(
 }
 
 /// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
-pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
+fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     use alloy_sol_types::private::{Address, U256};
 
-    IFT::iftMintCall {
-        receiver: Address::from(receiver),
-        amount: U256::from(amount),
-    }
-    .abi_encode()
-}
-
-/// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
-fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
-    let receiver_hex = receiver.trim_start_matches("0x");
-    let receiver_bytes =
-        hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
-
-    let receiver_array: [u8; 20] = receiver_bytes
-        .try_into()
+    let receiver: Address = receiver
+        .parse()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    Ok(encode_ift_mint_call(receiver_array, amount))
+    Ok(IFT::iftMintCall {
+        receiver,
+        amount: U256::from(amount),
+    }
+    .abi_encode())
 }
 
 // Using ABI JSON because sol! macro can't resolve Solidity imports.
