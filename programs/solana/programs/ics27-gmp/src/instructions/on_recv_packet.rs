@@ -218,7 +218,6 @@ mod tests {
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
-    use test_gmp_app::ID as COUNTER_APP_ID;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use rstest::rstest;
@@ -232,6 +231,7 @@ mod tests {
         pubkey::Pubkey,
         system_program,
     };
+    use test_gmp_app::ID as COUNTER_APP_ID;
 
     /// Helper function to create a `GMPAccount` from test data
     fn create_test_gmp_account(

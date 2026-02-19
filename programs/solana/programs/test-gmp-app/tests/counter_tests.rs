@@ -1,5 +1,4 @@
 use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
-use test_gmp_app::{state::*, ID};
 use mollusk_svm::result::Check;
 use mollusk_svm::Mollusk;
 use solana_sdk::{
@@ -10,6 +9,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     system_program,
 };
+use test_gmp_app::{state::*, ID};
 
 const fn get_test_gmp_app_program_path() -> &'static str {
     "../../target/deploy/test_gmp_app"

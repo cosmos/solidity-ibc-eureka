@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	test_gmp_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testgmpapp"
 	test_cpi_proxy "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testcpiproxy"
+	test_gmp_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testgmpapp"
 	test_ibc_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testibcapp"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
