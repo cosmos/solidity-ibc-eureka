@@ -97,7 +97,6 @@ func NewAddIbcAppInstruction(
 		// Account 2 "ibc_app": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, true, false))
 		// Account 3 "app_program": Read-only, Non-signer, Required
-		// The IBC application program to register
 		accounts__.Append(solanago.NewAccountMeta(appProgramAccount, false, false))
 		// Account 4 "payer": Writable, Signer, Required
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
