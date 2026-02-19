@@ -517,6 +517,7 @@ mod tests {
         timeout_timestamp: i64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
     ) -> Instruction {
         let (app_state_pda, _) = Pubkey::find_program_address(
             &[solana_ibc_types::IBCAppState::SEED],
@@ -555,6 +556,7 @@ mod tests {
                 AccountMeta::new_readonly(client_pda, false),
                 AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
                 AccountMeta::new_readonly(mock_client_state, false),
+                AccountMeta::new_readonly(mock_consensus_state, false),
                 AccountMeta::new_readonly(crate::ID, false),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
@@ -570,6 +572,7 @@ mod tests {
         timeout_timestamp: i64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
     ) -> (Instruction, Pubkey) {
         let namespaced_sequence = sequence::calculate_namespaced_sequence(
             next_sequence_send,
@@ -594,6 +597,7 @@ mod tests {
             timeout_timestamp,
             packet_data,
             mock_client_state,
+            mock_consensus_state,
         );
 
         ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
@@ -1228,6 +1232,7 @@ mod tests {
         };
 
         let mock_client_state = Pubkey::new_unique();
+        let mock_consensus_state = Pubkey::new_unique();
 
         // Build instruction data: discriminator + MsgSendPacket
         let msg = MsgSendPacket {
@@ -1257,6 +1262,7 @@ mod tests {
                 AccountMeta::new_readonly(client_pda, false),
                 AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
                 AccountMeta::new_readonly(mock_client_state, false),
+                AccountMeta::new_readonly(mock_consensus_state, false),
             ],
             data,
         };
@@ -1309,6 +1315,7 @@ mod tests {
                 },
             ),
             (mock_client_state, empty_account()),
+            (mock_consensus_state, empty_account()),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -1401,6 +1408,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data 2",
             mock_client_state,
+            mock_consensus_state,
         );
         let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
         assert!(
