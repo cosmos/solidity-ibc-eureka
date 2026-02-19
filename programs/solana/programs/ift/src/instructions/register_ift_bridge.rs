@@ -39,9 +39,11 @@ pub struct RegisterIFTBridge<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Pays for bridge account creation and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required for bridge PDA account creation
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
