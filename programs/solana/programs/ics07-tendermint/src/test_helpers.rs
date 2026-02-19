@@ -801,7 +801,6 @@ pub fn setup_program_test_with_whitelist(
     );
     let app_state = crate::types::AppState {
         access_manager: access_manager::ID,
-        chain_id: String::new(),
         _reserved: [0; 256],
     };
     let mut app_data = Vec::new();
@@ -868,7 +867,6 @@ pub fn setup_program_test_with_relayer(
     );
     let app_state = crate::types::AppState {
         access_manager: access_manager::ID,
-        chain_id: String::new(),
         _reserved: [0; 256],
     };
     let mut app_data = Vec::new();

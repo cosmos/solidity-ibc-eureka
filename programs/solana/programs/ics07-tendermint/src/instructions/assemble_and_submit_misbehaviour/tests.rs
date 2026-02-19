@@ -122,7 +122,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     // Add app_state account
     let app_state = AppState {
         access_manager: access_manager::ID,
-        chain_id: String::new(),
         _reserved: [0; 256],
     };
     let mut app_state_data = vec![];

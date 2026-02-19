@@ -19,7 +19,6 @@ use super::{derive_header_chunk, UploadChunkParams};
 impl super::TxBuilder {
     pub(crate) fn build_create_client_instruction(
         &self,
-        chain_id: &str,
         latest_height: u64,
         client_state: &ClientState,
         consensus_state: &ConsensusState,
@@ -48,7 +47,6 @@ impl super::TxBuilder {
 
         instruction_data.extend_from_slice(&discriminator);
 
-        instruction_data.extend_from_slice(&chain_id.try_to_vec()?);
         instruction_data.extend_from_slice(&client_state.try_to_vec()?);
         instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
         instruction_data.extend_from_slice(&access_manager.try_to_vec()?);
