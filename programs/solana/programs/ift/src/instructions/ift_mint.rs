@@ -77,11 +77,15 @@ pub struct IFTMint<'info> {
     /// GMP account PDA - validated to match counterparty bridge
     pub gmp_account: Signer<'info>,
 
+    /// Pays for ATA creation (if needed) and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the mint CPI
     pub token_program: Interface<'info, TokenInterface>,
+    /// Creates the receiver's associated token account if it doesn't exist
     pub associated_token_program: Program<'info, AssociatedToken>,
+    /// Required for ATA creation
     pub system_program: Program<'info, System>,
 }
 

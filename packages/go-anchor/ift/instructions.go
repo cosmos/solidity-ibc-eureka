@@ -58,11 +58,11 @@ func NewInitializeInstruction(
 	), nil
 }
 
-// Builds a "create_spl_token" instruction.
-// Create a new SPL token mint for IFT
-func NewCreateSplTokenInstruction(
+// Builds a "create_and_initialize_spl_token" instruction.
+// Create and initialize a new SPL token mint for IFT. // Pass `CreateTokenParams::SplToken` for legacy or `CreateTokenParams::Token2022` // for a mint with `MetadataPointer` and on-chain metadata.
+func NewCreateAndInitializeSplTokenInstruction(
 	// Params:
-	decimalsParam uint8,
+	paramsParam IftStateCreateTokenParams,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
@@ -79,15 +79,17 @@ func NewCreateSplTokenInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_CreateSplToken[:], false)
+	err := enc__.WriteBytes(Instruction_CreateAndInitializeSplToken[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `decimalsParam`:
-		err = enc__.Encode(decimalsParam)
-		if err != nil {
-			return nil, errors.NewField("decimalsParam", err)
+		// Serialize `paramsParam`:
+		{
+			err := EncodeIftStateCreateTokenParams(enc__, paramsParam)
+			if err != nil {
+				return nil, errors.NewField("paramsParam", err)
+			}
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -101,7 +103,8 @@ func NewCreateSplTokenInstruction(
 		// Per-mint IFT app state PDA (to be created)
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
 		// Account 2 "mint": Writable, Signer, Required
-		// SPL Token mint (created by IFT with PDA as authority)
+		// SPL Token mint keypair. Must sign so `create_account` can allocate it.
+		// Initialized manually to support Token 2022 extensions.
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, true))
 		// Account 3 "mint_authority": Read-only, Non-signer, Required
 		// Mint authority PDA
@@ -572,10 +575,20 @@ func NewFinalizeTransferInstruction(
 		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
 		// Account 7 "sender_token_account": Writable, Non-signer, Required
-		// Original sender's token account (for refunds)
+		// Original sender's token account for refunds.
+		//
+		// The caller provides this account but cannot redirect funds — the owner
+		// constraint ensures refunds always go to the original sender. Owning the
+		// `sender_token_account` private key is NOT required; the refund is
+		// authorized by the program via the mint authority PDA.
+		//
+		// If the sender's token account no longer exists (e.g. was closed), the
+		// transaction will fail. A new ATA must be created for the sender before
+		// calling this instruction.
 		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
 		// Account 8 "payer": Writable, Signer, Required
-		// Payer receives rent from closed `PendingTransfer` account
+		// Only required signer. Receives rent from the closed `PendingTransfer`
+		// account as an incentive. Does not need to be the original sender.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 9 "token_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
