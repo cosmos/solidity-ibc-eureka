@@ -277,6 +277,7 @@ func NewAssembleAndUpdateClientInstruction(
 	// Params:
 	targetHeightParam uint64,
 	chunkCountParam uint8,
+	trustedHeightParam uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -306,6 +307,11 @@ func NewAssembleAndUpdateClientInstruction(
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {
 			return nil, errors.NewField("chunkCountParam", err)
+		}
+		// Serialize `trustedHeightParam`:
+		err = enc__.Encode(trustedHeightParam)
+		if err != nil {
+			return nil, errors.NewField("trustedHeightParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
