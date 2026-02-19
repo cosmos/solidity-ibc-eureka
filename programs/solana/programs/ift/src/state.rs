@@ -94,9 +94,6 @@ pub struct IFTAppState {
     /// Admin authority for IFT
     pub admin: Pubkey,
 
-    /// GMP program address for sending cross-chain calls
-    pub gmp_program: Pubkey,
-
     /// Whether IFT is paused (blocks mint and transfer, not refunds)
     pub paused: bool,
 

@@ -627,9 +627,6 @@ type IftEventsIftInitialized struct {
 	// Admin authority
 	Admin solanago.PublicKey `json:"admin"`
 
-	// GMP program for cross-chain calls
-	GmpProgram solanago.PublicKey `json:"gmpProgram"`
-
 	// Initialization timestamp
 	Timestamp int64 `json:"timestamp"`
 }
@@ -639,11 +636,6 @@ func (obj IftEventsIftInitialized) MarshalWithEncoder(encoder *binary.Encoder) (
 	err = encoder.Encode(obj.Admin)
 	if err != nil {
 		return errors.NewField("Admin", err)
-	}
-	// Serialize `GmpProgram`:
-	err = encoder.Encode(obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
 	}
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
@@ -668,11 +660,6 @@ func (obj *IftEventsIftInitialized) UnmarshalWithDecoder(decoder *binary.Decoder
 	err = decoder.Decode(&obj.Admin)
 	if err != nil {
 		return errors.NewField("Admin", err)
-	}
-	// Deserialize `GmpProgram`:
-	err = decoder.Decode(&obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
 	}
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)
@@ -2050,9 +2037,6 @@ type IftStateIftAppState struct {
 	// Admin authority for IFT
 	Admin solanago.PublicKey `json:"admin"`
 
-	// GMP program address for sending cross-chain calls
-	GmpProgram solanago.PublicKey `json:"gmpProgram"`
-
 	// Whether IFT is paused (blocks mint and transfer, not refunds)
 	Paused   bool       `json:"paused"`
 	Reserved [128]uint8 `json:"reserved"`
@@ -2073,11 +2057,6 @@ func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err 
 	err = encoder.Encode(obj.Admin)
 	if err != nil {
 		return errors.NewField("Admin", err)
-	}
-	// Serialize `GmpProgram`:
-	err = encoder.Encode(obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
 	}
 	// Serialize `Paused`:
 	err = encoder.Encode(obj.Paused)
@@ -2117,11 +2096,6 @@ func (obj *IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (e
 	err = decoder.Decode(&obj.Admin)
 	if err != nil {
 		return errors.NewField("Admin", err)
-	}
-	// Deserialize `GmpProgram`:
-	err = decoder.Decode(&obj.GmpProgram)
-	if err != nil {
-		return errors.NewField("GmpProgram", err)
 	}
 	// Deserialize `Paused`:
 	err = decoder.Decode(&obj.Paused)

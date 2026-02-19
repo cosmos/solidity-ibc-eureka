@@ -16,7 +16,6 @@ import (
 func NewInitializeInstruction(
 	// Params:
 	adminParam solanago.PublicKey,
-	gmpProgramParam solanago.PublicKey,
 
 	// Accounts:
 	appStateAccount solanago.PublicKey,
@@ -36,11 +35,6 @@ func NewInitializeInstruction(
 		err = enc__.Encode(adminParam)
 		if err != nil {
 			return nil, errors.NewField("adminParam", err)
-		}
-		// Serialize `gmpProgramParam`:
-		err = enc__.Encode(gmpProgramParam)
-		if err != nil {
-			return nil, errors.NewField("gmpProgramParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -384,8 +378,7 @@ func NewIftTransferInstruction(
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
 		// Account 8 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 9 "gmp_program": Read-only, Non-signer, Required
-		// GMP program
+		// Account 9 "gmp_program": Read-only, Non-signer, Required, Address: 3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi
 		accounts__.Append(solanago.NewAccountMeta(gmpProgramAccount, false, false))
 		// Account 10 "gmp_app_state": Writable, Non-signer, Required
 		// GMP app state PDA
@@ -472,7 +465,7 @@ func NewIftMintInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// Global IFT app state (read-only, for `gmp_program` and paused check)
+		// Global IFT app state (read-only, for paused check)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
 		// Per-mint IFT app state (mut, for rate limits)

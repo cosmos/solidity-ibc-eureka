@@ -62,8 +62,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused };
 
@@ -118,8 +117,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused: true };
 
@@ -158,8 +156,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused: true };
 

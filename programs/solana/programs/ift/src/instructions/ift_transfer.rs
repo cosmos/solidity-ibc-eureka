@@ -71,12 +71,7 @@ pub struct IFTTransfer<'info> {
     /// Required for pending transfer PDA creation
     pub system_program: Program<'info, System>,
 
-    /// GMP program
-    /// CHECK: Validated against stored `gmp_program` in `app_state`
-    #[account(
-        address = app_state.gmp_program @ IFTError::InvalidGmpProgram
-    )]
-    pub gmp_program: AccountInfo<'info>,
+    pub gmp_program: Program<'info, ics27_gmp::program::Ics27Gmp>,
 
     /// GMP app state PDA
     /// CHECK: Validated by GMP program via CPI
@@ -178,7 +173,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     )?;
 
     let gmp_accounts = SendGmpCallAccounts {
-        gmp_program: ctx.accounts.gmp_program.clone(),
+        gmp_program: ctx.accounts.gmp_program.to_account_info(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
@@ -666,7 +661,7 @@ mod tests {
                 },
                 TransferErrorCase::InvalidGmpProgram => Self {
                     use_wrong_gmp_program: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpProgram as u32,
+                    expected_error: anchor_lang::error::ErrorCode::InvalidProgramId as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
@@ -693,7 +688,7 @@ mod tests {
         let sender = Pubkey::new_unique();
         let wrong_owner = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -704,7 +699,6 @@ mod tests {
         let app_state_account = create_ift_app_state_account_with_options(
             app_state_bump,
             Pubkey::new_unique(),
-            gmp_program,
             config.token_paused,
         );
 

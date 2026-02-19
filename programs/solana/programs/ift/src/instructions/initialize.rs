@@ -5,7 +5,7 @@ use crate::events::IFTInitialized;
 use crate::state::{AccountVersion, IFTAppState};
 
 #[derive(Accounts)]
-#[instruction(admin: Pubkey, gmp_program: Pubkey)]
+#[instruction(admin: Pubkey)]
 pub struct Initialize<'info> {
     /// Global IFT app state PDA (to be created, singleton)
     #[account(
@@ -25,17 +25,15 @@ pub struct Initialize<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn initialize(ctx: Context<Initialize>, admin: Pubkey, gmp_program: Pubkey) -> Result<()> {
+pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
     app_state.bump = ctx.bumps.app_state;
     app_state.admin = admin;
-    app_state.gmp_program = gmp_program;
 
     let clock = Clock::get()?;
     emit!(IFTInitialized {
         admin,
-        gmp_program,
         timestamp: clock.unix_timestamp,
     });
 
@@ -59,7 +57,6 @@ mod tests {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
         let (app_state_pda, _) = get_app_state_pda();
@@ -80,7 +77,7 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::Initialize { admin, gmp_program }.data(),
+            data: crate::instruction::Initialize { admin }.data(),
         };
 
         let accounts = vec![
@@ -105,7 +102,6 @@ mod tests {
             .clone();
         let state = deserialize_app_state(&updated_account);
         assert_eq!(state.admin, admin);
-        assert_eq!(state.gmp_program, gmp_program);
         assert!(!state.paused);
     }
 
@@ -114,13 +110,12 @@ mod tests {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (system_program, system_account) = create_system_program_account();
 
-        let app_state_account = create_ift_app_state_account(app_state_bump, admin, gmp_program);
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -129,7 +124,7 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program, false),
             ],
-            data: crate::instruction::Initialize { admin, gmp_program }.data(),
+            data: crate::instruction::Initialize { admin }.data(),
         };
 
         let accounts = vec![
