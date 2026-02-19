@@ -67,12 +67,7 @@ pub struct IFTTransfer<'info> {
     pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 
-    /// GMP program
-    /// CHECK: Validated against stored `gmp_program` in `app_state`
-    #[account(
-        address = app_state.gmp_program @ IFTError::InvalidGmpProgram
-    )]
-    pub gmp_program: AccountInfo<'info>,
+    pub gmp_program: Program<'info, ics27_gmp::program::Ics27Gmp>,
 
     /// GMP app state PDA
     /// CHECK: Validated by GMP program via CPI
@@ -124,6 +119,9 @@ pub struct IFTTransfer<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
+    /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
+    pub consensus_state: AccountInfo<'info>,
+
     /// Pending transfer account - manually created with runtime-calculated sequence
     /// CHECK: Manually validated and created in instruction handler
     #[account(mut)]
@@ -171,7 +169,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     )?;
 
     let gmp_accounts = SendGmpCallAccounts {
-        gmp_program: ctx.accounts.gmp_program.clone(),
+        gmp_program: ctx.accounts.gmp_program.to_account_info(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
@@ -183,6 +181,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         light_client_program: ctx.accounts.light_client_program.clone(),
         client_state: ctx.accounts.light_client_state.clone(),
         instruction_sysvar: ctx.accounts.instruction_sysvar.clone(),
+        consensus_state: ctx.accounts.consensus_state.clone(),
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
@@ -658,7 +657,7 @@ mod tests {
                 },
                 TransferErrorCase::InvalidGmpProgram => Self {
                     use_wrong_gmp_program: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpProgram as u32,
+                    expected_error: anchor_lang::error::ErrorCode::InvalidProgramId as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
@@ -685,7 +684,7 @@ mod tests {
         let sender = Pubkey::new_unique();
         let wrong_owner = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -696,7 +695,6 @@ mod tests {
         let app_state_account = create_ift_app_state_account_with_options(
             app_state_bump,
             Pubkey::new_unique(),
-            gmp_program,
             config.token_paused,
         );
 
@@ -754,6 +752,7 @@ mod tests {
         let light_client_program = Pubkey::new_unique();
         let light_client_state = Pubkey::new_unique();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+        let consensus_state = Pubkey::new_unique();
         let pending_transfer = Pubkey::new_unique();
 
         let msg = IFTTransferMsg {
@@ -786,6 +785,7 @@ mod tests {
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(light_client_state, false),
                 AccountMeta::new_readonly(instructions_sysvar, false),
+                AccountMeta::new_readonly(consensus_state, false),
                 AccountMeta::new(pending_transfer, false),
             ],
             data: crate::instruction::IftTransfer { msg }.data(),
@@ -812,6 +812,7 @@ mod tests {
             (light_client_program, create_signer_account()),
             (light_client_state, create_signer_account()),
             (instructions_sysvar, instructions_account),
+            (consensus_state, create_signer_account()),
             (pending_transfer, create_uninitialized_pda()),
         ];
 

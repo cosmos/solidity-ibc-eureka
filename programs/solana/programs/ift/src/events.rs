@@ -7,8 +7,6 @@ use crate::state::ChainOptions;
 pub struct IFTInitialized {
     /// Admin authority
     pub admin: Pubkey,
-    /// GMP program for cross-chain calls
-    pub gmp_program: Pubkey,
     /// Initialization timestamp
     pub timestamp: i64,
 }

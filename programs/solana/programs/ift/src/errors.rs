@@ -40,9 +40,6 @@ pub enum IFTError {
     #[msg("Token account owner mismatch")]
     TokenAccountOwnerMismatch,
 
-    #[msg("Invalid GMP program")]
-    InvalidGmpProgram,
-
     #[msg("GMP call failed")]
     GmpCallFailed,
 

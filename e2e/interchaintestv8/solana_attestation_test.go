@@ -559,6 +559,30 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 	var packetCommitmentPDA solanago.PublicKey
 	var slot uint64
 
+	simd := s.Cosmos.Chains[0]
+
+	s.Require().True(s.Run("Update attestation client on Solana", func() {
+		resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: s.AttestationClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		var solanaUpdateClient relayertypes.SolanaUpdateClient
+		err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
+
+		unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Attestation client updated - tx: %s", sig)
+	}))
+
 	s.Require().True(s.Run("Send packet on Solana", func() {
 		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
@@ -593,6 +617,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+		attestationConsensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
 		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
@@ -604,6 +629,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 			client,
 			attestation.ProgramID,
 			attestationClientStatePDA,
+			attestationConsensusStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -1102,6 +1128,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 			}
 
 			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+			attestationConsensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
 			sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 				packetMsg,
 				appState,
@@ -1113,6 +1140,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 				client,
 				attestation.ProgramID,
 				attestationClientStatePDA,
+				attestationConsensusStatePDA,
 				ics26_router.ProgramID,
 				solanago.SystemProgramID,
 			)
@@ -1255,4 +1283,25 @@ func convertSolanaPacketToABI(packet solana.SolanaPacket) ics26router.IICS26Rout
 		TimeoutTimestamp: uint64(packet.TimeoutTimestamp),
 		Payloads:         payloads,
 	}
+}
+
+// deriveAttestationConsensusStatePDA fetches the attestation client state to get the latest height,
+// then derives the consensus state PDA.
+func (s *IbcSolanaAttestationTestSuite) deriveAttestationConsensusStatePDA(ctx context.Context, clientStatePDA solanago.PublicKey) solanago.PublicKey {
+	accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	s.Require().NoError(err)
+
+	clientState, err := attestation.ParseAccount_AttestationTypesClientState(accountInfo.Value.Data.GetBinary())
+	s.Require().NoError(err)
+
+	heightBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(heightBytes, clientState.LatestHeight)
+
+	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgSeedPDA(
+		attestation.ProgramID,
+		heightBytes,
+	)
+	return consensusStatePDA
 }

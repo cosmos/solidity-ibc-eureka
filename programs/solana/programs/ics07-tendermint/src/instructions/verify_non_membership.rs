@@ -16,13 +16,11 @@ pub struct VerifyNonMembership<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &msg.height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
         bump
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,
 }
-
-const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
 pub fn verify_non_membership(
     ctx: Context<VerifyNonMembership>,
@@ -45,7 +43,7 @@ pub fn verify_non_membership(
     tendermint_light_client_membership::membership(app_hash, [(kv_pair, proof)].into_iter())
         .map_err(|_| error!(ErrorCode::NonMembershipVerificationFailed))?;
 
-    let timestamp_secs = consensus_state_store.consensus_state.timestamp / NANOS_PER_SECOND;
+    let timestamp_secs = crate::nanos_to_secs(consensus_state_store.consensus_state.timestamp);
     let timestamp_bytes = timestamp_secs.to_le_bytes();
 
     set_return_data(&timestamp_bytes);
@@ -86,7 +84,7 @@ mod tests {
         consensus_state: ConsensusState,
     ) -> TestAccounts {
         let client_state_pda = derive_client_state_pda();
-        let consensus_state_pda = derive_consensus_state_pda(&client_state_pda, height);
+        let consensus_state_pda = derive_consensus_state_pda(height);
 
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
@@ -321,8 +319,7 @@ mod tests {
         let mut client_data = vec![];
         client_state.try_serialize(&mut client_data).unwrap();
 
-        let nonexistent_consensus_pda =
-            derive_consensus_state_pda(&client_state_pda, nonexistent_height);
+        let nonexistent_consensus_pda = derive_consensus_state_pda(nonexistent_height);
 
         let accounts = vec![
             (
