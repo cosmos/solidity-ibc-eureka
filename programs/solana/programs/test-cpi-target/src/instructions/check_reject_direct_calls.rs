@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::reject_direct_calls;
 
+/// Accounts for [`reject_direct_calls`](solana_ibc_types::cpi::reject_direct_calls) wrapper.
 #[derive(Accounts)]
 pub struct CheckRejectDirectCalls<'info> {
+    /// Transaction signer (required by Anchor but unused by the check).
     pub signer: Signer<'info>,
 }
 

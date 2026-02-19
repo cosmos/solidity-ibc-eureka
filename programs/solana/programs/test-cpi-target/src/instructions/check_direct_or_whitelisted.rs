@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::require_direct_call_or_whitelisted_caller;
 
+/// Accounts for [`require_direct_call_or_whitelisted_caller`](solana_ibc_types::cpi::require_direct_call_or_whitelisted_caller) wrapper.
 #[derive(Accounts)]
 #[instruction(whitelisted_programs: Vec<Pubkey>)]
 pub struct CheckDirectOrWhitelisted<'info> {

@@ -49,6 +49,7 @@ pub mod mock_ibc_app {
     }
 }
 
+/// Accounts for mock `on_recv_packet` (no validation, always succeeds).
 #[derive(Accounts)]
 #[instruction(msg: OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
@@ -59,6 +60,7 @@ pub struct OnRecvPacket<'info> {
     pub router_program: AccountInfo<'info>,
 }
 
+/// Accounts for mock `on_acknowledgement_packet` (no validation, always succeeds).
 #[derive(Accounts)]
 #[instruction(_msg: OnAcknowledgementPacketMsg)]
 pub struct OnAcknowledgementPacket<'info> {
@@ -69,6 +71,7 @@ pub struct OnAcknowledgementPacket<'info> {
     pub router_program: AccountInfo<'info>,
 }
 
+/// Accounts for mock `on_timeout_packet` (no validation, always succeeds).
 #[derive(Accounts)]
 #[instruction(_msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {

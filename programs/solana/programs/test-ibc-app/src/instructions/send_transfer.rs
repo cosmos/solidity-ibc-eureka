@@ -29,9 +29,11 @@ pub struct SendTransferMsg {
     pub memo: String,
 }
 
+/// Accounts for sending an ICS-20 transfer via the router.
 #[derive(Accounts)]
 #[instruction(msg: SendTransferMsg)]
 pub struct SendTransfer<'info> {
+    /// App state PDA, also used as the `app_signer` for router CPI.
     #[account(
         mut,
         seeds = [IBCAppState::SEED],
@@ -62,7 +64,7 @@ pub struct SendTransfer<'info> {
     )]
     pub escrow_state: Account<'info, EscrowState>,
 
-    // Router CPI accounts
+    /// Router global state (read-only).
     #[account(
         seeds = [RouterState::SEED],
         bump,
@@ -70,6 +72,7 @@ pub struct SendTransfer<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Router port-to-app binding for the transfer port.
     #[account(
         seeds = [IBCApp::SEED, TRANSFER_PORT.as_bytes()],
         bump,
@@ -77,6 +80,7 @@ pub struct SendTransfer<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
+    /// Per-client sequence counter (incremented by the router).
     #[account(
         mut,
         seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
@@ -90,6 +94,7 @@ pub struct SendTransfer<'info> {
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
+    /// Client registration entry for the source client.
     #[account(
         seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
@@ -106,7 +111,7 @@ pub struct SendTransfer<'info> {
     /// CHECK: Consensus state account, forwarded to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// Router program for CPI
+    /// ICS26 router program for CPI.
     pub router_program: Program<'info, Ics26Router>,
 
     pub system_program: Program<'info, System>,

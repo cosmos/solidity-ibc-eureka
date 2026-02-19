@@ -1,15 +1,20 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::is_cpi;
 
+/// Persisted result of an `is_cpi` check, stored in a PDA so it survives
+/// outer `proxy_cpi` calls that overwrite return data.
 #[account]
 pub struct CpiResult {
+    /// `1` when `is_cpi()` detected a CPI context, `0` otherwise.
     pub value: u8,
 }
 
 const CPI_RESULT_SEED: &[u8] = b"cpi_result";
 
+/// Accounts for [`is_cpi`](solana_ibc_types::cpi::is_cpi) wrapper.
 #[derive(Accounts)]
 pub struct CheckIsCpi<'info> {
+    /// PDA that stores the boolean result of `is_cpi()`.
     #[account(
         init_if_needed,
         payer = payer,
@@ -19,6 +24,7 @@ pub struct CheckIsCpi<'info> {
     )]
     pub result: Account<'info, CpiResult>,
 
+    /// Fee payer for PDA creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
