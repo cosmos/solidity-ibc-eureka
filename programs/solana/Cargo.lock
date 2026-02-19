@@ -3574,7 +3574,6 @@ dependencies = [
  "anchor-spl",
  "bech32",
  "bincode",
- "hex",
  "ics26-router",
  "ics27-gmp",
  "mollusk-svm",

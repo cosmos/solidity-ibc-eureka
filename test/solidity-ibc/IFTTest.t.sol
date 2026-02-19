@@ -854,69 +854,6 @@ contract IFTTest is Test {
         assertTrue(IERC165(address(ift)).supportsInterface(erc165Id));
     }
 
-    struct IFTMintTestCase {
-        string name;
-        bool ownable;
-        address caller;
-        IICS27GMPMsgs.AccountIdentifier accountId;
-        address receiver;
-        uint256 amount;
-        bytes expectedRevert;
-    }
-
-    struct OnAckPacketTestCase {
-        string name;
-        address caller;
-        bool success;
-        IIBCAppCallbacks.OnAcknowledgementPacketCallback callback;
-        bytes expectedRevert;
-    }
-
-    struct OnTimeoutPacketTestCase {
-        string name;
-        address caller;
-        IIBCAppCallbacks.OnTimeoutPacketCallback callback;
-        bytes expectedRevert;
-    }
-
-    struct IFTTransferTestCase {
-        string name;
-        address caller;
-        bool ownable;
-        string clientId;
-        string receiver;
-        uint256 amount;
-        uint64 timeoutTimestamp;
-        bytes expectedRevert;
-    }
-
-    struct RemoveIFTBridgeTestCase {
-        string name;
-        address caller;
-        bool ownable;
-        string clientId;
-        bytes expectedRevert;
-    }
-
-    struct RegisterIFTBridgeTestCase {
-        string name;
-        address caller;
-        bool ownable;
-        string clientId;
-        address iftSendCallConstructor;
-        string counterpartyIFT;
-        bytes expectedRevert;
-    }
-
-    struct UpgradeTestCase {
-        string name;
-        address caller;
-        bool ownable;
-        bytes expectedRevert;
-    }
-
-    // CosmosIFTSendCallConstructor Tests
-
     function test_cosmosCallConstructor_constructor() public {
         string memory typeUrl = "/wfchain.ift.MsgIFTMint";
         string memory tokenDenom = "uatom";
@@ -929,45 +866,154 @@ contract IFTTest is Test {
         assertEq(constructor_.icaAddress(), ica);
     }
 
-    function test_cosmosCallConstructor_constructMintCall() public {
+    function fixtureCosmosMintCallTC() public returns (CosmosMintCallTestCase[] memory) {
+        CosmosMintCallTestCase[] memory testCases = new CosmosMintCallTestCase[](19);
+
+        testCases[0] = CosmosMintCallTestCase({
+            name: "success: bech32 receiver", receiver: "wf1address234", amount: 1_000_000, expectedRevert: ""
+        });
+        testCases[1] = CosmosMintCallTestCase({
+            name: "success: hex address receiver",
+            receiver: Strings.toHexString(makeAddr("receiver")),
+            amount: 2,
+            expectedRevert: ""
+        });
+        testCases[2] = CosmosMintCallTestCase({
+            name: "success: cosmos16...",
+            receiver: "cosmos16a87dpmkutsfx7cddxt749urv62nkcajmr8nw2",
+            amount: 3,
+            expectedRevert: ""
+        });
+        testCases[3] = CosmosMintCallTestCase({
+            name: "success: cosmos1xmx...",
+            receiver: "cosmos1xmxsh7td3ga53afs2qpzskq4dl4g9a4x3uck7j",
+            amount: 4,
+            expectedRevert: ""
+        });
+        testCases[4] = CosmosMintCallTestCase({
+            name: "success: cosmos1t5u...",
+            receiver: "cosmos1t5u0jfg3ljsjrh2m9e47d4ny2hea7eehxrzdgd",
+            amount: 5,
+            expectedRevert: ""
+        });
+        testCases[5] = CosmosMintCallTestCase({
+            name: "success: cosmos1hs6...",
+            receiver: "cosmos1hs6sl3u2lmrwr58khexm4v9yjk333c7ts0rcuz",
+            amount: 6,
+            expectedRevert: ""
+        });
+        testCases[6] = CosmosMintCallTestCase({
+            name: "success: osmo10c3...",
+            receiver: "osmo10c3r27nekd9w7s3swwg3t9sf5hzrvqjftf2djk",
+            amount: 7,
+            expectedRevert: ""
+        });
+        testCases[7] = CosmosMintCallTestCase({
+            name: "success: osmo14dy...",
+            receiver: "osmo14dy272jhqz3gqduujt0gngqm76sg3e0fqhvzxa",
+            amount: 8,
+            expectedRevert: ""
+        });
+        testCases[8] = CosmosMintCallTestCase({
+            name: "success: osmo1hd97...",
+            receiver: "osmo1hd97pvymu9xx63xg3y4qn2sy4cfywtzv0527jg",
+            amount: 9,
+            expectedRevert: ""
+        });
+        testCases[9] = CosmosMintCallTestCase({
+            name: "success: osmo1txtz...",
+            receiver: "osmo1txtzjqtmgwjhgkdvwtdgfwhsda77ewhxtsclce",
+            amount: 10,
+            expectedRevert: ""
+        });
+        testCases[10] = CosmosMintCallTestCase({
+            name: "revert: empty receiver",
+            receiver: "",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "")
+        });
+        testCases[11] = CosmosMintCallTestCase({
+            name: "revert: missing separator",
+            receiver: "wf2345a",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf2345a"
+            )
+        });
+        testCases[12] = CosmosMintCallTestCase({
+            name: "revert: invalid hrp capital",
+            receiver: "WF12345a",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "WF12345a"
+            )
+        });
+        testCases[13] = CosmosMintCallTestCase({
+            name: "revert: invalid data char 1",
+            receiver: "wf1rece1ver",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1rece1ver"
+            )
+        });
+        testCases[14] = CosmosMintCallTestCase({
+            name: "revert: invalid data char i",
+            receiver: "wf1receiver",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1receiver"
+            )
+        });
+        testCases[15] = CosmosMintCallTestCase({
+            name: "revert: invalid data char o",
+            receiver: "wf1receiver",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1receiver"
+            )
+        });
+        testCases[16] = CosmosMintCallTestCase({
+            name: "revert: invalid data char b",
+            receiver: "wf1recebr",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1recebr"
+            )
+        });
+        testCases[17] = CosmosMintCallTestCase({
+            name: "revert: invalid data char {",
+            receiver: "wf1address{",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1address{"
+            )
+        });
+        testCases[18] = CosmosMintCallTestCase({
+            name: "revert: invalid data char \"",
+            receiver: "wf1address\"",
+            amount: 10,
+            expectedRevert: abi.encodeWithSelector(
+                CosmosIFTSendCallConstructor.CosmosIFTInvalidReceiver.selector, "wf1address\""
+            )
+        });
+
+        return testCases;
+    }
+
+    function tableCosmosMintCallTest(CosmosMintCallTestCase memory cosmosMintCallTC) public {
         string memory typeUrl = "/wfchain.ift.MsgIFTMint";
         string memory tokenDenom = "testift";
         string memory ica = "wf1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq5a9p63";
 
         CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
 
-        string memory receiver = "wf1receiver123";
-        uint256 amount = 1_000_000;
+        if (cosmosMintCallTC.expectedRevert.length != 0) {
+            vm.expectRevert(cosmosMintCallTC.expectedRevert);
+            constructor_.constructMintCall(cosmosMintCallTC.receiver, cosmosMintCallTC.amount);
+            return;
+        }
 
-        bytes memory callData = constructor_.constructMintCall(receiver, amount);
-
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"",
-            typeUrl,
-            "\",\"signer\":\"",
-            ica,
-            "\",\"denom\":\"",
-            tokenDenom,
-            "\",\"receiver\":\"",
-            receiver,
-            "\",\"amount\":\"",
-            Strings.toString(amount),
-            "\"}]}"
-        );
-
-        assertEq(callData, expected);
-    }
-
-    function testFuzz_cosmosCallConstructor_constructMintCall(uint256 amount) public {
-        string memory typeUrl = "/custom.module.MsgMint";
-        string memory tokenDenom = "ibc/ABC123";
-        string memory ica = "cosmos1ica456";
-
-        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor(typeUrl, tokenDenom, ica);
-
-        string memory receiver = "cosmos1receiver789";
-
-        bytes memory callData = constructor_.constructMintCall(receiver, amount);
+        bytes memory callData = constructor_.constructMintCall(cosmosMintCallTC.receiver, cosmosMintCallTC.amount);
 
         bytes memory expected = abi.encodePacked(
             "{\"messages\":[{\"@type\":\"",
@@ -977,54 +1023,12 @@ contract IFTTest is Test {
             "\",\"denom\":\"",
             tokenDenom,
             "\",\"receiver\":\"",
-            receiver,
+            cosmosMintCallTC.receiver,
             "\",\"amount\":\"",
-            Strings.toString(amount),
+            Strings.toString(cosmosMintCallTC.amount),
             "\"}]}"
         );
 
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_constructMintCall_zeroAmount() public {
-        CosmosIFTSendCallConstructor constructor_ =
-            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
-
-        bytes memory callData = constructor_.constructMintCall("wf1receiver", 0);
-
-        assertTrue(callData.length > 0);
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"0\"}]}"
-        );
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_constructMintCall_largeAmount() public {
-        CosmosIFTSendCallConstructor constructor_ =
-            new CosmosIFTSendCallConstructor("/wfchain.ift.MsgIFTMint", "testift", "wf1ica");
-
-        uint256 largeAmount = type(uint256).max;
-        bytes memory callData = constructor_.constructMintCall("wf1receiver", largeAmount);
-
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"/wfchain.ift.MsgIFTMint\",\"signer\":\"wf1ica\",\"denom\":\"testift\",\"receiver\":\"wf1receiver\",\"amount\":\"",
-            Strings.toString(largeAmount),
-            "\"}]}"
-        );
-        assertEq(callData, expected);
-    }
-
-    function test_cosmosCallConstructor_emptyStrings() public {
-        CosmosIFTSendCallConstructor constructor_ = new CosmosIFTSendCallConstructor("", "", "");
-
-        assertEq(constructor_.bridgeReceiveTypeUrl(), "");
-        assertEq(constructor_.denom(), "");
-        assertEq(constructor_.icaAddress(), "");
-
-        bytes memory callData = constructor_.constructMintCall("receiver", 100);
-        bytes memory expected = abi.encodePacked(
-            "{\"messages\":[{\"@type\":\"\",\"signer\":\"\",\"denom\":\"\",\"receiver\":\"receiver\",\"amount\":\"100\"}]}"
-        );
         assertEq(callData, expected);
     }
 
@@ -1040,4 +1044,72 @@ contract IFTTest is Test {
         bytes4 randomId = 0xdeadbeef;
         assertFalse(constructor_.supportsInterface(randomId));
     }
+}
+
+struct IFTMintTestCase {
+    string name;
+    bool ownable;
+    address caller;
+    IICS27GMPMsgs.AccountIdentifier accountId;
+    address receiver;
+    uint256 amount;
+    bytes expectedRevert;
+}
+
+struct OnAckPacketTestCase {
+    string name;
+    address caller;
+    bool success;
+    IIBCAppCallbacks.OnAcknowledgementPacketCallback callback;
+    bytes expectedRevert;
+}
+
+struct OnTimeoutPacketTestCase {
+    string name;
+    address caller;
+    IIBCAppCallbacks.OnTimeoutPacketCallback callback;
+    bytes expectedRevert;
+}
+
+struct IFTTransferTestCase {
+    string name;
+    address caller;
+    bool ownable;
+    string clientId;
+    string receiver;
+    uint256 amount;
+    uint64 timeoutTimestamp;
+    bytes expectedRevert;
+}
+
+struct RemoveIFTBridgeTestCase {
+    string name;
+    address caller;
+    bool ownable;
+    string clientId;
+    bytes expectedRevert;
+}
+
+struct RegisterIFTBridgeTestCase {
+    string name;
+    address caller;
+    bool ownable;
+    string clientId;
+    address iftSendCallConstructor;
+    string counterpartyIFT;
+    bytes expectedRevert;
+}
+
+struct UpgradeTestCase {
+    string name;
+    address caller;
+    bool ownable;
+    bytes expectedRevert;
+}
+
+struct CosmosMintCallTestCase {
+    string name;
+    string receiver;
+    uint256 amount;
+    bytes expectedRevert;
 }
