@@ -184,4 +184,42 @@ mod tests {
         );
         assert!(result.is_ok());
     }
+
+    #[test]
+    fn test_verify_attestation_rejects_state_sig_as_packet() {
+        let attestor = TestAttestor::new(1);
+        let client_state = create_test_client_state(vec![attestor.eth_address], 1);
+        let attestation_data = b"test data";
+
+        // Sign as State
+        let sig = attestor.sign(attestation_data, AttestationType::State);
+
+        // Verify as Packet — must fail (cross-domain replay)
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::Packet,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_attestation_rejects_packet_sig_as_state() {
+        let attestor = TestAttestor::new(1);
+        let client_state = create_test_client_state(vec![attestor.eth_address], 1);
+        let attestation_data = b"test data";
+
+        // Sign as Packet
+        let sig = attestor.sign(attestation_data, AttestationType::Packet);
+
+        // Verify as State — must fail
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
+        assert!(result.is_err());
+    }
 }

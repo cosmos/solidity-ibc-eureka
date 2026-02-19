@@ -11,7 +11,8 @@ pub const ETH_ADDRESS_LEN: usize = 20;
 
 pub type MessageHash = [u8; 32];
 
-const TAGGED_INPUT_LEN: usize = 1 + 32;
+/// Length of the domain-separated signing preimage: 1-byte type tag + 32-byte SHA-256 hash.
+pub(crate) const DOMAIN_SEPARATED_PREIMAGE_LEN: usize = 1 + 32;
 
 /// Distinguishes attestation types to prevent cross-protocol signature replay.
 #[derive(Clone, Copy)]
@@ -29,7 +30,7 @@ pub fn sha256_digest(data: &[u8]) -> MessageHash {
 /// `sha256(type_tag || sha256(data))`
 pub fn tagged_signing_input(data: &[u8], attestation_type: AttestationType) -> MessageHash {
     let inner_hash = sha256(data).to_bytes();
-    let mut tagged = Vec::with_capacity(TAGGED_INPUT_LEN);
+    let mut tagged = Vec::with_capacity(DOMAIN_SEPARATED_PREIMAGE_LEN);
     tagged.push(attestation_type as u8);
     tagged.extend_from_slice(&inner_hash);
     sha256(&tagged).to_bytes()

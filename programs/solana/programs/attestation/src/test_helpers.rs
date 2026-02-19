@@ -204,7 +204,7 @@ pub mod signing {
         /// Computes `sha256(type_tag || sha256(data))` then signs the result.
         pub fn sign(&self, data: &[u8], attestation_type: AttestationType) -> Vec<u8> {
             let inner_hash: [u8; 32] = Sha256::digest(data).into();
-            let mut tagged = Vec::with_capacity(33);
+            let mut tagged = Vec::with_capacity(crate::crypto::DOMAIN_SEPARATED_PREIMAGE_LEN);
             tagged.push(attestation_type as u8);
             tagged.extend_from_slice(&inner_hash);
             let message_hash: [u8; 32] = Sha256::digest(&tagged).into();
