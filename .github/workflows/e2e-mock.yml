@@ -78,6 +78,7 @@ jobs:
         ETH_TESTNET_TYPE: anvil
         ETH_LC_ON_COSMOS: dummy
         COSMOS_LC_ON_ETH: sp1
+        IBC_ATTESTOR_IMAGE: ghcr.io/cosmos/ibc-attestor:mariuszzak-attestation-domain-separation
 
     runs-on: depot-ubuntu-24.04-4
     steps:
