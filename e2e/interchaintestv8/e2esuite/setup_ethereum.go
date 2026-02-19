@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	baseAnvilChainID = 31337
+	baseAnvilChainID   = 31337
+	anvilBlockGasLimit = "50000000"
 )
 
 func (s *TestSuite) buildChainSpecs(cfg setupConfig) []*interchaintest.ChainSpec {
@@ -33,9 +34,9 @@ func (s *TestSuite) buildChainSpecs(cfg setupConfig) []*interchaintest.ChainSpec
 
 	// Single anvil: Cosmos chains + one Anvil
 	specs := chainconfig.DefaultChainSpecs
-	specs = append(specs, &interchaintest.ChainSpec{
-		ChainConfig: icfoundry.DefaultEthereumAnvilChainConfig("ethereum"),
-	})
+	chainConfig := icfoundry.DefaultEthereumAnvilChainConfig("ethereum")
+	chainConfig.AdditionalStartArgs = append(chainConfig.AdditionalStartArgs, "--gas-limit", anvilBlockGasLimit)
+	specs = append(specs, &interchaintest.ChainSpec{ChainConfig: chainConfig})
 	return specs
 }
 
@@ -46,7 +47,7 @@ func (s *TestSuite) buildAnvilSpecs(count int) []*interchaintest.ChainSpec {
 		name := fmt.Sprintf("ethereum-%d", i)
 		chainConfig := icfoundry.DefaultEthereumAnvilChainConfig(name)
 		chainConfig.ChainID = chainID
-		chainConfig.AdditionalStartArgs = append(chainConfig.AdditionalStartArgs, "--chain-id", chainID)
+		chainConfig.AdditionalStartArgs = append(chainConfig.AdditionalStartArgs, "--chain-id", chainID, "--gas-limit", anvilBlockGasLimit)
 		specs = append(specs, &interchaintest.ChainSpec{ChainConfig: chainConfig})
 	}
 	return specs

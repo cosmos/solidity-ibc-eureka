@@ -89,7 +89,8 @@ pub fn build_finalize_transfer_instruction(
         }
     };
 
-    // Parse sender as Pubkey (the IFT program ID)
+    // Parse sender as Pubkey (the IFT program ID).
+    // GMP's `send_call_cpi` uses the calling program ID as the sender.
     let ift_program_id = match Pubkey::from_str(&gmp_packet.sender) {
         Ok(pk) => pk,
         Err(e) => {
@@ -246,6 +247,7 @@ fn build_finalize_transfer_ix(
         AccountMeta::new(fee_payer, true),
         AccountMeta::new_readonly(token_program_id, false),
         AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
     ];
 
     // Build instruction data: discriminator + client_id (string) + sequence (u64)

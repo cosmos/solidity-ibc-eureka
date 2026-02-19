@@ -87,6 +87,14 @@ pub fn reject_nested_cpi() -> core::result::Result<(), CpiValidationError> {
     Ok(())
 }
 
+/// Rejects direct transaction calls. Only allows CPI (stack height >= 2).
+pub fn reject_direct_calls() -> core::result::Result<(), CpiValidationError> {
+    if !is_cpi() {
+        return Err(CpiValidationError::DirectCallNotAllowed);
+    }
+    Ok(())
+}
+
 fn validate_instruction_sysvar(
     instruction_sysvar: &AccountInfo<'_>,
 ) -> core::result::Result<(), CpiValidationError> {

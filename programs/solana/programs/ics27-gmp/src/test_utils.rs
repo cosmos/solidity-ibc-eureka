@@ -595,7 +595,10 @@ pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
     )
 }
 
-pub fn create_client_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
+pub fn create_client_pda(
+    source_client: &str,
+    client_program_id: Pubkey,
+) -> (Pubkey, SolanaAccount) {
     let (pda, _) = Pubkey::find_program_address(
         &[ics26_router::state::Client::SEED, source_client.as_bytes()],
         &ics26_router::ID,
@@ -603,7 +606,7 @@ pub fn create_client_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
     let state = ics26_router::state::Client {
         version: ics26_router::state::AccountVersion::V1,
         client_id: source_client.to_string(),
-        client_program_id: Pubkey::new_unique(),
+        client_program_id,
         counterparty_info: ics26_router::state::CounterpartyInfo {
             client_id: String::new(),
             merkle_prefix: vec![],
@@ -625,12 +628,29 @@ pub fn create_client_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
     )
 }
 
+pub fn create_owned_account(pubkey: Pubkey, owner: Pubkey) -> (Pubkey, SolanaAccount) {
+    (
+        pubkey,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data: vec![0u8; 64],
+            owner,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 // ── ProgramTest (BPF runtime) integration test helpers ──
 
 pub const TEST_CPI_PROXY_ID: Pubkey =
     solana_sdk::pubkey!("CtQLLKbDMt1XVNXtLKJEt1K8cstbckjqE6zyFqR37KTc");
 pub const TEST_CPI_TARGET_ID: Pubkey =
     solana_sdk::pubkey!("GHB99UGVmKFeNrtSLsuzL2QhZZgaqcASvTjotQd2dZzu");
+pub const TEST_LIGHT_CLIENT_ID: Pubkey =
+    solana_sdk::pubkey!("C1ient1ightXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
+pub const TEST_CLIENT_STATE_ID: Pubkey =
+    solana_sdk::pubkey!("C1ientStateXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
 const DEPLOY_DIR: &str = "../../target/deploy";
 
 pub fn anchor_discriminator(instruction_name: &str) -> [u8; 8] {
@@ -719,8 +739,20 @@ pub fn setup_program_test_with_access_manager(
     let (ibc_app_pda, ibc_app_account) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
     pt.add_account(ibc_app_pda, ibc_app_account);
 
-    let (client_pda, client_account) = create_client_pda(TEST_SOURCE_CLIENT);
+    let (client_pda, client_account) = create_client_pda(TEST_SOURCE_CLIENT, TEST_LIGHT_CLIENT_ID);
     pt.add_account(client_pda, client_account);
+
+    // Pre-create mock client state owned by the test light client
+    pt.add_account(
+        TEST_CLIENT_STATE_ID,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: vec![0u8; 64],
+            owner: TEST_LIGHT_CLIENT_ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
 
     pt
 }

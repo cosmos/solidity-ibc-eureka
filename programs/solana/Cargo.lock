@@ -3574,11 +3574,11 @@ dependencies = [
  "anchor-spl",
  "bech32",
  "bincode",
- "hex",
  "ics26-router",
  "ics27-gmp",
  "mollusk-svm",
  "mollusk-svm-bencher",
+ "mollusk-svm-programs-token",
  "rstest",
  "serde",
  "serde_json",
@@ -4231,6 +4231,17 @@ dependencies = [
  "solana-instruction",
  "solana-pubkey",
  "solana-transaction-context",
+]
+
+[[package]]
+name = "mollusk-svm-programs-token"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7b83ea06294d62f3db6cd783d6fcb3bb9c370dff3128b45eac2cb2145c60150"
+dependencies = [
+ "mollusk-svm",
+ "solana-account",
+ "solana-pubkey",
 ]
 
 [[package]]

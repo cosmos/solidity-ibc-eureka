@@ -54,7 +54,7 @@ pub mod mock_light_client {
     }
 
     pub fn client_status(_ctx: Context<ClientStatusCheck>) -> Result<()> {
-        set_return_data(&[ics25_handler::client_status::ACTIVE]);
+        set_return_data(&[ics25_handler::ClientStatus::Active.into()]);
         Ok(())
     }
 }
@@ -107,6 +107,8 @@ pub struct VerifyNonMembership<'info> {
 pub struct ClientStatusCheck<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
+    /// CHECK: Mock consensus state - not actually used
+    pub consensus_state: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
