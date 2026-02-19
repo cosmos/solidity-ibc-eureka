@@ -27,8 +27,9 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     /// @notice Length of a compact ECDSA signature (r||s||v).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
-    /// @notice Domain-separation tags to prevent cross-protocol signature replay.
+    /// @notice Domain-separation tag for state update attestations.
     bytes1 private constant ATTESTATION_TYPE_STATE = 0x01;
+    /// @notice Domain-separation tag for packet attestations.
     bytes1 private constant ATTESTATION_TYPE_PACKET = 0x02;
 
     /// @notice Initializes the attestor light client with its fixed attestor set and initial height/timestamp.
@@ -211,6 +212,9 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     }
 
     /// @notice Computes domain-separated prehash: `sha256(typeTag || sha256(data))`.
+    /// @param data The attestation data to hash.
+    /// @param typeTag The domain-separation tag byte.
+    /// @return The domain-separated digest.
     function _taggedSigningInput(bytes memory data, bytes1 typeTag) private pure returns (bytes32) {
         return sha256(abi.encodePacked(typeTag, sha256(data)));
     }
