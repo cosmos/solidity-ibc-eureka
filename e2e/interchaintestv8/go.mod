@@ -334,8 +334,9 @@ replace github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.2021
 
 // GMP Support: Using remote ibc-go PR that includes the 27-gmp module for General Message Passing
 // Reference: https://github.com/cosmos/ibc-go/pull/8660
-replace github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-beta.0.0.20251009124337-8b13a7f221a3
+// Attestation domain separation: https://github.com/cosmos/ibc-go/tree/mariuszzak/attestation-fix
+replace github.com/cosmos/ibc-go/v10 => github.com/cosmos/ibc-go/v10 v10.0.0-20260219154851-4ff8f0b36c49
 
-replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-20251009124337-8b13a7f221a3
+replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-20260219154851-4ff8f0b36c49
 
 // this line is used by go-codegen # suite/module
