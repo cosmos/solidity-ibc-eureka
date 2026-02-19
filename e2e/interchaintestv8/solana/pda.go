@@ -345,6 +345,17 @@ func (iftPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, ui
 	return pda, bump
 }
 
+func (iftPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("gmp_result"), clientId, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.GmpResultWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (iftPDAs) IftAppMintStateWithAccountSeedPDA(programID solanago.PublicKey, mint []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ift_app_mint_state"), mint},

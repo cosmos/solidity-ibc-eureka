@@ -128,7 +128,6 @@ mod tests {
         app_mint_state_pda: Pubkey,
         mint_authority_pda: Pubkey,
         admin: Pubkey,
-        gmp_program: Pubkey,
     }
 
     fn setup_test() -> TestContext {
@@ -140,7 +139,6 @@ mod tests {
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
 
         TestContext {
             mollusk,
@@ -152,7 +150,6 @@ mod tests {
             app_mint_state_pda,
             mint_authority_pda,
             admin,
-            gmp_program,
         }
     }
 
@@ -185,7 +182,7 @@ mod tests {
         let accounts = vec![
             (
                 ctx.app_state_pda,
-                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin),
             ),
             (ctx.app_mint_state_pda, create_uninitialized_pda()),
             (ctx.mint, create_mint_account_no_authority(6)),
@@ -229,7 +226,7 @@ mod tests {
         let accounts = vec![
             (
                 ctx.app_state_pda,
-                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin),
             ),
             (ctx.app_mint_state_pda, create_uninitialized_pda()),
             (ctx.mint, create_mint_account(actual_authority, 6)), // Different authority
@@ -274,7 +271,7 @@ mod tests {
         let accounts = vec![
             (
                 ctx.app_state_pda,
-                create_ift_app_state_account(ctx.app_state_bump, ctx.admin, ctx.gmp_program),
+                create_ift_app_state_account(ctx.app_state_bump, ctx.admin),
             ),
             (
                 ctx.app_mint_state_pda,
@@ -319,7 +316,6 @@ mod tests {
         let current_authority = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
@@ -353,7 +349,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (app_mint_state_pda, app_mint_state_account),
             (mint, create_mint_account(current_authority, 6)),
