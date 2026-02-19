@@ -65,7 +65,7 @@ contract AttestationLightClientGasTest is Test {
 
         AM.PacketAttestation memory p = AM.PacketAttestation({ height: INITIAL_HEIGHT, packets: packets });
         bytes memory attestationData = abi.encode(p);
-        bytes32 digest = sha256(attestationData);
+        bytes32 digest = sha256(abi.encodePacked(bytes1(0x02), sha256(attestationData)));
 
         bytes[] memory signatures = new bytes[](quorum);
         for (uint256 i = 0; i < signatures.length; ++i) {
