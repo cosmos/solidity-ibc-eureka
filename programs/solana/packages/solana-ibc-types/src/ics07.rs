@@ -102,11 +102,8 @@ impl ConsensusState {
     pub const SEED: &'static [u8] = b"consensus_state";
 
     /// Get ICS07 consensus state PDA
-    pub fn pda(client_state: Pubkey, height: u64, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[Self::SEED, client_state.as_ref(), &height.to_le_bytes()],
-            &program_id,
-        )
+    pub fn pda(height: u64, program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[Self::SEED, &height.to_le_bytes()], &program_id)
     }
 }
 

@@ -159,6 +159,25 @@ Pre-verifies an Ed25519 signature using Solana's Ed25519Program precompile. This
 - Critical for large validator sets (50+ validators) that would exceed Solana's 1.4M CU limit with pure on-chain verification
 - Verification PDAs are checked during `assemble_and_update_client` and can fall back to on-chain verification if not present
 
+### Status Instructions
+
+#### `client_status`
+
+Returns the current status of the light client: `Active`, `Frozen`, or `Expired`. The router calls this via CPI before `send_packet` to ensure packets are only sent through healthy clients.
+
+**Status determination:**
+
+1. **Frozen** — if the client has been frozen due to misbehaviour detection
+2. **Expired** — if the elapsed time since the latest consensus state timestamp exceeds the client's `trusting_period`
+3. **Active** — otherwise
+
+**Accounts:**
+
+- `client_state`: Client configuration (includes `trusting_period` and `is_frozen` flag)
+- `consensus_state`: Consensus state at `latest_height` (provides the timestamp for expiry calculation)
+
+**Return data:** A single `u8` byte via `set_return_data`: `0` = Active, `1` = Frozen, `2` = Expired.
+
 ### Verification Instructions
 
 #### `verify_membership`
@@ -525,6 +544,6 @@ For implementation details, see the `SolanaSignatureVerifier` in `packages/tende
 
 1. **Specify the chain**: Reference the specific client via chain_id PDA
 2. Call `verify_membership` for packet proofs from that chain
-3. Check client not frozen before relying on proofs
+3. Check client is active (not frozen or expired) before relying on proofs
 4. Monitor for client updates
 5. **Multi-Chain Applications**: Can interact with multiple chains by referencing different chain_id PDAs

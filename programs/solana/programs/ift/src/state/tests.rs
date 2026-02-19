@@ -110,3 +110,148 @@ fn test_ift_bridge_serialization_roundtrip() {
     assert!(matches!(deserialized.chain_options, ChainOptions::Evm));
     assert!(deserialized.active);
 }
+
+#[test]
+fn test_chain_options_evm_validate() {
+    assert!(ChainOptions::Evm.validate().is_ok());
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_success() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: addr,
+    };
+    assert!(options.validate().is_ok());
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_invalid_bech32() {
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: "not-valid-bech32".to_string(),
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::InvalidCosmosIcaAddress)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_empty_denom() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+
+    let options = ChainOptions::Cosmos {
+        denom: String::new(),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: addr,
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::CosmosEmptyCounterpartyDenom)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_empty_type_url() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: String::new(),
+        ica_address: addr,
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::CosmosEmptyTypeUrl)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_empty_ica_address() {
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: String::new(),
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::CosmosEmptyIcaAddress)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_denom_too_long() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+
+    let options = ChainOptions::Cosmos {
+        denom: "x".repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: addr,
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::InvalidCounterpartyDenomLength)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_type_url_too_long() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 20])
+        .expect("valid bech32 encoding");
+
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: "x".repeat(crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH + 1),
+        ica_address: addr,
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::InvalidCosmosTypeUrlLength)
+    );
+}
+
+#[test]
+fn test_chain_options_cosmos_validate_ica_address_too_long() {
+    let hrp = bech32::Hrp::parse("cosmos").expect("valid HRP");
+    let mut addr = String::new();
+    // 100 data bytes → ~173 char bech32 string → exceeds MAX_COUNTERPARTY_ADDRESS_LENGTH (128)
+    bech32::encode_to_fmt::<bech32::Bech32, _>(&mut addr, hrp, &[0u8; 100])
+        .expect("valid bech32 encoding");
+    assert!(addr.len() > crate::constants::MAX_COUNTERPARTY_ADDRESS_LENGTH);
+
+    let options = ChainOptions::Cosmos {
+        denom: "uatom".to_string(),
+        type_url: "/cosmos.ift.v1.MsgIFTMint".to_string(),
+        ica_address: addr,
+    };
+    let err = options.validate().unwrap_err();
+    assert_eq!(
+        err,
+        anchor_lang::error!(crate::errors::IFTError::InvalidCosmosIcaAddressLength)
+    );
+}

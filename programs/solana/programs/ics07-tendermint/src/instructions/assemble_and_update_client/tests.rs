@@ -145,6 +145,7 @@ struct AssembleInstructionParams {
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
     target_height: u64,
+    trusted_height: u64,
 }
 
 fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction {
@@ -171,6 +172,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
         data: crate::instruction::AssembleAndUpdateClient {
             target_height: params.target_height,
             chunk_count,
+            trusted_height: params.trusted_height,
         }
         .data(),
     }
@@ -211,11 +213,9 @@ fn test_successful_assembly_and_update() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -236,7 +236,7 @@ fn test_successful_assembly_and_update() {
     // Create instruction
     let payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -247,6 +247,7 @@ fn test_successful_assembly_and_update() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Create submitter account
@@ -354,11 +355,9 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -376,7 +375,8 @@ fn test_assembly_with_corrupted_chunk() {
 
     // Create instruction
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -387,6 +387,7 @@ fn test_assembly_with_corrupted_chunk() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with submitter as relayer
@@ -468,11 +469,9 @@ fn test_assembly_wrong_submitter() {
 
     // Try to assemble with wrong submitter
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -486,7 +485,8 @@ fn test_assembly_wrong_submitter() {
     let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -497,6 +497,7 @@ fn test_assembly_wrong_submitter() {
         submitter: wrong_submitter, // Wrong!
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with wrong_submitter as relayer
@@ -570,11 +571,9 @@ fn test_assembly_chunks_in_wrong_order() {
 
     // Set up PDAs
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -594,7 +593,8 @@ fn test_assembly_chunks_in_wrong_order() {
     let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -605,6 +605,7 @@ fn test_assembly_chunks_in_wrong_order() {
         submitter,
         chunk_pdas: wrong_order_pdas,
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with submitter as relayer
@@ -688,11 +689,9 @@ fn test_rent_reclaim_after_assembly() {
 
     // Set up accounts
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -710,7 +709,8 @@ fn test_rent_reclaim_after_assembly() {
     let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
 
     let payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -721,6 +721,7 @@ fn test_rent_reclaim_after_assembly() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with submitter as relayer
@@ -818,11 +819,9 @@ fn test_assemble_and_update_client_happy_path() {
     let num_chunks = chunks.len() as u8;
 
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -847,7 +846,7 @@ fn test_assemble_and_update_client_happy_path() {
 
     // Create existing consensus state at trusted height
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
     let trusted_consensus_account = create_consensus_state_account(
         consensus_state.root,
         consensus_state.next_validators_hash,
@@ -865,6 +864,7 @@ fn test_assemble_and_update_client_happy_path() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Add Clock sysvar for update client validation
@@ -982,11 +982,9 @@ fn test_assemble_with_frozen_client() {
     let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1013,11 +1011,9 @@ fn test_assemble_with_frozen_client() {
     };
 
     let payer = Pubkey::new_unique();
-    // Consensus state PDA needs client state PDA in its seeds
     let (trusted_consensus_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &trusted_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1039,6 +1035,7 @@ fn test_assemble_with_frozen_client() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Create proper trusted consensus state from fixture
@@ -1118,11 +1115,9 @@ fn test_assemble_with_existing_consensus_state() {
     let target_height = update_msg.new_height;
 
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1164,11 +1159,9 @@ fn test_assemble_with_existing_consensus_state() {
     };
 
     let payer = Pubkey::new_unique();
-    // Consensus state PDA needs client state PDA in its seeds
     let (trusted_consensus_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &trusted_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1199,6 +1192,7 @@ fn test_assemble_with_existing_consensus_state() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with submitter as relayer
@@ -1305,11 +1299,9 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let chunk2 = full_header[150..300].to_vec();
 
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1324,7 +1316,8 @@ fn test_assemble_with_invalid_header_after_assembly() {
     let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
 
     let _payer = Pubkey::new_unique();
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -1335,6 +1328,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Setup access manager with submitter as relayer
@@ -1415,11 +1409,9 @@ fn test_assemble_updates_latest_height() {
     ];
 
     let client_state_pda = derive_client_state_pda();
-    // New consensus state PDA also needs client state PDA in its seeds
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1435,7 +1427,7 @@ fn test_assemble_updates_latest_height() {
 
     let _payer = Pubkey::new_unique();
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
 
     let instruction = create_assemble_instruction(AssembleInstructionParams {
         app_state_pda,
@@ -1446,6 +1438,7 @@ fn test_assemble_updates_latest_height() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     // Create initial client state with real data at old height
@@ -1599,19 +1592,11 @@ fn test_assemble_and_update_with_invalid_signature() {
     // Set up PDAs
     let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &crate::ID);
     let (trusted_consensus_pda, _) = Pubkey::find_program_address(
-        &[
-            ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
-            &trusted_height.to_le_bytes(),
-        ],
+        &[ConsensusStateStore::SEED, &trusted_height.to_le_bytes()],
         &crate::ID,
     );
     let (new_consensus_pda, _) = Pubkey::find_program_address(
-        &[
-            ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
-            &target_height.to_le_bytes(),
-        ],
+        &[ConsensusStateStore::SEED, &target_height.to_le_bytes()],
         &crate::ID,
     );
 
@@ -1719,6 +1704,7 @@ fn test_assemble_and_update_with_invalid_signature() {
     let instruction_data = crate::instruction::AssembleAndUpdateClient {
         target_height,
         chunk_count: chunk_accounts.len() as u8,
+        trusted_height,
     };
 
     let instruction = Instruction {
@@ -1780,11 +1766,11 @@ fn test_assemble_wrong_client_state_pda() {
 
     let client_state_account = create_client_state_account(chain_id, 90);
 
-    let trusted_consensus_pda = derive_consensus_state_pda(&wrong_client_pda, 90);
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            wrong_client_pda.as_ref(),
             &target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1810,6 +1796,7 @@ fn test_assemble_wrong_client_state_pda() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height,
+        trusted_height,
     });
 
     let mut accounts = vec![
@@ -1856,15 +1843,105 @@ fn test_assemble_wrong_client_state_pda() {
     );
 }
 
+/// Verifies the Anchor seeds constraint rejects a `new_consensus_state_store`
+/// whose PDA does not match `[ConsensusStateStore::SEED, target_height]`.
+#[test]
+fn test_assemble_wrong_new_consensus_state_pda() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    let (_, chunks) = create_test_header_and_chunks(2);
+
+    let client_state_pda = derive_client_state_pda();
+    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+
+    // Derive the WRONG PDA using a different height
+    let wrong_height = target_height.saturating_add(999);
+    let (wrong_consensus_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            &wrong_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let (_, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
+
+    // Instruction uses correct target_height, but the account is for a different height
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
+        client_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: wrong_consensus_pda,
+        submitter,
+        chunk_pdas: chunk_pdas.clone(),
+        target_height,
+        trusted_height,
+    });
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (wrong_consensus_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    let clock_data =
+        bincode::serialize(&Clock::default()).expect("Failed to serialize Clock for test");
+    accounts.push((
+        sysvar::clock::ID,
+        Account {
+            lamports: 1,
+            data: clock_data,
+            owner: solana_sdk::native_loader::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    ));
+
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    mollusk.process_and_validate_instruction(
+        &instruction,
+        &accounts,
+        &[Check::err(anchor_lang::prelude::ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))],
+    );
+}
+
 /// Simulates a relayer bug: chunks contain a valid header for height N but the
 /// relayer calls `assemble_and_update_client` with `target_height` = N+1. The header
 /// passes cryptographic verification but the sanity check catches the mismatch
 /// between the claimed `target_height` and the header's actual `new_height`.
-///
-/// Without the sanity check the instruction would still fail, but later in
-/// `store_consensus_state` where the `new_consensus_state_pda` (derived off-chain
-/// from `target_height`) doesn't match the expected PDA (derived on-chain from
-/// `new_height`), producing a generic `AccountValidationFailed` error.
 #[test]
 fn test_assemble_target_height_mismatch() {
     let mollusk = setup_mollusk();
@@ -1883,7 +1960,6 @@ fn test_assemble_target_height_mismatch() {
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &wrong_target_height.to_le_bytes(),
         ],
         &crate::ID,
@@ -1905,7 +1981,7 @@ fn test_assemble_target_height_mismatch() {
     client_state_account.data = client_data;
 
     let trusted_height = update_message.trusted_height;
-    let trusted_consensus_pda = derive_consensus_state_pda(&client_state_pda, trusted_height);
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
     let trusted_consensus_account = create_consensus_state_account(
         consensus_state.root,
         consensus_state.next_validators_hash,
@@ -1921,6 +1997,7 @@ fn test_assemble_target_height_mismatch() {
         submitter,
         chunk_pdas: chunk_pdas.clone(),
         target_height: wrong_target_height,
+        trusted_height,
     });
 
     let (_, access_manager_account) =

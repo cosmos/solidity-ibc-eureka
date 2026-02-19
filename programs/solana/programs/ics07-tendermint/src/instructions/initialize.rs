@@ -18,7 +18,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, client_state_account.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -110,7 +110,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,
@@ -259,7 +258,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,
@@ -608,7 +606,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,

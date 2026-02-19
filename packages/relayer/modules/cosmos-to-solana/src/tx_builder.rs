@@ -301,9 +301,8 @@ impl TxBuilder {
 
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
-        let (new_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, target_height, solana_ics07_program_id);
+            ConsensusState::pda(trusted_height, solana_ics07_program_id);
+        let (new_consensus_state, _) = ConsensusState::pda(target_height, solana_ics07_program_id);
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -541,9 +540,7 @@ impl TxBuilder {
         height: u64,
         solana_ics07_program_id: Pubkey,
     ) -> Result<u64> {
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
-        let (consensus_state_pda, _) =
-            ConsensusState::pda(client_state_pda, height, solana_ics07_program_id);
+        let (consensus_state_pda, _) = ConsensusState::pda(height, solana_ics07_program_id);
 
         let account = self
             .target_solana_client

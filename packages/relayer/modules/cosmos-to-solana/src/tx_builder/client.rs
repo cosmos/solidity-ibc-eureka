@@ -30,8 +30,7 @@ impl super::TxBuilder {
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
-        let (consensus_state_pda, _) =
-            ConsensusState::pda(client_state_pda, latest_height, solana_ics07_program_id);
+        let (consensus_state_pda, _) = ConsensusState::pda(latest_height, solana_ics07_program_id);
         let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
         let accounts = vec![
@@ -72,9 +71,8 @@ impl super::TxBuilder {
 
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, trusted_height, solana_ics07_program_id);
-        let (new_consensus_state, _) =
-            ConsensusState::pda(client_state_pda, target_height, solana_ics07_program_id);
+            ConsensusState::pda(trusted_height, solana_ics07_program_id);
+        let (new_consensus_state, _) = ConsensusState::pda(target_height, solana_ics07_program_id);
 
         let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
@@ -114,6 +112,7 @@ impl super::TxBuilder {
 
         data.extend_from_slice(&target_height.to_le_bytes());
         data.extend_from_slice(&[total_chunks]);
+        data.extend_from_slice(&trusted_height.to_le_bytes());
 
         let ix = Instruction {
             program_id: solana_ics07_program_id,

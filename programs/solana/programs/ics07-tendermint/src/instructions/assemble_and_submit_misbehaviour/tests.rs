@@ -53,7 +53,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     let trusted_consensus_state_1_pda = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &height_1.to_le_bytes(),
         ],
         &crate::ID,
@@ -63,7 +62,6 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     let trusted_consensus_state_2_pda = Pubkey::find_program_address(
         &[
             crate::state::ConsensusStateStore::SEED,
-            client_state_pda.as_ref(),
             &height_2.to_le_bytes(),
         ],
         &crate::ID,
@@ -499,8 +497,8 @@ fn assert_constraint_seeds(result: &mollusk_svm::result::InstructionResult) {
 //
 // These tests verify that Anchor's seeds constraint rejects substituted
 // ConsensusStateStore accounts. The seeds bind each consensus state to
-// [SEED, client_state_key, height_le_bytes], so any account at a different
-// PDA is rejected with ConstraintSeeds.
+// [SEED, height_le_bytes], so any account at a different PDA is rejected
+// with ConstraintSeeds.
 
 /// Regression: substituting `trusted_consensus_state_1` with a PDA for a
 /// different height is rejected by the seeds constraint.
@@ -537,11 +535,7 @@ fn test_height_substitution_attack_consensus_state_1() {
 
     // Create the attacker's ConsensusStateStore at the PDA for attacker_height
     let attacker_pda = Pubkey::find_program_address(
-        &[
-            ConsensusStateStore::SEED,
-            test_accounts.client_state_pda.as_ref(),
-            &attacker_height.to_le_bytes(),
-        ],
+        &[ConsensusStateStore::SEED, &attacker_height.to_le_bytes()],
         &crate::ID,
     )
     .0;
@@ -604,11 +598,7 @@ fn test_height_substitution_attack_consensus_state_2() {
     });
 
     let attacker_pda = Pubkey::find_program_address(
-        &[
-            ConsensusStateStore::SEED,
-            test_accounts.client_state_pda.as_ref(),
-            &attacker_height.to_le_bytes(),
-        ],
+        &[ConsensusStateStore::SEED, &attacker_height.to_le_bytes()],
         &crate::ID,
     )
     .0;
