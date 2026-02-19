@@ -1154,7 +1154,6 @@ mod tests {
         mint: Pubkey,
         sender: Pubkey,
         payer: Pubkey,
-        gmp_program: Pubkey,
         app_state_pda: Pubkey,
         app_state_account: solana_sdk::account::Account,
         app_mint_state_pda: Pubkey,
@@ -1177,8 +1176,6 @@ mod tests {
             let mint = Pubkey::new_unique();
             let sender = Pubkey::new_unique();
             let payer = Pubkey::new_unique();
-            let gmp_program = ics27_gmp::ID;
-
             let (app_state_pda, app_state_bump) = get_app_state_pda();
             let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
             let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
@@ -1188,7 +1185,7 @@ mod tests {
             let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
             let app_state_account =
-                create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+                create_ift_app_state_account(app_state_bump, Pubkey::new_unique());
 
             let ift_bridge_account = create_ift_bridge_account(
                 mint,
@@ -1203,7 +1200,6 @@ mod tests {
                 mint,
                 sender,
                 payer,
-                gmp_program,
                 app_state_pda,
                 app_state_account,
                 app_mint_state_pda,
@@ -1250,8 +1246,7 @@ mod tests {
         ) -> FinalizeTransferTestSetup {
             let (pending_transfer_pda, pending_transfer_bump) =
                 get_pending_transfer_pda(&self.mint, TEST_CLIENT_ID, sequence);
-            let (gmp_result_pda, gmp_result_bump) =
-                get_gmp_result_pda(TEST_CLIENT_ID, sequence, &self.gmp_program);
+            let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, sequence);
 
             let instruction = Instruction {
                 program_id: crate::ID,
@@ -1300,7 +1295,6 @@ mod tests {
                         "dest-client",
                         status,
                         gmp_result_bump,
-                        &self.gmp_program,
                     ),
                 ),
                 (self.mint, mint_account),
