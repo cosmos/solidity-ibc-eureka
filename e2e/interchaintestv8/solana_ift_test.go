@@ -1328,7 +1328,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 	// Initialize global app state (idempotent - will fail silently if already initialized)
 	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(), // admin
-		ics27_gmp.ProgramID,
 		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
 		solanago.SystemProgramID,
@@ -1433,7 +1432,6 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingToken(ctx context.Contex
 	// Initialize global app state (idempotent - will fail silently if already initialized)
 	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(), // admin
-		ics27_gmp.ProgramID,
 		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
 		solanago.SystemProgramID,

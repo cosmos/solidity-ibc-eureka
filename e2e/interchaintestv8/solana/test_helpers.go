@@ -1119,9 +1119,9 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	height2Bytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(height2Bytes, trustedHeight2)
 
-	// Get trusted consensus state PDAs (use client state PDA address as seed, not chain ID)
-	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height1Bytes)
-	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgAndAccountSeedPDA(ics07_tendermint.ProgramID, clientStatePDA.Bytes(), height2Bytes)
+	// Get trusted consensus state PDAs
+	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStateWithArgSeedPDA(ics07_tendermint.ProgramID, height1Bytes)
+	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgSeedPDA(ics07_tendermint.ProgramID, height2Bytes)
 
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 		uint8(len(chunks)),

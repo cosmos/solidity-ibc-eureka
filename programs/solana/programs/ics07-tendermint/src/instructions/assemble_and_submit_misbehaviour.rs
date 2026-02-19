@@ -31,13 +31,13 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     pub access_manager: AccountInfo<'info>,
 
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_1.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &trusted_height_1.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_2.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &trusted_height_2.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,

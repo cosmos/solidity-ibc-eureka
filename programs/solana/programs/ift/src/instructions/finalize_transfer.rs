@@ -65,7 +65,7 @@ pub struct FinalizeTransfer<'info> {
     /// This is a cross-program account owned by the GMP program
     #[account(
         seeds = [GMPCallResult::SEED, client_id.as_bytes(), &sequence.to_le_bytes()],
-        seeds::program = app_state.gmp_program,
+        seeds::program = ics27_gmp::ID,
         bump,
     )]
     pub gmp_result: Account<'info, ics27_gmp::state::GMPCallResultAccount>,
@@ -265,7 +265,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let gmp_result_sender = gmp_result_sender.unwrap_or(crate::ID);
@@ -274,14 +273,12 @@ mod tests {
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
-        let (gmp_result_pda, gmp_result_bump) =
-            get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
+        let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program);
+        let app_state_account = create_ift_app_state_account(app_state_bump, Pubkey::new_unique());
 
         let app_mint_state_account = app_mint_state_override.map_or_else(
             || create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump),
@@ -320,7 +317,6 @@ mod tests {
             "dest-client",
             status,
             gmp_result_bump,
-            &gmp_program,
         );
 
         let mint_account = create_mint_account(mint_authority_pda, TOKEN_DECIMALS);
@@ -530,7 +526,6 @@ mod tests {
         let wrong_mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -538,8 +533,7 @@ mod tests {
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
-        let (gmp_result_pda, gmp_result_bump) =
-            get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
+        let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
@@ -572,7 +566,7 @@ mod tests {
             accounts: vec![
                 (
                     app_state_pda,
-                    create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program),
+                    create_ift_app_state_account(app_state_bump, Pubkey::new_unique()),
                 ),
                 (
                     app_mint_state_pda,
@@ -613,7 +607,6 @@ mod tests {
                         "dest-client",
                         CallResultStatus::Timeout,
                         gmp_result_bump,
-                        &gmp_program,
                     ),
                 ),
                 (
@@ -794,7 +787,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -802,8 +794,7 @@ mod tests {
         let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
-        let (gmp_result_pda, gmp_result_bump) =
-            get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE, &gmp_program);
+        let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
         let (system_program, system_account) = create_system_program_account();
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
@@ -836,7 +827,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, Pubkey::new_unique(), gmp_program),
+                create_ift_app_state_account(app_state_bump, Pubkey::new_unique()),
             ),
             (
                 app_mint_state_pda,
@@ -873,7 +864,6 @@ mod tests {
                     "dest-client",
                     CallResultStatus::Timeout,
                     gmp_result_bump,
-                    &gmp_program,
                 ),
             ),
             (

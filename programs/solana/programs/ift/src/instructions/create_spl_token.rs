@@ -114,7 +114,6 @@ mod tests {
         let wrong_mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         // Use wrong mint for per-mint PDA derivation
@@ -166,7 +165,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (wrong_app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),
@@ -195,8 +194,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
-
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
@@ -231,7 +228,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),
@@ -271,8 +268,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
-
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
@@ -307,7 +302,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),
@@ -340,8 +335,6 @@ mod tests {
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
         let unauthorized = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
-
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
@@ -376,7 +369,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),
@@ -405,8 +398,6 @@ mod tests {
         let mint = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
-
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, _) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, _) = get_mint_authority_pda(&mint);
@@ -442,7 +433,7 @@ mod tests {
         let accounts = vec![
             (
                 app_state_pda,
-                create_ift_app_state_account(app_state_bump, admin, gmp_program),
+                create_ift_app_state_account(app_state_bump, admin),
             ),
             (app_mint_state_pda, app_mint_state_account),
             (mint, create_empty_mint_account()),

@@ -50,10 +50,12 @@ pub struct SendPacket<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    /// CHECK: Light client program, validated against client registry
+    /// CHECK: Validated against client registry
+    #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Client state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
     /// CHECK: Consensus state account, owned by light client program (for expiry check)
@@ -1055,6 +1057,207 @@ mod tests {
         assert_eq!(
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_light_client_program() {
+        let initial_sequence = 1u64;
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (mut ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        // Replace light_client_program (index 7) with a wrong pubkey.
+        // The Client PDA stores client_program_id = MOCK_LIGHT_CLIENT_ID,
+        // so any other key triggers the address constraint.
+        let wrong_program = Pubkey::new_unique();
+        ix.accounts[7] = AccountMeta::new_readonly(wrong_program, false);
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_client_state_owner() {
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            let deploy_dir = std::path::Path::new("../../target/deploy");
+            std::env::set_var("SBF_OUT_DIR", deploy_dir);
+        }
+
+        let mut pt = ProgramTest::new("ics26_router", crate::ID, None);
+        pt.add_program("mock_light_client", MOCK_LIGHT_CLIENT_ID, None);
+        pt.add_program("access_manager", access_manager::ID, None);
+        pt.add_program("test_ibc_app", TEST_IBC_APP_PROGRAM_ID, None);
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        pt.add_account(
+            router_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: router_state_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (access_manager_pda, _) =
+            solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+        let am = access_manager::state::AccessManager {
+            roles: vec![access_manager::RoleData {
+                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                members: vec![Pubkey::new_unique()],
+            }],
+            whitelisted_programs: vec![],
+        };
+        let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+        am.serialize(&mut am_data).unwrap();
+        pt.add_account(
+            access_manager_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: am_data,
+                owner: access_manager::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (client_pda, client_data) = setup_client(
+            TEST_CLIENT_ID,
+            MOCK_LIGHT_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+        );
+        pt.add_account(
+            client_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (client_seq_pda, client_seq_data) = setup_client_sequence(TEST_CLIENT_ID, 1);
+        pt.add_account(
+            client_seq_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_seq_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(TEST_PORT, TEST_IBC_APP_PROGRAM_ID);
+        pt.add_account(
+            ibc_app_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: ibc_app_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED],
+            &TEST_IBC_APP_PROGRAM_ID,
+        );
+        let app_state = test_ibc_app::state::TestIbcAppState {
+            authority: Pubkey::new_unique(),
+            packets_received: 0,
+            packets_acknowledged: 0,
+            packets_timed_out: 0,
+            packets_sent: 0,
+        };
+        let app_state_data = create_account_data(&app_state);
+        pt.add_account(
+            app_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: app_state_data,
+                owner: TEST_IBC_APP_PROGRAM_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Client state owned by the WRONG program (system_program instead of mock_light_client)
+        let mock_client_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_client_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let clock = solana_sdk::clock::Clock {
+            slot: 1,
+            epoch_start_timestamp: TEST_CLOCK_TIME,
+            epoch: 0,
+            leader_schedule_epoch: 0,
+            unix_timestamp: TEST_CLOCK_TIME,
+        };
+        let mut clock_data = vec![0u8; solana_sdk::clock::Clock::size_of()];
+        bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
+        pt.add_account(
+            solana_sdk::sysvar::clock::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: clock_data,
+                owner: solana_sdk::sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            1,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            Pubkey::new_unique(),
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32),
         );
     }
 }
