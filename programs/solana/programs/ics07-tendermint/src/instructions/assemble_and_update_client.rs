@@ -192,7 +192,7 @@ fn process_header_update<'info>(
         new_consensus_state: &new_consensus_state,
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
-    })?;
+    });
 
     // Update latest height only on successful update
     if result == UpdateResult::UpdateSuccess {
@@ -242,7 +242,7 @@ struct StoreConsensusStateParams<'a, 'info> {
     client_state: &'a mut Account<'info, crate::types::ClientState>,
 }
 
-fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
+fn store_consensus_state(params: StoreConsensusStateParams) -> UpdateResult {
     if !params.account.is_uninitialized() {
         let state_mismatch = params.account.consensus_state != *params.new_consensus_state;
         let timestamp_not_increasing =
@@ -250,16 +250,16 @@ fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResu
 
         if state_mismatch || timestamp_not_increasing {
             params.client_state.freeze();
-            return Ok(UpdateResult::Misbehaviour);
+            return UpdateResult::Misbehaviour;
         }
 
-        return Ok(UpdateResult::NoOp);
+        return UpdateResult::NoOp;
     }
 
     params.account.height = params.height;
     params.account.consensus_state = params.new_consensus_state.clone();
 
-    Ok(UpdateResult::UpdateSuccess)
+    UpdateResult::UpdateSuccess
 }
 
 #[cfg(test)]
