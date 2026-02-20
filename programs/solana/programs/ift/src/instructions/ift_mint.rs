@@ -7,7 +7,7 @@ use anchor_spl::{
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTMintReceived;
-use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
+use crate::helpers::mint_to_account;
 use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, IFTMintMsg};
 
 /// IFT Mint instruction - called by GMP via CPI when receiving a cross-chain mint request.
@@ -18,7 +18,7 @@ pub struct IFTMint<'info> {
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -103,13 +103,12 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
         &bridge.counterparty_ift_address,
     )?;
 
-    check_and_update_mint_rate_limit(&mut ctx.accounts.app_mint_state, msg.amount, &clock)?;
-
     mint_to_account(
+        &mut ctx.accounts.app_mint_state,
+        &clock,
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        ctx.accounts.app_mint_state.mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
@@ -177,7 +176,7 @@ mod tests {
         BridgeNotActive,
         InvalidBridge,
         InvalidGmpAccount,
-        TokenPaused,
+        AppPaused,
         MintRateLimitExceeded,
     }
 
@@ -239,9 +238,9 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpAccount as u32,
                     ..default
                 },
-                MintErrorCase::TokenPaused => Self {
+                MintErrorCase::AppPaused => Self {
                     token_paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 MintErrorCase::MintRateLimitExceeded => Self {
@@ -401,7 +400,7 @@ mod tests {
     #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
     #[case::invalid_bridge(MintErrorCase::InvalidBridge)]
     #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
-    #[case::token_paused(MintErrorCase::TokenPaused)]
+    #[case::app_paused(MintErrorCase::AppPaused)]
     #[case::mint_rate_limit_exceeded(MintErrorCase::MintRateLimitExceeded)]
     fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);

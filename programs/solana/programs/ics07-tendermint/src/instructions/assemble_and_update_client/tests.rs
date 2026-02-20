@@ -1137,8 +1137,9 @@ fn test_assemble_with_existing_consensus_state() {
     .try_serialize(&mut conflicting_consensus_data)
     .unwrap();
 
+    let rent = solana_sdk::rent::Rent::default();
     let existing_consensus = Account {
-        lamports: 1_000_000,
+        lamports: rent.minimum_balance(conflicting_consensus_data.len()),
         data: conflicting_consensus_data,
         owner: crate::ID,
         executable: false,

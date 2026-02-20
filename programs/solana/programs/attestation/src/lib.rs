@@ -14,8 +14,6 @@ pub mod verification;
 use instructions::*;
 
 declare_id!("F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe");
-// TODO: try to drop custom_heap
-solana_allocator::custom_heap!();
 
 pub use crypto::ETH_ADDRESS_LEN;
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
