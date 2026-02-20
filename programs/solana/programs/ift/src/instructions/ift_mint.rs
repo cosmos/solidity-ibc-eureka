@@ -18,7 +18,7 @@ pub struct IFTMint<'info> {
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -176,7 +176,7 @@ mod tests {
         BridgeNotActive,
         InvalidBridge,
         InvalidGmpAccount,
-        TokenPaused,
+        AppPaused,
         MintRateLimitExceeded,
     }
 
@@ -238,9 +238,9 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpAccount as u32,
                     ..default
                 },
-                MintErrorCase::TokenPaused => Self {
+                MintErrorCase::AppPaused => Self {
                     token_paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 MintErrorCase::MintRateLimitExceeded => Self {
@@ -400,7 +400,7 @@ mod tests {
     #[case::bridge_not_active(MintErrorCase::BridgeNotActive)]
     #[case::invalid_bridge(MintErrorCase::InvalidBridge)]
     #[case::invalid_gmp_account(MintErrorCase::InvalidGmpAccount)]
-    #[case::token_paused(MintErrorCase::TokenPaused)]
+    #[case::app_paused(MintErrorCase::AppPaused)]
     #[case::mint_rate_limit_exceeded(MintErrorCase::MintRateLimitExceeded)]
     fn test_ift_mint_validation(#[case] case: MintErrorCase) {
         run_mint_error_test(case);

@@ -144,7 +144,7 @@ pub struct AdminMint<'info> {
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -378,7 +378,7 @@ mod tests {
     enum AdminMintErrorCase {
         Unauthorized,
         ZeroAmount,
-        TokenPaused,
+        AppPaused,
         RateLimitExceeded,
         ReceiverMismatch,
     }
@@ -417,9 +417,9 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::ZeroAmount as u32,
                     ..default
                 },
-                AdminMintErrorCase::TokenPaused => Self {
+                AdminMintErrorCase::AppPaused => Self {
                     paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 AdminMintErrorCase::RateLimitExceeded => Self {
@@ -549,7 +549,7 @@ mod tests {
     #[rstest]
     #[case::unauthorized(AdminMintErrorCase::Unauthorized)]
     #[case::zero_amount(AdminMintErrorCase::ZeroAmount)]
-    #[case::token_paused(AdminMintErrorCase::TokenPaused)]
+    #[case::app_paused(AdminMintErrorCase::AppPaused)]
     #[case::rate_limit_exceeded(AdminMintErrorCase::RateLimitExceeded)]
     #[case::receiver_mismatch(AdminMintErrorCase::ReceiverMismatch)]
     fn test_admin_mint_validation(#[case] case: AdminMintErrorCase) {

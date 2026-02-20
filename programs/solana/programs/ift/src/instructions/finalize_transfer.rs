@@ -31,7 +31,8 @@ pub struct FinalizeTransfer<'info> {
     /// Global IFT app state (read-only)
     #[account(
         seeds = [IFT_APP_STATE_SEED],
-        bump = app_state.bump
+        bump = app_state.bump,
+        constraint = !app_state.paused @ IFTError::AppPaused
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -48,6 +49,7 @@ pub struct FinalizeTransfer<'info> {
         seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive,
     )]
     pub ift_bridge: Account<'info, IFTBridge>,
 
@@ -257,32 +259,51 @@ mod tests {
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
     }
 
+    struct FinalizeTransferTestSetupParams<'a> {
+        status: CallResultStatus,
+        gmp_result_sender: Option<Pubkey>,
+        gmp_result_client_id: &'a str,
+        gmp_result_sequence: u64,
+        app_mint_state_override: Option<IftAppMintStateParams>,
+        token_owner_override: Option<Pubkey>,
+        token_mint_override: Option<Pubkey>,
+        bridge_active: bool,
+        app_paused: bool,
+    }
+
     fn build_finalize_transfer_test_setup(
         status: CallResultStatus,
         gmp_result_sender: Option<Pubkey>,
         gmp_result_client_id: &str,
         gmp_result_sequence: u64,
     ) -> FinalizeTransferTestSetup {
-        build_finalize_transfer_test_setup_ext(
+        build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
             status,
             gmp_result_sender,
             gmp_result_client_id,
             gmp_result_sequence,
-            None, // default app_mint_state (no rate limit)
-            None, // default token account owner (matches pending sender)
-            None, // default token account mint (matches pending mint)
-        )
+            app_mint_state_override: None,
+            token_owner_override: None,
+            token_mint_override: None,
+            bridge_active: true,
+            app_paused: false,
+        })
     }
 
-    fn build_finalize_transfer_test_setup_ext(
-        status: CallResultStatus,
-        gmp_result_sender: Option<Pubkey>,
-        gmp_result_client_id: &str,
-        gmp_result_sequence: u64,
-        app_mint_state_override: Option<IftAppMintStateParams>,
-        token_owner_override: Option<Pubkey>,
-        token_mint_override: Option<Pubkey>,
+    fn build_finalize_transfer_test_setup_from_params(
+        params: FinalizeTransferTestSetupParams<'_>,
     ) -> FinalizeTransferTestSetup {
+        let FinalizeTransferTestSetupParams {
+            status,
+            gmp_result_sender,
+            gmp_result_client_id,
+            gmp_result_sequence,
+            app_mint_state_override,
+            token_owner_override,
+            token_mint_override,
+            bridge_active,
+            app_paused,
+        } = params;
         let mint = Pubkey::new_unique();
         let sender = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
@@ -299,7 +320,11 @@ mod tests {
         let (token_program_id, token_program_account) = token_program_keyed_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account = create_ift_app_state_account(app_state_bump, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account_with_options(
+            app_state_bump,
+            Pubkey::new_unique(),
+            app_paused,
+        );
 
         let app_mint_state_account = app_mint_state_override.map_or_else(
             || create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump),
@@ -319,7 +344,7 @@ mod tests {
             TEST_COUNTERPARTY_ADDRESS,
             ChainOptions::Evm,
             ift_bridge_bump,
-            true,
+            bridge_active,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -501,15 +526,18 @@ mod tests {
     fn test_finalize_transfer_token_account_wrong_owner_fails() {
         let mollusk = setup_mollusk();
 
-        let setup = build_finalize_transfer_test_setup_ext(
-            CallResultStatus::Timeout,
-            None,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            None,
-            Some(Pubkey::new_unique()), // wrong owner
-            None,
-        );
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: None,
+                token_owner_override: Some(Pubkey::new_unique()), // wrong owner
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
 
         assert_finalize_error(
             &mollusk,
@@ -522,15 +550,18 @@ mod tests {
     fn test_finalize_transfer_token_account_wrong_mint_fails() {
         let mollusk = setup_mollusk();
 
-        let setup = build_finalize_transfer_test_setup_ext(
-            CallResultStatus::Timeout,
-            None,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            None,
-            None,
-            Some(Pubkey::new_unique()), // wrong mint
-        );
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: None,
+                token_owner_override: None,
+                token_mint_override: Some(Pubkey::new_unique()), // wrong mint
+                bridge_active: true,
+                app_paused: false,
+            });
 
         assert_finalize_error(
             &mollusk,
@@ -650,6 +681,54 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_finalize_transfer_bridge_not_active_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: None,
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: false,
+                app_paused: false,
+            });
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::BridgeNotActive as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_app_paused_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: None,
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: true,
+            });
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
+        );
+    }
+
     // ─── Happy path tests ───────────────────────────────────────────
 
     #[test]
@@ -763,22 +842,25 @@ mod tests {
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
         let success_commitment = [42u8; 32];
-        let setup = build_finalize_transfer_test_setup_ext(
-            CallResultStatus::Acknowledgement(success_commitment),
-            None,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            Some(IftAppMintStateParams {
-                mint: Pubkey::default(), // overridden by build fn
-                bump: 0,                 // overridden by build fn
-                mint_authority_bump: 0,  // overridden by build fn
-                daily_mint_limit: DAILY_LIMIT,
-                rate_limit_day: RATE_LIMIT_DAY,
-                rate_limit_daily_usage: INITIAL_USAGE,
-            }),
-            None,
-            None,
-        );
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Acknowledgement(success_commitment),
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: INITIAL_USAGE,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
         assert!(
@@ -928,22 +1010,25 @@ mod tests {
         mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
 
         let success_commitment = [42u8; 32];
-        let setup = build_finalize_transfer_test_setup_ext(
-            CallResultStatus::Acknowledgement(success_commitment),
-            None,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-            Some(IftAppMintStateParams {
-                mint: Pubkey::default(),
-                bump: 0,
-                mint_authority_bump: 0,
-                daily_mint_limit: DAILY_LIMIT,
-                rate_limit_day: RATE_LIMIT_DAY,
-                rate_limit_daily_usage: INITIAL_USAGE,
-            }),
-            None,
-            None,
-        );
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Acknowledgement(success_commitment),
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: INITIAL_USAGE,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
 
         let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
         assert!(
