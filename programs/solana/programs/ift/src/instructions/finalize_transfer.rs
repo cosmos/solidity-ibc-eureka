@@ -153,10 +153,11 @@ pub fn finalize_transfer(
     match gmp_result.status {
         CallResultStatus::Timeout => {
             mint_to_account(
+                &mut ctx.accounts.app_mint_state,
+                &clock,
                 &ctx.accounts.mint,
                 &ctx.accounts.sender_token_account,
                 &ctx.accounts.mint_authority,
-                ctx.accounts.app_mint_state.mint_authority_bump,
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
@@ -176,10 +177,11 @@ pub fn finalize_transfer(
         CallResultStatus::Acknowledgement(commitment) => {
             if commitment == ERROR_ACK_COMMITMENT {
                 mint_to_account(
+                    &mut ctx.accounts.app_mint_state,
+                    &clock,
                     &ctx.accounts.mint,
                     &ctx.accounts.sender_token_account,
                     &ctx.accounts.mint_authority,
-                    ctx.accounts.app_mint_state.mint_authority_bump,
                     &ctx.accounts.token_program,
                     pending.amount,
                 )?;
@@ -1044,5 +1046,701 @@ mod tests {
             mint_state.rate_limit_daily_usage, 0,
             "rate limit usage should saturate to 0 when amount > usage"
         );
+    }
+
+    // ─── Refund rate limit tests ─────────────────────────────────────
+
+    #[test]
+    fn test_finalize_transfer_timeout_rate_limit_exceeded() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 1_000_000;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: DAILY_LIMIT, // already at limit
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_error_ack_rate_limit_exceeded() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 1_000_000;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Acknowledgement(ERROR_ACK_COMMITMENT),
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: DAILY_LIMIT,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_timeout_increases_rate_limit_usage() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 10_000_000;
+        const INITIAL_USAGE: u64 = 2_000_000;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: INITIAL_USAGE,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "timeout refund within limit should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
+        let mint_state: crate::state::IFTAppMintState =
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &mint_state_account.data[..])
+                .expect("valid IFTAppMintState");
+
+        assert_eq!(
+            mint_state.rate_limit_daily_usage,
+            INITIAL_USAGE + TEST_AMOUNT,
+            "timeout refund should increase rate limit usage"
+        );
+        assert_eq!(mint_state.rate_limit_day, RATE_LIMIT_DAY);
+    }
+
+    #[test]
+    fn test_finalize_transfer_error_ack_increases_rate_limit_usage() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 10_000_000;
+        const INITIAL_USAGE: u64 = 2_000_000;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Acknowledgement(ERROR_ACK_COMMITMENT),
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: DAILY_LIMIT,
+                    rate_limit_day: RATE_LIMIT_DAY,
+                    rate_limit_daily_usage: INITIAL_USAGE,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "error ack refund within limit should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
+        let mint_state: crate::state::IFTAppMintState =
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &mint_state_account.data[..])
+                .expect("valid IFTAppMintState");
+
+        assert_eq!(
+            mint_state.rate_limit_daily_usage,
+            INITIAL_USAGE + TEST_AMOUNT,
+            "error ack refund should increase rate limit usage"
+        );
+        assert_eq!(mint_state.rate_limit_day, RATE_LIMIT_DAY);
+    }
+
+    #[test]
+    fn test_finalize_transfer_timeout_no_rate_limit_succeeds() {
+        let mollusk = setup_mollusk_with_token();
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: Some(IftAppMintStateParams {
+                    mint: Pubkey::default(),
+                    bump: 0,
+                    mint_authority_bump: 0,
+                    daily_mint_limit: 0, // no rate limit
+                    rate_limit_day: 0,
+                    rate_limit_daily_usage: 0,
+                }),
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: true,
+                app_paused: false,
+            });
+
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "timeout refund with no rate limit should succeed: {:?}",
+            result.program_result
+        );
+
+        let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
+        let mint_state: crate::state::IFTAppMintState =
+            anchor_lang::AccountDeserialize::try_deserialize(&mut &mint_state_account.data[..])
+                .expect("valid IFTAppMintState");
+
+        assert_eq!(
+            mint_state.rate_limit_daily_usage, 0,
+            "usage should remain 0 when no rate limit configured"
+        );
+    }
+
+    // ─── Multi-step attack simulation tests ─────────────────────────
+
+    /// Shared context for multi-step `finalize_transfer` tests.
+    /// All steps share the same mint, sender, bridge and static accounts;
+    /// only the sequence (and thus `PendingTransfer` + `GMPCallResult` PDAs) varies.
+    struct MultiStepContext {
+        mint: Pubkey,
+        sender: Pubkey,
+        payer: Pubkey,
+        app_state_pda: Pubkey,
+        app_state_account: solana_sdk::account::Account,
+        app_mint_state_pda: Pubkey,
+        app_mint_state_bump: u8,
+        mint_authority_pda: Pubkey,
+        mint_authority_bump: u8,
+        ift_bridge_pda: Pubkey,
+        ift_bridge_account: solana_sdk::account::Account,
+        sender_token_pda: Pubkey,
+        token_program_id: Pubkey,
+        token_program_account: solana_sdk::account::Account,
+        system_program: Pubkey,
+        system_account: solana_sdk::account::Account,
+        sysvar_id: Pubkey,
+        sysvar_account: solana_sdk::account::Account,
+    }
+
+    impl MultiStepContext {
+        fn new() -> Self {
+            let mint = Pubkey::new_unique();
+            let sender = Pubkey::new_unique();
+            let payer = Pubkey::new_unique();
+            let (app_state_pda, app_state_bump) = get_app_state_pda();
+            let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+            let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+            let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+            let (system_program, system_account) = create_system_program_account();
+            let (token_program_id, token_program_account) = token_program_keyed_account();
+            let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+            let app_state_account =
+                create_ift_app_state_account(app_state_bump, Pubkey::new_unique());
+
+            let ift_bridge_account = create_ift_bridge_account(
+                mint,
+                TEST_CLIENT_ID,
+                TEST_COUNTERPARTY_ADDRESS,
+                ChainOptions::Evm,
+                ift_bridge_bump,
+                true,
+            );
+
+            Self {
+                mint,
+                sender,
+                payer,
+                app_state_pda,
+                app_state_account,
+                app_mint_state_pda,
+                app_mint_state_bump,
+                mint_authority_pda,
+                mint_authority_bump,
+                ift_bridge_pda,
+                ift_bridge_account,
+                sender_token_pda: Pubkey::new_unique(),
+                token_program_id,
+                token_program_account,
+                system_program,
+                system_account,
+                sysvar_id,
+                sysvar_account,
+            }
+        }
+
+        fn initial_app_mint_state(
+            &self,
+            daily_mint_limit: u64,
+            rate_limit_day: u64,
+        ) -> solana_sdk::account::Account {
+            create_ift_app_mint_state_account_full(IftAppMintStateParams {
+                mint: self.mint,
+                bump: self.app_mint_state_bump,
+                mint_authority_bump: self.mint_authority_bump,
+                daily_mint_limit,
+                rate_limit_day,
+                rate_limit_daily_usage: 0,
+            })
+        }
+
+        /// Build instruction + accounts for one `finalize_transfer` step.
+        /// Mutable accounts (`app_mint_state`, mint, `sender_token`) are passed in
+        /// so callers can carry forward state from previous steps.
+        fn build_step(
+            &self,
+            sequence: u64,
+            status: CallResultStatus,
+            app_mint_state_account: solana_sdk::account::Account,
+            mint_account: solana_sdk::account::Account,
+            sender_token_account: solana_sdk::account::Account,
+        ) -> FinalizeTransferTestSetup {
+            let (pending_transfer_pda, pending_transfer_bump) =
+                get_pending_transfer_pda(&self.mint, TEST_CLIENT_ID, sequence);
+            let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, sequence);
+
+            let instruction = Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new_readonly(self.app_state_pda, false),
+                    AccountMeta::new(self.app_mint_state_pda, false),
+                    AccountMeta::new_readonly(self.ift_bridge_pda, false),
+                    AccountMeta::new(pending_transfer_pda, false),
+                    AccountMeta::new_readonly(gmp_result_pda, false),
+                    AccountMeta::new(self.mint, false),
+                    AccountMeta::new_readonly(self.mint_authority_pda, false),
+                    AccountMeta::new(self.sender_token_pda, false),
+                    AccountMeta::new(self.payer, true),
+                    AccountMeta::new_readonly(self.token_program_id, false),
+                    AccountMeta::new_readonly(self.system_program, false),
+                    AccountMeta::new_readonly(self.sysvar_id, false),
+                ],
+                data: crate::instruction::FinalizeTransfer {
+                    client_id: TEST_CLIENT_ID.to_string(),
+                    sequence,
+                }
+                .data(),
+            };
+
+            let accounts = vec![
+                (self.app_state_pda, self.app_state_account.clone()),
+                (self.app_mint_state_pda, app_mint_state_account),
+                (self.ift_bridge_pda, self.ift_bridge_account.clone()),
+                (
+                    pending_transfer_pda,
+                    create_pending_transfer_account(
+                        self.mint,
+                        TEST_CLIENT_ID,
+                        sequence,
+                        self.sender,
+                        TEST_AMOUNT,
+                        pending_transfer_bump,
+                    ),
+                ),
+                (
+                    gmp_result_pda,
+                    create_gmp_result_account(
+                        crate::ID,
+                        sequence,
+                        TEST_CLIENT_ID,
+                        "dest-client",
+                        status,
+                        gmp_result_bump,
+                    ),
+                ),
+                (self.mint, mint_account),
+                (self.mint_authority_pda, empty_pda_account()),
+                (self.sender_token_pda, sender_token_account),
+                (self.payer, create_signer_account()),
+                (self.token_program_id, self.token_program_account.clone()),
+                (self.system_program, self.system_account.clone()),
+                (self.sysvar_id, self.sysvar_account.clone()),
+            ];
+
+            FinalizeTransferTestSetup {
+                instruction,
+                accounts,
+            }
+        }
+    }
+
+    /// Extract the three mutable accounts that carry state between steps.
+    fn extract_carried_accounts(
+        result: &mollusk_svm::result::InstructionResult,
+    ) -> (
+        solana_sdk::account::Account,
+        solana_sdk::account::Account,
+        solana_sdk::account::Account,
+    ) {
+        let app_mint_state = result.resulting_accounts[APP_MINT_STATE_IDX].1.clone();
+        let mint = result.resulting_accounts[MINT_IDX].1.clone();
+        let sender_token = result.resulting_accounts[SENDER_TOKEN_IDX].1.clone();
+        (app_mint_state, mint, sender_token)
+    }
+
+    #[test]
+    fn test_repeated_timeout_refunds_hit_rate_limit() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 3 * TEST_AMOUNT;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let ctx = MultiStepContext::new();
+        let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
+        let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
+
+        // 3 timeout refunds of TEST_AMOUNT each should succeed (3 * 1M = 3M = limit)
+        for seq in 1..=3 {
+            let setup = ctx.build_step(
+                seq,
+                CallResultStatus::Timeout,
+                app_mint_state.clone(),
+                mint_account.clone(),
+                sender_token.clone(),
+            );
+            let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+            assert!(
+                !result.program_result.is_err(),
+                "timeout refund #{seq} should succeed: {:?}",
+                result.program_result
+            );
+            (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+        }
+
+        // Verify rate limit is exactly at cap
+        let mint_state = deserialize_app_mint_state(&app_mint_state);
+        assert_eq!(mint_state.rate_limit_daily_usage, DAILY_LIMIT);
+
+        // 4th timeout refund should be blocked by rate limit
+        let setup = ctx.build_step(
+            4,
+            CallResultStatus::Timeout,
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+            ))
+            .into(),
+            "4th timeout refund should be blocked by rate limit"
+        );
+    }
+
+    #[test]
+    fn test_mixed_timeout_and_error_ack_refunds_cumulate() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = 2 * TEST_AMOUNT;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let ctx = MultiStepContext::new();
+        let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
+        let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
+
+        // Step 1: timeout refund (usage: 0 → 1M)
+        let setup = ctx.build_step(
+            1,
+            CallResultStatus::Timeout,
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "step 1 timeout: {:?}",
+            result.program_result
+        );
+        (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+        let mint_state = deserialize_app_mint_state(&app_mint_state);
+        assert_eq!(mint_state.rate_limit_daily_usage, TEST_AMOUNT);
+
+        // Step 2: error ack refund (usage: 1M → 2M = limit)
+        let setup = ctx.build_step(
+            2,
+            CallResultStatus::Acknowledgement(ERROR_ACK_COMMITMENT),
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "step 2 error ack: {:?}",
+            result.program_result
+        );
+        (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+        let mint_state = deserialize_app_mint_state(&app_mint_state);
+        assert_eq!(mint_state.rate_limit_daily_usage, DAILY_LIMIT);
+
+        // Step 3: another timeout should be blocked
+        let setup = ctx.build_step(
+            3,
+            CallResultStatus::Timeout,
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+            ))
+            .into(),
+            "step 3 should be blocked after timeout + error ack filled budget"
+        );
+    }
+
+    #[test]
+    fn test_success_ack_frees_budget_for_subsequent_timeout_refund() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = TEST_AMOUNT;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let ctx = MultiStepContext::new();
+        let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
+        let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
+
+        // Step 1: timeout refund fills limit (usage: 0 → 1M)
+        let setup = ctx.build_step(
+            1,
+            CallResultStatus::Timeout,
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "step 1: {:?}",
+            result.program_result
+        );
+        (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+        // Step 2: another timeout should fail (at limit)
+        let setup = ctx.build_step(
+            2,
+            CallResultStatus::Timeout,
+            app_mint_state.clone(),
+            mint_account.clone(),
+            sender_token.clone(),
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::MintRateLimitExceeded as u32,
+            ))
+            .into(),
+            "step 2 should be blocked — budget full"
+        );
+
+        // Step 3: success ack frees the budget (usage: 1M → 0)
+        let success_commitment = [42u8; 32];
+        let setup = ctx.build_step(
+            3,
+            CallResultStatus::Acknowledgement(success_commitment),
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "step 3: {:?}",
+            result.program_result
+        );
+        (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+        let mint_state = deserialize_app_mint_state(&app_mint_state);
+        assert_eq!(mint_state.rate_limit_daily_usage, 0);
+
+        // Step 4: timeout refund now succeeds (usage: 0 → 1M)
+        let setup = ctx.build_step(
+            4,
+            CallResultStatus::Timeout,
+            app_mint_state,
+            mint_account,
+            sender_token,
+        );
+        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "step 4: {:?}",
+            result.program_result
+        );
+
+        let (carried_mint_state, _, _) = extract_carried_accounts(&result);
+        let mint_state = deserialize_app_mint_state(&carried_mint_state);
+        assert_eq!(mint_state.rate_limit_daily_usage, DAILY_LIMIT);
+    }
+
+    #[test]
+    fn test_success_ack_does_not_allow_unlimited_cycling() {
+        const RATE_LIMIT_TIMESTAMP: i64 = 1_700_000_000;
+        const RATE_LIMIT_DAY: u64 = RATE_LIMIT_TIMESTAMP as u64 / 86400;
+        const DAILY_LIMIT: u64 = TEST_AMOUNT;
+
+        let mut mollusk = setup_mollusk_with_token();
+        mollusk.sysvars.clock.unix_timestamp = RATE_LIMIT_TIMESTAMP;
+
+        let ctx = MultiStepContext::new();
+        let mut app_mint_state = ctx.initial_app_mint_state(DAILY_LIMIT, RATE_LIMIT_DAY);
+        let mut mint_account = create_mint_account(ctx.mint_authority_pda, TOKEN_DECIMALS);
+        let mut sender_token = create_token_account(ctx.mint, ctx.sender, 0);
+
+        let success_commitment = [42u8; 32];
+        let mut seq = 0u64;
+
+        // 5 rounds of: timeout refund (fills limit) → success ack (frees it)
+        // This is legitimate — tokens genuinely left the system each round.
+        // At no point can the usage exceed DAILY_LIMIT.
+        for round in 0..5 {
+            seq += 1;
+            let setup = ctx.build_step(
+                seq,
+                CallResultStatus::Timeout,
+                app_mint_state,
+                mint_account,
+                sender_token,
+            );
+            let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+            assert!(
+                !result.program_result.is_err(),
+                "round {round} timeout: {:?}",
+                result.program_result
+            );
+            (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+            let state = deserialize_app_mint_state(&app_mint_state);
+            assert_eq!(
+                state.rate_limit_daily_usage, DAILY_LIMIT,
+                "round {round}: usage should be at limit after timeout refund"
+            );
+
+            // Cannot mint more while at limit
+            seq += 1;
+            let setup_blocked = ctx.build_step(
+                seq,
+                CallResultStatus::Timeout,
+                app_mint_state.clone(),
+                mint_account.clone(),
+                sender_token.clone(),
+            );
+            let result_blocked =
+                mollusk.process_instruction(&setup_blocked.instruction, &setup_blocked.accounts);
+            assert!(
+                result_blocked.program_result.is_err(),
+                "round {round}: should be blocked while at limit"
+            );
+
+            // Success ack frees budget
+            seq += 1;
+            let setup = ctx.build_step(
+                seq,
+                CallResultStatus::Acknowledgement(success_commitment),
+                app_mint_state,
+                mint_account,
+                sender_token,
+            );
+            let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
+            assert!(
+                !result.program_result.is_err(),
+                "round {round} success ack: {:?}",
+                result.program_result
+            );
+            (app_mint_state, mint_account, sender_token) = extract_carried_accounts(&result);
+
+            let state = deserialize_app_mint_state(&app_mint_state);
+            assert_eq!(
+                state.rate_limit_daily_usage, 0,
+                "round {round}: usage should be 0 after success ack"
+            );
+        }
     }
 }
