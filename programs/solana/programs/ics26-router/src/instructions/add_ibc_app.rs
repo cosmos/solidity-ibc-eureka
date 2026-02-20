@@ -29,7 +29,8 @@ pub struct AddIbcApp<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// CHECK: Validated by executable constraint
+    /// CHECK: Arbitrary IBC app program — no concrete type for `Program<'info, T>`
+    /// since it can be any executable. Validated by the `executable` constraint.
     #[account(constraint = app_program.executable @ RouterError::AppProgramNotExecutable)]
     pub app_program: UncheckedAccount<'info>,
 

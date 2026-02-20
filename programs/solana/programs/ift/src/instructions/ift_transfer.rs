@@ -126,8 +126,9 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// Pending transfer account - manually created with runtime-calculated sequence
-    /// CHECK: Manually validated and created in instruction handler
+    /// CHECK: PDA seed includes the sequence returned by the router's `send_packet`
+    /// CPI, which is only known at runtime. Validated and created manually in the
+    /// handler after the CPI completes.
     #[account(mut)]
     pub pending_transfer: UncheckedAccount<'info>,
 }
