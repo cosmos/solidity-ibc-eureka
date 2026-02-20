@@ -1061,6 +1061,155 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_two_consecutive_transfers_sequence_increment() {
+        let initial_sequence = 1u64;
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // --- Transfer #1 ---
+        let (ix1, commitment_pda_1) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"transfer one",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
+        assert!(
+            result1.is_ok(),
+            "Transfer #1 should succeed: {:?}",
+            result1.err()
+        );
+
+        // Verify sequence incremented to 2
+        let (client_sequence_pda, _) = Pubkey::find_program_address(
+            &[ClientSequence::SEED, TEST_CLIENT_ID.as_bytes()],
+            &crate::ID,
+        );
+        let seq_account = banks_client
+            .get_account(client_sequence_pda)
+            .await
+            .unwrap()
+            .expect("client sequence should exist");
+        let client_seq = ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
+        assert_eq!(client_seq.next_sequence_send, 2);
+
+        // Verify commitment #1 exists and matches
+        let commitment_1 = banks_client
+            .get_account(commitment_pda_1)
+            .await
+            .unwrap()
+            .expect("commitment #1 should exist");
+        assert_eq!(commitment_1.owner, crate::ID);
+        let commitment_value_1 = &commitment_1.data[8..40];
+        assert_ne!(commitment_value_1, &[0u8; 32]);
+
+        let ns_seq_1 = sequence::calculate_namespaced_sequence(
+            initial_sequence,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &payer.pubkey(),
+        )
+        .unwrap();
+        let expected_packet_1 = Packet {
+            sequence: ns_seq_1,
+            source_client: TEST_CLIENT_ID.to_string(),
+            dest_client: COUNTERPARTY_CLIENT_ID.to_string(),
+            timeout_timestamp: TEST_TIMEOUT,
+            payloads: vec![Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"transfer one".to_vec(),
+            }],
+        };
+        let expected_commitment_1 =
+            solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet_1);
+        assert_eq!(commitment_value_1, &expected_commitment_1);
+
+        // --- Transfer #2 ---
+        let second_sequence = 2u64;
+        let recent_blockhash2 = banks_client.get_latest_blockhash().await.unwrap();
+        let (ix2, commitment_pda_2) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            second_sequence,
+            TEST_TIMEOUT,
+            b"transfer two",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
+        assert!(
+            result2.is_ok(),
+            "Transfer #2 should succeed: {:?}",
+            result2.err()
+        );
+
+        // Verify sequence incremented to 3
+        let seq_account2 = banks_client
+            .get_account(client_sequence_pda)
+            .await
+            .unwrap()
+            .expect("client sequence should exist");
+        let client_seq2 = ClientSequence::try_deserialize(&mut &seq_account2.data[..]).unwrap();
+        assert_eq!(client_seq2.next_sequence_send, 3);
+
+        // Verify commitment #2 exists and matches
+        let commitment_2 = banks_client
+            .get_account(commitment_pda_2)
+            .await
+            .unwrap()
+            .expect("commitment #2 should exist");
+        assert_eq!(commitment_2.owner, crate::ID);
+        let commitment_value_2 = &commitment_2.data[8..40];
+        assert_ne!(commitment_value_2, &[0u8; 32]);
+
+        let ns_seq_2 = sequence::calculate_namespaced_sequence(
+            second_sequence,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &payer.pubkey(),
+        )
+        .unwrap();
+        let expected_packet_2 = Packet {
+            sequence: ns_seq_2,
+            source_client: TEST_CLIENT_ID.to_string(),
+            dest_client: COUNTERPARTY_CLIENT_ID.to_string(),
+            timeout_timestamp: TEST_TIMEOUT,
+            payloads: vec![Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"transfer two".to_vec(),
+            }],
+        };
+        let expected_commitment_2 =
+            solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet_2);
+        assert_eq!(commitment_value_2, &expected_commitment_2);
+
+        // Verify both commitments are distinct
+        assert_ne!(
+            commitment_value_1, commitment_value_2,
+            "Commitments must differ (different sequences and payload data)"
+        );
+        assert_ne!(
+            commitment_pda_1, commitment_pda_2,
+            "Commitment PDAs must differ"
+        );
+    }
+
+    #[tokio::test]
     async fn test_send_packet_wrong_light_client_program() {
         let initial_sequence = 1u64;
         let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
