@@ -564,6 +564,7 @@ mod tests {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn build_send_packet_ix_with_commitment_for_port(
         user: &Keypair,
         client_id: &str,
