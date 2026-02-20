@@ -66,9 +66,6 @@ pub enum GMPError {
     #[msg("Direct calls not allowed, must be called via CPI from router")]
     DirectCallNotAllowed,
 
-    #[msg("Invalid sysvar account provided")]
-    InvalidSysvar,
-
     #[msg("Invalid port ID length")]
     InvalidPortId,
 
@@ -135,9 +132,6 @@ pub enum GMPError {
     #[msg("Failed to decode protobuf message")]
     DecodeError,
 
-    #[msg("Sender must sign for direct calls")]
-    SenderMustSign,
-
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
 
@@ -146,6 +140,12 @@ pub enum GMPError {
 
     #[msg("Invalid payload hint account")]
     InvalidHintAccount,
+
+    #[msg("Light client program does not match client registry")]
+    InvalidLightClientProgram,
+
+    #[msg("Account not owned by expected program")]
+    InvalidAccountOwner,
 }
 
 /// Convert GMP validation errors to GMP errors
@@ -165,11 +165,11 @@ impl From<solana_ibc_proto::GmpValidationError> for GMPError {
 impl From<solana_ibc_types::CpiValidationError> for GMPError {
     fn from(err: solana_ibc_types::CpiValidationError) -> Self {
         match err {
-            solana_ibc_types::CpiValidationError::InvalidSysvar => Self::InvalidSysvar,
             solana_ibc_types::CpiValidationError::DirectCallNotAllowed => {
                 Self::DirectCallNotAllowed
             }
-            solana_ibc_types::CpiValidationError::UnauthorizedCaller
+            solana_ibc_types::CpiValidationError::InvalidSysvar
+            | solana_ibc_types::CpiValidationError::UnauthorizedCaller
             | solana_ibc_types::CpiValidationError::NestedCpiNotAllowed => Self::UnauthorizedRouter,
         }
     }

@@ -4,6 +4,7 @@ use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(whitelisted_programs: Vec<Pubkey>)]
 pub struct SetWhitelistedPrograms<'info> {
     #[account(
         mut,

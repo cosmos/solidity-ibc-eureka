@@ -22,6 +22,16 @@ pub use types::{
 
 pub use ics25_handler::{MembershipMsg, NonMembershipMsg};
 
+/// Convert nanosecond timestamp to seconds
+pub const fn nanos_to_secs(nanos: u64) -> u64 {
+    nanos / 1_000_000_000
+}
+
+/// Convert seconds to nanoseconds (u128 to avoid overflow)
+pub const fn secs_to_nanos(secs: i64) -> u128 {
+    secs as u128 * 1_000_000_000
+}
+
 #[program]
 pub mod ics07_tendermint {
     use super::*;
@@ -31,18 +41,11 @@ pub mod ics07_tendermint {
 
     pub fn initialize(
         ctx: Context<Initialize>,
-        chain_id: String,
         client_state: ClientState,
         consensus_state: ConsensusState,
         access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::initialize::initialize(
-            ctx,
-            chain_id,
-            client_state,
-            consensus_state,
-            access_manager,
-        )
+        instructions::initialize::initialize(ctx, client_state, consensus_state, access_manager)
     }
 
     pub fn set_access_manager(
@@ -80,11 +83,13 @@ pub mod ics07_tendermint {
         ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
         target_height: u64,
         chunk_count: u8,
+        trusted_height: u64,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             target_height,
             chunk_count,
+            trusted_height,
         )
     }
 

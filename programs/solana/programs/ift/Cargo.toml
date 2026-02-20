@@ -28,7 +28,6 @@ solana-ibc-types.workspace = true
 ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
 bech32 = { workspace = true }
-hex.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 alloy-sol-types = { workspace = true, features = ["json"] }
@@ -39,6 +38,7 @@ sha2.workspace = true
 [dev-dependencies]
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
+mollusk-svm-programs-token.workspace = true
 solana-sdk.workspace = true
 bincode.workspace = true
 sha2.workspace = true

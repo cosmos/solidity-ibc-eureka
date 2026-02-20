@@ -54,13 +54,13 @@ pub mod mock_light_client {
     }
 
     pub fn client_status(_ctx: Context<ClientStatusCheck>) -> Result<()> {
-        set_return_data(&[ics25_handler::client_status::ACTIVE]);
+        set_return_data(&[ics25_handler::ClientStatus::Active.into()]);
         Ok(())
     }
 }
 
 #[derive(Accounts)]
-#[instruction(chain_id: String, latest_height: u64, client_state: Vec<u8>)]
+#[instruction(chain_id: String, latest_height: u64, client_state: Vec<u8>, consensus_state: Vec<u8>)]
 pub struct Initialize<'info> {
     /// CHECK: Mock client state - account will be created but not used
     #[account(
@@ -86,6 +86,7 @@ pub struct Initialize<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: MembershipMsg)]
 pub struct VerifyMembership<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
@@ -94,6 +95,7 @@ pub struct VerifyMembership<'info> {
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
@@ -105,9 +107,12 @@ pub struct VerifyNonMembership<'info> {
 pub struct ClientStatusCheck<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,
+    /// CHECK: Mock consensus state - not actually used
+    pub consensus_state: AccountInfo<'info>,
 }
 
 #[derive(Accounts)]
+#[instruction(_msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {
     /// CHECK: Mock client state - not actually used
     pub client_state: AccountInfo<'info>,

@@ -30,6 +30,20 @@ pub enum ChainOptions {
     },
 }
 
+/// Token type and configuration for `create_and_initialize_spl_token`
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub enum CreateTokenParams {
+    /// Legacy SPL Token mint (no extensions)
+    SplToken { decimals: u8 },
+    /// Token 2022 mint with `MetadataPointer` and on-chain metadata
+    Token2022 {
+        decimals: u8,
+        name: String,
+        symbol: String,
+        uri: String,
+    },
+}
+
 impl ChainOptions {
     /// Validate Chain Options params
     pub fn validate(&self) -> Result<()> {
@@ -79,9 +93,6 @@ pub struct IFTAppState {
 
     /// Admin authority for IFT
     pub admin: Pubkey,
-
-    /// GMP program address for sending cross-chain calls
-    pub gmp_program: Pubkey,
 
     /// Whether IFT is paused (blocks mint and transfer, not refunds)
     pub paused: bool,

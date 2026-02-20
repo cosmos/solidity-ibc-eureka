@@ -34,7 +34,7 @@ pub struct SendTransferMsg {
 pub struct SendTransfer<'info> {
     #[account(
         mut,
-        seeds = [IBCAppState::SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [IBCAppState::SEED],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,
@@ -102,6 +102,9 @@ pub struct SendTransfer<'info> {
 
     /// CHECK: Client state account, forwarded to router for status check
     pub client_state: AccountInfo<'info>,
+
+    /// CHECK: Consensus state account, forwarded to router for expiry check
+    pub consensus_state: AccountInfo<'info>,
 
     /// Router program for CPI
     pub router_program: Program<'info, Ics26Router>,
@@ -212,11 +215,12 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
         client: ctx.accounts.client.to_account_info(),
         light_client_program: ctx.accounts.light_client_program.to_account_info(),
         client_state: ctx.accounts.client_state.to_account_info(),
+        consensus_state: ctx.accounts.consensus_state.to_account_info(),
     };
 
     // Sign the app_state PDA to prove this app is the immediate caller
     let bump = ctx.bumps.app_state;
-    let signer_seeds: &[&[u8]] = &[IBCAppState::SEED, TRANSFER_PORT.as_bytes(), &[bump]];
+    let signer_seeds: &[&[u8]] = &[IBCAppState::SEED, &[bump]];
     let seeds = [signer_seeds];
     let cpi_ctx = CpiContext::new_with_signer(
         ctx.accounts.router_program.to_account_info(),

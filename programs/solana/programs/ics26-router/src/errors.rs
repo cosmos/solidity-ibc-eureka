@@ -86,6 +86,9 @@ pub enum RouterError {
 
     #[msg("Client is frozen")]
     ClientFrozen,
+
+    #[msg("App program must be executable")]
+    AppProgramNotExecutable,
 }
 
 /// Convert CPI validation errors to Router errors

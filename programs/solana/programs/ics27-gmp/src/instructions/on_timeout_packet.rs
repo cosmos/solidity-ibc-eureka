@@ -1,4 +1,3 @@
-use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPCallTimeout;
 use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
@@ -10,7 +9,7 @@ use anchor_lang::prelude::*;
 pub struct OnTimeoutPacket<'info> {
     /// App state account - validated by Anchor PDA constraints
     #[account(
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -142,7 +141,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
@@ -172,11 +171,10 @@ mod tests {
 
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
-        let port_id = "gmpport".to_string();
         let (result_pda, _) = derive_result_pda();
 
         let (_correct_app_state_pda, _correct_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, port_id.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         // Use wrong PDA
         let wrong_app_state_pda = Pubkey::new_unique();
@@ -236,7 +234,7 @@ mod tests {
 
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
@@ -262,7 +260,7 @@ mod tests {
 
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
@@ -290,7 +288,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let mut instruction = create_timeout_instruction(app_state_pda, result_pda, payer);
@@ -326,7 +324,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         // Create msg with empty payload value (invalid packet data)
@@ -386,7 +384,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let packet_data = create_gmp_packet_data(
@@ -460,7 +458,7 @@ mod tests {
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
         let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
@@ -593,8 +591,7 @@ mod integration_tests {
     const TEST_SEQUENCE: u64 = 1;
 
     fn build_timeout_packet_ix(payer: Pubkey) -> Instruction {
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = GMPCallResult::pda(TEST_SOURCE_CLIENT, TEST_SEQUENCE, &crate::ID);
 
         let msg = solana_ibc_types::OnTimeoutPacketMsg {

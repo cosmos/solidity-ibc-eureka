@@ -524,7 +524,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 
 func (s *IbcEurekaSolanaTestSuite) setupTestApp(ctx context.Context) {
 	s.Require().True(s.Run("Initialize Test IBC App", func() {
-		appStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		appStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		initInstruction, err := test_ibc_app.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(),
@@ -604,7 +604,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -644,6 +644,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 		}
 
 		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
 			packetMsg,
 			appState,
@@ -655,6 +656,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			client,
 			ics07_tendermint.ProgramID,
 			lightClientStatePDA,
+			consensusStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -781,7 +783,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 
 		var appState, routerState, ibcApp, client, clientSequence, packetCommitment, escrow, escrowState solanago.PublicKey
 		s.Require().True(s.Run("Prepare accounts", func() {
-			appState, _ = solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+			appState, _ = solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
@@ -826,6 +828,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 		}
 
 		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
 		sendTransferInstruction, err := test_ibc_app.NewSendTransferInstruction(
 			transferMsg,
 			appState,
@@ -839,6 +842,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			client,
 			ics07_tendermint.ProgramID,
 			lightClientStatePDA,
+			consensusStatePDA,
 			ics26_router.ProgramID,
 			solanago.SystemProgramID,
 		)
@@ -1053,7 +1057,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 
 	s.Require().True(s.Run("Verify packet received on Solana", func() {
 		// Check that the dummy app state was updated
-		testAppStateAccount, _ := solana.TestIbcApp.AppStateTransferPDA(s.TestAppProgramID)
+		testAppStateAccount, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		// Use confirmed commitment to match relay transaction confirmation level
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, testAppStateAccount, &rpc.GetAccountInfoOpts{
@@ -1672,6 +1676,27 @@ func (s *IbcEurekaSolanaTestSuite) Test_TendermintSubmitMisbehaviour_DoubleSign(
 }
 
 // Helpers
+
+// deriveIcs07ConsensusStatePDA fetches the client state to get the latest revision height,
+// then derives the consensus state PDA for the ics07-tendermint light client.
+func (s *IbcEurekaSolanaTestSuite) deriveIcs07ConsensusStatePDA(ctx context.Context, clientStatePDA solanago.PublicKey) solanago.PublicKey {
+	accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	s.Require().NoError(err)
+
+	clientState, err := ics07_tendermint.ParseAccount_Ics07TendermintTypesClientState(accountInfo.Value.Data.GetBinary())
+	s.Require().NoError(err)
+
+	revisionHeightBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(revisionHeightBytes, clientState.LatestHeight.RevisionHeight)
+
+	consensusStatePDA, _ := solana.Ics07Tendermint.ConsensusStateWithArgSeedPDA(
+		ics07_tendermint.ProgramID,
+		revisionHeightBytes,
+	)
+	return consensusStatePDA
+}
 
 func getSolDenomOnCosmos() transfertypes.Denom {
 	return transfertypes.NewDenom(SolDenom, transfertypes.NewHop("transfer", CosmosClientID))

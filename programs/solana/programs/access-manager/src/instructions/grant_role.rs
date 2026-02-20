@@ -6,6 +6,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
 
 #[derive(Accounts)]
+#[instruction(role_id: u64, account: Pubkey)]
 pub struct GrantRole<'info> {
     #[account(
         mut,

@@ -14,7 +14,6 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	chainIdParam string,
 	clientStateParam Ics07TendermintTypesClientState,
 	consensusStateParam Ics07TendermintTypesConsensusState,
 	accessManagerParam solanago.PublicKey,
@@ -35,11 +34,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `clientStateParam`:
 		err = enc__.Encode(clientStateParam)
 		if err != nil {
@@ -277,6 +271,7 @@ func NewAssembleAndUpdateClientInstruction(
 	// Params:
 	targetHeightParam uint64,
 	chunkCountParam uint8,
+	trustedHeightParam uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -306,6 +301,11 @@ func NewAssembleAndUpdateClientInstruction(
 		err = enc__.Encode(chunkCountParam)
 		if err != nil {
 			return nil, errors.NewField("chunkCountParam", err)
+		}
+		// Serialize `trustedHeightParam`:
+		err = enc__.Encode(trustedHeightParam)
+		if err != nil {
+			return nil, errors.NewField("trustedHeightParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -584,6 +584,7 @@ func NewPreVerifySignatureInstruction(
 // Builds a "client_status" instruction.
 func NewClientStatusInstruction(
 	clientStateAccount solanago.PublicKey,
+	consensusStateAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -599,6 +600,8 @@ func NewClientStatusInstruction(
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
+		// Account 1 "consensus_state": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
 	// Create the instruction.

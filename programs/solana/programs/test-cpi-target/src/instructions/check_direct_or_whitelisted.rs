@@ -2,6 +2,7 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::require_direct_call_or_whitelisted_caller;
 
 #[derive(Accounts)]
+#[instruction(whitelisted_programs: Vec<Pubkey>)]
 pub struct CheckDirectOrWhitelisted<'info> {
     /// CHECK: Validated inside the CPI validation functions
     pub instruction_sysvar: AccountInfo<'info>,

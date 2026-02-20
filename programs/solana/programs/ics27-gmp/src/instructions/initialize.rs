@@ -5,12 +5,13 @@ use anchor_lang::prelude::*;
 
 /// Initialize the ICS27 GMP application
 #[derive(Accounts)]
+#[instruction(access_manager: Pubkey)]
 pub struct Initialize<'info> {
     #[account(
         init,
         payer = payer,
         space = 8 + GMPAppState::INIT_SPACE,
-        seeds = [GMPAppState::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [GMPAppState::SEED],
         bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -78,8 +79,7 @@ mod tests {
     fn test_initialize_success() {
         let payer = Pubkey::new_unique();
 
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction = create_initialize_instruction(app_state_pda, payer);
 
@@ -118,8 +118,7 @@ mod tests {
     fn test_initialize_cannot_reinitialize() {
         let payer = Pubkey::new_unique();
 
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[GMPAppState::SEED, GMP_PORT_ID.as_bytes()], &crate::ID);
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
 
         let instruction = create_initialize_instruction(app_state_pda, payer);
 

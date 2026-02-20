@@ -3,6 +3,7 @@ use crate::types::AppState;
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
+#[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
     #[account(
         mut,
@@ -86,7 +87,6 @@ mod tests {
 
         let app_state = AppState {
             access_manager,
-            chain_id: String::new(),
             _reserved: [0; 256],
         };
 

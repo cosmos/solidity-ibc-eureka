@@ -38,9 +38,14 @@ pub mod ics27_gmp {
         instructions::initialize(ctx, access_manager)
     }
 
-    /// Send a GMP call packet
+    /// Send a GMP call packet (direct wallet call only)
     pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         instructions::send_call(ctx, msg)
+    }
+
+    /// Send a GMP call packet via CPI (program callers only)
+    pub fn send_call_cpi(ctx: Context<SendCallCpi>, msg: SendCallMsg) -> Result<u64> {
+        instructions::send_call_cpi(ctx, msg)
     }
 
     /// IBC packet receive handler (called by router via CPI)

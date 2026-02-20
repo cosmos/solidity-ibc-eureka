@@ -50,11 +50,16 @@ pub struct SendPacket<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    /// CHECK: Light client program, validated against client registry
+    /// CHECK: Validated against client registry
+    #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Client state account, owned by light client program
+    /// CHECK: Ownership validated against light client program
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
+
+    /// CHECK: Consensus state account, owned by light client program (for expiry check)
+    pub consensus_state: AccountInfo<'info>,
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
@@ -63,10 +68,12 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let status = light_client_cpi.client_status(
         &ctx.accounts.light_client_program,
         &ctx.accounts.client_state,
+        &ctx.accounts.consensus_state,
     )?;
-    require!(
-        status == ics25_handler::client_status::ACTIVE,
-        RouterError::ClientFrozen
+    require_eq!(
+        status,
+        ics25_handler::ClientStatus::Active,
+        RouterError::ClientNotActive
     );
 
     let ibc_app = &ctx.accounts.ibc_app;
@@ -75,10 +82,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    let (expected_app_signer, _) = Pubkey::find_program_address(
-        &[IBCAppState::SEED, ibc_app.port_id.as_bytes()],
-        &ibc_app.app_program_id,
-    );
+    let (expected_app_signer, _) =
+        Pubkey::find_program_address(&[IBCAppState::SEED], &ibc_app.app_program_id);
     require!(
         ctx.accounts.app_signer.key() == expected_app_signer,
         RouterError::UnauthorizedSender
@@ -231,7 +236,7 @@ mod tests {
         counterparty_client_id: &str,
         active_client: bool,
         initial_sequence: u64,
-    ) -> (ProgramTest, Pubkey) {
+    ) -> (ProgramTest, Pubkey, Pubkey) {
         if std::env::var("SBF_OUT_DIR").is_err() {
             let deploy_dir = std::path::Path::new("../../target/deploy");
             std::env::set_var("SBF_OUT_DIR", deploy_dir);
@@ -325,7 +330,7 @@ mod tests {
 
         // Pre-create TestIbcAppState PDA (the app_signer for CPI)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {
@@ -360,6 +365,19 @@ mod tests {
             },
         );
 
+        // Pre-create a mock consensus state account (owned by mock light client)
+        let mock_consensus_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_consensus_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
         // Override the clock sysvar so tests have a deterministic timestamp
         let clock = solana_sdk::clock::Clock {
             slot: 1,
@@ -381,7 +399,7 @@ mod tests {
             },
         );
 
-        (pt, mock_client_state)
+        (pt, mock_client_state, mock_consensus_state)
     }
 
     /// Build a `test_ibc_app::send_packet` instruction that will CPI into the router.
@@ -391,9 +409,10 @@ mod tests {
         timeout_timestamp: i64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
     ) -> Instruction {
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
@@ -434,6 +453,7 @@ mod tests {
                 AccountMeta::new_readonly(client_pda, false), // client
                 AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false), // light_client_program
                 AccountMeta::new_readonly(mock_client_state, false), // client_state
+                AccountMeta::new_readonly(mock_consensus_state, false), // consensus_state
                 AccountMeta::new_readonly(crate::ID, false), // router_program
                 AccountMeta::new_readonly(system_program::ID, false), // system_program
             ],
@@ -450,6 +470,7 @@ mod tests {
         timeout_timestamp: i64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
     ) -> (Instruction, Pubkey) {
         let namespaced_sequence = sequence::calculate_namespaced_sequence(
             initial_sequence,
@@ -473,6 +494,7 @@ mod tests {
             timeout_timestamp,
             packet_data,
             mock_client_state,
+            mock_consensus_state,
         );
 
         // Replace the placeholder packet_commitment account
@@ -499,7 +521,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_packet_success() {
         let initial_sequence = 1u64;
-        let (pt, mock_client_state) = setup_send_packet_program_test(
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             true,
@@ -515,6 +537,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
@@ -576,7 +599,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_packet_client_not_active() {
-        let (pt, mock_client_state) = setup_send_packet_program_test(
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             false, // inactive client
@@ -592,6 +615,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
@@ -607,7 +631,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_packet_invalid_timeout() {
-        let (pt, mock_client_state) =
+        let (pt, mock_client_state, mock_consensus_state) =
             setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true, 1);
 
         let (banks_client, payer, recent_blockhash) = pt.start().await;
@@ -621,6 +645,7 @@ mod tests {
             1, // Past timestamp
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
@@ -638,7 +663,7 @@ mod tests {
     #[tokio::test]
     async fn test_send_packet_sequence_increment() {
         let initial_sequence = 5u64;
-        let (pt, mock_client_state) = setup_send_packet_program_test(
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             true,
@@ -654,6 +679,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
@@ -696,7 +722,7 @@ mod tests {
         let client_id_2 = "test-client-2";
 
         // Set up the ProgramTest with client_id_1
-        let (mut pt, mock_client_state) =
+        let (mut pt, mock_client_state, mock_consensus_state) =
             setup_send_packet_program_test(client_id_1, "counterparty-client-1", true, 10);
 
         // Also add client_id_2 accounts
@@ -738,6 +764,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data 1",
             mock_client_state,
+            mock_consensus_state,
         );
         let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
         assert!(
@@ -768,6 +795,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data 2",
             mock_client_state,
+            mock_consensus_state,
         );
         let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
         assert!(
@@ -794,7 +822,7 @@ mod tests {
         // Test that sending a packet with the same sequence fails because
         // the packet_commitment account already exists.
         let initial_sequence = 1u64;
-        let (pt, mock_client_state) = setup_send_packet_program_test(
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
             TEST_CLIENT_ID,
             COUNTERPARTY_CLIENT_ID,
             true,
@@ -811,6 +839,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
         let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
         assert!(
@@ -941,7 +970,7 @@ mod tests {
 
         // TestIbcAppState PDA (signed by test_ibc_app, but router expects PDA from wrong_program_id)
         let (app_state_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::IBCAppState::SEED, TEST_PORT.as_bytes()],
+            &[solana_ibc_types::IBCAppState::SEED],
             &TEST_IBC_APP_PROGRAM_ID,
         );
         let app_state = test_ibc_app::state::TestIbcAppState {
@@ -967,6 +996,19 @@ mod tests {
         let mock_client_state = Pubkey::new_unique();
         pt.add_account(
             mock_client_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: MOCK_LIGHT_CLIENT_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Mock consensus state
+        let mock_consensus_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_consensus_state,
             solana_sdk::account::Account {
                 lamports: 1_000_000,
                 data: vec![0u8; 64],
@@ -1006,6 +1048,7 @@ mod tests {
             TEST_TIMEOUT,
             b"test data",
             mock_client_state,
+            mock_consensus_state,
         );
 
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
@@ -1014,6 +1057,207 @@ mod tests {
         assert_eq!(
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_light_client_program() {
+        let initial_sequence = 1u64;
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (mut ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        // Replace light_client_program (index 7) with a wrong pubkey.
+        // The Client PDA stores client_program_id = MOCK_LIGHT_CLIENT_ID,
+        // so any other key triggers the address constraint.
+        let wrong_program = Pubkey::new_unique();
+        ix.accounts[7] = AccountMeta::new_readonly(wrong_program, false);
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_client_state_owner() {
+        if std::env::var("SBF_OUT_DIR").is_err() {
+            let deploy_dir = std::path::Path::new("../../target/deploy");
+            std::env::set_var("SBF_OUT_DIR", deploy_dir);
+        }
+
+        let mut pt = ProgramTest::new("ics26_router", crate::ID, None);
+        pt.add_program("mock_light_client", MOCK_LIGHT_CLIENT_ID, None);
+        pt.add_program("access_manager", access_manager::ID, None);
+        pt.add_program("test_ibc_app", TEST_IBC_APP_PROGRAM_ID, None);
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        pt.add_account(
+            router_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: router_state_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (access_manager_pda, _) =
+            solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+        let am = access_manager::state::AccessManager {
+            roles: vec![access_manager::RoleData {
+                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                members: vec![Pubkey::new_unique()],
+            }],
+            whitelisted_programs: vec![],
+        };
+        let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
+        am.serialize(&mut am_data).unwrap();
+        pt.add_account(
+            access_manager_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: am_data,
+                owner: access_manager::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (client_pda, client_data) = setup_client(
+            TEST_CLIENT_ID,
+            MOCK_LIGHT_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+        );
+        pt.add_account(
+            client_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (client_seq_pda, client_seq_data) = setup_client_sequence(TEST_CLIENT_ID, 1);
+        pt.add_account(
+            client_seq_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: client_seq_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (ibc_app_pda, ibc_app_data) = setup_ibc_app(TEST_PORT, TEST_IBC_APP_PROGRAM_ID);
+        pt.add_account(
+            ibc_app_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: ibc_app_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED],
+            &TEST_IBC_APP_PROGRAM_ID,
+        );
+        let app_state = test_ibc_app::state::TestIbcAppState {
+            authority: Pubkey::new_unique(),
+            packets_received: 0,
+            packets_acknowledged: 0,
+            packets_timed_out: 0,
+            packets_sent: 0,
+        };
+        let app_state_data = create_account_data(&app_state);
+        pt.add_account(
+            app_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: app_state_data,
+                owner: TEST_IBC_APP_PROGRAM_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Client state owned by the WRONG program (system_program instead of mock_light_client)
+        let mock_client_state = Pubkey::new_unique();
+        pt.add_account(
+            mock_client_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let clock = solana_sdk::clock::Clock {
+            slot: 1,
+            epoch_start_timestamp: TEST_CLOCK_TIME,
+            epoch: 0,
+            leader_schedule_epoch: 0,
+            unix_timestamp: TEST_CLOCK_TIME,
+        };
+        let mut clock_data = vec![0u8; solana_sdk::clock::Clock::size_of()];
+        bincode::serialize_into(&mut clock_data[..], &clock).unwrap();
+        pt.add_account(
+            solana_sdk::sysvar::clock::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: clock_data,
+                owner: solana_sdk::sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            1,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            Pubkey::new_unique(),
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32),
         );
     }
 }
