@@ -30,8 +30,9 @@ pub struct SendPacket<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    /// Packet commitment account - manually created with runtime-calculated sequence
-    /// CHECK: Manually validated and created in instruction handler
+    /// CHECK: PDA seed includes a namespaced sequence derived from on-chain
+    /// `client_sequence` state at runtime, so Anchor's static `seeds` constraint
+    /// cannot express it. Validated and created manually in the handler.
     #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
 
