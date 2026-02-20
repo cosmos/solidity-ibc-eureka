@@ -68,6 +68,8 @@ pub enum RouterError {
     UnsupportedVersion,
     #[msg("Invalid migration params: at least one field must be updated")]
     InvalidMigrationParams,
+    #[msg("Port identifier mismatch")]
+    PortIdentifierMismatch,
 
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,

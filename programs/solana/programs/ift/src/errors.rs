@@ -94,8 +94,8 @@ pub enum IFTError {
     #[msg("Daily mint rate limit exceeded")]
     MintRateLimitExceeded,
 
-    #[msg("Token is paused")]
-    TokenPaused,
+    #[msg("App is paused")]
+    AppPaused,
 
     #[msg("Unauthorized: signer is not the admin")]
     UnauthorizedAdmin,

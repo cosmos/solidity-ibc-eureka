@@ -22,7 +22,7 @@ pub struct IFTTransfer<'info> {
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -555,7 +555,7 @@ mod tests {
         TimeoutInPast,
         TimeoutTooLong,
         ReceiverTooLong,
-        TokenPaused,
+        AppPaused,
         InvalidGmpProgram,
         TimeoutAtExactCurrent,
         TimeoutOneOverMax,
@@ -645,9 +645,9 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidReceiver as u32,
                     ..default
                 },
-                TransferErrorCase::TokenPaused => Self {
+                TransferErrorCase::AppPaused => Self {
                     token_paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 TransferErrorCase::InvalidGmpProgram => Self {
@@ -832,7 +832,7 @@ mod tests {
     #[case::timeout_in_past(TransferErrorCase::TimeoutInPast)]
     #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
     #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
-    #[case::token_paused(TransferErrorCase::TokenPaused)]
+    #[case::app_paused(TransferErrorCase::AppPaused)]
     #[case::invalid_gmp_program(TransferErrorCase::InvalidGmpProgram)]
     #[case::timeout_at_exact_current(TransferErrorCase::TimeoutAtExactCurrent)]
     #[case::timeout_one_over_max(TransferErrorCase::TimeoutOneOverMax)]
