@@ -4,7 +4,6 @@ use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
 use crate::types::{AppState, ClientState, ConsensusState, UpdateResult};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
@@ -40,12 +39,14 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub trusted_consensus_state: Account<'info, ConsensusStateStore>,
 
-    /// CHECK: May not exist yet; PDA seeds validated by Anchor constraint.
     #[account(
+        init_if_needed,
+        payer = submitter,
+        space = 8 + ConsensusStateStore::INIT_SPACE,
         seeds = [ConsensusStateStore::SEED, &target_height.to_le_bytes()],
         bump
     )]
-    pub new_consensus_state_store: UncheckedAccount<'info>,
+    pub new_consensus_state_store: Account<'info, ConsensusStateStore>,
 
     /// The submitter who uploaded the chunks
     #[account(mut)]
@@ -186,10 +187,7 @@ fn process_header_update<'info>(
     );
 
     let result = store_consensus_state(StoreConsensusStateParams {
-        account: &ctx.accounts.new_consensus_state_store,
-        submitter: &ctx.accounts.submitter,
-        system_program: &ctx.accounts.system_program,
-        bump: ctx.bumps.new_consensus_state_store,
+        account: &mut ctx.accounts.new_consensus_state_store,
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
@@ -237,10 +235,7 @@ fn verify_and_update_header<'info>(
 }
 
 struct StoreConsensusStateParams<'a, 'info> {
-    account: &'a UncheckedAccount<'info>,
-    submitter: &'a Signer<'info>,
-    system_program: &'a Program<'info, System>,
-    bump: u8,
+    account: &'a mut Account<'info, ConsensusStateStore>,
     height: u64,
     new_consensus_state: &'a ConsensusState,
     trusted_consensus_state: &'a ConsensusState,
@@ -248,56 +243,21 @@ struct StoreConsensusStateParams<'a, 'info> {
 }
 
 fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
-    // Check if account exists
-    if params.account.lamports() > 0 {
-        // Account exists - check for conflicts
-        let account_data = params.account.try_borrow_data()?;
-        if !account_data.is_empty() {
-            let existing: ConsensusStateStore =
-                ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
+    if !params.account.is_uninitialized() {
+        let state_mismatch = params.account.consensus_state != *params.new_consensus_state;
+        let timestamp_not_increasing =
+            params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
 
-            let state_mismatch = existing.consensus_state != *params.new_consensus_state;
-            let timestamp_not_increasing =
-                params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
-
-            if state_mismatch || timestamp_not_increasing {
-                params.client_state.freeze();
-                return Ok(UpdateResult::Misbehaviour);
-            }
-
-            return Ok(UpdateResult::NoOp);
+        if state_mismatch || timestamp_not_increasing {
+            params.client_state.freeze();
+            return Ok(UpdateResult::Misbehaviour);
         }
+
+        return Ok(UpdateResult::NoOp);
     }
 
-    // Create new account
-    let space = 8 + ConsensusStateStore::INIT_SPACE;
-    let rent = Rent::get()?.minimum_balance(space);
-
-    let seeds_with_bump = [
-        crate::state::ConsensusStateStore::SEED,
-        &params.height.to_le_bytes(),
-        &[params.bump],
-    ];
-
-    let cpi_accounts = system_program::CreateAccount {
-        from: params.submitter.to_account_info(),
-        to: params.account.to_account_info(),
-    };
-    let cpi_program = params.system_program.to_account_info();
-    let signer = &[&seeds_with_bump[..]];
-    let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-
-    system_program::create_account(cpi_ctx, rent, space as u64, &crate::ID)?;
-
-    // Serialize the new consensus state
-    let new_store = ConsensusStateStore {
-        height: params.height,
-        consensus_state: params.new_consensus_state.clone(),
-    };
-
-    let mut data = params.account.try_borrow_mut_data()?;
-    let mut cursor = std::io::Cursor::new(&mut data[..]);
-    new_store.try_serialize(&mut cursor)?;
+    params.account.height = params.height;
+    params.account.consensus_state = params.new_consensus_state.clone();
 
     Ok(UpdateResult::UpdateSuccess)
 }
