@@ -163,7 +163,7 @@ impl super::SolanaTxBuilder {
         )?;
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(payload_info.dest_port, ibc_app_program_id);
+        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
 
@@ -240,7 +240,7 @@ impl super::SolanaTxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
         let ibc_app_program = ibc_app.app_program_id;
 
-        let (app_state, _) = IBCAppState::pda(source_port, ibc_app_program);
+        let (app_state, _) = IBCAppState::pda(ibc_app_program);
         let (packet_commitment, _) = Commitment::packet_commitment_pda(
             &msg.packet.source_client,
             msg.packet.sequence,
@@ -314,7 +314,7 @@ impl super::SolanaTxBuilder {
         );
 
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(source_port, ibc_app_program_id);
+        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
         let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
@@ -393,6 +393,10 @@ impl super::SolanaTxBuilder {
             chunk_data,
         };
 
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
         let (chunk_pda, _) = PayloadChunk::pda(
             self.fee_payer,
             client_id,
@@ -403,9 +407,12 @@ impl super::SolanaTxBuilder {
         );
 
         let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
         let mut data = router_instructions::upload_payload_chunk_discriminator().to_vec();
@@ -433,6 +440,10 @@ impl super::SolanaTxBuilder {
             chunk_data,
         };
 
+        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
+        let access_manager_program_id = self.resolve_access_manager_program_id()?;
+        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+
         let (chunk_pda, _) = ProofChunk::pda(
             self.fee_payer,
             client_id,
@@ -442,9 +453,12 @@ impl super::SolanaTxBuilder {
         );
 
         let accounts = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(access_manager, false),
             AccountMeta::new(chunk_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
         let mut data = router_instructions::upload_proof_chunk_discriminator().to_vec();
@@ -842,7 +856,7 @@ impl super::SolanaTxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda: Vec::new(),
-            ift_claim_refund_tx: vec![],
+            ift_finalize_transfer_tx: vec![],
         })
     }
 
@@ -909,7 +923,7 @@ impl super::SolanaTxBuilder {
             msg.packet.sequence,
         )?;
 
-        let ift_claim_refund_tx = self
+        let ift_finalize_transfer_tx = self
             .build_ift_claim_refund_tx(
                 &msg.payloads,
                 payload_data,
@@ -925,7 +939,7 @@ impl super::SolanaTxBuilder {
             alt_create_tx,
             alt_extend_txs,
             gmp_result_pda,
-            ift_claim_refund_tx,
+            ift_finalize_transfer_tx,
         })
     }
 
@@ -973,7 +987,7 @@ impl super::SolanaTxBuilder {
             msg.packet.sequence,
         )?;
 
-        let ift_claim_refund_tx = self
+        let ift_finalize_transfer_tx = self
             .build_ift_claim_refund_tx(
                 &msg.payloads,
                 payload_data,
@@ -989,7 +1003,7 @@ impl super::SolanaTxBuilder {
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
             gmp_result_pda,
-            ift_claim_refund_tx,
+            ift_finalize_transfer_tx,
         })
     }
 }

@@ -79,6 +79,7 @@ type EthereumSolanaIFTTestSuite struct {
 
 	IFTMintWallet      *solanago.Wallet
 	IFTAppState        solanago.PublicKey
+	IFTAppMintState    solanago.PublicKey
 	IFTMintAuthority   solanago.PublicKey
 	IFTBridge          solanago.PublicKey
 	SenderTokenAccount solanago.PublicKey
@@ -273,7 +274,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize ICS27 GMP", func() {
-		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
 			access_manager.ProgramID, gmpAppStatePDA,
 			s.SolanaRelayer.PublicKey(), solanago.SystemProgramID,
@@ -305,7 +306,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}))
 
-	s.GMPAppStatePDA, _ = solana.Ics27Gmp.AppStateGmpportPDA(ics27_gmp.ProgramID)
+	s.GMPAppStatePDA, _ = solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 	s.RouterStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(ethSolGMPPortID))
@@ -541,23 +542,47 @@ func (s *EthereumSolanaIFTTestSuite) initializeAttestationLightClientOnSolana(ct
 
 func (s *EthereumSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mintWallet *solanago.Wallet) {
 	mint := mintWallet.PublicKey()
-	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID, mint[:])
+	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID)
+	appMintStatePDA, _ := solana.Ift.IftAppMintStatePDA(ift.ProgramID, mint[:])
 	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mint[:])
 
 	s.IFTAppState = appStatePDA
+	s.IFTAppMintState = appMintStatePDA
 	s.IFTMintAuthority = mintAuthorityPDA
 
-	initIx, err := ift.NewCreateSplTokenInstruction(
-		EthSolanaIFTTokenDecimals,
+	// Initialize global app state (idempotent - will fail silently if already initialized)
+	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(), // admin
-		ics27_gmp.ProgramID,
-		appStatePDA, mint, mintAuthorityPDA,
+		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
-		token.ProgramID, solanago.SystemProgramID,
+		solanago.SystemProgramID,
 	)
 	s.Require().NoError(err)
 
-	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initIx)
+	globalInitTx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), globalInitIx)
+	s.Require().NoError(err)
+	// Ignore error - may already be initialized
+	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+
+	createTokenParams := &ift.IftStateCreateTokenParams_SplToken{
+		Decimals: EthSolanaIFTTokenDecimals,
+	}
+
+	createTokenIx, err := ift.NewCreateAndInitializeSplTokenInstruction(
+		createTokenParams,
+		appStatePDA,
+		appMintStatePDA,
+		mint,
+		mintAuthorityPDA,
+		s.SolanaRelayer.PublicKey(),
+		s.SolanaRelayer.PublicKey(),
+		token.ProgramID,
+		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
+	)
+	s.Require().NoError(err)
+
+	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), createTokenIx)
 	s.Require().NoError(err)
 
 	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, mintWallet)
@@ -577,10 +602,11 @@ func (s *EthereumSolanaIFTTestSuite) registerSolanaIFTBridgeForEVM(ctx context.C
 	}
 
 	registerIx, err := ift.NewRegisterIftBridgeInstruction(
-		registerMsg, s.IFTAppState, bridgePDA,
+		registerMsg, s.IFTAppState, s.IFTAppMintState, bridgePDA,
 		s.SolanaRelayer.PublicKey(), // admin
 		s.SolanaRelayer.PublicKey(), // payer
 		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
 	)
 	s.Require().NoError(err)
 
@@ -743,12 +769,16 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 			TimeoutTimestamp: solanaClockTime + 900,
 		}
 
+		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+		consensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
+
 		transferIx, err := ift.NewIftTransferInstruction(
-			transferMsg, s.IFTAppState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
+			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
-			solanago.SysVarInstructionsPubkey, s.GMPIBCAppPDA, s.IBCClientPDA, pendingTransferPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
+			attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
 		)
 		s.Require().NoError(err)
 
@@ -811,4 +841,23 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
 			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, solanaToEthSequence)
 	}))
+}
+
+func (s *EthereumSolanaIFTTestSuite) deriveAttestationConsensusStatePDA(ctx context.Context, clientStatePDA solanago.PublicKey) solanago.PublicKey {
+	accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientStatePDA, &rpc.GetAccountInfoOpts{
+		Commitment: rpc.CommitmentConfirmed,
+	})
+	s.Require().NoError(err)
+
+	clientState, err := attestation.ParseAccount_AttestationTypesClientState(accountInfo.Value.Data.GetBinary())
+	s.Require().NoError(err)
+
+	heightBytes := make([]byte, 8)
+	binary.LittleEndian.PutUint64(heightBytes, clientState.LatestHeight)
+
+	consensusStatePDA, _ := solana.Attestation.ConsensusStateWithArgSeedPDA(
+		attestation.ProgramID,
+		heightBytes,
+	)
+	return consensusStatePDA
 }

@@ -25,6 +25,8 @@ use crate::tx_builder::payload_translator::{AbiGmpPacketData, ABI_ENCODING};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
+const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
+const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";
 const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
@@ -38,9 +40,9 @@ static PENDING_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
 
-static CLAIM_REFUND_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
+static FINALIZE_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
     let mut hasher = Sha256::new();
-    hasher.update(b"global:claim_refund");
+    hasher.update(b"global:finalize_transfer");
     let result = hasher.finalize();
     result[..8].try_into().expect("sha256 produces 32 bytes")
 });
@@ -139,7 +141,7 @@ pub fn build_claim_refund_instruction(params: &ClaimRefundParams<'_>) -> Option<
         "IFT: Building claim_refund instruction"
     );
 
-    Some(build_claim_refund_ix(
+    Some(build_finalize_transfer_ix(
         ift_program_id,
         params.gmp_program_id,
         &pending_transfer,
@@ -185,7 +187,7 @@ fn find_pending_transfer(
     Ok(None)
 }
 
-fn build_claim_refund_ix(
+fn build_finalize_transfer_ix(
     ift_program_id: Pubkey,
     gmp_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
@@ -196,8 +198,15 @@ fn build_claim_refund_ix(
     let mint = pending_transfer.mint;
 
     // Derive PDAs
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
+    let (app_state_pda, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+
+    let (app_mint_state_pda, _) =
+        Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
+
+    let (ift_bridge_pda, _) = Pubkey::find_program_address(
+        &[IFT_BRIDGE_SEED, mint.as_ref(), client_id.as_bytes()],
+        &ift_program_id,
+    );
 
     let (pending_transfer_pda, _) = Pubkey::find_program_address(
         &[
@@ -224,9 +233,11 @@ fn build_claim_refund_ix(
 
     let sender_token_account = get_associated_token_address(&pending_transfer.sender, &mint);
 
-    // Account order must match IFT's ClaimRefund struct
+    // Account order must match IFT's FinalizeTransfer struct
     let accounts = vec![
-        AccountMeta::new(app_state_pda, false),
+        AccountMeta::new_readonly(app_state_pda, false),
+        AccountMeta::new(app_mint_state_pda, false),
+        AccountMeta::new_readonly(ift_bridge_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
         AccountMeta::new_readonly(gmp_result_pda, false),
         AccountMeta::new(mint, false),
@@ -235,10 +246,11 @@ fn build_claim_refund_ix(
         AccountMeta::new(fee_payer, true),
         AccountMeta::new_readonly(spl_token::id(), false),
         AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
     ];
 
     // Build instruction data: discriminator + client_id (string) + sequence (u64)
-    let mut data = CLAIM_REFUND_DISCRIMINATOR.to_vec();
+    let mut data = FINALIZE_TRANSFER_DISCRIMINATOR.to_vec();
     // Anchor serializes String as length-prefixed (u32 + bytes)
     let client_id_bytes = client_id.as_bytes();
     let client_id_len = u32::try_from(client_id_bytes.len()).expect("client_id length fits in u32");

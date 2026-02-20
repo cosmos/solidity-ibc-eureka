@@ -17,6 +17,7 @@ use crate::proto::{GmpSolanaPayload, SolanaAccountMeta};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
+const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
 const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
@@ -93,8 +94,10 @@ pub fn build_ift_mint_gmp_payload(
     let ift_program_id = params.ift_program_id;
 
     // Derive PDAs
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
+    let (app_state_pda, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+
+    let (app_mint_state_pda, _) =
+        Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
 
     let (ift_bridge_pda, _) = Pubkey::find_program_address(
         &[
@@ -148,13 +151,13 @@ pub fn build_ift_mint_gmp_payload(
 
     // Build accounts matching IFTMint struct order in ift_mint.rs,
     // EXCLUDING the payer (which on_recv_packet injects via payer_position):
-    // 0: app_state (writable)
-    // 1: ift_bridge (readonly)
-    // 2: mint (writable)
-    // 3: mint_authority (readonly)
-    // 4: receiver_token_account (writable)
-    // 5: receiver_owner (readonly)
-    // 6: gmp_program (readonly)
+    // 0: app_state (readonly)
+    // 1: app_mint_state (writable)
+    // 2: ift_bridge (readonly)
+    // 3: mint (writable)
+    // 4: mint_authority (readonly)
+    // 5: receiver_token_account (writable)
+    // 6: receiver_owner (readonly)
     // 7: gmp_account (signer via CPI)
     // -- payer injected here by on_recv_packet --
     // 8: token_program (readonly)
@@ -163,6 +166,11 @@ pub fn build_ift_mint_gmp_payload(
     let accounts = vec![
         SolanaAccountMeta {
             pubkey: app_state_pda,
+            is_signer: false,
+            is_writable: false,
+        },
+        SolanaAccountMeta {
+            pubkey: app_mint_state_pda,
             is_signer: false,
             is_writable: true,
         },
@@ -188,11 +196,6 @@ pub fn build_ift_mint_gmp_payload(
         },
         SolanaAccountMeta {
             pubkey: decoded.receiver,
-            is_signer: false,
-            is_writable: false,
-        },
-        SolanaAccountMeta {
-            pubkey: params.gmp_program_id,
             is_signer: false,
             is_writable: false,
         },
@@ -267,52 +270,6 @@ fn read_bridge_counterparty_address(
         .context("Failed to deserialize IFTBridge account")?;
 
     Ok(bridge.counterparty_ift_address)
-}
-
-/// Read the mint and gmp_program from the IFTAppState account on-chain.
-pub fn read_app_state(
-    solana_client: &Arc<RpcClient>,
-    ift_program_id: Pubkey,
-    mint: Pubkey,
-) -> Result<IFTAppStateInfo> {
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_STATE_SEED, mint.as_ref()], &ift_program_id);
-
-    let account = solana_client
-        .get_account_with_commitment(&app_state_pda, CommitmentConfig::confirmed())
-        .map_err(|e| anyhow::anyhow!("Failed to fetch IFTAppState account: {e}"))?
-        .value
-        .ok_or_else(|| anyhow::anyhow!("IFTAppState account not found"))?;
-
-    if account.data.len() < ANCHOR_DISCRIMINATOR_SIZE {
-        anyhow::bail!("IFTAppState account data too short");
-    }
-
-    let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-
-    #[derive(AnchorDeserialize)]
-    struct IFTAppStatePartial {
-        _version: u8,
-        _bump: u8,
-        mint: Pubkey,
-        _mint_authority_bump: u8,
-        _admin: Pubkey,
-        gmp_program: Pubkey,
-    }
-
-    let state = IFTAppStatePartial::deserialize(&mut data)
-        .context("Failed to deserialize IFTAppState account")?;
-
-    Ok(IFTAppStateInfo {
-        mint: state.mint,
-        gmp_program: state.gmp_program,
-    })
-}
-
-/// Extracted info from IFTAppState.
-pub struct IFTAppStateInfo {
-    pub mint: Pubkey,
-    pub gmp_program: Pubkey,
 }
 
 #[cfg(test)]
