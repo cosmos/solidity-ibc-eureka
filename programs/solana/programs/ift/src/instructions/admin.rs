@@ -8,7 +8,7 @@ use solana_ibc_types::reject_cpi;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::{AdminMintExecuted, AdminUpdated, MintAuthorityRevoked};
-use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
+use crate::helpers::mint_to_account;
 use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
@@ -217,13 +217,12 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
 
-    check_and_update_mint_rate_limit(&mut ctx.accounts.app_mint_state, msg.amount, &clock)?;
-
     mint_to_account(
+        &mut ctx.accounts.app_mint_state,
+        &clock,
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        ctx.accounts.app_mint_state.mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
