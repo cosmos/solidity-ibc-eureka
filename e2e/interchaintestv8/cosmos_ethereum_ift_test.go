@@ -878,7 +878,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 	tc := s.setupIFTInfrastructure(ctx, s.prover, s.proofType)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
-	invalidCosmosAddr := "invalid-cosmos-address"
+	invalidCosmosAddr := "wf1aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
 		iftContract, err := evmift.NewContract(tc.ethIFTAddress, eth.RPCClient)

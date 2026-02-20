@@ -34,7 +34,8 @@ pub struct AddIbcApp<'info> {
     pub ibc_app: Account<'info, IBCApp>,
 
     /// IBC application program to register for this port.
-    /// CHECK: Unchecked because only used to extract program ID
+    /// CHECK: No concrete type for `Program<'info, T>` since it can be any executable.
+    #[account(constraint = app_program.executable @ RouterError::AppProgramNotExecutable)]
     pub app_program: UncheckedAccount<'info>,
 
     /// Pays for creating the `IBCApp` account.
@@ -130,7 +131,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(ibc_app_pda, 0),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_system_account(authority),
             create_program_account(system_program::ID),
@@ -187,7 +188,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(ibc_app_pda, 0),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_system_account(unauthorized_sender),
             create_program_account(system_program::ID),
@@ -239,7 +240,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(ibc_app_pda, 0),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_system_account(authority),
             create_program_account(system_program::ID),
@@ -291,7 +292,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_account(ibc_app_pda, existing_ibc_app_data, crate::ID),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_system_account(authority),
             create_program_account(system_program::ID),
@@ -346,7 +347,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(ibc_app_pda, 0),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_program_account(system_program::ID),
             fake_sysvar_account,
@@ -403,7 +404,7 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(ibc_app_pda, 0),
-            create_account(app_program, vec![], system_program::ID),
+            create_program_account(app_program),
             create_system_account(payer),
             create_system_account(authority),
             create_program_account(system_program::ID),
@@ -415,6 +416,57 @@ mod tests {
         // When CPI is detected by access_manager::require_role, it returns AccessManagerError::CpiNotAllowed (6005)
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_add_ibc_app_non_executable_program() {
+        let authority = Pubkey::new_unique();
+        let payer = authority;
+        let port_id = "test-port";
+        let app_program = Pubkey::new_unique();
+
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let (access_manager_pda, access_manager_data) =
+            setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
+
+        let instruction_data = crate::instruction::AddIbcApp {
+            port_id: port_id.to_string(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(access_manager_pda, false),
+                AccountMeta::new(ibc_app_pda, false),
+                AccountMeta::new_readonly(app_program, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(authority, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_account(router_state_pda, router_state_data, crate::ID),
+            create_account(access_manager_pda, access_manager_data, access_manager::ID),
+            create_uninitialized_account(ibc_app_pda, 0),
+            create_account(app_program, vec![], system_program::ID),
+            create_system_account(payer),
+            create_system_account(authority),
+            create_program_account(system_program::ID),
+            create_instructions_sysvar_account_with_caller(crate::ID),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::AppProgramNotExecutable as u32,
         ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
@@ -447,7 +499,7 @@ mod integration_tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(ibc_app_pda, false),
-                AccountMeta::new_readonly(Pubkey::new_unique(), false),
+                AccountMeta::new_readonly(access_manager::ID, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(authority, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),

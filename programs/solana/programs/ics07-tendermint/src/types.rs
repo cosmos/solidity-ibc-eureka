@@ -60,9 +60,6 @@ pub struct ClientState {
 pub struct AppState {
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
-    /// Chain ID stored for introspection
-    #[max_len(64)]
-    pub chain_id: String,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -322,7 +319,6 @@ mod compatibility_tests {
     fn test_app_state_serialization_compatibility() {
         let app_state = AppState {
             access_manager: access_manager::ID,
-            chain_id: "test-chain".to_string(),
             _reserved: [0; 256],
         };
 
@@ -332,7 +328,6 @@ mod compatibility_tests {
             AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
 
         assert_eq!(app_state.access_manager, types_app_state.access_manager);
-        assert_eq!(app_state.chain_id, types_app_state.chain_id);
         assert_eq!(app_state._reserved, types_app_state._reserved);
     }
 

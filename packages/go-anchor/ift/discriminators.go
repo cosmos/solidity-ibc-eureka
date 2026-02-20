@@ -32,17 +32,17 @@ var (
 
 // Instruction discriminators
 var (
-	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_CreateSplToken          = [8]byte{206, 61, 13, 166, 215, 118, 38, 2}
-	Instruction_InitializeExistingToken = [8]byte{202, 36, 198, 101, 164, 90, 18, 233}
-	Instruction_RegisterIftBridge       = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
-	Instruction_RemoveIftBridge         = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
-	Instruction_IftTransfer             = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
-	Instruction_IftMint                 = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
-	Instruction_FinalizeTransfer        = [8]byte{124, 126, 103, 188, 144, 65, 135, 51}
-	Instruction_SetAdmin                = [8]byte{251, 163, 0, 52, 91, 194, 187, 92}
-	Instruction_RevokeMintAuthority     = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
-	Instruction_SetMintRateLimit        = [8]byte{130, 207, 16, 33, 36, 175, 200, 83}
-	Instruction_SetPaused               = [8]byte{91, 60, 125, 192, 176, 225, 166, 218}
-	Instruction_AdminMint               = [8]byte{137, 144, 88, 222, 36, 159, 250, 217}
+	Instruction_Initialize                  = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_CreateAndInitializeSplToken = [8]byte{185, 46, 222, 165, 24, 238, 239, 60}
+	Instruction_InitializeExistingToken     = [8]byte{202, 36, 198, 101, 164, 90, 18, 233}
+	Instruction_RegisterIftBridge           = [8]byte{1, 217, 101, 187, 58, 31, 161, 168}
+	Instruction_RemoveIftBridge             = [8]byte{43, 130, 95, 216, 72, 197, 239, 67}
+	Instruction_IftTransfer                 = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
+	Instruction_IftMint                     = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
+	Instruction_FinalizeTransfer            = [8]byte{124, 126, 103, 188, 144, 65, 135, 51}
+	Instruction_SetAdmin                    = [8]byte{251, 163, 0, 52, 91, 194, 187, 92}
+	Instruction_RevokeMintAuthority         = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
+	Instruction_SetMintRateLimit            = [8]byte{130, 207, 16, 33, 36, 175, 200, 83}
+	Instruction_SetPaused                   = [8]byte{91, 60, 125, 192, 176, 225, 166, 218}
+	Instruction_AdminMint                   = [8]byte{137, 144, 88, 222, 36, 159, 250, 217}
 )

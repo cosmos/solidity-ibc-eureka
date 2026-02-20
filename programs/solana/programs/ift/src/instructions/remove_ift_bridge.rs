@@ -39,9 +39,11 @@ pub struct RemoveIFTBridge<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Receives rent refund from the closed bridge account
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required by Anchor for the `close` constraint
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -92,8 +94,7 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
@@ -190,8 +191,7 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
@@ -271,8 +271,7 @@ mod tests {
         let (system_program, system_account) = create_system_program_account();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);
@@ -350,8 +349,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let app_mint_state_account =
             create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump);

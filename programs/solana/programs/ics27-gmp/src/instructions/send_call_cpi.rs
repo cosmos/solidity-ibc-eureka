@@ -70,11 +70,13 @@ pub struct SendCallCpi<'info> {
     pub client: Account<'info, Client>,
 
     /// Light client program used by the router to check client status.
-    /// CHECK: Light client program, forwarded to router
+    /// CHECK: Validated against client registry.
+    #[account(address = client.client_program_id @ GMPError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
     /// Light client's state account, forwarded to the router for status verification.
-    /// CHECK: Client state for status check, forwarded to router
+    /// CHECK: Ownership validated against light client program.
+    #[account(owner = light_client_program.key() @ GMPError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
     /// Instructions sysvar used to enforce single-level CPI and extract the caller program ID.
@@ -156,8 +158,8 @@ mod tests {
             let (client_sequence, _) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
             let packet_commitment = Pubkey::new_unique();
             let (ibc_app, _) = create_ibc_app_pda(GMP_PORT_ID);
-            let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
             let light_client_program = Pubkey::new_unique();
+            let (client, _) = create_client_pda(TEST_SOURCE_CLIENT, light_client_program);
             let client_state = Pubkey::new_unique();
             let consensus_state = Pubkey::new_unique();
             let (app_state_pda, app_state_bump) =
@@ -228,9 +230,9 @@ mod tests {
                 create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
-                create_client_pda(TEST_SOURCE_CLIENT),
+                create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
                 create_authority_account(self.light_client_program),
-                create_authority_account(self.client_state),
+                create_owned_account(self.client_state, self.light_client_program),
                 sysvar_account,
                 create_authority_account(self.consensus_state),
                 create_system_program_account(),
@@ -277,9 +279,9 @@ mod tests {
                 create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
-                create_client_pda(TEST_SOURCE_CLIENT),
+                create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
                 create_authority_account(self.light_client_program),
-                create_authority_account(self.client_state),
+                create_owned_account(self.client_state, self.light_client_program),
                 create_instructions_sysvar_account(),
                 create_authority_account(self.consensus_state),
                 create_system_program_account(),
@@ -326,9 +328,9 @@ mod tests {
                 create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
-                create_client_pda(TEST_SOURCE_CLIENT),
+                create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
                 create_authority_account(self.light_client_program),
-                create_authority_account(self.client_state),
+                create_owned_account(self.client_state, self.light_client_program),
                 create_instructions_sysvar_account(),
                 create_authority_account(self.consensus_state),
                 create_system_program_account(),
@@ -358,6 +360,8 @@ mod tests {
         WrongClientSequencePda,
         WrongIbcAppPda,
         WrongClientPda,
+        WrongLightClientProgram,
+        WrongClientStateOwner,
         EmptyClientId,
     }
 
@@ -422,6 +426,29 @@ mod tests {
                 accounts[7].0 = wrong_pda;
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
+            SendCallCpiErrorCase::WrongLightClientProgram => {
+                let wrong_program = Pubkey::new_unique();
+                let mut instruction = ctx.build_instruction(msg, sysvar.0);
+                let mut accounts = ctx.build_accounts(false, sysvar);
+                instruction.accounts[8] = AccountMeta::new_readonly(wrong_program, false);
+                accounts[8] = create_authority_account(wrong_program);
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidLightClientProgram),
+                )
+            }
+            SendCallCpiErrorCase::WrongClientStateOwner => {
+                let wrong_owner = Pubkey::new_unique();
+                let instruction = ctx.build_instruction(msg, sysvar.0);
+                let mut accounts = ctx.build_accounts(false, sysvar);
+                accounts[9] = create_owned_account(ctx.client_state, wrong_owner);
+                (
+                    instruction,
+                    accounts,
+                    gmp_error(GMPError::InvalidAccountOwner),
+                )
+            }
             SendCallCpiErrorCase::EmptyClientId => {
                 msg.source_client = String::new();
                 let instruction = ctx.build_instruction(msg, sysvar.0);
@@ -449,6 +476,8 @@ mod tests {
     #[case::wrong_client_sequence_pda(SendCallCpiErrorCase::WrongClientSequencePda)]
     #[case::wrong_ibc_app_pda(SendCallCpiErrorCase::WrongIbcAppPda)]
     #[case::wrong_client_pda(SendCallCpiErrorCase::WrongClientPda)]
+    #[case::wrong_light_client_program(SendCallCpiErrorCase::WrongLightClientProgram)]
+    #[case::wrong_client_state_owner(SendCallCpiErrorCase::WrongClientStateOwner)]
     #[case::empty_client_id(SendCallCpiErrorCase::EmptyClientId)]
     fn test_send_call_cpi_validation(#[case] case: SendCallCpiErrorCase) {
         run_send_call_cpi_error_test(case);
@@ -485,7 +514,7 @@ mod integration_tests {
         let (router_state, _) = create_router_state_pda();
         let (client_sequence, _) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
         let (ibc_app, _) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
-        let (client, _) = create_client_pda(TEST_SOURCE_CLIENT);
+        let (client, _) = create_client_pda(TEST_SOURCE_CLIENT, TEST_LIGHT_CLIENT_ID);
 
         let ix_data = crate::instruction::SendCallCpi { msg };
 
@@ -500,8 +529,8 @@ mod integration_tests {
                 AccountMeta::new(Pubkey::new_unique(), false), // packet_commitment
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),
-                AccountMeta::new_readonly(Pubkey::new_unique(), false), // light_client_program
-                AccountMeta::new_readonly(Pubkey::new_unique(), false), // client_state
+                AccountMeta::new_readonly(TEST_LIGHT_CLIENT_ID, false), // light_client_program
+                AccountMeta::new_readonly(TEST_CLIENT_STATE_ID, false), // client_state
                 AccountMeta::new_readonly(
                     anchor_lang::solana_program::sysvar::instructions::ID,
                     false,

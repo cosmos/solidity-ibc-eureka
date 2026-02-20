@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 
 /// Initializes the ICS-07 Tendermint light client with its initial state and configuration.
 #[derive(Accounts)]
-#[instruction(chain_id: String, client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
+#[instruction(client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
 pub struct Initialize<'info> {
     /// PDA holding the Tendermint light client configuration and tracking state.
     #[account(
@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, client_state_account.key().as_ref(), &client_state.latest_height.revision_height.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &client_state.latest_height.revision_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
@@ -43,7 +43,6 @@ pub struct Initialize<'info> {
 
 pub fn initialize(
     ctx: Context<Initialize>,
-    chain_id: String,
     client_state: ClientState,
     consensus_state: ConsensusState,
     access_manager: Pubkey,
@@ -83,7 +82,6 @@ pub fn initialize(
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.access_manager = access_manager;
-    app_state.chain_id = chain_id;
     app_state._reserved = [0; 256];
 
     Ok(())
@@ -117,7 +115,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,
@@ -193,7 +190,6 @@ mod tests {
         consensus_state: &ConsensusState,
     ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
-            chain_id: client_state.chain_id.clone(),
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -267,7 +263,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,
@@ -276,7 +271,6 @@ mod tests {
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: client_state.chain_id.clone(),
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
             access_manager: access_manager::ID,
@@ -617,7 +611,6 @@ mod tests {
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::ConsensusStateStore::SEED,
-                client_state_pda.as_ref(),
                 &latest_height.to_le_bytes(),
             ],
             &crate::ID,
@@ -626,7 +619,6 @@ mod tests {
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
 
         let instruction_data = crate::instruction::Initialize {
-            chain_id: client_state.chain_id.clone(),
             client_state,
             consensus_state,
             access_manager: access_manager::ID,

@@ -18,13 +18,15 @@ use crate::state::{
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
+    /// Global IFT app state (read-only, for GMP program reference and pause check)
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Per-mint IFT app state (read-only, for mint and bridge references)
     #[account(
         seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
@@ -60,19 +62,16 @@ pub struct IFTTransfer<'info> {
     /// Sender who owns the tokens
     pub sender: Signer<'info>,
 
+    /// Pays for pending transfer PDA creation and GMP CPI fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
     /// Required for burning tokens from sender's account
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required for pending transfer PDA creation
     pub system_program: Program<'info, System>,
 
-    /// GMP program
-    /// CHECK: Validated against stored `gmp_program` in `app_state`
-    #[account(
-        address = app_state.gmp_program @ IFTError::InvalidGmpProgram
-    )]
-    pub gmp_program: AccountInfo<'info>,
+    pub gmp_program: Program<'info, ics27_gmp::program::Ics27Gmp>,
 
     /// GMP app state PDA
     /// CHECK: Validated by GMP program via CPI
@@ -127,8 +126,9 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// Pending transfer account - manually created with runtime-calculated sequence
-    /// CHECK: Manually validated and created in instruction handler
+    /// CHECK: PDA seed includes the sequence returned by the router's `send_packet`
+    /// CPI, which is only known at runtime. Validated and created manually in the
+    /// handler after the CPI completes.
     #[account(mut)]
     pub pending_transfer: UncheckedAccount<'info>,
 }
@@ -174,7 +174,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     )?;
 
     let gmp_accounts = SendGmpCallAccounts {
-        gmp_program: ctx.accounts.gmp_program.clone(),
+        gmp_program: ctx.accounts.gmp_program.to_account_info(),
         gmp_app_state: ctx.accounts.gmp_app_state.clone(),
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
@@ -247,27 +247,18 @@ fn construct_mint_call(
 }
 
 /// Construct ABI-encoded call to `iftMint(address, uint256)` for EVM chains.
-pub fn encode_ift_mint_call(receiver: [u8; 20], amount: u64) -> Vec<u8> {
+fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
     use alloy_sol_types::private::{Address, U256};
 
-    IFT::iftMintCall {
-        receiver: Address::from(receiver),
-        amount: U256::from(amount),
-    }
-    .abi_encode()
-}
-
-/// Construct ABI-encoded call to iftMint(address, uint256) for EVM chains.
-fn construct_evm_mint_call(receiver: &str, amount: u64) -> Result<Vec<u8>> {
-    let receiver_hex = receiver.trim_start_matches("0x");
-    let receiver_bytes =
-        hex::decode(receiver_hex).map_err(|_| error!(IFTError::InvalidReceiver))?;
-
-    let receiver_array: [u8; 20] = receiver_bytes
-        .try_into()
+    let receiver: Address = receiver
+        .parse()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    Ok(encode_ift_mint_call(receiver_array, amount))
+    Ok(IFT::iftMintCall {
+        receiver,
+        amount: U256::from(amount),
+    }
+    .abi_encode())
 }
 
 // Using ABI JSON because sol! macro can't resolve Solidity imports.
@@ -565,7 +556,7 @@ mod tests {
         TimeoutInPast,
         TimeoutTooLong,
         ReceiverTooLong,
-        TokenPaused,
+        AppPaused,
         InvalidGmpProgram,
         TimeoutAtExactCurrent,
         TimeoutOneOverMax,
@@ -655,14 +646,14 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidReceiver as u32,
                     ..default
                 },
-                TransferErrorCase::TokenPaused => Self {
+                TransferErrorCase::AppPaused => Self {
                     token_paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 TransferErrorCase::InvalidGmpProgram => Self {
                     use_wrong_gmp_program: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::InvalidGmpProgram as u32,
+                    expected_error: anchor_lang::error::ErrorCode::InvalidProgramId as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
@@ -689,7 +680,7 @@ mod tests {
         let sender = Pubkey::new_unique();
         let wrong_owner = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
-        let gmp_program = Pubkey::new_unique();
+        let gmp_program = ics27_gmp::ID;
 
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
@@ -700,7 +691,6 @@ mod tests {
         let app_state_account = create_ift_app_state_account_with_options(
             app_state_bump,
             Pubkey::new_unique(),
-            gmp_program,
             config.token_paused,
         );
 
@@ -843,7 +833,7 @@ mod tests {
     #[case::timeout_in_past(TransferErrorCase::TimeoutInPast)]
     #[case::timeout_too_long(TransferErrorCase::TimeoutTooLong)]
     #[case::receiver_too_long(TransferErrorCase::ReceiverTooLong)]
-    #[case::token_paused(TransferErrorCase::TokenPaused)]
+    #[case::app_paused(TransferErrorCase::AppPaused)]
     #[case::invalid_gmp_program(TransferErrorCase::InvalidGmpProgram)]
     #[case::timeout_at_exact_current(TransferErrorCase::TimeoutAtExactCurrent)]
     #[case::timeout_one_over_max(TransferErrorCase::TimeoutOneOverMax)]

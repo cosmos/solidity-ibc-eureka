@@ -68,6 +68,8 @@ pub enum RouterError {
     UnsupportedVersion,
     #[msg("Invalid migration params: at least one field must be updated")]
     InvalidMigrationParams,
+    #[msg("Port identifier mismatch")]
+    PortIdentifierMismatch,
 
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
@@ -86,6 +88,9 @@ pub enum RouterError {
 
     #[msg("Client is frozen")]
     ClientFrozen,
+
+    #[msg("App program must be executable")]
+    AppProgramNotExecutable,
 }
 
 /// Convert CPI validation errors to Router errors

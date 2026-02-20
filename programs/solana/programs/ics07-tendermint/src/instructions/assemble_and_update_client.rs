@@ -4,7 +4,6 @@ use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
 use crate::types::{AppState, ClientState, ConsensusState, UpdateResult};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
-use anchor_lang::system_program;
 use ibc_client_tendermint::types::{ConsensusState as IbcConsensusState, Header};
 use tendermint_light_client_update_client::ClientState as UpdateClientState;
 
@@ -14,7 +13,7 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 /// Remaining accounts must contain chunk PDAs in order, optionally followed by
 /// `SignatureVerification` accounts for pre-verified Ed25519 signatures.
 #[derive(Accounts)]
-#[instruction(target_height: u64, chunk_count: u8)]
+#[instruction(target_height: u64, chunk_count: u8, trusted_height: u64)]
 pub struct AssembleAndUpdateClient<'info> {
     /// PDA holding the light client configuration; updated with the new latest height on success.
     #[account(
@@ -40,13 +39,22 @@ pub struct AssembleAndUpdateClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// Consensus state the header declares as its trust anchor; validated against PDA seeds at runtime.
-    /// CHECK: Must already exist. Unchecked because PDA seeds require runtime header data.
-    pub trusted_consensus_state: UncheckedAccount<'info>,
+    /// Consensus state the header declares as its trust anchor; validated against PDA seeds.
+    #[account(
+        seeds = [ConsensusStateStore::SEED, &trusted_height.to_le_bytes()],
+        bump
+    )]
+    pub trusted_consensus_state: Account<'info, ConsensusStateStore>,
 
     /// Destination PDA for the newly derived consensus state; created if it does not already exist.
-    /// CHECK: Validated in instruction handler. Unchecked because may not exist yet and PDA seeds require runtime height.
-    pub new_consensus_state_store: UncheckedAccount<'info>,
+    #[account(
+        init_if_needed,
+        payer = submitter,
+        space = 8 + ConsensusStateStore::INIT_SPACE,
+        seeds = [ConsensusStateStore::SEED, &target_height.to_le_bytes()],
+        bump
+    )]
+    pub new_consensus_state_store: Account<'info, ConsensusStateStore>,
 
     /// Relayer that uploaded the chunks, signs the assembly transaction and receives rent refunds.
     #[account(mut)]
@@ -72,6 +80,7 @@ pub fn assemble_and_update_client<'info>(
     mut ctx: Context<'_, '_, 'info, 'info, AssembleAndUpdateClient<'info>>,
     target_height: u64,
     chunk_count: u8,
+    trusted_height: u64,
 ) -> Result<UpdateResult> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -90,7 +99,13 @@ pub fn assemble_and_update_client<'info>(
 
     let header_bytes = assemble_chunks(&ctx, target_height, chunk_count)?;
 
-    let result = process_header_update(&mut ctx, header_bytes, chunk_count, target_height)?;
+    let result = process_header_update(
+        &mut ctx,
+        header_bytes,
+        chunk_count,
+        target_height,
+        trusted_height,
+    )?;
 
     // Return the UpdateResult as bytes for callers to verify
     set_return_data(&result.try_to_vec()?);
@@ -142,18 +157,20 @@ fn process_header_update<'info>(
     header_bytes: Vec<u8>,
     chunk_count: usize,
     target_height: u64,
+    trusted_height: u64,
 ) -> Result<UpdateResult> {
     let client_state = &mut ctx.accounts.client_state;
 
     let header = deserialize_header(&header_bytes)?;
 
-    let trusted_height = header.trusted_height.revision_height();
+    // Sanity check: Anchor seeds already enforce the PDA, but verify the
+    // header's embedded trusted height matches the instruction argument.
+    require!(
+        header.trusted_height.revision_height() == trusted_height,
+        ErrorCode::HeightMismatch
+    );
 
-    let trusted_consensus_state = load_consensus_state(
-        &ctx.accounts.trusted_consensus_state,
-        client_state.key(),
-        trusted_height,
-    )?;
+    let trusted_consensus_state = &ctx.accounts.trusted_consensus_state;
 
     // Signature verification accounts come after chunk accounts
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
@@ -171,24 +188,21 @@ fn process_header_update<'info>(
         signature_verification_accounts,
     )?;
 
-    // Sanity check: a mismatch would fail later in store_consensus_state where
-    // the passed new_consensus_state_pda (derived off-chain from target_height)
-    // is verified against new_height, but this gives a clearer error.
+    // Sanity check: the Anchor seeds constraint already validates that the
+    // new_consensus_state_store PDA matches target_height, but if the header's
+    // actual new_height differs from target_height this gives a clearer error.
     require!(
         new_height.revision_height() == target_height,
         ErrorCode::HeightMismatch
     );
 
     let result = store_consensus_state(StoreConsensusStateParams {
-        account: &ctx.accounts.new_consensus_state_store,
-        submitter: &ctx.accounts.submitter,
-        system_program: &ctx.accounts.system_program,
-        client_key: client_state.key(),
+        account: &mut ctx.accounts.new_consensus_state_store,
         height: new_height.revision_height(),
         new_consensus_state: &new_consensus_state,
         trusted_consensus_state: &trusted_consensus_state.consensus_state,
         client_state,
-    })?;
+    });
 
     // Update latest height only on successful update
     if result == UpdateResult::UpdateSuccess {
@@ -230,117 +244,32 @@ fn verify_and_update_header<'info>(
     Ok((output.latest_height, new_consensus_state))
 }
 
-// Helper function to load and validate consensus state
-fn load_consensus_state(
-    account: &UncheckedAccount,
-    client_key: Pubkey,
-    height: u64,
-) -> Result<ConsensusStateStore> {
-    // Validate PDA
-    let (expected_pda, _) = Pubkey::find_program_address(
-        &[
-            crate::state::ConsensusStateStore::SEED,
-            client_key.as_ref(),
-            &height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
-
-    require_keys_eq!(
-        account.key(),
-        expected_pda,
-        ErrorCode::AccountValidationFailed
-    );
-
-    let account_data = account.try_borrow_data()?;
-    require!(!account_data.is_empty(), ErrorCode::ConsensusStateNotFound);
-
-    ConsensusStateStore::try_deserialize(&mut &account_data[..])
-        .map_err(|_| error!(ErrorCode::SerializationError))
-}
-
 struct StoreConsensusStateParams<'a, 'info> {
-    account: &'a UncheckedAccount<'info>,
-    submitter: &'a Signer<'info>,
-    system_program: &'a Program<'info, System>,
-    client_key: Pubkey,
+    account: &'a mut Account<'info, ConsensusStateStore>,
     height: u64,
     new_consensus_state: &'a ConsensusState,
     trusted_consensus_state: &'a ConsensusState,
     client_state: &'a mut Account<'info, crate::types::ClientState>,
 }
 
-fn store_consensus_state(params: StoreConsensusStateParams) -> Result<UpdateResult> {
-    // Validate PDA
-    let (expected_pda, bump) = Pubkey::find_program_address(
-        &[
-            crate::state::ConsensusStateStore::SEED,
-            params.client_key.as_ref(),
-            &params.height.to_le_bytes(),
-        ],
-        &crate::ID,
-    );
+fn store_consensus_state(params: StoreConsensusStateParams) -> UpdateResult {
+    if !params.account.is_uninitialized() {
+        let state_mismatch = params.account.consensus_state != *params.new_consensus_state;
+        let timestamp_not_increasing =
+            params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
 
-    require_keys_eq!(
-        expected_pda,
-        params.account.key(),
-        ErrorCode::AccountValidationFailed
-    );
-
-    // Check if account exists
-    if params.account.lamports() > 0 {
-        // Account exists - check for conflicts
-        let account_data = params.account.try_borrow_data()?;
-        if !account_data.is_empty() {
-            let existing: ConsensusStateStore =
-                ConsensusStateStore::try_deserialize(&mut &account_data[..])?;
-
-            let state_mismatch = existing.consensus_state != *params.new_consensus_state;
-            let timestamp_not_increasing =
-                params.trusted_consensus_state.timestamp >= params.new_consensus_state.timestamp;
-
-            if state_mismatch || timestamp_not_increasing {
-                params.client_state.freeze();
-                return Ok(UpdateResult::Misbehaviour);
-            }
-
-            return Ok(UpdateResult::NoOp);
+        if state_mismatch || timestamp_not_increasing {
+            params.client_state.freeze();
+            return UpdateResult::Misbehaviour;
         }
+
+        return UpdateResult::NoOp;
     }
 
-    // Create new account
-    let space = 8 + ConsensusStateStore::INIT_SPACE;
-    let rent = Rent::get()?.minimum_balance(space);
+    params.account.height = params.height;
+    params.account.consensus_state = params.new_consensus_state.clone();
 
-    let seeds_with_bump = [
-        crate::state::ConsensusStateStore::SEED,
-        params.client_key.as_ref(),
-        &params.height.to_le_bytes(),
-        &[bump],
-    ];
-
-    // IMPORTANT TODO: check again if anchor could simplify pda validation
-    let cpi_accounts = system_program::CreateAccount {
-        from: params.submitter.to_account_info(),
-        to: params.account.to_account_info(),
-    };
-    let cpi_program = params.system_program.to_account_info();
-    let signer = &[&seeds_with_bump[..]];
-    let cpi_ctx = CpiContext::new_with_signer(cpi_program, cpi_accounts, signer);
-
-    system_program::create_account(cpi_ctx, rent, space as u64, &crate::ID)?;
-
-    // Serialize the new consensus state
-    let new_store = ConsensusStateStore {
-        height: params.height,
-        consensus_state: params.new_consensus_state.clone(),
-    };
-
-    let mut data = params.account.try_borrow_mut_data()?;
-    let mut cursor = std::io::Cursor::new(&mut data[..]);
-    new_store.try_serialize(&mut cursor)?;
-
-    Ok(UpdateResult::UpdateSuccess)
+    UpdateResult::UpdateSuccess
 }
 
 #[cfg(test)]

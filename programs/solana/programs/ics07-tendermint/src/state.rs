@@ -17,6 +17,12 @@ pub struct ConsensusStateStore {
 
 impl ConsensusStateStore {
     pub const SEED: &'static [u8] = solana_ibc_types::ConsensusState::SEED;
+
+    /// Returns `true` when `init_if_needed` just created the account
+    /// (Tendermint heights start at 1, so zero means uninitialized).
+    pub const fn is_uninitialized(&self) -> bool {
+        self.height == 0
+    }
 }
 
 /// Temporary storage for a single chunk of a Tendermint header during

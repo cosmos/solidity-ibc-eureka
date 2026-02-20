@@ -9,6 +9,7 @@ use crate::state::{IFTAppState, SetPausedMsg};
 #[derive(Accounts)]
 #[instruction(msg: SetPausedMsg)]
 pub struct SetPaused<'info> {
+    /// Global IFT app state (mut, `paused` field will be updated)
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED],
@@ -16,6 +17,7 @@ pub struct SetPaused<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Admin authority, must match `app_state.admin`
     #[account(
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
@@ -60,8 +62,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused };
 
@@ -116,8 +117,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused: true };
 
@@ -156,8 +156,7 @@ mod tests {
         let (sysvar_id, sysvar_account) =
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
-        let app_state_account =
-            create_ift_app_state_account(app_state_bump, admin, Pubkey::new_unique());
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
 
         let msg = SetPausedMsg { paused: true };
 

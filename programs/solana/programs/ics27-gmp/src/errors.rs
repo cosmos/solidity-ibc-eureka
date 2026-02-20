@@ -134,6 +134,12 @@ pub enum GMPError {
 
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
+
+    #[msg("Light client program does not match client registry")]
+    InvalidLightClientProgram,
+
+    #[msg("Account not owned by expected program")]
+    InvalidAccountOwner,
 }
 
 /// Convert GMP validation errors to GMP errors

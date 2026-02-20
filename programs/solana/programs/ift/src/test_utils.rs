@@ -44,23 +44,33 @@ pub fn token_program_keyed_account() -> (Pubkey, SolanaAccount) {
     mollusk_svm_programs_token::token::keyed_account()
 }
 
+/// Setup mollusk with the IFT program and Token 2022 program (for CPI tests)
+pub fn setup_mollusk_with_token_2022() -> Mollusk {
+    let mut mollusk = Mollusk::new(&crate::ID, IFT_PROGRAM_PATH);
+    mollusk_svm_programs_token::token2022::add_program(&mut mollusk);
+    mollusk
+}
+
+/// Get the Token 2022 program keyed account for use in CPI tests.
+pub fn token_2022_keyed_account() -> (Pubkey, SolanaAccount) {
+    mollusk_svm_programs_token::token2022::keyed_account()
+}
+
 /// Create a serialized global IFT app state account
-pub fn create_ift_app_state_account(bump: u8, admin: Pubkey, gmp_program: Pubkey) -> SolanaAccount {
-    create_ift_app_state_account_with_options(bump, admin, gmp_program, false)
+pub fn create_ift_app_state_account(bump: u8, admin: Pubkey) -> SolanaAccount {
+    create_ift_app_state_account_with_options(bump, admin, false)
 }
 
 /// Create a serialized global IFT app state account with configurable paused state
 pub fn create_ift_app_state_account_with_options(
     bump: u8,
     admin: Pubkey,
-    gmp_program: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
         bump,
         admin,
-        gmp_program,
         paused,
         _reserved: [0; 128],
     };
@@ -333,11 +343,7 @@ pub fn create_token_account(mint: Pubkey, owner: Pubkey, amount: u64) -> SolanaA
     }
 }
 
-pub fn get_gmp_account_pda(
-    client_id: &str,
-    counterparty_address: &str,
-    gmp_program: &Pubkey,
-) -> (Pubkey, u8) {
+pub fn get_gmp_account_pda(client_id: &str, counterparty_address: &str) -> (Pubkey, u8) {
     use solana_ibc_types::ics27::{GMPAccount, Salt};
 
     let gmp_account = GMPAccount::new(
@@ -347,7 +353,7 @@ pub fn get_gmp_account_pda(
             .try_into()
             .expect("valid sender"),
         Salt::empty(),
-        gmp_program,
+        &ics27_gmp::ID,
     );
     gmp_account.pda()
 }
@@ -472,7 +478,7 @@ pub fn create_cpi_instructions_sysvar_account(
     )
 }
 
-pub fn get_gmp_result_pda(client_id: &str, sequence: u64, gmp_program: &Pubkey) -> (Pubkey, u8) {
+pub fn get_gmp_result_pda(client_id: &str, sequence: u64) -> (Pubkey, u8) {
     use solana_ibc_types::GMPCallResult;
     Pubkey::find_program_address(
         &[
@@ -480,7 +486,7 @@ pub fn get_gmp_result_pda(client_id: &str, sequence: u64, gmp_program: &Pubkey) 
             client_id.as_bytes(),
             &sequence.to_le_bytes(),
         ],
-        gmp_program,
+        &ics27_gmp::ID,
     )
 }
 
@@ -491,7 +497,6 @@ pub fn create_gmp_result_account(
     dest_client: &str,
     status: solana_ibc_types::CallResultStatus,
     bump: u8,
-    gmp_program: &Pubkey,
 ) -> SolanaAccount {
     use ics27_gmp::state::{AccountVersion, GMPCallResultAccount};
 
@@ -512,7 +517,7 @@ pub fn create_gmp_result_account(
     SolanaAccount {
         lamports: 1_000_000,
         data,
-        owner: *gmp_program,
+        owner: ics27_gmp::ID,
         executable: false,
         rent_epoch: 0,
     }

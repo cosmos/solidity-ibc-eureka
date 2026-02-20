@@ -40,14 +40,14 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
 
     /// First trusted consensus state referenced by the misbehaviour evidence.
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_1.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &trusted_height_1.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
     /// Second trusted consensus state referenced by the misbehaviour evidence.
     #[account(
-        seeds = [ConsensusStateStore::SEED, client_state.key().as_ref(), &trusted_height_2.to_le_bytes()],
+        seeds = [ConsensusStateStore::SEED, &trusted_height_2.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,

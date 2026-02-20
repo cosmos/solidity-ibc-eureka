@@ -1691,9 +1691,8 @@ func (s *IbcEurekaSolanaTestSuite) deriveIcs07ConsensusStatePDA(ctx context.Cont
 	revisionHeightBytes := make([]byte, 8)
 	binary.LittleEndian.PutUint64(revisionHeightBytes, clientState.LatestHeight.RevisionHeight)
 
-	consensusStatePDA, _ := solana.Ics07Tendermint.ConsensusStateWithAccountSeedPDA(
+	consensusStatePDA, _ := solana.Ics07Tendermint.ConsensusStateWithArgSeedPDA(
 		ics07_tendermint.ProgramID,
-		clientStatePDA.Bytes(),
 		revisionHeightBytes,
 	)
 	return consensusStatePDA
