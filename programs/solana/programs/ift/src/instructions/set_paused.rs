@@ -9,6 +9,7 @@ use crate::state::{IFTAppState, SetPausedMsg};
 #[derive(Accounts)]
 #[instruction(msg: SetPausedMsg)]
 pub struct SetPaused<'info> {
+    /// Global IFT app state (mut, `paused` field will be updated)
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED],
@@ -16,6 +17,7 @@ pub struct SetPaused<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Admin authority, must match `app_state.admin`
     #[account(
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]

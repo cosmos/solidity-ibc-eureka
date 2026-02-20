@@ -1,5 +1,5 @@
 pub mod admin;
-pub mod create_spl_token;
+pub mod create_and_initialize_spl_token;
 pub mod finalize_transfer;
 pub mod ift_mint;
 pub mod ift_transfer;
@@ -11,7 +11,7 @@ pub mod set_mint_rate_limit;
 pub mod set_paused;
 
 pub use admin::*;
-pub use create_spl_token::*;
+pub use create_and_initialize_spl_token::*;
 pub use finalize_transfer::*;
 pub use ift_mint::*;
 pub use ift_transfer::*;

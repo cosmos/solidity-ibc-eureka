@@ -102,6 +102,9 @@ pub enum IFTError {
 
     #[msg("CPI calls not allowed for this instruction")]
     CpiNotAllowed,
+
+    #[msg("Token program does not match the requested token type")]
+    TokenProgramMismatch,
 }
 
 impl From<CpiValidationError> for IFTError {

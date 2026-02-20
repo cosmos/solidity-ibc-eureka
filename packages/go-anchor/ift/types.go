@@ -1354,8 +1354,8 @@ type IftEventsSplTokenCreated struct {
 	// SPL Token mint address
 	Mint solanago.PublicKey `json:"mint"`
 
-	// Token decimals
-	Decimals uint8 `json:"decimals"`
+	// Token type and configuration
+	Params IftStateCreateTokenParams `json:"params"`
 
 	// Initialization timestamp
 	Timestamp int64 `json:"timestamp"`
@@ -1367,10 +1367,12 @@ func (obj IftEventsSplTokenCreated) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("Mint", err)
 	}
-	// Serialize `Decimals`:
-	err = encoder.Encode(obj.Decimals)
-	if err != nil {
-		return errors.NewField("Decimals", err)
+	// Serialize `Params`:
+	{
+		err := EncodeIftStateCreateTokenParams(encoder, obj.Params)
+		if err != nil {
+			return errors.NewField("Params", err)
+		}
 	}
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
@@ -1396,10 +1398,13 @@ func (obj *IftEventsSplTokenCreated) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Mint", err)
 	}
-	// Deserialize `Decimals`:
-	err = decoder.Decode(&obj.Decimals)
-	if err != nil {
-		return errors.NewField("Decimals", err)
+	// Deserialize `Params`:
+	{
+		var err error
+		obj.Params, err = DecodeIftStateCreateTokenParams(decoder)
+		if err != nil {
+			return err
+		}
 	}
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)
@@ -1700,6 +1705,188 @@ func UnmarshalIftStateChainOptions_Cosmos(buf []byte) (*IftStateChainOptions_Cos
 }
 
 func (_ *IftStateChainOptions_Cosmos) isIftStateChainOptions() {}
+
+// Token type and configuration for `create_and_initialize_spl_token`
+// The "isIftStateCreateTokenParams" interface for the "IftStateCreateTokenParams" complex enum.
+type IftStateCreateTokenParams interface {
+	isIftStateCreateTokenParams()
+}
+
+type iftStateCreateTokenParamsEnumContainer struct {
+	Enum      binary.BorshEnum `bin:"enum"`
+	SplToken  IftStateCreateTokenParams_SplToken
+	Token2022 IftStateCreateTokenParams_Token2022
+}
+
+func DecodeIftStateCreateTokenParams(decoder *binary.Decoder) (IftStateCreateTokenParams, error) {
+	{
+		tmp := new(iftStateCreateTokenParamsEnumContainer)
+		err := decoder.Decode(tmp)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing IftStateCreateTokenParams: %w", err)
+		}
+		switch tmp.Enum {
+		case 0:
+			return &tmp.SplToken, nil
+		case 1:
+			return &tmp.Token2022, nil
+		default:
+			return nil, fmt.Errorf("IftStateCreateTokenParams: unknown enum index: %v", tmp.Enum)
+		}
+	}
+}
+
+func EncodeIftStateCreateTokenParams(encoder *binary.Encoder, value IftStateCreateTokenParams) error {
+	{
+		tmp := iftStateCreateTokenParamsEnumContainer{}
+		switch realvalue := value.(type) {
+		case *IftStateCreateTokenParams_SplToken:
+			tmp.Enum = 0
+			tmp.SplToken = *realvalue
+		case *IftStateCreateTokenParams_Token2022:
+			tmp.Enum = 1
+			tmp.Token2022 = *realvalue
+		}
+		return encoder.Encode(tmp)
+	}
+}
+
+// Variant "SplToken" of enum "IftStateCreateTokenParams"
+type IftStateCreateTokenParams_SplToken struct {
+	Decimals uint8 `json:"decimals"`
+}
+
+func (obj IftStateCreateTokenParams_SplToken) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Decimals`:
+	err = encoder.Encode(obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	return nil
+}
+
+func (obj IftStateCreateTokenParams_SplToken) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftStateCreateTokenParams_SplToken: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftStateCreateTokenParams_SplToken) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Decimals`:
+	err = decoder.Decode(&obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	return nil
+}
+
+func (obj *IftStateCreateTokenParams_SplToken) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftStateCreateTokenParams_SplToken: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftStateCreateTokenParams_SplToken(buf []byte) (*IftStateCreateTokenParams_SplToken, error) {
+	obj := new(IftStateCreateTokenParams_SplToken)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *IftStateCreateTokenParams_SplToken) isIftStateCreateTokenParams() {}
+
+// Variant "Token2022" of enum "IftStateCreateTokenParams"
+type IftStateCreateTokenParams_Token2022 struct {
+	Decimals uint8  `json:"decimals"`
+	Name     string `json:"name"`
+	Symbol   string `json:"symbol"`
+	Uri      string `json:"uri"`
+}
+
+func (obj IftStateCreateTokenParams_Token2022) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Decimals`:
+	err = encoder.Encode(obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Serialize `Name`:
+	err = encoder.Encode(obj.Name)
+	if err != nil {
+		return errors.NewField("Name", err)
+	}
+	// Serialize `Symbol`:
+	err = encoder.Encode(obj.Symbol)
+	if err != nil {
+		return errors.NewField("Symbol", err)
+	}
+	// Serialize `Uri`:
+	err = encoder.Encode(obj.Uri)
+	if err != nil {
+		return errors.NewField("Uri", err)
+	}
+	return nil
+}
+
+func (obj IftStateCreateTokenParams_Token2022) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftStateCreateTokenParams_Token2022: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftStateCreateTokenParams_Token2022) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Decimals`:
+	err = decoder.Decode(&obj.Decimals)
+	if err != nil {
+		return errors.NewField("Decimals", err)
+	}
+	// Deserialize `Name`:
+	err = decoder.Decode(&obj.Name)
+	if err != nil {
+		return errors.NewField("Name", err)
+	}
+	// Deserialize `Symbol`:
+	err = decoder.Decode(&obj.Symbol)
+	if err != nil {
+		return errors.NewField("Symbol", err)
+	}
+	// Deserialize `Uri`:
+	err = decoder.Decode(&obj.Uri)
+	if err != nil {
+		return errors.NewField("Uri", err)
+	}
+	return nil
+}
+
+func (obj *IftStateCreateTokenParams_Token2022) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftStateCreateTokenParams_Token2022: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftStateCreateTokenParams_Token2022(buf []byte) (*IftStateCreateTokenParams_Token2022, error) {
+	obj := new(IftStateCreateTokenParams_Token2022)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *IftStateCreateTokenParams_Token2022) isIftStateCreateTokenParams() {}
 
 // Per-mint IFT application state
 // PDA Seeds: [`IFT_APP_MINT_STATE_SEED`, `mint.as_ref()`]

@@ -18,6 +18,7 @@ use crate::state::{
 #[derive(Accounts)]
 #[instruction(msg: IFTTransferMsg)]
 pub struct IFTTransfer<'info> {
+    /// Global IFT app state (read-only, for GMP program reference and pause check)
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
@@ -25,6 +26,7 @@ pub struct IFTTransfer<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Per-mint IFT app state (read-only, for mint and bridge references)
     #[account(
         seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
@@ -60,11 +62,13 @@ pub struct IFTTransfer<'info> {
     /// Sender who owns the tokens
     pub sender: Signer<'info>,
 
+    /// Pays for pending transfer PDA creation and GMP CPI fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
     /// Required for burning tokens from sender's account
     pub token_program: Interface<'info, TokenInterface>,
+    /// Required for pending transfer PDA creation
     pub system_program: Program<'info, System>,
 
     pub gmp_program: Program<'info, ics27_gmp::program::Ics27Gmp>,
