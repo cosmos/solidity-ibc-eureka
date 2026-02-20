@@ -75,7 +75,8 @@ pub struct SendPacket<'info> {
     pub client_state: AccountInfo<'info>,
 
     /// Consensus state account owned by the light client program (for expiry check).
-    /// CHECK: Consensus state account, owned by light client program (for expiry check)
+    /// CHECK: Forwarded to light client CPI; ownership not enforced here because the
+    /// light client program itself validates it.
     pub consensus_state: AccountInfo<'info>,
 }
 

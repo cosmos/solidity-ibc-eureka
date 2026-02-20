@@ -85,7 +85,7 @@ pub struct SendCallCpi<'info> {
     pub instruction_sysvar: AccountInfo<'info>,
 
     /// Consensus state account, forwarded to the router for client expiry check.
-    /// CHECK: Consensus state account, forwarded to router for expiry check
+    /// CHECK: Forwarded to router CPI; validated by the light client program.
     pub consensus_state: AccountInfo<'info>,
 
     /// Solana system program used for account allocation.
