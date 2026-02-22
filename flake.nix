@@ -54,7 +54,7 @@
                   fi
                 fi
 
-                if [ -z "$(which cargo-prove)" ]; then
+                if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
                   echo "SP1 toolchain is not installed. To install:"
                   echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
                 fi
