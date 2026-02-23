@@ -18,7 +18,8 @@ pub struct SendPacket<'info> {
 
     #[account(
         seeds = [IBCApp::SEED, msg.payload.source_port.as_bytes()],
-        bump
+        bump,
+        constraint = ibc_app.port_id == msg.payload.source_port @ RouterError::PortIdentifierMismatch,
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
@@ -29,12 +30,18 @@ pub struct SendPacket<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    /// Packet commitment account - manually created with runtime-calculated sequence
-    /// CHECK: Manually validated and created in instruction handler
+    /// CHECK: PDA seed includes a namespaced sequence derived from on-chain
+    /// `client_sequence` state at runtime, so Anchor's static `seeds` constraint
+    /// cannot express it. Validated and created manually in the handler.
     #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
 
     /// App signer - PDA signed by the calling IBC app program
+    #[account(
+        seeds = [IBCAppState::SEED],
+        bump,
+        seeds::program = ibc_app.app_program_id
+    )]
     pub app_signer: Signer<'info>,
 
     /// Allow payer to be separate from IBC app
@@ -498,6 +505,103 @@ mod tests {
         );
 
         // Replace the placeholder packet_commitment account
+        ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
+
+        (ix, packet_commitment_pda)
+    }
+
+    /// Build a `test_ibc_app::send_packet` instruction for a specific port.
+    fn build_test_app_send_packet_ix_for_port(
+        user: Pubkey,
+        client_id: &str,
+        source_port: &str,
+        timeout_timestamp: i64,
+        packet_data: &[u8],
+        mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
+    ) -> Instruction {
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED],
+            &TEST_IBC_APP_PROGRAM_ID,
+        );
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, source_port.as_bytes()], &crate::ID);
+        let (client_sequence_pda, _) =
+            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
+        let (client_pda, _) =
+            Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
+
+        let msg = test_ibc_app::instructions::SendPacketMsg {
+            source_client: client_id.to_string(),
+            source_port: source_port.to_string(),
+            dest_port: "dest-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            packet_data: packet_data.to_vec(),
+            timeout_timestamp,
+        };
+
+        let mut data = anchor_discriminator("send_packet").to_vec();
+        msg.serialize(&mut data).unwrap();
+
+        Instruction {
+            program_id: TEST_IBC_APP_PROGRAM_ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(user, true),
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda, false),
+                AccountMeta::new(client_sequence_pda, false),
+                AccountMeta::new(Pubkey::default(), false), // placeholder
+                AccountMeta::new_readonly(client_pda, false),
+                AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
+                AccountMeta::new_readonly(mock_client_state, false),
+                AccountMeta::new_readonly(mock_consensus_state, false),
+                AccountMeta::new_readonly(crate::ID, false),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data,
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn build_send_packet_ix_with_commitment_for_port(
+        user: &Keypair,
+        client_id: &str,
+        source_port: &str,
+        next_sequence_send: u64,
+        timeout_timestamp: i64,
+        packet_data: &[u8],
+        mock_client_state: Pubkey,
+        mock_consensus_state: Pubkey,
+    ) -> (Instruction, Pubkey) {
+        let namespaced_sequence = sequence::calculate_namespaced_sequence(
+            next_sequence_send,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &user.pubkey(),
+        )
+        .expect("sequence calculation failed");
+
+        let (packet_commitment_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                client_id.as_bytes(),
+                &namespaced_sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let mut ix = build_test_app_send_packet_ix_for_port(
+            user.pubkey(),
+            client_id,
+            source_port,
+            timeout_timestamp,
+            packet_data,
+            mock_client_state,
+            mock_consensus_state,
+        );
+
         ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
 
         (ix, packet_commitment_pda)
@@ -1054,9 +1158,414 @@ mod tests {
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
             .await
             .unwrap_err();
+        // Anchor's seeds constraint catches the PDA mismatch (ConstraintSeeds = 2006)
+        // before the manual require! check for UnauthorizedSender.
         assert_eq!(
             pt_extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + RouterError::UnauthorizedSender as u32),
+            Some(anchor_lang::error::ErrorCode::ConstraintSeeds as u32),
+        );
+    }
+
+    #[test]
+    fn test_send_packet_port_identifier_mismatch() {
+        let mollusk = setup_mollusk_with_light_client();
+
+        let app_program_id = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        // RouterState
+        let (router_state_pda, router_state_data) = setup_router_state();
+        let router_state_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: router_state_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // IBCApp at TEST_PORT PDA but with a different port_id in the data
+        let (ibc_app_pda, _) =
+            Pubkey::find_program_address(&[IBCApp::SEED, TEST_PORT.as_bytes()], &crate::ID);
+        let ibc_app = IBCApp {
+            version: AccountVersion::V1,
+            port_id: "wrong-port".to_string(),
+            app_program_id,
+            authority: Pubkey::new_unique(),
+            _reserved: [0; 256],
+        };
+        let ibc_app_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: create_account_data(&ibc_app),
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // ClientSequence
+        let (client_seq_pda, client_seq_data) = setup_client_sequence(TEST_CLIENT_ID, 1);
+        let client_seq_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: client_seq_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        // packet_commitment placeholder
+        let packet_commitment = Pubkey::new_unique();
+
+        // app_signer - PDA derived from IBCAppState::SEED under app_program_id
+        let (app_signer_pda, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &app_program_id);
+
+        // Client
+        let (client_pda, client_data) = setup_client(
+            TEST_CLIENT_ID,
+            MOCK_LIGHT_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+        );
+        let client_account = solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: client_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let mock_client_state = Pubkey::new_unique();
+        let mock_consensus_state = Pubkey::new_unique();
+
+        // Build instruction data: discriminator + MsgSendPacket
+        let msg = MsgSendPacket {
+            source_client: TEST_CLIENT_ID.to_string(),
+            timeout_timestamp: 9_999_999_999,
+            payload: Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            },
+        };
+        let mut data = anchor_discriminator("send_packet").to_vec();
+        msg.serialize(&mut data).unwrap();
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(router_state_pda, false),
+                AccountMeta::new_readonly(ibc_app_pda, false),
+                AccountMeta::new(client_seq_pda, false),
+                AccountMeta::new(packet_commitment, false),
+                AccountMeta::new_readonly(app_signer_pda, true),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(client_pda, false),
+                AccountMeta::new_readonly(MOCK_LIGHT_CLIENT_ID, false),
+                AccountMeta::new_readonly(mock_client_state, false),
+                AccountMeta::new_readonly(mock_consensus_state, false),
+            ],
+            data,
+        };
+
+        let empty_account = || solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: vec![],
+            owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
+
+        let (sys_program, sys_account) = (
+            system_program::ID,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: vec![],
+                owner: solana_sdk::native_loader::ID,
+                executable: true,
+                rent_epoch: 0,
+            },
+        );
+
+        let accounts = vec![
+            (router_state_pda, router_state_account),
+            (ibc_app_pda, ibc_app_account),
+            (client_seq_pda, client_seq_account),
+            (packet_commitment, empty_account()),
+            (app_signer_pda, empty_account()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 10_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (sys_program, sys_account),
+            (client_pda, client_account),
+            (
+                MOCK_LIGHT_CLIENT_ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    data: vec![],
+                    owner: solana_sdk::native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (mock_client_state, empty_account()),
+            (mock_consensus_state, empty_account()),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_error_code(
+            result,
+            RouterError::PortIdentifierMismatch,
+            "port_identifier_mismatch",
+        );
+    }
+
+    #[test]
+    fn test_app_state_pda_does_not_include_port_id() {
+        // Verify that IBCAppState PDA is derived from [SEED] only, not [SEED, port_id].
+        let program_id = TEST_IBC_APP_PROGRAM_ID;
+
+        let (pda_without_port, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &program_id);
+
+        let (pda_with_port, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::IBCAppState::SEED, b"transfer"],
+            &program_id,
+        );
+
+        assert_ne!(
+            pda_without_port, pda_with_port,
+            "PDA with port_id in seeds must differ from PDA without"
+        );
+
+        // Helper must agree with the seedless derivation
+        let (pda_from_helper, _) = solana_ibc_types::IBCAppState::pda(program_id);
+        assert_eq!(pda_without_port, pda_from_helper);
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_app_signer_port_independent() {
+        // App signer seeds are port-independent: the `IBCApp` account already
+        // provides per-port authorization (mapping port → `app_program_id`),
+        // so the PDA only needs to prove the caller's program identity.
+        // Registering the same program under two ports must share one signer.
+        let second_port = "oracle";
+        let initial_sequence = 1u64;
+
+        let (mut pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        // Register the same app program under a second port
+        let (ibc_app_pda_2, ibc_app_data_2) = setup_ibc_app(second_port, TEST_IBC_APP_PROGRAM_ID);
+        pt.add_account(
+            ibc_app_pda_2,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: ibc_app_data_2,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Send on the original port
+        let (ix1, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data 1",
+            mock_client_state,
+            mock_consensus_state,
+        );
+        let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
+        assert!(
+            result1.is_ok(),
+            "send on first port should succeed: {:?}",
+            result1.err()
+        );
+
+        // Send on the second port (same app program, different port).
+        // The sequence was incremented after the first send.
+        let recent_blockhash2 = banks_client.get_latest_blockhash().await.unwrap();
+        let (ix2, _) = build_send_packet_ix_with_commitment_for_port(
+            &payer,
+            TEST_CLIENT_ID,
+            second_port,
+            initial_sequence.saturating_add(1),
+            TEST_TIMEOUT,
+            b"test data 2",
+            mock_client_state,
+            mock_consensus_state,
+        );
+        let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
+        assert!(
+            result2.is_ok(),
+            "send on second port (same app) should succeed: {:?}",
+            result2.err()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_two_consecutive_transfers_sequence_increment() {
+        let initial_sequence = 1u64;
+        let (pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // --- Transfer #1 ---
+        let (ix1, commitment_pda_1) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"transfer one",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let result1 = process_tx(&banks_client, &payer, recent_blockhash, &[ix1]).await;
+        assert!(
+            result1.is_ok(),
+            "Transfer #1 should succeed: {:?}",
+            result1.err()
+        );
+
+        // Verify sequence incremented to 2
+        let (client_sequence_pda, _) = Pubkey::find_program_address(
+            &[ClientSequence::SEED, TEST_CLIENT_ID.as_bytes()],
+            &crate::ID,
+        );
+        let seq_account = banks_client
+            .get_account(client_sequence_pda)
+            .await
+            .unwrap()
+            .expect("client sequence should exist");
+        let client_seq = ClientSequence::try_deserialize(&mut &seq_account.data[..]).unwrap();
+        assert_eq!(client_seq.next_sequence_send, 2);
+
+        // Verify commitment #1 exists and matches
+        let commitment_1 = banks_client
+            .get_account(commitment_pda_1)
+            .await
+            .unwrap()
+            .expect("commitment #1 should exist");
+        assert_eq!(commitment_1.owner, crate::ID);
+        let commitment_value_1 = &commitment_1.data[8..40];
+        assert_ne!(commitment_value_1, &[0u8; 32]);
+
+        let ns_seq_1 = sequence::calculate_namespaced_sequence(
+            initial_sequence,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &payer.pubkey(),
+        )
+        .unwrap();
+        let expected_packet_1 = Packet {
+            sequence: ns_seq_1,
+            source_client: TEST_CLIENT_ID.to_string(),
+            dest_client: COUNTERPARTY_CLIENT_ID.to_string(),
+            timeout_timestamp: TEST_TIMEOUT,
+            payloads: vec![Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"transfer one".to_vec(),
+            }],
+        };
+        let expected_commitment_1 =
+            solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet_1);
+        assert_eq!(commitment_value_1, &expected_commitment_1);
+
+        // --- Transfer #2 ---
+        let second_sequence = 2u64;
+        let recent_blockhash2 = banks_client.get_latest_blockhash().await.unwrap();
+        let (ix2, commitment_pda_2) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            second_sequence,
+            TEST_TIMEOUT,
+            b"transfer two",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let result2 = process_tx(&banks_client, &payer, recent_blockhash2, &[ix2]).await;
+        assert!(
+            result2.is_ok(),
+            "Transfer #2 should succeed: {:?}",
+            result2.err()
+        );
+
+        // Verify sequence incremented to 3
+        let seq_account2 = banks_client
+            .get_account(client_sequence_pda)
+            .await
+            .unwrap()
+            .expect("client sequence should exist");
+        let client_seq2 = ClientSequence::try_deserialize(&mut &seq_account2.data[..]).unwrap();
+        assert_eq!(client_seq2.next_sequence_send, 3);
+
+        // Verify commitment #2 exists and matches
+        let commitment_2 = banks_client
+            .get_account(commitment_pda_2)
+            .await
+            .unwrap()
+            .expect("commitment #2 should exist");
+        assert_eq!(commitment_2.owner, crate::ID);
+        let commitment_value_2 = &commitment_2.data[8..40];
+        assert_ne!(commitment_value_2, &[0u8; 32]);
+
+        let ns_seq_2 = sequence::calculate_namespaced_sequence(
+            second_sequence,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &payer.pubkey(),
+        )
+        .unwrap();
+        let expected_packet_2 = Packet {
+            sequence: ns_seq_2,
+            source_client: TEST_CLIENT_ID.to_string(),
+            dest_client: COUNTERPARTY_CLIENT_ID.to_string(),
+            timeout_timestamp: TEST_TIMEOUT,
+            payloads: vec![Payload {
+                source_port: TEST_PORT.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                value: b"transfer two".to_vec(),
+            }],
+        };
+        let expected_commitment_2 =
+            solana_ibc_types::ics24::packet_commitment_bytes32(&expected_packet_2);
+        assert_eq!(commitment_value_2, &expected_commitment_2);
+
+        // Verify both commitments are distinct
+        assert_ne!(
+            commitment_value_1, commitment_value_2,
+            "Commitments must differ (different sequences and payload data)"
+        );
+        assert_ne!(
+            commitment_pda_1, commitment_pda_2,
+            "Commitment PDAs must differ"
         );
     }
 

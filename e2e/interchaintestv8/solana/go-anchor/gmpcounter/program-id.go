@@ -5,4 +5,4 @@ package gmp_counter_app
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("GdEUjpVtKvHKStM3Hph6PnLSUMsJXvcVqugubhtQ5QUD")
+var ProgramID = solanago.MustPublicKeyFromBase58("63q79HR3LfYhjFLAB2rRGt7rYLiQdtpuDjk7T1RUfncA")
