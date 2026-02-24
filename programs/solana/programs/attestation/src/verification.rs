@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use crate::crypto::{recover_eth_address, sha256_digest};
+use crate::crypto::{recover_eth_address, tagged_signing_input, AttestationType};
 use crate::error::ErrorCode;
 use crate::types::ClientState;
 use crate::ETH_ADDRESS_LEN;
@@ -10,6 +10,7 @@ pub fn verify_attestation(
     client_state: &ClientState,
     attestation_data: &[u8],
     raw_signatures: &[Vec<u8>],
+    attestation_type: AttestationType,
 ) -> Result<()> {
     require!(!raw_signatures.is_empty(), ErrorCode::EmptySignatures);
     require!(
@@ -17,7 +18,7 @@ pub fn verify_attestation(
         ErrorCode::ThresholdNotMet
     );
 
-    let message_hash = sha256_digest(attestation_data);
+    let message_hash = tagged_signing_input(attestation_data, attestation_type);
 
     // Recover addresses and check for duplicates + trust in single pass
     let mut recovered_addresses: Vec<[u8; ETH_ADDRESS_LEN]> =
@@ -43,6 +44,7 @@ pub fn verify_attestation(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::AttestationType;
     use crate::test_helpers::signing::TestAttestor;
     use crate::types::AccountVersion;
     use rstest::rstest;
@@ -80,7 +82,12 @@ mod tests {
         #[case] signatures: Vec<Vec<u8>>,
     ) {
         let client_state = create_test_client_state(addrs, min_sigs);
-        let result = verify_attestation(&client_state, b"test data", &signatures);
+        let result = verify_attestation(
+            &client_state,
+            b"test data",
+            &signatures,
+            AttestationType::State,
+        );
         assert!(result.is_err());
     }
 
@@ -107,10 +114,15 @@ mod tests {
 
         let signatures: Vec<_> = signer_seeds
             .iter()
-            .map(|&s| attestors[(s - 1) as usize].sign(attestation_data))
+            .map(|&s| attestors[(s - 1) as usize].sign(attestation_data, AttestationType::State))
             .collect();
 
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &signatures,
+            AttestationType::State,
+        );
         assert!(result.is_err());
     }
 
@@ -122,10 +134,15 @@ mod tests {
             create_test_client_state(vec![attestor1.eth_address, attestor2.eth_address], 2);
         let attestation_data = b"test data";
 
-        let sig1 = attestor1.sign(attestation_data);
-        let sig2 = attestor2.sign(attestation_data);
+        let sig1 = attestor1.sign(attestation_data, AttestationType::State);
+        let sig2 = attestor2.sign(attestation_data, AttestationType::State);
 
-        let result = verify_attestation(&client_state, attestation_data, &[sig1, sig2]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig1, sig2],
+            AttestationType::State,
+        );
         assert!(result.is_ok());
     }
 
@@ -135,9 +152,14 @@ mod tests {
         let client_state = create_test_client_state(vec![attestor.eth_address], 1);
         let attestation_data = b"test data";
 
-        let sig = attestor.sign(attestation_data);
+        let sig = attestor.sign(attestation_data, AttestationType::State);
 
-        let result = verify_attestation(&client_state, attestation_data, &[sig]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
         assert!(result.is_ok());
     }
 
@@ -151,10 +173,53 @@ mod tests {
         // Sign with only 3 of 5 attestors
         let signatures: Vec<_> = attestors[0..3]
             .iter()
-            .map(|a| a.sign(attestation_data))
+            .map(|a| a.sign(attestation_data, AttestationType::State))
             .collect();
 
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &signatures,
+            AttestationType::State,
+        );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_verify_attestation_rejects_state_sig_as_packet() {
+        let attestor = TestAttestor::new(1);
+        let client_state = create_test_client_state(vec![attestor.eth_address], 1);
+        let attestation_data = b"test data";
+
+        // Sign as State
+        let sig = attestor.sign(attestation_data, AttestationType::State);
+
+        // Verify as Packet — must fail (cross-domain replay)
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::Packet,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_verify_attestation_rejects_packet_sig_as_state() {
+        let attestor = TestAttestor::new(1);
+        let client_state = create_test_client_state(vec![attestor.eth_address], 1);
+        let attestation_data = b"test data";
+
+        // Sign as Packet
+        let sig = attestor.sign(attestation_data, AttestationType::Packet);
+
+        // Verify as State — must fail
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
+        assert!(result.is_err());
     }
 }
