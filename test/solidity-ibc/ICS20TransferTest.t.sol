@@ -269,12 +269,12 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         msgSendTransfer.amount = amount;
         vm.stopPrank();
 
-        // ===== Case 4: Invalid Signature =====
+        // ===== Case 3: Invalid Signature =====
         vm.expectRevert();
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, new bytes(65));
 
-        // ===== Case 3: Permit and Token Mismatch =====
+        // ===== Case 4: Permit and Token Mismatch =====
         TestERC20 differentERC20 = new TestERC20();
         vm.startPrank(sender);
         differentERC20.mint(sender, amount);
@@ -289,7 +289,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
 
-        // ===== Case 4: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
+        // ===== Case 5: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
         FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
         feeOnTransferERC20.mint(sender, amount);
         vm.prank(sender);
