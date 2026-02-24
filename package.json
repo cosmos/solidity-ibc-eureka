@@ -3,14 +3,14 @@
   "description": "This is a solidity implementation of ibc-eureka.",
   "version": "1.0.0",
   "dependencies": {
-    "@openzeppelin/contracts": "^5.4.0",
-    "@openzeppelin/contracts-upgradeable": "^5.4.0",
+    "@openzeppelin/contracts": "^5.5.0",
+    "@openzeppelin/contracts-upgradeable": "^5.5.0",
     "@uniswap/permit2": "github:Uniswap/permit2#cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
   },
   "devDependencies": {
     "sp1-contracts": "github:succinctlabs/sp1-contracts#512b5e029abc27f6e46a3c7eba220dac83ecc306",
-    "forge-std": "github:foundry-rs/forge-std#v1.11.0",
-    "solhint": "^6.0.2",
+    "forge-std": "github:foundry-rs/forge-std#v1.15.0",
+    "solhint": "^6.0.3",
     "quicktype": "^23.2.6"
   },
   "keywords": [
