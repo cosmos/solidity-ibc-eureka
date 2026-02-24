@@ -1,2 +1,4 @@
-target/**
+**/target
+node_modules
+.git
 programs/relayer/Dockerfile
