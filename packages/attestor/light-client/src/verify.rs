@@ -35,6 +35,7 @@ pub fn verify_header(
         client_state,
         &header.attestation_data,
         &header.signatures,
+        verify_attestation::AttestationType::State,
     )?;
 
     if let Some(trusted_consensus) = existing_trusted_consensus {
@@ -85,7 +86,7 @@ pub fn verify_header(
 mod verify_header {
     use alloy_sol_types::SolValue;
 
-    use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS_ENCODED, SIGS_RAW};
+    use crate::test_utils::{ADDRESSES, PACKET_COMMITMENTS_ENCODED, STATE_SIGS_RAW};
 
     use super::*;
 
@@ -106,7 +107,7 @@ mod verify_header {
             new_height: cns.height,
             timestamp: cns.timestamp,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(Some(&cns), None, None, &frozen, &header);
@@ -126,7 +127,7 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut too_few_sigs = SIGS_RAW.to_vec();
+        let mut too_few_sigs = STATE_SIGS_RAW.to_vec();
         let _ = too_few_sigs.pop();
         let no_sig = Header {
             new_height: cns.height,
@@ -158,7 +159,7 @@ mod verify_header {
         let mut rogue_sig_raw = vec![0xff; 65];
         rogue_sig_raw[64] = 0; // v value
 
-        let mut bad_sigs = SIGS_RAW.clone();
+        let mut bad_sigs = STATE_SIGS_RAW.clone();
         bad_sigs[0] = rogue_sig_raw;
 
         let header = Header {
@@ -190,7 +191,7 @@ mod verify_header {
             timestamp: 123,
         };
 
-        let mut bad_sigs = SIGS_RAW.clone();
+        let mut bad_sigs = STATE_SIGS_RAW.clone();
         bad_sigs[0] = bad_sigs[1].clone();
 
         let header = Header {
@@ -222,7 +223,7 @@ mod verify_header {
             new_height: cns.height,
             timestamp: cns.timestamp + 1,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(Some(&cns), None, None, &cs, &bad_ts);
@@ -255,7 +256,7 @@ mod verify_header {
             new_height: 100 + 1,
             timestamp: next.timestamp + 3,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &not_inbetween);
@@ -267,7 +268,7 @@ mod verify_header {
             new_height: 100 - 1,
             timestamp: next.timestamp + 3,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, None, Some(&next), &cs, &not_before);
@@ -279,7 +280,7 @@ mod verify_header {
             new_height: 100 + 3,
             timestamp: prev.timestamp - 1,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, Some(&prev), None, &cs, &not_after);
@@ -312,7 +313,7 @@ mod verify_header {
             new_height: 100 + 1,
             timestamp: 123 + 1,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, Some(&prev), Some(&next), &cs, &inbetween);
@@ -322,7 +323,7 @@ mod verify_header {
             new_height: 100 - 1,
             timestamp: 123 - 1,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, None, Some(&next), &cs, &before);
@@ -332,7 +333,7 @@ mod verify_header {
             new_height: 100 + 3,
             timestamp: prev.timestamp + 3,
             attestation_data: PACKET_COMMITMENTS_ENCODED.abi_encode(),
-            signatures: SIGS_RAW.clone(),
+            signatures: STATE_SIGS_RAW.clone(),
         };
 
         let res = verify_header(None, Some(&prev), None, &cs, &after);

@@ -59,6 +59,7 @@ pub fn verify_membership(
         client_state,
         &attested_state.attestation_data,
         &attested_state.signatures,
+        verify_attestation::AttestationType::Packet,
     )?;
 
     if proof_data.packets.is_empty() {
@@ -130,6 +131,7 @@ pub fn verify_non_membership(
         client_state,
         &attested_state.attestation_data,
         &attested_state.signatures,
+        verify_attestation::AttestationType::Packet,
     )?;
 
     if proof_data.packets.is_empty() {
