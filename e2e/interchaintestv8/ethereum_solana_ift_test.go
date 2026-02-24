@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
+	"google.golang.org/protobuf/proto"
 
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -1085,8 +1087,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 35 seconds for timeout...")
-		time.Sleep(35 * time.Second)
+		s.T().Log("Waiting 60 seconds for timeout...")
+		time.Sleep(60 * time.Second)
 	}))
 
 	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
@@ -1167,6 +1169,10 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
 	}))
 
+	s.Require().True(s.Run("Update attestation client on Solana", func() {
+		s.updateAttestationClientOnSolana(ctx, eth.ChainID.String())
+	}))
+
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 
 	var solanaPacketTxHash []byte
@@ -1191,7 +1197,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 35,
+			TimeoutTimestamp: solanaClockTime + 45,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1230,8 +1236,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 40 seconds for timeout...")
-		time.Sleep(40 * time.Second)
+		s.T().Log("Waiting 60 seconds for timeout...")
+		time.Sleep(60 * time.Second)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
@@ -1307,6 +1313,10 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 
 	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
 		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
+	}))
+
+	s.Require().True(s.Run("Update attestation client on Solana", func() {
+		s.updateAttestationClientOnSolana(ctx, eth.ChainID.String())
 	}))
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
@@ -1441,4 +1451,26 @@ func (s *EthereumSolanaIFTTestSuite) deriveAttestationConsensusStatePDA(ctx cont
 		heightBytes,
 	)
 	return consensusStatePDA
+}
+
+func (s *EthereumSolanaIFTTestSuite) updateAttestationClientOnSolana(ctx context.Context, ethChainID string) {
+	resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+		SrcChain:    ethChainID,
+		DstChain:    testvalues.SolanaChainID,
+		DstClientId: EthClientIDOnSolana,
+	})
+	s.Require().NoError(err)
+	s.Require().NotEmpty(resp.Tx)
+
+	var solanaUpdateClient relayertypes.SolanaUpdateClient
+	err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+	s.Require().NoError(err)
+	s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
+
+	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
+	s.Require().NoError(err)
+
+	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaRelayer)
+	s.Require().NoError(err)
+	s.T().Logf("Attestation client updated - tx: %s", sig)
 }
