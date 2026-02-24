@@ -620,6 +620,93 @@ func (s *EthereumSolanaIFTTestSuite) registerSolanaIFTBridgeForEVM(ctx context.C
 	s.T().Logf("  Bridge PDA: %s, Counterparty IFT: %s", bridgePDA, counterpartyIFTAddress)
 }
 
+func (s *EthereumSolanaIFTTestSuite) adminMintIFTTokens(ctx context.Context, receiver solanago.PublicKey, amount uint64) {
+	mint := s.IFTMint()
+	mintBytes := s.IFTMintBytes()
+
+	receiverATA, err := solana.AssociatedTokenAccountAddress(receiver, mint)
+	s.Require().NoError(err)
+
+	mintAuthorityPDA, _ := solana.Ift.IftMintAuthorityPDA(ift.ProgramID, mintBytes)
+
+	adminMintMsg := ift.IftStateAdminMintMsg{
+		Receiver: receiver,
+		Amount:   amount,
+	}
+
+	adminMintIx, err := ift.NewAdminMintInstruction(
+		adminMintMsg,
+		s.IFTAppState,
+		s.IFTAppMintState,
+		s.IFTMint(),
+		mintAuthorityPDA,
+		receiverATA,
+		receiver,
+		s.SolanaRelayer.PublicKey(), // admin
+		s.SolanaRelayer.PublicKey(), // payer
+		token.ProgramID,
+		solanago.SPLAssociatedTokenAccountProgramID,
+		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
+	)
+	s.Require().NoError(err)
+
+	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), adminMintIx)
+	s.Require().NoError(err)
+
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+	s.Require().NoError(err)
+}
+
+func (s *EthereumSolanaIFTTestSuite) Test_Deploy() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	eth := s.Eth.Chains[0]
+
+	s.Require().True(s.Run("Verify Ethereum chain is running", func() {
+		blockNum, err := eth.RPCClient.BlockNumber(ctx)
+		s.Require().NoError(err)
+		s.Require().Greater(blockNum, uint64(0))
+		s.T().Logf("Ethereum block: %d", blockNum)
+	}))
+
+	s.Require().True(s.Run("Verify Solana chain is running", func() {
+		slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentConfirmed)
+		s.Require().NoError(err)
+		s.Require().Greater(slot, uint64(0))
+		s.T().Logf("Solana slot: %d", slot)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info Eth->Solana", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: eth.ChainID.String(),
+			DstChain: testvalues.SolanaChainID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify Relayer Info Solana->Eth", func() {
+		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+			SrcChain: testvalues.SolanaChainID,
+			DstChain: eth.ChainID.String(),
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(info)
+	}))
+
+	s.Require().True(s.Run("Verify IFT contract on Ethereum", func() {
+		s.Require().NotEmpty(s.contractAddresses.Ift)
+		s.T().Logf("IFT contract: %s", s.contractAddresses.Ift)
+	}))
+
+	s.Require().True(s.Run("Verify SolanaIFTSendCallConstructor on Ethereum", func() {
+		s.Require().NotEmpty(s.contractAddresses.SolanaIftConstructor)
+		s.T().Logf("SolanaIFTSendCallConstructor: %s", s.contractAddresses.SolanaIftConstructor)
+	}))
+}
+
 func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
@@ -679,16 +766,295 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().Equal(transferAmount.String(), balance.String())
 	}))
 
-	var ethSendTxHash []byte
 	s.Require().True(s.Run("Transfer: Ethereum -> Solana", func() {
+		var ethSendTxHash []byte
+		s.Require().True(s.Run("Execute IFT transfer", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			txOpts, err := eth.GetTransactOpts(s.ethUser)
+			s.Require().NoError(err)
+
+			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+			solanaReceiverHex := "0x" + hex.EncodeToString(s.SolanaRelayer.PublicKey().Bytes())
+			tx, err := iftContract.IftTransfer(txOpts, SolanaClientIDOnEth, solanaReceiverHex, transferAmount, timeout)
+			s.Require().NoError(err)
+
+			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			ethSendTxHash = receipt.TxHash.Bytes()
+			s.T().Logf("Ethereum -> Solana transfer tx: %s", receipt.TxHash.Hex())
+		}))
+
+		s.Require().True(s.Run("Verify tokens burned on Ethereum", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+			s.Require().NoError(err)
+			s.Require().Equal("0", balance.String())
+		}))
+
+		s.Require().True(s.Run("Verify pending transfer exists on Ethereum", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			pending, err := iftContract.GetPendingTransfer(nil, SolanaClientIDOnEth, 1)
+			s.Require().NoError(err)
+			s.Require().Equal(ethUserAddr, pending.Sender)
+			s.Require().Equal(transferAmount.String(), pending.Amount.String())
+		}))
+
+		var recvSig solanago.Signature
+		s.Require().True(s.Run("Relay packet to Solana", func() {
+			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{ethSendTxHash},
+				SrcClientId: SolanaClientIDOnEth,
+				DstClientId: EthClientIDOnSolana,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+
+			sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+			s.Require().NoError(err)
+			recvSig = sig
+			s.T().Logf("Solana recv tx: %s", sig)
+		}))
+
+		s.Require().True(s.Run("Verify tokens minted on Solana", func() {
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+			s.Require().NoError(err)
+			s.Require().Equal(EthSolanaIFTTransferAmount, balance)
+		}))
+
+		s.Require().True(s.Run("Relay ack to Ethereum", func() {
+			ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+			ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{[]byte(recvSig.String())},
+				SrcClientId: EthClientIDOnSolana,
+				DstClientId: SolanaClientIDOnEth,
+			})
+			s.Require().NoError(err)
+
+			receipt, err := eth.BroadcastTx(ctx, s.ethUser, 15_000_000, &ics26Address, ackResp.Tx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+		}))
+
+		s.Require().True(s.Run("Verify pending transfer cleared on Ethereum", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			_, err = iftContract.GetPendingTransfer(nil, SolanaClientIDOnEth, 1)
+			s.Require().Error(err, "getPendingTransfer should revert when transfer is cleared")
+		}))
+	}))
+
+	var solanaToEthSequence uint64
+	var solanaBaseSeq uint64
+	s.Require().True(s.Run("Transfer: Solana -> Ethereum", func() {
+		var solanaTransferTxSig solanago.Signature
+
+		s.Require().True(s.Run("Execute IFT transfer", func() {
+			baseSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+			s.Require().NoError(err)
+
+			solanaToEthSequence = solana.CalculateNamespacedSequence(baseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+			solanaBaseSeq = baseSeq
+			seqBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(seqBytes, solanaToEthSequence)
+
+			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
+			pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
+
+			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
+			s.Require().NoError(err)
+
+			transferMsg := ift.IftStateIftTransferMsg{
+				ClientId:         EthClientIDOnSolana,
+				Receiver:         ethUserAddr.Hex(),
+				Amount:           EthSolanaIFTTransferAmount,
+				TimeoutTimestamp: solanaClockTime + 900,
+			}
+
+			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+			consensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
+
+			transferIx, err := ift.NewIftTransferInstruction(
+				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
+				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+				token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
+				ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+				s.GMPIBCAppPDA, s.IBCClientPDA,
+				attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
+			)
+			s.Require().NoError(err)
+
+			computeBudgetIx := solana.NewComputeBudgetInstruction(ethSolComputeUnits)
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
+			s.Require().NoError(err)
+
+			solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			s.Require().NoError(err)
+			s.T().Logf("Solana -> Ethereum transfer tx: %s", solanaTransferTxSig)
+		}))
+
+		s.Require().True(s.Run("Verify tokens burned on Solana", func() {
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+			s.Require().NoError(err)
+			s.Require().Equal(uint64(0), balance)
+		}))
+
+		s.Require().True(s.Run("Verify pending transfer exists on Solana", func() {
+			s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(),
+				ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, solanaToEthSequence)
+		}))
+
+		var ethRecvTxHash []byte
+		s.Require().True(s.Run("Relay packet to Ethereum", func() {
+			ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+				SrcChain:    testvalues.SolanaChainID,
+				DstChain:    eth.ChainID.String(),
+				SourceTxIds: [][]byte{[]byte(solanaTransferTxSig.String())},
+				SrcClientId: EthClientIDOnSolana,
+				DstClientId: SolanaClientIDOnEth,
+			})
+			s.Require().NoError(err)
+			s.Require().NotEmpty(resp.Tx)
+
+			receipt, err := eth.BroadcastTx(ctx, s.ethUser, 15_000_000, &ics26Address, resp.Tx)
+			s.Require().NoError(err)
+			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+			ethRecvTxHash = receipt.TxHash.Bytes()
+			s.T().Logf("Ethereum recv tx: %s", receipt.TxHash.Hex())
+		}))
+
+		s.Require().True(s.Run("Verify tokens received on Ethereum", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+			s.Require().NoError(err)
+			s.Require().Equal(transferAmount.String(), balance.String(), "Ethereum user should have tokens back after roundtrip")
+		}))
+
+		s.Require().True(s.Run("Relay ack to Solana", func() {
+			ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+				SrcChain:    eth.ChainID.String(),
+				DstChain:    testvalues.SolanaChainID,
+				SourceTxIds: [][]byte{ethRecvTxHash},
+				SrcClientId: SolanaClientIDOnEth,
+				DstClientId: EthClientIDOnSolana,
+			})
+			s.Require().NoError(err)
+
+			_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), ackResp, s.SolanaRelayer)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Verify pending transfer closed on Solana", func() {
+			s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
+				ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, solanaToEthSequence)
+		}))
+
+		s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
+			s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(),
+				EthClientIDOnSolana, solanaBaseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		}))
+	}))
+
+	s.Require().True(s.Run("Verify final balances", func() {
+		s.Require().True(s.Run("Ethereum user has tokens back", func() {
+			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+			s.Require().NoError(err)
+
+			balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+			s.Require().NoError(err)
+			s.Require().Equal(transferAmount.String(), balance.String(), "Ethereum user should have tokens back after roundtrip")
+		}))
+
+		s.Require().True(s.Run("Solana sender has no tokens", func() {
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+			s.Require().NoError(err)
+			s.Require().Equal(uint64(0), balance, "Solana should have no tokens after roundtrip back to Ethereum")
+		}))
+	}))
+}
+
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	eth := s.Eth.Chains[0]
+	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+
+		mint := s.IFTMint()
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		s.Require().NoError(err)
+		s.SenderTokenAccount = tokenAccount
+	}))
+
+	s.Require().True(s.Run("Register IFT bridges", func() {
+		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
+
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
+
+	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.Mint(txOpts, ethUserAddr, transferAmount)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount.String(), balance.String())
+	}))
+
+	var ethSendTxHash []byte
+	s.Require().True(s.Run("Send transfer with short timeout", func() {
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
 
 		txOpts, err := eth.GetTransactOpts(s.ethUser)
 		s.Require().NoError(err)
 
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		// Receiver is the Solana public key in hex format (SolanaIFTSendCallConstructor expects 0x + 64 hex chars)
+		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 		solanaReceiverHex := "0x" + hex.EncodeToString(s.SolanaRelayer.PublicKey().Bytes())
 		tx, err := iftContract.IftTransfer(txOpts, SolanaClientIDOnEth, solanaReceiverHex, transferAmount, timeout)
 		s.Require().NoError(err)
@@ -697,7 +1063,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 		ethSendTxHash = receipt.TxHash.Bytes()
-		s.T().Logf("Ethereum -> Solana transfer tx: %s", receipt.TxHash.Hex())
 	}))
 
 	s.Require().True(s.Run("Verify tokens burned on Ethereum", func() {
@@ -706,55 +1071,257 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().Equal("0", balance.String())
+		s.Require().Equal("0", balance.String(), "Tokens should be burned")
 	}))
 
-	s.Require().True(s.Run("Relay to Solana", func() {
-		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	s.Require().True(s.Run("Verify pending transfer exists on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
 
+		pending, err := iftContract.GetPendingTransfer(nil, SolanaClientIDOnEth, 1)
+		s.Require().NoError(err)
+		s.Require().Equal(ethUserAddr, pending.Sender)
+		s.Require().Equal(transferAmount.String(), pending.Amount.String())
+	}))
+
+	s.Require().True(s.Run("Wait for timeout", func() {
+		s.T().Log("Waiting 35 seconds for timeout...")
+		time.Sleep(35 * time.Second)
+	}))
+
+	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
-			SrcChain:    eth.ChainID.String(),
-			DstChain:    testvalues.SolanaChainID,
-			SourceTxIds: [][]byte{ethSendTxHash},
-			SrcClientId: SolanaClientIDOnEth,
-			DstClientId: EthClientIDOnSolana,
+			SrcChain:     testvalues.SolanaChainID,
+			DstChain:     eth.ChainID.String(),
+			TimeoutTxIds: [][]byte{ethSendTxHash},
+			SrcClientId:  EthClientIDOnSolana,
+			DstClientId:  SolanaClientIDOnEth,
 		})
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
-		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
-		s.Require().NoError(err)
-		s.T().Logf("Solana recv tx: %s", sig)
-
-		ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
-			SrcChain:    testvalues.SolanaChainID,
-			DstChain:    eth.ChainID.String(),
-			SourceTxIds: [][]byte{[]byte(sig.String())},
-			SrcClientId: EthClientIDOnSolana,
-			DstClientId: SolanaClientIDOnEth,
-		})
-		s.Require().NoError(err)
-
-		receipt, err := eth.BroadcastTx(ctx, s.ethUser, 15_000_000, &ics26Address, ackResp.Tx)
+		receipt, err := eth.BroadcastTx(ctx, s.ethUser, 15_000_000, &ics26Address, resp.Tx)
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
 
-	s.Require().True(s.Run("Verify tokens minted on Solana", func() {
-		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+	s.Require().True(s.Run("Verify tokens refunded on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
-		s.Require().Equal(EthSolanaIFTTransferAmount, balance)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().Equal(transferAmount.String(), balance.String(), "tokens should be refunded")
 	}))
 
-	var solanaToEthSequence uint64
-	var solanaTransferTxSig solanago.Signature
-	s.Require().True(s.Run("Transfer: Solana -> Ethereum", func() {
-		baseSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+	s.Require().True(s.Run("Verify pending transfer cleared on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
 
-		solanaToEthSequence = solana.CalculateNamespacedSequence(baseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		_, err = iftContract.GetPendingTransfer(nil, SolanaClientIDOnEth, 1)
+		s.Require().Error(err, "getPendingTransfer should revert when transfer is cleared")
+	}))
+
+	s.Require().True(s.Run("Verify no balance on Solana", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(uint64(0), balance, "Solana should have no tokens")
+	}))
+}
+
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	eth := s.Eth.Chains[0]
+	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
+
+	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+
+		mint := s.IFTMint()
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		s.Require().NoError(err)
+		s.SenderTokenAccount = tokenAccount
+	}))
+
+	s.Require().True(s.Run("Register IFT bridges", func() {
+		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
+
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+
+	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
+		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
+	}))
+
+	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+
+	var solanaPacketTxHash []byte
+	var baseSequence uint64
+	var namespacedSequence uint64
+	s.Require().True(s.Run("Execute transfer with short timeout", func() {
+		var err error
+		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence = solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
 		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, solanaToEthSequence)
+		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
+
+		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
+		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
+
+		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
+		s.Require().NoError(err)
+
+		transferMsg := ift.IftStateIftTransferMsg{
+			ClientId:         EthClientIDOnSolana,
+			Receiver:         ethUserAddr.Hex(),
+			Amount:           EthSolanaIFTTransferAmount,
+			TimeoutTimestamp: solanaClockTime + 35,
+		}
+
+		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+		consensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
+
+		transferIx, err := ift.NewIftTransferInstruction(
+			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
+			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
+			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+			s.GMPIBCAppPDA, s.IBCClientPDA,
+			attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
+		)
+		s.Require().NoError(err)
+
+		computeBudgetIx := solana.NewComputeBudgetInstruction(ethSolComputeUnits)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+
+		solanaPacketTxHash = []byte(sig.String())
+		s.T().Logf("IFT transfer transaction (will timeout): %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify tokens burned on Solana", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(EthSolanaIFTMintAmount-EthSolanaIFTTransferAmount, balance)
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer exists on Solana", func() {
+		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(),
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+	}))
+
+	s.Require().True(s.Run("Wait for timeout", func() {
+		s.T().Log("Waiting 40 seconds for timeout...")
+		time.Sleep(40 * time.Second)
+	}))
+
+	s.Require().True(s.Run("Relay timeout back to Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:     eth.ChainID.String(),
+			DstChain:     testvalues.SolanaChainID,
+			TimeoutTxIds: [][]byte{solanaPacketTxHash},
+			SrcClientId:  SolanaClientIDOnEth,
+			DstClientId:  EthClientIDOnSolana,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Timeout transaction: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify tokens refunded on Solana", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(EthSolanaIFTMintAmount, balance, "Tokens should be refunded after timeout")
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer closed on Solana", func() {
+		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+	}))
+
+	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(),
+			EthClientIDOnSolana, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+	}))
+
+	s.Require().True(s.Run("Verify no balance on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		s.Require().NoError(err)
+		s.Require().Equal("0", balance.String(), "Ethereum should have no tokens")
+	}))
+}
+
+// Test_EthSolana_IFT_FailedReceiveOnEth tests error acknowledgment when Ethereum receive fails.
+// The test registers the IFT bridge only on Solana (intentionally skipping Ethereum bridge registration).
+// When Solana sends an IFT transfer, Ethereum's IFT contract fails because no bridge is registered
+// for the client ID. The ICS26 router catches this error and generates an error ack, which is
+// relayed back to Solana to refund the sender.
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	eth := s.Eth.Chains[0]
+	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
+	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+
+	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+
+		mint := s.IFTMint()
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		s.Require().NoError(err)
+		s.SenderTokenAccount = tokenAccount
+	}))
+
+	s.Require().True(s.Run("Register Solana IFT bridge only", func() {
+		// Register the Solana-side bridge so the send from Solana works
+		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
+		// NOTE: intentionally NOT registering the Ethereum IFT bridge
+	}))
+
+	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
+		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
+	}))
+
+	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+
+	var solanaTransferTxSig solanago.Signature
+	var baseSequence uint64
+	var namespacedSequence uint64
+	s.Require().True(s.Run("Execute transfer from Solana to Ethereum", func() {
+		var err error
+		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
+		s.Require().NoError(err)
+
+		namespacedSequence = solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		seqBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
 
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
@@ -794,12 +1361,16 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	s.Require().True(s.Run("Verify tokens burned on Solana", func() {
 		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
 		s.Require().NoError(err)
-		s.Require().Equal(uint64(0), balance)
+		s.Require().Equal(EthSolanaIFTMintAmount-EthSolanaIFTTransferAmount, balance, "Tokens should be burned after transfer")
 	}))
 
-	s.Require().True(s.Run("Relay to Ethereum", func() {
-		ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
+	s.Require().True(s.Run("Verify pending transfer exists on Solana", func() {
+		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(),
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+	}))
 
+	var ethRecvTxHash []byte
+	s.Require().True(s.Run("Relay packet to Ethereum (execution fails)", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    testvalues.SolanaChainID,
 			DstChain:    eth.ChainID.String(),
@@ -813,33 +1384,43 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		receipt, err := eth.BroadcastTx(ctx, s.ethUser, 15_000_000, &ics26Address, resp.Tx)
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		s.T().Logf("Ethereum recv tx: %s", receipt.TxHash.Hex())
-
-		ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
-			SrcChain:    eth.ChainID.String(),
-			DstChain:    testvalues.SolanaChainID,
-			SourceTxIds: [][]byte{receipt.TxHash.Bytes()},
-			SrcClientId: SolanaClientIDOnEth,
-			DstClientId: EthClientIDOnSolana,
-		})
-		s.Require().NoError(err)
-
-		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), ackResp, s.SolanaRelayer)
-		s.Require().NoError(err)
+		ethRecvTxHash = receipt.TxHash.Bytes()
 	}))
 
-	s.Require().True(s.Run("Verify tokens received on Ethereum", func() {
+	s.Require().True(s.Run("Verify no balance minted on Ethereum", func() {
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
 
 		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
 		s.Require().NoError(err)
-		s.Require().Equal(transferAmount.String(), balance.String(), "Ethereum user should have tokens back after roundtrip")
+		s.Require().Equal("0", balance.String(), "Ethereum should have no tokens")
 	}))
 
-	s.Require().True(s.Run("Verify PendingTransfer closed on Solana", func() {
+	s.Require().True(s.Run("Relay error ack to Solana", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    eth.ChainID.String(),
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{ethRecvTxHash},
+			SrcClientId: SolanaClientIDOnEth,
+			DstClientId: EthClientIDOnSolana,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Error ack relayed: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify tokens refunded on Solana", func() {
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().NoError(err)
+		s.Require().Equal(EthSolanaIFTMintAmount, balance, "Tokens should be refunded after error ack")
+	}))
+
+	s.Require().True(s.Run("Verify pending transfer closed on Solana", func() {
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, solanaToEthSequence)
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
 	}))
 }
 
