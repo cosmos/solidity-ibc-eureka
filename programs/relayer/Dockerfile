@@ -3,6 +3,7 @@ FROM rust:1.91-bookworm AS builder
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     protobuf-compiler \
+    libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
