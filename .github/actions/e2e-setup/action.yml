@@ -117,4 +117,4 @@ runs:
         timeout_minutes: 10
         max_attempts: 3
         retry_wait_seconds: 5
-        command: docker pull ghcr.io/cosmos/ibc-attestor:v0.2.0
+        command: docker pull ${IBC_ATTESTOR_IMAGE:-ghcr.io/cosmos/ibc-attestor:v0.3.0}

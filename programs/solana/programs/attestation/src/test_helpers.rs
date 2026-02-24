@@ -170,6 +170,7 @@ pub mod fixtures {
 
 /// Test signing utilities using alloy.
 pub mod signing {
+    use crate::crypto::AttestationType;
     use crate::ETH_ADDRESS_LEN;
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
@@ -198,9 +199,16 @@ pub mod signing {
             }
         }
 
-        /// Sign attestation data and return 65-byte signature with Ethereum-style recovery id
-        pub fn sign(&self, data: &[u8]) -> Vec<u8> {
-            let message_hash: [u8; 32] = Sha256::digest(data).into();
+        /// Sign attestation data with domain separation and return 65-byte signature.
+        ///
+        /// Computes `sha256(type_tag || sha256(data))` then signs the result.
+        pub fn sign(&self, data: &[u8], attestation_type: AttestationType) -> Vec<u8> {
+            let inner_hash: [u8; 32] = Sha256::digest(data).into();
+            let mut tagged = Vec::with_capacity(crate::crypto::DOMAIN_SEPARATED_PREIMAGE_LEN);
+            tagged.push(attestation_type as u8);
+            tagged.extend_from_slice(&inner_hash);
+            let message_hash: [u8; 32] = Sha256::digest(&tagged).into();
+
             let sig = self
                 .signer
                 .sign_hash_sync(&message_hash.into())

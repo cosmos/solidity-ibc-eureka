@@ -23,7 +23,7 @@ jobs:
         shell: bash
         run: |
           curl -L https://sp1.succinct.xyz | bash
-          ~/.sp1/bin/sp1up --token ${{ secrets.GITHUB_TOKEN }}
+          ~/.sp1/bin/sp1up --version ${{ env.SP1_VERSION }} --token ${{ secrets.GITHUB_TOKEN }}
           ~/.sp1/bin/cargo-prove prove --version
       - name: Install just
         uses: extractions/setup-just@v3
