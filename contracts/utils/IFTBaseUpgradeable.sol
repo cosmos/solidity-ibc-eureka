@@ -11,6 +11,9 @@ import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.s
 import { IIBCSenderCallbacks } from "../interfaces/IIBCSenderCallbacks.sol";
 import { IIFTErrors } from "../errors/IIFTErrors.sol";
 
+import {
+    ReentrancyGuardTransientUpgradeable
+} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IBCCallbackReceiver } from "../utils/IBCCallbackReceiver.sol";
 import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC165Checker.sol";
@@ -19,7 +22,13 @@ import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC16
 /// @notice Abstract base contract for Interchain Fungible Tokens
 /// @dev Extend this contract and implement the ERC20 constructor to create an IFT token
 /// @dev WARNING: This contract is experimental
-abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCCallbackReceiver {
+abstract contract IFTBaseUpgradeable is
+    IIFTErrors,
+    IIFT,
+    ERC20Upgradeable,
+    IBCCallbackReceiver,
+    ReentrancyGuardTransientUpgradeable
+{
     /// @notice Storage for IFT-specific state
     /// @param _ics27Gmp The ICS27-GMP contract for sending cross-chain messages
     /// @param _iftBridges Mapping of client IDs to their bridge configurations
@@ -108,12 +117,13 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
         uint64 timeoutTimestamp
     )
         external
+        nonReentrant
     {
         _iftTransfer(_msgSender(), clientId, receiver, amount, timeoutTimestamp);
     }
 
     /// @inheritdoc IIFT
-    function iftTransfer(string calldata clientId, string calldata receiver, uint256 amount) external {
+    function iftTransfer(string calldata clientId, string calldata receiver, uint256 amount) external nonReentrant {
         uint64 timeoutTimestamp = uint64(block.timestamp) + DEFAULT_TIMEOUT_DURATION;
         _iftTransfer(_msgSender(), clientId, receiver, amount, timeoutTimestamp);
     }
@@ -163,7 +173,7 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
     }
 
     /// @inheritdoc IIFT
-    function iftMint(address receiver, uint256 amount) external {
+    function iftMint(address receiver, uint256 amount) external nonReentrant {
         IFTBaseStorage storage $ = _getIFTBaseStorage();
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = $._ics27Gmp.getAccountIdentifier(_msgSender());
@@ -217,7 +227,8 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
         IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_
     )
         external
-        override
+        override(IIBCSenderCallbacks)
+        nonReentrant
     {
         _onlyICS27GMP(); // Ensure only ICS27-GMP can call this function
 
@@ -237,7 +248,11 @@ abstract contract IFTBaseUpgradeable is IIFTErrors, IIFT, ERC20Upgradeable, IBCC
     }
 
     /// @inheritdoc IIBCSenderCallbacks
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external override {
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_)
+        external
+        override(IIBCSenderCallbacks)
+        nonReentrant
+    {
         _onlyICS27GMP(); // Ensure only ICS27-GMP can call this function
 
         _refundPendingTransfer(msg_.sourceClient, msg_.sequence);
