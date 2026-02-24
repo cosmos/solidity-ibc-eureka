@@ -128,12 +128,17 @@ abstract contract IFTBaseUpgradeable is
         _iftTransfer(_msgSender(), clientId, receiver, amount, timeoutTimestamp);
     }
 
-    /// @notice Internal implementation of iftTransfer
-    /// @param sender The address initiating the transfer
-    /// @param clientId The IBC client identifier
-    /// @param receiver The receiver address on the counterparty chain
-    /// @param amount The amount of tokens to transfer
-    /// @param timeoutTimestamp The timeout timestamp for the IBC packet
+    /**
+     * @notice Internal implementation of iftTransfer
+     *
+     * @dev This function can be overridden by inheriting contracts to implement custom logic such as rate limiting,
+     * whitelisting, etc. @param sender The address initiating the transfer
+     *
+     * @param clientId The IBC client identifier
+     * @param receiver The receiver address on the counterparty chain
+     * @param amount The amount of tokens to transfer
+     * @param timeoutTimestamp The timeout timestamp for the IBC packet
+     */
     function _iftTransfer(
         address sender,
         string calldata clientId,
@@ -142,6 +147,7 @@ abstract contract IFTBaseUpgradeable is
         uint64 timeoutTimestamp
     )
         internal
+        virtual
     {
         require(bytes(clientId).length > 0, IFTEmptyClientId());
         require(bytes(receiver).length > 0, IFTEmptyReceiver());
@@ -173,7 +179,7 @@ abstract contract IFTBaseUpgradeable is
     }
 
     /// @inheritdoc IIFT
-    function iftMint(address receiver, uint256 amount) external nonReentrant {
+    function iftMint(address receiver, uint256 amount) external virtual nonReentrant {
         IFTBaseStorage storage $ = _getIFTBaseStorage();
 
         IICS27GMPMsgs.AccountIdentifier memory accountId = $._ics27Gmp.getAccountIdentifier(_msgSender());
