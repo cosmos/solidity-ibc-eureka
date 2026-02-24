@@ -102,16 +102,16 @@ contract ICS27GMP is
         return _getICS27GMPStorage()._ics26
             .sendPacket(
                 IICS26RouterMsgs.MsgSendPacket({
-                sourceClient: msg_.sourceClient,
-                timeoutTimestamp: msg_.timeoutTimestamp,
-                payload: IICS26RouterMsgs.Payload({
-                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
-                destPort: ICS27Lib.DEFAULT_PORT_ID,
-                version: ICS27Lib.ICS27_VERSION,
-                encoding: ICS27Lib.ICS27_ENCODING,
-                value: abi.encode(packetData)
-            })
-            })
+                    sourceClient: msg_.sourceClient,
+                    timeoutTimestamp: msg_.timeoutTimestamp,
+                    payload: IICS26RouterMsgs.Payload({
+                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                        destPort: ICS27Lib.DEFAULT_PORT_ID,
+                        version: ICS27Lib.ICS27_VERSION,
+                        encoding: ICS27Lib.ICS27_ENCODING,
+                        value: abi.encode(packetData)
+                    })
+                })
             );
     }
 
