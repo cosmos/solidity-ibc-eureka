@@ -179,7 +179,7 @@ contract AttestationLightClientTest is Test {
     function test_updateClient_revert_duplicate_signer() public {
         bytes memory attestationData =
             abi.encode(AM.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
-        bytes32 digest = sha256(attestationData);
+        bytes32 digest = _taggedDigest(attestationData, STATE_TAG);
 
         bytes[] memory signatures = new bytes[](2);
         signatures[0] = _sig(attestorPrivKey1, digest);
@@ -194,7 +194,7 @@ contract AttestationLightClientTest is Test {
     function test_updateClient_revert_unknown_signer() public {
         bytes memory attestationData =
             abi.encode(AM.StateAttestation({ height: INITIAL_HEIGHT + 1, timestamp: INITIAL_TS + 1 }));
-        bytes32 digest = sha256(attestationData);
+        bytes32 digest = _taggedDigest(attestationData, STATE_TAG);
 
         uint256 badPriv = 0xDEADBEEF;
         bytes[] memory signatures = new bytes[](2);
@@ -428,6 +428,79 @@ contract AttestationLightClientTest is Test {
         client.verifyNonMembership(msgVerify);
     }
 
+    function test_crossDomainReplay_packetSigRejectedAsState() public {
+        uint64 newHeight = INITIAL_HEIGHT + 1;
+        uint64 newTs = INITIAL_TS + 100;
+
+        // Sign state attestation data with Packet tag
+        bytes memory attestationData = abi.encode(AM.StateAttestation({ height: newHeight, timestamp: newTs }));
+        bytes32 wrongDigest = _taggedDigest(attestationData, PACKET_TAG);
+
+        bytes[] memory signatures = new bytes[](2);
+        signatures[0] = _sig(attestorPrivKey1, wrongDigest);
+        signatures[1] = _sig(attestorPrivKey2, wrongDigest);
+
+        AM.AttestationProof memory proof =
+            AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+
+        vm.expectRevert();
+        client.updateClient(abi.encode(proof));
+    }
+
+    function test_crossDomainReplay_stateSigRejectedAsPacket() public {
+        AM.PacketCompact[] memory packets = new AM.PacketCompact[](1);
+        packets[0] = _packet("a");
+
+        // Sign packet attestation data with State tag
+        AM.PacketAttestation memory p = AM.PacketAttestation({ height: INITIAL_HEIGHT, packets: packets });
+        bytes memory attestationData = abi.encode(p);
+        bytes32 wrongDigest = _taggedDigest(attestationData, STATE_TAG);
+
+        bytes[] memory signatures = new bytes[](2);
+        signatures[0] = _sig(attestorPrivKey1, wrongDigest);
+        signatures[1] = _sig(attestorPrivKey2, wrongDigest);
+
+        AM.AttestationProof memory proof =
+            AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+
+        ILightClientMsgs.MsgVerifyMembership memory msgVerify;
+        msgVerify.proof = abi.encode(proof);
+        msgVerify.proofHeight = IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: INITIAL_HEIGHT });
+        msgVerify.path = new bytes[](1);
+        msgVerify.path[0] = "path-a";
+        msgVerify.value = abi.encode(_packet("a").commitment);
+
+        vm.expectRevert();
+        client.verifyMembership(msgVerify);
+    }
+
+    function test_crossDomainReplay_stateSigRejectedAsNonMembership() public {
+        AM.PacketCompact[] memory packets = new AM.PacketCompact[](1);
+        packets[0] = _nonMemberPacket("timeout-path");
+
+        // Sign packet attestation data with State tag
+        AM.PacketAttestation memory p = AM.PacketAttestation({ height: INITIAL_HEIGHT, packets: packets });
+        bytes memory attestationData = abi.encode(p);
+        bytes32 wrongDigest = _taggedDigest(attestationData, STATE_TAG);
+
+        bytes[] memory signatures = new bytes[](2);
+        signatures[0] = _sig(attestorPrivKey1, wrongDigest);
+        signatures[1] = _sig(attestorPrivKey2, wrongDigest);
+
+        AM.AttestationProof memory proof =
+            AM.AttestationProof({ attestationData: attestationData, signatures: signatures });
+
+        ILightClientMsgs.MsgVerifyNonMembership memory msgVerify = ILightClientMsgs.MsgVerifyNonMembership({
+            proof: abi.encode(proof),
+            proofHeight: IICS02ClientMsgs.Height({ revisionNumber: 0, revisionHeight: INITIAL_HEIGHT }),
+            path: new bytes[](1)
+        });
+        msgVerify.path[0] = "path-timeout-path";
+
+        vm.expectRevert();
+        client.verifyNonMembership(msgVerify);
+    }
+
     function test_misbehaviour_revert_feature_not_supported() public {
         vm.expectRevert(abi.encodeWithSelector(IAttestationLightClientErrors.FeatureNotSupported.selector));
         client.misbehaviour(bytes(""));
@@ -448,6 +521,13 @@ contract AttestationLightClientTest is Test {
         return AM.PacketCompact({ path: keccak256(abi.encodePacked("path-", pathValue)), commitment: bytes32(0) });
     }
 
+    bytes1 private constant STATE_TAG = 0x01;
+    bytes1 private constant PACKET_TAG = 0x02;
+
+    function _taggedDigest(bytes memory data, bytes1 typeTag) internal pure returns (bytes32) {
+        return sha256(abi.encodePacked(typeTag, sha256(data)));
+    }
+
     function _attestation(
         uint64 height,
         AM.PacketCompact[] memory packets,
@@ -459,7 +539,7 @@ contract AttestationLightClientTest is Test {
     {
         AM.PacketAttestation memory p = AM.PacketAttestation({ height: height, packets: packets });
         attestationData = abi.encode(p);
-        bytes32 digest = sha256(attestationData);
+        bytes32 digest = _taggedDigest(attestationData, PACKET_TAG);
         signatures = new bytes[](signers.length);
         for (uint256 i = 0; i < signers.length; ++i) {
             signatures[i] = _sig(signers[i], digest);
@@ -477,7 +557,7 @@ contract AttestationLightClientTest is Test {
     {
         AM.StateAttestation memory s = AM.StateAttestation({ height: height, timestamp: timestamp });
         attestationData = abi.encode(s);
-        bytes32 digest = sha256(attestationData);
+        bytes32 digest = _taggedDigest(attestationData, STATE_TAG);
         signatures = new bytes[](signers.length);
         for (uint256 i = 0; i < signers.length; ++i) {
             signatures[i] = _sig(signers[i], digest);
