@@ -15,7 +15,7 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIBCSenderCallbacks } from "../../contracts/interfaces/IIBCSenderCallbacks.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
-import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
+import { TestERC20, MalfunctioningERC20, FeeOnTransferERC20 } from "./mocks/TestERC20.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -123,7 +123,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     }
 
     function testFuzz_failure_sendTransfer(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        vm.assume(amount > 0);
+        vm.assume(amount > 1);
 
         vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
 
@@ -181,6 +181,18 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, 0));
         vm.prank(sender);
         ics20Transfer.sendTransfer(msgSendTransfer);
+
+        // ===== Case 5: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
+        FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
+        feeOnTransferERC20.mint(sender, amount);
+        vm.prank(sender);
+        feeOnTransferERC20.approve(address(ics20Transfer), amount);
+
+        msgSendTransfer.denom = address(feeOnTransferERC20);
+
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, amount - 1));
+        vm.prank(sender);
+        ics20Transfer.sendTransfer(msgSendTransfer);
     }
 
     function testFuzz_success_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
@@ -216,7 +228,7 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
     }
 
     function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        vm.assume(amount > 0);
+        vm.assume(amount > 1);
 
         address sender = env.createAndFundUser(amount);
         string memory sourceClient = th.randomString();
@@ -274,6 +286,20 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
                 IICS20Errors.ICS20Permit2TokenMismatch.selector, address(differentERC20), env.erc20()
             )
         );
+        vm.prank(sender);
+        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
+
+        // ===== Case 4: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
+        FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
+        feeOnTransferERC20.mint(sender, amount);
+        vm.prank(sender);
+        feeOnTransferERC20.approve(env.permit2(), amount);
+        (permit, signature) =
+            env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(feeOnTransferERC20));
+
+        msgSendTransfer.denom = address(feeOnTransferERC20);
+
+        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, amount - 1));
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
     }
