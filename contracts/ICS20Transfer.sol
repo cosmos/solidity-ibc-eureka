@@ -17,9 +17,7 @@ import { IIBCERC20 } from "./interfaces/IIBCERC20.sol";
 import { IDeprecatedIBCUUPSUpgradeable } from "./utils/ICS26AdminsDeprecated.sol";
 import { IPausable } from "./interfaces/IPausable.sol";
 
-import {
-    ReentrancyGuardTransientUpgradeable
-} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import { SafeERC20 } from "@openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { ICS20Lib } from "./utils/ICS20Lib.sol";
@@ -42,7 +40,7 @@ contract ICS20Transfer is
     IICS20Transfer,
     IIBCApp,
     IPausable,
-    ReentrancyGuardTransientUpgradeable,
+    ReentrancyGuardTransient,
     MulticallUpgradeable,
     UUPSUpgradeable,
     AccessManagedUpgradeable,
@@ -92,7 +90,6 @@ contract ICS20Transfer is
         onlyVersion(0)
         reinitializer(2)
     {
-        __ReentrancyGuardTransient_init();
         __Multicall_init();
         __Pausable_init();
         __AccessManaged_init(authority);
@@ -267,16 +264,16 @@ contract ICS20Transfer is
         return _getICS26Router()
             .sendPacket(
                 IICS26RouterMsgs.MsgSendPacket({
-                    sourceClient: msg_.sourceClient,
-                    timeoutTimestamp: msg_.timeoutTimestamp,
-                    payload: IICS26RouterMsgs.Payload({
-                        sourcePort: ICS20Lib.DEFAULT_PORT_ID,
-                        destPort: ICS20Lib.DEFAULT_PORT_ID,
-                        version: ICS20Lib.ICS20_VERSION,
-                        encoding: ICS20Lib.ICS20_ENCODING,
-                        value: abi.encode(packetData)
-                    })
-                })
+                sourceClient: msg_.sourceClient,
+                timeoutTimestamp: msg_.timeoutTimestamp,
+                payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS20Lib.DEFAULT_PORT_ID,
+                destPort: ICS20Lib.DEFAULT_PORT_ID,
+                version: ICS20Lib.ICS20_VERSION,
+                encoding: ICS20Lib.ICS20_ENCODING,
+                value: abi.encode(packetData)
+            })
+            })
             );
     }
 

@@ -11,9 +11,7 @@ import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.s
 import { IIBCSenderCallbacks } from "../interfaces/IIBCSenderCallbacks.sol";
 import { IIFTErrors } from "../errors/IIFTErrors.sol";
 
-import {
-    ReentrancyGuardTransientUpgradeable
-} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import { IBCCallbackReceiver } from "../utils/IBCCallbackReceiver.sol";
 import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC165Checker.sol";
@@ -25,14 +23,13 @@ import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC16
  * @dev Extend this contract and implement the ERC20 constructor to create an IFT token
  * @dev _update in ERC20Upgradeable can be overriden to add custom logic on minting and burning such as rate limiting,
  * and whitelisting.
- * @dev WARNING: This contract is experimental
  */
 abstract contract IFTBaseUpgradeable is
     IIFTErrors,
     IIFT,
     ERC20Upgradeable,
     IBCCallbackReceiver,
-    ReentrancyGuardTransientUpgradeable
+    ReentrancyGuardTransient
 {
     /// @notice Storage for IFT-specific state
     /// @param _ics27Gmp The ICS27-GMP contract for sending cross-chain messages

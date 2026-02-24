@@ -11,9 +11,7 @@ import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 import { IICS27Account } from "./interfaces/IICS27Account.sol";
 import { IICS27Errors } from "./errors/IICS27Errors.sol";
 
-import {
-    ReentrancyGuardTransientUpgradeable
-} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { Create2 } from "@openzeppelin-contracts/utils/Create2.sol";
@@ -30,7 +28,7 @@ contract ICS27GMP is
     IICS27Errors,
     IICS27GMP,
     IIBCApp,
-    ReentrancyGuardTransientUpgradeable,
+    ReentrancyGuardTransient,
     MulticallUpgradeable,
     AccessManagedUpgradeable,
     UUPSUpgradeable
@@ -62,7 +60,6 @@ contract ICS27GMP is
 
     /// @inheritdoc IICS27GMP
     function initialize(address ics26_, address accountLogic, address authority) external initializer {
-        __ReentrancyGuardTransient_init();
         __Multicall_init();
         __AccessManaged_init(authority);
 
@@ -105,16 +102,16 @@ contract ICS27GMP is
         return _getICS27GMPStorage()._ics26
             .sendPacket(
                 IICS26RouterMsgs.MsgSendPacket({
-                    sourceClient: msg_.sourceClient,
-                    timeoutTimestamp: msg_.timeoutTimestamp,
-                    payload: IICS26RouterMsgs.Payload({
-                        sourcePort: ICS27Lib.DEFAULT_PORT_ID,
-                        destPort: ICS27Lib.DEFAULT_PORT_ID,
-                        version: ICS27Lib.ICS27_VERSION,
-                        encoding: ICS27Lib.ICS27_ENCODING,
-                        value: abi.encode(packetData)
-                    })
-                })
+                sourceClient: msg_.sourceClient,
+                timeoutTimestamp: msg_.timeoutTimestamp,
+                payload: IICS26RouterMsgs.Payload({
+                sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+                destPort: ICS27Lib.DEFAULT_PORT_ID,
+                version: ICS27Lib.ICS27_VERSION,
+                encoding: ICS27Lib.ICS27_ENCODING,
+                value: abi.encode(packetData)
+            })
+            })
             );
     }
 
