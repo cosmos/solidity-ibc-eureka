@@ -24,6 +24,7 @@ pub struct SetMintRateLimit<'info> {
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
 
+    /// Admin authority, must match `app_state.admin`
     #[account(
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]

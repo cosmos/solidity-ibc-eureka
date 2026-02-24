@@ -14,7 +14,6 @@ import (
 // Builds a "initialize" instruction.
 func NewInitializeInstruction(
 	// Params:
-	chainIdParam string,
 	clientStateParam Ics07TendermintTypesClientState,
 	consensusStateParam Ics07TendermintTypesConsensusState,
 	accessManagerParam solanago.PublicKey,
@@ -35,11 +34,6 @@ func NewInitializeInstruction(
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
 	{
-		// Serialize `chainIdParam`:
-		err = enc__.Encode(chainIdParam)
-		if err != nil {
-			return nil, errors.NewField("chainIdParam", err)
-		}
 		// Serialize `clientStateParam`:
 		err = enc__.Encode(clientStateParam)
 		if err != nil {
@@ -326,8 +320,8 @@ func NewAssembleAndUpdateClientInstruction(
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
-		// Account 4 "new_consensus_state_store": Read-only, Non-signer, Required
-		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, false, false))
+		// Account 4 "new_consensus_state_store": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, true, false))
 		// Account 5 "submitter": Writable, Signer, Required
 		// The submitter who uploaded the chunks
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))

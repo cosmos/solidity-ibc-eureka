@@ -8,12 +8,13 @@ use solana_ibc_types::reject_cpi;
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::{AdminMintExecuted, AdminUpdated, MintAuthorityRevoked};
-use crate::helpers::{check_and_update_mint_rate_limit, mint_to_account};
+use crate::helpers::mint_to_account;
 use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
 #[instruction(new_admin: Pubkey)]
 pub struct SetAdmin<'info> {
+    /// Global IFT app state (mut, admin field will be updated)
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED],
@@ -21,6 +22,7 @@ pub struct SetAdmin<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Current admin authority, must match `app_state.admin`
     #[account(
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
@@ -89,6 +91,7 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the `set_authority` CPI
     pub token_program: Interface<'info, TokenInterface>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -141,7 +144,7 @@ pub struct AdminMint<'info> {
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump,
-        constraint = !app_state.paused @ IFTError::TokenPaused,
+        constraint = !app_state.paused @ IFTError::AppPaused,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
@@ -190,11 +193,15 @@ pub struct AdminMint<'info> {
     )]
     pub admin: Signer<'info>,
 
+    /// Pays for ATA creation (if needed) and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// SPL Token or Token 2022 program for the mint CPI
     pub token_program: Interface<'info, TokenInterface>,
+    /// Creates the receiver's associated token account if it doesn't exist
     pub associated_token_program: Program<'info, AssociatedToken>,
+    /// Required for ATA creation
     pub system_program: Program<'info, System>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -210,13 +217,12 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
 
     require!(msg.amount > 0, IFTError::ZeroAmount);
 
-    check_and_update_mint_rate_limit(&mut ctx.accounts.app_mint_state, msg.amount, &clock)?;
-
     mint_to_account(
+        &mut ctx.accounts.app_mint_state,
+        &clock,
         &ctx.accounts.mint,
         &ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
-        ctx.accounts.app_mint_state.mint_authority_bump,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
@@ -372,7 +378,7 @@ mod tests {
     enum AdminMintErrorCase {
         Unauthorized,
         ZeroAmount,
-        TokenPaused,
+        AppPaused,
         RateLimitExceeded,
         ReceiverMismatch,
     }
@@ -411,9 +417,9 @@ mod tests {
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::ZeroAmount as u32,
                     ..default
                 },
-                AdminMintErrorCase::TokenPaused => Self {
+                AdminMintErrorCase::AppPaused => Self {
                     paused: true,
-                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TokenPaused as u32,
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::AppPaused as u32,
                     ..default
                 },
                 AdminMintErrorCase::RateLimitExceeded => Self {
@@ -543,7 +549,7 @@ mod tests {
     #[rstest]
     #[case::unauthorized(AdminMintErrorCase::Unauthorized)]
     #[case::zero_amount(AdminMintErrorCase::ZeroAmount)]
-    #[case::token_paused(AdminMintErrorCase::TokenPaused)]
+    #[case::app_paused(AdminMintErrorCase::AppPaused)]
     #[case::rate_limit_exceeded(AdminMintErrorCase::RateLimitExceeded)]
     #[case::receiver_mismatch(AdminMintErrorCase::ReceiverMismatch)]
     fn test_admin_mint_validation(#[case] case: AdminMintErrorCase) {

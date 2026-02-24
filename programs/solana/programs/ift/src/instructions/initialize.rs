@@ -17,9 +17,11 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
+    /// Pays for account creation and transaction fees
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required for PDA account creation
     pub system_program: Program<'info, System>,
 }
 

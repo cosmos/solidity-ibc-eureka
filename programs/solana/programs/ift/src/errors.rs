@@ -94,14 +94,17 @@ pub enum IFTError {
     #[msg("Daily mint rate limit exceeded")]
     MintRateLimitExceeded,
 
-    #[msg("Token is paused")]
-    TokenPaused,
+    #[msg("App is paused")]
+    AppPaused,
 
     #[msg("Unauthorized: signer is not the admin")]
     UnauthorizedAdmin,
 
     #[msg("CPI calls not allowed for this instruction")]
     CpiNotAllowed,
+
+    #[msg("Token program does not match the requested token type")]
+    TokenProgramMismatch,
 }
 
 impl From<CpiValidationError> for IFTError {

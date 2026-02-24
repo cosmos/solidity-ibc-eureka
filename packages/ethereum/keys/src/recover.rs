@@ -9,7 +9,7 @@ pub fn recover_address(message: &[u8], signature_65: &[u8]) -> Result<Address, a
 }
 
 /// Recover an Ethereum address from a prehash and 65-byte signature.
-fn recover_address_from_prehash(
+pub fn recover_address_from_prehash(
     prehash: &B256,
     signature_65: &[u8],
 ) -> Result<Address, anyhow::Error> {

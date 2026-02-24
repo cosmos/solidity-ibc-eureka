@@ -316,9 +316,6 @@ type Ics07TendermintTypesAppState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
-	// Chain ID stored for introspection
-	ChainId string `json:"chainId"`
-
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -328,11 +325,6 @@ func (obj Ics07TendermintTypesAppState) MarshalWithEncoder(encoder *binary.Encod
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `ChainId`:
-	err = encoder.Encode(obj.ChainId)
-	if err != nil {
-		return errors.NewField("ChainId", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -357,11 +349,6 @@ func (obj *Ics07TendermintTypesAppState) UnmarshalWithDecoder(decoder *binary.De
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `ChainId`:
-	err = decoder.Decode(&obj.ChainId)
-	if err != nil {
-		return errors.NewField("ChainId", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

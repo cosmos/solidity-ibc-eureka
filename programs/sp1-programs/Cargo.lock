@@ -900,6 +900,7 @@ dependencies = [
  "ibc-proto 0.52.0",
  "sha2 0.10.8",
  "tendermint",
+ "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
  "thiserror",
  "time",
@@ -1572,9 +1573,9 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1",
  "sha2 0.10.8",
- "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-misbehaviour",
+ "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
 ]
 
@@ -1587,10 +1588,10 @@ dependencies = [
  "ibc-core-commitment-types",
  "ibc-eureka-solidity-types",
  "ibc-proto 0.51.1",
- "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-membership",
  "tendermint-light-client-uc-and-membership",
+ "tendermint-light-client-update-client",
 ]
 
 [[package]]
@@ -1606,7 +1607,6 @@ dependencies = [
  "ibc-primitives",
  "ibc-proto 0.51.1",
  "sha2 0.10.8",
- "sp1-ics07-utils",
  "sp1-zkvm",
  "tendermint-light-client-update-client",
  "tendermint-light-client-verifier",
@@ -1615,14 +1615,6 @@ dependencies = [
 [[package]]
 name = "sp1-ics07-utils"
 version = "1.2.0"
-dependencies = [
- "ibc-client-tendermint",
- "ibc-core-client-types",
- "ibc-eureka-solidity-types",
- "tendermint",
- "tendermint-light-client-update-client",
- "tendermint-light-client-verifier",
-]
 
 [[package]]
 name = "sp1-lib"

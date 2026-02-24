@@ -31,6 +31,7 @@
         go = import ./nix/go.nix {inherit pkgs;};
         common = import ./nix/common.nix {inherit pkgs;};
         solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
+        node-modules = import ./nix/node-modules.nix {inherit pkgs;};
 
         anchor = pkgs.callPackage ./nix/anchor.nix {};
         solana-agave = pkgs.callPackage ./nix/agave.nix {
@@ -41,13 +42,19 @@
       in {
         devShells = {
           default = pkgs.mkShell {
-            buildInputs = rust.packages ++ go.packages ++ common.packages ++ solidity.packages;
+            buildInputs = rust.packages ++ go.packages ++ common.packages ++ solidity.packages ++ [node-modules];
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
               rust.shellHook
               + ''
-                if [ -z "$(which cargo-prove)" ]; then
+                if [ -d "${node-modules}/node_modules" ]; then
+                  if [ ! -e node_modules ] || [ -L node_modules ]; then
+                    ln -sfn "${node-modules}/node_modules" node_modules
+                  fi
+                fi
+
+                if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
                   echo "SP1 toolchain is not installed. To install:"
                   echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
                 fi
@@ -60,11 +67,17 @@
               rust.packages
               ++ go.packages
               ++ common.packages
-              ++ [solana-agave anchor-go];
+              ++ [solana-agave anchor-go node-modules];
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
               rust.shellHook
               + ''
+                if [ -d "${node-modules}/node_modules" ]; then
+                  if [ ! -e node_modules ] || [ -L node_modules ]; then
+                    ln -sfn "${node-modules}/node_modules" node_modules
+                  fi
+                fi
+
                 export PATH="${solana-agave}/bin:$PATH"
                 echo "Solana shell: solana, anchor-nix (build|test|unit-test|keys|deploy)"
               '';

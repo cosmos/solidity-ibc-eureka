@@ -1116,7 +1116,6 @@ dependencies = [
  "rstest",
  "serde",
  "sha2 0.10.9",
- "solana-allocator",
  "solana-ibc-types",
  "solana-keccak-hasher",
  "solana-program-test",
