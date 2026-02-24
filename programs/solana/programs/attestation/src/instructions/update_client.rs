@@ -86,7 +86,12 @@ pub fn update_client<'info>(
     let attestation = StateAttestation::abi_decode(&proof.attestation_data)
         .map_err(|_| error!(ErrorCode::InvalidAttestationData))?;
 
-    verify_attestation(client_state, &proof.attestation_data, &proof.signatures)?;
+    verify_attestation(
+        client_state,
+        &proof.attestation_data,
+        &proof.signatures,
+        crate::crypto::AttestationType::State,
+    )?;
 
     require!(
         attestation.height > 0 && attestation.timestamp > 0,
@@ -279,7 +284,10 @@ mod tests {
     ) -> UpdateClientParams {
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(attestation_height, timestamp);
-        let signatures: Vec<_> = signers.iter().map(|a| a.sign(&attestation_data)).collect();
+        let signatures: Vec<_> = signers
+            .iter()
+            .map(|a| a.sign(&attestation_data, crate::crypto::AttestationType::State))
+            .collect();
         UpdateClientParams {
             proof: MembershipProof {
                 attestation_data,
@@ -361,7 +369,7 @@ mod tests {
 
         let attestation_data =
             crate::test_helpers::fixtures::encode_state_attestation(NEW_HEIGHT, 1_700_000_000);
-        let sig = attestor.sign(&attestation_data);
+        let sig = attestor.sign(&attestation_data, crate::crypto::AttestationType::State);
         let params = make_proof_params(attestation_data, vec![sig.clone(), sig]);
         let instruction = create_update_client_instruction(&test_accounts, NEW_HEIGHT, params);
         expect_error(&test_accounts, instruction, ErrorCode::DuplicateSigner);

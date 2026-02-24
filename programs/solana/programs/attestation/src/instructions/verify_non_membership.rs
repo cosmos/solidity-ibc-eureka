@@ -62,7 +62,12 @@ pub fn verify_non_membership(
         ErrorCode::HeightMismatch
     );
 
-    verify_attestation(client_state, &proof.attestation_data, &proof.signatures)?;
+    verify_attestation(
+        client_state,
+        &proof.attestation_data,
+        &proof.signatures,
+        crate::crypto::AttestationType::Packet,
+    )?;
 
     require!(!attestation.packets.is_empty(), ErrorCode::EmptyAttestation);
 
@@ -201,7 +206,10 @@ mod tests {
     ) -> NonMembershipMsg {
         let attestation_data =
             crate::test_helpers::fixtures::encode_packet_attestation(attestation_height, packets);
-        let signatures: Vec<_> = signers.iter().map(|a| a.sign(&attestation_data)).collect();
+        let signatures: Vec<_> = signers
+            .iter()
+            .map(|a| a.sign(&attestation_data, crate::crypto::AttestationType::Packet))
+            .collect();
         let proof = MembershipProof {
             attestation_data,
             signatures,
@@ -353,7 +361,7 @@ mod tests {
             HEIGHT,
             &[([0u8; 32], [0u8; 32])],
         );
-        let sig = attestor.sign(&attestation_data);
+        let sig = attestor.sign(&attestation_data, crate::crypto::AttestationType::Packet);
         let proof = MembershipProof {
             attestation_data,
             signatures: vec![sig.clone(), sig],

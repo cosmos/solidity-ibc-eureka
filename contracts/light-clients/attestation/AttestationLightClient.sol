@@ -27,6 +27,11 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     /// @notice Length of a compact ECDSA signature (r||s||v).
     uint256 private constant ECDSA_SIGNATURE_LENGTH = 65;
 
+    /// @notice Domain-separation tag for state update attestations.
+    bytes1 private constant ATTESTATION_TYPE_STATE = 0x01;
+    /// @notice Domain-separation tag for packet attestations.
+    bytes1 private constant ATTESTATION_TYPE_PACKET = 0x02;
+
     /// @notice Initializes the attestor light client with its fixed attestor set and initial height/timestamp.
     /// @param attestorAddresses The configured attestor addresses (EOAs)
     /// @param minRequiredSigs The quorum threshold
@@ -94,7 +99,7 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     {
         IAttestationMsgs.AttestationProof memory proof = abi.decode(updateMsg, (IAttestationMsgs.AttestationProof));
 
-        bytes32 digest = sha256(proof.attestationData);
+        bytes32 digest = _taggedSigningInput(proof.attestationData, ATTESTATION_TYPE_STATE);
         _verifySignaturesThreshold(digest, proof.signatures);
 
         IAttestationMsgs.StateAttestation memory state =
@@ -138,7 +143,7 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
         require(ts != 0, ConsensusTimestampNotFound(proofHeight));
 
         IAttestationMsgs.AttestationProof memory proof = abi.decode(msg_.proof, (IAttestationMsgs.AttestationProof));
-        bytes32 digest = sha256(proof.attestationData);
+        bytes32 digest = _taggedSigningInput(proof.attestationData, ATTESTATION_TYPE_PACKET);
         _verifySignaturesThreshold(digest, proof.signatures);
 
         // Decode the attested packet commitments and verify the attested height matches the provided proof height
@@ -177,7 +182,7 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
         require(ts != 0, ConsensusTimestampNotFound(proofHeight));
 
         IAttestationMsgs.AttestationProof memory proof = abi.decode(msg_.proof, (IAttestationMsgs.AttestationProof));
-        bytes32 digest = sha256(proof.attestationData);
+        bytes32 digest = _taggedSigningInput(proof.attestationData, ATTESTATION_TYPE_PACKET);
         _verifySignaturesThreshold(digest, proof.signatures);
 
         // Decode the attested packet commitments and verify the attested height matches the provided proof height
@@ -204,6 +209,14 @@ contract AttestationLightClient is IAttestationLightClient, IAttestationLightCli
     function misbehaviour(bytes calldata) external view notFrozen onlyProofSubmitter {
         // Out of scope for this version
         revert FeatureNotSupported();
+    }
+
+    /// @notice Computes domain-separated prehash: `sha256(typeTag || sha256(data))`.
+    /// @param data The attestation data to hash.
+    /// @param typeTag The domain-separation tag byte.
+    /// @return The domain-separated digest.
+    function _taggedSigningInput(bytes memory data, bytes1 typeTag) private pure returns (bytes32) {
+        return sha256(abi.encodePacked(typeTag, sha256(data)));
     }
 
     /// @notice Verifies that `signatures` over `digest` are valid, unique, and meet the threshold.

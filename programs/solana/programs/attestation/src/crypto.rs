@@ -11,8 +11,29 @@ pub const ETH_ADDRESS_LEN: usize = 20;
 
 pub type MessageHash = [u8; 32];
 
+/// Length of the domain-separated signing preimage: 1-byte type tag + 32-byte SHA-256 hash.
+pub(crate) const DOMAIN_SEPARATED_PREIMAGE_LEN: usize = 1 + 32;
+
+/// Distinguishes attestation types to prevent cross-protocol signature replay.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum AttestationType {
+    State = 0x01,
+    Packet = 0x02,
+}
+
 pub fn sha256_digest(data: &[u8]) -> MessageHash {
     sha256(data).to_bytes()
+}
+
+/// Compute the prehash for signature verification with domain separation:
+/// `sha256(type_tag || sha256(data))`
+pub fn tagged_signing_input(data: &[u8], attestation_type: AttestationType) -> MessageHash {
+    let inner_hash = sha256(data).to_bytes();
+    let mut tagged = Vec::with_capacity(DOMAIN_SEPARATED_PREIMAGE_LEN);
+    tagged.push(attestation_type as u8);
+    tagged.extend_from_slice(&inner_hash);
+    sha256(&tagged).to_bytes()
 }
 
 struct ParsedSignature {
@@ -130,8 +151,8 @@ mod tests {
 
         let attestor = TestAttestor::new(1);
         let message = b"test message for recovery id normalization";
-        let hash = sha256_digest(message);
-        let sig = attestor.sign(message);
+        let hash = tagged_signing_input(message, AttestationType::State);
+        let sig = attestor.sign(message, AttestationType::State);
 
         // Original signature uses Ethereum-style v (27 or 28)
         let original_v = sig[64];
@@ -156,8 +177,8 @@ mod tests {
 
         let attestor = TestAttestor::new(1);
         let message = b"test message for invalid recovery id";
-        let hash = sha256_digest(message);
-        let mut sig = attestor.sign(message);
+        let hash = tagged_signing_input(message, AttestationType::State);
+        let mut sig = attestor.sign(message, AttestationType::State);
 
         // v=29 normalizes to 2, which is invalid for secp256k1
         sig[64] = 29;
