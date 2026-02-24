@@ -46,6 +46,7 @@ contract TestERC20Metadata is ERC20 {
     }
 }
 
+<<<<<<< HEAD
 contract TestCustomERC20 is ERC20, IMintableAndBurnable {
     address private _ics20;
 
@@ -61,5 +62,24 @@ contract TestCustomERC20 is ERC20, IMintableAndBurnable {
     function burn(address from, uint256 amount) external {
         require(msg.sender == _ics20, "only ics20 can burn");
         _burn(from, amount);
+=======
+// Test contract to deploy ERC20 with fee on transfer, it takes a fee of 1 unit on every transfer and burns it, so the
+// recipient receives amount - 1
+contract FeeOnTransferERC20 is ERC20 {
+    constructor() ERC20("Fee Token", "FEE") { }
+
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
+
+    function _update(address from, address to, uint256 amount) internal override {
+        if (from != address(0) && to != address(0)) {
+            uint256 fee = 1;
+            super._update(from, address(0), fee); // burn fee
+            super._update(from, to, amount - fee); // deliver remainder
+        } else {
+            super._update(from, to, amount);
+        }
+>>>>>>> 2bf877d (imp(contracts/ics20): add more balance validation to permit2 transfers (#954))
     }
 }

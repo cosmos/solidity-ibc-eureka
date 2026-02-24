@@ -177,12 +177,16 @@ contract ICS20Transfer is
         );
         // transfer the tokens to us with permit
         IEscrow escrow = _getOrCreateEscrow(msg_.sourceClient);
+<<<<<<< HEAD
         _getPermit2().permitTransferFrom(
             permit,
             ISignatureTransfer.SignatureTransferDetails({ to: address(escrow), requestedAmount: msg_.amount }),
             _msgSender(),
             signature
         );
+=======
+        _transferFromWithPermit2(_msgSender(), address(escrow), msg_.denom, msg_.amount, permit, signature);
+>>>>>>> 2bf877d (imp(contracts/ics20): add more balance validation to permit2 transfers (#954))
         escrow.recvCallback(msg_.denom, _msgSender(), msg_.amount);
 
         return _sendTransferFromEscrowWithSender(msg_, address(escrow), _msgSender());
@@ -429,6 +433,51 @@ contract ICS20Transfer is
         uint256 expectedEndingBalance = ourStartingBalance + amount;
         // a very strange ERC20 may trigger this condition, if we didn't have this we would
         // underflow, so it's mostly just an error message printer
+        require(
+            actualEndingBalance > ourStartingBalance && actualEndingBalance == expectedEndingBalance,
+            ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance)
+        );
+    }
+
+    /// @notice Transfer tokens from sender to receiver using permit2
+    /// @param sender The sender of the tokens
+    /// @param receiver The receiver of the tokens
+    /// @param tokenContract The address of the token contract
+    /// @param amount The amount of tokens to transfer
+    /// @param permit The permit data
+    /// @param signature The signature of the permit data
+    // NOTE: Balance reentrancy here is intentionally allowed, as we are checking the balance before and after
+    // slither-disable-next-line reentrancy-balance
+    function _transferFromWithPermit2(
+        address sender,
+        address receiver,
+        address tokenContract,
+        uint256 amount,
+        ISignatureTransfer.PermitTransferFrom calldata permit,
+        bytes calldata signature
+    )
+        private
+    {
+        // we snapshot current balance of this token
+        uint256 ourStartingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        _getPermit2()
+            .permitTransferFrom(
+                permit,
+                ISignatureTransfer.SignatureTransferDetails({ to: receiver, requestedAmount: amount }),
+                sender,
+                signature
+            );
+
+        // check what this particular ERC20 implementation actually gave us, since it doesn't
+        // have to be at all related to the _amount
+        uint256 actualEndingBalance = IERC20(tokenContract).balanceOf(receiver);
+
+        uint256 expectedEndingBalance = ourStartingBalance + amount;
+        // a very strange ERC20 may trigger this condition, if we didn't have this we would
+        // underflow, so it's mostly just an error message printer
+        // NOTE: This is not a security check, but rather a sanity check.
+        // slither-disable-next-line incorrect-equality
         require(
             actualEndingBalance > ourStartingBalance && actualEndingBalance == expectedEndingBalance,
             ICS20UnexpectedERC20Balance(expectedEndingBalance, actualEndingBalance)
