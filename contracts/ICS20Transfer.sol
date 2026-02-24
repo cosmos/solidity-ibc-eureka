@@ -484,6 +484,8 @@ contract ICS20Transfer is
     /// @param amount The amount of tokens to transfer
     /// @param permit The permit data
     /// @param signature The signature of the permit data
+    // NOTE: Balance reentrancy here is intentionally allowed, as we are checking the balance before and after
+    // slither-disable-next-line reentrancy-balance
     function _transferFromWithPermit2(
         address sender,
         address receiver,
