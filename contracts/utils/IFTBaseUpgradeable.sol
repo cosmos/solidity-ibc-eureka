@@ -18,10 +18,15 @@ import { ERC20Upgradeable } from "@openzeppelin-upgradeable/token/ERC20/ERC20Upg
 import { IBCCallbackReceiver } from "../utils/IBCCallbackReceiver.sol";
 import { ERC165Checker } from "@openzeppelin-contracts/utils/introspection/ERC165Checker.sol";
 
-/// @title IFT Base Upgradeable Contract
-/// @notice Abstract base contract for Interchain Fungible Tokens
-/// @dev Extend this contract and implement the ERC20 constructor to create an IFT token
-/// @dev WARNING: This contract is experimental
+/**
+ * @title IFT Base Upgradeable Contract
+ * @notice Abstract base contract for Interchain Fungible Tokens
+ *
+ * @dev Extend this contract and implement the ERC20 constructor to create an IFT token
+ * @dev _update in ERC20Upgradeable can be overriden to add custom logic on minting and burning such as rate limiting,
+ * and whitelisting.
+ * @dev WARNING: This contract is experimental
+ */
 abstract contract IFTBaseUpgradeable is
     IIFTErrors,
     IIFT,
