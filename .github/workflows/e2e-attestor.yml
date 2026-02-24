@@ -31,6 +31,7 @@ env:
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-attestor-light-client-tag || 'local' }}
   COSMOS_LC_ON_ETH: attestor
   SP1_VERSION: "5.2.4"
+  IBC_ATTESTOR_IMAGE: ghcr.io/cosmos/ibc-attestor:v0.3.0
   SOLANA_VERSION: "2.3.13"
   ANCHOR_VERSION: "0.32.1"
 permissions:

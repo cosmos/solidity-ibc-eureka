@@ -3,9 +3,34 @@
 
 use std::collections::HashSet;
 
-use ethereum_keys::recover::recover_address;
+use alloy_primitives::B256;
+use ethereum_keys::recover::recover_address_from_prehash;
+use sha2::{Digest, Sha256};
 
 use crate::{client_state::ClientState, error::IbcAttestorClientError};
+
+/// Distinguishes attestation types to prevent cross-protocol signature replay.
+#[derive(Clone, Copy)]
+#[repr(u8)]
+pub enum AttestationType {
+    /// State attestation (update client)
+    State = 0x01,
+    /// Packet attestation (membership/non-membership proofs)
+    Packet = 0x02,
+}
+
+/// Length of the domain-separated signing preimage: 1-byte type tag + 32-byte SHA-256 hash.
+const DOMAIN_SEPARATED_PREIMAGE_LEN: usize = 1 + 32;
+
+/// Compute the prehash for signature verification with domain separation:
+/// `sha256(type_tag || sha256(data))`
+fn tagged_signing_input(data: &[u8], attestation_type: AttestationType) -> B256 {
+    let inner_hash = Sha256::digest(data);
+    let mut tagged = Vec::with_capacity(DOMAIN_SEPARATED_PREIMAGE_LEN);
+    tagged.push(attestation_type as u8);
+    tagged.extend_from_slice(&inner_hash);
+    B256::from_slice(&Sha256::digest(&tagged))
+}
 
 /// Verifies the cryptographic validity of the attestation data using address recovery.
 /// This function takes raw 65-byte signatures and recovers addresses to verify against the client state.
@@ -19,6 +44,7 @@ pub(crate) fn verify_attestation(
     client_state: &ClientState,
     attestation_data: &[u8],
     raw_signatures: &[Vec<u8>],
+    attestation_type: AttestationType,
 ) -> Result<(), IbcAttestorClientError> {
     if raw_signatures.is_empty() {
         return Err(IbcAttestorClientError::InvalidAttestedData {
@@ -40,9 +66,11 @@ pub(crate) fn verify_attestation(
         });
     }
 
+    let prehash = tagged_signing_input(attestation_data, attestation_type);
+
     // Verify each signature by recovering its address
     for raw_sig in raw_signatures {
-        let recovered_address = recover_address(attestation_data, raw_sig)
+        let recovered_address = recover_address_from_prehash(&prehash, raw_sig)
             .map_err(|_| IbcAttestorClientError::InvalidSignature)?
             .into();
 
@@ -65,14 +93,15 @@ pub(crate) fn verify_attestation(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::B256;
     use alloy_signer::SignerSync;
     use alloy_signer_local::PrivateKeySigner;
-    use sha2::Digest;
 
-    fn create_test_signature_and_address(data: &[u8]) -> (Vec<u8>, [u8; 20]) {
+    fn create_test_signature_and_address(
+        data: &[u8],
+        attestation_type: AttestationType,
+    ) -> (Vec<u8>, [u8; 20]) {
         let signer = PrivateKeySigner::random();
-        let hash = B256::from_slice(&sha2::Sha256::digest(data));
+        let hash = tagged_signing_input(data, attestation_type);
         let signature = signer.sign_hash_sync(&hash).unwrap();
         let sig65 = signature.as_bytes().to_vec();
         let address = signer.address();
@@ -91,7 +120,8 @@ mod tests {
         let mut addresses = Vec::new();
 
         for _ in 0..3 {
-            let (sig, addr) = create_test_signature_and_address(attestation_data);
+            let (sig, addr) =
+                create_test_signature_and_address(attestation_data, AttestationType::State);
             signatures.push(sig);
             addresses.push(Address::from(addr));
         }
@@ -105,11 +135,21 @@ mod tests {
         };
 
         // Verify with enough signatures (should succeed)
-        let result = verify_attestation(&client_state, attestation_data, &signatures[0..2]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &signatures[0..2],
+            AttestationType::State,
+        );
         assert!(result.is_ok());
 
         // Verify with all signatures (should succeed)
-        let result = verify_attestation(&client_state, attestation_data, &signatures);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &signatures,
+            AttestationType::State,
+        );
         assert!(result.is_ok());
     }
 
@@ -118,7 +158,8 @@ mod tests {
         use alloy_primitives::Address;
 
         let attestation_data = b"test attestation data";
-        let (sig, addr) = create_test_signature_and_address(attestation_data);
+        let (sig, addr) =
+            create_test_signature_and_address(attestation_data, AttestationType::State);
 
         let client_state = ClientState {
             attestor_addresses: vec![Address::from(addr)],
@@ -128,7 +169,12 @@ mod tests {
         };
 
         // Only 1 signature when 2 are required
-        let result = verify_attestation(&client_state, attestation_data, &[sig]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -141,7 +187,8 @@ mod tests {
         use alloy_primitives::Address;
 
         let attestation_data = b"test attestation data";
-        let (sig, _addr) = create_test_signature_and_address(attestation_data);
+        let (sig, _addr) =
+            create_test_signature_and_address(attestation_data, AttestationType::State);
 
         // Different address that didn't sign
         let wrong_address = Address::from([0x42; 20]);
@@ -153,7 +200,12 @@ mod tests {
             is_frozen: false,
         };
 
-        let result = verify_attestation(&client_state, attestation_data, &[sig]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
@@ -166,7 +218,8 @@ mod tests {
         use alloy_primitives::Address;
 
         let attestation_data = b"test attestation data";
-        let (sig, addr) = create_test_signature_and_address(attestation_data);
+        let (sig, addr) =
+            create_test_signature_and_address(attestation_data, AttestationType::State);
 
         let client_state = ClientState {
             attestor_addresses: vec![Address::from(addr)],
@@ -176,11 +229,78 @@ mod tests {
         };
 
         // Same signature twice
-        let result = verify_attestation(&client_state, attestation_data, &[sig.clone(), sig]);
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig.clone(), sig],
+            AttestationType::State,
+        );
         assert!(result.is_err());
         assert!(matches!(
             result.unwrap_err(),
             IbcAttestorClientError::InvalidAttestedData { .. }
+        ));
+    }
+
+    #[test]
+    fn test_verify_attestation_rejects_cross_domain_replay() {
+        use alloy_primitives::Address;
+
+        let attestation_data = b"test attestation data";
+
+        // Sign as State
+        let (sig, addr) =
+            create_test_signature_and_address(attestation_data, AttestationType::State);
+
+        let client_state = ClientState {
+            attestor_addresses: vec![Address::from(addr)],
+            min_required_sigs: 1,
+            latest_height: 0,
+            is_frozen: false,
+        };
+
+        // Verify as Packet — must fail (cross-domain replay)
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::Packet,
+        );
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            IbcAttestorClientError::UnknownAddressRecovered { .. }
+        ));
+    }
+
+    #[test]
+    fn test_verify_attestation_rejects_packet_sig_as_state() {
+        use alloy_primitives::Address;
+
+        let attestation_data = b"test attestation data";
+
+        // Sign as Packet
+        let (sig, addr) =
+            create_test_signature_and_address(attestation_data, AttestationType::Packet);
+
+        let client_state = ClientState {
+            attestor_addresses: vec![Address::from(addr)],
+            min_required_sigs: 1,
+            latest_height: 0,
+            is_frozen: false,
+        };
+
+        // Verify as State — must fail
+        let result = verify_attestation(
+            &client_state,
+            attestation_data,
+            &[sig],
+            AttestationType::State,
+        );
+        assert!(result.is_err());
+        assert!(matches!(
+            result.unwrap_err(),
+            IbcAttestorClientError::UnknownAddressRecovered { .. }
         ));
     }
 
@@ -197,7 +317,8 @@ mod tests {
             is_frozen: false,
         };
 
-        let result = verify_attestation(&client_state, attestation_data, &[]);
+        let result =
+            verify_attestation(&client_state, attestation_data, &[], AttestationType::State);
         assert!(result.is_err());
         match result.unwrap_err() {
             IbcAttestorClientError::InvalidAttestedData { reason } => {

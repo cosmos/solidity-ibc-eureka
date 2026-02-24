@@ -28,7 +28,7 @@ const (
 	ChainTypeSolana ChainType = testvalues.Attestor_ChainType_Solana
 
 	// DefaultAttestorImage is the default Docker image for the attestor.
-	DefaultAttestorImage = "ghcr.io/cosmos/ibc-attestor:v0.2.0"
+	DefaultAttestorImage = "ghcr.io/cosmos/ibc-attestor:v0.3.0"
 	// EnvKeyAttestorImage is the environment variable to override the Docker image.
 	EnvKeyAttestorImage = "IBC_ATTESTOR_IMAGE"
 )
