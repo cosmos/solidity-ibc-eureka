@@ -30,6 +30,9 @@ pub struct SolanaMembershipProof {
 /// * `attested_data` - ABI-encoded attestation data from the aggregator
 /// * `signatures` - ECDSA signatures from attestors
 /// * `max_signatures` - Maximum number of signatures to include (Solana tx size limit)
+///
+/// # Panics
+/// Panics if `MembershipProof` serialization fails.
 #[must_use]
 pub fn build_solana_membership_proof(
     attested_data: Vec<u8>,

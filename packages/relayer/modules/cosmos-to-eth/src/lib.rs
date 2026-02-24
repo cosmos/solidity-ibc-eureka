@@ -30,8 +30,8 @@ use sp1_ics07_tendermint_prover::programs::{
     MembershipProgram, MisbehaviourProgram, SP1ICS07TendermintPrograms,
     UpdateClientAndMembershipProgram, UpdateClientProgram,
 };
-use sp1_prover::components::CpuProverComponents;
-use sp1_sdk::{Prover, ProverClient};
+use sp1_ics07_tendermint_prover::prover::Sp1Prover;
+use sp1_sdk::{network::FulfillmentStrategy, ProverClient};
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 use tx_builder::TxBuilder;
@@ -56,8 +56,8 @@ struct CosmosToEthRelayerModuleService {
 }
 
 enum CosmosToEthTxBuilder {
-    SP1(TxBuilder<RootProvider, CpuProverComponents>),
-    Attested(tx_builder::AttestedTxBuilder<RootProvider>),
+    SP1(Box<TxBuilder<RootProvider>>),
+    Attested(Box<tx_builder::AttestedTxBuilder<RootProvider>>),
 }
 
 /// The configuration for the Cosmos to Ethereum relayer module.
@@ -178,71 +178,53 @@ impl CosmosToEthRelayerModuleService {
                     .read_programs()
                     .map_err(|e| anyhow::anyhow!("failed to read SP1 programs: {e}"))?;
 
-                let sp1_tx_builder = match sp1_config.sp1_prover {
+                let sp1_prover = match sp1_config.sp1_prover {
                     SP1Config::Mock => {
-                        let prover: Box<dyn Prover<CpuProverComponents>> =
-                            Box::new(ProverClient::builder().mock().build());
-                        TxBuilder::new(config.ics26_address, provider, tm_client, prover, programs)
+                        Sp1Prover::Mock(ProverClient::builder().mock().build().await)
                     }
-                    SP1Config::Env => {
-                        let prover: Box<dyn Prover<CpuProverComponents>> =
-                            Box::new(ProverClient::from_env());
-                        TxBuilder::new(config.ics26_address, provider, tm_client, prover, programs)
-                    }
-                    SP1Config::Cpu => {
-                        let prover: Box<dyn Prover<CpuProverComponents>> =
-                            Box::new(ProverClient::builder().cpu().build());
-                        TxBuilder::new(config.ics26_address, provider, tm_client, prover, programs)
-                    }
+                    SP1Config::Env => Sp1Prover::Env(ProverClient::from_env().await),
+                    SP1Config::Cpu => Sp1Prover::Cpu(ProverClient::builder().cpu().build().await),
                     SP1Config::Cuda => {
-                        let prover: Box<dyn Prover<CpuProverComponents>> =
-                            Box::new(ProverClient::builder().cuda().build());
-                        TxBuilder::new(config.ics26_address, provider, tm_client, prover, programs)
+                        Sp1Prover::Cuda(ProverClient::builder().cuda().build().await)
                     }
                     SP1Config::Network {
                         network_private_key,
                         network_rpc_url,
                         private_cluster,
                     } => {
-                        let mut prover_builder = ProverClient::builder().network();
+                        let mut builder = ProverClient::builder().network();
                         if let Some(private_key) = network_private_key {
-                            prover_builder = prover_builder.private_key(&private_key);
+                            builder = builder.private_key(&private_key);
                         }
                         if let Some(rpc_url) = network_rpc_url {
-                            prover_builder = prover_builder.rpc_url(&rpc_url);
+                            builder = builder.rpc_url(&rpc_url);
                         }
-                        if private_cluster {
-                            TxBuilder::new(
-                                config.ics26_address,
-                                provider,
-                                tm_client,
-                                prover_builder.build(),
-                                programs,
-                            )
+                        let strategy = if private_cluster {
+                            FulfillmentStrategy::Reserved
                         } else {
-                            let prover: Box<dyn Prover<CpuProverComponents>> =
-                                Box::new(prover_builder.build());
-                            TxBuilder::new(
-                                config.ics26_address,
-                                provider,
-                                tm_client,
-                                prover,
-                                programs,
-                            )
-                        }
+                            FulfillmentStrategy::Hosted
+                        };
+                        Sp1Prover::Network(builder.build().await, strategy)
                     }
                 };
-                CosmosToEthTxBuilder::SP1(sp1_tx_builder)
+                let sp1_tx_builder = TxBuilder::new(
+                    config.ics26_address,
+                    provider,
+                    tm_client,
+                    sp1_prover,
+                    programs,
+                );
+                CosmosToEthTxBuilder::SP1(Box::new(sp1_tx_builder))
             }
             TxBuilderMode::Attested(aggregator_config) => {
                 let aggregator = Aggregator::from_config(aggregator_config)
                     .await
                     .map_err(|e| anyhow::anyhow!("failed to create aggregator: {e}"))?;
-                CosmosToEthTxBuilder::Attested(tx_builder::AttestedTxBuilder::new(
+                CosmosToEthTxBuilder::Attested(Box::new(tx_builder::AttestedTxBuilder::new(
                     aggregator,
                     config.ics26_address,
                     provider,
-                ))
+                )))
             }
         };
 

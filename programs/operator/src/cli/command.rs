@@ -213,25 +213,25 @@ pub struct SP1ELFPaths {
     /// Path to the update client ELF file.
     #[clap(
         long,
-        default_value = "programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client"
+        default_value = "programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-update-client"
     )]
     pub update_client_path: String,
     /// Path to the membership ELF file.
     #[clap(
         long,
-        default_value = "programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership"
+        default_value = "programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-membership"
     )]
     pub membership_path: String,
     /// Path to the update client and membership ELF file.
     #[clap(
         long,
-        default_value = "programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership"
+        default_value = "programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-uc-and-membership"
     )]
     pub uc_and_membership_path: String,
     /// Path to the misbehaviour ELF file.
     #[clap(
         long,
-        default_value = "programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
+        default_value = "programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-misbehaviour"
     )]
     pub misbehaviour_path: String,
 }

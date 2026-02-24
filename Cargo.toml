@@ -159,8 +159,8 @@ alloy-provider         = { version = "1.1", default-features = false }
 alloy-transport        = { version = "1.1", default-features = false }
 alloy-rpc-types-eth    = { version = "1.1", default-features = false }
 
-sp1-sdk    = { version = "5.0", default-features = false }
-sp1-prover = { version = "5.0", default-features = false }
+sp1-sdk  = { version = "6.0", default-features = false, features = ["network", "blocking"] }
+sp1-cuda = { version = "6.0", default-features = false }
 
 # NOTE: When updating, use `cargo update -p ed25519-zebra --precise 4.0.3` to avoid pulling in a version that conflicts with cosmwasm-crypto
 cosmwasm-schema = { version = "2.2", default-features = false }

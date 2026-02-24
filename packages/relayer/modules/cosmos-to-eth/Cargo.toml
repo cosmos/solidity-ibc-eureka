@@ -29,4 +29,3 @@ ibc-core-host-types = { workspace = true }
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 
 sp1-sdk = { workspace = true, default-features = true }
-sp1-prover = { workspace = true }

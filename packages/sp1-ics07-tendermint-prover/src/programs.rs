@@ -1,18 +1,20 @@
 //! Programs for `sp1-ics07-tendermint`.
 
-use sp1_sdk::{Prover, ProverClient, SP1VerifyingKey};
+use sp1_sdk::{Elf, SP1VerifyingKey};
 
 /// Trait for SP1 ICS07 Tendermint programs.
 pub trait SP1Program {
     /// Get the ELF bytes for the program.
     fn elf(&self) -> &[u8];
 
-    /// Get the verifying key for the program using [`MockProver`].
+    /// Get the verifying key for the program using a blocking mock prover.
     #[must_use]
     fn get_vkey(&self) -> SP1VerifyingKey {
-        let mock_prover = ProverClient::builder().mock().build();
-        let (_, vkey) = mock_prover.setup(self.elf());
-        vkey
+        use sp1_sdk::blocking::{Prover, ProverClient};
+        use sp1_sdk::ProvingKey;
+        let mock = ProverClient::builder().mock().build();
+        let pk = mock.setup(Elf::from(self.elf())).expect("setup failed");
+        pk.verifying_key().clone()
     }
 }
 

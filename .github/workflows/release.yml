@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+env:
+  SP1_VERSION: "6.0.1"
+
+
 jobs:
   release-sp1-programs:
     runs-on: depot-ubuntu-24.04-4
@@ -33,7 +37,7 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
-          file: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
+          file: programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/sp1-ics07-tendermint-{update-client,membership,uc-and-membership,misbehaviour}
           tag: ${{ github.ref }}
           overwrite: true
 
