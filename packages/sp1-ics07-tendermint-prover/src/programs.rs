@@ -8,13 +8,22 @@ pub trait SP1Program {
     fn elf(&self) -> &[u8];
 
     /// Get the verifying key for the program using a blocking mock prover.
+    ///
+    /// Spawns a dedicated OS thread to avoid panicking when called from
+    /// within an existing tokio runtime (the SP1 blocking API creates its
+    /// own runtime internally).
     #[must_use]
     fn get_vkey(&self) -> SP1VerifyingKey {
-        use sp1_sdk::blocking::{Prover, ProverClient};
-        use sp1_sdk::ProvingKey;
-        let mock = ProverClient::builder().mock().build();
-        let pk = mock.setup(Elf::from(self.elf())).expect("setup failed");
-        pk.verifying_key().clone()
+        let elf = self.elf().to_vec();
+        std::thread::spawn(move || {
+            use sp1_sdk::blocking::{Prover, ProverClient};
+            use sp1_sdk::ProvingKey;
+            let mock = ProverClient::builder().mock().build();
+            let pk = mock.setup(Elf::from(elf)).expect("setup failed");
+            pk.verifying_key().clone()
+        })
+        .join()
+        .expect("get_vkey thread panicked")
     }
 }
 
