@@ -254,8 +254,7 @@ pub async fn inject_solana_attestor_proofs(
             timeout.proof_chunks.clone_from(&proof_bytes);
             timeout.msg.proof.height = target_height.revision_height;
             timeout.msg.proof.total_chunks =
-                u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1))
-                    .unwrap_or(u8::MAX);
+                u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1)).unwrap_or(u8::MAX);
         }
         tracing::info!(
             "Injected attestation proof into {} timeout messages",
@@ -371,8 +370,7 @@ fn build_update_client_instruction_tx(
     }
 
     let mut data = discriminator.to_vec();
-    BorshSerialize::serialize(&new_height, &mut data)
-        .context("Failed to serialize new_height")?;
+    BorshSerialize::serialize(&new_height, &mut data).context("Failed to serialize new_height")?;
     BorshSerialize::serialize(&UpdateClientParams { proof }, &mut data)
         .context("Failed to serialize UpdateClientParams")?;
 
