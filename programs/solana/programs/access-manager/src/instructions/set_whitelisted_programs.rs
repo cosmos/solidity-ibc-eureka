@@ -3,9 +3,11 @@ use crate::helpers::require_admin;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 
+/// Replaces the list of programs allowed to invoke admin-gated instructions via CPI.
 #[derive(Accounts)]
 #[instruction(whitelisted_programs: Vec<Pubkey>)]
 pub struct SetWhitelistedPrograms<'info> {
+    /// The access manager PDA whose whitelist will be updated.
     #[account(
         mut,
         seeds = [AccessManager::SEED],
@@ -13,8 +15,10 @@ pub struct SetWhitelistedPrograms<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// The admin signer authorizing this whitelist update.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar for CPI validation.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

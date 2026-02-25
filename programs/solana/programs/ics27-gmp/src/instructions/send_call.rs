@@ -7,10 +7,11 @@ use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
-/// Send a GMP call packet (direct wallet call only, rejects CPI)
+/// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
 #[derive(Accounts)]
 #[instruction(msg: SendCallMsg)]
 pub struct SendCall<'info> {
+    /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -19,13 +20,17 @@ pub struct SendCall<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Wallet that initiates the cross-chain call, recorded as the packet sender.
     pub sender: Signer<'info>,
 
+    /// Fee payer for the packet commitment account creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// ICS26 router program invoked via CPI to submit the packet.
     pub router_program: Program<'info, ics26_router::program::Ics26Router>,
 
+    /// Router's global state PDA, forwarded to the router CPI.
     #[account(
         seeds = [RouterState::SEED],
         bump,
@@ -33,6 +38,7 @@ pub struct SendCall<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Packet sequence counter for the source client, incremented by the router.
     #[account(
         mut,
         seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
@@ -41,10 +47,12 @@ pub struct SendCall<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
+    /// Stores the packet commitment hash after the router processes the packet.
     /// CHECK: PDA validated by router (sequence computed at runtime)
     #[account(mut)]
     pub packet_commitment: AccountInfo<'info>,
 
+    /// Port-to-program mapping that authorizes this GMP program for the GMP port.
     #[account(
         seeds = [IBCApp::SEED, GMP_PORT_ID.as_bytes()],
         bump,
@@ -52,6 +60,7 @@ pub struct SendCall<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
+    /// IBC client account that identifies the destination chain for routing.
     #[account(
         seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
@@ -59,21 +68,26 @@ pub struct SendCall<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    /// CHECK: Validated against client registry
+    /// Light client program used by the router to check client status.
+    /// CHECK: Validated against client registry.
     #[account(address = client.client_program_id @ GMPError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Ownership validated against light client program
+    /// Light client's state account, forwarded to the router for status verification.
+    /// CHECK: Ownership validated against light client program.
     #[account(owner = light_client_program.key() @ GMPError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
+    /// Instructions sysvar used to reject CPI callers (direct-call-only enforcement).
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// CHECK: Consensus state account, forwarded to router for expiry check
+    /// Consensus state account, forwarded to the router for client expiry check.
+    /// CHECK: Forwarded to router CPI; validated by the light client program.
     pub consensus_state: AccountInfo<'info>,
 
+    /// Solana system program used for account allocation.
     pub system_program: Program<'info, System>,
 }
 

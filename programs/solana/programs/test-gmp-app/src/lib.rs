@@ -8,7 +8,7 @@ pub mod state;
 
 use instructions::*;
 
-/// GMP Counter App Program
+/// Test GMP App Program
 ///
 /// This program demonstrates a simple counter application that can be called
 /// via the ICS27 GMP program through cross-chain IBC messages.
@@ -20,7 +20,7 @@ use instructions::*;
 /// - `get_counter`: Get a user's current counter value
 ///
 #[program]
-pub mod gmp_counter_app {
+pub mod test_gmp_app {
     use super::*;
 
     /// Initialize the counter app

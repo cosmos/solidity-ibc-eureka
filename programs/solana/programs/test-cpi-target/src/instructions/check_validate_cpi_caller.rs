@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::validate_cpi_caller;
 
+/// Accounts for [`validate_cpi_caller`](solana_ibc_types::cpi::validate_cpi_caller) wrapper.
 #[derive(Accounts)]
 #[instruction(authorized_program: Pubkey)]
 pub struct CheckValidateCpiCaller<'info> {

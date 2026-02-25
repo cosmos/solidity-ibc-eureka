@@ -9,15 +9,19 @@ use anchor_lang::solana_program::program::set_return_data;
 use ics25_handler::NonMembershipMsg;
 use solana_keccak_hasher::{hash as keccak256, Hash};
 
+/// Verifies that no commitment exists at the given path and height. Returns the consensus
+/// timestamp via return data.
 #[derive(Accounts)]
 #[instruction(msg: ics25_handler::NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
+    /// The attestation client state holding the trusted attestor set and frozen flag.
     #[account(
         seeds = [ClientState::SEED],
         bump,
         constraint = !client_state.is_frozen @ ErrorCode::FrozenClientState
     )]
     pub client_state: Account<'info, ClientState>,
+    /// The consensus state at the requested proof height (must already exist on-chain).
     #[account(
         seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
         bump,

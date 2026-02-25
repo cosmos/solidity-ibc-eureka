@@ -12,6 +12,11 @@ pub use sol_types::IAttestationMsgs::{PacketAttestation, PacketCompact, StateAtt
 use crate::ETH_ADDRESS_LEN;
 
 /// Attestation light client state.
+///
+/// Holds the set of trusted attestor Ethereum addresses and the signature
+/// threshold required to accept a new consensus state. Used by the ICS26
+/// router to verify membership proofs that arrive as signed attestations
+/// instead of ZK proofs.
 #[account]
 #[derive(InitSpace)]
 pub struct ClientState {
@@ -35,7 +40,11 @@ impl ClientState {
     }
 }
 
-/// Global program configuration.
+/// Global attestation program configuration.
+///
+/// Singleton PDA that links the attestation program to its access manager
+/// for admin-gated operations such as updating the attestor set or freezing
+/// the client.
 #[account]
 #[derive(InitSpace)]
 pub struct AppState {

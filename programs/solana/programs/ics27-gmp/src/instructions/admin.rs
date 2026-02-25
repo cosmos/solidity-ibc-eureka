@@ -2,10 +2,10 @@ use crate::events::{GMPAppPaused, GMPAppUnpaused};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 
-/// Pause the entire GMP app (admin only)
+/// Pauses the entire GMP application. Requires the `PAUSER_ROLE`.
 #[derive(Accounts)]
 pub struct PauseApp<'info> {
-    /// App state account - validated by Anchor PDA constraints
+    /// GMP program's global configuration PDA that holds the paused flag.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -13,6 +13,7 @@ pub struct PauseApp<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Access manager account used for role-based authorization.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -21,9 +22,10 @@ pub struct PauseApp<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Signer whose `PAUSER_ROLE` membership is verified by the access manager.
     pub authority: Signer<'info>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used to detect and reject unauthorized CPI callers.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
@@ -53,10 +55,10 @@ pub fn pause_app(ctx: Context<PauseApp>) -> Result<()> {
     Ok(())
 }
 
-/// Unpause the entire GMP app (admin only)
+/// Unpauses the entire GMP application. Requires the `UNPAUSER_ROLE`.
 #[derive(Accounts)]
 pub struct UnpauseApp<'info> {
-    /// App state account - validated by Anchor PDA constraints
+    /// GMP program's global configuration PDA that holds the paused flag.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -64,6 +66,7 @@ pub struct UnpauseApp<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Access manager account used for role-based authorization.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -72,9 +75,10 @@ pub struct UnpauseApp<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Signer whose `UNPAUSER_ROLE` membership is verified by the access manager.
     pub authority: Signer<'info>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used to detect and reject unauthorized CPI callers.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

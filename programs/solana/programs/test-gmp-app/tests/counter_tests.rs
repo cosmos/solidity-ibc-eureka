@@ -1,5 +1,4 @@
 use anchor_lang::{AnchorSerialize, Discriminator, InstructionData, Space};
-use gmp_counter_app::{state::*, ID};
 use mollusk_svm::result::Check;
 use mollusk_svm::Mollusk;
 use solana_sdk::{
@@ -10,9 +9,10 @@ use solana_sdk::{
     pubkey::Pubkey,
     system_program,
 };
+use test_gmp_app::{state::*, ID};
 
-const fn get_gmp_counter_program_path() -> &'static str {
-    "../../target/deploy/gmp_counter_app"
+const fn get_test_gmp_app_program_path() -> &'static str {
+    "../../target/deploy/test_gmp_app"
 }
 
 // Helper functions for account preparation
@@ -138,13 +138,13 @@ const fn create_system_program_account() -> (Pubkey, Account) {
 
 #[test]
 fn test_initialize_success() {
-    let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
+    let mollusk = Mollusk::new(&ID, get_test_gmp_app_program_path());
 
     let authority = Pubkey::new_unique();
     let (app_state_pda, _bump) = Pubkey::find_program_address(&[CounterAppState::SEED], &ID);
     let payer = Pubkey::new_unique();
 
-    let instruction_data = gmp_counter_app::instruction::Initialize { authority };
+    let instruction_data = test_gmp_app::instruction::Initialize { authority };
 
     let instruction = Instruction {
         program_id: ID,
@@ -168,7 +168,7 @@ fn test_initialize_success() {
 
 #[test]
 fn test_increment_counter_new_user() {
-    let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
+    let mollusk = Mollusk::new(&ID, get_test_gmp_app_program_path());
 
     let authority = Pubkey::new_unique();
     let user_authority = Pubkey::new_unique(); // The ICS27 gmp_account PDA would be here
@@ -178,7 +178,7 @@ fn test_increment_counter_new_user() {
         Pubkey::find_program_address(&[UserCounter::SEED, user_authority.as_ref()], &ID);
     let payer = Pubkey::new_unique();
 
-    let instruction_data = gmp_counter_app::instruction::Increment { amount: 5 };
+    let instruction_data = test_gmp_app::instruction::Increment { amount: 5 };
 
     let instruction = Instruction {
         program_id: ID,
@@ -212,7 +212,7 @@ fn test_increment_counter_new_user() {
 
 #[test]
 fn test_decrement_counter_existing_user() {
-    let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
+    let mollusk = Mollusk::new(&ID, get_test_gmp_app_program_path());
 
     let authority = Pubkey::new_unique();
     let user = Pubkey::new_unique();
@@ -221,7 +221,7 @@ fn test_decrement_counter_existing_user() {
     let (user_counter_pda, user_counter_bump) =
         Pubkey::find_program_address(&[UserCounter::SEED, user.as_ref()], &ID);
 
-    let instruction_data = gmp_counter_app::instruction::Decrement { user, amount: 3 };
+    let instruction_data = test_gmp_app::instruction::Decrement { user, amount: 3 };
 
     let instruction = Instruction {
         program_id: ID,
@@ -256,7 +256,7 @@ fn test_decrement_counter_existing_user() {
 
 #[test]
 fn test_counter_underflow_fails() {
-    let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
+    let mollusk = Mollusk::new(&ID, get_test_gmp_app_program_path());
 
     let authority = Pubkey::new_unique();
     let user = Pubkey::new_unique();
@@ -265,7 +265,7 @@ fn test_counter_underflow_fails() {
     let (user_counter_pda, user_counter_bump) =
         Pubkey::find_program_address(&[UserCounter::SEED, user.as_ref()], &ID);
 
-    let instruction_data = gmp_counter_app::instruction::Decrement { user, amount: 10 };
+    let instruction_data = test_gmp_app::instruction::Decrement { user, amount: 10 };
 
     let instruction = Instruction {
         program_id: ID,
@@ -291,20 +291,20 @@ fn test_counter_underflow_fails() {
 
     let checks = vec![Check::err(ProgramError::Custom(
         anchor_lang::error::ERROR_CODE_OFFSET
-            + gmp_counter_app::errors::CounterError::CounterUnderflow as u32,
+            + test_gmp_app::errors::CounterError::CounterUnderflow as u32,
     ))];
     mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
 }
 
 #[test]
 fn test_get_counter() {
-    let mollusk = Mollusk::new(&ID, get_gmp_counter_program_path());
+    let mollusk = Mollusk::new(&ID, get_test_gmp_app_program_path());
 
     let user = Pubkey::new_unique();
     let (user_counter_pda, user_counter_bump) =
         Pubkey::find_program_address(&[UserCounter::SEED, user.as_ref()], &ID);
 
-    let instruction_data = gmp_counter_app::instruction::GetCounter { user };
+    let instruction_data = test_gmp_app::instruction::GetCounter { user };
 
     let instruction = Instruction {
         program_id: ID,

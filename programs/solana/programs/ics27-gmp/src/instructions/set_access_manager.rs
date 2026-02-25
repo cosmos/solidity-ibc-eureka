@@ -2,9 +2,11 @@ use crate::events::AccessManagerUpdated;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 
+/// Updates the access manager program ID stored in `app_state`. Requires admin privileges.
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
+    /// GMP program's global configuration PDA whose `access_manager` field will be updated.
     #[account(
         mut,
         seeds = [GMPAppState::SEED],
@@ -12,6 +14,7 @@ pub struct SetAccessManager<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Current access manager account used to verify admin privileges.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -20,9 +23,10 @@ pub struct SetAccessManager<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Signer whose admin membership is verified by the current access manager.
     pub admin: Signer<'info>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used to detect and reject unauthorized CPI callers.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

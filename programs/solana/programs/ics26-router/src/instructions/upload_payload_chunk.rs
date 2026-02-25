@@ -2,15 +2,20 @@ use crate::errors::RouterError;
 use crate::state::*;
 use anchor_lang::prelude::*;
 
+/// Uploads a single payload data chunk for multi-transaction packet delivery.
+/// Chunks are assembled later during `recv_packet`, `ack_packet` or
+/// `timeout_packet`.
 #[derive(Accounts)]
 #[instruction(msg: MsgUploadChunk)]
 pub struct UploadPayloadChunk<'info> {
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -19,6 +24,8 @@ pub struct UploadPayloadChunk<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Temporary storage for one payload chunk, keyed by relayer, client,
+    /// sequence, payload index and chunk index.
     #[account(
         init_if_needed,
         payer = relayer,
@@ -35,11 +42,14 @@ pub struct UploadPayloadChunk<'info> {
     )]
     pub chunk: Account<'info, PayloadChunk>,
 
+    /// Relayer uploading the chunk; must hold the `RELAYER_ROLE` and pays rent.
     #[account(mut)]
     pub relayer: Signer<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

@@ -1,9 +1,11 @@
 use anchor_lang::prelude::*;
 
+/// Accounts for [`require_admin`](access_manager::require_admin) wrapper.
 #[derive(Accounts)]
 pub struct CheckRequireAdmin<'info> {
     /// CHECK: Passed to `access_manager::require_admin` for deserialization
     pub access_manager: AccountInfo<'info>,
+    /// Must hold the admin role in the access-manager.
     pub signer: Signer<'info>,
     /// CHECK: Validated inside the helper
     pub instructions_sysvar: AccountInfo<'info>,

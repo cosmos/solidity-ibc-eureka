@@ -1,9 +1,11 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
+/// Accounts for handling a packet acknowledgement callback.
 #[derive(Accounts)]
 #[instruction(msg: OnAcknowledgementPacketMsg)]
 pub struct OnAcknowledgementPacket<'info> {
+    /// App state PDA that tracks packet counters.
     #[account(
         init_if_needed,
         payer = payer,

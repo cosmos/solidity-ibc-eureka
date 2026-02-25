@@ -1,9 +1,11 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
+/// Accounts for handling a packet timeout callback.
 #[derive(Accounts)]
 #[instruction(msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
+    /// App state PDA that tracks packet counters.
     #[account(
         init_if_needed,
         payer = payer,
