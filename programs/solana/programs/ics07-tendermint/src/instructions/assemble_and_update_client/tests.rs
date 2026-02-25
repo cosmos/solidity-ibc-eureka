@@ -1616,7 +1616,10 @@ fn test_assemble_chunk_count_exceeds_remaining_accounts() {
     let mut accounts = vec![
         (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
-        (client_state_pda, create_client_state_account(chain_id, trusted_height)),
+        (
+            client_state_pda,
+            create_client_state_account(chain_id, trusted_height),
+        ),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -1707,7 +1710,10 @@ fn test_assemble_zero_chunk_count_rejected() {
     let mut accounts = vec![
         (app_state_pda, app_state_account),
         (access_manager_pda, access_manager_account),
-        (client_state_pda, create_client_state_account(chain_id, trusted_height)),
+        (
+            client_state_pda,
+            create_client_state_account(chain_id, trusted_height),
+        ),
         (
             trusted_consensus_pda,
             create_consensus_state_account([0; 32], [0; 32], 0),
@@ -1729,11 +1735,7 @@ fn test_assemble_zero_chunk_count_rejected() {
     let result = mollusk.process_instruction(&instruction, &accounts);
 
     // Should fail immediately with InvalidChunkCount because chunk_count must be > 0
-    assert_error_code(
-        result,
-        ErrorCode::InvalidChunkCount,
-        "zero chunks rejected",
-    );
+    assert_error_code(result, ErrorCode::InvalidChunkCount, "zero chunks rejected");
 }
 
 /// Test that header with invalid cryptographic proof fails during `update_client`
