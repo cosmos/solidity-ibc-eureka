@@ -38,7 +38,7 @@ var (
 				CLType:         "lodestar",
 				CLImage:        "chainsafe/lodestar:v1.35.0",
 				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.17.0",
+				ELImage:        "ethereum/client-go:v1.16.8",
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 128,
