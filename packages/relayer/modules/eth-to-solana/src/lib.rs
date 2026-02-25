@@ -192,6 +192,19 @@ impl RelayerService for EthToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events from Solana", target_events.len());
 
+        // For timeouts, get the current source chain height where non-membership
+        // is proven. This ensures the consensus state timestamp is past the timeout.
+        let timeout_relay_height = if target_events.is_empty() {
+            None
+        } else {
+            Some(
+                self.eth_listener
+                    .get_block_number()
+                    .await
+                    .map_err(to_tonic_status)?,
+            )
+        };
+
         let (packet_txs, update_client) = self
             .tx_builder
             .relay_events(
@@ -201,6 +214,7 @@ impl RelayerService for EthToSolanaRelayerModuleService {
                 &inner_req.dst_client_id,
                 &inner_req.src_packet_sequences,
                 &inner_req.dst_packet_sequences,
+                timeout_relay_height,
             )
             .await
             .map_err(to_tonic_status)?;
@@ -293,6 +307,7 @@ impl EthToSolanaTxBuilder {
         dst_client_id: &str,
         src_packet_seqs: &[u64],
         dst_packet_seqs: &[u64],
+        timeout_relay_height: Option<u64>,
     ) -> anyhow::Result<(
         Vec<ibc_eureka_relayer_core::api::SolanaPacketTxs>,
         Option<ibc_eureka_relayer_core::api::SolanaUpdateClient>,
@@ -306,6 +321,7 @@ impl EthToSolanaTxBuilder {
                     dst_client_id: dst_client_id.to_string(),
                     src_packet_seqs: src_packet_seqs.to_vec(),
                     dst_packet_seqs: dst_packet_seqs.to_vec(),
+                    timeout_relay_height,
                 })
                 .await
             }

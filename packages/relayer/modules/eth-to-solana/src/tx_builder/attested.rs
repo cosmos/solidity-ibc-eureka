@@ -3,7 +3,6 @@
 use std::time::Duration;
 
 use alloy::primitives::Address;
-use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_eureka_relayer_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
@@ -21,7 +20,7 @@ use ibc_proto_eureka::ibc::core::{
     channel::v2::{MsgAcknowledgement, MsgRecvPacket},
     client::v1::Height,
 };
-use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
+use solana_sdk::commitment_config::CommitmentConfig;
 
 use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
@@ -95,7 +94,7 @@ impl AttestedTxBuilder {
         let max_timeout_ts = max_timeout_timestamp(&params.dest_events);
 
         // Build timeout messages from destination events
-        let timeout_msgs = target_events_to_timeout_msgs(
+        let mut timeout_msgs = target_events_to_timeout_msgs(
             params.dest_events,
             &params.src_client_id,
             &params.dst_client_id,
@@ -144,35 +143,36 @@ impl AttestedTxBuilder {
 
         let needs_update = needs_height_update || needs_timestamp_update;
 
+        // For timeouts, use the source chain height (where non-membership is proven).
+        // This ensures the consensus state timestamp is past the packet's timeout.
         let proof_height = if needs_update {
-            required_height.max(current_height.saturating_add(1))
-        } else {
-            current_height
-        };
+            let min_height = required_height.max(current_height.saturating_add(1));
+            let target = params
+                .timeout_relay_height
+                .map_or(min_height, |h| h.max(min_height));
 
-        tracing::info!(
-            "Attestation client at height {}, required {}, needs_update: {}",
-            current_height,
-            required_height,
-            needs_update
-        );
-
-        if needs_update {
-            tracing::info!("Waiting for aggregator to finalize height {}", proof_height);
+            tracing::info!(
+                "Attestation client at height {}, waiting for aggregator to finalize height {}",
+                current_height,
+                target
+            );
 
             wait_for_condition(
                 Duration::from_secs(25 * 60),
                 Duration::from_secs(1),
                 || async {
                     let finalized_height = self.aggregator.get_latest_height().await?;
-                    Ok(finalized_height >= proof_height)
+                    Ok(finalized_height >= target)
                 },
             )
             .await
             .context("Timeout waiting for aggregator to finalize height")?;
 
-            tracing::info!("Aggregator has finalized height {}", proof_height);
-        }
+            tracing::info!("Aggregator has finalized height {}", target);
+            target
+        } else {
+            current_height
+        };
 
         let min_sigs = client_state.min_required_sigs as usize;
 
@@ -185,6 +185,7 @@ impl AttestedTxBuilder {
             &self.aggregator,
             &mut recv_msgs,
             &mut ack_msgs,
+            &mut timeout_msgs,
             &target_height,
             min_sigs,
         )
@@ -192,10 +193,21 @@ impl AttestedTxBuilder {
 
         // Build update_client transaction only if needed
         let update_client = if needs_update {
-            Some(
-                self.build_attestation_update_client(&params.dst_client_id, proof_height)
-                    .await?,
+            let result = solana_attested::build_attestation_update_client_tx(
+                &self.aggregator,
+                &self.tx_builder,
+                &params.dst_client_id,
+                proof_height,
             )
+            .await?;
+            Some(api::SolanaUpdateClient {
+                chunk_txs: vec![],
+                alt_create_tx: vec![],
+                alt_extend_txs: vec![],
+                assembly_tx: result.assembly_tx,
+                target_height: result.target_height,
+                cleanup_tx: vec![],
+            })
         } else {
             None
         };
@@ -207,132 +219,22 @@ impl AttestedTxBuilder {
         Ok((packets, update_client))
     }
 
-    /// Build update_client transaction for attestation light client.
-    async fn build_attestation_update_client(
-        &self,
-        dst_client_id: &str,
-        target_height: u64,
-    ) -> Result<api::SolanaUpdateClient> {
-        tracing::info!(
-            "Building attestation update_client for height {}",
-            target_height
-        );
-
-        let light_client_program_id = self.tx_builder.resolve_client_program_id(dst_client_id)?;
-        let min_sigs = self
-            .tx_builder
-            .attestation_client_min_sigs(light_client_program_id)?;
-
-        let state_attestation = self.aggregator.get_state_attestation(target_height).await?;
-
-        tracing::info!(
-            "Aggregator returned {} signatures, attestation_data size: {} bytes",
-            state_attestation.signatures.len(),
-            state_attestation.attested_data.len()
-        );
-
-        let proof_bytes = solana_attested::build_solana_membership_proof(
-            state_attestation.attested_data,
-            state_attestation.signatures,
-            min_sigs,
-        );
-
-        let update_tx = self.build_attestation_update_client_tx(
-            target_height,
-            proof_bytes,
-            light_client_program_id,
-        )?;
-
+    /// Update the attestation light client to the latest height.
+    pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
+        let result = solana_attested::update_attestation_client_tx(
+            &self.aggregator,
+            &self.tx_builder,
+            dst_client_id,
+        )
+        .await?;
         Ok(api::SolanaUpdateClient {
             chunk_txs: vec![],
             alt_create_tx: vec![],
             alt_extend_txs: vec![],
-            assembly_tx: update_tx,
-            target_height,
+            assembly_tx: result.assembly_tx,
+            target_height: result.target_height,
             cleanup_tx: vec![],
         })
-    }
-
-    /// Build update_client transaction bytes for attestation light client.
-    fn build_attestation_update_client_tx(
-        &self,
-        new_height: u64,
-        proof: Vec<u8>,
-        light_client_program_id: Pubkey,
-    ) -> Result<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-        use solana_ibc_types::attestation::{
-            AppState as AttestationAppState, ClientState as AttestationClientState,
-            ConsensusState as AttestationConsensusState,
-        };
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
-        let (new_consensus_state_pda, _) =
-            AttestationConsensusState::pda(new_height, light_client_program_id);
-        let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
-
-        let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
-        let (access_manager_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::AccessManager::SEED],
-            &access_manager_program_id,
-        );
-
-        let discriminator = {
-            let mut hasher = Sha256::new();
-            hasher.update(b"global:update_client");
-            let result = hasher.finalize();
-            <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
-        };
-
-        #[derive(AnchorSerialize)]
-        struct UpdateClientParams {
-            proof: Vec<u8>,
-        }
-
-        let mut data = discriminator.to_vec();
-        new_height
-            .serialize(&mut data)
-            .context("Failed to serialize new_height")?;
-        UpdateClientParams { proof }
-            .serialize(&mut data)
-            .context("Failed to serialize UpdateClientParams")?;
-
-        let instruction = solana_sdk::instruction::Instruction {
-            program_id: light_client_program_id,
-            accounts: vec![
-                solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::sysvar::instructions::ID,
-                    false,
-                ),
-                solana_sdk::instruction::AccountMeta::new(self.tx_builder.fee_payer, true),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::system_program::ID,
-                    false,
-                ),
-            ],
-            data,
-        };
-
-        let mut instructions = SolanaTxBuilder::extend_compute_ix();
-        instructions.push(instruction);
-
-        self.tx_builder.create_tx_bytes(&instructions)
-    }
-
-    /// Update the attestation light client to the latest height.
-    pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
-        let latest_height = self.aggregator.get_latest_height().await?;
-        tracing::info!(
-            "Updating attestation client {} to latest height {}",
-            dst_client_id,
-            latest_height
-        );
-        self.build_attestation_update_client(dst_client_id, latest_height)
-            .await
     }
 
     async fn build_packet_transactions(

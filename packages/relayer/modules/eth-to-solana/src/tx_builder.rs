@@ -45,6 +45,9 @@ pub struct RelayParams {
     pub src_packet_seqs: Vec<u64>,
     /// Packet sequences from the destination chain
     pub dst_packet_seqs: Vec<u64>,
+    /// For timeout packets, the current height from the source chain where
+    /// non-membership needs to be proven. Required when processing timeouts.
+    pub timeout_relay_height: Option<u64>,
 }
 
 /// Maximum compute units allowed per Solana transaction.
@@ -343,6 +346,30 @@ impl SolanaTxBuilder {
         _parameters: &std::collections::HashMap<String, String>,
     ) -> Result<Vec<u8>> {
         anyhow::bail!("create_client not yet implemented for eth-to-solana")
+    }
+}
+
+impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
+    for SolanaTxBuilder
+{
+    fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
+        self.resolve_client_program_id(client_id)
+    }
+
+    fn attestation_client_min_sigs(&self, program_id: Pubkey) -> Result<usize> {
+        self.attestation_client_min_sigs(program_id)
+    }
+
+    fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
+        self.resolve_access_manager_program_id()
+    }
+
+    fn fee_payer(&self) -> Pubkey {
+        self.fee_payer
+    }
+
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
+        self.create_tx_bytes(instructions)
     }
 }
 
