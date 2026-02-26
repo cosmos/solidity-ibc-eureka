@@ -165,7 +165,9 @@ pub fn generate_type_def(
     names: &NameMap,
 ) {
     for doc in &type_def.docs {
-        writeln!(output, "/// {doc}").unwrap();
+        for line in doc.lines() {
+            writeln!(output, "/// {line}").unwrap();
+        }
     }
 
     if is_event {
@@ -186,7 +188,9 @@ pub fn generate_type_def(
             writeln!(output, "pub struct {type_name} {{").unwrap();
             for field in &type_def.type_def.fields {
                 for doc in &field.docs {
-                    writeln!(output, "    /// {doc}").unwrap();
+                    for line in doc.lines() {
+                        writeln!(output, "    /// {line}").unwrap();
+                    }
                 }
                 let rust_type = idl_type_to_rust(&field.field_type, names);
                 let ident = sanitize_ident(field.name.as_deref().unwrap_or("_unnamed"));
@@ -567,6 +571,30 @@ mod tests {
 
         assert!(output.contains("/// A documented struct."));
         assert!(output.contains("/// The x field."));
+    }
+
+    #[test]
+    fn multiline_docs_get_proper_prefix() {
+        let td = IdlTypeDef {
+            name: "MultiDoc".to_string(),
+            docs: vec!["First line.\nSecond line.\nThird line.".to_string()],
+            type_def: IdlTypeDefBody {
+                kind: "struct".to_string(),
+                fields: vec![IdlField {
+                    name: Some("x".to_string()),
+                    docs: vec!["Field first.\nField second.".to_string()],
+                    field_type: IdlFieldType::Primitive("u8".to_string()),
+                }],
+                variants: vec![],
+            },
+        };
+        let names = names_from(&["MultiDoc"]);
+
+        let mut output = String::new();
+        generate_type_def(&mut output, &td, false, &names);
+
+        assert!(output.contains("/// First line.\n/// Second line.\n/// Third line.\n"));
+        assert!(output.contains("    /// Field first.\n    /// Field second.\n"));
     }
 
     #[test]

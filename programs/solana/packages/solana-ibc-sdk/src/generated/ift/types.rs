@@ -48,10 +48,8 @@ pub enum CreateTokenParams {
 }
 
 /// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
-///
 /// This account is created when a GMP packet is either acknowledged or times out,
 /// allowing the original sender to query the outcome of their cross-chain call.
-///
 /// # PDA Seeds
 /// `["gmp_result", source_client, sequence (little-endian u64)]`
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

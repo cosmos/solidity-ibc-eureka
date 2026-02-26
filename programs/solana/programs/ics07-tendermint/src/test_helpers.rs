@@ -78,8 +78,8 @@ pub mod fixtures {
 
         ClientState {
             chain_id: proto.chain_id,
-            trust_level_numerator: trust_level.numerator as u64,
-            trust_level_denominator: trust_level.denominator as u64,
+            trust_level_numerator: trust_level.numerator,
+            trust_level_denominator: trust_level.denominator,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
@@ -371,8 +371,8 @@ pub mod fixtures {
 
         ClientState {
             chain_id: proto.chain_id,
-            trust_level_numerator: trust_level.numerator as u64,
-            trust_level_denominator: trust_level.denominator as u64,
+            trust_level_numerator: trust_level.numerator,
+            trust_level_denominator: trust_level.denominator,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
