@@ -66,7 +66,7 @@ func (s *TestSuite) SetupSuite(ctx context.Context) {
 	s.processChains(ctx, s.config, chains)
 }
 
-// GetEthLightClientType returns the Ethereum light client type on Cosmos (dummy, full, attestor-wasm, attestor-native).
+// GetEthLightClientType returns the Ethereum light client type on Cosmos (dummy, full, attestor-native).
 func (s *TestSuite) GetEthLightClientType() string {
 	return s.config.cosmos.lightClientType
 }

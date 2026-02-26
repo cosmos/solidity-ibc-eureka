@@ -61,7 +61,6 @@ jobs:
           - Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack
         eth_lc_on_cosmos:
           - dummy
-          - attestor-wasm
           - attestor-native
         cosmos_lc_on_eth:
           - sp1

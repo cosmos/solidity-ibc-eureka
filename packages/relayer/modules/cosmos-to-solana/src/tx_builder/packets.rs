@@ -9,10 +9,6 @@ use solana_sdk::{
 };
 
 use crate::gmp;
-use solana_ibc_types::attestation::{
-    ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
-};
-use solana_ibc_types::ics07::{ClientState, ConsensusState};
 use solana_ibc_types::{
     router::{router_instructions, Client, Commitment, IBCApp, IBCAppState, RouterState},
     AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
@@ -21,24 +17,15 @@ use solana_ibc_types::{
 use super::TimeoutAccountsParams;
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 
-/// Derives client state and consensus state PDAs based on client type.
-fn derive_light_client_pdas(
-    client_id: &str,
-    height: u64,
-    light_client_program_id: Pubkey,
-) -> (Pubkey, Pubkey) {
-    match solana_ibc_constants::client_type_from_id(client_id) {
-        Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-            let (cs, _) = AttestationClientState::pda(light_client_program_id);
-            let (cons, _) = AttestationConsensusState::pda(height, light_client_program_id);
-            (cs, cons)
-        }
-        Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-            let (cs, _) = ClientState::pda(light_client_program_id);
-            let (cons, _) = ConsensusState::pda(height, light_client_program_id);
-            (cs, cons)
-        }
-    }
+/// Derives client state and consensus state PDAs which do always use the same seeds across
+/// different light client implementations
+fn derive_light_client_pdas(height: u64, light_client_program_id: Pubkey) -> (Pubkey, Pubkey) {
+    let (cs, _) = Pubkey::find_program_address(&[b"client"], &light_client_program_id);
+    let (cons, _) = Pubkey::find_program_address(
+        &[b"consensus_state", &height.to_le_bytes()],
+        &light_client_program_id,
+    );
+    (cs, cons)
 }
 
 /// Extracted payload info for recv packet processing.
@@ -130,11 +117,8 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.dest_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
         let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
@@ -182,7 +166,7 @@ impl super::TxBuilder {
         })
     }
 
-    pub(crate) async fn build_ack_packet_instruction(
+    pub(crate) fn build_ack_packet_instruction(
         &self,
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
@@ -218,11 +202,8 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.source_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);
@@ -320,11 +301,8 @@ impl super::TxBuilder {
 
         // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.source_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) = AccessManager::pda(access_manager_program_id);

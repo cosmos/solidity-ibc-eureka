@@ -108,7 +108,7 @@ func (s *MultiAttestorTestSuite) CosmosChain() *cosmos.CosmosChain {
 
 // isNativeAttestor returns true if ETH_LC_ON_COSMOS is attestor-native
 func (s *MultiAttestorTestSuite) isNativeAttestor() bool {
-	return s.GetEthLightClientType() == testvalues.EthWasmTypeAttestorNative
+	return s.GetEthLightClientType() == testvalues.EthLCOnCosmosTypeAttestorNative
 }
 
 // getEthLcClientIDOnCosmos returns the client ID for Ethereum light client on Cosmos
@@ -137,13 +137,9 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	// Configure for single Anvil chain (PoW) + Cosmos
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetTypeAnvil)
 
-	// Set ETH_LC_ON_COSMOS to use attestor (wasm or native based on env)
-	// Default to attestor-wasm if not set
+	// Set ETH_LC_ON_COSMOS to use native attestor
 	ethLcType := os.Getenv(testvalues.EnvKeyEthLcOnCosmos)
-	if ethLcType == "" {
-		ethLcType = testvalues.EthWasmTypeAttestorWasm
-		os.Setenv(testvalues.EnvKeyEthLcOnCosmos, ethLcType)
-	}
+	s.Require().Equalf(testvalues.EthLCOnCosmosTypeAttestorNative, ethLcType, "For multi-attestor tests, ETH_LC_ON_COSMOS must be set to '%s'", testvalues.EthLCOnCosmosTypeAttestorNative)
 	s.T().Logf("ETH_LC_ON_COSMOS: %s", ethLcType)
 
 	// Force COSMOS_LC_ON_ETH to attestor for this test
