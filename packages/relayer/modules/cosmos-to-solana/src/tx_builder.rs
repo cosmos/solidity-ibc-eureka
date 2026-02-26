@@ -41,6 +41,10 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
+use solana_ibc_sdk::attestation::instructions::{
+    UpdateClient, UpdateClientAccounts, UpdateClientArgs,
+};
+use solana_ibc_sdk::attestation::types::UpdateClientParams;
 use solana_ibc_sdk::ics07_tendermint::{
     instructions::{self as ics07_tendermint_instructions, AssembleAndUpdateClient},
     types::ConsensusState,
@@ -75,14 +79,6 @@ const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 
 /// Nanoseconds per second for timestamp conversion
 const NANOS_PER_SECOND: u64 = 1_000_000_000;
-
-/// Parameters for uploading a header chunk (mirrors the Solana program's type)
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub(crate) struct UploadChunkParams {
-    pub target_height: u64,
-    pub chunk_index: u8,
-    pub chunk_data: Vec<u8>,
-}
 
 /// Helper to derive header chunk PDA
 pub(crate) fn derive_header_chunk(
@@ -170,7 +166,7 @@ impl TxBuilder {
             &client_state,
             &consensus_state,
             access_manager_program_id,
-        )?;
+        );
 
         self.create_tx_bytes(&[instruction])
     }
@@ -924,26 +920,11 @@ impl AttestedTxBuilder {
         proof: Vec<u8>,
         light_client_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use solana_ibc_sdk::attestation::instructions::{UpdateClient, UpdateClientAccounts};
-
-        #[derive(AnchorSerialize)]
-        struct UpdateClientParams {
-            proof: Vec<u8>,
-        }
-
         let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
         let (access_manager_pda, _) =
             solana_ibc_sdk::access_manager::instructions::Initialize::access_manager_pda(
                 &access_manager_program_id,
             );
-
-        let mut args_data = Vec::new();
-        new_height
-            .serialize(&mut args_data)
-            .context("Failed to serialize new_height")?;
-        UpdateClientParams { proof }
-            .serialize(&mut args_data)
-            .context("Failed to serialize UpdateClientParams")?;
 
         let instruction = UpdateClient::new(
             UpdateClientAccounts {
@@ -953,7 +934,13 @@ impl AttestedTxBuilder {
             },
             &light_client_program_id,
         )
-        .build_instruction(&args_data, []);
+        .build_instruction(
+            &UpdateClientArgs {
+                new_height,
+                params: UpdateClientParams { proof },
+            },
+            [],
+        );
 
         let mut instructions = TxBuilder::extend_compute_ix();
         instructions.push(instruction);

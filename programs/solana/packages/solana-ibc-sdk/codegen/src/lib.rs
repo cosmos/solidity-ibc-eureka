@@ -63,8 +63,14 @@ pub fn generate_all(idl_dir: &Path, generated_dir: &Path, programs: &[&str]) -> 
         let has_types = type_gen::generate_types(program, &idl, &program_dir, &names);
         let has_accounts =
             type_gen::generate_accounts(program, &idl, &program_dir, has_types, &names);
-        let (has_instructions, ix_warnings) =
-            instruction_gen::generate_instructions(program, &idl, &program_dir);
+        let (has_instructions, ix_warnings) = instruction_gen::generate_instructions(
+            program,
+            &idl,
+            &program_dir,
+            has_types,
+            has_accounts,
+            &names,
+        );
         all_warnings.extend(ix_warnings);
         let has_events =
             type_gen::generate_events(&idl, &program_dir, has_types, has_accounts, &names);

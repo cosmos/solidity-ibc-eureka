@@ -6,6 +6,9 @@
 
 #![allow(unused_imports)]
 
+use super::accounts::*;
+use super::types::*;
+use anchor_lang::prelude::borsh::{self, BorshDeserialize, BorshSerialize};
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::pubkey::Pubkey;
 
@@ -53,18 +56,25 @@ impl Initialize {
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct InitializeArgs {
+    pub admin: Pubkey,
+}
+
+impl Initialize {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &InitializeArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -149,17 +159,17 @@ impl CreateAndInitializeSplToken {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &CreateTokenParams,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -243,21 +253,18 @@ impl InitializeExistingToken {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
         Instruction {
             program_id: self.program_id,
             accounts,
-            data,
+            data: Self::DISCRIMINATOR.to_vec(),
         }
     }
 }
@@ -320,17 +327,17 @@ impl RegisterIftBridge {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &RegisterIFTBridgeMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -396,18 +403,25 @@ impl RemoveIftBridge {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct RemoveIftBridgeArgs {
+    pub client_id: String,
+}
+
+impl RemoveIftBridge {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &RemoveIftBridgeArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -534,17 +548,17 @@ impl IftTransfer {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &IFTTransferMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -644,17 +658,17 @@ impl IftMint {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &IFTMintMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -750,18 +764,26 @@ impl FinalizeTransfer {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct FinalizeTransferArgs {
+    pub client_id: String,
+    pub sequence: u64,
+}
+
+impl FinalizeTransfer {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &FinalizeTransferArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -814,18 +836,25 @@ impl SetAdmin {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct SetAdminArgs {
+    pub new_admin: Pubkey,
+}
+
+impl SetAdmin {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &SetAdminArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -909,21 +938,18 @@ impl RevokeMintAuthority {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
         Instruction {
             program_id: self.program_id,
             accounts,
-            data,
+            data: Self::DISCRIMINATOR.to_vec(),
         }
     }
 }
@@ -977,17 +1003,17 @@ impl SetMintRateLimit {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &SetMintRateLimitMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -1041,17 +1067,17 @@ impl SetPaused {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &SetPausedMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -1148,17 +1174,17 @@ impl AdminMint {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &AdminMintMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,

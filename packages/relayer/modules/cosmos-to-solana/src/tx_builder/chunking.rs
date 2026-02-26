@@ -2,7 +2,6 @@
 
 use std::collections::HashSet;
 
-use anchor_lang::prelude::*;
 use anyhow::Result;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -216,7 +215,7 @@ impl super::TxBuilder {
             },
             &self.solana_ics26_program_id,
         )
-        .build_instruction(&msg.try_to_vec()?, []))
+        .build_instruction(&msg, []))
     }
 
     pub(crate) fn build_upload_proof_chunk_instruction(
@@ -254,7 +253,7 @@ impl super::TxBuilder {
             },
             &self.solana_ics26_program_id,
         )
-        .build_instruction(&msg.try_to_vec()?, []))
+        .build_instruction(&msg, []))
     }
 
     pub(crate) fn build_packet_chunk_txs(
@@ -688,7 +687,7 @@ impl super::TxBuilder {
             },
             &self.solana_ics26_program_id,
         )
-        .build_instruction(&msg.try_to_vec()?, remaining_accounts);
+        .build_instruction(&msg, remaining_accounts);
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);

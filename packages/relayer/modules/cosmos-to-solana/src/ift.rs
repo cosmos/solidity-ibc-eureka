@@ -10,7 +10,9 @@ use anchor_lang::prelude::*;
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;
 use solana_ibc_sdk::ift::accounts::PendingTransfer;
-use solana_ibc_sdk::ift::instructions::{FinalizeTransfer, FinalizeTransferAccounts};
+use solana_ibc_sdk::ift::instructions::{
+    FinalizeTransfer, FinalizeTransferAccounts, FinalizeTransferArgs,
+};
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
@@ -180,16 +182,6 @@ fn build_finalize_transfer_ix(
         &token_program_id,
     );
 
-    // Anchor serializes String as length-prefixed (u32 + bytes)
-    let client_id_bytes = client_id.as_bytes();
-    #[allow(clippy::cast_possible_truncation)]
-    // client_id is a short identifier, never exceeds u32::MAX
-    let client_id_len = client_id_bytes.len() as u32;
-    let mut args_data = Vec::new();
-    args_data.extend_from_slice(&client_id_len.to_le_bytes());
-    args_data.extend_from_slice(client_id_bytes);
-    args_data.extend_from_slice(&sequence.to_le_bytes());
-
     FinalizeTransfer::new(
         FinalizeTransferAccounts {
             ift_bridge: ift_bridge_pda,
@@ -202,5 +194,11 @@ fn build_finalize_transfer_ix(
         },
         &ift_program_id,
     )
-    .build_instruction(&args_data, [])
+    .build_instruction(
+        &FinalizeTransferArgs {
+            client_id: client_id.to_string(),
+            sequence,
+        },
+        [],
+    )
 }

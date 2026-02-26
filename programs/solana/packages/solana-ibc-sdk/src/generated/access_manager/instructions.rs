@@ -6,6 +6,9 @@
 
 #![allow(unused_imports)]
 
+use super::accounts::*;
+use super::types::*;
+use anchor_lang::prelude::borsh::{self, BorshDeserialize, BorshSerialize};
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::pubkey::Pubkey;
 
@@ -54,18 +57,25 @@ impl Initialize {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct InitializeArgs {
+    pub admin: Pubkey,
+}
+
+impl Initialize {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &InitializeArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -118,18 +128,26 @@ impl GrantRole {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct GrantRoleArgs {
+    pub role_id: u64,
+    pub account: Pubkey,
+}
+
+impl GrantRole {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &GrantRoleArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -182,18 +200,26 @@ impl RevokeRole {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct RevokeRoleArgs {
+    pub role_id: u64,
+    pub account: Pubkey,
+}
+
+impl RevokeRole {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &RevokeRoleArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -246,18 +272,25 @@ impl RenounceRole {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct RenounceRoleArgs {
+    pub role_id: u64,
+}
+
+impl RenounceRole {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &RenounceRoleArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -349,18 +382,25 @@ impl UpgradeProgram {
             ),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct UpgradeProgramArgs {
+    pub target_program: Pubkey,
+}
+
+impl UpgradeProgram {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &UpgradeProgramArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -413,18 +453,25 @@ impl SetWhitelistedPrograms {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct SetWhitelistedProgramsArgs {
+    pub whitelisted_programs: Vec<Pubkey>,
+}
+
+impl SetWhitelistedPrograms {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &SetWhitelistedProgramsArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,

@@ -162,7 +162,7 @@ impl super::TxBuilder {
             &self.solana_ics26_program_id,
         )
         .build_instruction(
-            &msg.try_to_vec()?,
+            msg,
             chunk_accounts
                 .into_iter()
                 .map(|a| AccountMeta::new(a, false))
@@ -234,7 +234,7 @@ impl super::TxBuilder {
             &self.solana_ics26_program_id,
         )
         .build_instruction(
-            &msg.try_to_vec()?,
+            msg,
             chunk_accounts
                 .into_iter()
                 .map(|a| AccountMeta::new(a, false))
@@ -289,7 +289,7 @@ impl super::TxBuilder {
             &self.solana_ics26_program_id,
         )
         .build_instruction(
-            &msg.try_to_vec()?,
+            msg,
             chunk_accounts
                 .into_iter()
                 .map(|a| AccountMeta::new(a, false))

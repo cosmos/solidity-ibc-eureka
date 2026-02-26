@@ -1,6 +1,5 @@
 //! Client operations - create/update client and signature verification.
 
-use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
 use solana_sdk::{
@@ -14,13 +13,14 @@ use tendermint_proto::Protobuf;
 use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
 use solana_ibc_sdk::ics07_tendermint::accounts::ClientState;
 use solana_ibc_sdk::ics07_tendermint::instructions::{
-    AssembleAndUpdateClient, AssembleAndUpdateClientAccounts, CleanupIncompleteUpload,
-    CleanupIncompleteUploadAccounts, Initialize, InitializeAccounts, PreVerifySignature,
-    PreVerifySignatureAccounts, UploadHeaderChunk, UploadHeaderChunkAccounts,
+    AssembleAndUpdateClient, AssembleAndUpdateClientAccounts, AssembleAndUpdateClientArgs,
+    CleanupIncompleteUpload, CleanupIncompleteUploadAccounts, Initialize, InitializeAccounts,
+    InitializeArgs, PreVerifySignature, PreVerifySignatureAccounts, UploadHeaderChunk,
+    UploadHeaderChunkAccounts,
 };
-use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, SignatureData};
+use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, SignatureData, UploadChunkParams};
 
-use super::{derive_header_chunk, UploadChunkParams};
+use super::derive_header_chunk;
 
 impl super::TxBuilder {
     pub(crate) fn build_create_client_instruction(
@@ -29,24 +29,27 @@ impl super::TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
         access_manager: Pubkey,
-    ) -> Result<Instruction> {
+    ) -> Instruction {
         // For create_client, we use the default ICS07 Tendermint light client.
         let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
-        let mut args_data = client_state.try_to_vec()?;
-        args_data.extend_from_slice(&consensus_state.try_to_vec()?);
-        args_data.extend_from_slice(&access_manager.try_to_vec()?);
-
-        Ok(Initialize::new(
+        Initialize::new(
             InitializeAccounts {
                 payer: self.fee_payer,
                 revision_height: latest_height,
             },
             &solana_ics07_program_id,
         )
-        .build_instruction(&args_data, []))
+        .build_instruction(
+            &InitializeArgs {
+                client_state: client_state.clone(),
+                consensus_state: consensus_state.clone(),
+                access_manager,
+            },
+            [],
+        )
     }
 
     pub(crate) fn build_assemble_and_update_client_tx(
@@ -63,11 +66,6 @@ impl super::TxBuilder {
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
-
-        let mut args_data = Vec::new();
-        args_data.extend_from_slice(&target_height.to_le_bytes());
-        args_data.push(total_chunks);
-        args_data.extend_from_slice(&trusted_height.to_le_bytes());
 
         let chunk_iter = (0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
@@ -96,7 +94,14 @@ impl super::TxBuilder {
             },
             &solana_ics07_program_id,
         )
-        .build_instruction(&args_data, chunk_iter.chain(sig_iter));
+        .build_instruction(
+            &AssembleAndUpdateClientArgs {
+                target_height,
+                chunk_count: total_chunks,
+                trusted_height,
+            },
+            chunk_iter.chain(sig_iter),
+        );
 
         let mut instructions = Self::extend_compute_ix_with_heap();
         instructions.push(ix);
@@ -141,7 +146,7 @@ impl super::TxBuilder {
             },
             &solana_ics07_program_id,
         )
-        .build_instruction(&[], chunk_iter.chain(sig_iter));
+        .build_instruction(chunk_iter.chain(sig_iter));
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
@@ -180,7 +185,7 @@ impl super::TxBuilder {
             },
             &solana_ics07_program_id,
         )
-        .build_instruction(&params.try_to_vec()?, []))
+        .build_instruction(&params, []))
     }
 
     pub(crate) fn build_chunk_transactions(
@@ -420,7 +425,7 @@ impl super::TxBuilder {
             },
             &solana_ics07_program_id,
         )
-        .build_instruction(&sig_data.try_to_vec()?, []);
+        .build_instruction(sig_data, []);
 
         let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
 

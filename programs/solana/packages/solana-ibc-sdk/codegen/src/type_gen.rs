@@ -232,6 +232,9 @@ pub fn generate_type_def(
     }
 }
 
+/// Converts an IDL field type to its corresponding Rust type string.
+///
+/// Used by both `type_gen` for struct fields and `instruction_gen` for args structs.
 pub fn idl_type_to_rust(field_type: &IdlFieldType, names: &NameMap) -> String {
     match field_type {
         IdlFieldType::Primitive(p) => match p.as_str() {

@@ -3,11 +3,69 @@ use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
 
-use crate::idl::{Idl, IdlInstruction, IdlInstructionAccount, IdlTypeDef};
+use crate::idl::{Idl, IdlFieldType, IdlInstruction, IdlInstructionAccount, IdlTypeDef};
 use crate::pda::{self, ResolvedPda};
-use crate::util::{address_to_rust_expr, sanitize_ident, to_pascal_case};
+use crate::type_gen::idl_type_to_rust;
+use crate::util::{address_to_rust_expr, sanitize_ident, to_pascal_case, NameMap};
 
-pub fn generate_instructions(program: &str, idl: &Idl, program_dir: &Path) -> (bool, Vec<String>) {
+/// Classification of instruction args for `build_instruction` signature generation.
+enum ArgsKind {
+    /// No args — `build_instruction` takes no args parameter.
+    None,
+    /// Single defined type — `build_instruction` takes a typed `&T` parameter.
+    SingleDefined {
+        /// Resolved Rust type name (e.g. `MsgRecvPacket`).
+        type_name: String,
+    },
+    /// Multiple flat/mixed args — a `{Instruction}Args` struct is generated.
+    Flat {
+        /// Generated struct name (e.g. `FinalizeTransferArgs`).
+        struct_name: String,
+        /// Fields: `(sanitized_ident, rust_type)`.
+        fields: Vec<(String, String)>,
+    },
+}
+
+fn classify_args(ix: &IdlInstruction, names: &NameMap) -> ArgsKind {
+    if ix.args.is_empty() {
+        return ArgsKind::None;
+    }
+
+    if ix.args.len() == 1 {
+        if let IdlFieldType::Defined { defined } = &ix.args[0].arg_type {
+            let type_name = names
+                .get(&defined.name)
+                .cloned()
+                .unwrap_or_else(|| defined.name.clone());
+            return ArgsKind::SingleDefined { type_name };
+        }
+    }
+
+    let struct_name = format!("{}Args", to_pascal_case(&ix.name));
+    let fields = ix
+        .args
+        .iter()
+        .map(|a| {
+            let ident = sanitize_ident(&a.name);
+            let rust_type = idl_type_to_rust(&a.arg_type, names);
+            (ident, rust_type)
+        })
+        .collect();
+
+    ArgsKind::Flat {
+        struct_name,
+        fields,
+    }
+}
+
+pub fn generate_instructions(
+    program: &str,
+    idl: &Idl,
+    program_dir: &Path,
+    has_types: bool,
+    has_accounts: bool,
+    names: &NameMap,
+) -> (bool, Vec<String>) {
     if idl.instructions.is_empty() {
         return (false, Vec::new());
     }
@@ -15,8 +73,14 @@ pub fn generate_instructions(program: &str, idl: &Idl, program_dir: &Path) -> (b
     let type_map: HashMap<&str, &IdlTypeDef> =
         idl.types.iter().map(|t| (t.name.as_str(), t)).collect();
 
-    let (module_code, warnings) =
-        generate_instruction_module(program, &idl.instructions, &type_map);
+    let (module_code, warnings) = generate_instruction_module(
+        program,
+        &idl.instructions,
+        &type_map,
+        has_types,
+        has_accounts,
+        names,
+    );
     let instructions_path = program_dir.join("instructions.rs");
     fs::write(&instructions_path, &module_code)
         .unwrap_or_else(|e| panic!("Failed to write {}: {e}", instructions_path.display()));
@@ -28,10 +92,17 @@ fn generate_instruction_module(
     program_name: &str,
     instructions: &[IdlInstruction],
     type_map: &HashMap<&str, &IdlTypeDef>,
+    has_types: bool,
+    has_accounts: bool,
+    names: &NameMap,
 ) -> (String, Vec<String>) {
     let mut output = String::new();
     let mut warnings = Vec::new();
     let mut emitted_names = BTreeSet::new();
+
+    let needs_borsh = instructions
+        .iter()
+        .any(|ix| !matches!(classify_args(ix, names), ArgsKind::None));
 
     writeln!(
         output,
@@ -44,9 +115,26 @@ fn generate_instruction_module(
          #![allow(unused_imports)]\n\
          \n\
          use anchor_lang::solana_program::instruction::{{AccountMeta, Instruction}};\n\
-         use anchor_lang::solana_program::pubkey::Pubkey;\n"
+         use anchor_lang::solana_program::pubkey::Pubkey;"
     )
     .unwrap();
+
+    if needs_borsh {
+        writeln!(
+            output,
+            "use anchor_lang::prelude::borsh::{{self, BorshDeserialize, BorshSerialize}};"
+        )
+        .unwrap();
+    }
+
+    if has_types {
+        writeln!(output, "use super::types::*;").unwrap();
+    }
+    if has_accounts {
+        writeln!(output, "use super::accounts::*;").unwrap();
+    }
+
+    writeln!(output).unwrap();
 
     for instruction in instructions {
         let struct_name = to_pascal_case(&instruction.name);
@@ -58,7 +146,7 @@ fn generate_instruction_module(
             ));
             continue;
         }
-        generate_instruction_struct(&mut output, instruction, type_map);
+        generate_instruction_struct(&mut output, instruction, type_map, names);
     }
 
     (output, warnings)
@@ -226,9 +314,11 @@ fn generate_instruction_struct(
     output: &mut String,
     instruction: &IdlInstruction,
     type_map: &HashMap<&str, &IdlTypeDef>,
+    names: &NameMap,
 ) {
     let struct_name = to_pascal_case(&instruction.name);
     let accounts_name = format!("{struct_name}Accounts");
+    let args_kind = classify_args(instruction, names);
 
     let classifications: Vec<(&IdlInstructionAccount, AccountKind)> = instruction
         .accounts
@@ -414,40 +504,138 @@ fn generate_instruction_struct(
     writeln!(output, "        ]").unwrap();
     writeln!(output, "    }}").unwrap();
 
+    // --- Args struct (for flat args) ---
+    if let ArgsKind::Flat {
+        struct_name: ref args_struct_name,
+        ref fields,
+    } = args_kind
+    {
+        writeln!(output, "}}\n").unwrap();
+        writeln!(
+            output,
+            "#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]"
+        )
+        .unwrap();
+        writeln!(output, "pub struct {args_struct_name} {{").unwrap();
+        for (ident, rust_type) in fields {
+            writeln!(output, "    pub {ident}: {rust_type},").unwrap();
+        }
+        writeln!(output, "}}\n").unwrap();
+        writeln!(output, "impl {struct_name} {{").unwrap();
+    }
+
     // --- build_instruction() ---
-    writeln!(
-        output,
-        "\n    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts."
-    )
-    .unwrap();
-    writeln!(output, "    #[must_use]").unwrap();
-    writeln!(output, "    pub fn build_instruction(").unwrap();
-    writeln!(output, "        self,").unwrap();
-    writeln!(output, "        args_data: &[u8],").unwrap();
-    writeln!(
-        output,
-        "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
-    )
-    .unwrap();
-    writeln!(output, "    ) -> Instruction {{").unwrap();
-    writeln!(
-        output,
-        "        let mut accounts = self.to_account_metas();"
-    )
-    .unwrap();
-    writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
-    writeln!(
-        output,
-        "        let mut data = Self::DISCRIMINATOR.to_vec();"
-    )
-    .unwrap();
-    writeln!(output, "        data.extend_from_slice(args_data);").unwrap();
-    writeln!(
-        output,
-        "        Instruction {{ program_id: self.program_id, accounts, data }}"
-    )
-    .unwrap();
-    writeln!(output, "    }}").unwrap();
+    match &args_kind {
+        ArgsKind::None => {
+            writeln!(
+                output,
+                "\n    /// Builds a complete [`Instruction`] with discriminator and remaining accounts."
+            )
+            .unwrap();
+            writeln!(output, "    #[must_use]").unwrap();
+            writeln!(output, "    pub fn build_instruction(").unwrap();
+            writeln!(output, "        self,").unwrap();
+            writeln!(
+                output,
+                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
+            )
+            .unwrap();
+            writeln!(output, "    ) -> Instruction {{").unwrap();
+            writeln!(
+                output,
+                "        let mut accounts = self.to_account_metas();"
+            )
+            .unwrap();
+            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
+            writeln!(
+                output,
+                "        Instruction {{ program_id: self.program_id, accounts, data: Self::DISCRIMINATOR.to_vec() }}"
+            )
+            .unwrap();
+            writeln!(output, "    }}").unwrap();
+        }
+        ArgsKind::SingleDefined { type_name } => {
+            writeln!(
+                output,
+                "\n    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts."
+            )
+            .unwrap();
+            writeln!(output, "    #[must_use]").unwrap();
+            writeln!(output, "    pub fn build_instruction(").unwrap();
+            writeln!(output, "        self,").unwrap();
+            writeln!(output, "        args: &{type_name},").unwrap();
+            writeln!(
+                output,
+                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
+            )
+            .unwrap();
+            writeln!(output, "    ) -> Instruction {{").unwrap();
+            writeln!(
+                output,
+                "        let mut accounts = self.to_account_metas();"
+            )
+            .unwrap();
+            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
+            writeln!(
+                output,
+                "        let mut data = Self::DISCRIMINATOR.to_vec();"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        Instruction {{ program_id: self.program_id, accounts, data }}"
+            )
+            .unwrap();
+            writeln!(output, "    }}").unwrap();
+        }
+        ArgsKind::Flat {
+            struct_name: args_struct_name,
+            ..
+        } => {
+            writeln!(
+                output,
+                "\n    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts."
+            )
+            .unwrap();
+            writeln!(output, "    #[must_use]").unwrap();
+            writeln!(output, "    pub fn build_instruction(").unwrap();
+            writeln!(output, "        self,").unwrap();
+            writeln!(output, "        args: &{args_struct_name},").unwrap();
+            writeln!(
+                output,
+                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
+            )
+            .unwrap();
+            writeln!(output, "    ) -> Instruction {{").unwrap();
+            writeln!(
+                output,
+                "        let mut accounts = self.to_account_metas();"
+            )
+            .unwrap();
+            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
+            writeln!(
+                output,
+                "        let mut data = Self::DISCRIMINATOR.to_vec();"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        Instruction {{ program_id: self.program_id, accounts, data }}"
+            )
+            .unwrap();
+            writeln!(output, "    }}").unwrap();
+        }
+    }
 
     writeln!(output, "}}\n").unwrap();
 }
@@ -457,6 +645,10 @@ mod tests {
     use super::*;
     use crate::idl::*;
     use crate::pda::{PdaParam, ResolvedPda};
+
+    fn empty_names() -> NameMap {
+        NameMap::new()
+    }
 
     fn provided_account(name: &str) -> IdlInstructionAccount {
         IdlInstructionAccount {
@@ -615,8 +807,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("pub struct TestInstructionAccounts"));
         assert!(output.contains("pub my_account: Pubkey,"));
@@ -652,8 +845,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("AccountMeta::new(self.from, true)"));
         assert!(output.contains("AccountMeta::new(self.to, false)"));
@@ -672,8 +866,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("anchor_lang::solana_program::sysvar::instructions::ID"));
         assert!(output.contains("AccountMeta::new_readonly"));
@@ -692,8 +887,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         // state should NOT appear in Accounts struct (it's auto-derived)
         assert!(output.contains("pub struct DoSomethingAccounts"));
@@ -728,8 +924,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         // PDA method with params
         assert!(output.contains(
@@ -741,6 +938,11 @@ mod tests {
         );
         // channel_id should be in Accounts struct (PDA arg)
         assert!(output.contains("pub channel_id:"));
+        // Flat args struct should be generated
+        assert!(output.contains("pub struct CreateChannelArgs {"));
+        assert!(output.contains("pub channel_id: String,"));
+        // build_instruction should accept typed args
+        assert!(output.contains("args: &CreateChannelArgs,"));
     }
 
     #[test]
@@ -753,8 +955,15 @@ mod tests {
         }];
 
         let type_map = HashMap::new();
-        let (output, warnings) =
-            generate_instruction_module("my_program", &instructions, &type_map);
+        let names = empty_names();
+        let (output, warnings) = generate_instruction_module(
+            "my_program",
+            &instructions,
+            &type_map,
+            false,
+            false,
+            &names,
+        );
 
         assert!(output.contains("// AUTO-GENERATED from my_program IDL - do not edit"));
         assert!(output
@@ -764,7 +973,7 @@ mod tests {
     }
 
     #[test]
-    fn build_instruction_method_present() {
+    fn build_instruction_no_args() {
         let instruction = IdlInstruction {
             name: "simple".to_string(),
             discriminator: vec![42; 8],
@@ -773,13 +982,231 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("pub fn build_instruction("));
-        assert!(output.contains("args_data: &[u8]"));
+        // No args parameter for no-args instructions
+        assert!(!output.contains("args_data"));
+        assert!(!output.contains("args:"));
         assert!(output.contains("remaining_accounts: impl IntoIterator<Item = AccountMeta>"));
         assert!(output.contains("Self::DISCRIMINATOR.to_vec()"));
+    }
+
+    #[test]
+    fn build_instruction_single_defined_type() {
+        let instruction = IdlInstruction {
+            name: "recv_packet".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![provided_account("payer")],
+            args: vec![IdlInstructionArg {
+                name: "msg".to_string(),
+                arg_type: IdlFieldType::Defined {
+                    defined: IdlDefinedRef {
+                        name: "my_mod::MsgRecvPacket".to_string(),
+                    },
+                },
+            }],
+        };
+
+        let mut names = empty_names();
+        names.insert(
+            "my_mod::MsgRecvPacket".to_string(),
+            "MsgRecvPacket".to_string(),
+        );
+
+        let type_map = HashMap::new();
+        let mut output = String::new();
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
+
+        assert!(output.contains("args: &MsgRecvPacket,"));
+        assert!(!output.contains("pub struct RecvPacketArgs"));
+        assert!(output.contains("borsh::to_vec(args)"));
+    }
+
+    #[test]
+    fn build_instruction_flat_args() {
+        let instruction = IdlInstruction {
+            name: "finalize_transfer".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![provided_account("payer")],
+            args: vec![
+                IdlInstructionArg {
+                    name: "client_id".to_string(),
+                    arg_type: IdlFieldType::Primitive("string".to_string()),
+                },
+                IdlInstructionArg {
+                    name: "sequence".to_string(),
+                    arg_type: IdlFieldType::Primitive("u64".to_string()),
+                },
+            ],
+        };
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let mut output = String::new();
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
+
+        // Args struct should be generated
+        assert!(output.contains("pub struct FinalizeTransferArgs {"));
+        assert!(output.contains("pub client_id: String,"));
+        assert!(output.contains("pub sequence: u64,"));
+        assert!(output.contains("#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]"));
+        // build_instruction should accept typed args
+        assert!(output.contains("args: &FinalizeTransferArgs,"));
+        assert!(output.contains("borsh::to_vec(args)"));
+    }
+
+    #[test]
+    fn classify_args_no_args() {
+        let ix = IdlInstruction {
+            name: "noop".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![],
+        };
+        let names = empty_names();
+        assert!(matches!(classify_args(&ix, &names), ArgsKind::None));
+    }
+
+    #[test]
+    fn classify_args_single_defined() {
+        let ix = IdlInstruction {
+            name: "recv".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![IdlInstructionArg {
+                name: "msg".to_string(),
+                arg_type: IdlFieldType::Defined {
+                    defined: IdlDefinedRef {
+                        name: "MsgRecvPacket".to_string(),
+                    },
+                },
+            }],
+        };
+        let names = empty_names();
+        match classify_args(&ix, &names) {
+            ArgsKind::SingleDefined { type_name } => {
+                assert_eq!(type_name, "MsgRecvPacket");
+            }
+            _ => panic!("Expected SingleDefined"),
+        }
+    }
+
+    #[test]
+    fn classify_args_flat() {
+        let ix = IdlInstruction {
+            name: "grant_role".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![
+                IdlInstructionArg {
+                    name: "role_id".to_string(),
+                    arg_type: IdlFieldType::Primitive("u64".to_string()),
+                },
+                IdlInstructionArg {
+                    name: "account".to_string(),
+                    arg_type: IdlFieldType::Primitive("pubkey".to_string()),
+                },
+            ],
+        };
+        let names = empty_names();
+        match classify_args(&ix, &names) {
+            ArgsKind::Flat {
+                struct_name,
+                fields,
+            } => {
+                assert_eq!(struct_name, "GrantRoleArgs");
+                assert_eq!(fields.len(), 2);
+                assert_eq!(fields[0], ("role_id".to_string(), "u64".to_string()));
+                assert_eq!(fields[1], ("account".to_string(), "Pubkey".to_string()));
+            }
+            _ => panic!("Expected Flat"),
+        }
+    }
+
+    #[test]
+    fn classify_args_single_primitive_is_flat() {
+        let ix = IdlInstruction {
+            name: "set_admin".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![IdlInstructionArg {
+                name: "new_admin".to_string(),
+                arg_type: IdlFieldType::Primitive("pubkey".to_string()),
+            }],
+        };
+        let names = empty_names();
+        assert!(matches!(classify_args(&ix, &names), ArgsKind::Flat { .. }));
+    }
+
+    #[test]
+    fn module_includes_borsh_import_when_args_exist() {
+        let instructions = vec![IdlInstruction {
+            name: "set_admin".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![provided_account("admin")],
+            args: vec![IdlInstructionArg {
+                name: "new_admin".to_string(),
+                arg_type: IdlFieldType::Primitive("pubkey".to_string()),
+            }],
+        }];
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let (output, _) = generate_instruction_module(
+            "test_prog",
+            &instructions,
+            &type_map,
+            false,
+            false,
+            &names,
+        );
+
+        assert!(output.contains(
+            "use anchor_lang::prelude::borsh::{self, BorshDeserialize, BorshSerialize};"
+        ));
+    }
+
+    #[test]
+    fn module_no_borsh_import_when_no_args() {
+        let instructions = vec![IdlInstruction {
+            name: "noop".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![],
+        }];
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let (output, _) = generate_instruction_module(
+            "test_prog",
+            &instructions,
+            &type_map,
+            false,
+            false,
+            &names,
+        );
+
+        assert!(!output.contains("borsh"));
+    }
+
+    #[test]
+    fn module_includes_types_import_when_has_types() {
+        let instructions = vec![IdlInstruction {
+            name: "init".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![],
+        }];
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let (output, _) =
+            generate_instruction_module("test_prog", &instructions, &type_map, true, false, &names);
+
+        assert!(output.contains("use super::types::*;"));
     }
 
     #[test]
@@ -900,8 +1327,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("pub struct NoopAccounts"));
         assert!(output.contains("pub const COUNT: usize = 0;"));
@@ -918,8 +1346,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         // Accounts struct should have no fields (the PDA is auto-derived)
         assert!(output.contains("pub struct AutoOnlyAccounts {\n}\n"));
@@ -941,8 +1370,9 @@ mod tests {
         };
 
         let type_map = HashMap::new();
+        let names = empty_names();
         let mut output = String::new();
-        generate_instruction_struct(&mut output, &instruction, &type_map);
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         // Accounts struct should have no fields
         assert!(output.contains("pub struct FixedOnlyAccounts {\n}\n"));
@@ -962,7 +1392,8 @@ mod tests {
             accounts: vec![],
         };
 
-        let (generated, warnings) = generate_instructions("prog", &idl, &dir);
+        let names = empty_names();
+        let (generated, warnings) = generate_instructions("prog", &idl, &dir, false, false, &names);
         assert!(!generated);
         assert!(warnings.is_empty());
 
@@ -987,7 +1418,9 @@ mod tests {
         ];
 
         let type_map = HashMap::new();
-        let (output, warnings) = generate_instruction_module("test", &instructions, &type_map);
+        let names = empty_names();
+        let (output, warnings) =
+            generate_instruction_module("test", &instructions, &type_map, false, false, &names);
 
         assert_eq!(warnings.len(), 1);
         assert!(warnings[0].contains("DoThing"));
@@ -1036,5 +1469,25 @@ mod tests {
         let resolved_pdas = BTreeMap::new(); // empty — no matching PDA
         let args = extract_pda_args(&classifications, &resolved_pdas);
         assert!(args.is_empty());
+    }
+
+    #[test]
+    fn flat_args_keyword_field_sanitized() {
+        let instruction = IdlInstruction {
+            name: "set_type".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![],
+            args: vec![IdlInstructionArg {
+                name: "type".to_string(),
+                arg_type: IdlFieldType::Primitive("u8".to_string()),
+            }],
+        };
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let mut output = String::new();
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
+
+        assert!(output.contains("pub r#type: u8,"));
     }
 }

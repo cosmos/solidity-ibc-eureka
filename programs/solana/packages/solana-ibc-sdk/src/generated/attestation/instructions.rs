@@ -6,6 +6,9 @@
 
 #![allow(unused_imports)]
 
+use super::accounts::*;
+use super::types::*;
+use anchor_lang::prelude::borsh::{self, BorshDeserialize, BorshSerialize};
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::pubkey::Pubkey;
 
@@ -62,18 +65,27 @@ impl Initialize {
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct InitializeArgs {
+    pub attestor_addresses: Vec<[u8; 20]>,
+    pub min_required_sigs: u8,
+    pub access_manager: Pubkey,
+}
+
+impl Initialize {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &InitializeArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -130,18 +142,25 @@ impl SetAccessManager {
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct SetAccessManagerArgs {
+    pub new_access_manager: Pubkey,
+}
+
+impl SetAccessManager {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &SetAccessManagerArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -201,17 +220,17 @@ impl VerifyMembership {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &MembershipMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -271,17 +290,17 @@ impl VerifyNonMembership {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &NonMembershipMsg,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -359,18 +378,26 @@ impl UpdateClient {
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
         ]
     }
+}
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct UpdateClientArgs {
+    pub new_height: u64,
+    pub params: UpdateClientParams,
+}
+
+impl UpdateClient {
+    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
+        args: &UpdateClientArgs,
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
         let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
+        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         Instruction {
             program_id: self.program_id,
             accounts,
@@ -423,21 +450,18 @@ impl ClientStatus {
         ]
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, args data and remaining accounts.
+    /// Builds a complete [`Instruction`] with discriminator and remaining accounts.
     #[must_use]
     pub fn build_instruction(
         self,
-        args_data: &[u8],
         remaining_accounts: impl IntoIterator<Item = AccountMeta>,
     ) -> Instruction {
         let mut accounts = self.to_account_metas();
         accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(args_data);
         Instruction {
             program_id: self.program_id,
             accounts,
-            data,
+            data: Self::DISCRIMINATOR.to_vec(),
         }
     }
 }
