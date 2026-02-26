@@ -117,9 +117,9 @@ impl IdlVariantField {
 #[serde(untagged)]
 pub enum IdlFieldType {
     Primitive(String),
-    Vec { vec: Box<IdlFieldType> },
-    Option { option: Box<IdlFieldType> },
-    Array { array: (Box<IdlFieldType>, usize) },
+    Vec { vec: Box<Self> },
+    Option { option: Box<Self> },
+    Array { array: (Box<Self>, usize) },
     Defined { defined: IdlDefinedRef },
 }
 
