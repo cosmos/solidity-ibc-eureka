@@ -54,28 +54,18 @@ pub fn build_name_map(idl: &Idl) -> NameMap {
 
 /// Escapes a name that is a Rust keyword so it can be used as an identifier.
 ///
-/// - `self`, `super`, `crate`, `Self` get a `_` suffix (`r#` is invalid for these)
-/// - Other strict/reserved keywords get a `r#` prefix
-/// - Non-keywords are returned unchanged
+/// Uses `syn` to detect keywords from the actual Rust grammar:
+/// - Regular identifiers are returned unchanged
+/// - Keywords eligible for raw syntax get a `r#` prefix
+/// - Raw-ineligible keywords (`self`, `super`, `crate`, `Self`) get a `_` suffix
 pub fn sanitize_ident(name: &str) -> String {
-    const RAW_INELIGIBLE: &[&str] = &["self", "super", "crate", "Self"];
-    const KEYWORDS: &[&str] = &[
-        // strict keywords
-        "as", "break", "const", "continue", "else", "enum", "extern", "false", "fn", "for", "if",
-        "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
-        "static", "struct", "trait", "true", "type", "unsafe", "use", "where", "while", "async",
-        "await", "dyn", // reserved keywords
-        "abstract", "become", "box", "do", "final", "macro", "override", "priv", "try", "typeof",
-        "unsized", "virtual", "yield",
-    ];
-
-    if RAW_INELIGIBLE.contains(&name) {
-        return format!("{name}_");
+    if syn::parse_str::<syn::Ident>(name).is_ok() {
+        return name.to_string();
     }
-    if KEYWORDS.contains(&name) {
+    if syn::parse_str::<syn::Ident>(&format!("r#{name}")).is_ok() {
         return format!("r#{name}");
     }
-    name.to_string()
+    format!("{name}_")
 }
 
 /// Converts `snake_case` to `PascalCase`.

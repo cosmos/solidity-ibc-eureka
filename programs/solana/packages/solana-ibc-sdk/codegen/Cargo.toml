@@ -12,6 +12,7 @@ keywords.workspace = true
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+syn = { version = "2.0.117", default-features = false, features = ["parsing"] }
 
 [lints]
 workspace = true
