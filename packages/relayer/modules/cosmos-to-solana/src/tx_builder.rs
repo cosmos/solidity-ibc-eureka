@@ -141,7 +141,7 @@ impl TxBuilder {
     ///
     /// # Errors
     /// This function cannot currently fail but returns `Result` for API consistency.
-    pub fn new(
+    pub const fn new(
         src_tm_client: tendermint_rpc::HttpClient,
         target_solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
@@ -197,7 +197,7 @@ impl TxBuilder {
     pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
-        let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
+        let solana_ics07_program_id = self.resolve_client_program_id(dst_client_id)?;
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
 
@@ -465,10 +465,11 @@ impl TxBuilder {
 
         for ack_msg in ack_msgs {
             let a = ibc_to_solana_ack_packet(ack_msg)?;
-            packet_txs.push(
-                self.build_ack_packet_chunked(&a.msg, &a.payload_chunks, &a.proof_chunks)
-                    .await?,
-            );
+            packet_txs.push(self.build_ack_packet_chunked(
+                &a.msg,
+                &a.payload_chunks,
+                &a.proof_chunks,
+            )?);
         }
 
         for t in timeout_msgs_with_chunks {
@@ -683,17 +684,19 @@ impl AttestedTxBuilder {
         })
     }
 
-    /// Get the inner TxBuilder reference.
-    pub fn tx_builder(&self) -> &TxBuilder {
+    /// Get the inner `TxBuilder` reference.
+    #[must_use]
+    pub const fn tx_builder(&self) -> &TxBuilder {
         &self.tx_builder
     }
 
     /// Relay events from Cosmos to Solana using attestations.
     ///
-    /// Returns packet transactions and an update_client transaction to create the consensus state.
+    /// Returns packet transactions and an `update_client` transaction to create the consensus state.
     ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
+    #[allow(clippy::too_many_lines)]
     pub async fn relay_events(
         &self,
         params: RelayParams,
@@ -856,14 +859,12 @@ impl AttestedTxBuilder {
             None
         };
 
-        let packets = self
-            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)
-            .await?;
+        let packets = self.build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
 
         Ok((packets, update_client))
     }
 
-    /// Build update_client transaction for attestation light client.
+    /// Build `update_client` transaction for attestation light client.
     async fn build_attestation_update_client(
         &self,
         dst_client_id: &str,
@@ -916,7 +917,7 @@ impl AttestedTxBuilder {
         })
     }
 
-    /// Build update_client transaction bytes for attestation light client.
+    /// Build `update_client` transaction bytes for attestation light client.
     fn build_attestation_update_client_tx(
         &self,
         new_height: u64,
@@ -949,6 +950,7 @@ impl AttestedTxBuilder {
             <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
         };
 
+        #[allow(clippy::items_after_statements)] // TODO: this type should not be duplicated
         #[derive(AnchorSerialize)]
         struct UpdateClientParams {
             proof: Vec<u8>,
@@ -1003,7 +1005,7 @@ impl AttestedTxBuilder {
             .await
     }
 
-    async fn build_packet_transactions(
+    fn build_packet_transactions(
         &self,
         recv_msgs: Vec<MsgRecvPacket>,
         ack_msgs: Vec<MsgAcknowledgement>,
@@ -1023,14 +1025,11 @@ impl AttestedTxBuilder {
 
         for msg in ack_msgs {
             let ack_with_chunks = solana_utils::ibc_to_solana_ack_packet(msg)?;
-            let packet_txs = self
-                .tx_builder
-                .build_ack_packet_chunked(
-                    &ack_with_chunks.msg,
-                    &ack_with_chunks.payload_chunks,
-                    &ack_with_chunks.proof_chunks,
-                )
-                .await?;
+            let packet_txs = self.tx_builder.build_ack_packet_chunked(
+                &ack_with_chunks.msg,
+                &ack_with_chunks.payload_chunks,
+                &ack_with_chunks.proof_chunks,
+            )?;
             results.push(packet_txs);
         }
 
