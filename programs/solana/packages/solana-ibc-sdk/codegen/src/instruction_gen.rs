@@ -492,7 +492,7 @@ fn generate_instruction_struct(
     writeln!(output, "    #[must_use]").unwrap();
     writeln!(
         output,
-        "    pub fn accounts(mut self, accounts: {accounts_name}{lifetime}) -> Self {{"
+        "    pub const fn accounts(mut self, accounts: {accounts_name}{lifetime}) -> Self {{"
     )
     .unwrap();
     writeln!(output, "        self.accounts = Some(accounts);").unwrap();

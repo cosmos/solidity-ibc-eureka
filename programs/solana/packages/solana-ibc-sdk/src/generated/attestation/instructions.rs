@@ -66,7 +66,7 @@ pub struct InitializeBuilder {
 
 impl InitializeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -153,7 +153,7 @@ pub struct SetAccessManagerBuilder {
 
 impl SetAccessManagerBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -238,7 +238,7 @@ pub struct VerifyMembershipBuilder {
 
 impl VerifyMembershipBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: VerifyMembershipAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: VerifyMembershipAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -323,7 +323,7 @@ pub struct VerifyNonMembershipBuilder {
 
 impl VerifyNonMembershipBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: VerifyNonMembershipAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: VerifyNonMembershipAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -421,7 +421,7 @@ pub struct UpdateClientBuilder {
 
 impl UpdateClientBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: UpdateClientAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: UpdateClientAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -507,7 +507,7 @@ pub struct ClientStatusBuilder {
 
 impl ClientStatusBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: ClientStatusAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: ClientStatusAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }

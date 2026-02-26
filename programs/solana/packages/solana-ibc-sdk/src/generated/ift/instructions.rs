@@ -59,7 +59,7 @@ pub struct InitializeBuilder {
 
 impl InitializeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -151,7 +151,7 @@ pub struct CreateAndInitializeSplTokenBuilder {
 
 impl CreateAndInitializeSplTokenBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: CreateAndInitializeSplTokenAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: CreateAndInitializeSplTokenAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -253,7 +253,7 @@ pub struct InitializeExistingTokenBuilder {
 
 impl InitializeExistingTokenBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeExistingTokenAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeExistingTokenAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -337,7 +337,7 @@ pub struct RegisterIftBridgeBuilder {
 
 impl RegisterIftBridgeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: RegisterIftBridgeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: RegisterIftBridgeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -428,7 +428,7 @@ pub struct RemoveIftBridgeBuilder {
 
 impl RemoveIftBridgeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: RemoveIftBridgeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: RemoveIftBridgeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -527,7 +527,7 @@ pub struct IftTransferBuilder {
 
 impl IftTransferBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: IftTransferAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: IftTransferAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -647,7 +647,7 @@ pub struct IftMintBuilder {
 
 impl IftMintBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: IftMintAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: IftMintAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -762,7 +762,7 @@ pub struct FinalizeTransferBuilder {
 
 impl FinalizeTransferBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: FinalizeTransferAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: FinalizeTransferAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -859,7 +859,7 @@ pub struct SetAdminBuilder {
 
 impl SetAdminBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetAdminAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetAdminAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -951,7 +951,7 @@ pub struct RevokeMintAuthorityBuilder {
 
 impl RevokeMintAuthorityBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: RevokeMintAuthorityAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: RevokeMintAuthorityAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1033,7 +1033,7 @@ pub struct SetMintRateLimitBuilder {
 
 impl SetMintRateLimitBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetMintRateLimitAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetMintRateLimitAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1113,7 +1113,7 @@ pub struct SetPausedBuilder {
 
 impl SetPausedBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetPausedAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetPausedAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1207,7 +1207,7 @@ pub struct AdminMintBuilder {
 
 impl AdminMintBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: AdminMintAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: AdminMintAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }

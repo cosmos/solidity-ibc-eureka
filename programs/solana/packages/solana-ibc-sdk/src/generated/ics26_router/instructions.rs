@@ -59,7 +59,7 @@ pub struct InitializeBuilder {
 
 impl InitializeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -152,7 +152,7 @@ pub struct AddIbcAppBuilder<'a> {
 
 impl<'a> AddIbcAppBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: AddIbcAppAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: AddIbcAppAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -259,7 +259,7 @@ pub struct SendPacketBuilder<'a> {
 
 impl<'a> SendPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: SendPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: SendPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -397,7 +397,7 @@ pub struct RecvPacketBuilder<'a> {
 
 impl<'a> RecvPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: RecvPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: RecvPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -531,7 +531,7 @@ pub struct AckPacketBuilder<'a> {
 
 impl<'a> AckPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: AckPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: AckPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -662,7 +662,7 @@ pub struct TimeoutPacketBuilder<'a> {
 
 impl<'a> TimeoutPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: TimeoutPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: TimeoutPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -777,7 +777,7 @@ pub struct AddClientBuilder<'a> {
 
 impl<'a> AddClientBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: AddClientAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: AddClientAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -877,7 +877,7 @@ pub struct MigrateClientBuilder<'a> {
 
 impl<'a> MigrateClientBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: MigrateClientAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: MigrateClientAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -961,7 +961,7 @@ pub struct UploadPayloadChunkBuilder {
 
 impl UploadPayloadChunkBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: UploadPayloadChunkAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: UploadPayloadChunkAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1045,7 +1045,7 @@ pub struct UploadProofChunkBuilder {
 
 impl UploadProofChunkBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: UploadProofChunkAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: UploadProofChunkAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1128,7 +1128,7 @@ pub struct CleanupChunksBuilder {
 
 impl CleanupChunksBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: CleanupChunksAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: CleanupChunksAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -1214,7 +1214,7 @@ pub struct SetAccessManagerBuilder {
 
 impl SetAccessManagerBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }

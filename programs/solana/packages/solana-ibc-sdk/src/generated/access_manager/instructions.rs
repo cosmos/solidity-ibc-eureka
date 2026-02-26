@@ -59,7 +59,7 @@ pub struct InitializeBuilder {
 
 impl InitializeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -145,7 +145,7 @@ pub struct GrantRoleBuilder {
 
 impl GrantRoleBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: GrantRoleAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: GrantRoleAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -230,7 +230,7 @@ pub struct RevokeRoleBuilder {
 
 impl RevokeRoleBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: RevokeRoleAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: RevokeRoleAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -314,7 +314,7 @@ pub struct RenounceRoleBuilder {
 
 impl RenounceRoleBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: RenounceRoleAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: RenounceRoleAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -408,7 +408,7 @@ pub struct UpgradeProgramBuilder {
 
 impl UpgradeProgramBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: UpgradeProgramAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: UpgradeProgramAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -511,7 +511,7 @@ pub struct SetWhitelistedProgramsBuilder {
 
 impl SetWhitelistedProgramsBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetWhitelistedProgramsAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetWhitelistedProgramsAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }

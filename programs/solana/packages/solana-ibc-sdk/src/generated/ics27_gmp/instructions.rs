@@ -59,7 +59,7 @@ pub struct InitializeBuilder {
 
 impl InitializeBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: InitializeAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -147,7 +147,7 @@ pub struct SendCallBuilder {
 
 impl SendCallBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SendCallAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SendCallAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -248,7 +248,7 @@ pub struct SendCallCpiBuilder {
 
 impl SendCallCpiBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SendCallCpiAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SendCallCpiAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -340,7 +340,7 @@ pub struct OnRecvPacketBuilder {
 
 impl OnRecvPacketBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: OnRecvPacketAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: OnRecvPacketAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -438,7 +438,7 @@ pub struct OnAcknowledgementPacketBuilder<'a> {
 
 impl<'a> OnAcknowledgementPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: OnAcknowledgementPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: OnAcknowledgementPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -542,7 +542,7 @@ pub struct OnTimeoutPacketBuilder<'a> {
 
 impl<'a> OnTimeoutPacketBuilder<'a> {
     #[must_use]
-    pub fn accounts(mut self, accounts: OnTimeoutPacketAccounts<'a>) -> Self {
+    pub const fn accounts(mut self, accounts: OnTimeoutPacketAccounts<'a>) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -629,7 +629,7 @@ pub struct PauseAppBuilder {
 
 impl PauseAppBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: PauseAppAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: PauseAppAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -703,7 +703,7 @@ pub struct UnpauseAppBuilder {
 
 impl UnpauseAppBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: UnpauseAppAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: UnpauseAppAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
@@ -782,7 +782,7 @@ pub struct SetAccessManagerBuilder {
 
 impl SetAccessManagerBuilder {
     #[must_use]
-    pub fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
