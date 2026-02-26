@@ -74,8 +74,8 @@ impl super::TxBuilder {
         });
 
         let sig_iter = signature_data.iter().map(|sig_data| {
-            let (sig_verify_pda, _) = Pubkey::find_program_address(
-                &[b"sig_verify", &sig_data.signature_hash],
+            let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
+                &sig_data.signature_hash,
                 &solana_ics07_program_id,
             );
             AccountMeta::new_readonly(sig_verify_pda, false)
@@ -126,8 +126,8 @@ impl super::TxBuilder {
         });
 
         let sig_iter = signature_data.iter().map(|sig_data| {
-            let (sig_verify_pda, _) = Pubkey::find_program_address(
-                &[b"sig_verify", &sig_data.signature_hash],
+            let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
+                &sig_data.signature_hash,
                 &solana_ics07_program_id,
             );
             AccountMeta::new(sig_verify_pda, false)
@@ -399,8 +399,8 @@ impl super::TxBuilder {
             data: instruction_data,
         };
 
-        let (sig_verify_pda, _) = Pubkey::find_program_address(
-            &[b"sig_verify", &sig_data.signature_hash],
+        let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
+            &sig_data.signature_hash,
             &solana_ics07_program_id,
         );
 

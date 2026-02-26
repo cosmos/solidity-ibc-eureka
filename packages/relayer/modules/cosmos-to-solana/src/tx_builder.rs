@@ -87,13 +87,10 @@ pub(crate) fn derive_header_chunk(
     chunk_index: u8,
     program_id: Pubkey,
 ) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"header_chunk",
-            submitter.as_ref(),
-            &height.to_le_bytes(),
-            &[chunk_index],
-        ],
+    solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+        &submitter,
+        height,
+        chunk_index,
         &program_id,
     )
 }
@@ -315,8 +312,8 @@ impl TxBuilder {
         }));
 
         alt_accounts.extend(signature_data.iter().map(|sig_data| {
-            Pubkey::find_program_address(
-                &[b"sig_verify", &sig_data.signature_hash],
+            solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
+                &sig_data.signature_hash,
                 &solana_ics07_program_id,
             )
             .0

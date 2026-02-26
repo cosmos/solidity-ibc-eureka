@@ -133,7 +133,7 @@ impl super::TxBuilder {
         );
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
-        let (ibc_app_state, _) = Pubkey::find_program_address(&[b"app_state"], &ibc_app_program_id);
+        let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
@@ -194,7 +194,7 @@ impl super::TxBuilder {
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
         let ibc_app_program = ibc_app.app_program_id;
 
-        let (app_state, _) = Pubkey::find_program_address(&[b"app_state"], &ibc_app_program);
+        let (app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program);
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
@@ -248,7 +248,7 @@ impl super::TxBuilder {
         let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
 
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        let (ibc_app_state, _) = Pubkey::find_program_address(&[b"app_state"], &ibc_app_program_id);
+        let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(

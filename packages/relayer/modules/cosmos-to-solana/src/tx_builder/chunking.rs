@@ -42,15 +42,12 @@ fn payload_chunk_pda(
     chunk_index: u8,
     program_id: Pubkey,
 ) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"payload_chunk",
-            payer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[payload_index],
-            &[chunk_index],
-        ],
+    solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+        &payer,
+        client_id,
+        sequence,
+        payload_index,
+        chunk_index,
         &program_id,
     )
 }
@@ -62,14 +59,11 @@ fn proof_chunk_pda(
     chunk_index: u8,
     program_id: Pubkey,
 ) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"proof_chunk",
-            payer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[chunk_index],
-        ],
+    solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+        &payer,
+        client_id,
+        sequence,
+        chunk_index,
         &program_id,
     )
 }
