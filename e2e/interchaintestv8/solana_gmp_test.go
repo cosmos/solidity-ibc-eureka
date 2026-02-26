@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/cosmos/gogoproto/proto"
-	gmp_counter_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/gmpcounter"
 	test_cpi_proxy "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testcpiproxy"
+	test_gmp_app "github.com/cosmos/solidity-ibc-eureka/e2e/interchaintestv8/solana/go-anchor/testgmpapp"
 	bin "github.com/gagliardetto/binary"
 	"github.com/stretchr/testify/suite"
 	googleproto "google.golang.org/protobuf/proto"
@@ -114,9 +114,9 @@ func (s *IbcEurekaSolanaTestSuite) initializeGMPCounterApp(ctx context.Context) 
 	s.Require().True(s.Run("Initialize GMP Counter App", func() {
 		// Program already deployed, just initialize
 		// Initialize GMP counter app state
-		counterAppStatePDA, _ := solana.GmpCounterApp.CounterAppStatePDA(s.GMPCounterProgramID)
+		counterAppStatePDA, _ := solana.TestGmpApp.CounterAppStatePDA(s.GMPCounterProgramID)
 
-		initInstruction, err := gmp_counter_app.NewInitializeInstruction(
+		initInstruction, err := test_gmp_app.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(), // authority
 			counterAppStatePDA,
 			s.SolanaRelayer.PublicKey(), // payer
@@ -242,7 +242,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUserAddress, salt)
 
 			// Derive user counter PDA from GMP account PDA
-			userCounterPDA, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
+			userCounterPDA, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
 			// Use confirmed commitment to match relay transaction confirmation level
 			account, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, userCounterPDA, &rpc.GetAccountInfoOpts{
@@ -273,17 +273,17 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 			// Create the raw instruction data (just discriminator + amount, no user pubkey)
 			incrementInstructionData := []byte{}
-			incrementInstructionData = append(incrementInstructionData, gmp_counter_app.Instruction_Increment[:]...)
+			incrementInstructionData = append(incrementInstructionData, test_gmp_app.Instruction_Increment[:]...)
 			amountBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(amountBytes, amount)
 			incrementInstructionData = append(incrementInstructionData, amountBytes...)
 
 			// Derive required account addresses
 			// 1. Counter app_state PDA
-			counterAppStateAddress, _ := solana.GmpCounterApp.CounterAppStatePDA(gmpCounterProgramID)
+			counterAppStateAddress, _ := solana.TestGmpApp.CounterAppStatePDA(gmpCounterProgramID)
 
 			// 2. User counter PDA - derived from the GMP account PDA (stateless identity)
-			userCounterAddress, _ := solana.GmpCounterApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
+			userCounterAddress, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
 			// Create GMPSolanaPayload protobuf message
 			// Note: PayerPosition = 3 means inject at index 3 (0-indexed)

@@ -2,9 +2,13 @@ use crate::events::AccessManagerUpdated;
 use crate::state::RouterState;
 use anchor_lang::prelude::*;
 
+/// Replaces the access manager program referenced by the router.
+/// Requires admin privileges.
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
 pub struct SetAccessManager<'info> {
+    /// Mutable global router configuration PDA whose `access_manager` field
+    /// will be updated.
     #[account(
         mut,
         seeds = [RouterState::SEED],
@@ -12,6 +16,7 @@ pub struct SetAccessManager<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Current access control state used for admin verification.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -20,9 +25,10 @@ pub struct SetAccessManager<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Admin signer authorized to change the access manager.
     pub admin: Signer<'info>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

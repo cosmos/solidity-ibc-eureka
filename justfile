@@ -218,7 +218,7 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
     "ics07_tendermint"
     "test_ibc_app"
     "mock_ibc_app"
-    "gmp_counter_app"
+    "test_gmp_app"
     "mock_light_client"
   )
 
@@ -826,8 +826,8 @@ generate-solana-types build="true":
 	anchor-go --idl ./programs/solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
-	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter
-	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testgmpapp
+	anchor-go --idl ./programs/solana/target/idl/test_gmp_app.json --output e2e/interchaintestv8/solana/go-anchor/testgmpapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/testcpiproxy
 	anchor-go --idl ./programs/solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
 

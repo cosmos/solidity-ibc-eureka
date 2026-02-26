@@ -1,14 +1,16 @@
 use anchor_lang::prelude::*;
 use anchor_lang::Discriminator;
 
-/// Context for cleaning up incomplete header uploads or signatures
+/// Closes incomplete `HeaderChunk` and `SignatureVerification` PDAs, returning
+/// the rent to the original submitter.
+///
+/// Remaining accounts must be the chunk and signature verification PDAs to close.
 #[derive(Accounts)]
 pub struct CleanupIncompleteUpload<'info> {
-    /// The original submitter who gets their rent back
-    /// Must be the signer to prove they own the upload
+    /// Original submitter who uploaded the chunks; must sign to prove ownership and receives rent refunds.
     #[account(mut)]
     pub submitter: Signer<'info>,
-    // Remaining accounts are the chunk and signature verification accounts to close
+    // Remaining accounts are the chunk and signature verification accounts to close.
 }
 
 /// Cleans up incomplete update client uploads by closing both `HeaderChunk` and `SignatureVerification` PDAs

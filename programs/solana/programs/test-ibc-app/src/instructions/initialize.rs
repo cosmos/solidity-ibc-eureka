@@ -1,9 +1,11 @@
 use crate::state::*;
 use anchor_lang::prelude::*;
 
+/// Accounts for initializing the test IBC app state PDA.
 #[derive(Accounts)]
 #[instruction(authority: Pubkey)]
 pub struct Initialize<'info> {
+    /// App state PDA that tracks packet counters and the authority.
     #[account(
         init,
         payer = payer,
@@ -13,6 +15,7 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, TestIbcAppState>,
 
+    /// Fee payer for PDA creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 

@@ -1,7 +1,11 @@
 use anchor_lang::prelude::*;
 
+/// Closes incomplete `MisbehaviourChunk` PDAs, returning the rent to the original submitter.
+///
+/// Remaining accounts must be the misbehaviour chunk PDAs to close.
 #[derive(Accounts)]
 pub struct CleanupIncompleteMisbehaviour<'info> {
+    /// Original submitter who uploaded the chunks; must sign to prove ownership and receives rent refunds.
     #[account(mut)]
     pub submitter: Signer<'info>,
 }

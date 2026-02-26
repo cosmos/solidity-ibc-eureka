@@ -3,15 +3,18 @@ use crate::events::IBCAppAdded;
 use crate::state::{AccountVersion, IBCApp, RouterState};
 use anchor_lang::prelude::*;
 
+/// Registers an IBC application program under a given `port_id`.
 #[derive(Accounts)]
 #[instruction(port_id: String)]
 pub struct AddIbcApp<'info> {
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Global access control state used for role verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -20,6 +23,7 @@ pub struct AddIbcApp<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// PDA mapping `port_id` to its IBC application program.
     #[account(
         init,
         payer = payer,
@@ -29,19 +33,22 @@ pub struct AddIbcApp<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// CHECK: Arbitrary IBC app program — no concrete type for `Program<'info, T>`
-    /// since it can be any executable. Validated by the `executable` constraint.
+    /// IBC application program to register for this port.
+    /// CHECK: No concrete type for `Program<'info, T>` since it can be any executable.
     #[account(constraint = app_program.executable @ RouterError::AppProgramNotExecutable)]
     pub app_program: UncheckedAccount<'info>,
 
+    /// Pays for creating the `IBCApp` account.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
     pub authority: Signer<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,

@@ -8,9 +8,17 @@ mod test_utils;
 
 use instructions::*;
 
-/// Test-only program that wraps each `cpi.rs` validation function as an
-/// instruction so they can be exercised under a real BPF runtime via
-/// `ProgramTest`.
+/// Test harness for CPI validation and access-manager helpers.
+///
+/// Wraps each `solana_ibc_types::cpi` validation function (`is_cpi`,
+/// `reject_cpi`, `reject_nested_cpi`, `reject_direct_calls`,
+/// `validate_cpi_caller`, `require_direct_call_or_whitelisted_caller`) and
+/// `access_manager` helpers (`require_admin`, `require_role`,
+/// `require_role_with_whitelist`) as standalone instructions so they can be
+/// exercised under a real BPF runtime via `ProgramTest`.
+///
+/// Also provides a `proxy_cpi` instruction that acts as a whitelisted CPI
+/// caller for testing authorized-caller code paths.
 #[program]
 pub mod test_cpi_target {
     use super::*;
