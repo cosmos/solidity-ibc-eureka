@@ -1,26 +1,29 @@
-//! This is a one-sided relayer module from a Cosmos SDK chain to Solana.
+//! One-sided relayer module from Ethereum to Solana.
+//!
+//! Listens for IBC events on EVM, translates IFT payloads (ABI → GmpSolanaPayload),
+//! and builds Solana transactions with chunking, ALT, and attestation support.
 
-#![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
+#![deny(clippy::nursery, clippy::pedantic, warnings)]
 #![allow(missing_docs, unused_crate_dependencies)]
 
-pub mod borsh_conversions;
 pub mod constants;
 pub mod gmp;
 pub mod ift;
+pub mod ift_payload;
 pub mod proto;
 pub mod tx_builder;
 
 use std::collections::HashMap;
 
+use alloy::{
+    primitives::{Address, TxHash},
+    providers::{Provider, RootProvider},
+};
 use ibc_eureka_relayer_lib::aggregator::Config as AggregatorConfig;
-use ibc_eureka_relayer_lib::listener::cosmos_sdk;
-use ibc_eureka_relayer_lib::listener::solana;
-use ibc_eureka_relayer_lib::listener::ChainListenerService;
-use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
-use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
-use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
-use ibc_eureka_utils::rpc::TendermintRpcExt;
-use tendermint_rpc::HttpClient;
+use ibc_eureka_relayer_lib::listener::{eth_eureka, solana, ChainListenerService};
+use ibc_eureka_relayer_lib::service_utils::{
+    parse_eth_tx_hashes, parse_solana_tx_hashes, to_tonic_status,
+};
 use tonic::{Request, Response};
 
 use ibc_eureka_relayer_core::{
@@ -28,77 +31,61 @@ use ibc_eureka_relayer_core::{
     modules::RelayerModule,
 };
 
-/// The `CosmosToSolanaRelayerModule` struct defines the Cosmos to Solana relayer module.
+/// The `EthToSolanaRelayerModule` defines the Ethereum to Solana relayer module.
 #[derive(Clone, Copy, Debug)]
-pub struct CosmosToSolanaRelayerModule;
+pub struct EthToSolanaRelayerModule;
 
-/// The `CosmosToSolanaRelayerModuleService` defines the relayer service from Cosmos to Solana.
-#[allow(dead_code)]
-struct CosmosToSolanaRelayerModuleService {
-    /// The souce chain listener for Cosmos.
-    src_listener: cosmos_sdk::ChainListener,
-    /// The target chain listener for Solana.
+/// The relayer service from Ethereum to Solana.
+struct EthToSolanaRelayerModuleService {
+    /// Source chain listener for Ethereum.
+    eth_listener: eth_eureka::ChainListener<RootProvider>,
+    /// Target chain listener for Solana.
     target_listener: solana::ChainListener,
-    /// The transaction builder (either ICS07 Tendermint or Attested).
-    tx_builder: CosmosToSolanaTxBuilder,
+    /// Transaction builder.
+    tx_builder: EthToSolanaTxBuilder,
 }
 
 /// Enum wrapping transaction builders for different modes.
-enum CosmosToSolanaTxBuilder {
-    /// ICS07 Tendermint light client mode.
-    Ics07Tendermint(tx_builder::TxBuilder),
+enum EthToSolanaTxBuilder {
     /// Attestation light client mode.
     Attested(tx_builder::AttestedTxBuilder),
 }
 
-/// The configuration for the Cosmos to Solana relayer module.
+/// Configuration for the Ethereum to Solana relayer module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct CosmosToSolanaConfig {
-    /// The source tendermint RPC URL.
-    pub source_rpc_url: String,
+pub struct EthToSolanaConfig {
+    /// The ICS26 contract address on Ethereum.
+    pub ics26_address: Address,
+    /// The EVM RPC URL.
+    pub eth_rpc_url: String,
     /// The Solana RPC URL.
-    pub target_rpc_url: String,
+    pub solana_rpc_url: String,
     /// The Solana ICS26 router program ID.
     pub solana_ics26_program_id: String,
     /// The Solana fee payer address.
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub solana_alt_address: Option<String>,
-    /// Signature threshold below which pre-verification is skipped.
-    /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
-    /// Default: Some(50)
-    #[serde(default = "default_skip_pre_verify_threshold")]
-    pub skip_pre_verify_threshold: Option<usize>,
-    /// Transaction builder mode. Defaults to ICS07 Tendermint.
-    #[serde(default)]
-    pub mode: SolanaTxBuilderMode,
+    /// Transaction builder mode.
+    pub mode: EthToSolanaTxBuilderMode,
 }
 
-/// Transaction builder mode for Cosmos to Solana relay.
-#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
+/// Transaction builder mode for Eth to Solana relay.
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum SolanaTxBuilderMode {
-    /// ICS07 Tendermint light client mode (default).
-    /// Uses Tendermint header verification on Solana.
-    #[default]
-    Ics07Tendermint,
+pub enum EthToSolanaTxBuilderMode {
     /// Attestation light client mode.
-    /// Uses attestor signatures for state verification via aggregator.
     Attested(AggregatorConfig),
 }
 
-#[allow(
-    clippy::unnecessary_wraps,
-    reason = "Option required for serde default to match field type"
-)]
-const fn default_skip_pre_verify_threshold() -> Option<usize> {
-    Some(50)
-}
+impl EthToSolanaRelayerModuleService {
+    async fn new(config: EthToSolanaConfig) -> anyhow::Result<Self> {
+        let provider = RootProvider::builder()
+            .connect(&config.eth_rpc_url)
+            .await
+            .map_err(|e| anyhow::anyhow!("failed to create EVM provider: {e}"))?;
 
-impl CosmosToSolanaRelayerModuleService {
-    async fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
-        let src_listener =
-            cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
+        let eth_listener = eth_eureka::ChainListener::new(config.ics26_address, provider);
 
         let solana_ics26_program_id = config
             .solana_ics26_program_id
@@ -106,7 +93,7 @@ impl CosmosToSolanaRelayerModuleService {
             .map_err(|e| anyhow::anyhow!("Invalid Solana ICS26 program ID: {e}"))?;
 
         let target_listener =
-            solana::ChainListener::new(config.target_rpc_url.clone(), solana_ics26_program_id);
+            solana::ChainListener::new(config.solana_rpc_url.clone(), solana_ics26_program_id);
 
         let fee_payer = config
             .solana_fee_payer
@@ -120,39 +107,27 @@ impl CosmosToSolanaRelayerModuleService {
             .transpose()
             .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
-        let tx_builder = match &config.mode {
-            SolanaTxBuilderMode::Ics07Tendermint => {
-                let builder = tx_builder::TxBuilder::new(
-                    src_listener.client().clone(),
+        let tx_builder = match config.mode {
+            EthToSolanaTxBuilderMode::Attested(aggregator_config) => {
+                let base_builder = tx_builder::SolanaTxBuilder::new(
                     target_listener.client().clone(),
                     solana_ics26_program_id,
                     fee_payer,
                     alt_address,
-                    config.skip_pre_verify_threshold,
                 )?;
-                CosmosToSolanaTxBuilder::Ics07Tendermint(builder)
-            }
-            SolanaTxBuilderMode::Attested(aggregator_config) => {
-                let base_builder = tx_builder::TxBuilder::new(
-                    src_listener.client().clone(),
-                    target_listener.client().clone(),
-                    solana_ics26_program_id,
-                    fee_payer,
-                    alt_address,
-                    config.skip_pre_verify_threshold,
-                )?;
-                let attested_builder =
-                    tx_builder::AttestedTxBuilder::new(aggregator_config.clone(), base_builder)
-                        .await
-                        .map_err(|e| {
-                            anyhow::anyhow!("Failed to create attested tx builder: {e}")
-                        })?;
-                CosmosToSolanaTxBuilder::Attested(attested_builder)
+                let attested_builder = tx_builder::AttestedTxBuilder::new(
+                    aggregator_config,
+                    base_builder,
+                    config.ics26_address,
+                )
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to create attested tx builder: {e}"))?;
+                EthToSolanaTxBuilder::Attested(attested_builder)
             }
         };
 
         Ok(Self {
-            src_listener,
+            eth_listener,
             target_listener,
             tx_builder,
         })
@@ -160,22 +135,22 @@ impl CosmosToSolanaRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToSolanaRelayerModuleService {
+impl RelayerService for EthToSolanaRelayerModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
     ) -> Result<Response<api::InfoResponse>, tonic::Status> {
-        tracing::debug!("Handling info request");
+        tracing::debug!("Handling info request for Eth to Solana");
 
         Ok(Response::new(api::InfoResponse {
             source_chain: Some(api::Chain {
                 chain_id: self
-                    .src_listener
+                    .eth_listener
                     .chain_id()
                     .await
                     .map_err(to_tonic_status)?,
                 ibc_version: "2".to_string(),
-                ibc_contract: String::new(),
+                ibc_contract: self.tx_builder.ics26_eth_address().to_string(),
             }),
             target_chain: Some(api::Chain {
                 chain_id: "solana-localnet".to_string(),
@@ -196,19 +171,18 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             inner_req.source_tx_ids.len(),
             inner_req.timeout_tx_ids.len()
         );
-        let src_txs = parse_cosmos_tx_hashes(inner_req.source_tx_ids)?;
+
+        let eth_tx_hashes = parse_eth_tx_hashes(inner_req.source_tx_ids)?;
+        let eth_txs = eth_tx_hashes.into_iter().map(TxHash::from).collect();
         let target_txs = parse_solana_tx_hashes(inner_req.timeout_tx_ids)?;
 
         let src_events = self
-            .src_listener
-            .fetch_tx_events(src_txs)
+            .eth_listener
+            .fetch_tx_events(eth_txs)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!(
-            "Fetched {} src events, fetching target events...",
-            src_events.len()
-        );
+        tracing::debug!("Fetched {} src events from EVM", src_events.len());
 
         let target_events = self
             .target_listener
@@ -216,19 +190,19 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
 
-        tracing::debug!("Fetched {} target events", target_events.len());
+        tracing::debug!("Fetched {} target events from Solana", target_events.len());
 
-        // For timeouts in attested mode, get the current source chain height
-        // where non-membership is proven
-        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
+        // For timeouts, get the current source chain height where non-membership
+        // is proven. This ensures the consensus state timestamp is past the timeout.
+        let timeout_relay_height = if target_events.is_empty() {
+            None
+        } else {
             Some(
-                self.src_listener
-                    .get_block_height()
+                self.eth_listener
+                    .get_block_number()
                     .await
                     .map_err(to_tonic_status)?,
             )
-        } else {
-            None
         };
 
         let (packet_txs, update_client) = self
@@ -271,7 +245,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        tracing::debug!("Handling create client request");
+        tracing::debug!("Handling create client request for Eth to Solana");
 
         let inner_req = request.into_inner();
         let tx = self
@@ -290,7 +264,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        tracing::info!("Handling update client request for Cosmos to Solana...");
+        tracing::info!("Handling update client request for Eth to Solana");
 
         let inner_req = request.into_inner();
         let solana_update_client = self
@@ -298,11 +272,6 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
             .update_client(&inner_req.dst_client_id)
             .await
             .map_err(|e| tonic::Status::from_error(e.into()))?;
-
-        tracing::debug!(
-            "Update client: {} chunks",
-            solana_update_client.chunk_txs.len()
-        );
 
         let tx = prost::Message::encode_to_vec(&solana_update_client);
 
@@ -314,23 +283,22 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for CosmosToSolanaRelayerModule {
+impl RelayerModule for EthToSolanaRelayerModule {
     fn name(&self) -> &'static str {
-        "cosmos_to_solana"
+        "eth_to_solana"
     }
 
     async fn create_service(
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config: CosmosToSolanaConfig = serde_json::from_value(config)?;
-        let service = CosmosToSolanaRelayerModuleService::new(&config).await?;
+        let config: EthToSolanaConfig = serde_json::from_value(config)?;
+        let service = EthToSolanaRelayerModuleService::new(config).await?;
         Ok(Box::new(service))
     }
 }
 
-// Implement dispatch methods on the enum
-impl CosmosToSolanaTxBuilder {
+impl EthToSolanaTxBuilder {
     async fn relay_events(
         &self,
         src_events: Vec<ibc_eureka_relayer_lib::events::EurekaEventWithHeight>,
@@ -345,18 +313,6 @@ impl CosmosToSolanaTxBuilder {
         Option<ibc_eureka_relayer_core::api::SolanaUpdateClient>,
     )> {
         match self {
-            Self::Ics07Tendermint(tb) => {
-                tb.relay_events_with_update(tx_builder::RelayParams {
-                    src_events,
-                    dest_events: target_events,
-                    src_client_id: src_client_id.to_string(),
-                    dst_client_id: dst_client_id.to_string(),
-                    src_packet_seqs: src_packet_seqs.to_vec(),
-                    dst_packet_seqs: dst_packet_seqs.to_vec(),
-                    timeout_relay_height,
-                })
-                .await
-            }
             Self::Attested(tb) => {
                 tb.relay_events(tx_builder::RelayParams {
                     src_events,
@@ -374,7 +330,6 @@ impl CosmosToSolanaTxBuilder {
 
     async fn create_client(&self, parameters: &HashMap<String, String>) -> anyhow::Result<Vec<u8>> {
         match self {
-            Self::Ics07Tendermint(tb) => tb.create_client(parameters).await,
             Self::Attested(tb) => tb.tx_builder().create_client(parameters).await,
         }
     }
@@ -384,12 +339,13 @@ impl CosmosToSolanaTxBuilder {
         dst_client_id: &str,
     ) -> anyhow::Result<ibc_eureka_relayer_core::api::SolanaUpdateClient> {
         match self {
-            Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(dst_client_id).await,
         }
     }
 
-    const fn is_attested(&self) -> bool {
-        matches!(self, Self::Attested(_))
+    const fn ics26_eth_address(&self) -> &Address {
+        match self {
+            Self::Attested(tb) => tb.ics26_eth_address(),
+        }
     }
 }

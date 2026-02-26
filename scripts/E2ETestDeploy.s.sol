@@ -25,6 +25,7 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
+import { SolanaIFTSendCallConstructor } from "../contracts/utils/SolanaIFTSendCallConstructor.sol";
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -53,6 +54,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         address erc20;
         address ift;
         address cosmosIftConstructor;
+        address solanaIftConstructor;
     }
 
     function run() public returns (string memory) {
@@ -114,6 +116,9 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
                 address(new CosmosIFTSendCallConstructor(IFT_MINT_TYPE_URL, IFT_TEST_DENOM, iftIcaAddress));
         }
 
+        // Deploy SolanaIFTSendCallConstructor (no constructor args)
+        d.solanaIftConstructor = address(new SolanaIFTSendCallConstructor());
+
         // Wire up access control and apps
         accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, d.ics27Gmp, true);
         accessManagerSetRoles(
@@ -138,6 +143,7 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         json.serialize("ics27Gmp", Strings.toHexString(d.ics27Gmp));
         json.serialize("erc20", Strings.toHexString(d.erc20));
         json.serialize("ift", Strings.toHexString(d.ift));
-        return json.serialize("cosmosIftConstructor", Strings.toHexString(d.cosmosIftConstructor));
+        json.serialize("cosmosIftConstructor", Strings.toHexString(d.cosmosIftConstructor));
+        return json.serialize("solanaIftConstructor", Strings.toHexString(d.solanaIftConstructor));
     }
 }

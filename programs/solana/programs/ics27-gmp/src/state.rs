@@ -42,6 +42,39 @@ impl GMPAppState {
     }
 }
 
+/// Hint account storing a protobuf-encoded `GmpSolanaPayload`.
+///
+/// Used by the relayer to provide the execution payload for ABI-encoded packets,
+/// since ABI payloads don't contain the Solana-specific execution data.
+///
+/// PDA seeds: `["payload_hint", payer_pubkey]`
+#[account]
+#[derive(InitSpace)]
+pub struct SolanaPayloadHint {
+    pub bump: u8,
+    #[max_len(2048)]
+    pub data: Vec<u8>,
+}
+
+impl SolanaPayloadHint {
+    pub const SEED: &'static [u8] = b"payload_hint";
+    pub const MAX_DATA_LEN: usize = 2048;
+}
+
+/// Encoding format for outbound GMP packets.
+///
+/// Determines how the `GmpPacketData` is serialized and what encoding string
+/// is set in the IBC payload. The sender must use the encoding the destination
+/// chain's ICS27 GMP module expects.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GmpEncoding {
+    /// Protobuf encoding (`"application/x-protobuf"`). Used for Cosmos/Solana destinations.
+    #[default]
+    Protobuf,
+    /// ABI encoding (`"application/x-solidity-abi"`). Used for EVM destinations.
+    Abi,
+}
+
 /// Send call message (unvalidated input from user)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct SendCallMsg {
@@ -62,6 +95,9 @@ pub struct SendCallMsg {
 
     /// Optional memo
     pub memo: String,
+
+    /// Encoding format for the IBC payload.
+    pub encoding: GmpEncoding,
 }
 
 // Re-export types from proto crate

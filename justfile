@@ -1037,6 +1037,12 @@ test-e2e-cosmos-ethereum-ift testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithCosmosEthereumIFTTestSuite/{{testname}}
 
+# Run the e2e tests in the EthereumSolanaIFTTestSuite. For example, `just test-e2e-ethereum-solana-ift Test_EthSolana_IFT_Roundtrip`
+[group('test')]
+test-e2e-ethereum-solana-ift testname:
+	@echo "Running {{testname}} test..."
+	just test-e2e TestWithEthereumSolanaIFTTestSuite/{{testname}}
+
 # Run the e2e tests in the IbcSolanaAttestationTestSuite. For example, `just test-e2e-solana-attestation Test_Attestation_Deploy`
 [group('test')]
 test-e2e-solana-attestation testname:

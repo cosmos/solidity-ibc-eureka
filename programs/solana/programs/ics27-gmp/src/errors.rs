@@ -135,6 +135,12 @@ pub enum GMPError {
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
 
+    #[msg("Invalid ABI encoding")]
+    InvalidAbiEncoding,
+
+    #[msg("Invalid payload hint account")]
+    InvalidHintAccount,
+
     #[msg("Light client program does not match client registry")]
     InvalidLightClientProgram,
 

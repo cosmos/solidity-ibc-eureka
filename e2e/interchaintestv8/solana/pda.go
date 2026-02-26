@@ -290,6 +290,17 @@ func (ics27GmpPDAs) IbcAppGmpportPDA(programID solanago.PublicKey) (solanago.Pub
 	return pda, bump
 }
 
+func (ics27GmpPDAs) PayloadHintWithAccountSeedPDA(programID solanago.PublicKey, payer []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("payload_hint"), payer},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.PayloadHintWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics27GmpPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_state")},

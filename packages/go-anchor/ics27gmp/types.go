@@ -1360,6 +1360,29 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Encoding format for outbound GMP packets.
+//
+// Determines how the `GmpPacketData` is serialized and what encoding string
+// is set in the IBC payload. The sender must use the encoding the destination
+// chain's ICS27 GMP module expects.
+type Ics27GmpStateGmpEncoding binary.BorshEnum
+
+const (
+	Ics27GmpStateGmpEncoding_Protobuf Ics27GmpStateGmpEncoding = iota
+	Ics27GmpStateGmpEncoding_Abi
+)
+
+func (value Ics27GmpStateGmpEncoding) String() string {
+	switch value {
+	case Ics27GmpStateGmpEncoding_Protobuf:
+		return "Protobuf"
+	case Ics27GmpStateGmpEncoding_Abi:
+		return "Abi"
+	default:
+		return ""
+	}
+}
+
 // Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
@@ -1379,6 +1402,9 @@ type Ics27GmpStateSendCallMsg struct {
 
 	// Optional memo
 	Memo string `json:"memo"`
+
+	// Encoding format for the IBC payload.
+	Encoding Ics27GmpStateGmpEncoding `json:"encoding"`
 }
 
 func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1411,6 +1437,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
@@ -1456,6 +1487,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Memo", err)
 	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
 	return nil
 }
 
@@ -1469,6 +1505,72 @@ func (obj *Ics27GmpStateSendCallMsg) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs27GmpStateSendCallMsg(buf []byte) (*Ics27GmpStateSendCallMsg, error) {
 	obj := new(Ics27GmpStateSendCallMsg)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Hint account storing a protobuf-encoded `GmpSolanaPayload`.
+//
+// Used by the relayer to provide the execution payload for ABI-encoded packets,
+// since ABI payloads don't contain the Solana-specific execution data.
+//
+// PDA seeds: `["payload_hint", payer_pubkey]`
+type Ics27GmpStateSolanaPayloadHint struct {
+	Bump uint8  `json:"bump"`
+	Data []byte `json:"data"`
+}
+
+func (obj Ics27GmpStateSolanaPayloadHint) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Bump`:
+	err = encoder.Encode(obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	// Serialize `Data`:
+	err = encoder.Encode(obj.Data)
+	if err != nil {
+		return errors.NewField("Data", err)
+	}
+	return nil
+}
+
+func (obj Ics27GmpStateSolanaPayloadHint) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics27GmpStateSolanaPayloadHint: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics27GmpStateSolanaPayloadHint) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Bump`:
+	err = decoder.Decode(&obj.Bump)
+	if err != nil {
+		return errors.NewField("Bump", err)
+	}
+	// Deserialize `Data`:
+	err = decoder.Decode(&obj.Data)
+	if err != nil {
+		return errors.NewField("Data", err)
+	}
+	return nil
+}
+
+func (obj *Ics27GmpStateSolanaPayloadHint) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics27GmpStateSolanaPayloadHint: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs27GmpStateSolanaPayloadHint(buf []byte) (*Ics27GmpStateSolanaPayloadHint, error) {
+	obj := new(Ics27GmpStateSolanaPayloadHint)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

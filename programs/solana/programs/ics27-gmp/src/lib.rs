@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 
+pub mod abi;
 pub mod constants;
 pub mod errors;
 pub mod events;
@@ -87,5 +88,15 @@ pub mod ics27_gmp {
         new_access_manager: Pubkey,
     ) -> Result<()> {
         instructions::set_access_manager(ctx, new_access_manager)
+    }
+
+    /// Store a payload hint for ABI-encoded recv packets
+    pub fn store_payload_hint(ctx: Context<StorePayloadHint>, data: Vec<u8>) -> Result<()> {
+        instructions::store_payload_hint(ctx, data)
+    }
+
+    /// Close a payload hint account and refund rent
+    pub const fn close_payload_hint(ctx: Context<ClosePayloadHint>) -> Result<()> {
+        instructions::close_payload_hint(ctx)
     }
 }

@@ -10,7 +10,9 @@ use ibc_eureka_relayer_cosmos_to_solana::CosmosToSolanaRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos::EthToCosmosRelayerModule;
 use ibc_eureka_relayer_eth_to_cosmos_compat::EthToCosmosCompatRelayerModule;
 use ibc_eureka_relayer_eth_to_eth::EthToEthRelayerModule;
+use ibc_eureka_relayer_eth_to_solana::EthToSolanaRelayerModule;
 use ibc_eureka_relayer_solana_to_cosmos::SolanaToCosmosRelayerModule;
+use ibc_eureka_relayer_solana_to_eth::SolanaToEthRelayerModule;
 
 use prometheus::{Encoder, TextEncoder};
 use tracing::info;
@@ -41,6 +43,8 @@ async fn main() -> anyhow::Result<()> {
             relayer_builder.add_module(EthToEthRelayerModule);
             relayer_builder.add_module(SolanaToCosmosRelayerModule);
             relayer_builder.add_module(CosmosToSolanaRelayerModule);
+            relayer_builder.add_module(EthToSolanaRelayerModule);
+            relayer_builder.add_module(SolanaToEthRelayerModule);
 
             // Start the metrics server.
             tokio::spawn(async {

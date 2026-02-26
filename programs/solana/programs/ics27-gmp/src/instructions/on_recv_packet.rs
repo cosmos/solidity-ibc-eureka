@@ -1,10 +1,10 @@
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::proto::GmpSolanaPayload;
-use crate::state::GMPAppState;
+use crate::state::{GMPAppState, SolanaPayloadHint};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpAcknowledgement, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -15,6 +15,9 @@ const GMP_ACCOUNT_INDEX: usize = 0;
 
 /// Index of target program in `remaining_accounts`
 const TARGET_PROGRAM_INDEX: usize = 1;
+
+/// Index of hint account in `remaining_accounts` (ABI encoding only)
+const HINT_ACCOUNT_INDEX: usize = 2;
 
 /// Receives an IBC packet from the router via CPI and executes the target
 /// program call.
@@ -83,10 +86,9 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    require!(
-        msg.payload.encoding == ICS27_ENCODING,
-        GMPError::InvalidEncoding
-    );
+    let is_abi = msg.payload.encoding == ABI_ENCODING;
+    let is_protobuf = msg.payload.encoding == ICS27_ENCODING;
+    require!(is_abi || is_protobuf, GMPError::InvalidEncoding);
 
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
@@ -98,12 +100,9 @@ pub fn on_recv_packet<'info>(
 
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode and validate GMP packet data from protobuf payload
-    // Uses Protobuf::decode which internally validates all constraints
-    let packet_data = GmpPacketData::decode(msg.payload.value.as_slice()).map_err(|e| {
-        msg!("GMP packet validation failed: {}", e);
-        GMPError::InvalidPacketData
-    })?;
+    // Decode GMP packet data from either protobuf or ABI encoding
+    let packet_data =
+        crate::abi::decode_gmp_packet_data(&msg.payload.value, &msg.payload.encoding)?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
@@ -139,18 +138,52 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    // Decode and validate the GMP Solana payload
-    // The payload contains all required accounts and instruction data
-    let solana_payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
-        msg!("GMP Solana payload validation failed: {}", e);
-        GMPError::InvalidSolanaPayload
-    })?;
+    // Get GmpSolanaPayload: from hint account (ABI) or from packet payload (protobuf)
+    let (solana_payload, execution_start) = if is_abi {
+        // For ABI packets, read GmpSolanaPayload from the hint account at remaining_accounts[2]
+        let hint_ai = ctx
+            .remaining_accounts
+            .get(HINT_ACCOUNT_INDEX)
+            .ok_or(GMPError::InsufficientAccounts)?;
+
+        // Validate hint account: owned by this program with correct discriminator
+        require!(hint_ai.owner == &crate::ID, GMPError::InvalidHintAccount);
+
+        let hint_data = hint_ai.try_borrow_data()?;
+        require!(hint_data.len() >= 8, GMPError::InvalidHintAccount);
+
+        // Verify Anchor discriminator
+        let expected_disc = SolanaPayloadHint::DISCRIMINATOR;
+        require!(
+            hint_data[..8] == *expected_disc,
+            GMPError::InvalidHintAccount
+        );
+
+        // Deserialize: skip discriminator(8) + bump(1) + vec_len(4) to get data
+        let hint = SolanaPayloadHint::try_deserialize(&mut &hint_data[..])
+            .map_err(|_| error!(GMPError::InvalidHintAccount))?;
+
+        let payload = GmpSolanaPayload::decode(hint.data.as_slice()).map_err(|e| {
+            msg!("GMP Solana payload from hint failed: {}", e);
+            error!(GMPError::InvalidSolanaPayload)
+        })?;
+
+        (payload, FIXED_REMAINING_ACCOUNTS + 1) // +1 for hint account
+    } else {
+        // For protobuf packets, decode GmpSolanaPayload from the packet payload
+        let payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
+            msg!("GMP Solana payload validation failed: {}", e);
+            GMPError::InvalidSolanaPayload
+        })?;
+
+        (payload, FIXED_REMAINING_ACCOUNTS)
+    };
 
     // Build account metas from GMP Solana payload
     let mut account_metas = solana_payload.to_account_metas();
 
-    // Skip gmp_account_pda[0] and target_program[1]
-    let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
+    // Skip fixed accounts: gmp_account[0], target_program[1], and optionally hint[2] for ABI
+    let remaining_accounts_for_execution = &ctx.remaining_accounts[execution_start..];
 
     // Validate account count matches exactly (before payer injection)
     require!(

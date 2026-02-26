@@ -21,6 +21,8 @@ const (
 	ModuleEthToEth          = "eth_to_eth"
 	ModuleSolanaToCosmos    = "solana_to_cosmos"
 	ModuleCosmosToSolana    = "cosmos_to_solana"
+	ModuleEthToSolana       = "eth_to_solana"
+	ModuleSolanaToEth       = "solana_to_eth"
 )
 
 // Config represents the relayer configuration structure aligned with the Rust RelayerConfig
@@ -323,4 +325,22 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaAltAddress       *string       `json:"solana_alt_address,omitempty"`
 	SkipPreVerifyThreshold *int          `json:"skip_pre_verify_threshold,omitempty"`
 	Mode                   TxBuilderMode `json:"mode,omitempty"`
+}
+
+type EthToSolanaModuleConfig struct {
+	Ics26Address         string        `json:"ics26_address"`
+	EthRpcUrl            string        `json:"eth_rpc_url"`
+	SolanaRpcUrl         string        `json:"solana_rpc_url"`
+	SolanaIcs26ProgramId string        `json:"solana_ics26_program_id"`
+	SolanaFeePayer       string        `json:"solana_fee_payer"`
+	SolanaAltAddress     *string       `json:"solana_alt_address,omitempty"`
+	Mode                 TxBuilderMode `json:"mode"`
+}
+
+type SolanaToEthModuleConfig struct {
+	SolanaRpcUrl         string        `json:"solana_rpc_url"`
+	SolanaIcs26ProgramId string        `json:"solana_ics26_program_id"`
+	EthRpcUrl            string        `json:"eth_rpc_url"`
+	Ics26Address         string        `json:"ics26_address"`
+	Mode                 TxBuilderMode `json:"mode"`
 }

@@ -506,3 +506,81 @@ func NewSetAccessManagerInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "store_payload_hint" instruction.
+// Store a payload hint for ABI-encoded recv packets
+func NewStorePayloadHintInstruction(
+	// Params:
+	dataParam []byte,
+
+	// Accounts:
+	hintAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+	systemProgramAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_StorePayloadHint[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `dataParam`:
+		err = enc__.Encode(dataParam)
+		if err != nil {
+			return nil, errors.NewField("dataParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "hint": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(hintAccount, true, false))
+		// Account 1 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+		// Account 2 "system_program": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "close_payload_hint" instruction.
+// Close a payload hint account and refund rent
+func NewClosePayloadHintInstruction(
+	hintAccount solanago.PublicKey,
+	payerAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_ClosePayloadHint[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "hint": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(hintAccount, true, false))
+		// Account 1 "payer": Writable, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

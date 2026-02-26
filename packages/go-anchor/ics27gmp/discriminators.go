@@ -11,6 +11,7 @@ var (
 	Account_Ics26RouterStateRouterState       = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
 	Account_Ics27GmpStateGmpAppState          = [8]byte{133, 28, 169, 125, 62, 118, 161, 140}
 	Account_Ics27GmpStateGmpCallResultAccount = [8]byte{236, 115, 234, 143, 137, 175, 113, 32}
+	Account_Ics27GmpStateSolanaPayloadHint    = [8]byte{112, 44, 35, 65, 69, 20, 34, 184}
 )
 
 // Event discriminators
@@ -36,4 +37,6 @@ var (
 	Instruction_PauseApp                = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
 	Instruction_UnpauseApp              = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
 	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_StorePayloadHint        = [8]byte{174, 40, 210, 189, 169, 2, 26, 139}
+	Instruction_ClosePayloadHint        = [8]byte{84, 6, 153, 154, 191, 204, 174, 91}
 )

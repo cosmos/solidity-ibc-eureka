@@ -195,6 +195,10 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         timeout_timestamp: timeout,
         receiver: ctx.accounts.ift_bridge.counterparty_ift_address.clone(),
         payload: mint_call_payload,
+        encoding: match ctx.accounts.ift_bridge.chain_options {
+            ChainOptions::Evm => ics27_gmp::state::GmpEncoding::Abi,
+            ChainOptions::Cosmos { .. } => ics27_gmp::state::GmpEncoding::Protobuf,
+        },
     };
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
