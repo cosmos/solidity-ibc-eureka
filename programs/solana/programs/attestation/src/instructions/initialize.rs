@@ -3,9 +3,11 @@ use crate::types::{AccountVersion, AppState, ClientState};
 use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
+/// Creates the attestation [`ClientState`] and [`AppState`] PDAs with the initial attestor set.
 #[derive(Accounts)]
 #[instruction(attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>, min_required_sigs: u8, access_manager: Pubkey)]
 pub struct Initialize<'info> {
+    /// The attestation client state PDA to initialize (created here).
     #[account(
         init,
         payer = payer,
@@ -14,6 +16,7 @@ pub struct Initialize<'info> {
         bump
     )]
     pub client_state: Account<'info, ClientState>,
+    /// The attestation app state PDA to initialize (created here).
     #[account(
         init,
         payer = payer,
@@ -22,9 +25,11 @@ pub struct Initialize<'info> {
         bump
     )]
     pub app_state: Account<'info, AppState>,
+    /// Pays for account creation rent.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required for PDA account creation.
     pub system_program: Program<'info, System>,
 }
 

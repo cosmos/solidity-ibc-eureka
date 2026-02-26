@@ -218,7 +218,7 @@ deploy-solana-full cluster="localnet" max_len_multiplier="2": (_validate-cluster
     "ics07_tendermint"
     "test_ibc_app"
     "mock_ibc_app"
-    "gmp_counter_app"
+    "test_gmp_app"
     "mock_light_client"
   )
 
@@ -700,13 +700,6 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
-# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
-[group('build')]
-build-cw-ics08-wasm-attestor:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
-	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
-	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
-
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
@@ -731,7 +724,6 @@ lint:
 	just lint-go
 	just lint-buf
 	just lint-rust
-	just lint-solana
 
 # Lint the Solidity code using `forge fmt` and `bun:solhint`
 [group('lint')]
@@ -755,14 +747,14 @@ lint-buf:
 	@echo "Linting the Protobuf files..."
 	buf lint
 
-# Lint the Rust code using `cargo fmt` and `cargo clippy`
+# Lint the all the Rust code using `cargo fmt` and `cargo clippy`
 [group('lint')]
 lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
-	cargo clippy --all-targets --all-features -- -D warnings
-	cd programs/sp1-programs && cargo fmt --all -- --check
-	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets -- -D warnings
+	just lint-sp1
+	just lint-solana
 
 # Lint the Solana code using `cargo fmt` and `cargo clippy`
 [group('lint')]
@@ -771,6 +763,12 @@ lint-solana:
 	cd programs/solana && cargo fmt --all -- --check
 	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
 
+# Lint the Solana code using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-sp1:
+	@echo "Linting the SP1 programs..."
+	cd programs/sp1-programs && cargo fmt --all -- --check
+	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
 # Generate the (non-bytecode) ABI files for the contracts
 [group('generate')]
@@ -826,8 +824,8 @@ generate-solana-types build="true":
 	anchor-go --idl ./programs/solana/target/idl/test_ibc_app.json --output e2e/interchaintestv8/solana/go-anchor/testibcapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/mocklightclient
 	anchor-go --idl ./programs/solana/target/idl/mock_light_client.json --output e2e/interchaintestv8/solana/go-anchor/mocklightclient --no-go-mod
-	rm -rf e2e/interchaintestv8/solana/go-anchor/gmpcounter
-	anchor-go --idl ./programs/solana/target/idl/gmp_counter_app.json --output e2e/interchaintestv8/solana/go-anchor/gmpcounter --no-go-mod
+	rm -rf e2e/interchaintestv8/solana/go-anchor/testgmpapp
+	anchor-go --idl ./programs/solana/target/idl/test_gmp_app.json --output e2e/interchaintestv8/solana/go-anchor/testgmpapp --no-go-mod
 	rm -rf e2e/interchaintestv8/solana/go-anchor/testcpiproxy
 	anchor-go --idl ./programs/solana/target/idl/test_cpi_proxy.json --output e2e/interchaintestv8/solana/go-anchor/testcpiproxy --no-go-mod
 

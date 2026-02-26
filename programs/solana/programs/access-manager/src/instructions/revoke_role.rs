@@ -5,9 +5,11 @@ use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
 
+/// Revokes a role from the specified account. Requires admin authorization.
 #[derive(Accounts)]
 #[instruction(role_id: u64, account: Pubkey)]
 pub struct RevokeRole<'info> {
+    /// The access manager PDA storing all role assignments.
     #[account(
         mut,
         seeds = [AccessManager::SEED],
@@ -15,6 +17,7 @@ pub struct RevokeRole<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// The admin signer authorizing this role revocation.
     pub admin: Signer<'info>,
 
     /// Instructions sysvar for CPI validation

@@ -10,9 +10,7 @@ import { IICS26RouterErrors } from "./errors/IICS26RouterErrors.sol";
 import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS26Router, IICS26RouterAccessControlled } from "./interfaces/IICS26Router.sol";
 
-import {
-    ReentrancyGuardTransientUpgradeable
-} from "@openzeppelin-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
+import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import { IBCStoreUpgradeable } from "./utils/IBCStoreUpgradeable.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { IBCIdentifiers } from "./utils/IBCIdentifiers.sol";
@@ -29,7 +27,7 @@ contract ICS26Router is
     IICS26Router,
     ICS02ClientUpgradeable,
     IBCStoreUpgradeable,
-    ReentrancyGuardTransientUpgradeable,
+    ReentrancyGuardTransient,
     MulticallUpgradeable,
     UUPSUpgradeable
 {
@@ -58,7 +56,6 @@ contract ICS26Router is
 
     /// @inheritdoc IICS26Router
     function initialize(address authority) external onlyVersion(0) reinitializer(2) {
-        __ReentrancyGuardTransient_init();
         __Multicall_init();
         __IBCStore_init();
         __ICS02Client_init(authority);

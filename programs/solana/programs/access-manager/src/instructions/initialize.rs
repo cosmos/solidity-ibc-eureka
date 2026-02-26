@@ -3,9 +3,11 @@ use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{reject_cpi, roles};
 
+/// Creates the global [`AccessManager`] PDA and assigns the first admin.
 #[derive(Accounts)]
 #[instruction(admin: Pubkey)]
 pub struct Initialize<'info> {
+    /// The access manager PDA to initialize (created here).
     #[account(
         init,
         payer = payer,
@@ -15,9 +17,11 @@ pub struct Initialize<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// Pays for account creation rent.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Required for PDA account creation.
     pub system_program: Program<'info, System>,
 
     /// Instructions sysvar for CPI validation

@@ -1,0 +1,35 @@
+[package]
+name = "test-gmp-app"
+version.workspace = true
+description = "Test GMP app for testing cross-chain calls"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "gmp", "test", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_gmp_app"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+
+[dependencies]
+anchor-lang = { workspace = true, features = ["init-if-needed"] }
+
+[dev-dependencies]
+mollusk-svm.workspace = true
+mollusk-svm-bencher.workspace = true
+solana-sdk.workspace = true
+bincode.workspace = true
+
+[lints]
+workspace = true

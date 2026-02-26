@@ -89,7 +89,7 @@ runs:
         retry_wait_seconds: 5
         command: |
           sudo apt update
-          sudo apt install -y kurtosis-cli=1.11.2
+          sudo apt install -y kurtosis-cli=1.15.2
 
     - name: Start Kurtosis
       if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)

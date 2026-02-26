@@ -7,9 +7,12 @@ use crate::verification::verify_attestation;
 use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
+/// Stores a new consensus state at the given height after verifying attestor signatures.
+/// Detects misbehaviour if a conflicting timestamp already exists.
 #[derive(Accounts)]
 #[instruction(new_height: u64, params: UpdateClientParams)]
 pub struct UpdateClient<'info> {
+    /// The attestation client state (updated with `latest_height` or frozen on misbehaviour).
     #[account(
         mut,
         seeds = [ClientState::SEED],
@@ -17,6 +20,7 @@ pub struct UpdateClient<'info> {
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// The consensus state PDA for the new height (created if needed).
     #[account(
         init_if_needed,
         payer = submitter,
@@ -26,12 +30,14 @@ pub struct UpdateClient<'info> {
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
 
+    /// The attestation app state linking to the access manager.
     #[account(
         seeds = [AppState::SEED],
         bump
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// The access manager account for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -40,13 +46,16 @@ pub struct UpdateClient<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Instructions sysvar for CPI and role validation.
     /// CHECK: Instructions sysvar for role verification
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 
+    /// The relayer submitting the attestation proof (must have relayer role).
     #[account(mut)]
     pub submitter: Signer<'info>,
 
+    /// Required for creating the consensus state account if it doesn't exist.
     pub system_program: Program<'info, System>,
 }
 

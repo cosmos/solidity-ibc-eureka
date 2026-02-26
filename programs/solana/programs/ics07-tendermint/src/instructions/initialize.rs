@@ -3,9 +3,11 @@ use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
 
+/// Initializes the ICS-07 Tendermint light client with its initial state and configuration.
 #[derive(Accounts)]
 #[instruction(client_state: ClientState, consensus_state: ConsensusState, access_manager: Pubkey)]
 pub struct Initialize<'info> {
+    /// PDA holding the Tendermint light client configuration and tracking state.
     #[account(
         init,
         payer = payer,
@@ -14,6 +16,7 @@ pub struct Initialize<'info> {
         bump
     )]
     pub client_state_account: Account<'info, ClientState>,
+    /// PDA storing the verified consensus state at the initial height.
     #[account(
         init,
         payer = payer,
@@ -22,6 +25,7 @@ pub struct Initialize<'info> {
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
+    /// PDA holding program-level settings such as the `access_manager` address and `chain_id`.
     #[account(
         init,
         payer = payer,
@@ -30,9 +34,10 @@ pub struct Initialize<'info> {
         bump
     )]
     pub app_state: Account<'info, AppState>,
+    /// Signer that pays for PDA account creation.
     #[account(mut)]
     pub payer: Signer<'info>,
-
+    /// Required by Anchor for PDA creation via the System Program.
     pub system_program: Program<'info, System>,
 }
 
