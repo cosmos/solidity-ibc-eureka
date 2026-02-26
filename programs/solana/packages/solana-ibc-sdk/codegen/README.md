@@ -64,11 +64,12 @@ use solana_ibc_sdk::ics26_router::{
 // Deserialize an on-chain account
 let router_state = RouterState::deserialize(&mut data)?;
 
-// Build an instruction with PDA derivation
-let ix = RecvPacket::new(
-    RecvPacketAccounts { /* ... */ },
-    &program_id,
-).build_instruction(&msg_bytes, extra_accounts)?;
+// Build an instruction using the builder pattern
+let ix = RecvPacket::builder(&program_id)
+    .accounts(RecvPacketAccounts { /* ... */ })
+    .args(&msg)
+    .remaining_accounts(extra_accounts)
+    .build();
 ```
 
 ### Using PDA helpers
