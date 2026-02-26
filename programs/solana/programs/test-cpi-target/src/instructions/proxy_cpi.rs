@@ -2,12 +2,15 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
 use anchor_lang::solana_program::program::invoke;
 
+/// Serializable account metadata passed alongside `proxy_cpi` instruction data.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
 pub struct CpiAccountMeta {
     pub is_signer: bool,
     pub is_writable: bool,
 }
 
+/// Accounts for `proxy_cpi`, a whitelisted CPI forwarder used to test
+/// authorized-caller code paths from within a real BPF runtime.
 #[derive(Accounts)]
 #[instruction(instruction_data: Vec<u8>, account_metas: Vec<CpiAccountMeta>)]
 pub struct ProxyCpi<'info> {
@@ -15,6 +18,7 @@ pub struct ProxyCpi<'info> {
     #[account(executable)]
     pub target_program: AccountInfo<'info>,
 
+    /// Transaction fee payer and signer.
     pub payer: Signer<'info>,
 }
 

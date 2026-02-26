@@ -1,17 +1,17 @@
 [package]
-name = "gmp-counter-app"
+name = "test-gmp-app"
 version.workspace = true
-description = "GMP Counter App for testing cross-chain calls"
+description = "Test GMP app for testing cross-chain calls"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 readme = "../../../README.md"
-keywords = ["cosmos", "ibc", "solana", "gmp", "counter", "anchor"]
+keywords = ["cosmos", "ibc", "solana", "gmp", "test", "anchor"]
 categories = ["cryptography", "blockchain"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "gmp_counter_app"
+name = "test_gmp_app"
 
 [features]
 default = []

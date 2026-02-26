@@ -4,9 +4,11 @@ use anchor_lang::solana_program::program::set_return_data;
 
 const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result": "AQ=="}"#;
 
+/// Accounts for handling an incoming IBC packet.
 #[derive(Accounts)]
 #[instruction(msg: OnRecvPacketMsg)]
 pub struct OnRecvPacket<'info> {
+    /// App state PDA that tracks packet counters.
     #[account(
         init_if_needed,
         payer = payer,

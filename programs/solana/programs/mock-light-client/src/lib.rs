@@ -5,6 +5,11 @@ use solana_ibc_types::ics07::UpdateClientMsg;
 
 declare_id!("CSLS3A9jS7JAD8aUe3LRXMYZ1U8Lvxn9usGygVrA2arZ");
 
+/// Mock light client that always succeeds.
+///
+/// Implements the `ics25_handler` light-client interface with no-op logic so
+/// the ICS26 router can be tested end-to-end without deploying a real
+/// Tendermint or SP1 light client.
 #[program]
 pub mod mock_light_client {
     use super::*;
@@ -59,6 +64,7 @@ pub mod mock_light_client {
     }
 }
 
+/// Accounts for mock light client initialization (creates placeholder PDAs).
 #[derive(Accounts)]
 #[instruction(chain_id: String, latest_height: u64, client_state: Vec<u8>, consensus_state: Vec<u8>)]
 pub struct Initialize<'info> {
@@ -80,11 +86,13 @@ pub struct Initialize<'info> {
         bump
     )]
     pub consensus_state_store: AccountInfo<'info>,
+    /// Fee payer for PDA creation.
     #[account(mut)]
     pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
+/// Accounts for mock membership verification (always succeeds).
 #[derive(Accounts)]
 #[instruction(_msg: MembershipMsg)]
 pub struct VerifyMembership<'info> {
@@ -94,6 +102,7 @@ pub struct VerifyMembership<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
+/// Accounts for mock non-membership verification (always succeeds).
 #[derive(Accounts)]
 #[instruction(_msg: NonMembershipMsg)]
 pub struct VerifyNonMembership<'info> {
@@ -103,6 +112,7 @@ pub struct VerifyNonMembership<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
+/// Accounts for mock client status check (always returns `Active`).
 #[derive(Accounts)]
 pub struct ClientStatusCheck<'info> {
     /// CHECK: Mock client state - not actually used
@@ -111,6 +121,7 @@ pub struct ClientStatusCheck<'info> {
     pub consensus_state: AccountInfo<'info>,
 }
 
+/// Accounts for mock client update (always returns `Update`).
 #[derive(Accounts)]
 #[instruction(_msg: UpdateClientMsg)]
 pub struct UpdateClient<'info> {

@@ -3,10 +3,11 @@ use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
 
-/// Initialize the ICS27 GMP application
+/// Initializes the ICS27 GMP application by creating the global config PDA.
 #[derive(Accounts)]
 #[instruction(access_manager: Pubkey)]
 pub struct Initialize<'info> {
+    /// GMP program's global configuration PDA, created with a fixed seed.
     #[account(
         init,
         payer = payer,
@@ -16,9 +17,11 @@ pub struct Initialize<'info> {
     )]
     pub app_state: Account<'info, GMPAppState>,
 
+    /// Fee payer that funds the `app_state` account creation.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used for account allocation.
     pub system_program: Program<'info, System>,
 }
 

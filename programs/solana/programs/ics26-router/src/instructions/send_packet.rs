@@ -7,15 +7,19 @@ use anchor_lang::prelude::*;
 use solana_ibc_types::ics24;
 use solana_ibc_types::IBCAppState;
 
+/// Sends an IBC packet by creating a packet commitment on-chain.
+/// Must be called via CPI from a registered IBC application.
 #[derive(Accounts)]
 #[instruction(msg: MsgSendPacket)]
 pub struct SendPacket<'info> {
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// PDA mapping the source port to its registered IBC application.
     #[account(
         seeds = [IBCApp::SEED, msg.payload.source_port.as_bytes()],
         bump,
@@ -23,6 +27,7 @@ pub struct SendPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
+    /// Mutable sequence counter for this client; incremented on each send.
     #[account(
         mut,
         seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
@@ -30,13 +35,13 @@ pub struct SendPacket<'info> {
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    /// CHECK: PDA seed includes a namespaced sequence derived from on-chain
-    /// `client_sequence` state at runtime, so Anchor's static `seeds` constraint
-    /// cannot express it. Validated and created manually in the handler.
+    /// Stores the packet commitment hash. Created manually because the
+    /// sequence is computed at runtime via `calculate_namespaced_sequence`.
+    /// CHECK: Validated and created manually in the handler.
     #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
 
-    /// App signer - PDA signed by the calling IBC app program
+    /// PDA signed by the calling IBC app program, proving it authorized this send.
     #[account(
         seeds = [IBCAppState::SEED],
         bump,
@@ -44,12 +49,14 @@ pub struct SendPacket<'info> {
     )]
     pub app_signer: Signer<'info>,
 
-    /// Allow payer to be separate from IBC app
+    /// Pays rent for the new `packet_commitment` account.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
+    /// Client PDA for the source client; must be active.
     #[account(
         seeds = [Client::SEED, msg.source_client.as_bytes()],
         bump,
@@ -57,15 +64,19 @@ pub struct SendPacket<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    /// CHECK: Validated against client registry
+    /// Light client program used to query client status before sending.
+    /// CHECK: Validated against client registry.
     #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
-    /// CHECK: Ownership validated against light client program
+    /// Client state account owned by the light client program.
+    /// CHECK: Ownership validated against light client program.
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
-    /// CHECK: Consensus state account, owned by light client program (for expiry check)
+    /// Consensus state account owned by the light client program (for expiry check).
+    /// CHECK: Forwarded to light client CPI; ownership not enforced here because the
+    /// light client program itself validates it.
     pub consensus_state: AccountInfo<'info>,
 }
 
@@ -88,13 +99,6 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     let packet_commitment_info = &ctx.accounts.packet_commitment;
     // Get clock directly via syscall
     let clock = Clock::get()?;
-
-    let (expected_app_signer, _) =
-        Pubkey::find_program_address(&[IBCAppState::SEED], &ibc_app.app_program_id);
-    require!(
-        ctx.accounts.app_signer.key() == expected_app_signer,
-        RouterError::UnauthorizedSender
-    );
 
     let current_timestamp = clock.unix_timestamp;
     require!(

@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::reject_cpi;
 
+/// Accounts for [`reject_cpi`](solana_ibc_types::cpi::reject_cpi) wrapper.
 #[derive(Accounts)]
 pub struct CheckRejectCpi<'info> {
     /// CHECK: Validated inside the CPI validation functions

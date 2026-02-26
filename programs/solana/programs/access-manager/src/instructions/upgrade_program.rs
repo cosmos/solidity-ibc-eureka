@@ -5,15 +5,18 @@ use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
+/// Upgrades a target program's bytecode using the BPF Loader Upgradeable. Requires admin authorization.
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
 pub struct UpgradeProgram<'info> {
+    /// The access manager PDA for admin authorization.
     #[account(
         seeds = [AccessManager::SEED],
         bump
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// The target program to upgrade.
     /// CHECK: Must be an upgradeable program matching `target_program`.
     /// Writable because BPF Loader Upgradeable requires it during upgrade.
     #[account(
@@ -24,6 +27,7 @@ pub struct UpgradeProgram<'info> {
     )]
     pub program: AccountInfo<'info>,
 
+    /// The target program's data account (BPF Loader Upgradeable PDA).
     /// CHECK: Validated via BPF Loader seeds derivation from program account
     #[account(
         mut,
@@ -33,6 +37,7 @@ pub struct UpgradeProgram<'info> {
     )]
     pub program_data: AccountInfo<'info>,
 
+    /// Buffer account containing the new program bytecode.
     /// CHECK: Must be a BPF Loader buffer containing the new bytecode
     #[account(
         mut,
@@ -40,6 +45,7 @@ pub struct UpgradeProgram<'info> {
     )]
     pub buffer: AccountInfo<'info>,
 
+    /// `AccessManager`'s PDA that acts as the upgrade authority for the target program.
     /// CHECK: Validated via seeds constraint
     #[account(
         mut,
@@ -48,10 +54,12 @@ pub struct UpgradeProgram<'info> {
     )]
     pub upgrade_authority: AccountInfo<'info>,
 
+    /// Account to receive refunded rent from the old buffer.
     /// CHECK: Can be any account to receive refunded rent
     #[account(mut)]
     pub spill: AccountInfo<'info>,
 
+    /// The admin signer authorizing the upgrade.
     pub authority: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -62,6 +70,7 @@ pub struct UpgradeProgram<'info> {
     #[account(address = bpf_loader_upgradeable::ID)]
     pub bpf_loader_upgradeable: AccountInfo<'info>,
 
+    /// Rent sysvar required by BPF Loader Upgradeable.
     pub rent: Sysvar<'info, Rent>,
 
     /// Required by BPF Loader Upgradeable's upgrade instruction

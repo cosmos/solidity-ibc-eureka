@@ -1,8 +1,10 @@
 use anchor_lang::prelude::*;
 use solana_ibc_types::cpi::reject_nested_cpi;
 
+/// Accounts for [`reject_nested_cpi`](solana_ibc_types::cpi::reject_nested_cpi) wrapper.
 #[derive(Accounts)]
 pub struct CheckRejectNestedCpi<'info> {
+    /// Transaction signer (required by Anchor but unused by the check).
     pub signer: Signer<'info>,
 }
 

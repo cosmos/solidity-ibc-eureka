@@ -4,13 +4,16 @@ use anchor_lang::solana_program::program::set_return_data;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 
+/// Returns the client status (active or frozen) via return data.
 #[derive(Accounts)]
 pub struct ClientStatus<'info> {
+    /// The attestation client state to check for frozen status.
     #[account(
         seeds = [ClientState::SEED],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
+    /// The consensus state at the client's latest height (validates the client is initialized).
     #[account(
         seeds = [ConsensusStateStore::SEED, &client_state.latest_height.to_le_bytes()],
         bump

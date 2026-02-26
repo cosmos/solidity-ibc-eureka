@@ -7,7 +7,12 @@ pub enum AccountVersion {
     V1,
 }
 
-/// Main GMP application state
+/// Global ICS27 General Message Passing (GMP) application state.
+///
+/// Singleton PDA that stores the pause flag, access manager reference
+/// and PDA bump seed. The ICS26 router CPIs into this program to deliver
+/// received packets; this account gates whether the app accepts new
+/// cross-chain calls and controls admin operations via the access manager.
 #[account]
 #[derive(InitSpace)]
 pub struct GMPAppState {
@@ -66,10 +71,13 @@ pub use crate::proto::{
 
 pub use solana_ibc_types::{CallResultStatus, GMPCallResult};
 
-/// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+/// Persisted outcome of a cross-chain GMP call.
 ///
-/// This account is created when a GMP packet is either acknowledged or times out,
-/// allowing the original sender to query the outcome of their cross-chain call.
+/// Created when the ICS26 router delivers an acknowledgement or timeout
+/// callback to the GMP app. Stores either the IBC acknowledgement
+/// commitment hash (on success/failure) or a timeout marker, so the
+/// original sender can query the result on-chain after the round-trip
+/// completes.
 ///
 /// # PDA Seeds
 /// `["gmp_result", source_client, sequence (little-endian u64)]`
