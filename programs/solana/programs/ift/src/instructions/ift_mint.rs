@@ -132,7 +132,7 @@ fn validate_gmp_account(
     client_id: &str,
     counterparty_address: &str,
 ) -> Result<()> {
-    use solana_ibc_types::ics27::{GMPAccount, Salt};
+    use solana_ibc_gmp_types::{GMPAccount, Salt};
 
     let gmp = GMPAccount::new(
         client_id

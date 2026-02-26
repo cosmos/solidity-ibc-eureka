@@ -41,26 +41,12 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
-use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
-use solana_ibc_types::ics07::{ClientState, ConsensusState};
+use solana_ibc_sdk::ics07_tendermint::{
+    instructions::{self as ics07_tendermint_instructions, AssembleAndUpdateClient},
+    types::ConsensusState,
+};
 
 pub use transaction::derive_alt_address;
-
-/// Parameters for assembling timeout packet accounts
-pub(crate) struct TimeoutAccountsParams {
-    pub access_manager: Pubkey,
-    pub router_state: Pubkey,
-    pub ibc_app: Pubkey,
-    pub packet_commitment: Pubkey,
-    pub ibc_app_program_id: Pubkey,
-    pub ibc_app_state: Pubkey,
-    pub client: Pubkey,
-    pub client_state: Pubkey,
-    pub consensus_state: Pubkey,
-    pub fee_payer: Pubkey,
-    pub light_client_program_id: Pubkey,
-    pub chunk_accounts: Vec<Pubkey>,
-}
 
 /// Parameters for relaying events between Cosmos and Solana
 pub struct RelayParams {
@@ -141,7 +127,7 @@ impl TxBuilder {
     ///
     /// # Errors
     /// This function cannot currently fail but returns `Result` for API consistency.
-    pub fn new(
+    pub const fn new(
         src_tm_client: tendermint_rpc::HttpClient,
         target_solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
@@ -197,7 +183,7 @@ impl TxBuilder {
     pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
-        let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
+        let solana_ics07_program_id = self.resolve_client_program_id(dst_client_id)?;
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
 
@@ -236,7 +222,7 @@ impl TxBuilder {
 
         // Check if we can use the optimized path (skip pre-verify and ALT)
         // Accounts = static accounts + chunk PDAs (no signature PDAs in optimized path)
-        let optimized_accounts = ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS + total_chunks as usize;
+        let optimized_accounts = AssembleAndUpdateClient::COUNT + total_chunks as usize;
         let can_skip_alt = optimized_accounts <= MAX_ACCOUNTS_WITHOUT_ALT;
 
         let use_optimized_path = self
@@ -299,10 +285,20 @@ impl TxBuilder {
 
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
+        let (client_state_pda, _) =
+            ics07_tendermint_instructions::Initialize::client_state_account_pda(
+                &solana_ics07_program_id,
+            );
         let (trusted_consensus_state, _) =
-            ConsensusState::pda(trusted_height, solana_ics07_program_id);
-        let (new_consensus_state, _) = ConsensusState::pda(target_height, solana_ics07_program_id);
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                trusted_height,
+                &solana_ics07_program_id,
+            );
+        let (new_consensus_state, _) =
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                target_height,
+                &solana_ics07_program_id,
+            );
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -465,10 +461,11 @@ impl TxBuilder {
 
         for ack_msg in ack_msgs {
             let a = ibc_to_solana_ack_packet(ack_msg)?;
-            packet_txs.push(
-                self.build_ack_packet_chunked(&a.msg, &a.payload_chunks, &a.proof_chunks)
-                    .await?,
-            );
+            packet_txs.push(self.build_ack_packet_chunked(
+                &a.msg,
+                &a.payload_chunks,
+                &a.proof_chunks,
+            )?);
         }
 
         for t in timeout_msgs_with_chunks {
@@ -540,7 +537,11 @@ impl TxBuilder {
         height: u64,
         solana_ics07_program_id: Pubkey,
     ) -> Result<u64> {
-        let (consensus_state_pda, _) = ConsensusState::pda(height, solana_ics07_program_id);
+        let (consensus_state_pda, _) =
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                height,
+                &solana_ics07_program_id,
+            );
 
         let account = self
             .target_solana_client
@@ -683,17 +684,19 @@ impl AttestedTxBuilder {
         })
     }
 
-    /// Get the inner TxBuilder reference.
-    pub fn tx_builder(&self) -> &TxBuilder {
+    /// Get the inner `TxBuilder` reference.
+    #[must_use]
+    pub const fn tx_builder(&self) -> &TxBuilder {
         &self.tx_builder
     }
 
     /// Relay events from Cosmos to Solana using attestations.
     ///
-    /// Returns packet transactions and an update_client transaction to create the consensus state.
+    /// Returns packet transactions and an `update_client` transaction to create the consensus state.
     ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
+    #[allow(clippy::too_many_lines)]
     pub async fn relay_events(
         &self,
         params: RelayParams,
@@ -856,14 +859,12 @@ impl AttestedTxBuilder {
             None
         };
 
-        let packets = self
-            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)
-            .await?;
+        let packets = self.build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
 
         Ok((packets, update_client))
     }
 
-    /// Build update_client transaction for attestation light client.
+    /// Build `update_client` transaction for attestation light client.
     async fn build_attestation_update_client(
         &self,
         dst_client_id: &str,
@@ -916,71 +917,43 @@ impl AttestedTxBuilder {
         })
     }
 
-    /// Build update_client transaction bytes for attestation light client.
+    /// Build `update_client` transaction bytes for attestation light client.
     fn build_attestation_update_client_tx(
         &self,
         new_height: u64,
         proof: Vec<u8>,
         light_client_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-        use solana_ibc_types::attestation::{
-            AppState as AttestationAppState, ClientState as AttestationClientState,
-            ConsensusState as AttestationConsensusState,
-        };
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
-        let (new_consensus_state_pda, _) =
-            AttestationConsensusState::pda(new_height, light_client_program_id);
-        let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
-
-        let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
-        let (access_manager_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::AccessManager::SEED],
-            &access_manager_program_id,
-        );
-
-        // Build instruction data: discriminator + borsh(new_height, params)
-        // Anchor discriminator = sha256("global:update_client")[..8]
-        let discriminator = {
-            let mut hasher = Sha256::new();
-            hasher.update(b"global:update_client");
-            let result = hasher.finalize();
-            <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
-        };
+        use solana_ibc_sdk::attestation::instructions::{UpdateClient, UpdateClientAccounts};
 
         #[derive(AnchorSerialize)]
         struct UpdateClientParams {
             proof: Vec<u8>,
         }
 
-        let mut data = discriminator.to_vec();
+        let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
+        let (access_manager_pda, _) =
+            solana_ibc_sdk::access_manager::instructions::Initialize::access_manager_pda(
+                &access_manager_program_id,
+            );
+
+        let mut args_data = Vec::new();
         new_height
-            .serialize(&mut data)
+            .serialize(&mut args_data)
             .context("Failed to serialize new_height")?;
         UpdateClientParams { proof }
-            .serialize(&mut data)
+            .serialize(&mut args_data)
             .context("Failed to serialize UpdateClientParams")?;
 
-        let instruction = solana_sdk::instruction::Instruction {
-            program_id: light_client_program_id,
-            accounts: vec![
-                solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::sysvar::instructions::ID,
-                    false,
-                ),
-                solana_sdk::instruction::AccountMeta::new(self.tx_builder.fee_payer, true),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::system_program::ID,
-                    false,
-                ),
-            ],
-            data,
-        };
+        let instruction = UpdateClient::new(
+            UpdateClientAccounts {
+                access_manager: access_manager_pda,
+                submitter: self.tx_builder.fee_payer,
+                new_height,
+            },
+            &light_client_program_id,
+        )
+        .build_instruction(&args_data, []);
 
         let mut instructions = TxBuilder::extend_compute_ix();
         instructions.push(instruction);
@@ -1003,7 +976,7 @@ impl AttestedTxBuilder {
             .await
     }
 
-    async fn build_packet_transactions(
+    fn build_packet_transactions(
         &self,
         recv_msgs: Vec<MsgRecvPacket>,
         ack_msgs: Vec<MsgAcknowledgement>,
@@ -1023,14 +996,11 @@ impl AttestedTxBuilder {
 
         for msg in ack_msgs {
             let ack_with_chunks = solana_utils::ibc_to_solana_ack_packet(msg)?;
-            let packet_txs = self
-                .tx_builder
-                .build_ack_packet_chunked(
-                    &ack_with_chunks.msg,
-                    &ack_with_chunks.payload_chunks,
-                    &ack_with_chunks.proof_chunks,
-                )
-                .await?;
+            let packet_txs = self.tx_builder.build_ack_packet_chunked(
+                &ack_with_chunks.msg,
+                &ack_with_chunks.payload_chunks,
+                &ack_with_chunks.proof_chunks,
+            )?;
             results.push(packet_txs);
         }
 

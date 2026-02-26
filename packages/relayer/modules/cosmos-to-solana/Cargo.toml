@@ -28,10 +28,10 @@ solana-sdk.workspace                = true
 solana-transaction-status.workspace = true
 bincode.workspace                   = true
 hex.workspace                       = true
-sha2.workspace                      = true
 anchor-lang.workspace               = true
 anchor-client.workspace             = true
-borsh.workspace                     = true
+# Pin borsh 0.10.4 for Anchor/Solana type compatibility (not workspace borsh 1.x)
+borsh                               = { version = "0.10.4", default-features = false }
 
 ibc-proto-eureka.workspace      = true
 ibc-proto.workspace             = true
@@ -43,9 +43,11 @@ prost.workspace                 = true
 alloy.workspace                     = true
 ibc-eureka-solidity-types.workspace = true
 tokio.workspace                     = true
-solana-ibc-types                    = { path = "../../../../programs/solana/packages/solana-ibc-types", features = ["light-client"] }
+solana-ibc-borsh-header             = { path = "../../../../programs/solana/packages/solana-ibc-borsh-header", features = ["light-client"] }
+solana-ibc-sdk                      = { path = "../../../../programs/solana/packages/solana-ibc-sdk" }
 solana-ibc-constants                = { path = "../../../../programs/solana/packages/solana-ibc-constants" }
 solana-ibc-proto                    = { path = "../../../../programs/solana/packages/solana-ibc-proto" }
+solana-ibc-gmp-types                = { path = "../../../../programs/solana/packages/solana-ibc-gmp-types" }
 
 # SPL Token dependencies
 spl-token                    = "8.0"

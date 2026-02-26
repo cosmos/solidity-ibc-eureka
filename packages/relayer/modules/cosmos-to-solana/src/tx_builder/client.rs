@@ -11,8 +11,14 @@ use solana_sdk::{
 use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
-use solana_ibc_types::ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData};
-use solana_ibc_types::AccessManager;
+use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
+use solana_ibc_sdk::ics07_tendermint::accounts::ClientState;
+use solana_ibc_sdk::ics07_tendermint::instructions::{
+    AssembleAndUpdateClient, AssembleAndUpdateClientAccounts, CleanupIncompleteUpload,
+    CleanupIncompleteUploadAccounts, Initialize, InitializeAccounts, PreVerifySignature,
+    PreVerifySignatureAccounts, UploadHeaderChunk, UploadHeaderChunkAccounts,
+};
+use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, SignatureData};
 
 use super::{derive_header_chunk, UploadChunkParams};
 
@@ -29,33 +35,18 @@ impl super::TxBuilder {
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
-        let (consensus_state_pda, _) = ConsensusState::pda(latest_height, solana_ics07_program_id);
-        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
+        let mut args_data = client_state.try_to_vec()?;
+        args_data.extend_from_slice(&consensus_state.try_to_vec()?);
+        args_data.extend_from_slice(&access_manager.try_to_vec()?);
 
-        let accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let discriminator = ics07_instructions::initialize_discriminator();
-
-        let mut instruction_data = Vec::new();
-
-        instruction_data.extend_from_slice(&discriminator);
-
-        instruction_data.extend_from_slice(&client_state.try_to_vec()?);
-        instruction_data.extend_from_slice(&consensus_state.try_to_vec()?);
-        instruction_data.extend_from_slice(&access_manager.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: solana_ics07_program_id,
-            accounts,
-            data: instruction_data,
-        })
+        Ok(Initialize::new(
+            InitializeAccounts {
+                payer: self.fee_payer,
+                revision_height: latest_height,
+            },
+            &solana_ics07_program_id,
+        )
+        .build_instruction(&args_data, []))
     }
 
     pub(crate) fn build_assemble_and_update_client_tx(
@@ -69,28 +60,16 @@ impl super::TxBuilder {
     ) -> Result<Vec<u8>> {
         use super::transaction::derive_alt_address;
 
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
-        let (trusted_consensus_state, _) =
-            ConsensusState::pda(trusted_height, solana_ics07_program_id);
-        let (new_consensus_state, _) = ConsensusState::pda(target_height, solana_ics07_program_id);
-
-        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
-
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let mut accounts = vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new_readonly(trusted_consensus_state, false),
-            AccountMeta::new(new_consensus_state, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-        ];
+        let mut args_data = Vec::new();
+        args_data.extend_from_slice(&target_height.to_le_bytes());
+        args_data.push(total_chunks);
+        args_data.extend_from_slice(&trusted_height.to_le_bytes());
 
-        accounts.extend((0..total_chunks).map(|chunk_index| {
+        let chunk_iter = (0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
                 target_height,
@@ -98,27 +77,26 @@ impl super::TxBuilder {
                 solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
-        }));
+        });
 
-        accounts.extend(signature_data.iter().map(|sig_data| {
+        let sig_iter = signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
                 &solana_ics07_program_id,
             );
             AccountMeta::new_readonly(sig_verify_pda, false)
-        }));
+        });
 
-        let mut data = ics07_instructions::assemble_and_update_client_discriminator().to_vec();
-
-        data.extend_from_slice(&target_height.to_le_bytes());
-        data.extend_from_slice(&[total_chunks]);
-        data.extend_from_slice(&trusted_height.to_le_bytes());
-
-        let ix = Instruction {
-            program_id: solana_ics07_program_id,
-            accounts,
-            data,
-        };
+        let ix = AssembleAndUpdateClient::new(
+            AssembleAndUpdateClientAccounts {
+                access_manager,
+                submitter: self.fee_payer,
+                trusted_height,
+                target_height,
+            },
+            &solana_ics07_program_id,
+        )
+        .build_instruction(&args_data, chunk_iter.chain(sig_iter));
 
         let mut instructions = Self::extend_compute_ix_with_heap();
         instructions.push(ix);
@@ -139,9 +117,7 @@ impl super::TxBuilder {
         signature_data: &[SignatureData],
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        let mut accounts = vec![AccountMeta::new(self.fee_payer, true)];
-
-        accounts.extend((0..total_chunks).map(|chunk_index| {
+        let chunk_iter = (0..total_chunks).map(|chunk_index| {
             let (chunk_pda, _) = derive_header_chunk(
                 self.fee_payer,
                 target_height,
@@ -149,23 +125,23 @@ impl super::TxBuilder {
                 solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
-        }));
+        });
 
-        accounts.extend(signature_data.iter().map(|sig_data| {
+        let sig_iter = signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
                 &solana_ics07_program_id,
             );
             AccountMeta::new(sig_verify_pda, false)
-        }));
+        });
 
-        let data = ics07_instructions::cleanup_incomplete_upload_discriminator().to_vec();
-
-        let instruction = Instruction {
-            program_id: solana_ics07_program_id,
-            accounts,
-            data,
-        };
+        let instruction = CleanupIncompleteUpload::new(
+            CleanupIncompleteUploadAccounts {
+                submitter: self.fee_payer,
+            },
+            &solana_ics07_program_id,
+        )
+        .build_instruction(&[], chunk_iter.chain(sig_iter));
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
@@ -186,10 +162,9 @@ impl super::TxBuilder {
             chunk_data,
         };
 
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
-        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
         let (chunk_pda, _) = derive_header_chunk(
             self.fee_payer,
             target_height,
@@ -197,24 +172,15 @@ impl super::TxBuilder {
             solana_ics07_program_id,
         );
 
-        let accounts = vec![
-            AccountMeta::new(chunk_pda, false),
-            AccountMeta::new_readonly(client_state_pda, false),
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let mut data = ics07_instructions::upload_header_chunk_discriminator().to_vec();
-        data.extend_from_slice(&params.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: solana_ics07_program_id,
-            accounts,
-            data,
-        })
+        Ok(UploadHeaderChunk::new(
+            UploadHeaderChunkAccounts {
+                chunk: chunk_pda,
+                access_manager,
+                submitter: self.fee_payer,
+            },
+            &solana_ics07_program_id,
+        )
+        .build_instruction(&params.try_to_vec()?, []))
     }
 
     pub(crate) fn build_chunk_transactions(
@@ -442,30 +408,19 @@ impl super::TxBuilder {
             &solana_ics07_program_id,
         );
 
-        let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
-
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let accounts = vec![
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-            AccountMeta::new(sig_verify_pda, false),
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        ];
-
-        let params_data = sig_data.try_to_vec()?;
-
-        let mut data = ics07_instructions::pre_verify_signature_discriminator().to_vec();
-        data.extend_from_slice(&params_data);
-
-        let pre_verify_ix = Instruction {
-            program_id: solana_ics07_program_id,
-            accounts,
-            data,
-        };
+        let pre_verify_ix = PreVerifySignature::new(
+            PreVerifySignatureAccounts {
+                signature_verification: sig_verify_pda,
+                access_manager,
+                submitter: self.fee_payer,
+            },
+            &solana_ics07_program_id,
+        )
+        .build_instruction(&sig_data.try_to_vec()?, []);
 
         let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
 

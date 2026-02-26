@@ -3,7 +3,7 @@
 //! These conversions are used by the relayer to convert `Header` to `BorshHeader`
 //! for efficient serialization before uploading to Solana.
 //!
-//! The actual implementation is in solana-ibc-types::borsh_header::conversions
+//! The actual implementation is in `solana-ibc-borsh-header`
 //! to avoid code duplication and ensure consistency across the codebase.
 
-pub use solana_ibc_types::borsh_header::conversions::*;
+pub use solana_ibc_borsh_header::conversions::*;

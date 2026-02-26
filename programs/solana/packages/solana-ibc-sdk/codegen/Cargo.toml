@@ -1,0 +1,17 @@
+[package]
+name = "solana-ibc-sdk-codegen"
+version.workspace = true
+edition.workspace = true
+description = "Code generation from Anchor IDL files for solana-ibc-sdk"
+readme = "README.md"
+categories = ["development-tools::build-utils"]
+license.workspace = true
+repository.workspace = true
+keywords.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[lints]
+workspace = true

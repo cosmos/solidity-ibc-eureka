@@ -3369,6 +3369,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "solana-allocator",
+ "solana-ibc-borsh-header",
  "solana-ibc-constants",
  "solana-ibc-types",
  "solana-program-test",
@@ -3582,6 +3583,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "solana-ibc-gmp-types",
  "solana-ibc-types",
  "solana-sdk",
 ]
@@ -6884,8 +6886,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-ibc-borsh-header"
+version = "0.1.0"
+dependencies = [
+ "borsh 0.10.4",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "tendermint",
+]
+
+[[package]]
 name = "solana-ibc-constants"
 version = "0.1.0"
+
+[[package]]
+name = "solana-ibc-gmp-types"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "borsh 0.10.4",
+ "solana-ibc-proto",
+ "solana-sdk",
+ "solana-sha256-hasher",
+]
 
 [[package]]
 name = "solana-ibc-macros"
@@ -6910,20 +6933,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "solana-ibc-sdk"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "solana-ibc-sdk-codegen",
+]
+
+[[package]]
+name = "solana-ibc-sdk-codegen"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "borsh 0.10.4",
- "ibc-client-tendermint",
- "ibc-core-client-types",
  "solana-ibc-constants",
+ "solana-ibc-gmp-types",
  "solana-ibc-macros",
  "solana-ibc-proto",
  "solana-keccak-hasher",
  "solana-sdk",
  "solana-sha256-hasher",
- "tendermint",
 ]
 
 [[package]]
