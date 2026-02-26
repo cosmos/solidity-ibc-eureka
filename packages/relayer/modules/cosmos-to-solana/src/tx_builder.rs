@@ -80,21 +80,6 @@ const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 /// Nanoseconds per second for timestamp conversion
 const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
-/// Helper to derive header chunk PDA
-pub(crate) fn derive_header_chunk(
-    submitter: Pubkey,
-    height: u64,
-    chunk_index: u8,
-    program_id: Pubkey,
-) -> (Pubkey, u8) {
-    solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
-        &submitter,
-        height,
-        chunk_index,
-        &program_id,
-    )
-}
-
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 ///
 /// This builder handles ICS07 Tendermint light client transactions.
@@ -302,11 +287,11 @@ impl TxBuilder {
         ];
 
         alt_accounts.extend((0..total_chunks).map(|chunk_index| {
-            derive_header_chunk(
-                self.fee_payer,
+            solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+                &self.fee_payer,
                 target_height,
                 chunk_index,
-                solana_ics07_program_id,
+                &solana_ics07_program_id,
             )
             .0
         }));

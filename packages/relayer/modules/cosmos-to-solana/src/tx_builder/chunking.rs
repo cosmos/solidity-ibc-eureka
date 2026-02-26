@@ -34,40 +34,6 @@ const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 /// Batch size for ALT extension transactions
 const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
-fn payload_chunk_pda(
-    payer: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    payload_index: u8,
-    chunk_index: u8,
-    program_id: Pubkey,
-) -> (Pubkey, u8) {
-    solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
-        &payer,
-        client_id,
-        sequence,
-        payload_index,
-        chunk_index,
-        &program_id,
-    )
-}
-
-fn proof_chunk_pda(
-    payer: Pubkey,
-    client_id: &str,
-    sequence: u64,
-    chunk_index: u8,
-    program_id: Pubkey,
-) -> (Pubkey, u8) {
-    solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
-        &payer,
-        client_id,
-        sequence,
-        chunk_index,
-        &program_id,
-    )
-}
-
 impl super::TxBuilder {
     /// Derives the GMP result PDA bytes for a single-payload packet.
     /// Returns empty vec for empty payloads, errors on multi-payload.
@@ -192,13 +158,13 @@ impl super::TxBuilder {
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = payload_chunk_pda(
-            self.fee_payer,
+        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+            &self.fee_payer,
             client_id,
             sequence,
             payload_index,
             chunk_index,
-            self.solana_ics26_program_id,
+            &self.solana_ics26_program_id,
         );
 
         Ok(UploadPayloadChunk::builder(&self.solana_ics26_program_id)
@@ -230,12 +196,12 @@ impl super::TxBuilder {
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = proof_chunk_pda(
-            self.fee_payer,
+        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+            &self.fee_payer,
             client_id,
             sequence,
             chunk_index,
-            self.solana_ics26_program_id,
+            &self.solana_ics26_program_id,
         );
 
         Ok(UploadProofChunk::builder(&self.solana_ics26_program_id)
@@ -318,13 +284,13 @@ impl super::TxBuilder {
 
             if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
                 for chunk_idx in 0..msg_payloads[payload_idx].total_chunks {
-                    let (chunk_pda, _) = payload_chunk_pda(
-                        self.fee_payer,
+                    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                        &self.fee_payer,
                         client_id,
                         sequence,
                         payload_index,
                         chunk_idx,
-                        self.solana_ics26_program_id,
+                        &self.solana_ics26_program_id,
                     );
                     remaining_account_pubkeys.push(chunk_pda);
                 }
@@ -333,12 +299,12 @@ impl super::TxBuilder {
 
         if proof_total_chunks > 0 {
             for chunk_idx in 0..proof_total_chunks {
-                let (chunk_pda, _) = proof_chunk_pda(
-                    self.fee_payer,
+                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+                    &self.fee_payer,
                     client_id,
                     sequence,
                     chunk_idx,
-                    self.solana_ics26_program_id,
+                    &self.solana_ics26_program_id,
                 );
                 remaining_account_pubkeys.push(chunk_pda);
             }
@@ -641,25 +607,25 @@ impl super::TxBuilder {
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
             for chunk_index in 0..payload_metadata.total_chunks {
-                let (chunk_pda, _) = payload_chunk_pda(
-                    self.fee_payer,
+                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                    &self.fee_payer,
                     client_id,
                     sequence,
                     payload_index,
                     chunk_index,
-                    self.solana_ics26_program_id,
+                    &self.solana_ics26_program_id,
                 );
                 remaining_accounts.push(AccountMeta::new(chunk_pda, false));
             }
         }
 
         for chunk_index in 0..proof_total_chunks {
-            let (chunk_pda, _) = proof_chunk_pda(
-                self.fee_payer,
+            let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+                &self.fee_payer,
                 client_id,
                 sequence,
                 chunk_index,
-                self.solana_ics26_program_id,
+                &self.solana_ics26_program_id,
             );
             remaining_accounts.push(AccountMeta::new(chunk_pda, false));
         }

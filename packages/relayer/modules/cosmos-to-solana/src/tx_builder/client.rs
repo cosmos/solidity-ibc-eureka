@@ -20,8 +20,6 @@ use solana_ibc_sdk::ics07_tendermint::instructions::{
 };
 use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, SignatureData, UploadChunkParams};
 
-use super::derive_header_chunk;
-
 impl super::TxBuilder {
     pub(crate) fn build_create_client_instruction(
         &self,
@@ -64,11 +62,11 @@ impl super::TxBuilder {
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
         let chunk_iter = (0..total_chunks).map(|chunk_index| {
-            let (chunk_pda, _) = derive_header_chunk(
-                self.fee_payer,
+            let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+                &self.fee_payer,
                 target_height,
                 chunk_index,
-                solana_ics07_program_id,
+                &solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
         });
@@ -116,11 +114,11 @@ impl super::TxBuilder {
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         let chunk_iter = (0..total_chunks).map(|chunk_index| {
-            let (chunk_pda, _) = derive_header_chunk(
-                self.fee_payer,
+            let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+                &self.fee_payer,
                 target_height,
                 chunk_index,
-                solana_ics07_program_id,
+                &solana_ics07_program_id,
             );
             AccountMeta::new(chunk_pda, false)
         });
@@ -162,11 +160,11 @@ impl super::TxBuilder {
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
-        let (chunk_pda, _) = derive_header_chunk(
-            self.fee_payer,
+        let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+            &self.fee_payer,
             target_height,
             chunk_index,
-            solana_ics07_program_id,
+            &solana_ics07_program_id,
         );
 
         Ok(UploadHeaderChunk::builder(&solana_ics07_program_id)
