@@ -92,7 +92,7 @@ func TestWithIbcEurekaTestSuite(t *testing.T) {
 	suite.Run(t, new(IbcEurekaTestSuite))
 }
 
-// isEthLcOnCosmosAttestor returns true if the Ethereum light client on Cosmos uses any attestor type (attestor-wasm or attestor-native)
+// isEthLcOnCosmosAttestor returns true if the Ethereum light client on Cosmos uses any attestor type (attestor-native)
 func (s *IbcEurekaTestSuite) isEthLcOnCosmosAttestor() bool {
 	return s.GetEthLightClientType() == testvalues.EthLCOnCosmosTypeAttestorNative
 }
