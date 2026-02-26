@@ -230,7 +230,7 @@ impl IUpdateClientMsgs::UpdateClientOutput {
 impl IUpdateClientAndMembershipMsgs::UcAndMembershipOutput {
     /// Create from an update client output and verified key-value pairs.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         update_client_output: IUpdateClientMsgs::UpdateClientOutput,
         kv_pairs: Vec<IMembershipMsgs::KVPair>,
     ) -> Self {

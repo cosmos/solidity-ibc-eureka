@@ -9,8 +9,6 @@ members = [
     "packages/ethereum/types",
     "packages/ethereum/apis",
     "packages/ethereum/tree_hash",
-    "packages/ethereum/keys",
-    "packages/attestor/light-client",
     "packages/tendermint-light-client/update-client",
     "packages/tendermint-light-client/membership",
     "packages/tendermint-light-client/misbehaviour",
@@ -65,10 +63,7 @@ ethereum-trie-db                        = { path = "packages/ethereum/trie-db", 
 ethereum-light-client                   = { path = "packages/ethereum/light-client", default-features = false }
 ethereum-types                          = { path = "packages/ethereum/types", default-features = false }
 ethereum-apis                           = { path = "packages/ethereum/apis", default-features = false }
-ethereum-keys                           = { path = "packages/ethereum/keys", default-features = false }
 tree_hash                               = { path = "packages/ethereum/tree_hash", default-features = false }
-
-attestor-light-client              = { path = "packages/attestor/light-client", default-features = false }
 
 tendermint-light-client-update-client     = { path = "packages/tendermint-light-client/update-client", default-features = false }
 tendermint-light-client-membership        = { path = "packages/tendermint-light-client/membership", default-features = false }

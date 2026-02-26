@@ -755,14 +755,14 @@ lint-buf:
 	@echo "Linting the Protobuf files..."
 	buf lint
 
-# Lint the Rust code using `cargo fmt` and `cargo clippy`
+# Lint the all the Rust code using `cargo fmt` and `cargo clippy`
 [group('lint')]
 lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
-	cargo clippy --all-targets --all-features -- -D warnings
-	cd programs/sp1-programs && cargo fmt --all -- --check
-	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --features signer-local -- -D warnings
+	just lint-sp1
+	just lint-solana
 
 # Lint the Solana code using `cargo fmt` and `cargo clippy`
 [group('lint')]
@@ -771,6 +771,12 @@ lint-solana:
 	cd programs/solana && cargo fmt --all -- --check
 	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
 
+# Lint the Solana code using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-sp1:
+	@echo "Linting the SP1 programs..."
+	cd programs/sp1-programs && cargo fmt --all -- --check
+	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
 # Generate the (non-bytecode) ABI files for the contracts
 [group('generate')]
