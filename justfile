@@ -760,7 +760,7 @@ lint-buf:
 lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
-	cargo clippy --all-targets --features signer-local -- -D warnings
+	cargo clippy --all-targets -- -D warnings
 	just lint-sp1
 	just lint-solana
 

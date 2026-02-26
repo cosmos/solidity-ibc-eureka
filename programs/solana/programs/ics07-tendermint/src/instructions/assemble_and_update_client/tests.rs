@@ -330,7 +330,7 @@ fn test_successful_assembly_and_update() {
             crate::types::UpdateResult::UpdateSuccess,
             "Should return UpdateResult::Update for successful update"
         );
-        println!("Assembly succeeded with real fixtures and returned {update_result:?}",);
+        println!("Assembly succeeded with real fixtures and returned {update_result:?}");
     }
 }
 
