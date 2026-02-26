@@ -382,6 +382,122 @@ fn test_assemble_and_submit_misbehaviour_client_already_frozen() {
     mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }
 
+/// Test that `chunk_count` exceeding `remaining_accounts` fails with `InvalidChunkCount`
+#[test]
+fn test_assemble_and_submit_misbehaviour_chunk_count_exceeds_remaining_accounts() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
+
+    // Setup test accounts with chunks
+    let test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    // Remember how many chunk PDAs we actually have
+    let actual_chunk_count = test_accounts.chunk_pdas.len();
+
+    // Create instruction with inflated chunk_count
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
+        chunk_count: (actual_chunk_count + 5) as u8, // Claim more chunks than provided
+        trusted_height_1: height_1,
+        trusted_height_2: height_2,
+    };
+
+    let mut account_metas = vec![
+        AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new_readonly(test_accounts.app_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
+        AccountMeta::new(test_accounts.submitter, true),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+    ];
+
+    // Only add the actual chunk accounts (fewer than claimed)
+    for chunk_pda in &test_accounts.chunk_pdas {
+        account_metas.push(AccountMeta::new(*chunk_pda, false));
+    }
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: account_metas,
+        data: instruction_data.data(),
+    };
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidChunkCount).into(),
+    )];
+    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+}
+
+/// Test that `chunk_count` = 0 fails with `InvalidChunkCount`
+#[test]
+fn test_assemble_and_submit_misbehaviour_zero_chunk_count_rejected() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    // Setup without chunks
+    let test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: false,
+        misbehaviour_bytes: &[],
+    });
+
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    // Create instruction with chunk_count = 0
+    let instruction_data = crate::instruction::AssembleAndSubmitMisbehaviour {
+        chunk_count: 0, // Zero chunks - invalid
+        trusted_height_1: height_1,
+        trusted_height_2: height_2,
+    };
+
+    let account_metas = vec![
+        AccountMeta::new(test_accounts.client_state_pda, false),
+        AccountMeta::new_readonly(test_accounts.app_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_1_pda, false),
+        AccountMeta::new_readonly(test_accounts.trusted_consensus_state_2_pda, false),
+        AccountMeta::new(test_accounts.submitter, true),
+        AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+    ];
+
+    let instruction = Instruction {
+        program_id: crate::ID,
+        accounts: account_metas,
+        data: instruction_data.data(),
+    };
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidChunkCount).into(),
+    )];
+    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
+}
+
 #[test]
 fn test_assemble_and_submit_misbehaviour_wrong_chunk_pda() {
     let chain_id = "test-chain";
