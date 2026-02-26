@@ -485,6 +485,11 @@ impl ClientStatus {
         Pubkey::find_program_address(&[b"client"], program_id)
     }
 
+    #[must_use]
+    pub fn consensus_state_pda(latest_height: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"consensus_state", latest_height.as_ref()], program_id)
+    }
+
     /// Creates a builder for this instruction.
     #[must_use]
     pub fn builder(program_id: &Pubkey) -> ClientStatusBuilder {

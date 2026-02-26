@@ -18,8 +18,10 @@ pub struct PdaParam {
 
 /// Resolves a single instruction account's PDA definition.
 ///
-/// Returns `None` for accounts without PDA seeds, cross-program PDAs,
-/// or PDAs with no const seeds.
+/// Returns `None` for accounts without PDA seeds or with no const seeds.
+/// Cross-program PDAs and dot-path account seeds are resolved normally —
+/// the caller decides whether to auto-derive in `build()` or just emit
+/// a standalone helper.
 pub fn resolve_account_pda(
     acc: &IdlInstructionAccount,
     ix_args: &[IdlInstructionArg],
@@ -27,7 +29,7 @@ pub fn resolve_account_pda(
 ) -> Option<ResolvedPda> {
     let pda = acc.pda.as_ref()?;
 
-    if pda.seeds.is_empty() || pda.program.is_some() {
+    if pda.seeds.is_empty() {
         return None;
     }
 
@@ -288,20 +290,29 @@ mod tests {
     }
 
     #[test]
-    fn resolve_account_pda_skips_cross_program() {
+    fn resolve_account_pda_handles_cross_program() {
         let acc = IdlInstructionAccount {
             name: "external_pda".to_string(),
             writable: false,
             signer: false,
             address: None,
             pda: Some(IdlPda {
-                seeds: vec![const_seed(b"something")],
+                seeds: vec![const_seed(b"gmp_result"), arg_seed("client_id")],
                 program: Some(serde_json::json!({"kind": "account", "path": "external"})),
             }),
         };
+        let ix_args = vec![IdlInstructionArg {
+            name: "client_id".to_string(),
+            arg_type: IdlFieldType::Primitive("string".to_string()),
+        }];
         let type_map = HashMap::new();
 
-        assert!(resolve_account_pda(&acc, &[], &type_map).is_none());
+        let resolved = resolve_account_pda(&acc, &ix_args, &type_map).unwrap();
+        assert_eq!(resolved.const_seeds.len(), 1);
+        assert_eq!(resolved.const_seeds[0], b"gmp_result");
+        assert_eq!(resolved.params.len(), 1);
+        assert_eq!(resolved.params[0].name, "client_id");
+        assert_eq!(resolved.params[0].rust_type, "&str");
     }
 
     #[test]

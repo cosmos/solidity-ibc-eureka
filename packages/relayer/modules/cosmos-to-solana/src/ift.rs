@@ -156,25 +156,11 @@ fn build_finalize_transfer_ix(
 ) -> Instruction {
     let mint = pending_transfer.mint;
 
-    let (ift_bridge_pda, _) = Pubkey::find_program_address(
-        &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
-        &ift_program_id,
-    );
-    let (pending_transfer_pda, _) = Pubkey::find_program_address(
-        &[
-            b"pending_transfer",
-            mint.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &ift_program_id,
-    );
+    let (ift_bridge_pda, _) = FinalizeTransfer::ift_bridge_pda(&mint, client_id, &ift_program_id);
+    let (pending_transfer_pda, _) =
+        FinalizeTransfer::pending_transfer_pda(&mint, client_id, sequence, &ift_program_id);
     let (gmp_result_pda, _) =
-        solana_ibc_sdk::ics27_gmp::instructions::OnAcknowledgementPacket::result_account_pda(
-            client_id,
-            sequence,
-            &gmp_program_id,
-        );
+        FinalizeTransfer::gmp_result_pda(client_id, sequence, &gmp_program_id);
 
     let sender_token_account = get_associated_token_address_with_program_id(
         &pending_transfer.sender,

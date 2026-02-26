@@ -125,6 +125,26 @@ impl SendCall {
         Pubkey::find_program_address(&[b"app_state"], program_id)
     }
 
+    #[must_use]
+    pub fn router_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"router_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn client_sequence_pda(source_client: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"client_sequence", source_client.as_bytes()], program_id)
+    }
+
+    #[must_use]
+    pub fn ibc_app_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ibc_app", b"gmpport"], program_id)
+    }
+
+    #[must_use]
+    pub fn client_pda(source_client: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"client", source_client.as_bytes()], program_id)
+    }
+
     /// Creates a builder for this instruction.
     #[must_use]
     pub fn builder(program_id: &Pubkey) -> SendCallBuilder {
@@ -224,6 +244,26 @@ impl SendCallCpi {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn router_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"router_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn client_sequence_pda(source_client: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"client_sequence", source_client.as_bytes()], program_id)
+    }
+
+    #[must_use]
+    pub fn ibc_app_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ibc_app", b"gmpport"], program_id)
+    }
+
+    #[must_use]
+    pub fn client_pda(source_client: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"client", source_client.as_bytes()], program_id)
     }
 
     /// Creates a builder for this instruction.

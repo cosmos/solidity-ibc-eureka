@@ -346,6 +346,16 @@ fn generate_instruction_struct(
         })
         .collect();
 
+    // Resolve PDAs for Provided accounts (standalone helpers only, not auto-derived in build())
+    let provided_pdas: BTreeMap<String, ResolvedPda> = classifications
+        .iter()
+        .filter(|(_, kind)| matches!(kind, AccountKind::Provided))
+        .filter_map(|(acc, _)| {
+            pda::resolve_account_pda(acc, &instruction.args, type_map)
+                .map(|resolved| (acc.name.clone(), resolved))
+        })
+        .collect();
+
     let pda_args = extract_pda_args(&classifications, &resolved_pdas);
     let needs_lifetime = pda_args.iter().any(|a| a.needs_lifetime);
 
@@ -418,7 +428,7 @@ fn generate_instruction_struct(
     .unwrap();
 
     // --- PDA methods ---
-    if !resolved_pdas.is_empty() {
+    if !resolved_pdas.is_empty() || !provided_pdas.is_empty() {
         writeln!(output).unwrap();
     }
     for (acc, kind) in &classifications {
@@ -426,6 +436,14 @@ fn generate_instruction_struct(
             continue;
         }
         if let Some(resolved) = resolved_pdas.get(&acc.name) {
+            pda::generate_pda_method(output, &acc.name, resolved);
+        }
+    }
+    for (acc, kind) in &classifications {
+        if !matches!(kind, AccountKind::Provided) {
+            continue;
+        }
+        if let Some(resolved) = provided_pdas.get(&acc.name) {
             pda::generate_pda_method(output, &acc.name, resolved);
         }
     }
@@ -1480,5 +1498,74 @@ mod tests {
         generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
         assert!(output.contains("pub r#type: u8,"));
+    }
+
+    #[test]
+    fn provided_accounts_get_pda_helpers() {
+        let instruction = IdlInstruction {
+            name: "finalize_transfer".to_string(),
+            discriminator: vec![0; 8],
+            accounts: vec![
+                provided_account("payer"),
+                // Dot-path account seed → Provided
+                IdlInstructionAccount {
+                    name: "bridge".to_string(),
+                    writable: false,
+                    signer: false,
+                    address: None,
+                    pda: Some(IdlPda {
+                        seeds: vec![
+                            const_seed(b"bridge"),
+                            account_seed("state.mint"),
+                            arg_seed("client_id"),
+                        ],
+                        program: None,
+                    }),
+                },
+                // Cross-program PDA → Provided
+                IdlInstructionAccount {
+                    name: "gmp_result".to_string(),
+                    writable: false,
+                    signer: false,
+                    address: None,
+                    pda: Some(IdlPda {
+                        seeds: vec![
+                            const_seed(b"gmp_result"),
+                            arg_seed("client_id"),
+                            arg_seed("sequence"),
+                        ],
+                        program: Some(serde_json::json!({"kind": "account", "path": "gmp"})),
+                    }),
+                },
+                provided_account("state"),
+            ],
+            args: vec![
+                IdlInstructionArg {
+                    name: "client_id".to_string(),
+                    arg_type: IdlFieldType::Primitive("string".to_string()),
+                },
+                IdlInstructionArg {
+                    name: "sequence".to_string(),
+                    arg_type: IdlFieldType::Primitive("u64".to_string()),
+                },
+            ],
+        };
+
+        let type_map = HashMap::new();
+        let names = empty_names();
+        let mut output = String::new();
+        generate_instruction_struct(&mut output, &instruction, &type_map, &names);
+
+        // Dot-path account → Provided, but PDA helper is generated
+        assert!(output.contains(
+            "pub fn bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8)"
+        ));
+        // Cross-program PDA → Provided, but PDA helper is generated
+        assert!(output.contains(
+            "pub fn gmp_result_pda(client_id: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8)"
+        ));
+        // These should NOT be auto-derived in build()
+        assert!(!output.contains("FinalizeTransfer::bridge_pda("));
+        assert!(!output.contains("FinalizeTransfer::gmp_result_pda("));
     }
 }

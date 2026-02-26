@@ -315,6 +315,19 @@ impl RegisterIftBridge {
         Pubkey::find_program_address(&[b"ift_app_state"], program_id)
     }
 
+    #[must_use]
+    pub fn app_mint_state_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ift_app_mint_state", mint.as_ref()], program_id)
+    }
+
+    #[must_use]
+    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
+            program_id,
+        )
+    }
+
     /// Creates a builder for this instruction.
     #[must_use]
     pub fn builder(program_id: &Pubkey) -> RegisterIftBridgeBuilder {
@@ -399,6 +412,19 @@ impl RemoveIftBridge {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"ift_app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn app_mint_state_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ift_app_mint_state", mint.as_ref()], program_id)
+    }
+
+    #[must_use]
+    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
+            program_id,
+        )
     }
 
     /// Creates a builder for this instruction.
@@ -503,6 +529,24 @@ impl IftTransfer {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"ift_app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn app_mint_state_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ift_app_mint_state", mint.as_ref()], program_id)
+    }
+
+    #[must_use]
+    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
+            program_id,
+        )
+    }
+
+    #[must_use]
+    pub fn gmp_app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"app_state"], program_id)
     }
 
     /// Creates a builder for this instruction.
@@ -625,6 +669,14 @@ impl IftMint {
         Pubkey::find_program_address(&[b"ift_mint_authority", mint.as_ref()], program_id)
     }
 
+    #[must_use]
+    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"ift_bridge", mint.as_ref(), client_id.as_ref()],
+            program_id,
+        )
+    }
+
     /// Creates a builder for this instruction.
     #[must_use]
     pub fn builder(program_id: &Pubkey) -> IftMintBuilder {
@@ -732,6 +784,40 @@ impl FinalizeTransfer {
     #[must_use]
     pub fn mint_authority_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"ift_mint_authority", mint.as_ref()], program_id)
+    }
+
+    #[must_use]
+    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
+            program_id,
+        )
+    }
+
+    #[must_use]
+    pub fn pending_transfer_pda(
+        mint: &Pubkey,
+        client_id: &str,
+        sequence: u64,
+        program_id: &Pubkey,
+    ) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[
+                b"pending_transfer",
+                mint.as_ref(),
+                client_id.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            program_id,
+        )
+    }
+
+    #[must_use]
+    pub fn gmp_result_pda(client_id: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[b"gmp_result", client_id.as_bytes(), &sequence.to_le_bytes()],
+            program_id,
+        )
     }
 
     /// Creates a builder for this instruction.
@@ -1009,6 +1095,11 @@ impl SetMintRateLimit {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"ift_app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn app_mint_state_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"ift_app_mint_state", mint.as_ref()], program_id)
     }
 
     /// Creates a builder for this instruction.
