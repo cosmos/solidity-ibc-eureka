@@ -78,8 +78,8 @@ pub mod fixtures {
 
         ClientState {
             chain_id: proto.chain_id,
-            trust_level_numerator: trust_level.numerator as u64,
-            trust_level_denominator: trust_level.denominator as u64,
+            trust_level_numerator: trust_level.numerator,
+            trust_level_denominator: trust_level.denominator,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
@@ -147,7 +147,7 @@ pub mod fixtures {
         use ibc_client_tendermint::types::Header;
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
-        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
+        use solana_ibc_borsh_header::conversions::header_to_borsh;
 
         // Decode from Protobuf (fixture format)
         let header = <Header as Protobuf<RawHeader>>::decode_vec(protobuf_bytes)
@@ -197,7 +197,7 @@ pub mod fixtures {
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
         use prost::Message;
-        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
+        use solana_ibc_borsh_header::conversions::header_to_borsh;
 
         let bytes = hex_to_bytes(client_message_hex);
         let mut header_proto = ibc_client_tendermint::types::proto::v1::Header::decode(&bytes[..])
@@ -238,7 +238,7 @@ pub mod fixtures {
         use ibc_proto::ibc::lightclients::tendermint::v1::Header as RawHeader;
         use ibc_proto::Protobuf;
         use prost::Message;
-        use solana_ibc_types::borsh_header::conversions::header_to_borsh;
+        use solana_ibc_borsh_header::conversions::header_to_borsh;
 
         let bytes = hex_to_bytes(client_message_hex);
 
@@ -371,8 +371,8 @@ pub mod fixtures {
 
         ClientState {
             chain_id: proto.chain_id,
-            trust_level_numerator: trust_level.numerator as u64,
-            trust_level_denominator: trust_level.denominator as u64,
+            trust_level_numerator: trust_level.numerator,
+            trust_level_denominator: trust_level.denominator,
             trusting_period: trusting_period.seconds as u64,
             unbonding_period: unbonding_period.seconds as u64,
             max_clock_drift: max_clock_drift.seconds as u64,
@@ -421,7 +421,7 @@ pub mod fixtures {
     /// Helper functions for misbehaviour testing
     pub mod misbehaviour {
         use super::*;
-        use solana_ibc_types::borsh_header::{
+        use solana_ibc_borsh_header::{
             BorshBlockHeader, BorshBlockId, BorshCommit, BorshCommitSig, BorshConsensusVersion,
             BorshHeader, BorshHeight, BorshMisbehaviour, BorshPartSetHeader, BorshPublicKey,
             BorshSignedHeader, BorshTimestamp, BorshValidator, BorshValidatorSet,

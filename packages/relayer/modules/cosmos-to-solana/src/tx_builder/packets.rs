@@ -9,35 +9,34 @@ use solana_sdk::{
 };
 
 use crate::gmp;
-use solana_ibc_types::attestation::{
-    ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
-};
-use solana_ibc_types::ics07::{ClientState, ConsensusState};
-use solana_ibc_types::{
-    router::{router_instructions, Client, Commitment, IBCApp, IBCAppState, RouterState},
-    AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket,
+use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
+use solana_ibc_sdk::attestation::instructions as attestation_instructions;
+use solana_ibc_sdk::ics07_tendermint::instructions as ics07_tendermint_instructions;
+use solana_ibc_sdk::ics26_router::{
+    accounts::IBCApp,
+    instructions::{
+        AckPacket, AckPacketAccounts, RecvPacket, RecvPacketAccounts, SendPacket, TimeoutPacket,
+        TimeoutPacketAccounts,
+    },
+    types::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, Payload, PayloadMetadata},
 };
 
-use super::TimeoutAccountsParams;
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 
 /// Derives client state and consensus state PDAs based on client type.
-fn derive_light_client_pdas(
-    client_id: &str,
-    height: u64,
-    light_client_program_id: Pubkey,
-) -> (Pubkey, Pubkey) {
-    match solana_ibc_constants::client_type_from_id(client_id) {
-        Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION) => {
-            let (cs, _) = AttestationClientState::pda(light_client_program_id);
-            let (cons, _) = AttestationConsensusState::pda(height, light_client_program_id);
-            (cs, cons)
-        }
-        Some(solana_ibc_constants::CLIENT_TYPE_TENDERMINT) | _ => {
-            let (cs, _) = ClientState::pda(light_client_program_id);
-            let (cons, _) = ConsensusState::pda(height, light_client_program_id);
-            (cs, cons)
-        }
+fn derive_light_client_pdas(client_id: &str, height: u64, program_id: Pubkey) -> (Pubkey, Pubkey) {
+    use attestation_instructions as att;
+    use ics07_tendermint_instructions as tm;
+    use solana_ibc_constants::{client_type_from_id, CLIENT_TYPE_ATTESTATION};
+
+    if client_type_from_id(client_id) == Some(CLIENT_TYPE_ATTESTATION) {
+        let (cs, _) = att::Initialize::client_state_pda(&program_id);
+        let (cons, _) = att::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
+        (cs, cons)
+    } else {
+        let (cs, _) = tm::Initialize::client_state_account_pda(&program_id);
+        let (cons, _) = tm::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
+        (cs, cons)
     }
 }
 
@@ -50,8 +49,8 @@ struct RecvPayloadInfo<'a> {
 
 /// Extract `source_port` from either inline payloads or chunked metadata.
 fn extract_source_port<'a>(
-    packet_payloads: &'a [solana_ibc_types::Payload],
-    metadata_payloads: &'a [solana_ibc_types::router::PayloadMetadata],
+    packet_payloads: &'a [Payload],
+    metadata_payloads: &'a [PayloadMetadata],
     context: &str,
 ) -> Result<&'a str> {
     if !packet_payloads.is_empty() {
@@ -114,21 +113,6 @@ impl super::TxBuilder {
     ) -> Result<Instruction> {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
-        let (ibc_app, _) = IBCApp::pda(payload_info.dest_port, self.solana_ics26_program_id);
-        let (packet_receipt, _) = Commitment::packet_receipt_pda(
-            &msg.packet.dest_client,
-            msg.packet.sequence,
-            self.solana_ics26_program_id,
-        );
-        let (packet_ack, _) = Commitment::packet_ack_pda(
-            &msg.packet.dest_client,
-            msg.packet.sequence,
-            self.solana_ics26_program_id,
-        );
-        let (client, _) = Client::pda(&msg.packet.dest_client, self.solana_ics26_program_id);
-
-        // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.dest_client,
@@ -137,31 +121,10 @@ impl super::TxBuilder {
         );
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
+        let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
-
-        let mut accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new_readonly(ibc_app, false),
-            AccountMeta::new(packet_receipt, false),
-            AccountMeta::new(packet_ack, false),
-            AccountMeta::new_readonly(ibc_app_program_id, false),
-            AccountMeta::new(ibc_app_state, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-            AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(light_client_program_id, false),
-            AccountMeta::new_readonly(client_state, false),
-            AccountMeta::new_readonly(consensus_state, false),
-        ];
-        accounts.extend(
-            chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false)),
-        );
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
         let gmp_accounts = gmp::extract_gmp_accounts(
             payload_info.dest_port,
@@ -170,27 +133,38 @@ impl super::TxBuilder {
             &msg.packet.dest_client,
             ibc_app_program_id,
         )?;
-        accounts.extend(gmp_accounts);
 
-        let mut data = router_instructions::recv_packet_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        })
+        Ok(RecvPacket::builder(&self.solana_ics26_program_id)
+            .accounts(RecvPacketAccounts {
+                access_manager,
+                ibc_app_program: ibc_app_program_id,
+                ibc_app_state,
+                relayer: self.fee_payer,
+                light_client_program: light_client_program_id,
+                client_state,
+                consensus_state,
+                dest_port: payload_info.dest_port.as_bytes(),
+                dest_client: &msg.packet.dest_client,
+                sequence: msg.packet.sequence,
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_accounts),
+            )
+            .build())
     }
 
-    pub(crate) async fn build_ack_packet_instruction(
+    pub(crate) fn build_ack_packet_instruction(
         &self,
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
         let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "ack")?;
 
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
-        let (ibc_app_pda, _) = IBCApp::pda(source_port, self.solana_ics26_program_id);
+        let (ibc_app_pda, _) = SendPacket::ibc_app_pda(source_port, &self.solana_ics26_program_id);
 
         let ibc_app_account = self
             .target_solana_client
@@ -204,19 +178,12 @@ impl super::TxBuilder {
         }
 
         let mut account_data = &ibc_app_account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut account_data)
+        let ibc_app = IBCApp::deserialize(&mut account_data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
         let ibc_app_program = ibc_app.app_program_id;
 
-        let (app_state, _) = IBCAppState::pda(ibc_app_program);
-        let (packet_commitment, _) = Commitment::packet_commitment_pda(
-            &msg.packet.source_client,
-            msg.packet.sequence,
-            self.solana_ics26_program_id,
-        );
-        let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
+        let (app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program);
 
-        // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.source_client,
@@ -225,48 +192,40 @@ impl super::TxBuilder {
         );
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let mut accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new_readonly(ibc_app_pda, false),
-            AccountMeta::new(packet_commitment, false),
-            AccountMeta::new_readonly(ibc_app_program, false),
-            AccountMeta::new(app_state, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-            AccountMeta::new_readonly(client, false),
-            AccountMeta::new_readonly(light_client_program_id, false),
-            AccountMeta::new_readonly(client_state, false),
-            AccountMeta::new_readonly(consensus_state, false),
-        ];
-        accounts.extend(
-            chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false)),
-        );
-
-        // Add GMP result PDA for GMP packets (will be initialized by on_ack_packet)
-        // Note: IFT finalize_transfer is handled as a separate transaction after ack completes
-        if let Some(result_pda) = gmp::find_gmp_result_pda(
+        // GMP result PDA for GMP packets (initialized by on_ack_packet)
+        // IFT finalize_transfer is handled as a separate transaction after ack completes
+        let gmp_result = gmp::find_gmp_result_pda(
             source_port,
             &msg.packet.source_client,
             msg.packet.sequence,
             ibc_app_program,
-        ) {
-            accounts.push(AccountMeta::new(result_pda, false));
-        }
+        )
+        .map(|pda| AccountMeta::new(pda, false));
 
-        let mut data = router_instructions::ack_packet_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        })
+        Ok(AckPacket::builder(&self.solana_ics26_program_id)
+            .accounts(AckPacketAccounts {
+                access_manager,
+                ibc_app_program,
+                ibc_app_state: app_state,
+                relayer: self.fee_payer,
+                light_client_program: light_client_program_id,
+                client_state,
+                consensus_state,
+                source_port: source_port.as_bytes(),
+                source_client: &msg.packet.source_client,
+                sequence: msg.packet.sequence,
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_result),
+            )
+            .build())
     }
 
     pub(crate) fn build_timeout_packet_instruction(
@@ -276,49 +235,9 @@ impl super::TxBuilder {
     ) -> Result<Instruction> {
         let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
 
-        let mut accounts =
-            self.build_timeout_accounts_with_derived_keys(msg, source_port, chunk_accounts)?;
-
-        // Add GMP result PDA for GMP packets (will be initialized by on_timeout_packet)
-        // Note: IFT finalize_transfer is handled as a separate transaction after timeout completes
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        if let Some(result_pda) = gmp::find_gmp_result_pda(
-            source_port,
-            &msg.packet.source_client,
-            msg.packet.sequence,
-            ibc_app_program_id,
-        ) {
-            accounts.push(AccountMeta::new(result_pda, false));
-        }
+        let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
 
-        let data = Self::build_timeout_instruction_data(msg)?;
-
-        Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        })
-    }
-
-    pub(crate) fn build_timeout_accounts_with_derived_keys(
-        &self,
-        msg: &MsgTimeoutPacket,
-        source_port: &str,
-        chunk_accounts: Vec<Pubkey>,
-    ) -> Result<Vec<AccountMeta>> {
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
-        let (ibc_app, _) = IBCApp::pda(source_port, self.solana_ics26_program_id);
-        let (packet_commitment, _) = Commitment::packet_commitment_pda(
-            &msg.packet.source_client,
-            msg.packet.sequence,
-            self.solana_ics26_program_id,
-        );
-
-        let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
-        let (ibc_app_state, _) = IBCAppState::pda(ibc_app_program_id);
-        let (client, _) = Client::pda(&msg.packet.source_client, self.solana_ics26_program_id);
-
-        // Resolve the light client program ID for this client
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
         let (client_state, consensus_state) = derive_light_client_pdas(
             &msg.packet.source_client,
@@ -327,52 +246,39 @@ impl super::TxBuilder {
         );
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        Ok(Self::assemble_timeout_accounts(TimeoutAccountsParams {
-            access_manager,
-            router_state,
-            ibc_app,
-            packet_commitment,
+        // GMP result PDA for GMP packets (initialized by on_timeout_packet)
+        // IFT finalize_transfer is handled as a separate transaction after timeout completes
+        let gmp_result = gmp::find_gmp_result_pda(
+            source_port,
+            &msg.packet.source_client,
+            msg.packet.sequence,
             ibc_app_program_id,
-            ibc_app_state,
-            client,
-            client_state,
-            consensus_state,
-            fee_payer: self.fee_payer,
-            light_client_program_id,
-            chunk_accounts,
-        }))
-    }
+        )
+        .map(|pda| AccountMeta::new(pda, false));
 
-    pub(crate) fn assemble_timeout_accounts(params: TimeoutAccountsParams) -> Vec<AccountMeta> {
-        let mut accounts = vec![
-            AccountMeta::new_readonly(params.router_state, false),
-            AccountMeta::new_readonly(params.access_manager, false),
-            AccountMeta::new_readonly(params.ibc_app, false),
-            AccountMeta::new(params.packet_commitment, false),
-            AccountMeta::new_readonly(params.ibc_app_program_id, false),
-            AccountMeta::new(params.ibc_app_state, false),
-            AccountMeta::new(params.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-            AccountMeta::new_readonly(params.client, false),
-            AccountMeta::new_readonly(params.light_client_program_id, false),
-            AccountMeta::new_readonly(params.client_state, false),
-            AccountMeta::new_readonly(params.consensus_state, false),
-        ];
-        accounts.extend(
-            params
-                .chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false)),
-        );
-        accounts
-    }
-
-    pub(crate) fn build_timeout_instruction_data(msg: &MsgTimeoutPacket) -> Result<Vec<u8>> {
-        let mut data = router_instructions::timeout_packet_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-        Ok(data)
+        Ok(TimeoutPacket::builder(&self.solana_ics26_program_id)
+            .accounts(TimeoutPacketAccounts {
+                access_manager,
+                ibc_app_program: ibc_app_program_id,
+                ibc_app_state,
+                relayer: self.fee_payer,
+                light_client_program: light_client_program_id,
+                client_state,
+                consensus_state,
+                source_port: source_port.as_bytes(),
+                source_client: &msg.packet.source_client,
+                sequence: msg.packet.sequence,
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_result),
+            )
+            .build())
     }
 }

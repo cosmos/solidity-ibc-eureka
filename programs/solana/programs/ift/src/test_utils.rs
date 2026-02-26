@@ -344,7 +344,7 @@ pub fn create_token_account(mint: Pubkey, owner: Pubkey, amount: u64) -> SolanaA
 }
 
 pub fn get_gmp_account_pda(client_id: &str, counterparty_address: &str) -> (Pubkey, u8) {
-    use solana_ibc_types::ics27::{GMPAccount, Salt};
+    use solana_ibc_gmp_types::{GMPAccount, Salt};
 
     let gmp_account = GMPAccount::new(
         client_id.to_string().try_into().expect("valid client_id"),

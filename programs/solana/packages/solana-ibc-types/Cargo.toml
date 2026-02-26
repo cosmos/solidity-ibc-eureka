@@ -19,14 +19,9 @@ borsh = { version = "0.10.4", default-features = false }
 solana-ibc-constants = { path = "../solana-ibc-constants" }
 solana-ibc-proto = { path = "../solana-ibc-proto" }
 solana-ibc-macros = { path = "../solana-ibc-macros" }
-
-# Dependencies for light-client feature
-ibc-client-tendermint = { workspace = true, optional = true }
-ibc-core-client-types = { workspace = true, optional = true }
-tendermint = { workspace = true, optional = true }
+solana-ibc-gmp-types = { path = "../solana-ibc-gmp-types" }
 
 [features]
-light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
 solana = []
 idl-build = ["anchor-lang/idl-build"]
 

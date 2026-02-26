@@ -29,7 +29,8 @@ anchor-lang = { workspace = true, features = ["init-if-needed"] }
 access-manager = { workspace = true, features = ["cpi"] }
 borsh.workspace = true
 ics25-handler.workspace = true
-solana-ibc-types = { workspace = true, features = ["light-client"] }
+solana-ibc-types.workspace = true
+solana-ibc-borsh-header = { workspace = true, features = ["light-client"] }
 solana-ibc-constants.workspace = true
 solana-sdk-ids.workspace = true
 solana-sha256-hasher.workspace = true

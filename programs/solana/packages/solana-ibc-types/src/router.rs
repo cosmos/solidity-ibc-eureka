@@ -8,42 +8,6 @@ use anchor_lang::prelude::*;
 // Import validation constant from solana-ibc-proto (single source of truth)
 use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
 
-/// ICS26 router instruction names and discriminators
-pub mod router_instructions {
-    use crate::utils::compute_discriminator;
-
-    pub const RECV_PACKET: &str = "recv_packet";
-    pub const ACK_PACKET: &str = "ack_packet";
-    pub const TIMEOUT_PACKET: &str = "timeout_packet";
-    pub const UPLOAD_PAYLOAD_CHUNK: &str = "upload_payload_chunk";
-    pub const UPLOAD_PROOF_CHUNK: &str = "upload_proof_chunk";
-    pub const CLEANUP_CHUNKS: &str = "cleanup_chunks";
-
-    pub fn recv_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(RECV_PACKET)
-    }
-
-    pub fn ack_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(ACK_PACKET)
-    }
-
-    pub fn timeout_packet_discriminator() -> [u8; 8] {
-        compute_discriminator(TIMEOUT_PACKET)
-    }
-
-    pub fn upload_payload_chunk_discriminator() -> [u8; 8] {
-        compute_discriminator(UPLOAD_PAYLOAD_CHUNK)
-    }
-
-    pub fn upload_proof_chunk_discriminator() -> [u8; 8] {
-        compute_discriminator(UPLOAD_PROOF_CHUNK)
-    }
-
-    pub fn cleanup_chunks_discriminator() -> [u8; 8] {
-        compute_discriminator(CLEANUP_CHUNKS)
-    }
-}
-
 /// Account schema version for upgradability
 #[derive(Debug, AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
 pub enum AccountVersion {
@@ -87,41 +51,6 @@ pub struct Packet {
     pub dest_client: String,
     pub timeout_timestamp: i64,
     pub payloads: Vec<Payload>,
-}
-
-impl Packet {
-    /// Returns the commitment path for the packet.
-    /// Path format: sourceClient + 0x01 + sequence (big-endian)
-    #[must_use]
-    pub fn commitment_path(&self) -> Vec<u8> {
-        let mut path = Vec::new();
-        path.extend_from_slice(self.source_client.as_bytes());
-        path.push(1_u8);
-        path.extend_from_slice(&self.sequence.to_be_bytes());
-        path
-    }
-
-    /// Returns the receipt commitment path for the packet.
-    /// Path format: destClient + 0x02 + sequence (big-endian)
-    #[must_use]
-    pub fn receipt_commitment_path(&self) -> Vec<u8> {
-        let mut path = Vec::new();
-        path.extend_from_slice(self.dest_client.as_bytes());
-        path.push(2_u8);
-        path.extend_from_slice(&self.sequence.to_be_bytes());
-        path
-    }
-
-    /// Returns the acknowledgment commitment path for the packet.
-    /// Path format: destClient + 0x03 + sequence (big-endian)
-    #[must_use]
-    pub fn ack_commitment_path(&self) -> Vec<u8> {
-        let mut path = Vec::new();
-        path.extend_from_slice(self.dest_client.as_bytes());
-        path.push(3_u8);
-        path.extend_from_slice(&self.sequence.to_be_bytes());
-        path
-    }
 }
 
 /// Payload metadata for chunked operations
@@ -193,21 +122,7 @@ pub struct MsgCleanupChunks {
     pub total_proof_chunks: u8,
 }
 
-/// `IBCApp` mapping port IDs to IBC app program IDs
-/// This matches the on-chain account structure in the ICS26 router
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct IBCApp {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// The port identifier
-    pub port_id: String,
-    /// The program ID of the IBC application
-    pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
+pub struct IBCApp;
 
 impl IBCApp {
     pub const SEED: &'static [u8] = b"ibc_app";
@@ -218,16 +133,7 @@ impl IBCApp {
     }
 }
 
-/// Router state account - matches the on-chain account structure in ICS26 router
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct RouterState {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
+pub struct RouterState;
 
 impl RouterState {
     pub const SEED: &'static [u8] = b"router_state";

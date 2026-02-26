@@ -6,6 +6,7 @@
 use std::str::FromStr;
 
 use anyhow::Result;
+use solana_ibc_gmp_types::{ClientId, GMPAccount};
 use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
 use crate::constants::{GMP_PORT_ID, PROTOBUF_ENCODING};
@@ -48,7 +49,12 @@ pub fn extract_gmp_accounts(
     };
 
     // Build account list from validated packet
-    build_gmp_account_list(validated_packet, dest_client, ibc_app_program_id, dest_port)
+    build_gmp_account_list(
+        &validated_packet,
+        dest_client,
+        ibc_app_program_id,
+        dest_port,
+    )
 }
 
 /// Check if payload should be processed as GMP
@@ -70,7 +76,7 @@ fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<GmpPacketD
 
 /// Build the complete account list from GMP packet
 fn build_gmp_account_list(
-    packet: GmpPacketData,
+    packet: &GmpPacketData,
     dest_client: &str,
     ibc_app_program_id: Pubkey,
     _dest_port: &str,
@@ -80,21 +86,19 @@ fn build_gmp_account_list(
         .map_err(|e| anyhow::anyhow!("Invalid target program pubkey: {e}"))?;
 
     // Construct typed ClientId (local client on Solana tracking source chain)
-    let client_id = solana_ibc_types::ClientId::new(dest_client)
-        .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
+    let client_id =
+        ClientId::new(dest_client).map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
-    let salt_clone = packet.salt.clone();
-    let gmp_account = solana_ibc_types::GMPAccount::new(
+    let gmp_account = GMPAccount::new(
         client_id,
         packet.sender.clone(),
-        packet.salt,
+        packet.salt.clone(),
         &ibc_app_program_id,
     );
-
     let (gmp_account_pda, _bump) = gmp_account.pda();
 
     // Critical for debugging PrivilegeEscalation - keep at INFO
-    let salt_bytes: &[u8] = &salt_clone;
+    let salt_bytes: &[u8] = &packet.salt;
     tracing::info!(
         "GMP: client='{}', sender='{}', salt={:?} ({} bytes) → pda={}",
         dest_client,
@@ -168,7 +172,11 @@ pub fn find_gmp_result_pda(
     }
 
     let (pda, _bump) =
-        solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
+        solana_ibc_sdk::ics27_gmp::instructions::OnAcknowledgementPacket::result_account_pda(
+            source_client,
+            sequence,
+            &gmp_program_id,
+        );
     Some(pda)
 }
 

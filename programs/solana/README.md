@@ -2,6 +2,112 @@
 
 This directory contains the Solana implementation of IBC Eureka protocol, built using the Anchor framework. The programs enable trust-minimized interoperability between Solana and Cosmos SDK chains.
 
+## Dependency Graph
+
+```mermaid
+graph LR
+    subgraph shared["Solana Packages"]
+        types["solana-ibc-types"]
+        sdk["solana-ibc-sdk"]
+        constants["solana-ibc-constants"]
+        proto["solana-ibc-proto"]
+        borsh["solana-ibc-borsh-header"]
+        ics25["ics25-handler"]
+        gmp_types["solana-ibc-gmp-types"]
+        macros["solana-ibc-macros"]
+    end
+
+    subgraph programs["Solana Programs"]
+        am["access-manager"]
+        ics07["ics07-tendermint"]
+        ics26["ics26-router"]
+        ics27["ics27-gmp"]
+        ift["ift"]
+        att["attestation"]
+    end
+
+    idls["IDL files<br/><i>target/idl/*.json</i>"]
+
+    subgraph relayer["Relayer"]
+        c2s["cosmos-to-solana"]
+    end
+
+    subgraph tm["Tendermint Light Client"]
+        tm_update["update-client"]
+        tm_membership["membership"]
+        tm_misbehaviour["misbehaviour"]
+    end
+
+    types --> constants
+    types --> proto
+    types --> macros
+    types --> gmp_types
+    gmp_types --> proto
+
+    am --> types
+    ics07 --> am
+    ics07 --> types
+    ics07 --> ics25
+    ics07 --> borsh
+    ics07 --> constants
+    ics07 --> tm_update
+    ics07 --> tm_membership
+    ics07 --> tm_misbehaviour
+    ics26 --> am
+    ics26 --> types
+    ics26 --> ics25
+    ics26 --> constants
+    ics27 --> ics26
+    ics27 --> am
+    ics27 --> types
+    ics27 --> proto
+    ics27 --> macros
+    ift --> ics26
+    ift --> ics27
+    ift --> types
+    ift --> gmp_types
+    att --> am
+    att --> types
+    att --> ics25
+
+    am -.- idls
+    ics07 -.- idls
+    ics26 -.- idls
+    ics27 -.- idls
+    ift -.- idls
+    att -.- idls
+    idls -.-|build.rs codegen| sdk
+
+    c2s --> sdk
+    c2s --> constants
+    c2s --> proto
+    c2s --> borsh
+    c2s --> gmp_types
+
+    style shared fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
+    style programs fill:#d1fae5,stroke:#059669,color:#064e3b
+    style relayer fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style tm fill:#fce7f3,stroke:#db2777,color:#831843
+    style idls fill:#fef9c3,stroke:#ca8a04,color:#713f12
+
+    classDef sharedNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
+    classDef programNode fill:#a7f3d0,stroke:#059669,color:#064e3b
+    classDef relayerNode fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef tmNode fill:#fbcfe8,stroke:#db2777,color:#831843
+    classDef idlNode fill:#fef08a,stroke:#ca8a04,color:#713f12
+
+    class types,sdk,constants,proto,borsh,ics25,gmp_types,macros sharedNode
+    class am,ics07,ics26,ics27,ift,att programNode
+    class c2s,s2c relayerNode
+    class tm_update,tm_membership,tm_misbehaviour tmNode
+    class idls idlNode
+
+    linkStyle 0,1,2,3,4 stroke:#4f46e5
+    linkStyle 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29 stroke:#059669
+    linkStyle 30,31,32,33,34,35,36 stroke:#ca8a04,stroke-dasharray:5 5
+    linkStyle 37,38,39,40,41 stroke:#ea580c
+```
+
 ### Generate Keypairs for a Cluster
 
 ```bash

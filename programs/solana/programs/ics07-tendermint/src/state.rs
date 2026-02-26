@@ -16,7 +16,7 @@ pub struct ConsensusStateStore {
 }
 
 impl ConsensusStateStore {
-    pub const SEED: &'static [u8] = solana_ibc_types::ConsensusState::SEED;
+    pub const SEED: &'static [u8] = b"consensus_state";
 
     /// Returns `true` when `init_if_needed` just created the account
     /// (Tendermint heights start at 1, so zero means uninitialized).
@@ -89,17 +89,3 @@ impl SignatureVerification {
 const _: () = assert!(
     SignatureVerification::DISCRIMINATOR.len() == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN
 );
-
-#[cfg(test)]
-mod compatibility_tests {
-    use super::*;
-
-    /// Ensures `ConsensusStateStore` SEED constant matches solana-ibc-types
-    #[test]
-    fn test_consensus_state_store_seed_compatibility() {
-        assert_eq!(
-            ConsensusStateStore::SEED,
-            solana_ibc_types::ConsensusState::SEED
-        );
-    }
-}

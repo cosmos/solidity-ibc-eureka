@@ -1,0 +1,27 @@
+[package]
+name = "solana-ibc-borsh-header"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Borsh-serializable Tendermint header types for Solana IBC"
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "tendermint", "borsh"]
+categories = ["cryptography", "blockchain"]
+
+[dependencies]
+# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
+# This ensures correct version even when built from root workspace context via path dependencies.
+# std feature required because direct deserialization uses std::io.
+borsh = { version = "0.10.4", default-features = false, features = ["std"] }
+
+# Dependencies for light-client feature
+ibc-client-tendermint = { workspace = true, optional = true }
+ibc-core-client-types = { workspace = true, optional = true }
+tendermint = { workspace = true, optional = true }
+
+[features]
+light-client = ["dep:ibc-client-tendermint", "dep:ibc-core-client-types", "dep:tendermint"]
+
+[lints]
+workspace = true

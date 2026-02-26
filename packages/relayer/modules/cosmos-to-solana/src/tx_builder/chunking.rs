@@ -2,7 +2,6 @@
 
 use std::collections::HashSet;
 
-use anchor_lang::prelude::*;
 use anyhow::Result;
 use solana_sdk::{
     commitment_config::CommitmentConfig,
@@ -12,9 +11,14 @@ use solana_sdk::{
 
 use ibc_eureka_relayer_core::api::SolanaPacketTxs;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
-use solana_ibc_types::{
-    router::{router_instructions, MsgCleanupChunks, PayloadChunk, ProofChunk},
-    AccessManager, MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk, RouterState,
+use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
+use solana_ibc_sdk::ics26_router::instructions::{
+    CleanupChunks, CleanupChunksAccounts, UploadPayloadChunk, UploadPayloadChunkAccounts,
+    UploadProofChunk, UploadProofChunkAccounts,
+};
+use solana_ibc_sdk::ics26_router::types::{
+    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
+    PayloadMetadata,
 };
 
 use super::transaction::derive_alt_address;
@@ -35,7 +39,7 @@ impl super::TxBuilder {
     /// Returns empty vec for empty payloads, errors on multi-payload.
     fn derive_gmp_result_pda_bytes(
         &self,
-        payloads: &[solana_ibc_types::PayloadMetadata],
+        payloads: &[PayloadMetadata],
         source_client: &str,
         sequence: u64,
     ) -> Result<Vec<u8>> {
@@ -72,7 +76,7 @@ impl super::TxBuilder {
     /// `PendingTransfer` and user can manually finalize later.
     fn build_ift_finalize_transfer_tx(
         &self,
-        payloads: &[solana_ibc_types::PayloadMetadata],
+        payloads: &[PayloadMetadata],
         payload_data: &[Vec<u8>],
         source_client: &str,
         sequence: u64,
@@ -150,36 +154,27 @@ impl super::TxBuilder {
             chunk_data,
         };
 
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = PayloadChunk::pda(
-            self.fee_payer,
+        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+            &self.fee_payer,
             client_id,
             sequence,
             payload_index,
             chunk_index,
-            self.solana_ics26_program_id,
+            &self.solana_ics26_program_id,
         );
 
-        let accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new(chunk_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-        ];
-
-        let mut data = router_instructions::upload_payload_chunk_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        })
+        Ok(UploadPayloadChunk::builder(&self.solana_ics26_program_id)
+            .accounts(UploadPayloadChunkAccounts {
+                access_manager,
+                chunk: chunk_pda,
+                relayer: self.fee_payer,
+            })
+            .args(&msg)
+            .build())
     }
 
     pub(crate) fn build_upload_proof_chunk_instruction(
@@ -197,42 +192,33 @@ impl super::TxBuilder {
             chunk_data,
         };
 
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = ProofChunk::pda(
-            self.fee_payer,
+        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+            &self.fee_payer,
             client_id,
             sequence,
             chunk_index,
-            self.solana_ics26_program_id,
+            &self.solana_ics26_program_id,
         );
 
-        let accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new(chunk_pda, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-        ];
-
-        let mut data = router_instructions::upload_proof_chunk_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-
-        Ok(Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        })
+        Ok(UploadProofChunk::builder(&self.solana_ics26_program_id)
+            .accounts(UploadProofChunkAccounts {
+                access_manager,
+                chunk: chunk_pda,
+                relayer: self.fee_payer,
+            })
+            .args(&msg)
+            .build())
     }
 
     pub(crate) fn build_packet_chunk_txs(
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        msg_payloads: &[PayloadMetadata],
         payload_data: &[Vec<u8>],
         proof_total_chunks: u8,
         proof_data: &[u8],
@@ -286,7 +272,7 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        msg_payloads: &[PayloadMetadata],
         payload_data: &[Vec<u8>],
         proof_total_chunks: u8,
     ) -> Result<Vec<Pubkey>> {
@@ -298,13 +284,13 @@ impl super::TxBuilder {
 
             if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
                 for chunk_idx in 0..msg_payloads[payload_idx].total_chunks {
-                    let (chunk_pda, _) = PayloadChunk::pda(
-                        self.fee_payer,
+                    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                        &self.fee_payer,
                         client_id,
                         sequence,
                         payload_index,
                         chunk_idx,
-                        self.solana_ics26_program_id,
+                        &self.solana_ics26_program_id,
                     );
                     remaining_account_pubkeys.push(chunk_pda);
                 }
@@ -313,12 +299,12 @@ impl super::TxBuilder {
 
         if proof_total_chunks > 0 {
             for chunk_idx in 0..proof_total_chunks {
-                let (chunk_pda, _) = ProofChunk::pda(
-                    self.fee_payer,
+                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+                    &self.fee_payer,
                     client_id,
                     sequence,
                     chunk_idx,
-                    self.solana_ics26_program_id,
+                    &self.solana_ics26_program_id,
                 );
                 remaining_account_pubkeys.push(chunk_pda);
             }
@@ -378,7 +364,7 @@ impl super::TxBuilder {
         })
     }
 
-    pub(crate) async fn build_ack_packet_chunked(
+    pub(crate) fn build_ack_packet_chunked(
         &self,
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
@@ -401,9 +387,7 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
-        let ack_instruction = self
-            .build_ack_packet_instruction(msg, remaining_account_pubkeys)
-            .await?;
+        let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);
@@ -609,46 +593,41 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[solana_ibc_types::PayloadMetadata],
+        msg_payloads: &[PayloadMetadata],
         proof_total_chunks: u8,
     ) -> Result<Vec<u8>> {
-        let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
-        let (access_manager, _) = AccessManager::pda(access_manager_program_id);
+        let (access_manager, _) =
+            access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let mut accounts = vec![
-            AccountMeta::new_readonly(router_state, false),
-            AccountMeta::new_readonly(access_manager, false),
-            AccountMeta::new(self.fee_payer, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-        ];
+        let mut remaining_accounts = Vec::new();
 
         for (payload_idx, payload_metadata) in msg_payloads.iter().enumerate() {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
             for chunk_index in 0..payload_metadata.total_chunks {
-                let (chunk_pda, _) = PayloadChunk::pda(
-                    self.fee_payer,
+                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                    &self.fee_payer,
                     client_id,
                     sequence,
                     payload_index,
                     chunk_index,
-                    self.solana_ics26_program_id,
+                    &self.solana_ics26_program_id,
                 );
-                accounts.push(AccountMeta::new(chunk_pda, false));
+                remaining_accounts.push(AccountMeta::new(chunk_pda, false));
             }
         }
 
         for chunk_index in 0..proof_total_chunks {
-            let (chunk_pda, _) = ProofChunk::pda(
-                self.fee_payer,
+            let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+                &self.fee_payer,
                 client_id,
                 sequence,
                 chunk_index,
-                self.solana_ics26_program_id,
+                &self.solana_ics26_program_id,
             );
-            accounts.push(AccountMeta::new(chunk_pda, false));
+            remaining_accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
         let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| p.total_chunks).collect();
@@ -659,14 +638,14 @@ impl super::TxBuilder {
             total_proof_chunks: proof_total_chunks,
         };
 
-        let mut data = router_instructions::cleanup_chunks_discriminator().to_vec();
-        data.extend_from_slice(&msg.try_to_vec()?);
-
-        let instruction = Instruction {
-            program_id: self.solana_ics26_program_id,
-            accounts,
-            data,
-        };
+        let instruction = CleanupChunks::builder(&self.solana_ics26_program_id)
+            .accounts(CleanupChunksAccounts {
+                access_manager,
+                relayer: self.fee_payer,
+            })
+            .args(&msg)
+            .remaining_accounts(remaining_accounts)
+            .build();
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);

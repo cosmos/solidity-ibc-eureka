@@ -6,7 +6,7 @@
 
 use ibc_client_tendermint::types::Header;
 use ibc_core_client_types::Height;
-use solana_ibc_types::borsh_header::*;
+use solana_ibc_borsh_header::*;
 use tendermint::account::Id as AccountId;
 use tendermint::block::parts::Header as PartSetHeader;
 use tendermint::block::signed_header::SignedHeader;
