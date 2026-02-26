@@ -24,30 +24,18 @@ use solana_ibc_sdk::ics26_router::{
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 
 /// Derives client state and consensus state PDAs based on client type.
-fn derive_light_client_pdas(
-    client_id: &str,
-    height: u64,
-    light_client_program_id: Pubkey,
-) -> (Pubkey, Pubkey) {
-    if solana_ibc_constants::client_type_from_id(client_id)
-        == Some(solana_ibc_constants::CLIENT_TYPE_ATTESTATION)
-    {
-        let (cs, _) =
-            attestation_instructions::Initialize::client_state_pda(&light_client_program_id);
-        let (cons, _) = attestation_instructions::VerifyMembership::consensus_state_at_height_pda(
-            height,
-            &light_client_program_id,
-        );
+fn derive_light_client_pdas(client_id: &str, height: u64, program_id: Pubkey) -> (Pubkey, Pubkey) {
+    use attestation_instructions as att;
+    use ics07_tendermint_instructions as tm;
+    use solana_ibc_constants::{client_type_from_id, CLIENT_TYPE_ATTESTATION};
+
+    if client_type_from_id(client_id) == Some(CLIENT_TYPE_ATTESTATION) {
+        let (cs, _) = att::Initialize::client_state_pda(&program_id);
+        let (cons, _) = att::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
         (cs, cons)
     } else {
-        let (cs, _) = ics07_tendermint_instructions::Initialize::client_state_account_pda(
-            &light_client_program_id,
-        );
-        let (cons, _) =
-            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
-                height,
-                &light_client_program_id,
-            );
+        let (cs, _) = tm::Initialize::client_state_account_pda(&program_id);
+        let (cons, _) = tm::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
         (cs, cons)
     }
 }
