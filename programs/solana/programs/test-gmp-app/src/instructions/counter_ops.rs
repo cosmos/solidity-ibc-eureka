@@ -3,11 +3,17 @@ use crate::state::*;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
 
-/// Increment a user's counter
-/// Note: `user_authority` must be a signer to ensure only the legitimate owner can increment their counter
+/// Accounts required to increment a user's counter.
+///
+/// The `user_authority` must be a signer so only the legitimate owner
+/// (or the `gmp_account` PDA during cross-chain calls) can modify
+/// the counter. If the [`UserCounter`] PDA does not yet exist it is
+/// created automatically via `init_if_needed`.
 #[derive(Accounts)]
 #[instruction(amount: u64)]
 pub struct IncrementCounter<'info> {
+    /// Global app configuration PDA. Mutated to bump `total_counters`
+    /// when a new [`UserCounter`] is initialized.
     #[account(
         mut,
         seeds = [CounterAppState::SEED],
@@ -15,6 +21,8 @@ pub struct IncrementCounter<'info> {
     )]
     pub app_state: Account<'info, CounterAppState>,
 
+    /// Per-user counter PDA derived from `[UserCounter::SEED, user_authority]`.
+    /// Created on first use and incremented by the requested `amount`.
     #[account(
         init_if_needed,
         payer = payer,
@@ -24,20 +32,28 @@ pub struct IncrementCounter<'info> {
     )]
     pub user_counter: Account<'info, UserCounter>,
 
-    /// The user authority (`gmp_account` PDA for ICS27)
-    /// MUST be a signer to authorize operations on this user's counter
+    /// The user authority (`gmp_account` PDA for ICS27).
+    /// Must be a signer to authorize operations on this user's counter.
     pub user_authority: Signer<'info>,
 
+    /// Mutable signer that funds `user_counter` PDA creation when needed.
     #[account(mut)]
     pub payer: Signer<'info>,
 
+    /// Solana system program used to allocate the `user_counter` account.
     pub system_program: Program<'info, System>,
 }
 
-/// Decrement a user's counter
+/// Accounts required to decrement a user's counter.
+///
+/// Unlike [`IncrementCounter`], no signer check is enforced on the
+/// user because this instruction is typically invoked via CPI from
+/// the GMP program during cross-chain callback processing.
 #[derive(Accounts)]
 #[instruction(user: Pubkey, amount: u64)]
 pub struct DecrementCounter<'info> {
+    /// Global app configuration PDA. Included for seed verification
+    /// but not mutated during a decrement.
     #[account(
         mut,
         seeds = [CounterAppState::SEED],
@@ -45,6 +61,8 @@ pub struct DecrementCounter<'info> {
     )]
     pub app_state: Account<'info, CounterAppState>,
 
+    /// Per-user counter PDA derived from `[UserCounter::SEED, user]`.
+    /// Must already exist; its `count` is reduced by the requested `amount`.
     #[account(
         mut,
         seeds = [UserCounter::SEED, user.as_ref()],
@@ -53,10 +71,15 @@ pub struct DecrementCounter<'info> {
     pub user_counter: Account<'info, UserCounter>,
 }
 
-/// Get a user's counter value
+/// Accounts required to read a user's current counter value.
+///
+/// This is a read-only instruction that writes the counter value
+/// into the transaction return data via `set_return_data`.
 #[derive(Accounts)]
 #[instruction(user: Pubkey)]
 pub struct GetCounter<'info> {
+    /// Per-user counter PDA derived from `[UserCounter::SEED, user]`.
+    /// Read-only; its `count` field is returned to the caller.
     #[account(
         seeds = [UserCounter::SEED, user.as_ref()],
         bump = user_counter.bump

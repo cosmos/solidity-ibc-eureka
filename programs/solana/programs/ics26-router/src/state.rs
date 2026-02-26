@@ -10,7 +10,12 @@ pub use solana_ibc_types::{
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
-/// Router state account
+/// Global ICS26 router configuration.
+///
+/// Singleton PDA initialized once during program setup. Stores the link
+/// to the access manager for admin-gated operations (e.g. registering
+/// clients, migrating light clients) and a schema version for future
+/// on-chain migrations.
 #[account]
 #[derive(InitSpace)]
 pub struct RouterState {
@@ -26,7 +31,12 @@ impl RouterState {
     pub const SEED: &'static [u8] = solana_ibc_types::RouterState::SEED;
 }
 
-/// `IBCApp` mapping port IDs to IBC app program IDs
+/// Port-to-program mapping for IBC applications.
+///
+/// Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
+/// one `IBCApp` PDA derived from its port ID. The router uses this account
+/// to look up which program to CPI into when delivering a received packet
+/// or forwarding an acknowledgement/timeout to the application layer.
 #[account]
 #[derive(InitSpace)]
 pub struct IBCApp {
@@ -47,7 +57,14 @@ impl IBCApp {
     pub const SEED: &'static [u8] = solana_ibc_types::router::IBCApp::SEED;
 }
 
-/// Client mapping client IDs to light client program IDs
+/// Client-ID-to-light-client mapping with counterparty chain metadata.
+///
+/// Created when an admin registers a new IBC client (e.g. an ICS07
+/// Tendermint or attestation light client). The router reads this
+/// account during `send_packet`, `recv_packet`, `ack_packet` and
+/// `timeout_packet` to resolve which light client program to call for
+/// proof verification, and to obtain the counterparty chain's client
+/// and Merkle prefix information.
 #[account]
 #[derive(InitSpace)]
 pub struct Client {
@@ -82,7 +99,12 @@ impl Client {
     }
 }
 
-/// Client sequence tracking
+/// Per-client packet sequence counter.
+///
+/// Tracks the next sequence number to assign when sending a packet
+/// through a given client. Each `send_packet` call reads and increments
+/// this value to guarantee unique, monotonically increasing sequence
+/// numbers for replay protection.
 #[account]
 #[derive(InitSpace)]
 pub struct ClientSequence {
@@ -108,7 +130,18 @@ impl Default for ClientSequence {
     }
 }
 
-/// Commitment storage (simple key-value)
+/// IBC packet commitment, receipt, or acknowledgement hash.
+///
+/// A generic 32-byte hash PDA used for three purposes depending on its
+/// seed prefix:
+/// - **Packet commitment** (`PACKET_COMMITMENT_SEED`): written by
+///   `send_packet`, stores `sha256(packet)` so the counterparty can
+///   prove the packet was sent.
+/// - **Packet receipt** (`PACKET_RECEIPT_SEED`): written by
+///   `recv_packet`, prevents the same packet from being delivered twice.
+/// - **Packet acknowledgement** (`PACKET_ACK_SEED`): written by
+///   `recv_packet`, stores the app-layer acknowledgement hash so the
+///   sender chain can confirm delivery.
 #[account]
 #[derive(InitSpace)]
 pub struct Commitment {
@@ -133,7 +166,13 @@ pub const MAX_TIMEOUT_DURATION: i64 = 86400;
 
 pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
-/// Storage for payload chunks during multi-transaction upload
+/// Temporary storage for a single chunk of IBC packet payload data during
+/// multi-transaction upload.
+///
+/// Large payloads that exceed the Solana transaction size limit are split
+/// into chunks and uploaded separately. The `recv_packet` instruction
+/// reassembles all chunks, processes the full payload, then closes these
+/// accounts to reclaim rent.
 #[account]
 #[derive(InitSpace)]
 pub struct PayloadChunk {
@@ -155,7 +194,13 @@ impl PayloadChunk {
     pub const SEED: &'static [u8] = solana_ibc_types::PayloadChunk::SEED;
 }
 
-/// Storage for proof chunks during multi-transaction upload
+/// Temporary storage for a single chunk of IBC membership proof data
+/// during multi-transaction upload.
+///
+/// Membership proofs (e.g. Merkle proofs or attestation signatures) can
+/// exceed the Solana transaction size limit. They are uploaded in chunks
+/// and reassembled when the final `recv_packet`, `ack_packet`, or
+/// `timeout_packet` instruction executes verification.
 #[account]
 #[derive(InitSpace)]
 pub struct ProofChunk {

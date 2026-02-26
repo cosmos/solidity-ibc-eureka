@@ -4,13 +4,17 @@ use anchor_lang::solana_program::sysvar::instructions as ix_sysvar;
 use solana_ibc_types::ics07::SignatureData;
 use solana_sdk_ids::ed25519_program;
 
+/// Verifies an Ed25519 signature by introspecting a preceding `Ed25519Program` instruction
+/// and stores the result in a PDA for later use during header or misbehaviour assembly.
 #[derive(Accounts)]
 #[instruction(signature: SignatureData)]
 pub struct PreVerifySignature<'info> {
+    /// Instructions sysvar used to load and introspect the preceding Ed25519 verify instruction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 
+    /// PDA that stores the Ed25519 verification outcome, keyed by the signature hash.
     #[account(
         init,
         payer = submitter,
@@ -23,12 +27,14 @@ pub struct PreVerifySignature<'info> {
     )]
     pub signature_verification: Account<'info, crate::state::SignatureVerification>,
 
+    /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
         seeds = [AppState::SEED],
         bump
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -37,8 +43,10 @@ pub struct PreVerifySignature<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Relayer that signs the transaction and pays for the verification PDA creation.
     #[account(mut)]
     pub submitter: Signer<'info>,
+    /// Required by Anchor for PDA creation via the System Program.
     pub system_program: Program<'info, System>,
 }
 

@@ -2783,17 +2783,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
-name = "gmp-counter-app"
-version = "0.1.0"
-dependencies = [
- "anchor-lang",
- "bincode",
- "mollusk-svm",
- "mollusk-svm-bencher",
- "solana-sdk",
-]
-
-[[package]]
 name = "governor"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3439,7 +3428,6 @@ dependencies = [
  "access-manager",
  "anchor-lang",
  "bincode",
- "gmp-counter-app",
  "ics26-router",
  "mollusk-svm",
  "mollusk-svm-bencher",
@@ -3449,6 +3437,7 @@ dependencies = [
  "solana-ibc-types",
  "solana-program-test",
  "solana-sdk",
+ "test-gmp-app",
  "tokio",
 ]
 
@@ -9923,6 +9912,17 @@ dependencies = [
  "solana-sdk",
  "test-cpi-proxy",
  "tokio",
+]
+
+[[package]]
+name = "test-gmp-app"
+version = "0.1.0"
+dependencies = [
+ "anchor-lang",
+ "bincode",
+ "mollusk-svm",
+ "mollusk-svm-bencher",
+ "solana-sdk",
 ]
 
 [[package]]

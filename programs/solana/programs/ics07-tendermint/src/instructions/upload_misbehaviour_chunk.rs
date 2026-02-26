@@ -3,9 +3,14 @@ use crate::state::{MisbehaviourChunk, CHUNK_DATA_SIZE};
 use crate::types::{AppState, ClientState, UploadMisbehaviourChunkParams};
 use anchor_lang::prelude::*;
 
+/// Uploads a single chunk of serialized misbehaviour evidence.
+///
+/// Misbehaviour data that exceeds a single transaction is split into chunks and
+/// reassembled later by `assemble_and_submit_misbehaviour`.
 #[derive(Accounts)]
 #[instruction(params: UploadMisbehaviourChunkParams)]
 pub struct UploadMisbehaviourChunk<'info> {
+    /// PDA storing one segment of the serialized misbehaviour, keyed by submitter and chunk index.
     #[account(
         init_if_needed,
         payer = submitter,
@@ -19,18 +24,21 @@ pub struct UploadMisbehaviourChunk<'info> {
     )]
     pub chunk: Account<'info, MisbehaviourChunk>,
 
+    /// PDA holding the light client configuration; used to check the frozen status.
     #[account(
         seeds = [ClientState::SEED],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
 
+    /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
         seeds = [AppState::SEED],
         bump
     )]
     pub app_state: Account<'info, AppState>,
 
+    /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -39,13 +47,16 @@ pub struct UploadMisbehaviourChunk<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// Relayer that signs the transaction and pays for chunk account creation.
     #[account(mut)]
     pub submitter: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 
+    /// Required by Anchor for PDA creation via the System Program.
     pub system_program: Program<'info, System>,
 }
 

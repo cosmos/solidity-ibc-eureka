@@ -9,16 +9,22 @@ use ics25_handler::MembershipMsg;
 use solana_ibc_types::ibc_app::{on_recv_packet, OnRecvPacket, OnRecvPacketMsg};
 use solana_ibc_types::ics24;
 
+/// Receives an IBC packet by verifying a membership proof against the light
+/// client and invoking the destination IBC app's `on_recv_packet` callback.
+///
+/// Remaining accounts carry payload chunks, proof chunks and any extra
+/// accounts forwarded to the IBC app.
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
 pub struct RecvPacket<'info> {
+    /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
 
-    /// Global access control account (owned by access-manager program)
+    /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -27,12 +33,14 @@ pub struct RecvPacket<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
+    /// PDA mapping the destination port to its registered IBC application.
     #[account(
         seeds = [IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
+    /// Stores the packet receipt commitment; created on first receive.
     #[account(
         init_if_needed,
         payer = relayer,
@@ -46,6 +54,7 @@ pub struct RecvPacket<'info> {
     )]
     pub packet_receipt: Account<'info, Commitment>,
 
+    /// Stores the packet acknowledgement commitment after app callback.
     #[account(
         init_if_needed,
         payer = relayer,
@@ -59,26 +68,29 @@ pub struct RecvPacket<'info> {
     )]
     pub packet_ack: Account<'info, Commitment>,
 
-    // IBC app accounts for CPI
+    /// IBC application program to deliver the packet to via CPI.
     /// CHECK: IBC app program, validated against `IBCApp` account
     #[account(address = ibc_app.app_program_id @ RouterError::IbcAppNotFound)]
     pub ibc_app_program: AccountInfo<'info>,
 
+    /// Mutable state account of the IBC application (passed into the CPI).
     /// CHECK: Ownership validated against IBC app program
     #[account(mut, owner = ibc_app.app_program_id @ RouterError::InvalidAccountOwner)]
     pub ibc_app_state: AccountInfo<'info>,
 
+    /// Relayer submitting the packet; must hold the `RELAYER_ROLE` and pays rent.
     #[account(mut)]
     pub relayer: Signer<'info>,
 
+    /// Solana system program used for account creation.
     pub system_program: Program<'info, System>,
 
-    /// Instructions sysvar for CPI validation
+    /// Instructions sysvar used for CPI detection.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
 
-    // Client for light client lookup
+    /// Client PDA for the destination client; must be active.
     #[account(
         seeds = [Client::SEED, msg.packet.dest_client.as_bytes()],
         bump,
@@ -86,15 +98,17 @@ pub struct RecvPacket<'info> {
     )]
     pub client: Account<'info, Client>,
 
-    // Light client verification accounts
+    /// Light client program used to verify the membership proof.
     /// CHECK: Validated against client registry
     #[account(address = client.client_program_id @ RouterError::InvalidLightClientProgram)]
     pub light_client_program: AccountInfo<'info>,
 
+    /// Client state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub client_state: AccountInfo<'info>,
 
+    /// Consensus state account owned by the light client program.
     /// CHECK: Ownership validated against light client program
     #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub consensus_state: AccountInfo<'info>,
