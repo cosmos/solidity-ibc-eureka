@@ -22,12 +22,19 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{network::FulfillmentStrategy, HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines
+)]
 pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     assert!(
         args.membership.trusted_block < args.target_block,
@@ -46,7 +53,10 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
         Sp1Prover::Network(
-            ProverClient::builder().network().build().await,
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
             FulfillmentStrategy::Reserved,
         )
     } else {

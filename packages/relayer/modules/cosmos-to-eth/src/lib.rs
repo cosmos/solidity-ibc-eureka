@@ -31,7 +31,10 @@ use sp1_ics07_tendermint_prover::programs::{
     UpdateClientAndMembershipProgram, UpdateClientProgram,
 };
 use sp1_ics07_tendermint_prover::prover::Sp1Prover;
-use sp1_sdk::{network::FulfillmentStrategy, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    ProverClient,
+};
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 use tx_builder::TxBuilder;
@@ -192,18 +195,22 @@ impl CosmosToEthRelayerModuleService {
                         network_rpc_url,
                         private_cluster,
                     } => {
-                        let mut builder = ProverClient::builder().network();
+                        let mut builder = if private_cluster {
+                            ProverClient::builder().network_for(NetworkMode::Reserved)
+                        } else {
+                            ProverClient::builder().network()
+                        };
+                        let strategy = if private_cluster {
+                            FulfillmentStrategy::Reserved
+                        } else {
+                            FulfillmentStrategy::Hosted
+                        };
                         if let Some(private_key) = network_private_key {
                             builder = builder.private_key(&private_key);
                         }
                         if let Some(rpc_url) = network_rpc_url {
                             builder = builder.rpc_url(&rpc_url);
                         }
-                        let strategy = if private_cluster {
-                            FulfillmentStrategy::Reserved
-                        } else {
-                            FulfillmentStrategy::Hosted
-                        };
                         Sp1Prover::Network(builder.build().await, strategy)
                     }
                 };

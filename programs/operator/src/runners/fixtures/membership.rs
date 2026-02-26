@@ -23,7 +23,10 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{network::FulfillmentStrategy, HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -128,7 +131,10 @@ pub async fn run_sp1_membership(
 ) -> anyhow::Result<MembershipProof> {
     let sp1_prover = if private_cluster {
         Sp1Prover::Network(
-            ProverClient::builder().network().build().await,
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
             FulfillmentStrategy::Reserved,
         )
     } else {
