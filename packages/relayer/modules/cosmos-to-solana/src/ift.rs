@@ -182,8 +182,8 @@ fn build_finalize_transfer_ix(
         &token_program_id,
     );
 
-    FinalizeTransfer::new(
-        FinalizeTransferAccounts {
+    FinalizeTransfer::builder(&ift_program_id)
+        .accounts(FinalizeTransferAccounts {
             ift_bridge: ift_bridge_pda,
             pending_transfer: pending_transfer_pda,
             gmp_result: gmp_result_pda,
@@ -191,14 +191,10 @@ fn build_finalize_transfer_ix(
             sender_token_account,
             payer: fee_payer,
             token_program: token_program_id,
-        },
-        &ift_program_id,
-    )
-    .build_instruction(
-        &FinalizeTransferArgs {
+        })
+        .args(&FinalizeTransferArgs {
             client_id: client_id.to_string(),
             sequence,
-        },
-        [],
-    )
+        })
+        .build()
 }

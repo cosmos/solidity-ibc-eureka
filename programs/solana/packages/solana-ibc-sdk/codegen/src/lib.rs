@@ -202,7 +202,7 @@ mod tests {
 
         let instructions =
             fs::read_to_string(generated_dir.join("test_prog/instructions.rs")).unwrap();
-        assert!(instructions.contains("pub struct Initialize {"));
+        assert!(instructions.contains("pub struct Initialize;"));
 
         let _ = fs::remove_dir_all(&idl_dir);
         let _ = fs::remove_dir_all(&generated_dir);

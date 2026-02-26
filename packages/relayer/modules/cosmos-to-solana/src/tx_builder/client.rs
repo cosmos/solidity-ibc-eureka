@@ -35,21 +35,17 @@ impl super::TxBuilder {
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
-        Initialize::new(
-            InitializeAccounts {
+        Initialize::builder(&solana_ics07_program_id)
+            .accounts(InitializeAccounts {
                 payer: self.fee_payer,
                 revision_height: latest_height,
-            },
-            &solana_ics07_program_id,
-        )
-        .build_instruction(
-            &InitializeArgs {
+            })
+            .args(&InitializeArgs {
                 client_state: client_state.clone(),
                 consensus_state: consensus_state.clone(),
                 access_manager,
-            },
-            [],
-        )
+            })
+            .build()
     }
 
     pub(crate) fn build_assemble_and_update_client_tx(
@@ -85,23 +81,20 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(sig_verify_pda, false)
         });
 
-        let ix = AssembleAndUpdateClient::new(
-            AssembleAndUpdateClientAccounts {
+        let ix = AssembleAndUpdateClient::builder(&solana_ics07_program_id)
+            .accounts(AssembleAndUpdateClientAccounts {
                 access_manager,
                 submitter: self.fee_payer,
                 trusted_height,
                 target_height,
-            },
-            &solana_ics07_program_id,
-        )
-        .build_instruction(
-            &AssembleAndUpdateClientArgs {
+            })
+            .args(&AssembleAndUpdateClientArgs {
                 target_height,
                 chunk_count: total_chunks,
                 trusted_height,
-            },
-            chunk_iter.chain(sig_iter),
-        );
+            })
+            .remaining_accounts(chunk_iter.chain(sig_iter))
+            .build();
 
         let mut instructions = Self::extend_compute_ix_with_heap();
         instructions.push(ix);
@@ -140,13 +133,12 @@ impl super::TxBuilder {
             AccountMeta::new(sig_verify_pda, false)
         });
 
-        let instruction = CleanupIncompleteUpload::new(
-            CleanupIncompleteUploadAccounts {
+        let instruction = CleanupIncompleteUpload::builder(&solana_ics07_program_id)
+            .accounts(CleanupIncompleteUploadAccounts {
                 submitter: self.fee_payer,
-            },
-            &solana_ics07_program_id,
-        )
-        .build_instruction(chunk_iter.chain(sig_iter));
+            })
+            .remaining_accounts(chunk_iter.chain(sig_iter))
+            .build();
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
@@ -177,15 +169,14 @@ impl super::TxBuilder {
             solana_ics07_program_id,
         );
 
-        Ok(UploadHeaderChunk::new(
-            UploadHeaderChunkAccounts {
+        Ok(UploadHeaderChunk::builder(&solana_ics07_program_id)
+            .accounts(UploadHeaderChunkAccounts {
                 chunk: chunk_pda,
                 access_manager,
                 submitter: self.fee_payer,
-            },
-            &solana_ics07_program_id,
-        )
-        .build_instruction(&params, []))
+            })
+            .args(&params)
+            .build())
     }
 
     pub(crate) fn build_chunk_transactions(
@@ -417,15 +408,14 @@ impl super::TxBuilder {
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let pre_verify_ix = PreVerifySignature::new(
-            PreVerifySignatureAccounts {
+        let pre_verify_ix = PreVerifySignature::builder(&solana_ics07_program_id)
+            .accounts(PreVerifySignatureAccounts {
                 signature_verification: sig_verify_pda,
                 access_manager,
                 submitter: self.fee_payer,
-            },
-            &solana_ics07_program_id,
-        )
-        .build_instruction(sig_data, []);
+            })
+            .args(sig_data)
+            .build();
 
         let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
 

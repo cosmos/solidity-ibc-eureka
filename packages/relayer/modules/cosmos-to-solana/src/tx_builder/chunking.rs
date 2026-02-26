@@ -207,15 +207,14 @@ impl super::TxBuilder {
             self.solana_ics26_program_id,
         );
 
-        Ok(UploadPayloadChunk::new(
-            UploadPayloadChunkAccounts {
+        Ok(UploadPayloadChunk::builder(&self.solana_ics26_program_id)
+            .accounts(UploadPayloadChunkAccounts {
                 access_manager,
                 chunk: chunk_pda,
                 relayer: self.fee_payer,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(&msg, []))
+            })
+            .args(&msg)
+            .build())
     }
 
     pub(crate) fn build_upload_proof_chunk_instruction(
@@ -245,15 +244,14 @@ impl super::TxBuilder {
             self.solana_ics26_program_id,
         );
 
-        Ok(UploadProofChunk::new(
-            UploadProofChunkAccounts {
+        Ok(UploadProofChunk::builder(&self.solana_ics26_program_id)
+            .accounts(UploadProofChunkAccounts {
                 access_manager,
                 chunk: chunk_pda,
                 relayer: self.fee_payer,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(&msg, []))
+            })
+            .args(&msg)
+            .build())
     }
 
     pub(crate) fn build_packet_chunk_txs(
@@ -680,14 +678,14 @@ impl super::TxBuilder {
             total_proof_chunks: proof_total_chunks,
         };
 
-        let instruction = CleanupChunks::new(
-            CleanupChunksAccounts {
+        let instruction = CleanupChunks::builder(&self.solana_ics26_program_id)
+            .accounts(CleanupChunksAccounts {
                 access_manager,
                 relayer: self.fee_payer,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(&msg, remaining_accounts);
+            })
+            .args(&msg)
+            .remaining_accounts(remaining_accounts)
+            .build();
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);

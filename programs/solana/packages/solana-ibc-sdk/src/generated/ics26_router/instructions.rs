@@ -17,12 +17,8 @@ pub struct InitializeAccounts {
     pub payer: Pubkey,
 }
 
-/// Resolved instruction accounts for `initialize`.
-pub struct Initialize {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    payer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `initialize`.
+pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
@@ -36,25 +32,15 @@ impl Initialize {
         Pubkey::find_program_address(&[b"router_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: InitializeAccounts, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> InitializeBuilder {
+        InitializeBuilder {
             program_id: *program_id,
-            router_state,
-            payer: accounts.payer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.router_state, false),
-            AccountMeta::new(self.payer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-        ]
     }
 }
 
@@ -63,22 +49,49 @@ pub struct InitializeArgs {
     pub access_manager: Pubkey,
 }
 
-impl Initialize {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `initialize` instruction.
+pub struct InitializeBuilder {
+    program_id: Pubkey,
+    accounts: Option<InitializeAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl InitializeBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &InitializeArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &InitializeArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = Initialize::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(router_state, false),
+            AccountMeta::new(accounts.payer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -92,16 +105,8 @@ pub struct AddIbcAppAccounts<'a> {
     pub port_id: &'a str,
 }
 
-/// Resolved instruction accounts for `add_ibc_app`.
-pub struct AddIbcApp {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    ibc_app: Pubkey,
-    app_program: Pubkey,
-    payer: Pubkey,
-    authority: Pubkey,
-}
+/// Instruction constants and PDA helpers for `add_ibc_app`.
+pub struct AddIbcApp;
 
 impl AddIbcApp {
     /// Total number of accounts (including fixed-address accounts).
@@ -120,35 +125,15 @@ impl AddIbcApp {
         Pubkey::find_program_address(&[b"ibc_app", port_id.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: AddIbcAppAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (ibc_app, _) = Self::ibc_app_pda(accounts.port_id, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> AddIbcAppBuilder<'a> {
+        AddIbcAppBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            ibc_app,
-            app_program: accounts.app_program,
-            payer: accounts.payer,
-            authority: accounts.authority,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.ibc_app, false),
-            AccountMeta::new_readonly(self.app_program, false),
-            AccountMeta::new(self.payer, true),
-            AccountMeta::new_readonly(self.authority, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -157,22 +142,55 @@ pub struct AddIbcAppArgs {
     pub port_id: String,
 }
 
-impl AddIbcApp {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `add_ibc_app` instruction.
+pub struct AddIbcAppBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<AddIbcAppAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> AddIbcAppBuilder<'a> {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &AddIbcAppArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: AddIbcAppAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &AddIbcAppArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = AddIbcApp::router_state_pda(&self.program_id);
+        let (ibc_app, _) = AddIbcApp::ibc_app_pda(accounts.port_id, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(ibc_app, false),
+            AccountMeta::new_readonly(accounts.app_program, false),
+            AccountMeta::new(accounts.payer, true),
+            AccountMeta::new_readonly(accounts.authority, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -189,20 +207,8 @@ pub struct SendPacketAccounts<'a> {
     pub source_client: &'a str,
 }
 
-/// Resolved instruction accounts for `send_packet`.
-pub struct SendPacket {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    ibc_app: Pubkey,
-    client_sequence: Pubkey,
-    packet_commitment: Pubkey,
-    app_signer: Pubkey,
-    payer: Pubkey,
-    client: Pubkey,
-    light_client_program: Pubkey,
-    client_state: Pubkey,
-    consensus_state: Pubkey,
-}
+/// Instruction constants and PDA helpers for `send_packet`.
+pub struct SendPacket;
 
 impl SendPacket {
     /// Total number of accounts (including fixed-address accounts).
@@ -231,61 +237,73 @@ impl SendPacket {
         Pubkey::find_program_address(&[b"client", source_client.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: SendPacketAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (ibc_app, _) = Self::ibc_app_pda(accounts.source_port, program_id);
-        let (client_sequence, _) = Self::client_sequence_pda(accounts.source_client, program_id);
-        let (client, _) = Self::client_pda(accounts.source_client, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> SendPacketBuilder<'a> {
+        SendPacketBuilder {
             program_id: *program_id,
-            router_state,
-            ibc_app,
-            client_sequence,
-            packet_commitment: accounts.packet_commitment,
-            app_signer: accounts.app_signer,
-            payer: accounts.payer,
-            client,
-            light_client_program: accounts.light_client_program,
-            client_state: accounts.client_state,
-            consensus_state: accounts.consensus_state,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `send_packet` instruction.
+pub struct SendPacketBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<SendPacketAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> SendPacketBuilder<'a> {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.ibc_app, false),
-            AccountMeta::new(self.client_sequence, false),
-            AccountMeta::new(self.packet_commitment, false),
-            AccountMeta::new_readonly(self.app_signer, true),
-            AccountMeta::new(self.payer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(self.client, false),
-            AccountMeta::new_readonly(self.light_client_program, false),
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state, false),
-        ]
+    pub fn accounts(mut self, accounts: SendPacketAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgSendPacket,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgSendPacket) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = SendPacket::router_state_pda(&self.program_id);
+        let (ibc_app, _) = SendPacket::ibc_app_pda(accounts.source_port, &self.program_id);
+        let (client_sequence, _) =
+            SendPacket::client_sequence_pda(accounts.source_client, &self.program_id);
+        let (client, _) = SendPacket::client_pda(accounts.source_client, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(ibc_app, false),
+            AccountMeta::new(client_sequence, false),
+            AccountMeta::new(accounts.packet_commitment, false),
+            AccountMeta::new_readonly(accounts.app_signer, true),
+            AccountMeta::new(accounts.payer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(accounts.light_client_program, false),
+            AccountMeta::new_readonly(accounts.client_state, false),
+            AccountMeta::new_readonly(accounts.consensus_state, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -304,22 +322,8 @@ pub struct RecvPacketAccounts<'a> {
     pub sequence: u64,
 }
 
-/// Resolved instruction accounts for `recv_packet`.
-pub struct RecvPacket {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    ibc_app: Pubkey,
-    packet_receipt: Pubkey,
-    packet_ack: Pubkey,
-    ibc_app_program: Pubkey,
-    ibc_app_state: Pubkey,
-    relayer: Pubkey,
-    client: Pubkey,
-    light_client_program: Pubkey,
-    client_state: Pubkey,
-    consensus_state: Pubkey,
-}
+/// Instruction constants and PDA helpers for `recv_packet`.
+pub struct RecvPacket;
 
 impl RecvPacket {
     /// Total number of accounts (including fixed-address accounts).
@@ -371,69 +375,81 @@ impl RecvPacket {
         Pubkey::find_program_address(&[b"client", dest_client.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: RecvPacketAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (ibc_app, _) = Self::ibc_app_pda(accounts.dest_port, program_id);
-        let (packet_receipt, _) =
-            Self::packet_receipt_pda(accounts.dest_client, accounts.sequence, program_id);
-        let (packet_ack, _) =
-            Self::packet_ack_pda(accounts.dest_client, accounts.sequence, program_id);
-        let (client, _) = Self::client_pda(accounts.dest_client, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> RecvPacketBuilder<'a> {
+        RecvPacketBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            ibc_app,
-            packet_receipt,
-            packet_ack,
-            ibc_app_program: accounts.ibc_app_program,
-            ibc_app_state: accounts.ibc_app_state,
-            relayer: accounts.relayer,
-            client,
-            light_client_program: accounts.light_client_program,
-            client_state: accounts.client_state,
-            consensus_state: accounts.consensus_state,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `recv_packet` instruction.
+pub struct RecvPacketBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<RecvPacketAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> RecvPacketBuilder<'a> {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(self.ibc_app, false),
-            AccountMeta::new(self.packet_receipt, false),
-            AccountMeta::new(self.packet_ack, false),
-            AccountMeta::new_readonly(self.ibc_app_program, false),
-            AccountMeta::new(self.ibc_app_state, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(self.client, false),
-            AccountMeta::new_readonly(self.light_client_program, false),
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state, false),
-        ]
+    pub fn accounts(mut self, accounts: RecvPacketAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgRecvPacket,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgRecvPacket) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = RecvPacket::router_state_pda(&self.program_id);
+        let (ibc_app, _) = RecvPacket::ibc_app_pda(accounts.dest_port, &self.program_id);
+        let (packet_receipt, _) = RecvPacket::packet_receipt_pda(
+            accounts.dest_client,
+            accounts.sequence,
+            &self.program_id,
+        );
+        let (packet_ack, _) =
+            RecvPacket::packet_ack_pda(accounts.dest_client, accounts.sequence, &self.program_id);
+        let (client, _) = RecvPacket::client_pda(accounts.dest_client, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(ibc_app, false),
+            AccountMeta::new(packet_receipt, false),
+            AccountMeta::new(packet_ack, false),
+            AccountMeta::new_readonly(accounts.ibc_app_program, false),
+            AccountMeta::new(accounts.ibc_app_state, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(accounts.light_client_program, false),
+            AccountMeta::new_readonly(accounts.client_state, false),
+            AccountMeta::new_readonly(accounts.consensus_state, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -452,21 +468,8 @@ pub struct AckPacketAccounts<'a> {
     pub sequence: u64,
 }
 
-/// Resolved instruction accounts for `ack_packet`.
-pub struct AckPacket {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    ibc_app: Pubkey,
-    packet_commitment: Pubkey,
-    ibc_app_program: Pubkey,
-    ibc_app_state: Pubkey,
-    relayer: Pubkey,
-    client: Pubkey,
-    light_client_program: Pubkey,
-    client_state: Pubkey,
-    consensus_state: Pubkey,
-}
+/// Instruction constants and PDA helpers for `ack_packet`.
+pub struct AckPacket;
 
 impl AckPacket {
     /// Total number of accounts (including fixed-address accounts).
@@ -506,65 +509,78 @@ impl AckPacket {
         Pubkey::find_program_address(&[b"client", source_client.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: AckPacketAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (ibc_app, _) = Self::ibc_app_pda(accounts.source_port, program_id);
-        let (packet_commitment, _) =
-            Self::packet_commitment_pda(accounts.source_client, accounts.sequence, program_id);
-        let (client, _) = Self::client_pda(accounts.source_client, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> AckPacketBuilder<'a> {
+        AckPacketBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            ibc_app,
-            packet_commitment,
-            ibc_app_program: accounts.ibc_app_program,
-            ibc_app_state: accounts.ibc_app_state,
-            relayer: accounts.relayer,
-            client,
-            light_client_program: accounts.light_client_program,
-            client_state: accounts.client_state,
-            consensus_state: accounts.consensus_state,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `ack_packet` instruction.
+pub struct AckPacketBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<AckPacketAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> AckPacketBuilder<'a> {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(self.ibc_app, false),
-            AccountMeta::new(self.packet_commitment, false),
-            AccountMeta::new_readonly(self.ibc_app_program, false),
-            AccountMeta::new(self.ibc_app_state, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(self.client, false),
-            AccountMeta::new_readonly(self.light_client_program, false),
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state, false),
-        ]
+    pub fn accounts(mut self, accounts: AckPacketAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgAckPacket,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgAckPacket) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = AckPacket::router_state_pda(&self.program_id);
+        let (ibc_app, _) = AckPacket::ibc_app_pda(accounts.source_port, &self.program_id);
+        let (packet_commitment, _) = AckPacket::packet_commitment_pda(
+            accounts.source_client,
+            accounts.sequence,
+            &self.program_id,
+        );
+        let (client, _) = AckPacket::client_pda(accounts.source_client, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(ibc_app, false),
+            AccountMeta::new(packet_commitment, false),
+            AccountMeta::new_readonly(accounts.ibc_app_program, false),
+            AccountMeta::new(accounts.ibc_app_state, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(accounts.light_client_program, false),
+            AccountMeta::new_readonly(accounts.client_state, false),
+            AccountMeta::new_readonly(accounts.consensus_state, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -583,21 +599,8 @@ pub struct TimeoutPacketAccounts<'a> {
     pub sequence: u64,
 }
 
-/// Resolved instruction accounts for `timeout_packet`.
-pub struct TimeoutPacket {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    ibc_app: Pubkey,
-    packet_commitment: Pubkey,
-    ibc_app_program: Pubkey,
-    ibc_app_state: Pubkey,
-    relayer: Pubkey,
-    client: Pubkey,
-    light_client_program: Pubkey,
-    client_state: Pubkey,
-    consensus_state: Pubkey,
-}
+/// Instruction constants and PDA helpers for `timeout_packet`.
+pub struct TimeoutPacket;
 
 impl TimeoutPacket {
     /// Total number of accounts (including fixed-address accounts).
@@ -637,65 +640,78 @@ impl TimeoutPacket {
         Pubkey::find_program_address(&[b"client", source_client.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: TimeoutPacketAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (ibc_app, _) = Self::ibc_app_pda(accounts.source_port, program_id);
-        let (packet_commitment, _) =
-            Self::packet_commitment_pda(accounts.source_client, accounts.sequence, program_id);
-        let (client, _) = Self::client_pda(accounts.source_client, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> TimeoutPacketBuilder<'a> {
+        TimeoutPacketBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            ibc_app,
-            packet_commitment,
-            ibc_app_program: accounts.ibc_app_program,
-            ibc_app_state: accounts.ibc_app_state,
-            relayer: accounts.relayer,
-            client,
-            light_client_program: accounts.light_client_program,
-            client_state: accounts.client_state,
-            consensus_state: accounts.consensus_state,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `timeout_packet` instruction.
+pub struct TimeoutPacketBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<TimeoutPacketAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> TimeoutPacketBuilder<'a> {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(self.ibc_app, false),
-            AccountMeta::new(self.packet_commitment, false),
-            AccountMeta::new_readonly(self.ibc_app_program, false),
-            AccountMeta::new(self.ibc_app_state, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(self.client, false),
-            AccountMeta::new_readonly(self.light_client_program, false),
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state, false),
-        ]
+    pub fn accounts(mut self, accounts: TimeoutPacketAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgTimeoutPacket,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgTimeoutPacket) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = TimeoutPacket::router_state_pda(&self.program_id);
+        let (ibc_app, _) = TimeoutPacket::ibc_app_pda(accounts.source_port, &self.program_id);
+        let (packet_commitment, _) = TimeoutPacket::packet_commitment_pda(
+            accounts.source_client,
+            accounts.sequence,
+            &self.program_id,
+        );
+        let (client, _) = TimeoutPacket::client_pda(accounts.source_client, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(ibc_app, false),
+            AccountMeta::new(packet_commitment, false),
+            AccountMeta::new_readonly(accounts.ibc_app_program, false),
+            AccountMeta::new(accounts.ibc_app_state, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(client, false),
+            AccountMeta::new_readonly(accounts.light_client_program, false),
+            AccountMeta::new_readonly(accounts.client_state, false),
+            AccountMeta::new_readonly(accounts.consensus_state, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -708,16 +724,8 @@ pub struct AddClientAccounts<'a> {
     pub client_id: &'a str,
 }
 
-/// Resolved instruction accounts for `add_client`.
-pub struct AddClient {
-    program_id: Pubkey,
-    authority: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    client: Pubkey,
-    client_sequence: Pubkey,
-    light_client_program: Pubkey,
-}
+/// Instruction constants and PDA helpers for `add_client`.
+pub struct AddClient;
 
 impl AddClient {
     /// Total number of accounts (including fixed-address accounts).
@@ -741,36 +749,15 @@ impl AddClient {
         Pubkey::find_program_address(&[b"client_sequence", client_id.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: AddClientAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (client, _) = Self::client_pda(accounts.client_id, program_id);
-        let (client_sequence, _) = Self::client_sequence_pda(accounts.client_id, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> AddClientBuilder<'a> {
+        AddClientBuilder {
             program_id: *program_id,
-            authority: accounts.authority,
-            router_state,
-            access_manager: accounts.access_manager,
-            client,
-            client_sequence,
-            light_client_program: accounts.light_client_program,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.authority, true),
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.client, false),
-            AccountMeta::new(self.client_sequence, false),
-            AccountMeta::new_readonly(self.light_client_program, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -780,22 +767,57 @@ pub struct AddClientArgs {
     pub counterparty_info: CounterpartyInfo,
 }
 
-impl AddClient {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `add_client` instruction.
+pub struct AddClientBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<AddClientAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> AddClientBuilder<'a> {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &AddClientArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: AddClientAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &AddClientArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = AddClient::router_state_pda(&self.program_id);
+        let (client, _) = AddClient::client_pda(accounts.client_id, &self.program_id);
+        let (client_sequence, _) =
+            AddClient::client_sequence_pda(accounts.client_id, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(accounts.authority, true),
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(client, false),
+            AccountMeta::new(client_sequence, false),
+            AccountMeta::new_readonly(accounts.light_client_program, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -807,14 +829,8 @@ pub struct MigrateClientAccounts<'a> {
     pub client_id: &'a str,
 }
 
-/// Resolved instruction accounts for `migrate_client`.
-pub struct MigrateClient {
-    program_id: Pubkey,
-    authority: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    client: Pubkey,
-}
+/// Instruction constants and PDA helpers for `migrate_client`.
+pub struct MigrateClient;
 
 impl MigrateClient {
     /// Total number of accounts (including fixed-address accounts).
@@ -833,30 +849,15 @@ impl MigrateClient {
         Pubkey::find_program_address(&[b"client", client_id.as_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: MigrateClientAccounts<'_>, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        let (client, _) = Self::client_pda(accounts.client_id, program_id);
-        Self {
+    pub fn builder<'a>(program_id: &Pubkey) -> MigrateClientBuilder<'a> {
+        MigrateClientBuilder {
             program_id: *program_id,
-            authority: accounts.authority,
-            router_state,
-            access_manager: accounts.access_manager,
-            client,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.authority, true),
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.client, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -866,22 +867,52 @@ pub struct MigrateClientArgs {
     pub params: MigrateClientParams,
 }
 
-impl MigrateClient {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `migrate_client` instruction.
+pub struct MigrateClientBuilder<'a> {
+    program_id: Pubkey,
+    accounts: Option<MigrateClientAccounts<'a>>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl<'a> MigrateClientBuilder<'a> {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MigrateClientArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: MigrateClientAccounts<'a>) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &MigrateClientArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = MigrateClient::router_state_pda(&self.program_id);
+        let (client, _) = MigrateClient::client_pda(accounts.client_id, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(accounts.authority, true),
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(client, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -893,14 +924,8 @@ pub struct UploadPayloadChunkAccounts {
     pub relayer: Pubkey,
 }
 
-/// Resolved instruction accounts for `upload_payload_chunk`.
-pub struct UploadPayloadChunk {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    chunk: Pubkey,
-    relayer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `upload_payload_chunk`.
+pub struct UploadPayloadChunk;
 
 impl UploadPayloadChunk {
     /// Total number of accounts (including fixed-address accounts).
@@ -914,47 +939,64 @@ impl UploadPayloadChunk {
         Pubkey::find_program_address(&[b"router_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: UploadPayloadChunkAccounts, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> UploadPayloadChunkBuilder {
+        UploadPayloadChunkBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            chunk: accounts.chunk,
-            relayer: accounts.relayer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `upload_payload_chunk` instruction.
+pub struct UploadPayloadChunkBuilder {
+    program_id: Pubkey,
+    accounts: Option<UploadPayloadChunkAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl UploadPayloadChunkBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.chunk, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
+    pub fn accounts(mut self, accounts: UploadPayloadChunkAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgUploadChunk,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgUploadChunk) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = UploadPayloadChunk::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(accounts.chunk, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -966,14 +1008,8 @@ pub struct UploadProofChunkAccounts {
     pub relayer: Pubkey,
 }
 
-/// Resolved instruction accounts for `upload_proof_chunk`.
-pub struct UploadProofChunk {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    chunk: Pubkey,
-    relayer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `upload_proof_chunk`.
+pub struct UploadProofChunk;
 
 impl UploadProofChunk {
     /// Total number of accounts (including fixed-address accounts).
@@ -987,47 +1023,64 @@ impl UploadProofChunk {
         Pubkey::find_program_address(&[b"router_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: UploadProofChunkAccounts, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> UploadProofChunkBuilder {
+        UploadProofChunkBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            chunk: accounts.chunk,
-            relayer: accounts.relayer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `upload_proof_chunk` instruction.
+pub struct UploadProofChunkBuilder {
+    program_id: Pubkey,
+    accounts: Option<UploadProofChunkAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl UploadProofChunkBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.chunk, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
+    pub fn accounts(mut self, accounts: UploadProofChunkAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgUploadChunk,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgUploadChunk) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = UploadProofChunk::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(accounts.chunk, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -1038,13 +1091,8 @@ pub struct CleanupChunksAccounts {
     pub relayer: Pubkey,
 }
 
-/// Resolved instruction accounts for `cleanup_chunks`.
-pub struct CleanupChunks {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    relayer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `cleanup_chunks`.
+pub struct CleanupChunks;
 
 impl CleanupChunks {
     /// Total number of accounts (including fixed-address accounts).
@@ -1058,44 +1106,62 @@ impl CleanupChunks {
         Pubkey::find_program_address(&[b"router_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: CleanupChunksAccounts, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> CleanupChunksBuilder {
+        CleanupChunksBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            relayer: accounts.relayer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `cleanup_chunks` instruction.
+pub struct CleanupChunksBuilder {
+    program_id: Pubkey,
+    accounts: Option<CleanupChunksAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl CleanupChunksBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.relayer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
+    pub fn accounts(mut self, accounts: CleanupChunksAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MsgCleanupChunks,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MsgCleanupChunks) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = CleanupChunks::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new(accounts.relayer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -1106,13 +1172,8 @@ pub struct SetAccessManagerAccounts {
     pub admin: Pubkey,
 }
 
-/// Resolved instruction accounts for `set_access_manager`.
-pub struct SetAccessManager {
-    program_id: Pubkey,
-    router_state: Pubkey,
-    access_manager: Pubkey,
-    admin: Pubkey,
-}
+/// Instruction constants and PDA helpers for `set_access_manager`.
+pub struct SetAccessManager;
 
 impl SetAccessManager {
     /// Total number of accounts (including fixed-address accounts).
@@ -1126,27 +1187,15 @@ impl SetAccessManager {
         Pubkey::find_program_address(&[b"router_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: SetAccessManagerAccounts, program_id: &Pubkey) -> Self {
-        let (router_state, _) = Self::router_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> SetAccessManagerBuilder {
+        SetAccessManagerBuilder {
             program_id: *program_id,
-            router_state,
-            access_manager: accounts.access_manager,
-            admin: accounts.admin,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.router_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(self.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -1155,22 +1204,50 @@ pub struct SetAccessManagerArgs {
     pub new_access_manager: Pubkey,
 }
 
-impl SetAccessManager {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `set_access_manager` instruction.
+pub struct SetAccessManagerBuilder {
+    program_id: Pubkey,
+    accounts: Option<SetAccessManagerAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl SetAccessManagerBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &SetAccessManagerArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &SetAccessManagerArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = SetAccessManager::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }

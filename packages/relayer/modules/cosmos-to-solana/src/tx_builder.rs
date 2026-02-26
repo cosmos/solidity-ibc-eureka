@@ -926,21 +926,17 @@ impl AttestedTxBuilder {
                 &access_manager_program_id,
             );
 
-        let instruction = UpdateClient::new(
-            UpdateClientAccounts {
+        let instruction = UpdateClient::builder(&light_client_program_id)
+            .accounts(UpdateClientAccounts {
                 access_manager: access_manager_pda,
                 submitter: self.tx_builder.fee_payer,
                 new_height,
-            },
-            &light_client_program_id,
-        )
-        .build_instruction(
-            &UpdateClientArgs {
+            })
+            .args(&UpdateClientArgs {
                 new_height,
                 params: UpdateClientParams { proof },
-            },
-            [],
-        );
+            })
+            .build();
 
         let mut instructions = TxBuilder::extend_compute_ix();
         instructions.push(instruction);

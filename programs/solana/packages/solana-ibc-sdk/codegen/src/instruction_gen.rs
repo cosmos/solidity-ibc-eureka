@@ -280,8 +280,17 @@ fn extract_pda_args(
     args
 }
 
-/// Builds the PDA derivation expression for `new()`.
-fn pda_derive_expr(account_name: &str, seed_refs: &[SeedRef], resolved: &ResolvedPda) -> String {
+/// Builds the PDA derivation expression for `build()`.
+///
+/// `struct_prefix` is the type that owns the PDA method (e.g. `"UpdateClient"`).
+/// `program_id_expr` is the expression for the program ID (e.g. `"&self.program_id"`).
+fn pda_derive_expr(
+    struct_prefix: &str,
+    account_name: &str,
+    seed_refs: &[SeedRef],
+    resolved: &ResolvedPda,
+    program_id_expr: &str,
+) -> String {
     let mut args = Vec::new();
 
     for (i, seed_ref) in seed_refs.iter().enumerate() {
@@ -305,9 +314,9 @@ fn pda_derive_expr(account_name: &str, seed_refs: &[SeedRef], resolved: &Resolve
         }
     }
 
-    args.push("program_id".to_string());
+    args.push(program_id_expr.to_string());
     let method_name = format!("{}_pda", sanitize_ident(account_name));
-    format!("Self::{method_name}({})", args.join(", "))
+    format!("{struct_prefix}::{method_name}({})", args.join(", "))
 }
 
 fn generate_instruction_struct(
@@ -318,6 +327,7 @@ fn generate_instruction_struct(
 ) {
     let struct_name = to_pascal_case(&instruction.name);
     let accounts_name = format!("{struct_name}Accounts");
+    let builder_name = format!("{struct_name}Builder");
     let args_kind = classify_args(instruction, names);
 
     let classifications: Vec<(&IdlInstructionAccount, AccountKind)> = instruction
@@ -347,7 +357,6 @@ fn generate_instruction_struct(
 
     // --- {Name}Accounts struct ---
     let lifetime = if needs_lifetime { "<'a>" } else { "" };
-    let lifetime_for_impl = if needs_lifetime { "<'_>" } else { "" };
 
     writeln!(
         output,
@@ -371,24 +380,16 @@ fn generate_instruction_struct(
 
     writeln!(output, "}}\n").unwrap();
 
-    // --- {Name} struct (resolved, all Pubkeys) ---
+    // --- {Name} unit struct (namespace for constants and PDA helpers) ---
     writeln!(
         output,
-        "/// Resolved instruction accounts for `{}`.",
+        "/// Instruction constants and PDA helpers for `{}`.",
         instruction.name
     )
     .unwrap();
-    writeln!(output, "pub struct {struct_name} {{").unwrap();
-    writeln!(output, "    program_id: Pubkey,").unwrap();
-    for (acc, kind) in &classifications {
-        if matches!(kind, AccountKind::Fixed) {
-            continue;
-        }
-        writeln!(output, "    {}: Pubkey,", sanitize_ident(&acc.name)).unwrap();
-    }
-    writeln!(output, "}}\n").unwrap();
+    writeln!(output, "pub struct {struct_name};\n").unwrap();
 
-    // --- impl ---
+    // --- impl with constants, PDA methods and builder() ---
     writeln!(output, "impl {struct_name} {{").unwrap();
 
     writeln!(
@@ -429,63 +430,170 @@ fn generate_instruction_struct(
         }
     }
 
-    // --- new() ---
-    writeln!(
-        output,
-        "    /// Creates a new instruction builder, auto-deriving PDA accounts."
-    )
-    .unwrap();
+    // --- builder() ---
+    let builder_lifetime = if needs_lifetime { "<'a>" } else { "" };
+    writeln!(output, "    /// Creates a builder for this instruction.").unwrap();
     writeln!(output, "    #[must_use]").unwrap();
     writeln!(
         output,
-        "    pub fn new(accounts: {accounts_name}{lifetime_for_impl}, program_id: &Pubkey) -> Self {{"
+        "    pub fn builder{builder_lifetime}(program_id: &Pubkey) -> {builder_name}{builder_lifetime} {{"
+    )
+    .unwrap();
+    writeln!(output, "        {builder_name} {{").unwrap();
+    writeln!(output, "            program_id: *program_id,").unwrap();
+    writeln!(output, "            accounts: None,").unwrap();
+    writeln!(
+        output,
+        "            args_data: Self::DISCRIMINATOR.to_vec(),"
+    )
+    .unwrap();
+    writeln!(output, "            remaining_accounts: Vec::new(),").unwrap();
+    writeln!(output, "        }}").unwrap();
+    writeln!(output, "    }}").unwrap();
+
+    writeln!(output, "}}\n").unwrap();
+
+    // --- Args struct (for flat args) ---
+    if let ArgsKind::Flat {
+        struct_name: ref args_struct_name,
+        ref fields,
+    } = args_kind
+    {
+        writeln!(
+            output,
+            "#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]"
+        )
+        .unwrap();
+        writeln!(output, "pub struct {args_struct_name} {{").unwrap();
+        for (ident, rust_type) in fields {
+            writeln!(output, "    pub {ident}: {rust_type},").unwrap();
+        }
+        writeln!(output, "}}\n").unwrap();
+    }
+
+    // --- {Name}Builder struct ---
+    writeln!(
+        output,
+        "/// Builder for the `{}` instruction.",
+        instruction.name
+    )
+    .unwrap();
+    writeln!(output, "pub struct {builder_name}{lifetime} {{").unwrap();
+    writeln!(output, "    program_id: Pubkey,").unwrap();
+    writeln!(output, "    accounts: Option<{accounts_name}{lifetime}>,").unwrap();
+    writeln!(output, "    args_data: Vec<u8>,").unwrap();
+    writeln!(output, "    remaining_accounts: Vec<AccountMeta>,").unwrap();
+    writeln!(output, "}}\n").unwrap();
+
+    // --- impl {Name}Builder ---
+    writeln!(output, "impl{lifetime} {builder_name}{lifetime} {{").unwrap();
+
+    // .accounts()
+    writeln!(output, "    #[must_use]").unwrap();
+    writeln!(
+        output,
+        "    pub fn accounts(mut self, accounts: {accounts_name}{lifetime}) -> Self {{"
+    )
+    .unwrap();
+    writeln!(output, "        self.accounts = Some(accounts);").unwrap();
+    writeln!(output, "        self").unwrap();
+    writeln!(output, "    }}").unwrap();
+
+    // .args() — only for instructions with args
+    match &args_kind {
+        ArgsKind::None => {}
+        ArgsKind::SingleDefined { type_name } => {
+            writeln!(output, "\n    #[must_use]").unwrap();
+            writeln!(
+                output,
+                "    pub fn args(mut self, args: &{type_name}) -> Self {{"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        self.args_data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
+            )
+            .unwrap();
+            writeln!(output, "        self").unwrap();
+            writeln!(output, "    }}").unwrap();
+        }
+        ArgsKind::Flat {
+            struct_name: args_struct_name,
+            ..
+        } => {
+            writeln!(output, "\n    #[must_use]").unwrap();
+            writeln!(
+                output,
+                "    pub fn args(mut self, args: &{args_struct_name}) -> Self {{"
+            )
+            .unwrap();
+            writeln!(
+                output,
+                "        self.args_data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
+            )
+            .unwrap();
+            writeln!(output, "        self").unwrap();
+            writeln!(output, "    }}").unwrap();
+        }
+    }
+
+    // .remaining_accounts()
+    writeln!(output, "\n    #[must_use]").unwrap();
+    writeln!(
+        output,
+        "    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {{"
+    )
+    .unwrap();
+    writeln!(output, "        self.remaining_accounts.extend(accounts);").unwrap();
+    writeln!(output, "        self").unwrap();
+    writeln!(output, "    }}").unwrap();
+
+    // .build()
+    writeln!(
+        output,
+        "\n    /// Builds the [`Instruction`], deriving PDA accounts and serializing args."
+    )
+    .unwrap();
+    writeln!(output, "    #[must_use]").unwrap();
+    writeln!(output, "    pub fn build(self) -> Instruction {{").unwrap();
+    writeln!(
+        output,
+        "        let accounts = self.accounts.expect(\"accounts required\");"
     )
     .unwrap();
 
+    // Derive PDAs
     for (acc, kind) in &classifications {
         if let AccountKind::AutoPda { seed_refs } = kind {
             if let Some(resolved) = resolved_pdas.get(&acc.name) {
-                let expr = pda_derive_expr(&acc.name, seed_refs, resolved);
+                let expr = pda_derive_expr(
+                    &struct_name,
+                    &acc.name,
+                    seed_refs,
+                    resolved,
+                    "&self.program_id",
+                );
                 let ident = sanitize_ident(&acc.name);
                 writeln!(output, "        let ({ident}, _) = {expr};").unwrap();
             }
         }
     }
 
-    writeln!(output, "        Self {{").unwrap();
-    writeln!(output, "            program_id: *program_id,").unwrap();
-    for (acc, kind) in &classifications {
-        let ident = sanitize_ident(&acc.name);
-        match kind {
-            AccountKind::Fixed => {}
-            AccountKind::AutoPda { .. } => {
-                writeln!(output, "            {ident},").unwrap();
-            }
-            AccountKind::Provided => {
-                writeln!(output, "            {ident}: accounts.{ident},").unwrap();
-            }
-        }
-    }
-    writeln!(output, "        }}").unwrap();
-    writeln!(output, "    }}").unwrap();
-
-    // --- to_account_metas() ---
-    writeln!(
-        output,
-        "\n    /// Returns account metas in the order expected by the program."
-    )
-    .unwrap();
-    writeln!(output, "    #[must_use]").unwrap();
-    writeln!(
-        output,
-        "    pub fn to_account_metas(&self) -> Vec<AccountMeta> {{"
-    )
-    .unwrap();
-    writeln!(output, "        vec![").unwrap();
-
+    // Build account metas in IDL order
+    writeln!(output, "        let mut account_metas = vec![").unwrap();
     for account in &instruction.accounts {
         let pubkey_expr = account.address.as_ref().map_or_else(
-            || format!("self.{}", sanitize_ident(&account.name)),
+            || {
+                let ident = sanitize_ident(&account.name);
+                let kind = classifications
+                    .iter()
+                    .find(|(a, _)| a.name == account.name)
+                    .map(|(_, k)| k);
+                match kind {
+                    Some(AccountKind::AutoPda { .. }) => ident,
+                    _ => format!("accounts.{ident}"),
+                }
+            },
             |addr| address_to_rust_expr(addr),
         );
 
@@ -500,142 +608,19 @@ fn generate_instruction_struct(
 
         writeln!(output, "            {meta_expr},").unwrap();
     }
+    writeln!(output, "        ];").unwrap();
+    writeln!(
+        output,
+        "        account_metas.extend(self.remaining_accounts);"
+    )
+    .unwrap();
 
-    writeln!(output, "        ]").unwrap();
+    writeln!(
+        output,
+        "        Instruction {{ program_id: self.program_id, accounts: account_metas, data: self.args_data }}"
+    )
+    .unwrap();
     writeln!(output, "    }}").unwrap();
-
-    // --- Args struct (for flat args) ---
-    if let ArgsKind::Flat {
-        struct_name: ref args_struct_name,
-        ref fields,
-    } = args_kind
-    {
-        writeln!(output, "}}\n").unwrap();
-        writeln!(
-            output,
-            "#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]"
-        )
-        .unwrap();
-        writeln!(output, "pub struct {args_struct_name} {{").unwrap();
-        for (ident, rust_type) in fields {
-            writeln!(output, "    pub {ident}: {rust_type},").unwrap();
-        }
-        writeln!(output, "}}\n").unwrap();
-        writeln!(output, "impl {struct_name} {{").unwrap();
-    }
-
-    // --- build_instruction() ---
-    match &args_kind {
-        ArgsKind::None => {
-            writeln!(
-                output,
-                "\n    /// Builds a complete [`Instruction`] with discriminator and remaining accounts."
-            )
-            .unwrap();
-            writeln!(output, "    #[must_use]").unwrap();
-            writeln!(output, "    pub fn build_instruction(").unwrap();
-            writeln!(output, "        self,").unwrap();
-            writeln!(
-                output,
-                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
-            )
-            .unwrap();
-            writeln!(output, "    ) -> Instruction {{").unwrap();
-            writeln!(
-                output,
-                "        let mut accounts = self.to_account_metas();"
-            )
-            .unwrap();
-            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
-            writeln!(
-                output,
-                "        Instruction {{ program_id: self.program_id, accounts, data: Self::DISCRIMINATOR.to_vec() }}"
-            )
-            .unwrap();
-            writeln!(output, "    }}").unwrap();
-        }
-        ArgsKind::SingleDefined { type_name } => {
-            writeln!(
-                output,
-                "\n    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts."
-            )
-            .unwrap();
-            writeln!(output, "    #[must_use]").unwrap();
-            writeln!(output, "    pub fn build_instruction(").unwrap();
-            writeln!(output, "        self,").unwrap();
-            writeln!(output, "        args: &{type_name},").unwrap();
-            writeln!(
-                output,
-                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
-            )
-            .unwrap();
-            writeln!(output, "    ) -> Instruction {{").unwrap();
-            writeln!(
-                output,
-                "        let mut accounts = self.to_account_metas();"
-            )
-            .unwrap();
-            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
-            writeln!(
-                output,
-                "        let mut data = Self::DISCRIMINATOR.to_vec();"
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "        data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "        Instruction {{ program_id: self.program_id, accounts, data }}"
-            )
-            .unwrap();
-            writeln!(output, "    }}").unwrap();
-        }
-        ArgsKind::Flat {
-            struct_name: args_struct_name,
-            ..
-        } => {
-            writeln!(
-                output,
-                "\n    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts."
-            )
-            .unwrap();
-            writeln!(output, "    #[must_use]").unwrap();
-            writeln!(output, "    pub fn build_instruction(").unwrap();
-            writeln!(output, "        self,").unwrap();
-            writeln!(output, "        args: &{args_struct_name},").unwrap();
-            writeln!(
-                output,
-                "        remaining_accounts: impl IntoIterator<Item = AccountMeta>,"
-            )
-            .unwrap();
-            writeln!(output, "    ) -> Instruction {{").unwrap();
-            writeln!(
-                output,
-                "        let mut accounts = self.to_account_metas();"
-            )
-            .unwrap();
-            writeln!(output, "        accounts.extend(remaining_accounts);").unwrap();
-            writeln!(
-                output,
-                "        let mut data = Self::DISCRIMINATOR.to_vec();"
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "        data.extend_from_slice(&borsh::to_vec(args).expect(\"borsh serialize\"));"
-            )
-            .unwrap();
-            writeln!(
-                output,
-                "        Instruction {{ program_id: self.program_id, accounts, data }}"
-            )
-            .unwrap();
-            writeln!(output, "    }}").unwrap();
-        }
-    }
 
     writeln!(output, "}}\n").unwrap();
 }
@@ -813,10 +798,17 @@ mod tests {
 
         assert!(output.contains("pub struct TestInstructionAccounts"));
         assert!(output.contains("pub my_account: Pubkey,"));
-        assert!(output.contains("pub struct TestInstruction {"));
+        // Unit struct
+        assert!(output.contains("pub struct TestInstruction;"));
         assert!(output.contains("pub const COUNT: usize = 2;"));
         assert!(output.contains("pub const DISCRIMINATOR: [u8; 8] = [1, 2, 3, 4, 5, 6, 7, 8];"));
-        assert!(output.contains("AccountMeta::new(self.my_account, false)"));
+        // Builder struct
+        assert!(output.contains("pub struct TestInstructionBuilder"));
+        assert!(output.contains("fn builder(program_id: &Pubkey)"));
+        assert!(output.contains("fn accounts(mut self"));
+        assert!(output.contains("fn build(self) -> Instruction"));
+        // Account metas in build() use accounts.field (not self.field)
+        assert!(output.contains("AccountMeta::new(accounts.my_account, false)"));
         assert!(output.contains("anchor_lang::solana_program::system_program::ID"));
     }
 
@@ -849,8 +841,8 @@ mod tests {
         let mut output = String::new();
         generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
-        assert!(output.contains("AccountMeta::new(self.from, true)"));
-        assert!(output.contains("AccountMeta::new(self.to, false)"));
+        assert!(output.contains("AccountMeta::new(accounts.from, true)"));
+        assert!(output.contains("AccountMeta::new(accounts.to, false)"));
     }
 
     #[test]
@@ -896,8 +888,8 @@ mod tests {
         assert!(output.contains("pub payer: Pubkey,"));
         // PDA method should be generated
         assert!(output.contains("pub fn state_pda(program_id: &Pubkey) -> (Pubkey, u8)"));
-        // state should be derived via Self:: in new()
-        assert!(output.contains("let (state, _) = Self::state_pda(program_id)"));
+        // state should be derived via {Ix}:: in build()
+        assert!(output.contains("let (state, _) = DoSomething::state_pda(&self.program_id)"));
     }
 
     #[test]
@@ -932,17 +924,17 @@ mod tests {
         assert!(output.contains(
             "pub fn channel_pda(owner: &Pubkey, channel_id: &str, program_id: &Pubkey) -> (Pubkey, u8)"
         ));
-        // Self:: call in new()
-        assert!(
-            output.contains("Self::channel_pda(&accounts.owner, accounts.channel_id, program_id)")
-        );
+        // PDA derivation in build() uses {Ix}:: prefix
+        assert!(output.contains(
+            "CreateChannel::channel_pda(&accounts.owner, accounts.channel_id, &self.program_id)"
+        ));
         // channel_id should be in Accounts struct (PDA arg)
         assert!(output.contains("pub channel_id:"));
         // Flat args struct should be generated
         assert!(output.contains("pub struct CreateChannelArgs {"));
         assert!(output.contains("pub channel_id: String,"));
-        // build_instruction should accept typed args
-        assert!(output.contains("args: &CreateChannelArgs,"));
+        // Builder args method should accept typed args
+        assert!(output.contains("fn args(mut self, args: &CreateChannelArgs)"));
     }
 
     #[test]
@@ -986,12 +978,10 @@ mod tests {
         let mut output = String::new();
         generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
-        assert!(output.contains("pub fn build_instruction("));
-        // No args parameter for no-args instructions
-        assert!(!output.contains("args_data"));
-        assert!(!output.contains("args:"));
-        assert!(output.contains("remaining_accounts: impl IntoIterator<Item = AccountMeta>"));
-        assert!(output.contains("Self::DISCRIMINATOR.to_vec()"));
+        // Builder pattern: no .args() method for no-args instructions
+        assert!(output.contains("fn build(self) -> Instruction"));
+        assert!(!output.contains("fn args("));
+        assert!(output.contains("fn remaining_accounts(mut self"));
     }
 
     #[test]
@@ -1020,7 +1010,8 @@ mod tests {
         let mut output = String::new();
         generate_instruction_struct(&mut output, &instruction, &type_map, &names);
 
-        assert!(output.contains("args: &MsgRecvPacket,"));
+        // Builder args method with single defined type
+        assert!(output.contains("fn args(mut self, args: &MsgRecvPacket)"));
         assert!(!output.contains("pub struct RecvPacketArgs"));
         assert!(output.contains("borsh::to_vec(args)"));
     }
@@ -1053,8 +1044,8 @@ mod tests {
         assert!(output.contains("pub client_id: String,"));
         assert!(output.contains("pub sequence: u64,"));
         assert!(output.contains("#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]"));
-        // build_instruction should accept typed args
-        assert!(output.contains("args: &FinalizeTransferArgs,"));
+        // Builder args method with flat args struct
+        assert!(output.contains("fn args(mut self, args: &FinalizeTransferArgs)"));
         assert!(output.contains("borsh::to_vec(args)"));
     }
 
@@ -1269,8 +1260,8 @@ mod tests {
         };
 
         let seed_refs = vec![SeedRef::AccountField("owner".to_string())];
-        let expr = pda_derive_expr("channel", &seed_refs, &resolved);
-        assert_eq!(expr, "Self::channel_pda(&accounts.owner, program_id)");
+        let expr = pda_derive_expr("MyIx", "channel", &seed_refs, &resolved, "&self.program_id");
+        assert_eq!(expr, "MyIx::channel_pda(&accounts.owner, &self.program_id)");
     }
 
     #[test]
@@ -1285,8 +1276,8 @@ mod tests {
         };
 
         let seed_refs = vec![SeedRef::ArgField("key".to_string())];
-        let expr = pda_derive_expr("state", &seed_refs, &resolved);
-        assert_eq!(expr, "Self::state_pda(&accounts.key, program_id)");
+        let expr = pda_derive_expr("MyIx", "state", &seed_refs, &resolved, "&self.program_id");
+        assert_eq!(expr, "MyIx::state_pda(&accounts.key, &self.program_id)");
     }
 
     #[test]
@@ -1301,8 +1292,8 @@ mod tests {
         };
 
         let seed_refs = vec![SeedRef::ArgField("id".to_string())];
-        let expr = pda_derive_expr("state", &seed_refs, &resolved);
-        assert_eq!(expr, "Self::state_pda(accounts.id, program_id)");
+        let expr = pda_derive_expr("MyIx", "state", &seed_refs, &resolved, "&self.program_id");
+        assert_eq!(expr, "MyIx::state_pda(accounts.id, &self.program_id)");
     }
 
     #[test]
@@ -1313,8 +1304,8 @@ mod tests {
         };
 
         let seed_refs = vec![];
-        let expr = pda_derive_expr("state", &seed_refs, &resolved);
-        assert_eq!(expr, "Self::state_pda(program_id)");
+        let expr = pda_derive_expr("MyIx", "state", &seed_refs, &resolved, "&self.program_id");
+        assert_eq!(expr, "MyIx::state_pda(&self.program_id)");
     }
 
     #[test]
@@ -1424,7 +1415,7 @@ mod tests {
 
         assert_eq!(warnings.len(), 1);
         assert!(warnings[0].contains("DoThing"));
-        assert_eq!(output.matches("pub struct DoThing {").count(), 1);
+        assert_eq!(output.matches("pub struct DoThing;").count(), 1);
     }
 
     #[test]

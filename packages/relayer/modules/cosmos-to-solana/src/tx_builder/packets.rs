@@ -146,8 +146,8 @@ impl super::TxBuilder {
             ibc_app_program_id,
         )?;
 
-        Ok(RecvPacket::new(
-            RecvPacketAccounts {
+        Ok(RecvPacket::builder(&self.solana_ics26_program_id)
+            .accounts(RecvPacketAccounts {
                 access_manager,
                 ibc_app_program: ibc_app_program_id,
                 ibc_app_state,
@@ -158,16 +158,15 @@ impl super::TxBuilder {
                 dest_port: payload_info.dest_port.as_bytes(),
                 dest_client: &msg.packet.dest_client,
                 sequence: msg.packet.sequence,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(
-            msg,
-            chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false))
-                .chain(gmp_accounts),
-        ))
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_accounts),
+            )
+            .build())
     }
 
     pub(crate) fn build_ack_packet_instruction(
@@ -218,8 +217,8 @@ impl super::TxBuilder {
         )
         .map(|pda| AccountMeta::new(pda, false));
 
-        Ok(AckPacket::new(
-            AckPacketAccounts {
+        Ok(AckPacket::builder(&self.solana_ics26_program_id)
+            .accounts(AckPacketAccounts {
                 access_manager,
                 ibc_app_program,
                 ibc_app_state: app_state,
@@ -230,16 +229,15 @@ impl super::TxBuilder {
                 source_port: source_port.as_bytes(),
                 source_client: &msg.packet.source_client,
                 sequence: msg.packet.sequence,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(
-            msg,
-            chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false))
-                .chain(gmp_result),
-        ))
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_result),
+            )
+            .build())
     }
 
     pub(crate) fn build_timeout_packet_instruction(
@@ -273,8 +271,8 @@ impl super::TxBuilder {
         )
         .map(|pda| AccountMeta::new(pda, false));
 
-        Ok(TimeoutPacket::new(
-            TimeoutPacketAccounts {
+        Ok(TimeoutPacket::builder(&self.solana_ics26_program_id)
+            .accounts(TimeoutPacketAccounts {
                 access_manager,
                 ibc_app_program: ibc_app_program_id,
                 ibc_app_state,
@@ -285,15 +283,14 @@ impl super::TxBuilder {
                 source_port: source_port.as_bytes(),
                 source_client: &msg.packet.source_client,
                 sequence: msg.packet.sequence,
-            },
-            &self.solana_ics26_program_id,
-        )
-        .build_instruction(
-            msg,
-            chunk_accounts
-                .into_iter()
-                .map(|a| AccountMeta::new(a, false))
-                .chain(gmp_result),
-        ))
+            })
+            .args(msg)
+            .remaining_accounts(
+                chunk_accounts
+                    .into_iter()
+                    .map(|a| AccountMeta::new(a, false))
+                    .chain(gmp_result),
+            )
+            .build())
     }
 }

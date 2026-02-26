@@ -17,13 +17,8 @@ pub struct InitializeAccounts {
     pub payer: Pubkey,
 }
 
-/// Resolved instruction accounts for `initialize`.
-pub struct Initialize {
-    program_id: Pubkey,
-    client_state: Pubkey,
-    app_state: Pubkey,
-    payer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `initialize`.
+pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
@@ -42,28 +37,15 @@ impl Initialize {
         Pubkey::find_program_address(&[b"app_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: InitializeAccounts, program_id: &Pubkey) -> Self {
-        let (client_state, _) = Self::client_state_pda(program_id);
-        let (app_state, _) = Self::app_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> InitializeBuilder {
+        InitializeBuilder {
             program_id: *program_id,
-            client_state,
-            app_state,
-            payer: accounts.payer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.client_state, false),
-            AccountMeta::new(self.app_state, false),
-            AccountMeta::new(self.payer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-        ]
     }
 }
 
@@ -74,22 +56,51 @@ pub struct InitializeArgs {
     pub access_manager: Pubkey,
 }
 
-impl Initialize {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `initialize` instruction.
+pub struct InitializeBuilder {
+    program_id: Pubkey,
+    accounts: Option<InitializeAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl InitializeBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &InitializeArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &InitializeArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (client_state, _) = Initialize::client_state_pda(&self.program_id);
+        let (app_state, _) = Initialize::app_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(client_state, false),
+            AccountMeta::new(app_state, false),
+            AccountMeta::new(accounts.payer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -100,13 +111,8 @@ pub struct SetAccessManagerAccounts {
     pub admin: Pubkey,
 }
 
-/// Resolved instruction accounts for `set_access_manager`.
-pub struct SetAccessManager {
-    program_id: Pubkey,
-    app_state: Pubkey,
-    access_manager: Pubkey,
-    admin: Pubkey,
-}
+/// Instruction constants and PDA helpers for `set_access_manager`.
+pub struct SetAccessManager;
 
 impl SetAccessManager {
     /// Total number of accounts (including fixed-address accounts).
@@ -120,27 +126,15 @@ impl SetAccessManager {
         Pubkey::find_program_address(&[b"app_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: SetAccessManagerAccounts, program_id: &Pubkey) -> Self {
-        let (app_state, _) = Self::app_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> SetAccessManagerBuilder {
+        SetAccessManagerBuilder {
             program_id: *program_id,
-            app_state,
-            access_manager: accounts.access_manager,
-            admin: accounts.admin,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.app_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(self.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -149,22 +143,50 @@ pub struct SetAccessManagerArgs {
     pub new_access_manager: Pubkey,
 }
 
-impl SetAccessManager {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `set_access_manager` instruction.
+pub struct SetAccessManagerBuilder {
+    program_id: Pubkey,
+    accounts: Option<SetAccessManagerAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl SetAccessManagerBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &SetAccessManagerArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &SetAccessManagerArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (app_state, _) = SetAccessManager::app_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(app_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -174,12 +196,8 @@ pub struct VerifyMembershipAccounts {
     pub height: u64,
 }
 
-/// Resolved instruction accounts for `verify_membership`.
-pub struct VerifyMembership {
-    program_id: Pubkey,
-    client_state: Pubkey,
-    consensus_state_at_height: Pubkey,
-}
+/// Instruction constants and PDA helpers for `verify_membership`.
+pub struct VerifyMembership;
 
 impl VerifyMembership {
     /// Total number of accounts (including fixed-address accounts).
@@ -198,43 +216,62 @@ impl VerifyMembership {
         Pubkey::find_program_address(&[b"consensus_state", &height.to_le_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: VerifyMembershipAccounts, program_id: &Pubkey) -> Self {
-        let (client_state, _) = Self::client_state_pda(program_id);
-        let (consensus_state_at_height, _) =
-            Self::consensus_state_at_height_pda(accounts.height, program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> VerifyMembershipBuilder {
+        VerifyMembershipBuilder {
             program_id: *program_id,
-            client_state,
-            consensus_state_at_height,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `verify_membership` instruction.
+pub struct VerifyMembershipBuilder {
+    program_id: Pubkey,
+    accounts: Option<VerifyMembershipAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl VerifyMembershipBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state_at_height, false),
-        ]
+    pub fn accounts(mut self, accounts: VerifyMembershipAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &MembershipMsg,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &MembershipMsg) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (client_state, _) = VerifyMembership::client_state_pda(&self.program_id);
+        let (consensus_state_at_height, _) =
+            VerifyMembership::consensus_state_at_height_pda(accounts.height, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state_at_height, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -244,12 +281,8 @@ pub struct VerifyNonMembershipAccounts {
     pub height: u64,
 }
 
-/// Resolved instruction accounts for `verify_non_membership`.
-pub struct VerifyNonMembership {
-    program_id: Pubkey,
-    client_state: Pubkey,
-    consensus_state_at_height: Pubkey,
-}
+/// Instruction constants and PDA helpers for `verify_non_membership`.
+pub struct VerifyNonMembership;
 
 impl VerifyNonMembership {
     /// Total number of accounts (including fixed-address accounts).
@@ -268,43 +301,62 @@ impl VerifyNonMembership {
         Pubkey::find_program_address(&[b"consensus_state", &height.to_le_bytes()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: VerifyNonMembershipAccounts, program_id: &Pubkey) -> Self {
-        let (client_state, _) = Self::client_state_pda(program_id);
-        let (consensus_state_at_height, _) =
-            Self::consensus_state_at_height_pda(accounts.height, program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> VerifyNonMembershipBuilder {
+        VerifyNonMembershipBuilder {
             program_id: *program_id,
-            client_state,
-            consensus_state_at_height,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `verify_non_membership` instruction.
+pub struct VerifyNonMembershipBuilder {
+    program_id: Pubkey,
+    accounts: Option<VerifyNonMembershipAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl VerifyNonMembershipBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state_at_height, false),
-        ]
+    pub fn accounts(mut self, accounts: VerifyNonMembershipAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &NonMembershipMsg,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn args(mut self, args: &NonMembershipMsg) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (client_state, _) = VerifyNonMembership::client_state_pda(&self.program_id);
+        let (consensus_state_at_height, _) =
+            VerifyNonMembership::consensus_state_at_height_pda(accounts.height, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(consensus_state_at_height, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -316,15 +368,8 @@ pub struct UpdateClientAccounts {
     pub new_height: u64,
 }
 
-/// Resolved instruction accounts for `update_client`.
-pub struct UpdateClient {
-    program_id: Pubkey,
-    client_state: Pubkey,
-    consensus_state_store: Pubkey,
-    app_state: Pubkey,
-    access_manager: Pubkey,
-    submitter: Pubkey,
-}
+/// Instruction constants and PDA helpers for `update_client`.
+pub struct UpdateClient;
 
 impl UpdateClient {
     /// Total number of accounts (including fixed-address accounts).
@@ -348,35 +393,15 @@ impl UpdateClient {
         Pubkey::find_program_address(&[b"app_state"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: UpdateClientAccounts, program_id: &Pubkey) -> Self {
-        let (client_state, _) = Self::client_state_pda(program_id);
-        let (consensus_state_store, _) =
-            Self::consensus_state_store_pda(accounts.new_height, program_id);
-        let (app_state, _) = Self::app_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> UpdateClientBuilder {
+        UpdateClientBuilder {
             program_id: *program_id,
-            client_state,
-            consensus_state_store,
-            app_state,
-            access_manager: accounts.access_manager,
-            submitter: accounts.submitter,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.client_state, false),
-            AccountMeta::new(self.consensus_state_store, false),
-            AccountMeta::new_readonly(self.app_state, false),
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-            AccountMeta::new(self.submitter, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-        ]
     }
 }
 
@@ -386,22 +411,56 @@ pub struct UpdateClientArgs {
     pub params: UpdateClientParams,
 }
 
-impl UpdateClient {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `update_client` instruction.
+pub struct UpdateClientBuilder {
+    program_id: Pubkey,
+    accounts: Option<UpdateClientAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl UpdateClientBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &UpdateClientArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: UpdateClientAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &UpdateClientArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (client_state, _) = UpdateClient::client_state_pda(&self.program_id);
+        let (consensus_state_store, _) =
+            UpdateClient::consensus_state_store_pda(accounts.new_height, &self.program_id);
+        let (app_state, _) = UpdateClient::app_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(client_state, false),
+            AccountMeta::new(consensus_state_store, false),
+            AccountMeta::new_readonly(app_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new(accounts.submitter, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -411,12 +470,8 @@ pub struct ClientStatusAccounts {
     pub consensus_state: Pubkey,
 }
 
-/// Resolved instruction accounts for `client_status`.
-pub struct ClientStatus {
-    program_id: Pubkey,
-    client_state: Pubkey,
-    consensus_state: Pubkey,
-}
+/// Instruction constants and PDA helpers for `client_status`.
+pub struct ClientStatus;
 
 impl ClientStatus {
     /// Total number of accounts (including fixed-address accounts).
@@ -430,38 +485,53 @@ impl ClientStatus {
         Pubkey::find_program_address(&[b"client"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: ClientStatusAccounts, program_id: &Pubkey) -> Self {
-        let (client_state, _) = Self::client_state_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> ClientStatusBuilder {
+        ClientStatusBuilder {
             program_id: *program_id,
-            client_state,
-            consensus_state: accounts.consensus_state,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+/// Builder for the `client_status` instruction.
+pub struct ClientStatusBuilder {
+    program_id: Pubkey,
+    accounts: Option<ClientStatusAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl ClientStatusBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.client_state, false),
-            AccountMeta::new_readonly(self.consensus_state, false),
-        ]
+    pub fn accounts(mut self, accounts: ClientStatusAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
     }
 
-    /// Builds a complete [`Instruction`] with discriminator and remaining accounts.
     #[must_use]
-    pub fn build_instruction(
-        self,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (client_state, _) = ClientStatus::client_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(client_state, false),
+            AccountMeta::new_readonly(accounts.consensus_state, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data: Self::DISCRIMINATOR.to_vec(),
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }

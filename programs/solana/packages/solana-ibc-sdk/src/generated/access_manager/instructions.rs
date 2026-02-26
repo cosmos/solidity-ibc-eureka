@@ -17,12 +17,8 @@ pub struct InitializeAccounts {
     pub payer: Pubkey,
 }
 
-/// Resolved instruction accounts for `initialize`.
-pub struct Initialize {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    payer: Pubkey,
-}
+/// Instruction constants and PDA helpers for `initialize`.
+pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
@@ -36,26 +32,15 @@ impl Initialize {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: InitializeAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> InitializeBuilder {
+        InitializeBuilder {
             program_id: *program_id,
-            access_manager,
-            payer: accounts.payer,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.access_manager, false),
-            AccountMeta::new(self.payer, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -64,22 +49,50 @@ pub struct InitializeArgs {
     pub admin: Pubkey,
 }
 
-impl Initialize {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `initialize` instruction.
+pub struct InitializeBuilder {
+    program_id: Pubkey,
+    accounts: Option<InitializeAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl InitializeBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &InitializeArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: InitializeAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &InitializeArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = Initialize::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new(accounts.payer, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -89,12 +102,8 @@ pub struct GrantRoleAccounts {
     pub admin: Pubkey,
 }
 
-/// Resolved instruction accounts for `grant_role`.
-pub struct GrantRole {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    admin: Pubkey,
-}
+/// Instruction constants and PDA helpers for `grant_role`.
+pub struct GrantRole;
 
 impl GrantRole {
     /// Total number of accounts (including fixed-address accounts).
@@ -108,25 +117,15 @@ impl GrantRole {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: GrantRoleAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> GrantRoleBuilder {
+        GrantRoleBuilder {
             program_id: *program_id,
-            access_manager,
-            admin: accounts.admin,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.access_manager, false),
-            AccountMeta::new_readonly(self.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -136,22 +135,49 @@ pub struct GrantRoleArgs {
     pub account: Pubkey,
 }
 
-impl GrantRole {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `grant_role` instruction.
+pub struct GrantRoleBuilder {
+    program_id: Pubkey,
+    accounts: Option<GrantRoleAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl GrantRoleBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &GrantRoleArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: GrantRoleAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &GrantRoleArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = GrantRole::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -161,12 +187,8 @@ pub struct RevokeRoleAccounts {
     pub admin: Pubkey,
 }
 
-/// Resolved instruction accounts for `revoke_role`.
-pub struct RevokeRole {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    admin: Pubkey,
-}
+/// Instruction constants and PDA helpers for `revoke_role`.
+pub struct RevokeRole;
 
 impl RevokeRole {
     /// Total number of accounts (including fixed-address accounts).
@@ -180,25 +202,15 @@ impl RevokeRole {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: RevokeRoleAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> RevokeRoleBuilder {
+        RevokeRoleBuilder {
             program_id: *program_id,
-            access_manager,
-            admin: accounts.admin,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.access_manager, false),
-            AccountMeta::new_readonly(self.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -208,22 +220,49 @@ pub struct RevokeRoleArgs {
     pub account: Pubkey,
 }
 
-impl RevokeRole {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `revoke_role` instruction.
+pub struct RevokeRoleBuilder {
+    program_id: Pubkey,
+    accounts: Option<RevokeRoleAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl RevokeRoleBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &RevokeRoleArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: RevokeRoleAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &RevokeRoleArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = RevokeRole::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -233,12 +272,8 @@ pub struct RenounceRoleAccounts {
     pub caller: Pubkey,
 }
 
-/// Resolved instruction accounts for `renounce_role`.
-pub struct RenounceRole {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    caller: Pubkey,
-}
+/// Instruction constants and PDA helpers for `renounce_role`.
+pub struct RenounceRole;
 
 impl RenounceRole {
     /// Total number of accounts (including fixed-address accounts).
@@ -252,25 +287,15 @@ impl RenounceRole {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: RenounceRoleAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> RenounceRoleBuilder {
+        RenounceRoleBuilder {
             program_id: *program_id,
-            access_manager,
-            caller: accounts.caller,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.access_manager, false),
-            AccountMeta::new_readonly(self.caller, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -279,22 +304,49 @@ pub struct RenounceRoleArgs {
     pub role_id: u64,
 }
 
-impl RenounceRole {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `renounce_role` instruction.
+pub struct RenounceRoleBuilder {
+    program_id: Pubkey,
+    accounts: Option<RenounceRoleAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl RenounceRoleBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &RenounceRoleArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: RenounceRoleAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &RenounceRoleArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = RenounceRole::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.caller, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -309,17 +361,8 @@ pub struct UpgradeProgramAccounts {
     pub target_program: Pubkey,
 }
 
-/// Resolved instruction accounts for `upgrade_program`.
-pub struct UpgradeProgram {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    program: Pubkey,
-    program_data: Pubkey,
-    buffer: Pubkey,
-    upgrade_authority: Pubkey,
-    spill: Pubkey,
-    authority: Pubkey,
-}
+/// Instruction constants and PDA helpers for `upgrade_program`.
+pub struct UpgradeProgram;
 
 impl UpgradeProgram {
     /// Total number of accounts (including fixed-address accounts).
@@ -338,35 +381,66 @@ impl UpgradeProgram {
         Pubkey::find_program_address(&[b"upgrade_authority", target_program.as_ref()], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: UpgradeProgramAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        let (upgrade_authority, _) =
-            Self::upgrade_authority_pda(&accounts.target_program, program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> UpgradeProgramBuilder {
+        UpgradeProgramBuilder {
             program_id: *program_id,
-            access_manager,
-            program: accounts.program,
-            program_data: accounts.program_data,
-            buffer: accounts.buffer,
-            upgrade_authority,
-            spill: accounts.spill,
-            authority: accounts.authority,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
     }
+}
 
-    /// Returns account metas in the order expected by the program.
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct UpgradeProgramArgs {
+    pub target_program: Pubkey,
+}
+
+/// Builder for the `upgrade_program` instruction.
+pub struct UpgradeProgramBuilder {
+    program_id: Pubkey,
+    accounts: Option<UpgradeProgramAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl UpgradeProgramBuilder {
     #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new_readonly(self.access_manager, false),
-            AccountMeta::new(self.program, false),
-            AccountMeta::new(self.program_data, false),
-            AccountMeta::new(self.buffer, false),
-            AccountMeta::new(self.upgrade_authority, false),
-            AccountMeta::new(self.spill, false),
-            AccountMeta::new_readonly(self.authority, true),
+    pub fn accounts(mut self, accounts: UpgradeProgramAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &UpgradeProgramArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = UpgradeProgram::access_manager_pda(&self.program_id);
+        let (upgrade_authority, _) =
+            UpgradeProgram::upgrade_authority_pda(&accounts.target_program, &self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(access_manager, false),
+            AccountMeta::new(accounts.program, false),
+            AccountMeta::new(accounts.program_data, false),
+            AccountMeta::new(accounts.buffer, false),
+            AccountMeta::new(upgrade_authority, false),
+            AccountMeta::new(accounts.spill, false),
+            AccountMeta::new_readonly(accounts.authority, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
             AccountMeta::new_readonly(
                 Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111"),
@@ -380,31 +454,12 @@ impl UpgradeProgram {
                 Pubkey::from_str_const("SysvarC1ock11111111111111111111111111111111"),
                 false,
             ),
-        ]
-    }
-}
-
-#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
-pub struct UpgradeProgramArgs {
-    pub target_program: Pubkey,
-}
-
-impl UpgradeProgram {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
-    #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &UpgradeProgramArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
@@ -414,12 +469,8 @@ pub struct SetWhitelistedProgramsAccounts {
     pub admin: Pubkey,
 }
 
-/// Resolved instruction accounts for `set_whitelisted_programs`.
-pub struct SetWhitelistedPrograms {
-    program_id: Pubkey,
-    access_manager: Pubkey,
-    admin: Pubkey,
-}
+/// Instruction constants and PDA helpers for `set_whitelisted_programs`.
+pub struct SetWhitelistedPrograms;
 
 impl SetWhitelistedPrograms {
     /// Total number of accounts (including fixed-address accounts).
@@ -433,25 +484,15 @@ impl SetWhitelistedPrograms {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
     }
 
-    /// Creates a new instruction builder, auto-deriving PDA accounts.
+    /// Creates a builder for this instruction.
     #[must_use]
-    pub fn new(accounts: SetWhitelistedProgramsAccounts, program_id: &Pubkey) -> Self {
-        let (access_manager, _) = Self::access_manager_pda(program_id);
-        Self {
+    pub fn builder(program_id: &Pubkey) -> SetWhitelistedProgramsBuilder {
+        SetWhitelistedProgramsBuilder {
             program_id: *program_id,
-            access_manager,
-            admin: accounts.admin,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
         }
-    }
-
-    /// Returns account metas in the order expected by the program.
-    #[must_use]
-    pub fn to_account_metas(&self) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(self.access_manager, false),
-            AccountMeta::new_readonly(self.admin, true),
-            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
-        ]
     }
 }
 
@@ -460,22 +501,49 @@ pub struct SetWhitelistedProgramsArgs {
     pub whitelisted_programs: Vec<Pubkey>,
 }
 
-impl SetWhitelistedPrograms {
-    /// Builds a complete [`Instruction`] with discriminator, typed args and remaining accounts.
+/// Builder for the `set_whitelisted_programs` instruction.
+pub struct SetWhitelistedProgramsBuilder {
+    program_id: Pubkey,
+    accounts: Option<SetWhitelistedProgramsAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl SetWhitelistedProgramsBuilder {
     #[must_use]
-    pub fn build_instruction(
-        self,
-        args: &SetWhitelistedProgramsArgs,
-        remaining_accounts: impl IntoIterator<Item = AccountMeta>,
-    ) -> Instruction {
-        let mut accounts = self.to_account_metas();
-        accounts.extend(remaining_accounts);
-        let mut data = Self::DISCRIMINATOR.to_vec();
-        data.extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+    pub fn accounts(mut self, accounts: SetWhitelistedProgramsAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &SetWhitelistedProgramsArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) = SetWhitelistedPrograms::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
         Instruction {
             program_id: self.program_id,
-            accounts,
-            data,
+            accounts: account_metas,
+            data: self.args_data,
         }
     }
 }
