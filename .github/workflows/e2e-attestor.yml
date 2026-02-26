@@ -1,14 +1,6 @@
 name: e2e-attestor
 on:
   workflow_dispatch:
-    inputs:
-      wasm-attestor-light-client-tag:
-        description: 'Wasm Attestor light client release tag'
-        type: choice
-        required: true
-        default: 'local'
-        options:
-          - local
   pull_request:
     paths:
       - '**.rs'
@@ -28,7 +20,7 @@ concurrency:
 env:
   FOUNDRY_PROFILE: ci
   ETH_TESTNET_TYPE: anvil
-  E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-attestor-light-client-tag || 'local' }}
+  E2E_WASM_LIGHT_CLIENT_TAG: ""
   COSMOS_LC_ON_ETH: attestor
   SP1_VERSION: "5.2.4"
   IBC_ATTESTOR_IMAGE: ghcr.io/cosmos/ibc-attestor:v0.3.0
@@ -72,31 +64,6 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-  e2e-attestor-wasm:
-    needs: [generate-matrix, build-e2e-programs]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    name: attestor-wasm/${{ matrix.entrypoint }}/${{ matrix.test }}
-    env:
-      ETH_LC_ON_COSMOS: attestor-wasm
-
-    runs-on: depot-ubuntu-24.04-4
-    steps:
-      - uses: actions/checkout@v5
-      - name: Set up E2E environment
-        uses: ./.github/actions/e2e-setup
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run Tests
-        env:
-          NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
-          ETH_TESTNET_TYPE: ${{ env.ETH_TESTNET_TYPE }}
-        run: |
-          cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 60m
-
   e2e-attestor-native:
     needs: [generate-matrix, build-e2e-programs]
     strategy:
@@ -122,36 +89,12 @@ jobs:
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 60m
 
-  e2e-eth-to-eth-attestor-wasm:
-    needs: [generate-matrix-eth-to-eth, build-e2e-programs]
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.generate-matrix-eth-to-eth.outputs.matrix) }}
-    name: attestor-wasm/${{ matrix.entrypoint }}/${{ matrix.test }}
-    env:
-      ETH_LC_ON_COSMOS: attestor-wasm
-
-    runs-on: depot-ubuntu-24.04-4
-    steps:
-      - uses: actions/checkout@v5
-      - name: Set up E2E environment
-        uses: ./.github/actions/e2e-setup
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run Tests
-        run: |
-          cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 60m
-
-  e2e-eth-to-eth-attestor-native:
+  e2e-eth-to-eth-attestor:
     needs: [generate-matrix-eth-to-eth, build-e2e-programs]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix-eth-to-eth.outputs.matrix) }}
     name: attestor-native/${{ matrix.entrypoint }}/${{ matrix.test }}
-    env:
-      ETH_LC_ON_COSMOS: attestor-native
 
     runs-on: depot-ubuntu-24.04-4
     steps:
@@ -165,38 +108,6 @@ jobs:
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 60m
-
-  e2e-multi-attestor-wasm:
-    needs: build-e2e-programs
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - total_signers: 3
-            required_signatures: 2
-            active_attestors: 2
-          - total_signers: 10
-            required_signatures: 7
-            active_attestors: 7
-    name: multi-attestor-wasm/${{ matrix.active_attestors }}-of-${{ matrix.total_signers }}
-    env:
-      ETH_LC_ON_COSMOS: attestor-wasm
-      MULTI_ATTESTOR_COUNT: ${{ matrix.total_signers }}
-      MULTI_ATTESTOR_QUORUM: ${{ matrix.required_signatures }}
-      MULTI_ATTESTOR_ACTIVE: ${{ matrix.active_attestors }}
-
-    runs-on: depot-ubuntu-24.04-4
-    steps:
-      - uses: actions/checkout@v5
-      - name: Set up E2E environment
-        uses: ./.github/actions/e2e-setup
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Run Tests
-        run: |
-          cd e2e/interchaintestv8
-          go test -v -mod=readonly . -run "^TestWithMultiAttestorTestSuite$/Test_MultiAttestorTransferWithAggregation$" -timeout 60m
 
   e2e-multi-attestor-native:
     needs: build-e2e-programs
