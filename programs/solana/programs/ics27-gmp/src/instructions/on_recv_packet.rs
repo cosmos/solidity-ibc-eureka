@@ -1,10 +1,9 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpAcknowledgement, ProstMessage};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -83,9 +82,10 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    let is_abi = msg.payload.encoding == ABI_ENCODING;
-    let is_protobuf = msg.payload.encoding == ICS27_ENCODING;
-    require!(is_abi || is_protobuf, GMPError::InvalidEncoding);
+    require!(
+        msg.payload.encoding == ABI_ENCODING || msg.payload.encoding == ICS27_ENCODING,
+        GMPError::InvalidEncoding
+    );
 
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
@@ -134,18 +134,8 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    // Get GmpSolanaPayload: ABI-decoded from packet payload (ABI) or protobuf-decoded (protobuf)
-    let solana_payload = if is_abi {
-        crate::abi::decode_abi_gmp_solana_payload(&packet_data.payload).map_err(|e| {
-            msg!("GMP ABI Solana payload decode failed: {}", e);
-            error!(GMPError::InvalidSolanaPayload)
-        })?
-    } else {
-        GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
-            msg!("GMP Solana payload validation failed: {}", e);
-            GMPError::InvalidSolanaPayload
-        })?
-    };
+    let solana_payload =
+        crate::gmp_solana_payload::decode(&packet_data.payload, &msg.payload.encoding)?;
 
     // Build account metas from GMP Solana payload
     let mut account_metas = solana_payload.to_account_metas();
@@ -222,7 +212,7 @@ mod tests {
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use rstest::rstest;
-    use solana_ibc_proto::ProstMessage;
+    use solana_ibc_proto::{ProstMessage, Protobuf};
     use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;
