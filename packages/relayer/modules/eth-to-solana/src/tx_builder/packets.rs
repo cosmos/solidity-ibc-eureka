@@ -188,8 +188,8 @@ impl super::SolanaTxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        let gmp_accounts = if payload_info.encoding == crate::gmp::ABI_ENCODING {
-            super::gmp::extract_abi_gmp_accounts(
+        let gmp_accounts = if payload_info.encoding == gmp::ABI_ENCODING {
+            gmp::extract_abi_gmp_accounts(
                 payload_info.value,
                 &msg.packet.dest_client,
                 ibc_app_program_id,

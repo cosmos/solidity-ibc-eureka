@@ -4,7 +4,6 @@
 
 mod attested;
 mod packets;
-pub(crate) mod gmp;
 
 use std::sync::Arc;
 
