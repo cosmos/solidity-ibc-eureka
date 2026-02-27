@@ -246,15 +246,11 @@ impl AttestedTxBuilder {
         let mut results = Vec::new();
 
         for msg in recv_msgs {
-            // Extract GMP accounts for ABI-encoded payloads (from packet data)
-            let abi_info = self.tx_builder.extract_abi_gmp_accounts(&msg)?;
-
             let recv_with_chunks = ibc_to_solana_recv_packet(msg)?;
             let packet_txs = self.tx_builder.build_recv_packet_chunked(
                 &recv_with_chunks.msg,
                 &recv_with_chunks.payload_chunks,
                 &recv_with_chunks.proof_chunks,
-                abi_info.as_ref(),
             )?;
 
             results.push(packet_txs);

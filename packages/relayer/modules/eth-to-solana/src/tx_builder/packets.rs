@@ -137,7 +137,6 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
-        abi_info: Option<&super::gmp::AbiGmpAccountInfo>,
     ) -> Result<Instruction> {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
@@ -189,20 +188,22 @@ impl super::SolanaTxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        if let Some(info) = abi_info {
-            // For ABI payloads, use pre-extracted GMP accounts from packet data
-            accounts.extend(info.gmp_accounts.clone());
+        let gmp_accounts = if payload_info.encoding == crate::gmp::ABI_ENCODING {
+            super::gmp::extract_abi_gmp_accounts(
+                payload_info.value,
+                &msg.packet.dest_client,
+                ibc_app_program_id,
+            )?
         } else {
-            // For protobuf payloads, extract GMP accounts normally
-            let gmp_accounts = gmp::extract_gmp_accounts(
+            gmp::extract_gmp_accounts(
                 payload_info.dest_port,
                 payload_info.encoding,
                 payload_info.value,
                 &msg.packet.dest_client,
                 ibc_app_program_id,
-            )?;
-            accounts.extend(gmp_accounts);
-        }
+            )?
+        };
+        accounts.extend(gmp_accounts);
 
         let mut data = router_instructions::recv_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
@@ -811,7 +812,6 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-        abi_info: Option<&super::gmp::AbiGmpAccountInfo>,
     ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
@@ -834,7 +834,6 @@ impl super::SolanaTxBuilder {
             msg,
             remaining_account_pubkeys,
             payload_data,
-            abi_info,
         )?;
 
         let mut instructions = Self::extend_compute_ix();
