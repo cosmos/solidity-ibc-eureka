@@ -123,7 +123,7 @@ pub fn send_call_cpi(ctx: Context<SendCallCpi>, msg: SendCallMsg) -> Result<u64>
 mod tests {
     use crate::constants::GMP_PORT_ID;
     use crate::errors::GMPError;
-    use crate::state::{GMPAppState, SendCallMsg};
+    use crate::state::{GMPAppState, GmpEncoding, SendCallMsg};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -190,6 +190,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600,
                 memo: String::new(),
+                encoding: GmpEncoding::default(),
             }
         }
 
@@ -490,7 +491,7 @@ mod tests {
 /// a syscall that returns 0 in Mollusk but works correctly under `ProgramTest`.
 #[cfg(test)]
 mod integration_tests {
-    use crate::state::{GMPAppState, SendCallMsg};
+    use crate::state::{GMPAppState, GmpEncoding, SendCallMsg};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use solana_sdk::{
@@ -509,6 +510,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
+            encoding: GmpEncoding::default(),
         };
 
         let (router_state, _) = create_router_state_pda();

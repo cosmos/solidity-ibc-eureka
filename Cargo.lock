@@ -5557,7 +5557,9 @@ dependencies = [
  "ibc-eureka-relayer-eth-to-cosmos 0.1.0",
  "ibc-eureka-relayer-eth-to-cosmos-compat",
  "ibc-eureka-relayer-eth-to-eth",
+ "ibc-eureka-relayer-eth-to-solana",
  "ibc-eureka-relayer-solana-to-cosmos",
+ "ibc-eureka-relayer-solana-to-eth",
  "opentelemetry",
  "opentelemetry-appender-tracing",
  "opentelemetry-otlp",
@@ -5776,6 +5778,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "ibc-eureka-relayer-eth-to-solana"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anchor-lang",
+ "anyhow",
+ "bincode",
+ "borsh 1.6.0",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils 0.1.0",
+ "ibc-proto 0.52.0",
+ "prost",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-client",
+ "solana-ibc-constants",
+ "solana-ibc-proto",
+ "solana-ibc-types",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-associated-token-account",
+ "spl-token",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
 name = "ibc-eureka-relayer-lib"
 version = "0.1.0"
 dependencies = [
@@ -5805,6 +5837,7 @@ dependencies = [
  "sha2 0.10.9",
  "solana-client",
  "solana-ibc-constants",
+ "solana-ibc-proto",
  "solana-ibc-types",
  "solana-sdk",
  "solana-transaction-status",
@@ -5876,6 +5909,21 @@ dependencies = [
  "tendermint",
  "tendermint-rpc",
  "tokio",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-solana-to-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "serde",
+ "serde_json",
+ "solana-sdk",
  "tonic 0.13.1",
  "tracing",
 ]

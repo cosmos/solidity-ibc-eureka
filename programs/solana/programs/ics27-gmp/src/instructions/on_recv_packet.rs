@@ -1,10 +1,9 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpAcknowledgement, ProstMessage};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -84,7 +83,7 @@ pub fn on_recv_packet<'info>(
     );
 
     require!(
-        msg.payload.encoding == ICS27_ENCODING,
+        msg.payload.encoding == ABI_ENCODING || msg.payload.encoding == ICS27_ENCODING,
         GMPError::InvalidEncoding
     );
 
@@ -98,12 +97,8 @@ pub fn on_recv_packet<'info>(
 
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode and validate GMP packet data from protobuf payload
-    // Uses Protobuf::decode which internally validates all constraints
-    let packet_data = GmpPacketData::decode(msg.payload.value.as_slice()).map_err(|e| {
-        msg!("GMP packet validation failed: {}", e);
-        GMPError::InvalidPacketData
-    })?;
+    // Decode GMP packet data from either protobuf or ABI encoding
+    let packet_data = crate::gmp_packet_data::decode(&msg.payload.value, &msg.payload.encoding)?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
@@ -139,17 +134,13 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    // Decode and validate the GMP Solana payload
-    // The payload contains all required accounts and instruction data
-    let solana_payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
-        msg!("GMP Solana payload validation failed: {}", e);
-        GMPError::InvalidSolanaPayload
-    })?;
+    let solana_payload =
+        crate::gmp_solana_payload::decode(&packet_data.payload, &msg.payload.encoding)?;
 
     // Build account metas from GMP Solana payload
     let mut account_metas = solana_payload.to_account_metas();
 
-    // Skip gmp_account_pda[0] and target_program[1]
+    // Skip fixed accounts: gmp_account[0] and target_program[1]
     let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
 
     // Validate account count matches exactly (before payer injection)
@@ -221,7 +212,7 @@ mod tests {
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use rstest::rstest;
-    use solana_ibc_proto::ProstMessage;
+    use solana_ibc_proto::{ProstMessage, Protobuf};
     use solana_ibc_types::GMPAccount;
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;

@@ -377,6 +377,12 @@ func UnmarshalAccessManagerEventsWhitelistedProgramsUpdatedEvent(buf []byte) (*A
 	return obj, nil
 }
 
+// Central role-based access control registry shared across all Solana IBC programs.
+//
+// Every program that requires permissioned operations (e.g. relaying, pausing,
+// admin configuration) delegates authorization checks to this account.
+// It stores a list of roles with their members and a whitelist of program IDs
+// that are allowed to invoke admin-gated instructions via CPI.
 type AccessManagerStateAccessManager struct {
 	Roles               []AccessManagerTypesRoleData `json:"roles"`
 	WhitelistedPrograms []solanago.PublicKey         `json:"whitelistedPrograms"`

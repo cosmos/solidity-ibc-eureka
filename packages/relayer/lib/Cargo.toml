@@ -41,6 +41,7 @@ solana-client                    = { workspace = true }
 solana-transaction-status        = { workspace = true }
 solana-ibc-types                 = { path = "../../../programs/solana/packages/solana-ibc-types" }
 solana-ibc-constants             = { path = "../../../programs/solana/packages/solana-ibc-constants" }
+solana-ibc-proto                 = { path = "../../../programs/solana/packages/solana-ibc-proto" }
 
 ibc-proto                   = { workspace = true }
 ibc-proto-eureka            = { workspace = true }

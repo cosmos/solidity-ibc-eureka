@@ -72,6 +72,12 @@ func UnmarshalIcs07TendermintEventsAccessManagerUpdated(buf []byte) (*Ics07Tende
 	return obj, nil
 }
 
+// On-chain PDA storing a Tendermint consensus state for a specific block height.
+//
+// Contains the block timestamp, Merkle root and next-validators hash.
+// The ICS26 router reads these accounts to verify IBC packet commitment
+// proofs against the confirmed Tendermint state. One account exists per
+// verified height, derived from `["consensus_state", height_le_bytes]`.
 type Ics07TendermintStateConsensusStateStore struct {
 	Height         uint64                             `json:"height"`
 	ConsensusState Ics07TendermintTypesConsensusState `json:"consensusState"`
@@ -132,7 +138,13 @@ func UnmarshalIcs07TendermintStateConsensusStateStore(buf []byte) (*Ics07Tenderm
 	return obj, nil
 }
 
-// Storage for a single chunk of header data during multi-transaction upload
+// Temporary storage for a single chunk of a Tendermint header during
+// multi-transaction upload.
+//
+// Tendermint headers can exceed the Solana transaction size limit, so
+// they are uploaded in chunks across multiple transactions. Once all
+// chunks are present the `update_client` instruction reassembles and
+// verifies the full header, then closes these accounts to reclaim rent.
 type Ics07TendermintStateHeaderChunk struct {
 	// The submitter who created this chunk
 	Submitter solanago.PublicKey `json:"submitter"`
@@ -196,7 +208,12 @@ func UnmarshalIcs07TendermintStateHeaderChunk(buf []byte) (*Ics07TendermintState
 	return obj, nil
 }
 
-// Storage for a single chunk of misbehaviour data during multi-transaction upload
+// Temporary storage for a single chunk of misbehaviour evidence during
+// multi-transaction upload.
+//
+// Similar to [`HeaderChunk`] but used for misbehaviour reports that prove
+// a validator set signed conflicting blocks. Once fully assembled, the
+// `misbehaviour` instruction verifies the evidence and freezes the client.
 type Ics07TendermintStateMisbehaviourChunk struct {
 	// The chunk data
 	ChunkData []byte `json:"chunkData"`
@@ -247,8 +264,14 @@ func UnmarshalIcs07TendermintStateMisbehaviourChunk(buf []byte) (*Ics07Tendermin
 	return obj, nil
 }
 
-// Storage for Ed25519 signature verification results.
-// IMPORTANT: Field order matters: verifier reads `data[8]` for `is_valid`.
+// Stores the result of an Ed25519 signature verification.
+//
+// Because Solana's Ed25519 precompile writes results to a separate account
+// rather than returning them inline, this account acts as a bridge:
+// the precompile writes the verification outcome here, and the
+// `update_client` instruction reads it to confirm header signatures.
+//
+// IMPORTANT: Field order matters — the verifier reads `data[8]` for `is_valid`.
 type Ics07TendermintStateSignatureVerification struct {
 	// Whether the signature is valid
 	IsValid bool `json:"isValid"`
@@ -312,6 +335,11 @@ func UnmarshalIcs07TendermintStateSignatureVerification(buf []byte) (*Ics07Tende
 	return obj, nil
 }
 
+// Global ICS07 Tendermint program configuration.
+//
+// Singleton PDA that links the light client program to its access manager
+// for admin-gated operations (e.g. `set_access_manager`) and stores the
+// chain ID for introspection by off-chain tooling.
 type Ics07TendermintTypesAppState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
@@ -375,6 +403,13 @@ func UnmarshalIcs07TendermintTypesAppState(buf []byte) (*Ics07TendermintTypesApp
 	return obj, nil
 }
 
+// Tendermint light client configuration and tracking state.
+//
+// Holds the trust parameters (trust level, trusting/unbonding periods,
+// max clock drift) and the latest verified height. The `update_client`
+// instruction reads and updates this account when a new header is
+// successfully verified. If misbehaviour is detected the client is frozen
+// by setting `frozen_height`.
 type Ics07TendermintTypesClientState struct {
 	ChainId               string                        `json:"chainId"`
 	TrustLevelNumerator   uint64                        `json:"trustLevelNumerator"`

@@ -219,6 +219,19 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events", target_events.len());
 
+        // For timeouts in attested mode, get the current source chain height
+        // where non-membership is proven
+        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
+            Some(
+                self.src_listener
+                    .get_block_height()
+                    .await
+                    .map_err(to_tonic_status)?,
+            )
+        } else {
+            None
+        };
+
         let (packet_txs, update_client) = self
             .tx_builder
             .relay_events(
@@ -228,6 +241,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                 &inner_req.dst_client_id,
                 &inner_req.src_packet_sequences,
                 &inner_req.dst_packet_sequences,
+                timeout_relay_height,
             )
             .await
             .map_err(to_tonic_status)?;
@@ -326,6 +340,7 @@ impl CosmosToSolanaTxBuilder {
         dst_client_id: &str,
         src_packet_seqs: &[u64],
         dst_packet_seqs: &[u64],
+        timeout_relay_height: Option<u64>,
     ) -> anyhow::Result<(
         Vec<ibc_eureka_relayer_core::api::SolanaPacketTxs>,
         Option<ibc_eureka_relayer_core::api::SolanaUpdateClient>,
@@ -339,6 +354,7 @@ impl CosmosToSolanaTxBuilder {
                     dst_client_id: dst_client_id.to_string(),
                     src_packet_seqs: src_packet_seqs.to_vec(),
                     dst_packet_seqs: dst_packet_seqs.to_vec(),
+                    timeout_relay_height,
                 })
                 .await
             }
@@ -350,6 +366,7 @@ impl CosmosToSolanaTxBuilder {
                     dst_client_id: dst_client_id.to_string(),
                     src_packet_seqs: src_packet_seqs.to_vec(),
                     dst_packet_seqs: dst_packet_seqs.to_vec(),
+                    timeout_relay_height,
                 })
                 .await
             }
@@ -371,5 +388,9 @@ impl CosmosToSolanaTxBuilder {
             Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(dst_client_id).await,
         }
+    }
+
+    const fn is_attested(&self) -> bool {
+        matches!(self, Self::Attested(_))
     }
 }

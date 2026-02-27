@@ -15,6 +15,7 @@ import (
 
 type accessManagerPDAs struct{}
 type attestationPDAs struct{}
+type gmpCounterAppPDAs struct{}
 type ics07TendermintPDAs struct{}
 type ics26RouterPDAs struct{}
 type ics27GmpPDAs struct{}
@@ -27,6 +28,7 @@ type testIbcAppPDAs struct{}
 var (
 	AccessManager = accessManagerPDAs{}
 	Attestation = attestationPDAs{}
+	GmpCounterApp = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
 	Ics26Router = ics26RouterPDAs{}
 	Ics27Gmp = ics27GmpPDAs{}
@@ -110,6 +112,39 @@ func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (gmpCounterAppPDAs) CounterAppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("counter_app_state")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GmpCounterApp.CounterAppStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (gmpCounterAppPDAs) UserCounterWithAccountSeedPDA(programID solanago.PublicKey, userAuthority []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("user_counter"), userAuthority},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GmpCounterApp.UserCounterWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (gmpCounterAppPDAs) UserCounterWithArgSeedPDA(programID solanago.PublicKey, user []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("user_counter"), user},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive GmpCounterApp.UserCounterWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }

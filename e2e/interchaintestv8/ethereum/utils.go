@@ -37,6 +37,7 @@ type DeployedContracts struct {
 	Ift string `json:"ift,omitempty"`
 	// CosmosIFTSendCallConstructor (optional, deployed when IFT_ICA_ADDRESS is set)
 	CosmosIftConstructor string `json:"cosmosIftConstructor,omitempty"`
+	SolanaIftConstructor string `json:"solanaIftConstructor,omitempty"`
 }
 
 // GetVerifierAddress returns the appropriate verifier address based on prover type and proof type.

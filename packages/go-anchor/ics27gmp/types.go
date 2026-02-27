@@ -11,7 +11,14 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Client mapping client IDs to light client program IDs
+// Client-ID-to-light-client mapping with counterparty chain metadata.
+//
+// Created when an admin registers a new IBC client (e.g. an ICS07
+// Tendermint or attestation light client). The router reads this
+// account during `send_packet`, `recv_packet`, `ack_packet` and
+// `timeout_packet` to resolve which light client program to call for
+// proof verification, and to obtain the counterparty chain's client
+// and Merkle prefix information.
 type Ics26RouterStateClient struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -127,7 +134,12 @@ func UnmarshalIcs26RouterStateClient(buf []byte) (*Ics26RouterStateClient, error
 	return obj, nil
 }
 
-// Client sequence tracking
+// Per-client packet sequence counter.
+//
+// Tracks the next sequence number to assign when sending a packet
+// through a given client. Each `send_packet` call reads and increments
+// this value to guarantee unique, monotonically increasing sequence
+// numbers for replay protection.
 type Ics26RouterStateClientSequence struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -204,7 +216,12 @@ func UnmarshalIcs26RouterStateClientSequence(buf []byte) (*Ics26RouterStateClien
 	return obj, nil
 }
 
-// `IBCApp` mapping port IDs to IBC app program IDs
+// Port-to-program mapping for IBC applications.
+//
+// Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
+// one `IBCApp` PDA derived from its port ID. The router uses this account
+// to look up which program to CPI into when delivering a received packet
+// or forwarding an acknowledgement/timeout to the application layer.
 type Ics26RouterStateIbcApp struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -307,7 +324,12 @@ func UnmarshalIcs26RouterStateIbcApp(buf []byte) (*Ics26RouterStateIbcApp, error
 	return obj, nil
 }
 
-// Router state account
+// Global ICS26 router configuration.
+//
+// Singleton PDA initialized once during program setup. Stores the link
+// to the access manager for admin-gated operations (e.g. registering
+// clients, migrating light clients) and a schema version for future
+// on-chain migrations.
 type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -1104,7 +1126,12 @@ func (value Ics27GmpStateAccountVersion) String() string {
 	}
 }
 
-// Main GMP application state
+// Global ICS27 General Message Passing (GMP) application state.
+//
+// Singleton PDA that stores the pause flag, access manager reference
+// and PDA bump seed. The ICS26 router CPIs into this program to deliver
+// received packets; this account gates whether the app accepts new
+// cross-chain calls and controls admin operations via the access manager.
 type Ics27GmpStateGmpAppState struct {
 	// Schema version for upgrades
 	Version Ics27GmpStateAccountVersion `json:"version"`
@@ -1207,10 +1234,13 @@ func UnmarshalIcs27GmpStateGmpAppState(buf []byte) (*Ics27GmpStateGmpAppState, e
 	return obj, nil
 }
 
-// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+// Persisted outcome of a cross-chain GMP call.
 //
-// This account is created when a GMP packet is either acknowledged or times out,
-// allowing the original sender to query the outcome of their cross-chain call.
+// Created when the ICS26 router delivers an acknowledgement or timeout
+// callback to the GMP app. Stores either the IBC acknowledgement
+// commitment hash (on success/failure) or a timeout marker, so the
+// original sender can query the result on-chain after the round-trip
+// completes.
 //
 // # PDA Seeds
 // `["gmp_result", source_client, sequence (little-endian u64)]`
@@ -1360,6 +1390,29 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Encoding format for outbound GMP packets.
+//
+// Determines how the `GmpPacketData` is serialized and what encoding string
+// is set in the IBC payload. The sender must use the encoding the destination
+// chain's ICS27 GMP module expects.
+type Ics27GmpStateGmpEncoding binary.BorshEnum
+
+const (
+	Ics27GmpStateGmpEncoding_Protobuf Ics27GmpStateGmpEncoding = iota
+	Ics27GmpStateGmpEncoding_Abi
+)
+
+func (value Ics27GmpStateGmpEncoding) String() string {
+	switch value {
+	case Ics27GmpStateGmpEncoding_Protobuf:
+		return "Protobuf"
+	case Ics27GmpStateGmpEncoding_Abi:
+		return "Abi"
+	default:
+		return ""
+	}
+}
+
 // Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
@@ -1379,6 +1432,9 @@ type Ics27GmpStateSendCallMsg struct {
 
 	// Optional memo
 	Memo string `json:"memo"`
+
+	// Encoding format for the IBC payload.
+	Encoding Ics27GmpStateGmpEncoding `json:"encoding"`
 }
 
 func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1411,6 +1467,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
@@ -1455,6 +1516,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
