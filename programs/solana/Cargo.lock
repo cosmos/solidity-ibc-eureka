@@ -3425,6 +3425,7 @@ name = "ics27-gmp"
 version = "0.1.0"
 dependencies = [
  "access-manager",
+ "alloy-sol-types",
  "anchor-lang",
  "bincode",
  "ics26-router",
