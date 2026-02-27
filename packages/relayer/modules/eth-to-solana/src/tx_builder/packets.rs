@@ -188,22 +188,13 @@ impl super::SolanaTxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        let gmp_accounts = if payload_info.encoding == gmp::ABI_ENCODING {
-            gmp::extract_abi_gmp_accounts(
-                payload_info.value,
-                &msg.packet.dest_client,
-                ibc_app_program_id,
-            )?
-        } else {
-            gmp::extract_gmp_accounts(
-                payload_info.dest_port,
-                payload_info.encoding,
-                payload_info.value,
-                &msg.packet.dest_client,
-                ibc_app_program_id,
-            )?
-        };
-        accounts.extend(gmp_accounts);
+        accounts.extend(gmp::extract_gmp_accounts(
+            payload_info.dest_port,
+            payload_info.encoding,
+            payload_info.value,
+            &msg.packet.dest_client,
+            ibc_app_program_id,
+        )?);
 
         let mut data = router_instructions::recv_packet_discriminator().to_vec();
         data.extend_from_slice(&msg.try_to_vec()?);
