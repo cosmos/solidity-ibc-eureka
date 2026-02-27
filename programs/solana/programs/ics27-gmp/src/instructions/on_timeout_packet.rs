@@ -51,8 +51,7 @@ pub fn on_timeout_packet(
     )
     .map_err(GMPError::from)?;
 
-    let packet_data =
-        crate::abi::decode_gmp_packet_data(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = crate::gmp_packet_data::decode(&msg.payload.value, &msg.payload.encoding)?;
 
     let clock = Clock::get()?;
     let sender: Pubkey = packet_data

@@ -1,11 +1,7 @@
-//! ABI encoding and decoding for GMP packet data using `alloy-sol-types`.
-//!
-//! Decodes/encodes ABI-encoded `GMPPacketData(string, string, bytes, bytes, string)`
-//! and `GmpSolanaPayload(bytes, bytes, uint32)` from Ethereum's Solidity ABI format.
+//! ABI encoding and decoding for GMP types using `alloy-sol-types`.
 
 use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
-use solana_ibc_proto::Protobuf;
 
 use crate::errors::GMPError;
 use crate::proto::GmpSolanaPayload;
@@ -30,6 +26,30 @@ alloy_sol_types::sol! {
 /// Size of a packed account entry: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
 
+impl TryFrom<AbiGmpSolanaPayload> for solana_ibc_proto::RawGmpSolanaPayload {
+    type Error = GMPError;
+
+    fn try_from(abi: AbiGmpSolanaPayload) -> std::result::Result<Self, Self::Error> {
+        let packed = &abi.packedAccounts;
+        if packed.len() % PACKED_ACCOUNT_SIZE != 0 {
+            return Err(GMPError::InvalidAbiEncoding);
+        }
+        let accounts = packed
+            .chunks_exact(PACKED_ACCOUNT_SIZE)
+            .map(|chunk| solana_ibc_proto::RawSolanaAccountMeta {
+                pubkey: chunk[..32].to_vec(),
+                is_signer: chunk[32] != 0,
+                is_writable: chunk[33] != 0,
+            })
+            .collect();
+        Ok(Self {
+            accounts,
+            data: abi.instructionData.into(),
+            payer_position: Some(abi.payerPosition),
+        })
+    }
+}
+
 /// Decode ABI-encoded `GmpSolanaPayload(bytes, bytes, uint32)`.
 ///
 /// Uses `abi_decode_params` because Solidity encodes this with
@@ -37,32 +57,10 @@ const PACKED_ACCOUNT_SIZE: usize = 34;
 pub fn decode_abi_gmp_solana_payload(data: &[u8]) -> Result<GmpSolanaPayload> {
     let decoded = AbiGmpSolanaPayload::abi_decode_params(data)
         .map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
-
-    let packed_bytes = &decoded.packedAccounts;
-    require!(
-        packed_bytes.len() % PACKED_ACCOUNT_SIZE == 0,
-        GMPError::InvalidAbiEncoding
-    );
-
-    let accounts = packed_bytes
-        .chunks_exact(PACKED_ACCOUNT_SIZE)
-        .map(|chunk| {
-            let pubkey_bytes: [u8; 32] = chunk[..32]
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
-            Ok(solana_ibc_proto::SolanaAccountMeta {
-                pubkey: Pubkey::from(pubkey_bytes),
-                is_signer: chunk[32] != 0,
-                is_writable: chunk[33] != 0,
-            })
-        })
-        .collect::<Result<Vec<_>>>()?;
-
-    Ok(GmpSolanaPayload {
-        data: decoded.instructionData.into(),
-        accounts,
-        payer_position: Some(decoded.payerPosition),
-    })
+    let raw: solana_ibc_proto::RawGmpSolanaPayload =
+        decoded.try_into().map_err(|e: GMPError| error!(e))?;
+    raw.try_into()
+        .map_err(|_| error!(GMPError::InvalidAbiEncoding))
 }
 
 /// Encode `GMPPacketData(string, string, bytes, bytes, string)` as ABI.
@@ -85,61 +83,23 @@ pub fn encode_abi_gmp_packet(
     .abi_encode()
 }
 
-/// Decode `GmpPacketData` from either protobuf or ABI encoding based on the encoding string.
-///
-/// Used by `on_recv_packet`, `on_ack_packet` and `on_timeout_packet` to extract packet fields.
-pub fn decode_gmp_packet_data(
-    value: &[u8],
-    encoding: &str,
-) -> Result<solana_ibc_proto::GmpPacketData> {
-    match encoding {
-        crate::constants::ABI_ENCODING => {
-            let decoded = AbiGmpPacketData::abi_decode(value)
-                .map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
-
-            let sender: solana_ibc_proto::Sender = decoded
-                .sender
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidPacketData))?;
-
-            let receiver: solana_ibc_proto::Receiver = decoded
-                .receiver
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidPacketData))?;
-
-            let salt: solana_ibc_proto::Salt = decoded
-                .salt
-                .to_vec()
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidPacketData))?;
-
-            let payload: solana_ibc_proto::Payload = decoded
-                .payload
-                .to_vec()
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidPacketData))?;
-
-            let memo: solana_ibc_proto::Memo = decoded
-                .memo
-                .try_into()
-                .map_err(|_| error!(GMPError::InvalidPacketData))?;
-
-            Ok(solana_ibc_proto::GmpPacketData {
-                sender,
-                receiver,
-                salt,
-                payload,
-                memo,
-            })
+impl From<AbiGmpPacketData> for solana_ibc_proto::RawGmpPacketData {
+    fn from(abi: AbiGmpPacketData) -> Self {
+        Self {
+            sender: abi.sender,
+            receiver: abi.receiver,
+            salt: abi.salt.into(),
+            payload: abi.payload.into(),
+            memo: abi.memo,
         }
-        crate::constants::ICS27_ENCODING => {
-            solana_ibc_proto::GmpPacketData::decode(value).map_err(|e| {
-                msg!("GMP protobuf decode failed: {}", e);
-                error!(GMPError::InvalidPacketData)
-            })
-        }
-        _ => Err(error!(GMPError::InvalidEncoding)),
     }
+}
+
+/// ABI-decode raw bytes into `RawGmpPacketData`.
+pub fn abi_decode_gmp_packet_data(value: &[u8]) -> Result<solana_ibc_proto::RawGmpPacketData> {
+    let decoded =
+        AbiGmpPacketData::abi_decode(value).map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
+    Ok(decoded.into())
 }
 
 #[cfg(test)]
@@ -253,17 +213,34 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_gmp_packet_data_abi() {
+    fn test_abi_decode_gmp_packet_data_roundtrip() {
         let sender = "cosmos1sender";
-        let receiver = "11111111111111111111111111111111"; // 32-char base58 pubkey
+        let receiver = "11111111111111111111111111111111";
         let payload = vec![1, 2, 3, 4];
 
         let encoded = encode_abi_gmp_packet(sender, receiver, &[], &payload, "");
-        let packet = decode_gmp_packet_data(&encoded, crate::constants::ABI_ENCODING).unwrap();
+        let raw = abi_decode_gmp_packet_data(&encoded).unwrap();
 
-        assert_eq!(&*packet.sender, sender);
-        assert_eq!(&*packet.receiver, receiver);
-        assert!(packet.salt.is_empty());
-        assert_eq!(&*packet.payload, &payload);
+        assert_eq!(raw.sender, sender);
+        assert_eq!(raw.receiver, receiver);
+        assert!(raw.salt.is_empty());
+        assert_eq!(raw.payload, payload);
+    }
+
+    #[test]
+    fn test_abi_decode_gmp_packet_data_invalid_bytes() {
+        assert!(abi_decode_gmp_packet_data(&[0xFF; 10]).is_err());
+    }
+
+    #[test]
+    fn test_decode_abi_gmp_solana_payload_empty_instruction_data_rejected() {
+        let encoded = AbiGmpSolanaPayload {
+            packedAccounts: Vec::new().into(),
+            instructionData: Vec::new().into(),
+            payerPosition: 0,
+        }
+        .abi_encode_params();
+
+        assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
     }
 }

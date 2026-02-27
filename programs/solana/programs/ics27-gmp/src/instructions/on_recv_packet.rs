@@ -98,8 +98,7 @@ pub fn on_recv_packet<'info>(
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Decode GMP packet data from either protobuf or ABI encoding
-    let packet_data =
-        crate::abi::decode_gmp_packet_data(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = crate::gmp_packet_data::decode(&msg.payload.value, &msg.payload.encoding)?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =

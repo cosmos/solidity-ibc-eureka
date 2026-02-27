@@ -5,6 +5,7 @@ pub mod abi;
 pub mod constants;
 pub mod errors;
 pub mod events;
+pub mod gmp_packet_data;
 pub mod instructions;
 pub mod proto;
 pub mod router_cpi;
