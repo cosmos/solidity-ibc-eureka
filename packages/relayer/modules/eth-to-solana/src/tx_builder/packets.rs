@@ -821,11 +821,8 @@ impl super::SolanaTxBuilder {
             msg.proof.total_chunks,
         )?;
 
-        let recv_instruction = self.build_recv_packet_instruction(
-            msg,
-            remaining_account_pubkeys,
-            payload_data,
-        )?;
+        let recv_instruction =
+            self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(recv_instruction);

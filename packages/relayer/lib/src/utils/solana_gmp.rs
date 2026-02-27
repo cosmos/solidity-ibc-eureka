@@ -227,18 +227,16 @@ fn decode_abi_gmp_packet(
         .try_into()
         .map_err(|_| anyhow::anyhow!("Invalid salt"))?;
 
-    let execution_accounts = packed
-        .chunks_exact(PACKED_ACCOUNT_SIZE)
-        .map(|chunk| {
-            let pubkey_bytes: [u8; 32] = chunk[..32]
-                .try_into()
-                .expect("chunk is exactly PACKED_ACCOUNT_SIZE");
-            AccountMeta {
-                pubkey: Pubkey::from(pubkey_bytes),
-                is_signer: false,
-                is_writable: chunk[33] != 0,
-            }
-        });
+    let execution_accounts = packed.chunks_exact(PACKED_ACCOUNT_SIZE).map(|chunk| {
+        let pubkey_bytes: [u8; 32] = chunk[..32]
+            .try_into()
+            .expect("chunk is exactly PACKED_ACCOUNT_SIZE");
+        AccountMeta {
+            pubkey: Pubkey::from(pubkey_bytes),
+            is_signer: false,
+            is_writable: chunk[33] != 0,
+        }
+    });
 
     build_gmp_account_list(
         sender,

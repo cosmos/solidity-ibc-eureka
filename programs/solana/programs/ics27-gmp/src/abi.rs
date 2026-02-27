@@ -226,8 +226,7 @@ mod tests {
         let memo = "hello memo";
 
         let encoded = encode_abi_gmp_packet(sender, receiver, salt, payload, memo);
-        let decoded =
-            AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
+        let decoded = AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
 
         assert_eq!(decoded.sender, sender);
         assert_eq!(decoded.receiver, receiver);
@@ -239,8 +238,7 @@ mod tests {
     #[test]
     fn test_encode_decode_empty_fields() {
         let encoded = encode_abi_gmp_packet("sender", "", &[], &[1], "");
-        let decoded =
-            AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
+        let decoded = AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
 
         assert_eq!(decoded.sender, "sender");
         assert_eq!(decoded.receiver, "");
