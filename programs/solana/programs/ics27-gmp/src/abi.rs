@@ -62,24 +62,16 @@ pub fn decode_abi_gmp_solana_payload(data: &[u8]) -> Result<GmpSolanaPayload> {
         .map_err(|_| error!(GMPError::InvalidAbiEncoding))
 }
 
-/// Encode `GMPPacketData(string, string, bytes, bytes, string)` as ABI.
-///
-/// Produces the same layout as Solidity's `abi.encode(GMPPacketData{...})`.
-pub fn encode_abi_gmp_packet(
-    sender: &str,
-    receiver: &str,
-    salt: &[u8],
-    payload: &[u8],
-    memo: &str,
-) -> Vec<u8> {
-    AbiGmpPacketData {
-        sender: sender.into(),
-        receiver: receiver.into(),
-        salt: salt.to_vec().into(),
-        payload: payload.to_vec().into(),
-        memo: memo.into(),
+impl From<solana_ibc_proto::GmpPacketData> for AbiGmpPacketData {
+    fn from(data: solana_ibc_proto::GmpPacketData) -> Self {
+        Self {
+            sender: data.sender.to_string(),
+            receiver: data.receiver.to_string(),
+            salt: data.salt.to_vec().into(),
+            payload: data.payload.to_vec().into(),
+            memo: data.memo.to_string(),
+        }
     }
-    .abi_encode()
 }
 
 impl From<AbiGmpPacketData> for solana_ibc_proto::RawGmpPacketData {
@@ -176,6 +168,24 @@ mod tests {
         assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
     }
 
+    fn build_packet_data(
+        sender: &str,
+        receiver: &str,
+        salt: &[u8],
+        payload: &[u8],
+        memo: &str,
+    ) -> solana_ibc_proto::GmpPacketData {
+        solana_ibc_proto::RawGmpPacketData {
+            sender: sender.to_string(),
+            receiver: receiver.to_string(),
+            salt: salt.to_vec(),
+            payload: payload.to_vec(),
+            memo: memo.to_string(),
+        }
+        .try_into()
+        .unwrap()
+    }
+
     #[test]
     fn test_encode_decode_roundtrip() {
         let sender = "0x1234567890abcdef";
@@ -184,7 +194,8 @@ mod tests {
         let payload = b"some payload data";
         let memo = "hello memo";
 
-        let encoded = encode_abi_gmp_packet(sender, receiver, salt, payload, memo);
+        let packet = build_packet_data(sender, receiver, salt, payload, memo);
+        let encoded = AbiGmpPacketData::from(packet).abi_encode();
         let decoded = AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
 
         assert_eq!(decoded.sender, sender);
@@ -192,18 +203,6 @@ mod tests {
         assert_eq!(decoded.salt.as_ref(), salt);
         assert_eq!(decoded.payload.as_ref(), payload);
         assert_eq!(decoded.memo, memo);
-    }
-
-    #[test]
-    fn test_encode_decode_empty_fields() {
-        let encoded = encode_abi_gmp_packet("sender", "", &[], &[1], "");
-        let decoded = AbiGmpPacketData::abi_decode(&encoded).expect("failed to decode ABI packet");
-
-        assert_eq!(decoded.sender, "sender");
-        assert_eq!(decoded.receiver, "");
-        assert!(decoded.salt.is_empty());
-        assert_eq!(decoded.payload.as_ref(), &[1]);
-        assert_eq!(decoded.memo, "");
     }
 
     #[test]
@@ -217,7 +216,8 @@ mod tests {
         let receiver = "11111111111111111111111111111111";
         let payload = vec![1, 2, 3, 4];
 
-        let encoded = encode_abi_gmp_packet(sender, receiver, &[], &payload, "");
+        let packet = build_packet_data(sender, receiver, &[], &payload, "");
+        let encoded = AbiGmpPacketData::from(packet).abi_encode();
         let raw = abi_decode_gmp_packet_data(&encoded).unwrap();
 
         assert_eq!(raw.sender, sender);

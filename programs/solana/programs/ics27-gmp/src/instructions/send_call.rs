@@ -1,11 +1,10 @@
-use crate::abi::encode_abi_gmp_packet;
 use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPCallSent;
-use crate::state::{GMPAppState, GmpEncoding, SendCallMsg};
+use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
 use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
-use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_proto::RawGmpPacketData;
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
@@ -162,27 +161,13 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    // Encode packet data based on the requested encoding
-    let (encoding, packet_data_bytes) = if msg.encoding == GmpEncoding::Abi {
-        (
-            ABI_ENCODING.to_string(),
-            encode_abi_gmp_packet(
-                &packet_data.sender,
-                &packet_data.receiver,
-                &packet_data.salt,
-                &packet_data.payload,
-                &packet_data.memo,
-            ),
-        )
-    } else {
-        (ICS27_ENCODING.to_string(), packet_data.encode_vec())
-    };
+    let (encoding, packet_data_bytes) = crate::gmp_packet_data::encode(packet_data, msg.encoding);
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
         dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
-        encoding,
+        encoding: encoding.to_string(),
         value: packet_data_bytes,
     };
 
@@ -232,7 +217,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::GMPAppState;
+    use crate::state::{GMPAppState, GmpEncoding};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -680,7 +665,7 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::state::GMPAppState;
+    use crate::state::{GMPAppState, GmpEncoding};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use solana_sdk::{
