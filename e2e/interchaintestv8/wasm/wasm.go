@@ -8,10 +8,9 @@ import (
 )
 
 const (
-	basePath                           = "e2e/interchaintestv8/wasm/"
-	dummyLightClientFileName           = "cw_dummy_light_client.wasm.gz"
-	wasmEthLightClientFileName         = "cw_ics08_wasm_eth.wasm.gz"
-	wasmAttestationLightClientFileName = "cw_ics08_wasm_attestor.wasm.gz"
+	basePath                   = "e2e/interchaintestv8/wasm/"
+	dummyLightClientFileName   = "cw_dummy_light_client.wasm.gz"
+	wasmEthLightClientFileName = "cw_ics08_wasm_eth.wasm.gz"
 )
 
 func GetWasmDummyLightClient() (*os.File, error) {
@@ -20,10 +19,6 @@ func GetWasmDummyLightClient() (*os.File, error) {
 
 func GetLocalWasmEthLightClient() (*os.File, error) {
 	return os.Open(basePath + wasmEthLightClientFileName)
-}
-
-func GetLocalWasmAttestationLightClient() (*os.File, error) {
-	return os.Open(basePath + wasmAttestationLightClientFileName)
 }
 
 func DownloadWasmLightClientRelease(release Release) (*os.File, error) {

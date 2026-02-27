@@ -144,7 +144,7 @@ impl TxBuilder {
     ///
     /// # Errors
     /// This function cannot currently fail but returns `Result` for API consistency.
-    pub fn new(
+    pub const fn new(
         src_tm_client: tendermint_rpc::HttpClient,
         target_solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
@@ -200,7 +200,7 @@ impl TxBuilder {
     pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
         const ALT_EXTEND_BATCH_SIZE: usize = 20;
 
-        let solana_ics07_program_id = self.resolve_client_program_id(&dst_client_id)?;
+        let solana_ics07_program_id = self.resolve_client_program_id(dst_client_id)?;
         let chain_id = self.chain_id().await?;
         let client_state = self.cosmos_client_state(solana_ics07_program_id)?;
 
@@ -469,10 +469,11 @@ impl TxBuilder {
 
         for ack_msg in ack_msgs {
             let a = ibc_to_solana_ack_packet(ack_msg)?;
-            packet_txs.push(
-                self.build_ack_packet_chunked(&a.msg, &a.payload_chunks, &a.proof_chunks)
-                    .await?,
-            );
+            packet_txs.push(self.build_ack_packet_chunked(
+                &a.msg,
+                &a.payload_chunks,
+                &a.proof_chunks,
+            )?);
         }
 
         for t in timeout_msgs_with_chunks {
@@ -687,17 +688,19 @@ impl AttestedTxBuilder {
         })
     }
 
-    /// Get the inner TxBuilder reference.
-    pub fn tx_builder(&self) -> &TxBuilder {
+    /// Get the inner `TxBuilder` reference.
+    #[must_use]
+    pub const fn tx_builder(&self) -> &TxBuilder {
         &self.tx_builder
     }
 
     /// Relay events from Cosmos to Solana using attestations.
     ///
-    /// Returns packet transactions and an update_client transaction to create the consensus state.
+    /// Returns packet transactions and an `update_client` transaction to create the consensus state.
     ///
     /// # Errors
     /// Returns an error if attestation retrieval or transaction building fails.
+    #[allow(clippy::too_many_lines)]
     pub async fn relay_events(
         &self,
         params: RelayParams,
@@ -868,11 +871,135 @@ impl AttestedTxBuilder {
             None
         };
 
-        let packets = self
-            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)
-            .await?;
+        let packets = self.build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
 
         Ok((packets, update_client))
+    }
+
+    /// Build `update_client` transaction for attestation light client.
+    async fn build_attestation_update_client(
+        &self,
+        dst_client_id: &str,
+        target_height: u64,
+    ) -> Result<api::SolanaUpdateClient> {
+        tracing::info!(
+            "Building attestation update_client for height {}",
+            target_height
+        );
+
+        let light_client_program_id = self.tx_builder.resolve_client_program_id(dst_client_id)?;
+        let min_sigs = self
+            .tx_builder
+            .attestation_client_min_sigs(light_client_program_id)?;
+        tracing::info!("Attestation client requires {} signatures", min_sigs);
+
+        // Get state attestation from aggregator
+        let state_attestation = self.aggregator.get_state_attestation(target_height).await?;
+
+        tracing::info!(
+            "Aggregator returned {} signatures, attestation_data size: {} bytes",
+            state_attestation.signatures.len(),
+            state_attestation.attested_data.len()
+        );
+
+        let proof_bytes = solana_attested::build_solana_membership_proof(
+            state_attestation.attested_data,
+            state_attestation.signatures,
+            min_sigs,
+        );
+
+        tracing::info!("Proof bytes size: {} bytes", proof_bytes.len());
+
+        // Build the update_client instruction for attestation light client
+        let update_tx = self.build_attestation_update_client_tx(
+            target_height,
+            proof_bytes,
+            light_client_program_id,
+        )?;
+
+        tracing::info!("Update transaction size: {} bytes", update_tx.len());
+
+        Ok(api::SolanaUpdateClient {
+            chunk_txs: vec![],
+            alt_create_tx: vec![],
+            alt_extend_txs: vec![],
+            assembly_tx: update_tx,
+            target_height,
+            cleanup_tx: vec![],
+        })
+    }
+
+    /// Build `update_client` transaction bytes for attestation light client.
+    fn build_attestation_update_client_tx(
+        &self,
+        new_height: u64,
+        proof: Vec<u8>,
+        light_client_program_id: Pubkey,
+    ) -> Result<Vec<u8>> {
+        use sha2::{Digest, Sha256};
+        use solana_ibc_types::attestation::{
+            AppState as AttestationAppState, ClientState as AttestationClientState,
+            ConsensusState as AttestationConsensusState,
+        };
+
+        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
+        let (new_consensus_state_pda, _) =
+            AttestationConsensusState::pda(new_height, light_client_program_id);
+        let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
+
+        let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
+        let (access_manager_pda, _) = Pubkey::find_program_address(
+            &[solana_ibc_types::AccessManager::SEED],
+            &access_manager_program_id,
+        );
+
+        // Build instruction data: discriminator + borsh(new_height, params)
+        // Anchor discriminator = sha256("global:update_client")[..8]
+        let discriminator = {
+            let mut hasher = Sha256::new();
+            hasher.update(b"global:update_client");
+            let result = hasher.finalize();
+            <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
+        };
+
+        #[allow(clippy::items_after_statements)] // TODO: this type should not be duplicated
+        #[derive(AnchorSerialize)]
+        struct UpdateClientParams {
+            proof: Vec<u8>,
+        }
+
+        let mut data = discriminator.to_vec();
+        new_height
+            .serialize(&mut data)
+            .context("Failed to serialize new_height")?;
+        UpdateClientParams { proof }
+            .serialize(&mut data)
+            .context("Failed to serialize UpdateClientParams")?;
+
+        let instruction = solana_sdk::instruction::Instruction {
+            program_id: light_client_program_id,
+            accounts: vec![
+                solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
+                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
+                solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
+                solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
+                solana_sdk::instruction::AccountMeta::new_readonly(
+                    solana_sdk::sysvar::instructions::ID,
+                    false,
+                ),
+                solana_sdk::instruction::AccountMeta::new(self.tx_builder.fee_payer, true),
+                solana_sdk::instruction::AccountMeta::new_readonly(
+                    solana_sdk::system_program::ID,
+                    false,
+                ),
+            ],
+            data,
+        };
+
+        let mut instructions = TxBuilder::extend_compute_ix();
+        instructions.push(instruction);
+
+        self.tx_builder.create_tx_bytes(&instructions)
     }
 
     /// Update the attestation light client to the latest height.
@@ -896,7 +1023,7 @@ impl AttestedTxBuilder {
         })
     }
 
-    async fn build_packet_transactions(
+    fn build_packet_transactions(
         &self,
         recv_msgs: Vec<MsgRecvPacket>,
         ack_msgs: Vec<MsgAcknowledgement>,
@@ -916,14 +1043,11 @@ impl AttestedTxBuilder {
 
         for msg in ack_msgs {
             let ack_with_chunks = solana_utils::ibc_to_solana_ack_packet(msg)?;
-            let packet_txs = self
-                .tx_builder
-                .build_ack_packet_chunked(
-                    &ack_with_chunks.msg,
-                    &ack_with_chunks.payload_chunks,
-                    &ack_with_chunks.proof_chunks,
-                )
-                .await?;
+            let packet_txs = self.tx_builder.build_ack_packet_chunked(
+                &ack_with_chunks.msg,
+                &ack_with_chunks.payload_chunks,
+                &ack_with_chunks.proof_chunks,
+            )?;
             results.push(packet_txs);
         }
 

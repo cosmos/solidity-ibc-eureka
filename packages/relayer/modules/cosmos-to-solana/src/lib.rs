@@ -44,6 +44,7 @@ struct CosmosToSolanaRelayerModuleService {
 }
 
 /// Enum wrapping transaction builders for different modes.
+#[allow(clippy::large_enum_variant)]
 enum CosmosToSolanaTxBuilder {
     /// ICS07 Tendermint light client mode.
     Ics07Tendermint(tx_builder::TxBuilder),

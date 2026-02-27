@@ -378,7 +378,7 @@ impl super::TxBuilder {
         })
     }
 
-    pub(crate) async fn build_ack_packet_chunked(
+    pub(crate) fn build_ack_packet_chunked(
         &self,
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
@@ -401,9 +401,7 @@ impl super::TxBuilder {
             msg.proof.total_chunks,
         )?;
 
-        let ack_instruction = self
-            .build_ack_packet_instruction(msg, remaining_account_pubkeys)
-            .await?;
+        let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);

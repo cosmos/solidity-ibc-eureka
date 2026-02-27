@@ -116,7 +116,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 
 	os.Setenv(testvalues.EnvKeyEthTestnetType, testvalues.EthTestnetType_None)
 	os.Setenv(testvalues.EnvKeySolanaTestnetType, testvalues.SolanaTestnetType_Localnet)
-	os.Setenv(testvalues.EnvKeyEthLcOnCosmos, testvalues.EthWasmTypeAttestorWasm)
+	os.Setenv(testvalues.EnvKeyEthLcOnCosmos, testvalues.EthLCOnCosmosTypeAttestorNative)
 
 	s.TestSuite.SetupSuite(ctx)
 

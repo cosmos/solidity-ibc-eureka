@@ -69,8 +69,7 @@ pub struct SolanaMembershipProof {
 /// * `max_signatures` - Maximum number of signatures to include (Solana tx size limit)
 ///
 /// # Panics
-///
-/// Panics if borsh serialization of the membership proof fails.
+/// Panics if serialization fails (should not happen with valid data).
 #[must_use]
 pub fn build_solana_membership_proof(
     attested_data: Vec<u8>,
