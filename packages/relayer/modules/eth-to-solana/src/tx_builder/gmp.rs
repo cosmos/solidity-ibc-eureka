@@ -1,35 +1,21 @@
-//! ABI payload account extraction for Eth→Solana relay.
+//! GMP account extraction from ABI-encoded payloads for Eth→Solana relay.
 //!
 //! When relaying from Ethereum to Solana, packet payloads arrive with
 //! `encoding = "application/x-solidity-abi"` and ABI-encoded values.
-//! The GmpSolanaPayload (accounts + instruction data + payer position) is
+//! The `GmpSolanaPayload` (accounts + instruction data + payer position) is
 //! ABI-encoded directly in the IBC packet payload, committed on Ethereum.
-//! The relayer decodes this to build the remaining accounts for recv_packet.
+//! The relayer decodes this to build the remaining accounts for `recv_packet`.
 
 use alloy::sol_types::SolValue;
 use anyhow::Result;
 use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
-use crate::gmp::GMP_PORT_ID;
+use crate::gmp::{AbiGmpPacketData, ABI_ENCODING, GMP_PORT_ID};
 
 use super::SolanaTxBuilder;
 
-/// ABI encoding identifier used by Ethereum ICS27 GMP.
-pub(crate) const ABI_ENCODING: &str = "application/x-solidity-abi";
-
-/// Packed account entry size: pubkey(32) + is_signer(1) + is_writable(1)
+/// Packed account entry size: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
-
-// ABI type matching Solidity's `IICS27GMPMsgs.GMPPacketData`.
-alloy::sol! {
-    struct AbiGmpPacketData {
-        string sender;
-        string receiver;
-        bytes salt;
-        bytes payload;
-        string memo;
-    }
-}
 
 // ABI type matching the inner GmpSolanaPayload encoding:
 // `abi.encode(bytes packedAccounts, bytes instructionData, uint32 payerPosition)`

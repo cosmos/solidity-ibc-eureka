@@ -19,9 +19,8 @@ use spl_associated_token_account::get_associated_token_address;
 use alloy::sol_types::SolValue;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
-use crate::gmp::{GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::gmp::{AbiGmpPacketData, ABI_ENCODING, GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, Protobuf};
-use crate::tx_builder::payload_translator::{AbiGmpPacketData, ABI_ENCODING};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";

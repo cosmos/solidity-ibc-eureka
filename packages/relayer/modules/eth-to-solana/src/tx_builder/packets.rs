@@ -137,7 +137,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
-        abi_info: Option<&super::payload_translator::AbiGmpAccountInfo>,
+        abi_info: Option<&super::gmp::AbiGmpAccountInfo>,
     ) -> Result<Instruction> {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
@@ -811,7 +811,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-        abi_info: Option<&super::payload_translator::AbiGmpAccountInfo>,
+        abi_info: Option<&super::gmp::AbiGmpAccountInfo>,
     ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,

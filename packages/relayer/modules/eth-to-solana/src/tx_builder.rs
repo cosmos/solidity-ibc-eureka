@@ -4,7 +4,7 @@
 
 mod attested;
 mod packets;
-pub(crate) mod payload_translator;
+pub(crate) mod gmp;
 
 use std::sync::Arc;
 
