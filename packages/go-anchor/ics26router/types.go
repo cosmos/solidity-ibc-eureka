@@ -732,7 +732,14 @@ func UnmarshalIcs26RouterInstructionsClientMigrateClientParams(buf []byte) (*Ics
 	return obj, nil
 }
 
-// Client mapping client IDs to light client program IDs
+// Client-ID-to-light-client mapping with counterparty chain metadata.
+//
+// Created when an admin registers a new IBC client (e.g. an ICS07
+// Tendermint or attestation light client). The router reads this
+// account during `send_packet`, `recv_packet`, `ack_packet` and
+// `timeout_packet` to resolve which light client program to call for
+// proof verification, and to obtain the counterparty chain's client
+// and Merkle prefix information.
 type Ics26RouterStateClient struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -848,7 +855,12 @@ func UnmarshalIcs26RouterStateClient(buf []byte) (*Ics26RouterStateClient, error
 	return obj, nil
 }
 
-// Client sequence tracking
+// Per-client packet sequence counter.
+//
+// Tracks the next sequence number to assign when sending a packet
+// through a given client. Each `send_packet` call reads and increments
+// this value to guarantee unique, monotonically increasing sequence
+// numbers for replay protection.
 type Ics26RouterStateClientSequence struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -925,7 +937,18 @@ func UnmarshalIcs26RouterStateClientSequence(buf []byte) (*Ics26RouterStateClien
 	return obj, nil
 }
 
-// Commitment storage (simple key-value)
+// IBC packet commitment, receipt, or acknowledgement hash.
+//
+// A generic 32-byte hash PDA used for three purposes depending on its
+// seed prefix:
+// - **Packet commitment** (`PACKET_COMMITMENT_SEED`): written by
+// `send_packet`, stores `sha256(packet)` so the counterparty can
+// prove the packet was sent.
+// - **Packet receipt** (`PACKET_RECEIPT_SEED`): written by
+// `recv_packet`, prevents the same packet from being delivered twice.
+// - **Packet acknowledgement** (`PACKET_ACK_SEED`): written by
+// `recv_packet`, stores the app-layer acknowledgement hash so the
+// sender chain can confirm delivery.
 type Ics26RouterStateCommitment struct {
 	// The commitment value (sha256 hash)
 	Value [32]uint8 `json:"value"`
@@ -976,7 +999,12 @@ func UnmarshalIcs26RouterStateCommitment(buf []byte) (*Ics26RouterStateCommitmen
 	return obj, nil
 }
 
-// `IBCApp` mapping port IDs to IBC app program IDs
+// Port-to-program mapping for IBC applications.
+//
+// Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
+// one `IBCApp` PDA derived from its port ID. The router uses this account
+// to look up which program to CPI into when delivering a received packet
+// or forwarding an acknowledgement/timeout to the application layer.
 type Ics26RouterStateIbcApp struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -1079,7 +1107,13 @@ func UnmarshalIcs26RouterStateIbcApp(buf []byte) (*Ics26RouterStateIbcApp, error
 	return obj, nil
 }
 
-// Storage for payload chunks during multi-transaction upload
+// Temporary storage for a single chunk of IBC packet payload data during
+// multi-transaction upload.
+//
+// Large payloads that exceed the Solana transaction size limit are split
+// into chunks and uploaded separately. The `recv_packet` instruction
+// reassembles all chunks, processes the full payload, then closes these
+// accounts to reclaim rent.
 type Ics26RouterStatePayloadChunk struct {
 	// Client ID this chunk belongs to
 	ClientId string `json:"clientId"`
@@ -1182,7 +1216,13 @@ func UnmarshalIcs26RouterStatePayloadChunk(buf []byte) (*Ics26RouterStatePayload
 	return obj, nil
 }
 
-// Storage for proof chunks during multi-transaction upload
+// Temporary storage for a single chunk of IBC membership proof data
+// during multi-transaction upload.
+//
+// Membership proofs (e.g. Merkle proofs or attestation signatures) can
+// exceed the Solana transaction size limit. They are uploaded in chunks
+// and reassembled when the final `recv_packet`, `ack_packet`, or
+// `timeout_packet` instruction executes verification.
 type Ics26RouterStateProofChunk struct {
 	// Client ID this chunk belongs to
 	ClientId string `json:"clientId"`
@@ -1272,7 +1312,12 @@ func UnmarshalIcs26RouterStateProofChunk(buf []byte) (*Ics26RouterStateProofChun
 	return obj, nil
 }
 
-// Router state account
+// Global ICS26 router configuration.
+//
+// Singleton PDA initialized once during program setup. Stores the link
+// to the access manager for admin-gated operations (e.g. registering
+// clients, migrating light clients) and a schema version for future
+// on-chain migrations.
 type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`

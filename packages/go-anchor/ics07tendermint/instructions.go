@@ -55,14 +55,19 @@ func NewInitializeInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state_account": Writable, Non-signer, Required
+		// PDA holding the Tendermint light client configuration and tracking state.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccountAccount, true, false))
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
+		// PDA storing the verified consensus state at the initial height.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
 		// Account 2 "app_state": Writable, Non-signer, Required
+		// PDA holding program-level settings such as the `access_manager` address and `chain_id`.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 3 "payer": Writable, Signer, Required
+		// Signer that pays for PDA account creation.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Required by Anchor for PDA creation via the System Program.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -105,12 +110,16 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// PDA holding program-level settings; the `access_manager` field is overwritten on success.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Current access-manager PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized to change the access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -151,8 +160,10 @@ func NewVerifyMembershipInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// PDA holding the light client configuration; used to check the frozen status.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		// PDA storing the verified consensus state at the requested proof height.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
@@ -194,8 +205,10 @@ func NewVerifyNonMembershipInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// PDA holding the light client configuration; used to check the frozen status.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		// PDA storing the verified consensus state at the requested proof height.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
@@ -242,18 +255,25 @@ func NewUploadHeaderChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "chunk": Writable, Non-signer, Required
+		// PDA storing one segment of the serialized header, keyed by submitter, target height and chunk index.
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
+		// PDA holding the light client configuration; used to check the frozen status.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 2 "app_state": Read-only, Non-signer, Required
+		// PDA holding program-level settings; provides the `access_manager` address for role checks.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 3 "access_manager": Read-only, Non-signer, Required
+		// Access-manager PDA used to verify the submitter holds the relayer role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 4 "submitter": Writable, Signer, Required
+		// Relayer that signs the transaction and pays for chunk account creation.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Required by Anchor for PDA creation via the System Program.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -313,21 +333,28 @@ func NewAssembleAndUpdateClientInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
+		// PDA holding the light client configuration; updated with the new latest height on success.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "app_state": Read-only, Non-signer, Required
+		// PDA holding program-level settings; provides the `access_manager` address for role checks.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
+		// Access-manager PDA used to verify the submitter holds the relayer role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state": Read-only, Non-signer, Required
+		// Consensus state the header declares as its trust anchor; validated against PDA seeds.
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusStateAccount, false, false))
 		// Account 4 "new_consensus_state_store": Writable, Non-signer, Required
+		// Destination PDA for the newly derived consensus state; created if it does not already exist.
 		accounts__.Append(solanago.NewAccountMeta(newConsensusStateStoreAccount, true, false))
 		// Account 5 "submitter": Writable, Signer, Required
-		// The submitter who uploaded the chunks
+		// Relayer that uploaded the chunks, signs the assembly transaction and receives rent refunds.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Required by Anchor for creating the new consensus-state PDA.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -357,8 +384,7 @@ func NewCleanupIncompleteUploadInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "submitter": Writable, Signer, Required
-		// The original submitter who gets their rent back
-		// Must be the signer to prove they own the upload
+		// Original submitter who uploaded the chunks; must sign to prove ownership and receives rent refunds.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 
@@ -405,18 +431,25 @@ func NewUploadMisbehaviourChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "chunk": Writable, Non-signer, Required
+		// PDA storing one segment of the serialized misbehaviour, keyed by submitter and chunk index.
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 1 "client_state": Read-only, Non-signer, Required
+		// PDA holding the light client configuration; used to check the frozen status.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 2 "app_state": Read-only, Non-signer, Required
+		// PDA holding program-level settings; provides the `access_manager` address for role checks.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 3 "access_manager": Read-only, Non-signer, Required
+		// Access-manager PDA used to verify the submitter holds the relayer role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 4 "submitter": Writable, Signer, Required
+		// Relayer that signs the transaction and pays for chunk account creation.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Required by Anchor for PDA creation via the System Program.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -475,18 +508,25 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
+		// PDA holding the light client configuration; frozen when misbehaviour is confirmed.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "app_state": Read-only, Non-signer, Required
+		// PDA holding program-level settings; provides the `access_manager` address for role checks.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
+		// Access-manager PDA used to verify the submitter holds the relayer role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "trusted_consensus_state_1": Read-only, Non-signer, Required
+		// First trusted consensus state referenced by the misbehaviour evidence.
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState1account, false, false))
 		// Account 4 "trusted_consensus_state_2": Read-only, Non-signer, Required
+		// Second trusted consensus state referenced by the misbehaviour evidence.
 		accounts__.Append(solanago.NewAccountMeta(trustedConsensusState2account, false, false))
 		// Account 5 "submitter": Writable, Signer, Required
+		// Relayer that uploaded the chunks, signs the assembly transaction and receives rent refunds.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -516,6 +556,7 @@ func NewCleanupIncompleteMisbehaviourInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "submitter": Writable, Signer, Required
+		// Original submitter who uploaded the chunks; must sign to prove ownership and receives rent refunds.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 	}
 
@@ -560,16 +601,22 @@ func NewPreVerifySignatureInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used to load and introspect the preceding Ed25519 verify instruction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 1 "signature_verification": Writable, Non-signer, Required
+		// PDA that stores the Ed25519 verification outcome, keyed by the signature hash.
 		accounts__.Append(solanago.NewAccountMeta(signatureVerificationAccount, true, false))
 		// Account 2 "app_state": Read-only, Non-signer, Required
+		// PDA holding program-level settings; provides the `access_manager` address for role checks.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 3 "access_manager": Read-only, Non-signer, Required
+		// Access-manager PDA used to verify the submitter holds the relayer role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 4 "submitter": Writable, Signer, Required
+		// Relayer that signs the transaction and pays for the verification PDA creation.
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 5 "system_program": Read-only, Non-signer, Required
+		// Required by Anchor for PDA creation via the System Program.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -599,8 +646,11 @@ func NewClientStatusInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// PDA holding the light client configuration; checked for frozen state and trusting period.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state": Read-only, Non-signer, Required
+		// Consensus state at the latest height; its timestamp is compared against the
+		// current clock to determine whether the client has expired.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 

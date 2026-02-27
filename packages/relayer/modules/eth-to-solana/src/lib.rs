@@ -1,7 +1,7 @@
 //! One-sided relayer module from Ethereum to Solana.
 //!
-//! Listens for IBC events on EVM, translates IFT payloads (ABI → GmpSolanaPayload),
-//! and builds Solana transactions with chunking, ALT, and attestation support.
+//! Listens for IBC events on EVM and builds Solana transactions
+//! with chunking, ALT and attestation support.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings)]
 #![allow(missing_docs, unused_crate_dependencies)]
@@ -9,7 +9,6 @@
 pub mod constants;
 pub mod gmp;
 pub mod ift;
-pub mod ift_payload;
 pub mod proto;
 pub mod tx_builder;
 

@@ -137,7 +137,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         chunk_accounts: Vec<Pubkey>,
         payload_data: &[Vec<u8>],
-        abi_hint: Option<&super::payload_translator::AbiHintInfo>,
+        abi_info: Option<&super::payload_translator::AbiGmpAccountInfo>,
     ) -> Result<Instruction> {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
@@ -189,9 +189,9 @@ impl super::SolanaTxBuilder {
                 .map(|a| AccountMeta::new(a, false)),
         );
 
-        if let Some(hint) = abi_hint {
-            // For ABI payloads, use pre-built GMP accounts with hint PDA
-            accounts.extend(hint.gmp_accounts.clone());
+        if let Some(info) = abi_info {
+            // For ABI payloads, use pre-extracted GMP accounts from packet data
+            accounts.extend(info.gmp_accounts.clone());
         } else {
             // For protobuf payloads, extract GMP accounts normally
             let gmp_accounts = gmp::extract_gmp_accounts(
@@ -811,7 +811,7 @@ impl super::SolanaTxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
-        abi_hint: Option<&super::payload_translator::AbiHintInfo>,
+        abi_info: Option<&super::payload_translator::AbiGmpAccountInfo>,
     ) -> Result<SolanaPacketTxs> {
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
@@ -834,7 +834,7 @@ impl super::SolanaTxBuilder {
             msg,
             remaining_account_pubkeys,
             payload_data,
-            abi_hint,
+            abi_info,
         )?;
 
         let mut instructions = Self::extend_compute_ix();

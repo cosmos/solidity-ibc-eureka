@@ -42,25 +42,6 @@ impl GMPAppState {
     }
 }
 
-/// Hint account storing a protobuf-encoded `GmpSolanaPayload`.
-///
-/// Used by the relayer to provide the execution payload for ABI-encoded packets,
-/// since ABI payloads don't contain the Solana-specific execution data.
-///
-/// PDA seeds: `["payload_hint", payer_pubkey]`
-#[account]
-#[derive(InitSpace)]
-pub struct SolanaPayloadHint {
-    pub bump: u8,
-    #[max_len(2048)]
-    pub data: Vec<u8>,
-}
-
-impl SolanaPayloadHint {
-    pub const SEED: &'static [u8] = b"payload_hint";
-    pub const MAX_DATA_LEN: usize = 2048;
-}
-
 /// Encoding format for outbound GMP packets.
 ///
 /// Determines how the `GmpPacketData` is serialized and what encoding string

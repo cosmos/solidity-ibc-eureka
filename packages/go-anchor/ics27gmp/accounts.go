@@ -57,13 +57,6 @@ func ParseAnyAccount(accountData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal account as Ics27GmpStateGmpCallResultAccount: %w", err)
 		}
 		return value, nil
-	case Account_Ics27GmpStateSolanaPayloadHint:
-		value := new(Ics27GmpStateSolanaPayloadHint)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal account as Ics27GmpStateSolanaPayloadHint: %w", err)
-		}
-		return value, nil
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
@@ -167,23 +160,6 @@ func ParseAccount_Ics27GmpStateGmpCallResultAccount(accountData []byte) (*Ics27G
 	err = acc.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal account of type Ics27GmpStateGmpCallResultAccount: %w", err)
-	}
-	return acc, nil
-}
-
-func ParseAccount_Ics27GmpStateSolanaPayloadHint(accountData []byte) (*Ics27GmpStateSolanaPayloadHint, error) {
-	decoder := binary.NewBorshDecoder(accountData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Account_Ics27GmpStateSolanaPayloadHint {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Account_Ics27GmpStateSolanaPayloadHint, binary.FormatDiscriminator(discriminator))
-	}
-	acc := new(Ics27GmpStateSolanaPayloadHint)
-	err = acc.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal account of type Ics27GmpStateSolanaPayloadHint: %w", err)
 	}
 	return acc, nil
 }

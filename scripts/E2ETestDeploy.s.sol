@@ -25,7 +25,7 @@ import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
-import { SolanaIFTSendCallConstructor } from "../contracts/utils/SolanaIFTSendCallConstructor.sol";
+
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
 import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
@@ -116,8 +116,8 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
                 address(new CosmosIFTSendCallConstructor(IFT_MINT_TYPE_URL, IFT_TEST_DENOM, iftIcaAddress));
         }
 
-        // Deploy SolanaIFTSendCallConstructor (no constructor args)
-        d.solanaIftConstructor = address(new SolanaIFTSendCallConstructor());
+        // NOTE: SolanaIFTSendCallConstructor is deployed separately via DeploySolanaIFTConstructor.s.sol
+        // after both the EVM IFT contract and Solana mint are known.
 
         // Wire up access control and apps
         accessManagerSetTargetRoles(accessManager, d.ics26Router, d.ics20Transfer, d.ics27Gmp, true);

@@ -246,24 +246,16 @@ impl AttestedTxBuilder {
         let mut results = Vec::new();
 
         for msg in recv_msgs {
-            // Build hint for ABI-encoded payloads (original payload stays intact)
-            let abi_hint = self.tx_builder.build_abi_hint_if_needed(&msg)?;
+            // Extract GMP accounts for ABI-encoded payloads (from packet data)
+            let abi_info = self.tx_builder.extract_abi_gmp_accounts(&msg)?;
 
             let recv_with_chunks = ibc_to_solana_recv_packet(msg)?;
-            let mut packet_txs = self.tx_builder.build_recv_packet_chunked(
+            let packet_txs = self.tx_builder.build_recv_packet_chunked(
                 &recv_with_chunks.msg,
                 &recv_with_chunks.payload_chunks,
                 &recv_with_chunks.proof_chunks,
-                abi_hint.as_ref(),
+                abi_info.as_ref(),
             )?;
-
-            // Prepend store_hint tx before chunk uploads for ABI payloads
-            if let Some(hint) = &abi_hint {
-                let mut hint_instructions = super::SolanaTxBuilder::extend_compute_ix();
-                hint_instructions.push(hint.store_hint_instruction.clone());
-                let hint_tx = self.tx_builder.create_tx_bytes(&hint_instructions)?;
-                packet_txs.chunks.insert(0, hint_tx);
-            }
 
             results.push(packet_txs);
         }
