@@ -22,12 +22,19 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
 /// Writes the proof data for the given trusted and target blocks to the given fixture path.
-#[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
+#[allow(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::too_many_lines
+)]
 pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     assert!(
         args.membership.trusted_block < args.target_block,
@@ -45,13 +52,20 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
 
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
-        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+        Sp1Prover::Network(
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
+            FulfillmentStrategy::Reserved,
+        )
     } else {
-        Sp1Prover::new_public_cluster(ProverClient::from_env())
+        Sp1Prover::Env(ProverClient::from_env().await)
     };
 
     let uc_mem_prover =
-        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &uc_and_membership_program);
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &uc_and_membership_program)
+            .await;
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.membership.trusted_block))
@@ -101,13 +115,15 @@ pub async fn run(args: UpdateClientAndMembershipCmd) -> anyhow::Result<()> {
     let kv_len = kv_proofs.len();
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
-    let proof_data = uc_mem_prover.generate_proof(
-        &trusted_client_state,
-        &trusted_consensus_state.into(),
-        &proposed_header,
-        now_since_unix.as_nanos(),
-        kv_proofs,
-    );
+    let proof_data = uc_mem_prover
+        .generate_proof(
+            &trusted_client_state,
+            &trusted_consensus_state.into(),
+            &proposed_header,
+            now_since_unix.as_nanos(),
+            kv_proofs,
+        )
+        .await;
 
     let bytes = proof_data.public_values.as_slice();
     let output = UcAndMembershipOutput::abi_decode(bytes)?;

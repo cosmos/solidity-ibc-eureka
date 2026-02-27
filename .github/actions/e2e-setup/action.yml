@@ -66,8 +66,8 @@ runs:
         echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
         # Install SP1 programs
-        mkdir -p programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
-        cp -r e2e-artifacts/sp1-programs/* programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/
+        mkdir -p programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/
+        cp -r e2e-artifacts/sp1-programs/* programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/
 
         # Install Solana programs
         mkdir -p programs/solana/target/deploy/

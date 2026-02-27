@@ -20,7 +20,10 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -41,10 +44,8 @@ struct SP1ICS07SubmitMisbehaviourFixture {
 /// Writes the proof data for misbehaviour to the given fixture path.
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
-    let path = args.misbehaviour_json_path;
-    let misbehaviour_bz = std::fs::read(path)?;
-    // deserialize from json
-    let misbehaviour: RawMisbehaviour = serde_json::from_slice(&misbehaviour_bz)?;
+    let misbehaviour: RawMisbehaviour =
+        serde_json::from_slice(&std::fs::read(args.misbehaviour_json_path)?)?;
 
     let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
     let membership_elf = std::fs::read(args.elf_paths.membership_path)?;
@@ -57,39 +58,36 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
 
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
-        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+        Sp1Prover::Network(
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
+            FulfillmentStrategy::Reserved,
+        )
     } else {
-        Sp1Prover::new_public_cluster(ProverClient::from_env())
+        Sp1Prover::Env(ProverClient::from_env().await)
     };
 
-    // get light block for trusted height of header 1
     #[allow(clippy::cast_possible_truncation)]
-    let trusted_light_block_1 = tm_rpc_client
-        .get_light_block(Some(
-            misbehaviour
-                .header_1
-                .as_ref()
-                .unwrap()
-                .trusted_height
-                .unwrap()
-                .revision_height,
-        ))
-        .await?;
+    let height_1 = misbehaviour
+        .header_1
+        .as_ref()
+        .unwrap()
+        .trusted_height
+        .unwrap()
+        .revision_height;
     #[allow(clippy::cast_possible_truncation)]
-    // get light block for trusted height of header 2
-    let trusted_light_block_2 = tm_rpc_client
-        .get_light_block(Some(
-            misbehaviour
-                .header_2
-                .as_ref()
-                .unwrap()
-                .trusted_height
-                .unwrap()
-                .revision_height,
-        ))
-        .await?;
+    let height_2 = misbehaviour
+        .header_2
+        .as_ref()
+        .unwrap()
+        .trusted_height
+        .unwrap()
+        .revision_height;
+    let trusted_light_block_1 = tm_rpc_client.get_light_block(Some(height_1)).await?;
+    let trusted_light_block_2 = tm_rpc_client.get_light_block(Some(height_2)).await?;
 
-    // use trusted light block 1 to instantiate a new SP1 tendermint client with light block 1 as initial trusted consensus state
     let genesis_1 = SP1ICS07TendermintGenesis::from_env(
         &trusted_light_block_1,
         args.trust_options.trusting_period,
@@ -101,7 +99,6 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         &misbehaviour_program,
     )
     .await?;
-    // use trusted light block 2 to instantiate a new SP1 tendermint client with light block 2 as initial trusted consensus state
     let genesis_2 = SP1ICS07TendermintGenesis::from_env(
         &trusted_light_block_2,
         args.trust_options.trusting_period,
@@ -113,26 +110,22 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         &misbehaviour_program,
     )
     .await?;
-
-    // use the clients to convert the Tendermint light blocks into the IBC Tendermint trusted consensus states
     let trusted_consensus_state_1 = ConsensusState::abi_decode(&genesis_1.trusted_consensus_state)?;
     let trusted_consensus_state_2 = ConsensusState::abi_decode(&genesis_2.trusted_consensus_state)?;
-
-    // use the client state from genesis_2 as the client state since they will both be the same
     let trusted_client_state_2 = ClientState::abi_decode(&genesis_2.trusted_client_state)?;
-
     let verify_misbehaviour_prover =
-        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &misbehaviour_program);
-
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &misbehaviour_program)
+            .await;
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
-    let proof_data = verify_misbehaviour_prover.generate_proof(
-        &trusted_client_state_2,
-        &misbehaviour,
-        &trusted_consensus_state_1,
-        &trusted_consensus_state_2,
-        now_since_unix.as_nanos(),
-    );
-
+    let proof_data = verify_misbehaviour_prover
+        .generate_proof(
+            &trusted_client_state_2,
+            &misbehaviour,
+            &trusted_consensus_state_1,
+            &trusted_consensus_state_2,
+            now_since_unix.as_nanos(),
+        )
+        .await;
     let submit_msg = MsgSubmitMisbehaviour {
         sp1Proof: SP1Proof::new(
             &verify_misbehaviour_prover.vkey.bytes32(),
@@ -140,7 +133,6 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
             proof_data.public_values.to_vec(),
         ),
     };
-
     let fixture = SP1ICS07SubmitMisbehaviourFixture {
         genesis: genesis_2,
         submit_msg: submit_msg.abi_encode(),
@@ -148,7 +140,6 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
 
     match args.output_path {
         OutputPath::File(path) => {
-            // Save the proof data to the file path.
             std::fs::write(PathBuf::from(path), serde_json::to_string_pretty(&fixture)?)?;
         }
         OutputPath::Stdout => {

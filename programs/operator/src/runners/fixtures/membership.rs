@@ -23,7 +23,10 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -127,12 +130,18 @@ pub async fn run_sp1_membership(
     membership_program: &MembershipProgram,
 ) -> anyhow::Result<MembershipProof> {
     let sp1_prover = if private_cluster {
-        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+        Sp1Prover::Network(
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
+            FulfillmentStrategy::Reserved,
+        )
     } else {
-        Sp1Prover::new_public_cluster(ProverClient::from_env())
+        Sp1Prover::Env(ProverClient::from_env().await)
     };
     let verify_mem_prover =
-        SP1ICS07TendermintProver::new(proof_type, &sp1_prover, membership_program);
+        SP1ICS07TendermintProver::new(proof_type, &sp1_prover, membership_program).await;
 
     let commitment_root_bytes = ConsensusState::from(trusted_consensus_state.clone())
         .root
@@ -161,7 +170,9 @@ pub async fn run_sp1_membership(
         .await?;
 
     // Generate a header update proof for the specified blocks.
-    let proof_data = verify_mem_prover.generate_proof(&commitment_root_bytes, kv_proofs);
+    let proof_data = verify_mem_prover
+        .generate_proof(&commitment_root_bytes, kv_proofs)
+        .await;
 
     let bytes = proof_data.public_values.as_slice();
     let output = MembershipOutput::abi_decode(bytes)?;

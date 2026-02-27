@@ -21,7 +21,6 @@ use sp1_ics07_tendermint_prover::{
     programs::UpdateClientAndMembershipProgram,
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_prover::components::SP1ProverComponents;
 use sp1_sdk::HashableKey;
 use tendermint_light_client_verifier::types::LightBlock;
 use tendermint_rpc::HttpClient;
@@ -121,8 +120,8 @@ pub fn src_events_to_recv_and_ack_msgs(
 /// Generates and injects an SP1 proof into the first message in `msgs`.
 /// # Errors
 /// Returns an error if the sp1 proof cannot be generated.
-pub async fn inject_sp1_proof<C: SP1ProverComponents>(
-    sp1_prover: &Sp1Prover<C>,
+pub async fn inject_sp1_proof(
+    sp1_prover: &Sp1Prover,
     uc_and_mem_program: &UpdateClientAndMembershipProgram,
     msgs: &mut [routerCalls],
     tm_client: &HttpClient,
@@ -160,15 +159,18 @@ pub async fn inject_sp1_proof<C: SP1ProverComponents>(
     let proposed_header = target_light_block.into_header(&trusted_light_block);
 
     let uc_and_mem_prover =
-        SP1ICS07TendermintProver::new(client_state.zkAlgorithm, sp1_prover, uc_and_mem_program);
+        SP1ICS07TendermintProver::new(client_state.zkAlgorithm, sp1_prover, uc_and_mem_program)
+            .await;
 
-    let uc_and_mem_proof = uc_and_mem_prover.generate_proof(
-        &client_state,
-        &trusted_light_block.to_consensus_state().into(),
-        &proposed_header,
-        now,
-        kv_proofs,
-    );
+    let uc_and_mem_proof = uc_and_mem_prover
+        .generate_proof(
+            &client_state,
+            &trusted_light_block.to_consensus_state().into(),
+            &proposed_header,
+            now,
+            kv_proofs,
+        )
+        .await;
 
     let sp1_proof = MembershipProof::from(SP1MembershipAndUpdateClientProof {
         sp1Proof: SP1Proof::new(
