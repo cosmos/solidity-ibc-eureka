@@ -20,7 +20,7 @@ jobs:
     name: fmt-and-clippy
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -38,7 +38,7 @@ jobs:
     name: unit-tests
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
 
@@ -54,7 +54,7 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
       - name: Build
@@ -68,7 +68,7 @@ jobs:
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
       - name: Build
@@ -82,7 +82,7 @@ build-08-wasm-eth:
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
