@@ -1,6 +1,7 @@
 use crate::errors::RouterError;
 use crate::events::IBCAppAdded;
-use crate::state::{AccountVersion, IBCApp, RouterState};
+use crate::state::{AccountVersion, IBCApp, RouterState, MAX_PORT_ID_LENGTH, MIN_PORT_ID_LENGTH};
+use crate::utils::validation::validate_custom_ibc_identifier;
 use anchor_lang::prelude::*;
 
 /// Registers an IBC application program under a given `port_id`.
@@ -63,7 +64,10 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
         &crate::ID,
     )?;
 
-    require!(!port_id.is_empty(), RouterError::InvalidPortIdentifier);
+    require!(
+        validate_custom_ibc_identifier(&port_id, MIN_PORT_ID_LENGTH, MAX_PORT_ID_LENGTH),
+        RouterError::InvalidPortIdentifier
+    );
 
     let ibc_app = &mut ctx.accounts.ibc_app;
     ibc_app.version = AccountVersion::V1;
@@ -204,11 +208,9 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    #[test]
-    fn test_add_ibc_app_invalid_port_identifier() {
+    fn test_add_ibc_app_with_port_id(port_id: &str) -> mollusk_svm::result::InstructionResult {
         let authority = Pubkey::new_unique();
         let payer = authority;
-        let port_id = ""; // Empty port ID
         let app_program = Pubkey::new_unique();
 
         let (router_state_pda, router_state_data) = setup_router_state();
@@ -216,10 +218,6 @@ mod tests {
             setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (ibc_app_pda, _) =
             Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
-
-        let instruction_data = crate::instruction::AddIbcApp {
-            port_id: port_id.to_string(),
-        };
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -233,7 +231,10 @@ mod tests {
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
-            data: instruction_data.data(),
+            data: crate::instruction::AddIbcApp {
+                port_id: port_id.to_string(),
+            }
+            .data(),
         };
 
         let accounts = vec![
@@ -248,12 +249,36 @@ mod tests {
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
+        mollusk.process_instruction(&instruction, &accounts)
+    }
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::InvalidPortIdentifier as u32,
-        ))];
+    fn expect_invalid_port_id(port_id: &str) {
+        let result = test_add_ibc_app_with_port_id(port_id);
+        assert_error_code(
+            result,
+            RouterError::InvalidPortIdentifier,
+            &format!("port_id={port_id:?}"),
+        );
+    }
 
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    #[test]
+    fn test_add_ibc_app_invalid_port_identifier() {
+        expect_invalid_port_id("");
+    }
+
+    #[test]
+    fn test_add_ibc_app_port_id_too_short() {
+        expect_invalid_port_id("a");
+    }
+
+    #[test]
+    fn test_add_ibc_app_port_id_invalid_chars() {
+        expect_invalid_port_id("test@port");
+    }
+
+    #[test]
+    fn test_add_ibc_app_port_id_reserved_prefix() {
+        expect_invalid_port_id("client-myport");
     }
 
     #[test]
