@@ -1,11 +1,12 @@
 use crate::errors::AccessManagerError;
 use crate::events::ProgramUpgradedEvent;
-use crate::helpers::require_admin;
+use crate::helpers::require_role;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
-/// Upgrades a target program's bytecode using the BPF Loader Upgradeable. Requires admin authorization.
+/// Upgrades a target program's bytecode using the BPF Loader Upgradeable.
+/// Requires admin authorization via direct call only (CPI is not allowed).
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
 pub struct UpgradeProgram<'info> {
@@ -78,8 +79,9 @@ pub struct UpgradeProgram<'info> {
 }
 
 pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> Result<()> {
-    require_admin(
+    require_role(
         &ctx.accounts.access_manager.to_account_info(),
+        solana_ibc_types::roles::ADMIN_ROLE,
         &ctx.accounts.authority.to_account_info(),
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -679,7 +681,7 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn test_upgrade_whitelisted_cpi_succeeds() {
+    async fn test_upgrade_whitelisted_cpi_rejected() {
         let admin = Keypair::new();
         let (pt, accs) = setup_upgrade_program_test(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
@@ -698,11 +700,13 @@ mod integration_tests {
             &[&payer, &admin],
             recent_blockhash,
         );
-        let result = banks_client.process_transaction(tx).await;
-        assert!(
-            result.is_ok(),
-            "Whitelisted CPI upgrade should succeed: {:?}",
-            result.err()
+        let err = banks_client
+            .process_transaction(tx)
+            .await
+            .expect_err("upgrade_program should reject whitelisted CPI");
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
         );
     }
 
