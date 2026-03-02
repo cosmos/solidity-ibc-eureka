@@ -1202,6 +1202,14 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_RevokeMintAuthority() {
 		s.Solana.Chain.VerifyIftAppStateExists(ctx, s.T(), s.Require(), ift.ProgramID)
 	}))
 
+	s.Require().True(s.Run("Verify mint state closed", func() {
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, s.IFTAppMintState, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().Nil(accountInfo.Value, "IFTAppMintState should be closed after revoke")
+	}))
+
 	s.Require().True(s.Run("Verify new authority can mint tokens", func() {
 		mint := s.IFTMint()
 		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, newAuthorityWallet, mint, newAuthorityWallet.PublicKey())
