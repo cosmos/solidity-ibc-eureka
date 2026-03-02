@@ -91,6 +91,9 @@ pub enum RouterError {
 
     #[msg("App program must be executable")]
     AppProgramNotExecutable,
+
+    #[msg("Invalid access manager")]
+    InvalidAccessManager,
 }
 
 /// Convert CPI validation errors to Router errors
