@@ -3411,6 +3411,7 @@ dependencies = [
  "mock-light-client",
  "mollusk-svm",
  "mollusk-svm-bencher",
+ "rstest",
  "solana-ibc-constants",
  "solana-ibc-types",
  "solana-program-test",

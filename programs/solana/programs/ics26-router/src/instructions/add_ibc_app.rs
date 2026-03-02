@@ -252,33 +252,18 @@ mod tests {
         mollusk.process_instruction(&instruction, &accounts)
     }
 
-    fn expect_invalid_port_id(port_id: &str) {
+    #[rstest::rstest]
+    #[case::empty("")]
+    #[case::too_short("a")]
+    #[case::invalid_chars("test@port")]
+    #[case::reserved_prefix("client-myport")]
+    fn test_add_ibc_app_invalid_port_id(#[case] port_id: &str) {
         let result = test_add_ibc_app_with_port_id(port_id);
         assert_error_code(
             result,
             RouterError::InvalidPortIdentifier,
             &format!("port_id={port_id:?}"),
         );
-    }
-
-    #[test]
-    fn test_add_ibc_app_invalid_port_identifier() {
-        expect_invalid_port_id("");
-    }
-
-    #[test]
-    fn test_add_ibc_app_port_id_too_short() {
-        expect_invalid_port_id("a");
-    }
-
-    #[test]
-    fn test_add_ibc_app_port_id_invalid_chars() {
-        expect_invalid_port_id("test@port");
-    }
-
-    #[test]
-    fn test_add_ibc_app_port_id_reserved_prefix() {
-        expect_invalid_port_id("client-myport");
     }
 
     #[test]
