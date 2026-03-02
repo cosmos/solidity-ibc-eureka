@@ -19,7 +19,7 @@ use solana_ibc_types::{
 
 use super::transaction::derive_alt_address;
 
-use crate::{gmp, ift};
+use crate::{constants::MAX_PREFUND_LAMPORTS, gmp, ift};
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
@@ -354,6 +354,27 @@ impl super::TxBuilder {
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
         let mut instructions = Self::extend_compute_ix();
+
+        // Pre-fund the GMP PDA with the sender-specified amount (capped).
+        let payload_info = super::packets::extract_recv_payload_info(msg, payload_data)?;
+        if let Some((gmp_pda, prefund)) = gmp::extract_gmp_prefund_info(
+            payload_info.dest_port,
+            payload_info.encoding,
+            payload_info.value,
+            &msg.packet.dest_client,
+            self.resolve_port_program_id(payload_info.dest_port)?,
+        )? {
+            let capped = prefund.min(MAX_PREFUND_LAMPORTS);
+            if capped > 0 {
+                tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
+                instructions.push(solana_sdk::system_instruction::transfer(
+                    &self.fee_payer,
+                    &gmp_pda,
+                    capped,
+                ));
+            }
+        }
+
         instructions.push(recv_instruction);
 
         let recv_tx = self.create_tx_bytes(&instructions)?;

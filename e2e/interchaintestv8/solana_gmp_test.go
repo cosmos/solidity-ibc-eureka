@@ -286,20 +286,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			userCounterAddress, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
 
 			// Create GMPSolanaPayload protobuf message
-			// Note: PayerPosition = 3 means inject at index 3 (0-indexed)
-			// The payer (relayer) is injected by GMP program since Cosmos doesn't know relayer's address
-			payerPosition := uint32(3)
 			solanaInstruction := &solanatypes.GMPSolanaPayload{
 				Data: incrementInstructionData,
 				Accounts: []*solanatypes.SolanaAccountMeta{
-					// Required accounts for increment instruction (matches IncrementCounter struct order)
-					{Pubkey: counterAppStateAddress.Bytes(), IsSigner: false, IsWritable: true}, // [0] counter app_state
-					{Pubkey: userCounterAddress.Bytes(), IsSigner: false, IsWritable: true},     // [1] user_counter
-					{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},        // [2] user_authority (GMP account PDA signs via invoke_signed, stateless)
-					// [3] payer will be injected at index 3 by GMP program
-					{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false}, // [4] system_program (shifts to index 4)
+					{Pubkey: counterAppStateAddress.Bytes(), IsSigner: false, IsWritable: true},    // [0] counter app_state
+					{Pubkey: userCounterAddress.Bytes(), IsSigner: false, IsWritable: true},        // [1] user_counter
+					{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},           // [2] user_authority (GMP account PDA signs via invoke_signed)
+					{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: true},            // [3] payer (GMP PDA, pre-funded by relayer)
+					{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false}, // [4] system_program
 				},
-				PayerPosition: &payerPosition, // Inject at index 3 (between user_authority and system_program)
+				PrefundLamports: 5_000_000, // rent for UserCounter + GMP PDA rent-exempt minimum
 			}
 
 			// Marshal to protobuf bytes
@@ -616,9 +612,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 		s.Require().NoError(err)
 
 		// Create GMPSolanaPayload protobuf
-		// Note: PayerPosition is left unset (nil) - NO payer injection since SPL Transfer doesn't create accounts
 		// SPL Transfer requires exactly 3 accounts: source, destination, authority
-		// The authority (ICS27 PDA) must be marked as PDA_SIGNER so GMP program builds CPI with it as signer
 		solanaInstruction := &solanatypes.GMPSolanaPayload{
 			Data: instructionData,
 			Accounts: []*solanatypes.SolanaAccountMeta{
@@ -626,7 +620,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},   // [1] destination
 				{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},    // [2] authority (GMP PDA signs via invoke_signed)
 			},
-			// PayerPosition is nil - no payer injection needed
 		}
 
 		payload, err := proto.Marshal(solanaInstruction)
@@ -1729,7 +1722,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},
 			},
-			// PayerPosition is nil - no payer injection needed for SPL transfer
 		}
 
 		payload, err := proto.Marshal(solanaInstruction)

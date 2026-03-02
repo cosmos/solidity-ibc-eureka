@@ -150,6 +150,47 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
     }
 }
 
+/// Extract GMP PDA and `prefund_lamports` from packet payload.
+///
+/// Returns `None` when the payload is not a GMP packet.
+/// The caller uses the returned `prefund_lamports` (capped) to build
+/// a `system_program::transfer` instruction before `recv_packet`.
+///
+/// # Errors
+///
+/// Returns error if the GMP packet or inner Solana payload cannot be decoded.
+pub fn extract_gmp_prefund_info(
+    dest_port: &str,
+    encoding: &str,
+    payload_value: &[u8],
+    dest_client: &str,
+    ibc_app_program_id: Pubkey,
+) -> Result<Option<(Pubkey, u64)>> {
+    if !is_gmp_payload(dest_port, encoding) {
+        return Ok(None);
+    }
+
+    let Some(packet) = decode_gmp_packet(payload_value, dest_port) else {
+        return Ok(None);
+    };
+
+    let client_id = solana_ibc_types::ClientId::new(dest_client)
+        .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
+
+    let gmp_account = solana_ibc_types::GMPAccount::new(
+        client_id,
+        packet.sender,
+        packet.salt,
+        &ibc_app_program_id,
+    );
+    let (gmp_pda, _) = gmp_account.pda();
+
+    let solana_payload = GmpSolanaPayload::decode_vec(&packet.payload)
+        .map_err(|e| anyhow::anyhow!("Failed to decode GMP Solana payload: {e}"))?;
+
+    Ok(Some((gmp_pda, solana_payload.prefund_lamports)))
+}
+
 /// Find the GMP call result PDA for a given packet.
 ///
 /// Returns `Some(pda)` if the packet is from the GMP port, where the PDA
