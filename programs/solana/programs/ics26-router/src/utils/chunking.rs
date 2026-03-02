@@ -363,8 +363,27 @@ pub fn validate_and_reconstruct_packet(
         }
         assembled_payloads
     } else {
-        // Inline mode: Use payloads directly from packet (no metadata needed)
-        // The packet commitment is already verified via light client membership proof
+        // Inline mode: validate metadata matches inline payloads when present
+        if !params.payloads_metadata.is_empty() {
+            require!(
+                params.packet.payloads.len() == params.payloads_metadata.len(),
+                RouterError::InvalidPayloadCount
+            );
+            for (payload, metadata) in params
+                .packet
+                .payloads
+                .iter()
+                .zip(params.payloads_metadata.iter())
+            {
+                require!(
+                    payload.source_port == metadata.source_port
+                        && payload.dest_port == metadata.dest_port
+                        && payload.version == metadata.version
+                        && payload.encoding == metadata.encoding,
+                    RouterError::PortIdentifierMismatch
+                );
+            }
+        }
         params.packet.payloads.clone()
     };
 
@@ -495,33 +514,17 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_validate_and_reconstruct_packet_inline_mode_with_zero_chunk_metadata() {
-        // Test inline mode: packet has payloads, metadata exists but has total_chunks=0
-        let inline_payload = Payload {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            value: b"test data".to_vec(),
-        };
-
+    fn validate_inline_with_metadata(
+        payloads: Vec<Payload>,
+        metadata: &[PayloadMetadata],
+    ) -> Result<solana_ibc_types::Packet> {
         let packet = solana_ibc_types::Packet {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
+            payloads,
         };
-
-        // Metadata with total_chunks=0 (should be treated as no metadata)
-        let metadata_with_zero_chunks = vec![PayloadMetadata {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            total_chunks: 0,
-        }];
 
         let relayer = Pubkey::new_unique();
         let mut lamports = 0u64;
@@ -537,20 +540,104 @@ mod tests {
             0,
         );
 
-        let params = ReconstructPacketParams {
+        validate_and_reconstruct_packet(ReconstructPacketParams {
             packet: &packet,
-            payloads_metadata: &metadata_with_zero_chunks,
+            payloads_metadata: metadata,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
             client_id: "client-0",
-        };
+        })
+    }
 
-        let result = validate_and_reconstruct_packet(params).unwrap();
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_with_zero_chunk_metadata() {
+        // Inline mode with matching metadata (total_chunks=0) should succeed
+        let result = validate_inline_with_metadata(
+            vec![Payload {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            }],
+            &[PayloadMetadata {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 0,
+            }],
+        )
+        .unwrap();
 
-        // Should succeed in inline mode (total_chunks=0 means no chunking)
         assert_eq!(result.payloads.len(), 1);
         assert_eq!(result.payloads[0].value, b"test data");
+        assert_eq!(result.payloads[0].source_port, "transfer");
+        assert_eq!(result.payloads[0].dest_port, "transfer");
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_mismatched_dest_port() {
+        // Mismatched dest_port between inline payload and metadata should be rejected
+        let result = validate_inline_with_metadata(
+            vec![Payload {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            }],
+            &[PayloadMetadata {
+                source_port: "transfer".to_string(),
+                dest_port: "oracle".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 0,
+            }],
+        );
+
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("PortIdentifierMismatch"),
+            "Expected PortIdentifierMismatch error, got: {error}",
+        );
+    }
+
+    #[test]
+    fn test_validate_and_reconstruct_packet_inline_mode_mismatched_payload_count() {
+        // Metadata count differs from inline payload count
+        let result = validate_inline_with_metadata(
+            vec![Payload {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                value: b"test data".to_vec(),
+            }],
+            &[
+                PayloadMetadata {
+                    source_port: "transfer".to_string(),
+                    dest_port: "transfer".to_string(),
+                    version: "ics20-1".to_string(),
+                    encoding: "json".to_string(),
+                    total_chunks: 0,
+                },
+                PayloadMetadata {
+                    source_port: "transfer".to_string(),
+                    dest_port: "transfer".to_string(),
+                    version: "ics20-1".to_string(),
+                    encoding: "json".to_string(),
+                    total_chunks: 0,
+                },
+            ],
+        );
+
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("InvalidPayloadCount"),
+            "Expected InvalidPayloadCount error, got: {error}",
+        );
     }
 
     #[test]

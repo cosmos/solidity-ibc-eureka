@@ -652,4 +652,42 @@ mod tests {
         ))];
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
+
+    #[test]
+    fn test_timeout_packet_inline_metadata_port_mismatch() {
+        let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
+
+        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+            source_port: "transfer".to_string(),
+            dest_port: "dest-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            value: b"inline data".to_vec(),
+        }];
+
+        let msg = MsgTimeoutPacket {
+            packet: ctx.packet.clone(),
+            payloads: vec![PayloadMetadata {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                total_chunks: 0,
+            }],
+            proof: ProofMetadata {
+                height: 100,
+                total_chunks: 1,
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::TimeoutPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::PortIdentifierMismatch as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
 }
