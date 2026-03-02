@@ -2,6 +2,7 @@ use crate::errors::RouterError;
 use crate::events::SendPacketEvent;
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
+use crate::utils::account::create_pda_account;
 use crate::utils::sequence;
 use anchor_lang::prelude::*;
 use solana_ibc_types::ics24;
@@ -156,11 +157,10 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     Ok(sequence)
 }
 
-/// Creates a packet commitment PDA account manually.
+/// Creates a packet commitment PDA account.
 ///
-/// We use manual account creation instead of Anchor's `init` constraint because
-/// the sequence is computed at runtime using `calculate_namespaced_sequence`,
-/// which Anchor's IDL cannot capture in static seed derivation.
+/// Uses runtime-computed seeds (via `calculate_namespaced_sequence`) that
+/// Anchor's `init` constraint cannot express statically.
 fn create_packet_commitment_account<'info>(
     source_client: &str,
     sequence: u64,
@@ -182,9 +182,6 @@ fn create_packet_commitment_account<'info>(
     );
 
     let account_size = 8 + Commitment::INIT_SPACE;
-    let rent = Rent::get()?;
-    let lamports = rent.minimum_balance(account_size);
-
     let sequence_bytes = sequence.to_le_bytes();
     let signer_seeds: &[&[&[u8]]] = &[&[
         Commitment::PACKET_COMMITMENT_SEED,
@@ -193,18 +190,13 @@ fn create_packet_commitment_account<'info>(
         &[bump],
     ]];
 
-    anchor_lang::system_program::create_account(
-        CpiContext::new_with_signer(
-            system_program.clone(),
-            anchor_lang::system_program::CreateAccount {
-                from: payer.clone(),
-                to: packet_commitment_info.to_account_info(),
-            },
-            signer_seeds,
-        ),
-        lamports,
-        account_size as u64,
+    create_pda_account(
+        payer,
+        &packet_commitment_info.to_account_info(),
+        system_program,
         &crate::ID,
+        account_size,
+        signer_seeds,
     )?;
 
     // Initialize the commitment account data
@@ -1608,6 +1600,95 @@ mod tests {
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32),
         );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_with_prefunded_commitment_pda() {
+        let initial_sequence = 1u64;
+        let (mut pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        // Create a known user keypair so we can derive the PDA before start().
+        let user = Keypair::new();
+        pt.add_account(
+            user.pubkey(),
+            solana_sdk::account::Account {
+                lamports: 10_000_000_000,
+                data: vec![],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        // Derive the packet commitment PDA the user's send_packet will create.
+        let namespaced_sequence = sequence::calculate_namespaced_sequence(
+            initial_sequence,
+            &TEST_IBC_APP_PROGRAM_ID,
+            &user.pubkey(),
+        )
+        .unwrap();
+        let (packet_commitment_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                TEST_CLIENT_ID.as_bytes(),
+                &namespaced_sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        // Simulate an attacker pre-funding the PDA with 1 lamport.
+        pt.add_account(
+            packet_commitment_pda,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: vec![],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Build instruction using the known user keypair.
+        let mut ix = build_test_app_send_packet_ix(
+            user.pubkey(),
+            TEST_CLIENT_ID,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+        ix.accounts[5] = AccountMeta::new(packet_commitment_pda, false);
+
+        // Sign with both payer (fee payer) and user (instruction signer).
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &user],
+            recent_blockhash,
+        );
+        let result = banks_client.process_transaction(tx).await;
+        assert!(
+            result.is_ok(),
+            "send_packet should succeed with pre-funded PDA: {:?}",
+            result.err()
+        );
+
+        // Verify the commitment was created correctly.
+        let commitment_account = banks_client
+            .get_account(packet_commitment_pda)
+            .await
+            .unwrap()
+            .expect("packet commitment account should exist");
+        assert_eq!(commitment_account.owner, crate::ID);
+        let commitment_value = &commitment_account.data[8..40];
+        assert_ne!(commitment_value, &[0u8; 32], "Commitment should be set");
     }
 
     #[tokio::test]
