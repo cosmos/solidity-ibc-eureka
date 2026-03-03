@@ -1613,13 +1613,12 @@ mod tests {
     #[tokio::test]
     async fn test_send_packet_wrong_consensus_state_owner() {
         let initial_sequence = 1u64;
-        let (mut pt, mock_client_state, _mock_consensus_state) =
-            setup_send_packet_program_test(
-                TEST_CLIENT_ID,
-                COUNTERPARTY_CLIENT_ID,
-                true,
-                initial_sequence,
-            );
+        let (mut pt, mock_client_state, _mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
 
         // Consensus state owned by the WRONG program (system_program instead of mock_light_client)
         let wrong_consensus_state = Pubkey::new_unique();
