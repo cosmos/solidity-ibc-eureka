@@ -716,7 +716,7 @@ mod tests {
         let mollusk = setup_mollusk_with_mock_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::PortIdentifierMismatch as u32,
+            ANCHOR_ERROR_OFFSET + RouterError::PayloadMetadataMismatch as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);

@@ -70,6 +70,8 @@ pub enum RouterError {
     InvalidMigrationParams,
     #[msg("Port identifier mismatch")]
     PortIdentifierMismatch,
+    #[msg("Payload metadata mismatch: inline payload fields do not match metadata")]
+    PayloadMetadataMismatch,
 
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,

@@ -380,7 +380,7 @@ pub fn validate_and_reconstruct_packet(
                         && payload.dest_port == metadata.dest_port
                         && payload.version == metadata.version
                         && payload.encoding == metadata.encoding,
-                    RouterError::PortIdentifierMismatch
+                    RouterError::PayloadMetadataMismatch
                 );
             }
         }
@@ -400,6 +400,7 @@ pub fn validate_and_reconstruct_packet(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use solana_ibc_types::Payload;
 
     #[test]
@@ -577,9 +578,17 @@ mod tests {
         assert_eq!(result.payloads[0].dest_port, "transfer");
     }
 
-    #[test]
-    fn test_validate_and_reconstruct_packet_inline_mode_mismatched_dest_port() {
-        // Mismatched dest_port between inline payload and metadata should be rejected
+    #[rstest]
+    #[case::source_port("oracle", "transfer", "ics20-1", "json")]
+    #[case::dest_port("transfer", "oracle", "ics20-1", "json")]
+    #[case::version("transfer", "transfer", "ics20-2", "json")]
+    #[case::encoding("transfer", "transfer", "ics20-1", "proto")]
+    fn test_inline_metadata_field_mismatch(
+        #[case] source_port: &str,
+        #[case] dest_port: &str,
+        #[case] version: &str,
+        #[case] encoding: &str,
+    ) {
         let result = validate_inline_with_metadata(
             vec![Payload {
                 source_port: "transfer".to_string(),
@@ -589,18 +598,18 @@ mod tests {
                 value: b"test data".to_vec(),
             }],
             &[PayloadMetadata {
-                source_port: "transfer".to_string(),
-                dest_port: "oracle".to_string(),
-                version: "ics20-1".to_string(),
-                encoding: "json".to_string(),
+                source_port: source_port.to_string(),
+                dest_port: dest_port.to_string(),
+                version: version.to_string(),
+                encoding: encoding.to_string(),
                 total_chunks: 0,
             }],
         );
 
         let error = result.unwrap_err();
         assert!(
-            error.to_string().contains("PortIdentifierMismatch"),
-            "Expected PortIdentifierMismatch error, got: {error}",
+            error.to_string().contains("PayloadMetadataMismatch"),
+            "Expected PayloadMetadataMismatch error, got: {error}",
         );
     }
 
