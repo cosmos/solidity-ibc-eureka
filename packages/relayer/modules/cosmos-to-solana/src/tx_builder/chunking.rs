@@ -354,27 +354,7 @@ impl super::TxBuilder {
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
         let mut instructions = Self::extend_compute_ix();
-
-        // Pre-fund the GMP PDA with the sender-specified amount (capped).
-        let payload_info = super::packets::extract_recv_payload_info(msg, payload_data)?;
-        if let Some((gmp_pda, prefund)) = gmp::extract_gmp_prefund_info(
-            payload_info.dest_port,
-            payload_info.encoding,
-            payload_info.value,
-            &msg.packet.dest_client,
-            self.resolve_port_program_id(payload_info.dest_port)?,
-        )? {
-            let capped = prefund.min(MAX_PREFUND_LAMPORTS);
-            if capped > 0 {
-                tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
-                instructions.push(solana_sdk::system_instruction::transfer(
-                    &self.fee_payer,
-                    &gmp_pda,
-                    capped,
-                ));
-            }
-        }
-
+        instructions.extend(self.build_gmp_prefund_instruction(msg, payload_data)?);
         instructions.push(recv_instruction);
 
         let recv_tx = self.create_tx_bytes(&instructions)?;
@@ -480,6 +460,40 @@ impl super::TxBuilder {
             gmp_result_pda,
             ift_finalize_transfer_tx,
         })
+    }
+
+    /// Build a `system_program::transfer` to pre-fund the GMP PDA when the
+    /// packet carries a non-zero `prefund_lamports` value.
+    ///
+    /// Returns `None` for non-GMP packets or when `prefund_lamports` is zero.
+    fn build_gmp_prefund_instruction(
+        &self,
+        msg: &MsgRecvPacket,
+        payload_data: &[Vec<u8>],
+    ) -> Result<Option<Instruction>> {
+        let info = super::packets::extract_recv_payload_info(msg, payload_data)?;
+        let Some((gmp_pda, prefund)) = gmp::extract_gmp_prefund_info(
+            info.dest_port,
+            info.encoding,
+            info.value,
+            &msg.packet.dest_client,
+            self.resolve_port_program_id(info.dest_port)?,
+        )?
+        else {
+            return Ok(None);
+        };
+
+        let capped = prefund.min(MAX_PREFUND_LAMPORTS);
+        if capped == 0 {
+            return Ok(None);
+        }
+
+        tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
+        Ok(Some(solana_sdk::system_instruction::transfer(
+            &self.fee_payer,
+            &gmp_pda,
+            capped,
+        )))
     }
 
     /// Count unique accounts across all instructions
