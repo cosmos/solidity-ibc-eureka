@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-03-02
 
 ## Executive Summary
 
@@ -115,7 +115,7 @@ invoke_signed(
 The sender declares `prefund_lamports` in `GMPSolanaPayload` — the exact amount of SOL the GMP PDA needs for rent during execution. The relayer reads this value, caps it at `MAX_PREFUND_LAMPORTS`, and adds a `system_program::transfer` instruction before `recv_packet`. The GMP PDA then acts as the payer during the target CPI, signing via `invoke_signed`.
 
 - `prefund_lamports = 0`: no funding instruction (e.g. SPL transfers that create no accounts)
-- `prefund_lamports = 1_500_000`: covers rent for one account creation
+- `prefund_lamports = 3_000_000`: covers rent for one account creation + GMP PDA rent-exempt minimum
 - The relayer caps the value to prevent griefing
 
 This allows:
@@ -230,14 +230,13 @@ msg := &MsgSendCall{
 
 ### Relayer Processing
 
-The relayer automatically adds protocol accounts and handles payer injection:
+The relayer automatically adds protocol accounts and handles pre-funding:
 
 ```rust
 // Relayer adds protocol accounts at the beginning:
 // [0] gmp_account_pda   - Derived from Borsh-hashed AccountIdentifier
 // [1] target_program    - From GMPPacketData.receiver
 // [2+] user accounts    - From GMPSolanaPayload.accounts
-// [N] payer (injected)  - Injected at payer_position if specified
 
 let gmp_account_pda = derive_gmp_pda(client_id, sender, salt);  // Uses Borsh + SHA256
 accounts.insert(0, AccountMeta {
@@ -261,15 +260,15 @@ for account in gmp_solana_payload.accounts {
     });
 }
 
-// Pre-fund GMP PDA with sender-specified amount (capped by relayer)
+// Pre-fund GMP PDA with sender-specified amount (capped by relayer).
+// Placed before recv_packet in the same transaction.
 let prefund = gmp_solana_payload.prefund_lamports.min(MAX_PREFUND_LAMPORTS);
 if prefund > 0 {
-    let funding_ix = system_instruction::transfer(
+    instructions.push(system_instruction::transfer(
         &relayer_keypair.pubkey(),
         &gmp_account_pda,
         prefund,
-    );
-    // Insert funding instruction before recv_packet in the transaction
+    ));
 }
 ```
 
