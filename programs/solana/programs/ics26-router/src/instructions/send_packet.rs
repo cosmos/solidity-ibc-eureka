@@ -75,8 +75,8 @@ pub struct SendPacket<'info> {
     pub client_state: AccountInfo<'info>,
 
     /// Consensus state account owned by the light client program (for expiry check).
-    /// CHECK: Forwarded to light client CPI; ownership not enforced here because the
-    /// light client program itself validates it.
+    /// CHECK: Ownership validated against light client program.
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub consensus_state: AccountInfo<'info>,
 }
 
@@ -1607,6 +1607,51 @@ mod tests {
         assert_eq!(
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_consensus_state_owner() {
+        let initial_sequence = 1u64;
+        let (mut pt, mock_client_state, _mock_consensus_state) =
+            setup_send_packet_program_test(
+                TEST_CLIENT_ID,
+                COUNTERPARTY_CLIENT_ID,
+                true,
+                initial_sequence,
+            );
+
+        // Consensus state owned by the WRONG program (system_program instead of mock_light_client)
+        let wrong_consensus_state = Pubkey::new_unique();
+        pt.add_account(
+            wrong_consensus_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            wrong_consensus_state,
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32),
         );
     }
 
