@@ -24,7 +24,8 @@ pub struct TimeoutPacket<'info> {
     /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
-        bump
+        bump,
+        constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
     pub router_state: Account<'info, RouterState>,
 
@@ -116,6 +117,8 @@ pub fn timeout_packet<'info>(
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
+
+    require!(!ctx.accounts.router_state.paused, RouterError::RouterPaused);
 
     // TODO: Support multi-payload packets #602
     let client = &ctx.accounts.client;
@@ -251,6 +254,7 @@ mod tests {
         initial_sequence: u64,
         timeout_timestamp: i64,
         proof_height: u64,
+        paused_router: bool,
     }
 
     impl Default for TimeoutPacketTestParams {
@@ -266,6 +270,7 @@ mod tests {
                 initial_sequence: 1,
                 timeout_timestamp: 1000,
                 proof_height: 100,
+                paused_router: false,
             }
         }
     }
@@ -278,7 +283,11 @@ mod tests {
         let app_program_id = params.app_program_id.unwrap_or(MOCK_IBC_APP_PROGRAM_ID);
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
-        let (router_state_pda, router_state_data) = setup_router_state();
+        let (router_state_pda, router_state_data) = if params.paused_router {
+            setup_paused_router_state()
+        } else {
+            setup_router_state()
+        };
         let (client_pda, client_data) = setup_client(
             params.source_client_id,
             light_client_program,
@@ -650,6 +659,22 @@ mod tests {
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_timeout_packet_paused() {
+        let ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams {
+            paused_router: true,
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
+        ))];
+
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }
