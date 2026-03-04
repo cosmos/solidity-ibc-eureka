@@ -43,13 +43,9 @@ pub fn pause(ctx: Context<Pause>) -> Result<()> {
         &crate::ID,
     )?;
 
-    require!(!ctx.accounts.router_state.paused, RouterError::RouterPaused);
-
     ctx.accounts.router_state.paused = true;
 
     emit!(RouterPausedEvent {});
-
-    msg!("Router paused");
 
     Ok(())
 }

@@ -43,16 +43,9 @@ pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
         &crate::ID,
     )?;
 
-    require!(
-        ctx.accounts.router_state.paused,
-        RouterError::RouterNotPaused
-    );
-
     ctx.accounts.router_state.paused = false;
 
     emit!(RouterUnpausedEvent {});
-
-    msg!("Router unpaused");
 
     Ok(())
 }

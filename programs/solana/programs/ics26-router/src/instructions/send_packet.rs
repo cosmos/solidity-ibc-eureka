@@ -82,8 +82,6 @@ pub struct SendPacket<'info> {
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
-    require!(!ctx.accounts.router_state.paused, RouterError::RouterPaused);
-
     // Check light client status before proceeding
     let light_client_cpi = LightClientCpi::new(&ctx.accounts.client);
     let status = light_client_cpi.client_status(

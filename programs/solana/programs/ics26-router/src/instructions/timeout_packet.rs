@@ -118,8 +118,6 @@ pub fn timeout_packet<'info>(
         &crate::ID,
     )?;
 
-    require!(!ctx.accounts.router_state.paused, RouterError::RouterPaused);
-
     // TODO: Support multi-payload packets #602
     let client = &ctx.accounts.client;
 

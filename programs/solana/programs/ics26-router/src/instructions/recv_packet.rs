@@ -127,8 +127,6 @@ pub fn recv_packet<'info>(
         &crate::ID,
     )?;
 
-    require!(!ctx.accounts.router_state.paused, RouterError::RouterPaused);
-
     let packet_receipt = &mut ctx.accounts.packet_receipt;
     let packet_ack = &mut ctx.accounts.packet_ack;
     let client = &ctx.accounts.client;
