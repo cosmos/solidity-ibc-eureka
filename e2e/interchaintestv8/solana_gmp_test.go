@@ -18,6 +18,7 @@ import (
 	googleproto "google.golang.org/protobuf/proto"
 
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/programs/system"
 	"github.com/gagliardetto/solana-go/programs/token"
 	"github.com/gagliardetto/solana-go/rpc"
 
@@ -2484,5 +2485,182 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 			"Should fail with error code 12019 (UnauthorizedRouter)")
 
 		s.T().Log("✓ on_timeout_packet SECURE - validates CPI caller via instructions sysvar")
+	}))
+}
+
+// Test_GMPPrefundedPDANotBlocked proves GMP account PDAs are immune to the
+// pre-funding DoS attack that affects create_account-based PDAs (e.g. packet
+// commitment PDA vulnerability). An adversary transfers lamports to the GMP
+// PDA before the relayer submits the packet; execution still succeeds because
+// GMP uses invoke_signed (signing only), not create_account.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	simd := s.Cosmos.Chains[0]
+
+	var gmpCounterProgramID solanago.PublicKey
+	s.Require().True(s.Run("Initialize GMP Counter App", func() {
+		gmpCounterProgramID = s.initializeGMPCounterApp(ctx)
+	}))
+
+	cosmosUser := s.Cosmos.Users[0]
+	cosmosAddress := cosmosUser.FormattedAddress()
+	salt := []byte{}
+
+	// Derive the GMP account PDA that the adversary will pre-fund
+	gmpAcctPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosAddress, salt)
+	s.T().Logf("GMP account PDA to pre-fund: %s", gmpAcctPDA)
+
+	// Step 1: Adversary pre-funds the GMP PDA via system transfer
+	s.Require().True(s.Run("Adversary pre-funds GMP PDA", func() {
+		adversaryLamports := uint64(50_000_000) // 0.05 SOL
+
+		transferIx := system.NewTransferInstruction(
+			adversaryLamports,
+			s.SolanaRelayer.PublicKey(), // using relayer as adversary for convenience
+			gmpAcctPDA,
+		).Build()
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.SolanaRelayer.PublicKey(), transferIx,
+		)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(
+			ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer,
+		)
+		s.Require().NoError(err)
+		s.T().Logf("Adversary transfer to GMP PDA confirmed: %s", sig)
+
+		// Verify the PDA now holds lamports
+		acct, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, gmpAcctPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(acct.Value, "GMP PDA should exist after transfer")
+		s.Require().GreaterOrEqual(acct.Value.Lamports, adversaryLamports,
+			"GMP PDA should hold at least the transferred lamports")
+		s.T().Logf("GMP PDA balance after adversary transfer: %d lamports", acct.Value.Lamports)
+	}))
+
+	// Step 2: Send GMP counter increment from Cosmos (same as normal flow)
+	var cosmosGMPTxHash []byte
+	s.Require().True(s.Run("Send GMP increment from Cosmos", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosAddress, salt)
+		counterAppStateAddress, _ := solana.TestGmpApp.CounterAppStatePDA(gmpCounterProgramID)
+		userCounterAddress, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
+
+		incrementInstructionData := []byte{}
+		incrementInstructionData = append(incrementInstructionData, test_gmp_app.Instruction_Increment[:]...)
+		amountBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(amountBytes, DefaultIncrementAmount)
+		incrementInstructionData = append(incrementInstructionData, amountBytes...)
+
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: incrementInstructionData,
+			Accounts: []*solanatypes.SolanaAccountMeta{
+				{Pubkey: counterAppStateAddress.Bytes(), IsSigner: false, IsWritable: true},
+				{Pubkey: userCounterAddress.Bytes(), IsSigner: false, IsWritable: true},
+				{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},
+				{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: true},
+				{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false},
+			},
+			PrefundLamports: 5_000_000,
+		}
+
+		payload, err := proto.Marshal(solanaInstruction)
+		s.Require().NoError(err)
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     CosmosClientID,
+			Sender:           cosmosAddress,
+			Receiver:         gmpCounterProgramID.String(),
+			Salt:             salt,
+			Payload:          payload,
+			TimeoutTimestamp: timeout,
+			Memo:             "increment counter via GMP (pre-funded PDA test)",
+			Encoding:         testvalues.Ics27ProtobufEncoding,
+		})
+		s.Require().NoError(err)
+
+		cosmosGMPTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		s.T().Logf("GMP packet sent: %s", resp.TxHash)
+	}))
+
+	// Step 3: Relay and execute the packet on Solana (should succeed despite pre-funding)
+	var solanaRelayTxSig solanago.Signature
+	s.Require().True(s.Run("Relay GMP packet to Solana (pre-funded PDA)", func() {
+		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(updateResp.Tx)
+
+		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		solanaRelayTxSig, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("GMP execution completed on Solana despite pre-funded PDA: %s", solanaRelayTxSig)
+	}))
+
+	// Step 4: Verify the counter was incremented
+	s.Require().True(s.Run("Verify counter incremented despite pre-funded PDA", func() {
+		ics27AccountPDA, _ := gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosAddress, salt)
+		userCounterPDA, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, ics27AccountPDA.Bytes())
+
+		account, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, userCounterPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(account.Value, "User counter should exist")
+
+		data := account.Value.Data.GetBinary()
+		s.Require().GreaterOrEqual(len(data), 48, "User counter data should be at least 48 bytes")
+		counterValue := binary.LittleEndian.Uint64(data[40:48])
+		s.Require().Equal(DefaultIncrementAmount, counterValue,
+			"Counter should be %d despite adversary pre-funding the GMP PDA", DefaultIncrementAmount)
+		s.T().Logf("Counter value: %d (pre-funded PDA did not block execution)", counterValue)
+	}))
+
+	// Step 5: Verify acknowledgement
+	s.Require().True(s.Run("Verify acknowledgement on Solana", func() {
+		events, err := s.Solana.Chain.GetWriteAcknowledgementEvents(ctx, solanaRelayTxSig)
+		s.Require().NoError(err)
+		s.Require().Len(events, 1)
+
+		event := events[0]
+		s.Require().Len(event.Acknowledgements, 1)
+
+		var protoBytes []byte
+		err = bin.NewBorshDecoder(event.Acknowledgements[0]).Decode(&protoBytes)
+		s.Require().NoError(err)
+
+		var ack gmptypes.Acknowledgement
+		err = proto.Unmarshal(protoBytes, &ack)
+		s.Require().NoError(err)
+
+		s.Require().Len(ack.Result, 8)
+		actualCounter := binary.LittleEndian.Uint64(ack.Result)
+		s.Require().Equal(DefaultIncrementAmount, actualCounter,
+			"Ack counter should be %d", DefaultIncrementAmount)
+		s.T().Logf("Ack verified: counter=%d (pre-funding DoS attack mitigated)", actualCounter)
 	}))
 }
