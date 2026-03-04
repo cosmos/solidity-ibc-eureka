@@ -4,6 +4,7 @@ use ics26_router::cpi::accounts::SendPacket;
 use solana_ibc_types::MsgSendPacket;
 
 /// Send IBC packet via CPI to the ICS26 router
+#[inline(never)]
 #[allow(clippy::too_many_arguments)]
 pub fn send_packet_cpi<'a>(
     router_program: &AccountInfo<'a>,
