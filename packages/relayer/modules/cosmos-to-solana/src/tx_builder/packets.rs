@@ -37,15 +37,15 @@ struct RecvPayloadInfo<'a> {
 
 /// Extract `source_port` from either inline payloads or chunked metadata.
 fn extract_source_port<'a>(
-    packet_payloads: &'a [solana_ibc_types::Payload],
+    packet_payloads: Option<&'a Vec<solana_ibc_types::Payload>>,
     metadata_payloads: &'a [solana_ibc_types::router::PayloadMetadata],
     context: &str,
 ) -> Result<&'a str> {
-    if !packet_payloads.is_empty() {
-        let [payload] = packet_payloads else {
+    if let Some(payloads) = packet_payloads.filter(|p| !p.is_empty()) {
+        let [payload] = payloads.as_slice() else {
             anyhow::bail!(
                 "Expected exactly one {context} packet payload element, got {}",
-                packet_payloads.len()
+                payloads.len()
             );
         };
         Ok(&payload.source_port)
@@ -67,28 +67,31 @@ fn extract_recv_payload_info<'a>(
     msg: &'a MsgRecvPacket,
     payload_data: &'a [Vec<u8>],
 ) -> Result<RecvPayloadInfo<'a>> {
-    if msg.packet.payloads.is_empty() {
-        let [metadata] = msg.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one recv packet payload metadata element");
-        };
-        let value = payload_data
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("Missing payload data"))?
-            .as_slice();
-        Ok(RecvPayloadInfo {
-            dest_port: &metadata.dest_port,
-            encoding: &metadata.encoding,
-            value,
-        })
-    } else {
-        let [payload] = msg.packet.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one recv packet payload element");
-        };
-        Ok(RecvPayloadInfo {
-            dest_port: &payload.dest_port,
-            encoding: &payload.encoding,
-            value: &payload.value,
-        })
+    match msg.packet.payloads.as_ref().filter(|p| !p.is_empty()) {
+        Some(payloads) => {
+            let [payload] = payloads.as_slice() else {
+                anyhow::bail!("Expected exactly one recv packet payload element");
+            };
+            Ok(RecvPayloadInfo {
+                dest_port: &payload.dest_port,
+                encoding: &payload.encoding,
+                value: &payload.value,
+            })
+        }
+        None => {
+            let [metadata] = msg.payloads.as_slice() else {
+                anyhow::bail!("Expected exactly one recv packet payload metadata element");
+            };
+            let value = payload_data
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("Missing payload data"))?
+                .as_slice();
+            Ok(RecvPayloadInfo {
+                dest_port: &metadata.dest_port,
+                encoding: &metadata.encoding,
+                value,
+            })
+        }
     }
 }
 
@@ -171,7 +174,7 @@ impl super::TxBuilder {
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "ack")?;
+        let source_port = extract_source_port(msg.packet.payloads.as_ref(), &msg.payloads, "ack")?;
 
         let (router_state, _) = RouterState::pda(self.solana_ics26_program_id);
         let (ibc_app_pda, _) = IBCApp::pda(source_port, self.solana_ics26_program_id);
@@ -255,7 +258,8 @@ impl super::TxBuilder {
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
+        let source_port =
+            extract_source_port(msg.packet.payloads.as_ref(), &msg.payloads, "timeout")?;
 
         let mut accounts =
             self.build_timeout_accounts_with_derived_keys(msg, source_port, chunk_accounts)?;

@@ -225,7 +225,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, MsgPacket, Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::InstructionError;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
@@ -236,7 +236,7 @@ mod tests {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
-        packet: Packet,
+        packet: MsgPacket,
         dummy_app_state_pubkey: Pubkey,
     }
 
@@ -298,12 +298,12 @@ mod tests {
 
         let test_proof = vec![0u8; 32];
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence: params.initial_sequence,
             source_client: params.source_client_id.to_string(),
             dest_client: packet_dest_client.to_string(),
             timeout_timestamp: params.timeout_timestamp,
-            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+            payloads: None, // None for chunked mode, will be reconstructed from chunks
         };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
@@ -533,7 +533,7 @@ mod tests {
     fn test_timeout_packet_multiple_inline_payloads() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        ctx.packet.payloads = vec![
+        ctx.packet.payloads = Some(vec![
             solana_ibc_types::Payload {
                 source_port: "test-port".to_string(),
                 dest_port: "dest-port".to_string(),
@@ -548,7 +548,7 @@ mod tests {
                 encoding: "json".to_string(),
                 value: b"data2".to_vec(),
             },
-        ];
+        ]);
 
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
@@ -575,13 +575,13 @@ mod tests {
     fn test_timeout_packet_conflicting_inline_and_chunked() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+        ctx.packet.payloads = Some(vec![solana_ibc_types::Payload {
             source_port: "other-port".to_string(),
             dest_port: "dest-port".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
             value: b"inline data".to_vec(),
-        }];
+        }]);
 
         // Metadata source_port doesn't match the ibc_app PDA ("test-port")
         let msg = MsgTimeoutPacket {
@@ -657,13 +657,13 @@ mod tests {
     fn test_timeout_packet_inline_metadata_port_mismatch() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+        ctx.packet.payloads = Some(vec![solana_ibc_types::Payload {
             source_port: "transfer".to_string(),
             dest_port: "dest-port".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
             value: b"inline data".to_vec(),
-        }];
+        }]);
 
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),

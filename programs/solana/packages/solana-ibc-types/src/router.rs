@@ -124,6 +124,18 @@ impl Packet {
     }
 }
 
+/// Packet as it appears in router messages.
+/// Payloads are `None` in chunked mode (assembled from chunk accounts),
+/// `Some(vec![...])` in inline mode.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPacket {
+    pub sequence: u64,
+    pub source_client: String,
+    pub dest_client: String,
+    pub timeout_timestamp: i64,
+    pub payloads: Option<Vec<Payload>>,
+}
+
 /// Payload metadata for chunked operations
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct PayloadMetadata {
@@ -152,7 +164,7 @@ pub struct MsgSendPacket {
 /// Message for receiving a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,
+    pub packet: MsgPacket,
     pub payloads: Vec<PayloadMetadata>,
     pub proof: ProofMetadata,
 }
@@ -160,7 +172,7 @@ pub struct MsgRecvPacket {
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,
+    pub packet: MsgPacket,
     pub payloads: Vec<PayloadMetadata>,
     pub acknowledgement: Vec<u8>, // Not chunked
     pub proof: ProofMetadata,
@@ -169,7 +181,7 @@ pub struct MsgAckPacket {
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,
+    pub packet: MsgPacket,
     pub payloads: Vec<PayloadMetadata>,
     pub proof: ProofMetadata,
 }

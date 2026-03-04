@@ -27,7 +27,7 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
 
 /// Parameters for reconstructing a packet
 pub struct ReconstructPacketParams<'a, 'b, 'c> {
-    pub packet: &'a solana_ibc_types::Packet,
+    pub packet: &'a solana_ibc_types::MsgPacket,
     pub payloads_metadata: &'a [PayloadMetadata],
     pub remaining_accounts: &'a [AccountInfo<'b>],
     pub relayer: &'c AccountInfo<'b>,
@@ -331,60 +331,56 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
 pub fn validate_and_reconstruct_packet(
     params: ReconstructPacketParams,
 ) -> Result<solana_ibc_types::Packet> {
-    let has_inline_payloads = !params.packet.payloads.is_empty();
     let has_chunked_metadata = params.payloads_metadata.iter().any(|p| p.total_chunks > 0);
 
-    require!(
-        !(has_inline_payloads && has_chunked_metadata),
-        RouterError::InvalidPayloadCount
-    );
-    let payloads = if params.packet.payloads.is_empty() {
-        // Chunked mode: Assemble payloads from chunks
-        let payload_data_vec = assemble_multiple_payloads(
-            params.remaining_accounts,
-            params.relayer,
-            params.submitter,
-            params.client_id,
-            params.packet.sequence,
-            params.payloads_metadata,
-        )?;
+    let payloads = match &params.packet.payloads {
+        Some(inline) => {
+            // Inline mode: must not also have chunked metadata
+            require!(!has_chunked_metadata, RouterError::InvalidPayloadCount);
 
-        // Reconstruct the full payloads
-        let mut assembled_payloads = Vec::new();
-        for (i, metadata) in params.payloads_metadata.iter().enumerate() {
-            let payload = solana_ibc_types::Payload {
-                source_port: metadata.source_port.clone(),
-                dest_port: metadata.dest_port.clone(),
-                version: metadata.version.clone(),
-                encoding: metadata.encoding.clone(),
-                value: payload_data_vec[i].clone(),
-            };
-            assembled_payloads.push(payload);
-        }
-        assembled_payloads
-    } else {
-        // Inline mode: validate metadata matches inline payloads when present
-        if !params.payloads_metadata.is_empty() {
-            require!(
-                params.packet.payloads.len() == params.payloads_metadata.len(),
-                RouterError::InvalidPayloadCount
-            );
-            for (payload, metadata) in params
-                .packet
-                .payloads
-                .iter()
-                .zip(params.payloads_metadata.iter())
-            {
+            // Validate metadata matches inline payloads when present
+            if !params.payloads_metadata.is_empty() {
                 require!(
-                    payload.source_port == metadata.source_port
-                        && payload.dest_port == metadata.dest_port
-                        && payload.version == metadata.version
-                        && payload.encoding == metadata.encoding,
-                    RouterError::PayloadMetadataMismatch
+                    inline.len() == params.payloads_metadata.len(),
+                    RouterError::InvalidPayloadCount
                 );
+                for (payload, metadata) in inline.iter().zip(params.payloads_metadata.iter()) {
+                    require!(
+                        payload.source_port == metadata.source_port
+                            && payload.dest_port == metadata.dest_port
+                            && payload.version == metadata.version
+                            && payload.encoding == metadata.encoding,
+                        RouterError::PayloadMetadataMismatch
+                    );
+                }
             }
+            inline.clone()
         }
-        params.packet.payloads.clone()
+        None => {
+            // Chunked mode: Assemble payloads from chunks
+            let payload_data_vec = assemble_multiple_payloads(
+                params.remaining_accounts,
+                params.relayer,
+                params.submitter,
+                params.client_id,
+                params.packet.sequence,
+                params.payloads_metadata,
+            )?;
+
+            // Reconstruct the full payloads
+            let mut assembled_payloads = Vec::new();
+            for (i, metadata) in params.payloads_metadata.iter().enumerate() {
+                let payload = solana_ibc_types::Payload {
+                    source_port: metadata.source_port.clone(),
+                    dest_port: metadata.dest_port.clone(),
+                    version: metadata.version.clone(),
+                    encoding: metadata.encoding.clone(),
+                    value: payload_data_vec[i].clone(),
+                };
+                assembled_payloads.push(payload);
+            }
+            assembled_payloads
+        }
     };
 
     // Return reconstructed packet
@@ -414,12 +410,12 @@ mod tests {
             value: b"test data".to_vec(),
         };
 
-        let packet = solana_ibc_types::Packet {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "source-client".to_string(),
             dest_client: "dest-client".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
+            payloads: Some(vec![inline_payload]),
         };
 
         let relayer = Pubkey::new_unique();
@@ -465,12 +461,12 @@ mod tests {
             value: b"test data".to_vec(),
         };
 
-        let packet = solana_ibc_types::Packet {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
+            payloads: Some(vec![inline_payload]),
         };
 
         let chunked_metadata = vec![PayloadMetadata {
@@ -519,12 +515,12 @@ mod tests {
         payloads: Vec<Payload>,
         metadata: &[PayloadMetadata],
     ) -> Result<solana_ibc_types::Packet> {
-        let packet = solana_ibc_types::Packet {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads,
+            payloads: Some(payloads),
         };
 
         let relayer = Pubkey::new_unique();
@@ -652,12 +648,12 @@ mod tests {
     #[test]
     fn test_validate_and_reconstruct_packet_empty_payloads_and_empty_metadata() {
         // Test error case: no inline payloads and no chunked metadata
-        let packet = solana_ibc_types::Packet {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![],
+            payloads: None,
         };
 
         let relayer = Pubkey::new_unique();

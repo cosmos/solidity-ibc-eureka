@@ -291,7 +291,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, MsgPacket, Payload, PayloadMetadata, ProofMetadata};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -365,7 +365,7 @@ mod tests {
     struct RecvPacketTestContext {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
-        packet: Packet,
+        packet: MsgPacket,
         packet_receipt_pubkey: Pubkey,
         packet_ack_pubkey: Pubkey,
     }
@@ -416,12 +416,12 @@ mod tests {
 
         let test_proof = vec![0u8; 32];
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence: 1,
             source_client: params.source_client_id.to_string(),
             dest_client: client_id.to_string(),
             timeout_timestamp: current_timestamp + params.timeout_offset,
-            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+            payloads: None, // None for chunked mode, will be reconstructed from chunks
         };
 
         let msg = MsgRecvPacket {
@@ -925,7 +925,7 @@ mod tests {
             value: b"data2".to_vec(),
         };
 
-        ctx.packet.payloads = vec![payload1, payload2];
+        ctx.packet.payloads = Some(vec![payload1, payload2]);
 
         let msg = MsgRecvPacket {
             packet: ctx.packet.clone(),
@@ -967,7 +967,7 @@ mod tests {
             value: b"inline data".to_vec(),
         };
 
-        ctx.packet.payloads = vec![payload];
+        ctx.packet.payloads = Some(vec![payload]);
 
         // Also provide chunked metadata (conflicting!)
         let msg = MsgRecvPacket {
@@ -1304,12 +1304,12 @@ mod tests {
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, RECV_DEST_CLIENT.as_bytes()], &crate::ID);
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence,
             source_client: RECV_SOURCE_CLIENT.to_string(),
             dest_client: RECV_DEST_CLIENT.to_string(),
             timeout_timestamp: RECV_TEST_TIMEOUT,
-            payloads: vec![],
+            payloads: None,
         };
 
         let msg = MsgRecvPacket {
@@ -1637,13 +1637,13 @@ mod tests {
     fn test_recv_packet_inline_metadata_port_mismatch() {
         let mut ctx = setup_recv_packet_test(true, 1000);
 
-        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+        ctx.packet.payloads = Some(vec![solana_ibc_types::Payload {
             source_port: "source-port".to_string(),
             dest_port: "transfer".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
             value: b"inline data".to_vec(),
-        }];
+        }]);
 
         let msg = MsgRecvPacket {
             packet: ctx.packet.clone(),

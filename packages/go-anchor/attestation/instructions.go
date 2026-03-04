@@ -54,12 +54,16 @@ func NewInitializeInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
+		// The attestation client state PDA to initialize (created here).
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "app_state": Writable, Non-signer, Required
+		// The attestation app state PDA to initialize (created here).
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 2 "payer": Writable, Signer, Required
+		// Pays for account creation rent.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 3 "system_program": Read-only, Non-signer, Required
+		// Required for PDA account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -102,12 +106,16 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// The attestation app state PDA whose access manager will be updated.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// The current access manager account for admin verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// The admin signer authorizing this change.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -148,8 +156,10 @@ func NewVerifyMembershipInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// The attestation client state holding the trusted attestor set and frozen flag.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		// The consensus state at the requested proof height (must already exist on-chain).
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
@@ -190,8 +200,10 @@ func NewVerifyNonMembershipInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// The attestation client state holding the trusted attestor set and frozen flag.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state_at_height": Read-only, Non-signer, Required
+		// The consensus state at the requested proof height (must already exist on-chain).
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAtHeightAccount, false, false))
 	}
 
@@ -243,18 +255,25 @@ func NewUpdateClientInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Writable, Non-signer, Required
+		// The attestation client state (updated with `latest_height` or frozen on misbehaviour).
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, true, false))
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
+		// The consensus state PDA for the new height (created if needed).
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
 		// Account 2 "app_state": Read-only, Non-signer, Required
+		// The attestation app state linking to the access manager.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 3 "access_manager": Read-only, Non-signer, Required
+		// The access manager account for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 4 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI and role validation.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 5 "submitter": Writable, Signer, Required
+		// The relayer submitting the attestation proof (must have relayer role).
 		accounts__.Append(solanago.NewAccountMeta(submitterAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Required for creating the consensus state account if it doesn't exist.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -284,8 +303,10 @@ func NewClientStatusInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "client_state": Read-only, Non-signer, Required
+		// The attestation client state to check for frozen status.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 1 "consensus_state": Read-only, Non-signer, Required
+		// The consensus state at the client's latest height (validates the client is initialized).
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 

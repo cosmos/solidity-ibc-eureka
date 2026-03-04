@@ -84,6 +84,7 @@ pub fn solana_timeout_packet_to_tm_timeout(
         payloads: msg
             .packet
             .payloads
+            .unwrap_or_default()
             .into_iter()
             .map(|p| ibc_proto_eureka::ibc::core::channel::v2::Payload {
                 source_port: p.source_port,
@@ -130,23 +131,33 @@ pub fn tm_timeout_to_solana_timeout_packet(
     let packet = msg.packet.context("packet field is required")?;
     let proof_height = msg.proof_height.context("proof_height field is required")?;
 
-    let solana_packet = solana_ibc_types::Packet {
+    let solana_payloads: Vec<solana_ibc_types::Payload> = packet
+        .payloads
+        .iter()
+        .map(|p| solana_ibc_types::Payload {
+            source_port: p.source_port.clone(),
+            dest_port: p.destination_port.clone(),
+            version: p.version.clone(),
+            encoding: p.encoding.clone(),
+            value: p.value.clone(),
+        })
+        .collect();
+
+    let is_chunked = solana_payloads
+        .iter()
+        .any(|p| p.value.len() > CHUNK_DATA_SIZE);
+
+    let solana_packet = solana_ibc_types::MsgPacket {
         sequence: packet.sequence,
         source_client: packet.source_client.clone(),
         dest_client: packet.destination_client.clone(),
         timeout_timestamp: i64::try_from(packet.timeout_timestamp)
             .context("timeout_timestamp should be i64 compatible")?,
-        payloads: packet
-            .payloads
-            .iter()
-            .map(|p| solana_ibc_types::Payload {
-                source_port: p.source_port.clone(),
-                dest_port: p.destination_port.clone(),
-                version: p.version.clone(),
-                encoding: p.encoding.clone(),
-                value: p.value.clone(),
-            })
-            .collect(),
+        payloads: if is_chunked {
+            None
+        } else {
+            Some(solana_payloads)
+        },
     };
 
     let payload_metadata: Vec<solana_ibc_types::PayloadMetadata> = packet

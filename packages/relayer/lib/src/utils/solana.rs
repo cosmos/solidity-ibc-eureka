@@ -2,8 +2,8 @@
 use anyhow::Context;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_types::{
-    IbcHeight, MsgAckPacket as SolanaAckPacket, MsgRecvPacket as SolanaMsgRecvPacket,
-    MsgTimeoutPacket, Packet, Payload, PayloadMetadata, ProofMetadata,
+    IbcHeight, MsgAckPacket as SolanaAckPacket, MsgPacket, MsgRecvPacket as SolanaMsgRecvPacket,
+    MsgTimeoutPacket, Payload, PayloadMetadata, ProofMetadata,
 };
 
 use ibc_proto_eureka::ibc::core::channel::v2::{
@@ -287,13 +287,16 @@ pub fn target_events_to_timeout_msgs(
                         .expect("Failed to build payload metadata");
 
                 let is_chunked = payloads_metadata.iter().any(|m| m.total_chunks > 0);
-                let packet = if is_chunked {
-                    Packet {
-                        payloads: vec![],
-                        ..event.packet
-                    }
-                } else {
-                    event.packet
+                let packet = MsgPacket {
+                    sequence: event.packet.sequence,
+                    source_client: event.packet.source_client,
+                    dest_client: event.packet.dest_client,
+                    timeout_timestamp: event.packet.timeout_timestamp,
+                    payloads: if is_chunked {
+                        None
+                    } else {
+                        Some(event.packet.payloads)
+                    },
                 };
 
                 tracing::info!(
@@ -401,7 +404,7 @@ fn build_inline_packet(
     dest_client: String,
     timeout_timestamp: u64,
     payloads: &[IbcPayload],
-) -> (Packet, Vec<PayloadMetadata>) {
+) -> (MsgPacket, Vec<PayloadMetadata>) {
     let solana_payloads = payloads
         .iter()
         .map(|p| convert_payload(p.clone()))
@@ -418,12 +421,12 @@ fn build_inline_packet(
         })
         .collect();
 
-    let packet = Packet {
+    let packet = MsgPacket {
         sequence,
         source_client,
         dest_client,
         timeout_timestamp: i64::try_from(timeout_timestamp).unwrap_or_default(),
-        payloads: solana_payloads,
+        payloads: Some(solana_payloads),
     };
 
     (packet, payloads_metadata)
@@ -435,7 +438,7 @@ fn build_chunked_packet(
     dest_client: String,
     timeout_timestamp: u64,
     payloads: Vec<IbcPayload>,
-) -> anyhow::Result<(Packet, Vec<PayloadMetadata>)> {
+) -> anyhow::Result<(MsgPacket, Vec<PayloadMetadata>)> {
     let payloads_metadata: Vec<PayloadMetadata> = payloads
         .into_iter()
         .map(|p| {
@@ -457,12 +460,12 @@ fn build_chunked_packet(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let packet = Packet {
+    let packet = MsgPacket {
         sequence,
         source_client,
         dest_client,
         timeout_timestamp: i64::try_from(timeout_timestamp).unwrap_or_default(),
-        payloads: vec![], // Empty for chunked mode
+        payloads: None,
     };
 
     Ok((packet, payloads_metadata))
@@ -475,7 +478,7 @@ fn build_packet_with_payloads(
     dest_client: String,
     timeout_timestamp: u64,
     payloads: Vec<IbcPayload>,
-) -> anyhow::Result<(Packet, Vec<PayloadMetadata>, Vec<Vec<u8>>)> {
+) -> anyhow::Result<(MsgPacket, Vec<PayloadMetadata>, Vec<Vec<u8>>)> {
     let payload_chunks: Vec<Vec<u8>> = payloads.iter().map(|p| p.value.clone()).collect();
 
     // Calculate total payload size to determine inline vs chunked
@@ -511,7 +514,7 @@ fn build_packet_with_payloads(
     tracing::debug!(
         "packet seq={}: {} payloads, {} metadata",
         sequence,
-        packet.payloads.len(),
+        packet.payloads.as_ref().map_or(0, |p| p.len()),
         payloads_metadata.len()
     );
 

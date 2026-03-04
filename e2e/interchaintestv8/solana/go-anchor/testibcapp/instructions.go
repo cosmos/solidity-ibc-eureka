@@ -42,8 +42,10 @@ func NewInitializeInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA that tracks packet counters and the authority.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "payer": Writable, Signer, Required
+		// Fee payer for PDA creation.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 2 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -99,6 +101,7 @@ func NewSendTransferInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA, also used as the `app_signer` for router CPI.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "user": Writable, Signer, Required
 		// User sending the transfer
@@ -110,15 +113,19 @@ func NewSendTransferInstruction(
 		// Optional escrow state to track transfers (created if needed)
 		accounts__.Append(solanago.NewAccountMeta(escrowStateAccount, true, false))
 		// Account 4 "router_state": Read-only, Non-signer, Required
+		// Router global state (read-only).
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 5 "ibc_app": Read-only, Non-signer, Required
+		// Router port-to-app binding for the transfer port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 6 "client_sequence": Writable, Non-signer, Required
+		// Per-client sequence counter (incremented by the router).
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 7 "packet_commitment": Writable, Non-signer, Required
 		// Will be created by the router
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 8 "client": Read-only, Non-signer, Required
+		// Client registration entry for the source client.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 9 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
@@ -127,7 +134,7 @@ func NewSendTransferInstruction(
 		// Account 11 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 12 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program for CPI
+		// ICS26 router program for CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 13 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -181,20 +188,25 @@ func NewSendPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA, also used as the `app_signer` for router CPI.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "user": Writable, Signer, Required
 		// User sending the packet
 		accounts__.Append(solanago.NewAccountMeta(userAccount, true, true))
 		// Account 2 "router_state": Read-only, Non-signer, Required
+		// Router global state (read-only).
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 3 "ibc_app": Read-only, Non-signer, Required
+		// Router port-to-app binding for the source port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 4 "client_sequence": Writable, Non-signer, Required
+		// Per-client sequence counter (incremented by the router).
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 5 "packet_commitment": Writable, Non-signer, Required
 		// Will be created by the router
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 6 "client": Read-only, Non-signer, Required
+		// Client registration entry for the source client.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 7 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
@@ -203,7 +215,7 @@ func NewSendPacketInstruction(
 		// Account 9 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 10 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
-		// Router program for CPI
+		// ICS26 router program for CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
 		// Account 11 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
@@ -249,6 +261,7 @@ func NewOnRecvPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA that tracks packet counters.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -300,6 +313,7 @@ func NewOnAcknowledgementPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA that tracks packet counters.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -352,6 +366,7 @@ func NewOnTimeoutPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
+		// App state PDA that tracks packet counters.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
