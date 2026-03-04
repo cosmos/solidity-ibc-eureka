@@ -52,170 +52,237 @@ pub fn pause(ctx: Context<Pause>) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::errors::RouterError;
+    use crate::state::RouterState;
     use crate::test_utils::*;
     use access_manager::AccessManagerError;
     use mollusk_svm::result::Check;
+    use rstest::rstest;
     use solana_ibc_types::roles;
     use solana_sdk::instruction::AccountMeta;
+    use solana_sdk::program_error::ProgramError;
+    use solana_sdk::pubkey::Pubkey;
 
-    fn build_pause_ix(pauser: Pubkey) -> solana_sdk::instruction::Instruction {
+    #[derive(Clone, Copy)]
+    enum PauseTestCase {
+        PauseSuccess,
+        UnpauseSuccess,
+        PauseUnauthorized,
+        UnpauseUnauthorized,
+        AlreadyPaused,
+        NotPaused,
+        PauseCpiRejected,
+        UnpauseCpiRejected,
+        PauseFakeSysvar,
+        UnpauseFakeSysvar,
+    }
+
+    #[derive(Clone, Copy)]
+    enum SysvarMode {
+        Direct,
+        Cpi,
+        Fake,
+    }
+
+    struct PauseTestConfig {
+        is_pause: bool,
+        unauthorized_signer: bool,
+        wrong_initial_state: bool,
+        sysvar_mode: SysvarMode,
+        expected_error: Option<ProgramError>,
+    }
+
+    impl Default for PauseTestConfig {
+        fn default() -> Self {
+            Self {
+                is_pause: true,
+                unauthorized_signer: false,
+                wrong_initial_state: false,
+                sysvar_mode: SysvarMode::Direct,
+                expected_error: None,
+            }
+        }
+    }
+
+    fn custom_error(code: u32) -> ProgramError {
+        ProgramError::Custom(code)
+    }
+
+    impl From<PauseTestCase> for PauseTestConfig {
+        fn from(case: PauseTestCase) -> Self {
+            use PauseTestCase::*;
+            match case {
+                PauseSuccess => Self::default(),
+                UnpauseSuccess => Self {
+                    is_pause: false,
+                    ..Default::default()
+                },
+                PauseUnauthorized => Self {
+                    unauthorized_signer: true,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + AccessManagerError::Unauthorized as u32,
+                    )),
+                    ..Default::default()
+                },
+                UnpauseUnauthorized => Self {
+                    is_pause: false,
+                    unauthorized_signer: true,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + AccessManagerError::Unauthorized as u32,
+                    )),
+                    ..Default::default()
+                },
+                AlreadyPaused => Self {
+                    wrong_initial_state: true,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
+                    )),
+                    ..Default::default()
+                },
+                NotPaused => Self {
+                    is_pause: false,
+                    wrong_initial_state: true,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + RouterError::RouterNotPaused as u32,
+                    )),
+                    ..Default::default()
+                },
+                PauseCpiRejected => Self {
+                    sysvar_mode: SysvarMode::Cpi,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + AccessManagerError::CpiNotAllowed as u32,
+                    )),
+                    ..Default::default()
+                },
+                UnpauseCpiRejected => Self {
+                    is_pause: false,
+                    sysvar_mode: SysvarMode::Cpi,
+                    expected_error: Some(custom_error(
+                        ANCHOR_ERROR_OFFSET + AccessManagerError::CpiNotAllowed as u32,
+                    )),
+                    ..Default::default()
+                },
+                PauseFakeSysvar => Self {
+                    sysvar_mode: SysvarMode::Fake,
+                    expected_error: Some(custom_error(
+                        anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+                    )),
+                    ..Default::default()
+                },
+                UnpauseFakeSysvar => Self {
+                    is_pause: false,
+                    sysvar_mode: SysvarMode::Fake,
+                    expected_error: Some(custom_error(
+                        anchor_lang::error::ErrorCode::ConstraintAddress as u32,
+                    )),
+                    ..Default::default()
+                },
+            }
+        }
+    }
+
+    fn build_pause_toggle_ix(
+        signer: Pubkey,
+        is_pause: bool,
+    ) -> solana_sdk::instruction::Instruction {
         let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
             &[access_manager::state::AccessManager::SEED],
             &access_manager::ID,
         );
 
-        build_instruction(
-            crate::instruction::Pause {},
-            vec![
-                AccountMeta::new(router_state_pda, false),
-                AccountMeta::new_readonly(access_manager_pda, false),
-                AccountMeta::new_readonly(pauser, true),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-        )
+        let accounts = vec![
+            AccountMeta::new(router_state_pda, false),
+            AccountMeta::new_readonly(access_manager_pda, false),
+            AccountMeta::new_readonly(signer, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ];
+
+        if is_pause {
+            build_instruction(crate::instruction::Pause {}, accounts)
+        } else {
+            build_instruction(crate::instruction::Unpause {}, accounts)
+        }
     }
 
-    #[test]
-    fn test_pause_success() {
-        let pauser = Pubkey::new_unique();
+    fn run_pause_test(case: PauseTestCase) {
+        let config = PauseTestConfig::from(case);
 
-        let (router_state_pda, router_state_account) = create_initialized_router_state();
+        let role = if config.is_pause {
+            roles::PAUSER_ROLE
+        } else {
+            roles::UNPAUSER_ROLE
+        };
+
+        let authorized = Pubkey::new_unique();
+        let signer = if config.unauthorized_signer {
+            Pubkey::new_unique()
+        } else {
+            authorized
+        };
+
+        // Correct state: unpaused for pause, paused for unpause.
+        // XOR flips when wrong_initial_state is set.
+        let (router_state_pda, router_state_account) =
+            if config.is_pause ^ config.wrong_initial_state {
+                create_initialized_router_state()
+            } else {
+                create_initialized_paused_router_state()
+            };
 
         let (access_manager_pda, access_manager_account) =
-            create_access_manager_with_role(pauser, roles::PAUSER_ROLE, pauser);
+            create_access_manager_with_role(authorized, role, authorized);
 
-        let instruction = build_pause_ix(pauser);
+        let mut instruction = build_pause_toggle_ix(signer, config.is_pause);
+
+        let sysvar_account = match config.sysvar_mode {
+            SysvarMode::Direct => create_instructions_sysvar_account_with_caller(crate::ID),
+            SysvarMode::Cpi => {
+                let (new_ix, account) = setup_cpi_call_test(instruction, Pubkey::new_unique());
+                instruction = new_ix;
+                account
+            }
+            SysvarMode::Fake => {
+                let (new_ix, account) = setup_fake_sysvar_attack(instruction, crate::ID);
+                instruction = new_ix;
+                account
+            }
+        };
 
         let accounts = vec![
             (router_state_pda, router_state_account),
             (access_manager_pda, access_manager_account),
-            (pauser, create_signer_account()),
-            create_instructions_sysvar_account_with_caller(crate::ID),
+            (signer, create_signer_account()),
+            sysvar_account,
         ];
 
-        let mollusk = setup_mollusk();
-        let result =
-            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+        let expect_success = config.expected_error.is_none();
 
-        let router_state = get_router_state_from_result(&result, &router_state_pda);
-        assert!(router_state.paused);
+        let check = config
+            .expected_error
+            .map_or_else(Check::success, Check::err);
+
+        let mollusk = setup_mollusk();
+        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &[check]);
+
+        if expect_success {
+            let router_state = get_router_state_from_result(&result, &router_state_pda);
+            assert_eq!(router_state.paused, config.is_pause);
+        }
     }
 
-    #[test]
-    fn test_pause_unauthorized() {
-        let pauser = Pubkey::new_unique();
-        let non_pauser = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_account) = create_initialized_router_state();
-
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_with_role(pauser, roles::PAUSER_ROLE, pauser);
-
-        let instruction = build_pause_ix(non_pauser);
-
-        let accounts = vec![
-            (router_state_pda, router_state_account),
-            (access_manager_pda, access_manager_account),
-            (non_pauser, create_signer_account()),
-            create_instructions_sysvar_account_with_caller(crate::ID),
-        ];
-
-        let mollusk = setup_mollusk();
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + AccessManagerError::Unauthorized as u32,
-            ))],
-        );
-    }
-
-    #[test]
-    fn test_pause_already_paused() {
-        let pauser = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_account) = create_initialized_paused_router_state();
-
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_with_role(pauser, roles::PAUSER_ROLE, pauser);
-
-        let instruction = build_pause_ix(pauser);
-
-        let accounts = vec![
-            (router_state_pda, router_state_account),
-            (access_manager_pda, access_manager_account),
-            (pauser, create_signer_account()),
-            create_instructions_sysvar_account_with_caller(crate::ID),
-        ];
-
-        let mollusk = setup_mollusk();
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
-            ))],
-        );
-    }
-
-    #[test]
-    fn test_pause_cpi_rejection() {
-        let pauser = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_account) = create_initialized_router_state();
-
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_with_role(pauser, roles::PAUSER_ROLE, pauser);
-
-        let instruction = build_pause_ix(pauser);
-
-        let malicious_program = Pubkey::new_unique();
-        let (instruction, cpi_sysvar_account) = setup_cpi_call_test(instruction, malicious_program);
-
-        let accounts = vec![
-            (router_state_pda, router_state_account),
-            (access_manager_pda, access_manager_account),
-            (pauser, create_signer_account()),
-            cpi_sysvar_account,
-        ];
-
-        let mollusk = setup_mollusk();
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + AccessManagerError::CpiNotAllowed as u32,
-            ))],
-        );
-    }
-
-    #[test]
-    fn test_pause_fake_sysvar_attack() {
-        let pauser = Pubkey::new_unique();
-
-        let (router_state_pda, router_state_account) = create_initialized_router_state();
-
-        let (access_manager_pda, access_manager_account) =
-            create_access_manager_with_role(pauser, roles::PAUSER_ROLE, pauser);
-
-        let instruction = build_pause_ix(pauser);
-
-        let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
-
-        let accounts = vec![
-            (router_state_pda, router_state_account),
-            (access_manager_pda, access_manager_account),
-            (pauser, create_signer_account()),
-            fake_sysvar_account,
-        ];
-
-        let mollusk = setup_mollusk();
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[expect_sysvar_attack_error()],
-        );
+    #[rstest]
+    #[case::pause_success(PauseTestCase::PauseSuccess)]
+    #[case::unpause_success(PauseTestCase::UnpauseSuccess)]
+    #[case::pause_unauthorized(PauseTestCase::PauseUnauthorized)]
+    #[case::unpause_unauthorized(PauseTestCase::UnpauseUnauthorized)]
+    #[case::already_paused(PauseTestCase::AlreadyPaused)]
+    #[case::not_paused(PauseTestCase::NotPaused)]
+    #[case::pause_cpi_rejected(PauseTestCase::PauseCpiRejected)]
+    #[case::unpause_cpi_rejected(PauseTestCase::UnpauseCpiRejected)]
+    #[case::pause_fake_sysvar(PauseTestCase::PauseFakeSysvar)]
+    #[case::unpause_fake_sysvar(PauseTestCase::UnpauseFakeSysvar)]
+    fn test_pause_toggle(#[case] case: PauseTestCase) {
+        run_pause_test(case);
     }
 }
