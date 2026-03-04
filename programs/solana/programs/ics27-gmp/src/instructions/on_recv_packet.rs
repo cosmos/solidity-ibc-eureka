@@ -172,9 +172,6 @@ pub fn on_recv_packet<'info>(
         );
     }
 
-    // Build target_account_infos from remaining_accounts
-    let target_account_infos = remaining_accounts_for_execution.to_vec();
-
     let instruction = Instruction {
         program_id: receiver_pubkey,
         accounts: account_metas,
@@ -185,7 +182,7 @@ pub fn on_recv_packet<'info>(
     // Note: CPI errors cause immediate transaction abort in Solana, so we cannot
     // handle execution failures gracefully like Ethereum. The ? operator will
     // propagate any error and abort the entire transaction.
-    gmp_account.invoke_signed(&instruction, &target_account_infos)?;
+    gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
     // Get return data from the target program (if any)
     // Only accept return data from the target program itself, not from nested CPIs

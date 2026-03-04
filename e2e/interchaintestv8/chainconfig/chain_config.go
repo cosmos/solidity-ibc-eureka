@@ -45,7 +45,7 @@ func WfchainChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/wfchain",
-					Version:    "mariuszzak-22-remove-payer-position-add-prefund-lamports",
+					Version:    "latest",
 					UIDGID:     "1025:1025",
 				},
 			},

@@ -159,7 +159,7 @@ fn add_instruction_accounts(instruction: &GmpSolanaPayload, account_metas: &mut 
 /// # Errors
 ///
 /// Returns error if the GMP packet or inner Solana payload cannot be decoded.
-pub fn extract_gmp_prefund_info(
+pub fn extract_gmp_prefund_lamports(
     dest_port: &str,
     encoding: &str,
     payload_value: &[u8],

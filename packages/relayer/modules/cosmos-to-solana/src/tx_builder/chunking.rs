@@ -471,19 +471,19 @@ impl super::TxBuilder {
         msg: &MsgRecvPacket,
         payload_data: &[Vec<u8>],
     ) -> Result<Option<Instruction>> {
-        let info = super::packets::extract_recv_payload_info(msg, payload_data)?;
-        let Some((gmp_pda, prefund)) = gmp::extract_gmp_prefund_info(
-            info.dest_port,
-            info.encoding,
-            info.value,
+        let payload_info = super::packets::extract_recv_payload_info(msg, payload_data)?;
+        let Some((gmp_pda, prefund_lamports)) = gmp::extract_gmp_prefund_lamports(
+            payload_info.dest_port,
+            payload_info.encoding,
+            payload_info.value,
             &msg.packet.dest_client,
-            self.resolve_port_program_id(info.dest_port)?,
+            self.resolve_port_program_id(payload_info.dest_port)?,
         )?
         else {
             return Ok(None);
         };
 
-        let capped = prefund.min(MAX_PREFUND_LAMPORTS);
+        let capped = prefund_lamports.min(MAX_PREFUND_LAMPORTS);
         if capped == 0 {
             return Ok(None);
         }
