@@ -50,10 +50,9 @@ pub struct OnRecvPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Relayer-provided fee payer used for account creation rent.
-    /// NOTE: This cannot be the GMP account PDA because PDAs with data cannot
-    /// be used as payers in System Program transfers. The relayer's fee payer
-    /// is used for rent, while the GMP account PDA signs via `invoke_signed`.
+    /// Relayer-provided fee payer. Required for router interface compatibility.
+    /// NOT forwarded to the target CPI — target programs use the GMP PDA
+    /// (pre-funded by the relayer) as their payer instead.
     #[account(mut)]
     pub payer: Signer<'info>,
 
@@ -147,7 +146,7 @@ pub fn on_recv_packet<'info>(
     })?;
 
     // Build account metas from GMP Solana payload
-    let mut account_metas = solana_payload.to_account_metas();
+    let account_metas = solana_payload.to_account_metas();
 
     // Skip gmp_account_pda[0] and target_program[1]
     let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
@@ -173,20 +172,6 @@ pub fn on_recv_packet<'info>(
         );
     }
 
-    // Build target_account_infos from remaining_accounts
-    let mut target_account_infos = remaining_accounts_for_execution.to_vec();
-
-    // Inject payer at specified position
-    if let Some(pos) = solana_payload.payer_position {
-        let pos_usize = pos as usize;
-        require!(
-            pos_usize <= account_metas.len(),
-            GMPError::InvalidPayerPosition
-        );
-        target_account_infos.insert(pos_usize, ctx.accounts.payer.to_account_info());
-        account_metas.insert(pos_usize, AccountMeta::new(*ctx.accounts.payer.key, true));
-    }
-
     let instruction = Instruction {
         program_id: receiver_pubkey,
         accounts: account_metas,
@@ -197,7 +182,7 @@ pub fn on_recv_packet<'info>(
     // Note: CPI errors cause immediate transaction abort in Solana, so we cannot
     // handle execution failures gracefully like Ethereum. The ? operator will
     // propagate any error and abort the entire transaction.
-    gmp_account.invoke_signed(&instruction, &target_account_infos)?;
+    gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
     // Get return data from the target program (if any)
     // Only accept return data from the target program itself, not from nested CPIs
@@ -495,7 +480,7 @@ mod tests {
         let solana_payload = RawGmpSolanaPayload {
             accounts: vec![],
             data: vec![0u8],
-            payer_position: None,
+            prefund_lamports: 0,
         };
         let solana_payload_bytes = solana_payload.encode_to_vec();
 
@@ -698,7 +683,7 @@ mod tests {
         let solana_payload = RawGmpSolanaPayload {
             accounts: vec![],
             data: vec![0u8], // Minimal non-empty data
-            payer_position: None,
+            prefund_lamports: 0,
         };
 
         let solana_payload_bytes = solana_payload.encode_to_vec();
@@ -801,6 +786,8 @@ mod tests {
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
         // Build GMPSolanaPayload for the payload
+        // The GMP PDA appears as both user_authority and payer — Solana merges
+        // duplicate pubkeys with the most permissive flags.
         let solana_payload = RawGmpSolanaPayload {
             accounts: vec![
                 // app_state
@@ -815,15 +802,18 @@ mod tests {
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (gmp_account_pda will sign via invoke_signed)
-                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
-                // and Solana merges duplicate pubkeys with most permissive flags
+                // user_authority (gmp_account_pda signs via invoke_signed)
                 RawSolanaAccountMeta {
                     pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
                     is_writable: true,
                 },
-                // payer will be injected at position 3 by GMP
+                // payer (GMP PDA, pre-funded by relayer for rent)
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
                 // system_program
                 RawSolanaAccountMeta {
                     pubkey: system_program::ID.to_bytes().to_vec(),
@@ -832,7 +822,7 @@ mod tests {
                 },
             ],
             data: counter_instruction_data,
-            payer_position: Some(3), // Inject payer at position 3
+            prefund_lamports: 5_000_000,
         };
 
         let solana_payload_bytes = solana_payload.encode_to_vec();
@@ -876,8 +866,9 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
-                AccountMeta::new_readonly(system_program::ID, false), // [5] system program
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
         };
@@ -916,8 +907,17 @@ mod tests {
             ),
             create_authority_account(payer),
             create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
+            // Remaining accounts — GMP PDA is pre-funded to act as payer for rent
+            (
+                gmp_account_pda,
+                Account {
+                    lamports: 10_000_000, // Pre-funded for rent payment
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
             (
                 counter_app_state_pda,
                 Account {
@@ -929,7 +929,6 @@ mod tests {
                 },
             ),
             create_uninitialized_account_for_pda(user_counter_pda), // User counter will be created
-            create_authority_account(gmp_account_pda),
             create_system_program_account(),
         ];
 
@@ -987,6 +986,225 @@ mod tests {
         // The GMP account PDA is used as a signer without storing state
     }
 
+    /// Proves GMP PDAs are immune to the pre-funding DoS attack that affects
+    /// `create_account`-based PDAs (see: packet commitment PDA vulnerability).
+    ///
+    /// Attack scenario: an adversary derives the GMP PDA off-chain and executes
+    /// a `system_program::transfer` to it before the relayer submits
+    /// `on_recv_packet`. With `create_account`, this would fail with
+    /// `AccountAlreadyInUse`. GMP instead uses `invoke_signed` (signing only),
+    /// so pre-funding is harmless — the PDA works as a signer regardless of its
+    /// lamport balance.
+    ///
+    /// The test chains two instructions via `process_instruction_chain`:
+    /// 1. Adversary transfer → GMP PDA (real system program transfer)
+    /// 2. `on_recv_packet` using the now-funded PDA as CPI signer
+    #[allow(clippy::doc_markdown)]
+    #[test]
+    fn test_on_recv_packet_prefunded_gmp_pda_not_blocked() {
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        mollusk.add_program(
+            &COUNTER_APP_ID,
+            "../../target/deploy/test_gmp_app",
+            &bpf_loader_upgradeable::ID,
+        );
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let adversary = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+
+        let authority = Pubkey::new_unique();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
+            &[test_gmp_app::state::CounterAppState::SEED],
+            &COUNTER_APP_ID,
+        );
+
+        let (user_counter_pda, _) = Pubkey::find_program_address(
+            &[
+                test_gmp_app::state::UserCounter::SEED,
+                gmp_account_pda.as_ref(),
+            ],
+            &COUNTER_APP_ID,
+        );
+
+        // Step 1: adversary pre-funds the GMP PDA via system transfer
+        let adversary_lamports: u64 = 50_000_000;
+        let prefund_ix = solana_sdk::system_instruction::transfer(
+            &adversary,
+            &gmp_account_pda,
+            adversary_lamports,
+        );
+
+        // Step 2: build on_recv_packet instruction
+        let counter_instruction = test_gmp_app::instruction::Increment { amount: 7 };
+        let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
+
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![
+                RawSolanaAccountMeta {
+                    pubkey: counter_app_state_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: user_counter_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: system_program::ID.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+            ],
+            data: counter_instruction_data,
+            prefund_lamports: 5_000_000,
+        };
+
+        let proto_packet_data = RawGmpPacketData {
+            sender: sender.to_string(),
+            receiver: COUNTER_APP_ID.to_string(),
+            salt,
+            payload: solana_payload.encode_to_vec(),
+            memo: String::new(),
+        };
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING.to_string(),
+                value: proto_packet_data.encode_to_vec(),
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+        let recv_ix = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new(gmp_account_pda, false),
+                AccountMeta::new_readonly(COUNTER_APP_ID, false),
+                AccountMeta::new(counter_app_state_pda, false),
+                AccountMeta::new(user_counter_pda, false),
+                AccountMeta::new(gmp_account_pda, true),
+                AccountMeta::new(gmp_account_pda, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let counter_app_state = test_gmp_app::state::CounterAppState {
+            authority,
+            total_counters: 0,
+            total_gmp_calls: 0,
+            bump: counter_app_state_bump,
+        };
+        let mut counter_app_state_data = Vec::new();
+        counter_app_state_data
+            .extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
+        counter_app_state
+            .serialize(&mut counter_app_state_data)
+            .unwrap();
+
+        // GMP PDA starts with 0 lamports — the adversary transfer is what funds it
+        let accounts = vec![
+            (
+                adversary,
+                Account {
+                    lamports: adversary_lamports.saturating_add(1_000_000),
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_instructions_sysvar_account_with_caller(router_program),
+            (
+                COUNTER_APP_ID,
+                Account {
+                    lamports: 1_000_000,
+                    data: vec![],
+                    owner: bpf_loader_upgradeable::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            create_authority_account(payer),
+            create_system_program_account(),
+            (
+                gmp_account_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                counter_app_state_pda,
+                Account {
+                    lamports: 1_000_000,
+                    data: counter_app_state_data,
+                    owner: COUNTER_APP_ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            create_uninitialized_account_for_pda(user_counter_pda),
+            create_system_program_account(),
+        ];
+
+        // Chain: adversary transfer → on_recv_packet
+        // The transfer funds the GMP PDA; on_recv_packet uses it as a signer.
+        let result = mollusk.process_instruction_chain(&[prefund_ix, recv_ix], &accounts);
+
+        assert!(
+            !result.program_result.is_err(),
+            "Pre-funded GMP PDA must not block on_recv_packet: {:?}",
+            result.program_result
+        );
+
+        let ack_bytes = if result.return_data.len() > 4 {
+            &result.return_data[4..]
+        } else {
+            &result.return_data[..]
+        };
+        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+
+        assert!(
+            !ack.result.is_empty(),
+            "CPI should succeed despite adversary pre-funding"
+        );
+
+        let returned_counter = u64::from_le_bytes(ack.result[..8].try_into().unwrap());
+        assert_eq!(returned_counter, 7, "Counter should reflect the increment");
+    }
+
     /// Verifies that CPI errors cause immediate transaction failure.
     ///
     /// Unlike EVM/IBC where errors can return error acknowledgments, Solana CPIs fail
@@ -1026,7 +1244,7 @@ mod tests {
             &COUNTER_APP_ID,
         );
 
-        // Create counter instruction - will fail due to insufficient payer lamports
+        // Create counter instruction - will fail due to CPI validation (no authorized router)
         let counter_instruction = test_gmp_app::instruction::Increment { amount: 5 };
         let counter_instruction_data = anchor_lang::InstructionData::data(&counter_instruction);
 
@@ -1045,15 +1263,18 @@ mod tests {
                     is_signer: false,
                     is_writable: true,
                 },
-                // user_authority (gmp_account_pda will sign via invoke_signed)
-                // Note: marked writable because gmp_account_pda is also used as GMP account (writable)
-                // and Solana merges duplicate pubkeys with most permissive flags
+                // user_authority (gmp_account_pda signs via invoke_signed)
                 RawSolanaAccountMeta {
                     pubkey: gmp_account_pda.to_bytes().to_vec(),
                     is_signer: true,
                     is_writable: true,
                 },
-                // payer will be injected at position 3 by GMP
+                // payer (GMP PDA, pre-funded by relayer for rent)
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
                 // system_program
                 RawSolanaAccountMeta {
                     pubkey: system_program::ID.to_bytes().to_vec(),
@@ -1062,7 +1283,7 @@ mod tests {
                 },
             ],
             data: counter_instruction_data,
-            payer_position: Some(3), // Inject payer at position 3
+            prefund_lamports: 5_000_000,
         };
 
         let solana_payload_bytes = solana_payload.encode_to_vec();
@@ -1106,8 +1327,9 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_account_pda signs via invoke_signed, writable due to duplicate)
-                AccountMeta::new_readonly(system_program::ID, false), // [5] system program
+                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
         };
@@ -1133,19 +1355,19 @@ mod tests {
                 false, // not paused
             ),
             create_instructions_sysvar_account(),
+            create_authority_account(payer),
+            create_system_program_account(),
+            // Remaining accounts — GMP PDA with low balance (test expects failure)
             (
-                payer,
+                gmp_account_pda,
                 Account {
-                    lamports: 3_000_000, // Enough for GMP gmp_account_pda (~2.4M) but not enough for counter user_counter too
+                    lamports: 3_000_000, // Low balance — insufficient for user_counter rent
                     data: vec![],
                     owner: system_program::ID,
                     executable: false,
                     rent_epoch: 0,
                 },
             ),
-            create_system_program_account(),
-            // Remaining accounts
-            create_uninitialized_account_for_pda(gmp_account_pda), // Account state will be created
             // Counter app program (loaded via mollusk.add_program())
             (
                 COUNTER_APP_ID,
@@ -1167,8 +1389,7 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
-            create_uninitialized_account_for_pda(user_counter_pda), // User counter - will fail to init due to insufficient payer funds
-            create_authority_account(gmp_account_pda),
+            create_uninitialized_account_for_pda(user_counter_pda),
             create_system_program_account(),
         ];
 
@@ -1246,7 +1467,7 @@ mod tests {
         let invalid_solana_payload = RawGmpSolanaPayload {
             data: vec![], // Invalid: empty instruction data
             accounts: vec![],
-            payer_position: None,
+            prefund_lamports: 0,
         };
 
         // Encode the invalid solana payload - this creates a valid protobuf but with empty data field
