@@ -15,14 +15,10 @@ message GMPSolanaPayload {
     // Instruction data
     bytes data = 2;
 
-    // Optional: Position to inject relayer payer account for rent payment (0-indexed)
-    //
-    // - If not set: No payer injection (use for programs that don't create accounts)
-    // - If set to N: Inject payer at index N in the final account list
-    //
-    // Example: `payer_position=2` means payer will be at index 2 in the accounts array.
-    // The relayer's fee payer will be inserted at this position as a signer.
-    optional uint32 payer_position = 3;
+    // Lamports the relayer should transfer to the GMP PDA before execution.
+    // Covers rent for accounts created by the target program.
+    // Set to 0 when no account creation is needed (e.g. SPL transfers).
+    uint64 prefund_lamports = 3;
 }
 
 // `SolanaAccountMeta` represents account metadata for Solana instructions.
