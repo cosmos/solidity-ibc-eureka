@@ -11,3 +11,7 @@ pub const PROTOBUF_ENCODING: &str = "application/x-protobuf";
 
 /// JSON encoding type for IBC packets
 pub const JSON_ENCODING: &str = "application/json";
+
+/// Maximum lamports the relayer will pre-fund per GMP packet (~0.05 SOL).
+/// Caps the sender-specified `prefund_lamports` to prevent griefing.
+pub const MAX_PREFUND_LAMPORTS: u64 = 50_000_000;

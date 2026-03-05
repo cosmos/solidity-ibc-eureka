@@ -194,7 +194,11 @@ func UnmarshalAttestationInstructionsUpdateClientUpdateClientParams(buf []byte) 
 }
 
 // On-chain PDA storing the consensus state for a specific block height.
-// The height is also encoded in the PDA seeds.
+//
+// Created or updated when enough attestor signatures confirm a new block.
+// The ICS26 router reads this account to verify packet membership proofs
+// against the confirmed state. The block height is also encoded in the
+// PDA seeds so each height maps to exactly one account.
 type AttestationStateConsensusStateStore struct {
 	// Block height this consensus state corresponds to.
 	Height uint64 `json:"height"`
@@ -258,7 +262,11 @@ func UnmarshalAttestationStateConsensusStateStore(buf []byte) (*AttestationState
 	return obj, nil
 }
 
-// Global program configuration.
+// Global attestation program configuration.
+//
+// Singleton PDA that links the attestation program to its access manager
+// for admin-gated operations such as updating the attestor set or freezing
+// the client.
 type AttestationTypesAppState struct {
 	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
 
@@ -335,6 +343,11 @@ func UnmarshalAttestationTypesAppState(buf []byte) (*AttestationTypesAppState, e
 }
 
 // Attestation light client state.
+//
+// Holds the set of trusted attestor Ethereum addresses and the signature
+// threshold required to accept a new consensus state. Used by the ICS26
+// router to verify membership proofs that arrive as signed attestations
+// instead of ZK proofs.
 type AttestationTypesClientState struct {
 	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
 
