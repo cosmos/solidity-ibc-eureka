@@ -114,9 +114,6 @@ pub enum GMPError {
     #[msg("Insufficient funds for account creation")]
     InsufficientFunds,
 
-    #[msg("Invalid payer position")]
-    InvalidPayerPosition,
-
     #[msg("Invalid IBC version")]
     InvalidVersion,
 
