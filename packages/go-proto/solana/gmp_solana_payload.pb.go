@@ -31,16 +31,12 @@ type GMPSolanaPayload struct {
 	Accounts []*SolanaAccountMeta `protobuf:"bytes,1,rep,name=accounts,proto3" json:"accounts,omitempty"`
 	// Instruction data
 	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
-	// Optional: Position to inject relayer payer account for rent payment (0-indexed)
-	//
-	// - If not set: No payer injection (use for programs that don't create accounts)
-	// - If set to N: Inject payer at index N in the final account list
-	//
-	// Example: `payer_position=2` means payer will be at index 2 in the accounts array.
-	// The relayer's fee payer will be inserted at this position as a signer.
-	PayerPosition *uint32 `protobuf:"varint,3,opt,name=payer_position,json=payerPosition,proto3,oneof" json:"payer_position,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Lamports the relayer should transfer to the GMP PDA before execution.
+	// Covers rent for accounts created by the target program.
+	// Set to 0 when no account creation is needed (e.g. SPL transfers).
+	PrefundLamports uint64 `protobuf:"varint,3,opt,name=prefund_lamports,json=prefundLamports,proto3" json:"prefund_lamports,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GMPSolanaPayload) Reset() {
@@ -87,9 +83,9 @@ func (x *GMPSolanaPayload) GetData() []byte {
 	return nil
 }
 
-func (x *GMPSolanaPayload) GetPayerPosition() uint32 {
-	if x != nil && x.PayerPosition != nil {
-		return *x.PayerPosition
+func (x *GMPSolanaPayload) GetPrefundLamports() uint64 {
+	if x != nil {
+		return x.PrefundLamports
 	}
 	return 0
 }
@@ -168,12 +164,11 @@ var File_solana_gmp_solana_payload_proto protoreflect.FileDescriptor
 
 const file_solana_gmp_solana_payload_proto_rawDesc = "" +
 	"\n" +
-	"\x1fsolana/gmp_solana_payload.proto\x12\x06solana\"\x9c\x01\n" +
+	"\x1fsolana/gmp_solana_payload.proto\x12\x06solana\"\x88\x01\n" +
 	"\x10GMPSolanaPayload\x125\n" +
 	"\baccounts\x18\x01 \x03(\v2\x19.solana.SolanaAccountMetaR\baccounts\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\x12*\n" +
-	"\x0epayer_position\x18\x03 \x01(\rH\x00R\rpayerPosition\x88\x01\x01B\x11\n" +
-	"\x0f_payer_position\"i\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\x12)\n" +
+	"\x10prefund_lamports\x18\x03 \x01(\x04R\x0fprefundLamports\"i\n" +
 	"\x11SolanaAccountMeta\x12\x16\n" +
 	"\x06pubkey\x18\x01 \x01(\fR\x06pubkey\x12\x1b\n" +
 	"\tis_signer\x18\x02 \x01(\bR\bisSigner\x12\x1f\n" +
@@ -213,7 +208,6 @@ func file_solana_gmp_solana_payload_proto_init() {
 	if File_solana_gmp_solana_payload_proto != nil {
 		return
 	}
-	file_solana_gmp_solana_payload_proto_msgTypes[0].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

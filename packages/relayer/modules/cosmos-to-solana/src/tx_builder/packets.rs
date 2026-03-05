@@ -29,10 +29,10 @@ fn derive_light_client_pdas(height: u64, light_client_program_id: Pubkey) -> (Pu
 }
 
 /// Extracted payload info for recv packet processing.
-struct RecvPayloadInfo<'a> {
-    dest_port: &'a str,
-    encoding: &'a str,
-    value: &'a [u8],
+pub(super) struct RecvPayloadInfo<'a> {
+    pub dest_port: &'a str,
+    pub encoding: &'a str,
+    pub value: &'a [u8],
 }
 
 /// Extract `source_port` from either inline payloads or chunked metadata.
@@ -63,7 +63,7 @@ fn extract_source_port<'a>(
 }
 
 /// Extract payload info from either `packet.payloads` or metadata + `payload_data`.
-fn extract_recv_payload_info<'a>(
+pub(super) fn extract_recv_payload_info<'a>(
     msg: &'a MsgRecvPacket,
     payload_data: &'a [Vec<u8>],
 ) -> Result<RecvPayloadInfo<'a>> {

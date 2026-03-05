@@ -22,6 +22,7 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        paused: false,
         _reserved: [0; 256],
     };
     let router_state_data = create_account_data(&router_state);

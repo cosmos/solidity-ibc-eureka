@@ -36,6 +36,7 @@ solana-sdk = { workspace = true, features = ["full"] }
 solana-program-test.workspace = true
 tokio = { version = "1", features = ["full"] }
 bincode.workspace = true
+rstest.workspace = true
 mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }
 test-ibc-app = { path = "../test-ibc-app" }

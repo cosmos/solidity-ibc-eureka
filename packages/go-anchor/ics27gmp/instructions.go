@@ -280,10 +280,9 @@ func NewOnRecvPacketInstruction(
 		// Instructions sysvar used to verify the CPI caller is the authorized router.
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
 		// Account 2 "payer": Writable, Signer, Required
-		// Relayer-provided fee payer used for account creation rent.
-		// NOTE: This cannot be the GMP account PDA because PDAs with data cannot
-		// be used as payers in System Program transfers. The relayer's fee payer
-		// is used for rent, while the GMP account PDA signs via `invoke_signed`.
+		// Relayer-provided fee payer. Required for router interface compatibility.
+		// NOT forwarded to the target CPI — target programs use the GMP PDA
+		// (pre-funded by the relayer) as their payer instead.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 3 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account allocation during target CPI.
