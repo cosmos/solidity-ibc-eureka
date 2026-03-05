@@ -844,3 +844,85 @@ func NewSetAccessManagerInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "pause" instruction.
+func NewPauseInstruction(
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	pauserAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Pause[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// Mutable global router configuration PDA whose `paused` flag will be set.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for pauser role verification.
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "pauser": Read-only, Signer, Required
+		// Signer authorized to pause the router.
+		accounts__.Append(solanago.NewAccountMeta(pauserAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "unpause" instruction.
+func NewUnpauseInstruction(
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	unpauserAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Unpause[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// Mutable global router configuration PDA whose `paused` flag will be cleared.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for unpauser role verification.
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "unpauser": Read-only, Signer, Required
+		// Signer authorized to unpause the router.
+		accounts__.Append(solanago.NewAccountMeta(unpauserAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
