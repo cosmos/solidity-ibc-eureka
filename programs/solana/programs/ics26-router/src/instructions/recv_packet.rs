@@ -1640,7 +1640,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_recv_packet_inline_metadata_port_mismatch() {
         let mut ctx = setup_recv_packet_test(true, 1000);
