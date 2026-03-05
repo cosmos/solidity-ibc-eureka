@@ -64,6 +64,7 @@ func NewInitializeInstruction(
 		// Account 1 "consensus_state_store": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateStoreAccount, true, false))
 		// Account 2 "payer": Writable, Signer, Required
+		// Fee payer for PDA creation.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
