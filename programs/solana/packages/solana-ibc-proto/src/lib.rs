@@ -149,7 +149,7 @@ pub const MAX_GMP_ACCOUNTS: usize = 32;
 pub struct GmpSolanaPayload {
     pub data: Vec<u8>,
     pub accounts: Vec<SolanaAccountMeta>,
-    pub payer_position: Option<u32>,
+    pub prefund_lamports: u64,
 }
 
 impl GmpSolanaPayload {
@@ -172,7 +172,7 @@ impl From<GmpSolanaPayload> for RawGmpSolanaPayload {
                     is_writable: acc.is_writable,
                 })
                 .collect(),
-            payer_position: payload.payer_position,
+            prefund_lamports: payload.prefund_lamports,
         }
     }
 }
@@ -206,7 +206,7 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
         Ok(Self {
             data: raw.data,
             accounts,
-            payer_position: raw.payer_position,
+            prefund_lamports: raw.prefund_lamports,
         })
     }
 }

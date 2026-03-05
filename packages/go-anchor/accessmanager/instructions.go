@@ -42,10 +42,13 @@ func NewInitializeInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
+		// The access manager PDA to initialize (created here).
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "payer": Writable, Signer, Required
+		// Pays for account creation rent.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 2 "system_program": Read-only, Non-signer, Required
+		// Required for PDA account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -96,8 +99,10 @@ func NewGrantRoleInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
+		// The access manager PDA storing all role assignments.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
+		// The admin signer authorizing this role grant.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -148,8 +153,10 @@ func NewRevokeRoleInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
+		// The access manager PDA storing all role assignments.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
+		// The admin signer authorizing this role revocation.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -194,8 +201,10 @@ func NewRenounceRoleInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
+		// The access manager PDA storing all role assignments.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "caller": Read-only, Signer, Required
+		// The signer renouncing their own role.
 		accounts__.Append(solanago.NewAccountMeta(callerAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
@@ -248,25 +257,33 @@ func NewUpgradeProgramInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Read-only, Non-signer, Required
+		// The access manager PDA for admin authorization.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 1 "program": Writable, Non-signer, Required
+		// The target program to upgrade.
 		// Writable because BPF Loader Upgradeable requires it during upgrade.
 		accounts__.Append(solanago.NewAccountMeta(programAccount, true, false))
 		// Account 2 "program_data": Writable, Non-signer, Required
+		// The target program's data account (BPF Loader Upgradeable PDA).
 		accounts__.Append(solanago.NewAccountMeta(programDataAccount, true, false))
 		// Account 3 "buffer": Writable, Non-signer, Required
+		// Buffer account containing the new program bytecode.
 		accounts__.Append(solanago.NewAccountMeta(bufferAccount, true, false))
 		// Account 4 "upgrade_authority": Writable, Non-signer, Required
+		// `AccessManager`'s PDA that acts as the upgrade authority for the target program.
 		accounts__.Append(solanago.NewAccountMeta(upgradeAuthorityAccount, true, false))
 		// Account 5 "spill": Writable, Non-signer, Required
+		// Account to receive refunded rent from the old buffer.
 		accounts__.Append(solanago.NewAccountMeta(spillAccount, true, false))
 		// Account 6 "authority": Read-only, Signer, Required
+		// The admin signer authorizing the upgrade.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 8 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
 		// Account 9 "rent": Read-only, Non-signer, Required, Address: SysvarRent111111111111111111111111111111111
+		// Rent sysvar required by BPF Loader Upgradeable.
 		accounts__.Append(solanago.NewAccountMeta(rentAccount, false, false))
 		// Account 10 "clock": Read-only, Non-signer, Required, Address: SysvarC1ock11111111111111111111111111111111
 		// Required by BPF Loader Upgradeable's upgrade instruction
@@ -311,10 +328,13 @@ func NewSetWhitelistedProgramsInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
+		// The access manager PDA whose whitelist will be updated.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
+		// The admin signer authorizing this whitelist update.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar for CPI validation.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
