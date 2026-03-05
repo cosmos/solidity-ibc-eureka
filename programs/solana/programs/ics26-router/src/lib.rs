@@ -96,4 +96,12 @@ pub mod ics26_router {
     ) -> Result<()> {
         instructions::set_access_manager(ctx, new_access_manager)
     }
+
+    pub fn pause(ctx: Context<Pause>) -> Result<()> {
+        instructions::pause(ctx)
+    }
+
+    pub fn unpause(ctx: Context<Unpause>) -> Result<()> {
+        instructions::unpause(ctx)
+    }
 }

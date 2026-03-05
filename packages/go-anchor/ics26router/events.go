@@ -57,6 +57,20 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsNoopEvent: %w", err)
 		}
 		return value, nil
+	case Event_Ics26RouterEventsRouterPausedEvent:
+		value := new(Ics26RouterEventsRouterPausedEvent)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsRouterPausedEvent: %w", err)
+		}
+		return value, nil
+	case Event_Ics26RouterEventsRouterUnpausedEvent:
+		value := new(Ics26RouterEventsRouterUnpausedEvent)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsRouterUnpausedEvent: %w", err)
+		}
+		return value, nil
 	case Event_Ics26RouterEventsSendPacketEvent:
 		value := new(Ics26RouterEventsSendPacketEvent)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -181,6 +195,40 @@ func ParseEvent_Ics26RouterEventsNoopEvent(eventData []byte) (*Ics26RouterEvents
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsNoopEvent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_Ics26RouterEventsRouterPausedEvent(eventData []byte) (*Ics26RouterEventsRouterPausedEvent, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Ics26RouterEventsRouterPausedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsRouterPausedEvent, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Ics26RouterEventsRouterPausedEvent)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsRouterPausedEvent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_Ics26RouterEventsRouterUnpausedEvent(eventData []byte) (*Ics26RouterEventsRouterUnpausedEvent, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_Ics26RouterEventsRouterUnpausedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsRouterUnpausedEvent, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(Ics26RouterEventsRouterUnpausedEvent)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsRouterUnpausedEvent: %w", err)
 	}
 	return event, nil
 }

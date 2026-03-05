@@ -94,6 +94,11 @@ pub enum RouterError {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+    #[msg("Router is paused")]
+    RouterPaused,
+
+    #[msg("Router is not paused")]
+    RouterNotPaused,
 }
 
 /// Convert CPI validation errors to Router errors

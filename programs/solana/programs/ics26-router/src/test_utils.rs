@@ -57,10 +57,37 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        paused: false,
         _reserved: [0; 256],
     };
     let router_state_data = create_account_data(&router_state);
     (router_state_pda, router_state_data)
+}
+
+pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
+    let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+    let router_state = RouterState {
+        version: AccountVersion::V1,
+        access_manager: access_manager::ID,
+        paused: true,
+        _reserved: [0; 256],
+    };
+    let router_state_data = create_account_data(&router_state);
+    (router_state_pda, router_state_data)
+}
+
+pub fn create_initialized_paused_router_state() -> (Pubkey, solana_sdk::account::Account) {
+    let (router_state_pda, router_state_data) = setup_paused_router_state();
+    (
+        router_state_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data: router_state_data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
 }
 
 pub fn setup_client(
@@ -978,6 +1005,7 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        paused: false,
         _reserved: [0; 256],
     };
     let router_data = create_account_data(&router_state);
