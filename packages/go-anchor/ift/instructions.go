@@ -431,7 +431,8 @@ func NewIftTransferInstruction(
 		// Account 20 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 21 "pending_transfer": Writable, Non-signer, Required
-		// Pending transfer account - manually created with runtime-calculated sequence
+		// CPI, which is only known at runtime. Validated and created manually in the
+		// handler after the CPI completes.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 
