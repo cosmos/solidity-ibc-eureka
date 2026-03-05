@@ -41,10 +41,13 @@ func NewInitializeInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
+		// Global router configuration PDA storing the access manager address.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "payer": Writable, Signer, Required
+		// Pays for creating the `RouterState` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 2 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -91,21 +94,28 @@ func NewAddIbcAppInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "ibc_app": Writable, Non-signer, Required
+		// PDA mapping `port_id` to its IBC application program.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, true, false))
 		// Account 3 "app_program": Read-only, Non-signer, Required
+		// IBC application program to register for this port.
 		accounts__.Append(solanago.NewAccountMeta(appProgramAccount, false, false))
 		// Account 4 "payer": Writable, Signer, Required
+		// Pays for creating the `IBCApp` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "authority": Read-only, Signer, Required
+		// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -155,29 +165,39 @@ func NewSendPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "ibc_app": Read-only, Non-signer, Required
+		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 2 "client_sequence": Writable, Non-signer, Required
+		// Mutable sequence counter for this client; incremented on each send.
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment account - manually created with runtime-calculated sequence
+		// Stores the packet commitment hash. Created manually because the
+		// sequence is computed at runtime via `calculate_namespaced_sequence`.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "app_signer": Read-only, Signer, Required
-		// App signer - PDA signed by the calling IBC app program
+		// PDA signed by the calling IBC app program, proving it authorized this send.
 		accounts__.Append(solanago.NewAccountMeta(appSignerAccount, false, true))
 		// Account 5 "payer": Writable, Signer, Required
-		// Allow payer to be separate from IBC app
+		// Pays rent for the new `packet_commitment` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "client": Read-only, Non-signer, Required
+		// Client PDA for the source client; must be active.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 8 "light_client_program": Read-only, Non-signer, Required
+		// Light client program used to query client status before sending.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 9 "client_state": Read-only, Non-signer, Required
+		// Client state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 10 "consensus_state": Read-only, Non-signer, Required
+		// Consensus state account owned by the light client program (for expiry check).
+		// light client program itself validates it.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -230,34 +250,46 @@ func NewRecvPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "ibc_app": Read-only, Non-signer, Required
+		// PDA mapping the destination port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_receipt": Writable, Non-signer, Required
+		// Stores the packet receipt commitment; created on first receive.
 		accounts__.Append(solanago.NewAccountMeta(packetReceiptAccount, true, false))
 		// Account 4 "packet_ack": Writable, Non-signer, Required
+		// Stores the packet acknowledgement commitment after app callback.
 		accounts__.Append(solanago.NewAccountMeta(packetAckAccount, true, false))
 		// Account 5 "ibc_app_program": Read-only, Non-signer, Required
+		// IBC application program to deliver the packet to via CPI.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
 		// Account 6 "ibc_app_state": Writable, Non-signer, Required
+		// Mutable state account of the IBC application (passed into the CPI).
 		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 7 "relayer": Writable, Signer, Required
+		// Relayer submitting the packet; must hold the `RELAYER_ROLE` and pays rent.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 8 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 9 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 10 "client": Read-only, Non-signer, Required
+		// Client PDA for the destination client; must be active.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 11 "light_client_program": Read-only, Non-signer, Required
+		// Light client program used to verify the membership proof.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 12 "client_state": Read-only, Non-signer, Required
+		// Client state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 13 "consensus_state": Read-only, Non-signer, Required
+		// Consensus state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -309,32 +341,45 @@ func NewAckPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "ibc_app": Read-only, Non-signer, Required
+		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
+		// Packet commitment PDA; closed after successful acknowledgement and
+		// its rent is returned to the relayer.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
+		// IBC application program to notify via CPI.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
 		// Account 5 "ibc_app_state": Writable, Non-signer, Required
+		// Mutable state account of the IBC application (passed into the CPI).
 		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 6 "relayer": Writable, Signer, Required
+		// Relayer submitting the acknowledgement; must hold the `RELAYER_ROLE`.
+		// Receives rent from the closed `packet_commitment` account.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "system_program": Read-only, Non-signer, Required
+		// Solana system program required by Anchor.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 8 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 9 "client": Read-only, Non-signer, Required
+		// Client PDA for the source client; must be active.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 10 "light_client_program": Read-only, Non-signer, Required
+		// Light client program used to verify the acknowledgement proof.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 11 "client_state": Read-only, Non-signer, Required
+		// Client state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		// Consensus state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -386,32 +431,45 @@ func NewTimeoutPacketInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Global access control account (owned by access-manager program)
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "ibc_app": Read-only, Non-signer, Required
+		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
+		// Packet commitment PDA; closed after successful timeout and its rent
+		// is returned to the relayer.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
+		// IBC application program to notify via CPI.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppProgramAccount, false, false))
 		// Account 5 "ibc_app_state": Writable, Non-signer, Required
+		// Mutable state account of the IBC application (passed into the CPI).
 		accounts__.Append(solanago.NewAccountMeta(ibcAppStateAccount, true, false))
 		// Account 6 "relayer": Writable, Signer, Required
+		// Relayer submitting the timeout; must hold the `RELAYER_ROLE`.
+		// Receives rent from the closed `packet_commitment` account.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 7 "system_program": Read-only, Non-signer, Required
+		// Solana system program required by Anchor.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 8 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 		// Account 9 "client": Read-only, Non-signer, Required
+		// Client PDA for the source client; must be active.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
 		// Account 10 "light_client_program": Read-only, Non-signer, Required
+		// Light client program used to verify the non-membership proof.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 11 "client_state": Read-only, Non-signer, Required
+		// Client state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		// Consensus state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -464,20 +522,28 @@ func NewAddClientInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "authority": Writable, Signer, Required
+		// Signer with the `ID_CUSTOMIZER_ROLE`; also pays for account creation.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, true, true))
 		// Account 1 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "client": Writable, Non-signer, Required
+		// PDA mapping `client_id` to its light client program and counterparty info.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, true, false))
 		// Account 4 "client_sequence": Writable, Non-signer, Required
+		// PDA tracking the next send-side packet sequence for this client.
 		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
 		// Account 5 "light_client_program": Read-only, Non-signer, Required
+		// Light client program to associate with this client.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
 		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -527,14 +593,19 @@ func NewMigrateClientInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "authority": Writable, Signer, Required
+		// Admin signer authorized to migrate clients.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, true, true))
 		// Account 1 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 2 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for admin verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 3 "client": Writable, Non-signer, Required
+		// Mutable client PDA whose fields will be updated.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, true, false))
 		// Account 4 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -579,16 +650,23 @@ func NewUploadPayloadChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "chunk": Writable, Non-signer, Required
+		// Temporary storage for one payload chunk, keyed by relayer, client,
+		// sequence, payload index and chunk index.
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 3 "relayer": Writable, Signer, Required
+		// Relayer uploading the chunk; must hold the `RELAYER_ROLE` and pays rent.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -633,16 +711,23 @@ func NewUploadProofChunkInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "chunk": Writable, Non-signer, Required
+		// Temporary storage for one proof chunk, keyed by relayer, client,
+		// sequence and chunk index.
 		accounts__.Append(solanago.NewAccountMeta(chunkAccount, true, false))
 		// Account 3 "relayer": Writable, Signer, Required
+		// Relayer uploading the chunk; must hold the `RELAYER_ROLE` and pays rent.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -685,12 +770,17 @@ func NewCleanupChunksInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Read-only, Non-signer, Required
+		// Global router configuration PDA.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for relayer role verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "relayer": Writable, Signer, Required
+		// Relayer reclaiming rent; must hold the `RELAYER_ROLE`.
+		// Receives lamports from closed chunk accounts.
 		accounts__.Append(solanago.NewAccountMeta(relayerAccount, true, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -733,13 +823,17 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
+		// Mutable global router configuration PDA whose `access_manager` field
+		// will be updated.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Current access control state used for admin verification.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized to change the access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar for CPI validation
+		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
