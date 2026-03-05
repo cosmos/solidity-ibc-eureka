@@ -25,7 +25,8 @@ pub struct AckPacket<'info> {
     /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
-        bump
+        bump,
+        constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
     pub router_state: Account<'info, RouterState>,
 
@@ -257,6 +258,7 @@ mod tests {
         initial_sequence: u64,
         acknowledgement: Vec<u8>,
         proof_height: u64,
+        paused_router: bool,
     }
 
     impl Default for AckPacketTestParams {
@@ -273,6 +275,7 @@ mod tests {
                 initial_sequence: 1,
                 acknowledgement: vec![1, 2, 3, 4],
                 proof_height: 100,
+                paused_router: false,
             }
         }
     }
@@ -287,7 +290,11 @@ mod tests {
             .wrong_light_client_program
             .unwrap_or(MOCK_LIGHT_CLIENT_ID);
 
-        let (router_state_pda, router_state_data) = setup_router_state();
+        let (router_state_pda, router_state_data) = if params.paused_router {
+            setup_paused_router_state()
+        } else {
+            setup_router_state()
+        };
         let (client_pda, client_data) = setup_client(
             params.source_client_id,
             client_light_client_program,
@@ -680,6 +687,22 @@ mod tests {
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_paused() {
+        let ctx = setup_ack_packet_test_with_params(AckPacketTestParams {
+            paused_router: true,
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
+        ))];
+
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

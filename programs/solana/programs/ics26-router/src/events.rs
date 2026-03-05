@@ -76,3 +76,13 @@ pub struct AccessManagerUpdated {
     pub old_access_manager: Pubkey,
     pub new_access_manager: Pubkey,
 }
+
+/// Event emitted when the router is paused
+#[event]
+#[derive(Debug, Clone)]
+pub struct RouterPausedEvent {}
+
+/// Event emitted when the router is unpaused
+#[event]
+#[derive(Debug, Clone)]
+pub struct RouterUnpausedEvent {}
