@@ -99,12 +99,11 @@ impl Client {
     }
 }
 
-/// Per-client packet sequence counter.
+/// Per-(client, sender) packet sequence counter.
 ///
-/// Tracks the next sequence number to assign when sending a packet
-/// through a given client. Each `send_packet` call reads and increments
-/// this value to guarantee unique, monotonically increasing sequence
-/// numbers for replay protection.
+/// Tracks the next sequence number for a specific sender on a given client.
+/// Each sender has their own counter, eliminating race conditions where
+/// concurrent senders could invalidate each other's pre-derived PDAs.
 #[account]
 #[derive(InitSpace)]
 pub struct ClientSequence {

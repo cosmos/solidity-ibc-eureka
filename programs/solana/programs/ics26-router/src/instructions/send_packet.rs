@@ -2,7 +2,6 @@ use crate::errors::RouterError;
 use crate::events::SendPacketEvent;
 use crate::router_cpi::LightClientCpi;
 use crate::state::*;
-use crate::utils::sequence;
 use anchor_lang::prelude::*;
 use solana_ibc_types::ics24;
 use solana_ibc_types::IBCAppState;
@@ -27,16 +26,18 @@ pub struct SendPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Mutable sequence counter for this client; incremented on each send.
+    /// Per-(client, sender) sequence counter; created on first send.
     #[account(
-        mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        init_if_needed,
+        payer = payer,
+        space = 8 + ClientSequence::INIT_SPACE,
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes(), payer.key().as_ref()],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
 
-    /// Stores the packet commitment hash. Created manually because the
-    /// sequence is computed at runtime via `calculate_namespaced_sequence`.
+    /// Stores the packet commitment hash. Created manually because it includes
+    /// the sender pubkey in its PDA derivation.
     /// CHECK: Validated and created manually in the handler.
     #[account(mut)]
     pub packet_commitment: UncheckedAccount<'info>,
@@ -94,7 +95,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         RouterError::ClientNotActive
     );
 
-    let ibc_app = &ctx.accounts.ibc_app;
+    let sender = &ctx.accounts.payer.key();
     let client_sequence = &mut ctx.accounts.client_sequence;
     let packet_commitment_info = &ctx.accounts.packet_commitment;
     // Get clock directly via syscall
@@ -110,15 +111,11 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
         RouterError::InvalidTimeoutDuration
     );
 
-    let base_sequence = client_sequence.next_sequence_send;
-    let sequence = sequence::calculate_namespaced_sequence(
-        base_sequence,
-        &ibc_app.app_program_id,
-        &ctx.accounts.payer.key(),
-    )?;
+    let sequence = client_sequence.next_sequence_send;
 
     create_packet_commitment_account(
         &msg.source_client,
+        sender,
         sequence,
         packet_commitment_info,
         &ctx.accounts.payer.to_account_info(),
@@ -159,10 +156,10 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
 /// Creates a packet commitment PDA account manually.
 ///
 /// We use manual account creation instead of Anchor's `init` constraint because
-/// the sequence is computed at runtime using `calculate_namespaced_sequence`,
-/// which Anchor's IDL cannot capture in static seed derivation.
+/// the PDA includes the sender pubkey in its seeds.
 fn create_packet_commitment_account<'info>(
     source_client: &str,
+    sender: &Pubkey,
     sequence: u64,
     packet_commitment_info: &UncheckedAccount<'info>,
     payer: &AccountInfo<'info>,
@@ -172,6 +169,7 @@ fn create_packet_commitment_account<'info>(
         &[
             Commitment::PACKET_COMMITMENT_SEED,
             source_client.as_bytes(),
+            sender.as_ref(),
             &sequence.to_le_bytes(),
         ],
         &crate::ID,
@@ -189,6 +187,7 @@ fn create_packet_commitment_account<'info>(
     let signer_seeds: &[&[&[u8]]] = &[&[
         Commitment::PACKET_COMMITMENT_SEED,
         source_client.as_bytes(),
+        sender.as_ref(),
         &sequence_bytes,
         &[bump],
     ]];
@@ -207,7 +206,6 @@ fn create_packet_commitment_account<'info>(
         &crate::ID,
     )?;
 
-    // Initialize the commitment account data
     let mut data = packet_commitment_info.try_borrow_mut_data()?;
     data[0..8].copy_from_slice(Commitment::DISCRIMINATOR);
 

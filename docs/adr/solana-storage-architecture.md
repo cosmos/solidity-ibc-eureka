@@ -290,24 +290,25 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 ## Byte Encoding and Sequence Calculation
 
-### Namespaced Sequence Calculation
+### Per-Sender Sequence Counter
 
-Multiple IBC apps share one `ClientSequence` counter per client. To avoid collisions, each packet sequence is namespaced:
+Each sender has their own `ClientSequence` counter per client, eliminating race conditions where concurrent senders could invalidate each other's pre-derived PDAs.
 
+**PDA Seeds:**
 ```
-sequence = base_sequence * 10000 + SHA256(app_program_id || sender)[0..2] % 10000
+ClientSequence: [b"client_sequence", client_id, sender]
+PacketCommitment: [b"packet_commitment", client_id, sender, sequence]
 ```
 
-- `base_sequence` — on-chain counter, increments on each `send_packet`
-- suffix — deterministic per `(app, sender)` pair, gives each combination its own lane
+- `client_id` — IBC client identifier
+- `sender` — the payer's pubkey (32 bytes)
+- `sequence` — simple counter (u64, little-endian), starts at 0 for new senders
 
-**Why not use a timestamp?** The relayer needs to predict the sequence off-chain to derive PDAs (packet commitments, pending transfers). Timestamps are unknown until execution and would collide across apps in the same slot.
+**Why per-sender?** With a shared counter, sender A reads the counter off-chain and signs a transaction, but sender B's transaction lands first and increments the counter, causing sender A's transaction to fail. Per-sender counters isolate each sender's sequence space.
 
-The `IBCApp` account is required by `send_packet` both for authorization (verify caller's PDA) and to read `app_program_id` for the suffix. Downstream programs (e.g. IFT) pass it through via CPI.
+**Lazy creation**: The `ClientSequence` account is created on first send via `init_if_needed`. The sender pays rent.
 
-**Example** (suffix `1234`): base 1 → `11234`, base 2 → `21234`
-
-**Implementation**: `programs/solana/programs/ics26-router/src/utils/sequence.rs`
+**Relayer integration**: For `ack_packet` and `timeout_packet`, the relayer passes the original sender (from `SendPacketEvent`) to derive the correct packet commitment PDA.
 
 ### PDA Seed Encoding (Little-Endian)
 
@@ -329,9 +330,10 @@ IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
 
 ### Sequence Management
 
-- **Base sequence**: Stored in `ClientSequence` PDA, starts at 1 (per IBC spec)
-- **Increment**: Base sequence incremented atomically on each `send_packet`
-- **Type**: u64, allowing ~1.8 × 10^15 packets per `(client, app, sender)` triple
+- **Per-sender sequence**: Stored in `ClientSequence` PDA per `(client, sender)` pair
+- **Initial value**: 0 for new senders (account created lazily on first send)
+- **Increment**: Sequence incremented atomically on each `send_packet`
+- **Type**: u64, allowing ~1.8 × 10^19 packets per `(client, sender)` pair
 
 ## Configuration Constants
 

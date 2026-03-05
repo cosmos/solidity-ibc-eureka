@@ -38,10 +38,10 @@ pub struct SendCall<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
-    /// Packet sequence counter for the source client, incremented by the router.
+    /// Per-(client, sender) sequence counter; created by router if needed.
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes(), payer.key().as_ref()],
         bump,
         seeds::program = router_program
     )]

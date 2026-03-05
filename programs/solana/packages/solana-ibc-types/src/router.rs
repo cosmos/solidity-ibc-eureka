@@ -164,6 +164,8 @@ pub struct MsgAckPacket {
     pub payloads: Vec<PayloadMetadata>,
     pub acknowledgement: Vec<u8>, // Not chunked
     pub proof: ProofMetadata,
+    /// Original sender of the packet (for PDA derivation)
+    pub sender: Pubkey,
 }
 
 /// Message for timing out a packet
@@ -172,6 +174,8 @@ pub struct MsgTimeoutPacket {
     pub packet: Packet,
     pub payloads: Vec<PayloadMetadata>,
     pub proof: ProofMetadata,
+    /// Original sender of the packet (for PDA derivation)
+    pub sender: Pubkey,
 }
 
 /// Message for uploading chunks
@@ -254,9 +258,12 @@ pub struct ClientSequence;
 impl ClientSequence {
     pub const SEED: &'static [u8] = b"client_sequence";
 
-    /// Get client sequence PDA
-    pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
+    /// Get client sequence PDA for a specific sender
+    pub fn pda(client_id: &str, sender: &Pubkey, program_id: Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[Self::SEED, client_id.as_bytes(), sender.as_ref()],
+            &program_id,
+        )
     }
 }
 
@@ -271,6 +278,7 @@ impl Commitment {
     /// Get packet commitment PDA
     pub fn packet_commitment_pda(
         client_id: &str,
+        sender: &Pubkey,
         sequence: u64,
         program_id: Pubkey,
     ) -> (Pubkey, u8) {
@@ -278,6 +286,7 @@ impl Commitment {
             &[
                 Self::PACKET_COMMITMENT_SEED,
                 client_id.as_bytes(),
+                sender.as_ref(),
                 &sequence.to_le_bytes(),
             ],
             &program_id,

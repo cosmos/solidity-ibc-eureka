@@ -59,10 +59,10 @@ pub struct SendPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Per-client sequence counter (incremented by the router).
+    /// Per-(client, sender) sequence counter (incremented by the router).
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [ClientSequence::SEED, msg.source_client.as_bytes(), user.key().as_ref()],
         bump,
         seeds::program = router_program
     )]
