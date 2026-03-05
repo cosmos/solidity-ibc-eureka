@@ -1206,8 +1206,12 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_RevokeMintAuthority() {
 		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, s.IFTAppMintState, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentConfirmed,
 		})
-		s.Require().NoError(err)
-		s.Require().Nil(accountInfo.Value, "IFTAppMintState should be closed after revoke")
+		// Closed accounts may return "not found" error or nil Value depending on RPC client
+		if err != nil {
+			s.Require().Contains(err.Error(), "not found", "expected 'not found' for closed account, got: %v", err)
+		} else {
+			s.Require().Nil(accountInfo.Value, "IFTAppMintState should be closed after revoke")
+		}
 	}))
 
 	s.Require().True(s.Run("Verify new authority can mint tokens", func() {
