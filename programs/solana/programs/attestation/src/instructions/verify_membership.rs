@@ -75,10 +75,7 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
         .find(|p| p.path == path_hash)
         .ok_or_else(|| error!(ErrorCode::NotMember))?;
 
-    require!(
-        packet.commitment != [0u8; 32],
-        ErrorCode::CommitmentMismatch
-    );
+    require!(packet.commitment != [0u8; 32], ErrorCode::ZeroCommitment);
 
     let value_hash: [u8; 32] = msg
         .value
@@ -553,7 +550,7 @@ mod tests {
             path,
             zero_commitment.to_vec(),
         );
-        expect_error(&test_accounts, msg, ErrorCode::CommitmentMismatch);
+        expect_error(&test_accounts, msg, ErrorCode::ZeroCommitment);
     }
 
     #[test]

@@ -47,6 +47,9 @@ pub enum ErrorCode {
     #[msg("Value does not match attested commitment")]
     CommitmentMismatch,
 
+    #[msg("Packet commitment is empty")]
+    ZeroCommitment,
+
     #[msg("Expected zero commitment for non-membership")]
     NonZeroCommitment,
 
