@@ -530,6 +530,7 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
         access_manager: access_manager::ID,
+        paused: false,
         _reserved: [0; 256],
     };
     let mut data = ics26_router::state::RouterState::DISCRIMINATOR.to_vec();
