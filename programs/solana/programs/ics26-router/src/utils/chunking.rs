@@ -333,54 +333,49 @@ pub fn validate_and_reconstruct_packet(
 ) -> Result<solana_ibc_types::Packet> {
     let has_chunked_metadata = params.payloads_metadata.iter().any(|p| p.total_chunks > 0);
 
-    let payloads = match &params.packet.payloads {
-        Some(inline) => {
-            // Inline mode: must not also have chunked metadata
-            require!(!has_chunked_metadata, RouterError::InvalidPayloadCount);
+    let payloads = if let Some(inline) = &params.packet.payloads {
+        // Inline mode: must not also have chunked metadata
+        require!(!has_chunked_metadata, RouterError::InvalidPayloadCount);
 
-            // Validate metadata matches inline payloads when present
-            if !params.payloads_metadata.is_empty() {
+        if !params.payloads_metadata.is_empty() {
+            require!(
+                inline.len() == params.payloads_metadata.len(),
+                RouterError::InvalidPayloadCount
+            );
+            for (payload, metadata) in inline.iter().zip(params.payloads_metadata.iter()) {
                 require!(
-                    inline.len() == params.payloads_metadata.len(),
-                    RouterError::InvalidPayloadCount
+                    payload.source_port == metadata.source_port
+                        && payload.dest_port == metadata.dest_port
+                        && payload.version == metadata.version
+                        && payload.encoding == metadata.encoding,
+                    RouterError::PayloadMetadataMismatch
                 );
-                for (payload, metadata) in inline.iter().zip(params.payloads_metadata.iter()) {
-                    require!(
-                        payload.source_port == metadata.source_port
-                            && payload.dest_port == metadata.dest_port
-                            && payload.version == metadata.version
-                            && payload.encoding == metadata.encoding,
-                        RouterError::PayloadMetadataMismatch
-                    );
-                }
             }
-            inline.clone()
         }
-        None => {
-            // Chunked mode: Assemble payloads from chunks
-            let payload_data_vec = assemble_multiple_payloads(
-                params.remaining_accounts,
-                params.relayer,
-                params.submitter,
-                params.client_id,
-                params.packet.sequence,
-                params.payloads_metadata,
-            )?;
+        inline.clone()
+    } else {
+        let payload_data_vec = assemble_multiple_payloads(
+            params.remaining_accounts,
+            params.relayer,
+            params.submitter,
+            params.client_id,
+            params.packet.sequence,
+            params.payloads_metadata,
+        )?;
 
-            // Reconstruct the full payloads
-            let mut assembled_payloads = Vec::new();
-            for (i, metadata) in params.payloads_metadata.iter().enumerate() {
-                let payload = solana_ibc_types::Payload {
-                    source_port: metadata.source_port.clone(),
-                    dest_port: metadata.dest_port.clone(),
-                    version: metadata.version.clone(),
-                    encoding: metadata.encoding.clone(),
-                    value: payload_data_vec[i].clone(),
-                };
-                assembled_payloads.push(payload);
-            }
-            assembled_payloads
+        // Reconstruct the full payloads
+        let mut assembled_payloads = Vec::new();
+        for (i, metadata) in params.payloads_metadata.iter().enumerate() {
+            let payload = solana_ibc_types::Payload {
+                source_port: metadata.source_port.clone(),
+                dest_port: metadata.dest_port.clone(),
+                version: metadata.version.clone(),
+                encoding: metadata.encoding.clone(),
+                value: payload_data_vec[i].clone(),
+            };
+            assembled_payloads.push(payload);
         }
+        assembled_payloads
     };
 
     // Return reconstructed packet
