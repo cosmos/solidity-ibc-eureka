@@ -197,7 +197,6 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 10 "consensus_state": Read-only, Non-signer, Required
 		// Consensus state account owned by the light client program (for expiry check).
-		// light client program itself validates it.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
