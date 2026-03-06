@@ -337,20 +337,18 @@ pub fn validate_and_reconstruct_packet(
         // Inline mode: must not also have chunked metadata
         require!(!has_chunked_metadata, RouterError::InvalidPayloadCount);
 
-        if !params.payloads_metadata.is_empty() {
+        require!(
+            inline.len() == params.payloads_metadata.len(),
+            RouterError::InvalidPayloadCount
+        );
+        for (payload, metadata) in inline.iter().zip(params.payloads_metadata.iter()) {
             require!(
-                inline.len() == params.payloads_metadata.len(),
-                RouterError::InvalidPayloadCount
+                payload.source_port == metadata.source_port
+                    && payload.dest_port == metadata.dest_port
+                    && payload.version == metadata.version
+                    && payload.encoding == metadata.encoding,
+                RouterError::PayloadMetadataMismatch
             );
-            for (payload, metadata) in inline.iter().zip(params.payloads_metadata.iter()) {
-                require!(
-                    payload.source_port == metadata.source_port
-                        && payload.dest_port == metadata.dest_port
-                        && payload.version == metadata.version
-                        && payload.encoding == metadata.encoding,
-                    RouterError::PayloadMetadataMismatch
-                );
-            }
         }
         inline.clone()
     } else {
