@@ -25,7 +25,6 @@ use crate::proto::{GmpPacketData, Protobuf};
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
 const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
-const IFT_BRIDGE_SEED: &[u8] = b"ift_bridge";
 const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
 const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
@@ -202,11 +201,6 @@ fn build_finalize_transfer_ix(
     let (app_mint_state_pda, _) =
         Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
 
-    let (ift_bridge_pda, _) = Pubkey::find_program_address(
-        &[IFT_BRIDGE_SEED, mint.as_ref(), client_id.as_bytes()],
-        &ift_program_id,
-    );
-
     let (pending_transfer_pda, _) = Pubkey::find_program_address(
         &[
             PENDING_TRANSFER_SEED,
@@ -236,7 +230,6 @@ fn build_finalize_transfer_ix(
     let accounts = vec![
         AccountMeta::new_readonly(app_state_pda, false),
         AccountMeta::new(app_mint_state_pda, false),
-        AccountMeta::new_readonly(ift_bridge_pda, false),
         AccountMeta::new(pending_transfer_pda, false),
         AccountMeta::new_readonly(gmp_result_pda, false),
         AccountMeta::new(mint, false),
