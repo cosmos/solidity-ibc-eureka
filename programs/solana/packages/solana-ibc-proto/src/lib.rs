@@ -141,8 +141,8 @@ impl From<&SolanaAccountMeta> for anchor_lang::prelude::AccountMeta {
     }
 }
 
-/// Maximum number of accounts allowed in a GMP Solana payload
-pub const MAX_GMP_ACCOUNTS: usize = 32;
+/// Maximum number of accounts allowed in a [`GmpSolanaPayload`]
+pub const MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS: usize = 32;
 
 /// Domain type for GMP Solana payload with type-safe fields
 #[derive(Debug, Clone)]
@@ -188,7 +188,7 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
             return Err(GmpValidationError::EmptyPayload);
         }
 
-        if raw.accounts.len() > MAX_GMP_ACCOUNTS {
+        if raw.accounts.len() > MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS {
             return Err(GmpValidationError::TooManyAccounts);
         }
 
@@ -237,7 +237,7 @@ mod tests {
     fn try_from_rejects_too_many_accounts() {
         let raw = RawGmpSolanaPayload {
             data: vec![1],
-            accounts: vec![valid_account(); MAX_GMP_ACCOUNTS + 1],
+            accounts: vec![valid_account(); MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS + 1],
             prefund_lamports: 0,
         };
         assert_eq!(
@@ -250,7 +250,7 @@ mod tests {
     fn try_from_accepts_max_accounts() {
         let raw = RawGmpSolanaPayload {
             data: vec![1],
-            accounts: vec![valid_account(); MAX_GMP_ACCOUNTS],
+            accounts: vec![valid_account(); MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS],
             prefund_lamports: 0,
         };
         assert!(GmpSolanaPayload::try_from(raw).is_ok());
