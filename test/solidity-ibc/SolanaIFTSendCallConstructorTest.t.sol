@@ -52,15 +52,15 @@ contract SolanaIFTSendCallConstructorTest is Test {
     function test_constructMintCall_outputFormat() public view {
         bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, 1_000_000);
 
-        (bytes memory packedAccounts, bytes memory instructionData, uint32 payerPosition) =
+        (bytes memory packedAccounts, bytes memory instructionData, uint32 prefundLamports) =
             abi.decode(result, (bytes, bytes, uint32));
 
-        // 11 accounts * 34 bytes each
-        assertEq(packedAccounts.length, 11 * PACKED_ACCOUNT_SIZE);
+        // 12 accounts * 34 bytes each
+        assertEq(packedAccounts.length, 12 * PACKED_ACCOUNT_SIZE);
         // discriminator(8) + wallet(32) + amount_le(8) = 48
         assertEq(instructionData.length, 48);
-        // Payer injected at position 8
-        assertEq(payerPosition, 8);
+        // Lamports to pre-fund GMP PDA for ATA creation rent
+        assertEq(prefundLamports, 3_000_000);
     }
 
     function test_constructMintCall_packedAccounts() public view {
@@ -74,10 +74,11 @@ contract SolanaIFTSendCallConstructorTest is Test {
         _assertAccount(packedAccounts, 4, MINT_AUTHORITY, false, false);
         _assertAccount(packedAccounts, 5, ATA, false, true); // receiver token account
         _assertAccount(packedAccounts, 6, WALLET, false, false); // receiver owner
-        _assertAccount(packedAccounts, 7, GMP_ACCOUNT, true, false); // signer
-        _assertAccount(packedAccounts, 8, TOKEN_PROGRAM, false, false);
-        _assertAccount(packedAccounts, 9, ASSOCIATED_TOKEN_PROGRAM, false, false);
-        _assertAccount(packedAccounts, 10, SYSTEM_PROGRAM, false, false);
+        _assertAccount(packedAccounts, 7, GMP_ACCOUNT, true, false); // gmp_account signer
+        _assertAccount(packedAccounts, 8, GMP_ACCOUNT, true, true); // payer (signer + writable)
+        _assertAccount(packedAccounts, 9, TOKEN_PROGRAM, false, false);
+        _assertAccount(packedAccounts, 10, ASSOCIATED_TOKEN_PROGRAM, false, false);
+        _assertAccount(packedAccounts, 11, SYSTEM_PROGRAM, false, false);
     }
 
     function test_constructMintCall_instructionData() public view {

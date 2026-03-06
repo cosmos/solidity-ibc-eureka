@@ -28,8 +28,8 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @notice Anchor discriminator for `ift_mint`: sha256("global:ift_mint")[0:8]
     bytes8 private constant IFT_MINT_DISCRIMINATOR = 0x9cc9d99072afaa53;
 
-    /// @notice Position where the payer account is injected by GMP's `on_recv_packet` (0-indexed)
-    uint32 private constant PAYER_POSITION = 8;
+    /// @notice Lamports to pre-fund the GMP PDA for ATA creation rent (~2,039,280 lamports minimum)
+    uint32 private constant PREFUND_LAMPORTS = 3_000_000;
 
     /// @notice Expected length of receiver: "0x" + 64 hex (wallet) + 64 hex (ATA) = 130 chars
     uint256 private constant SOLANA_RECEIVER_HEX_LENGTH = 130;
@@ -37,8 +37,8 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @notice Each packed account entry is 34 bytes: 32 (pubkey) + 1 (is_signer) + 1 (is_writable)
     uint256 private constant PACKED_ACCOUNT_SIZE = 34;
 
-    /// @notice Number of accounts in the payload (excluding payer, which is injected)
-    uint256 private constant NUM_ACCOUNTS = 11;
+    /// @notice Number of accounts in the payload (GMP PDA appears twice: as gmp_account and payer)
+    uint256 private constant NUM_ACCOUNTS = 12;
 
     // -- Static PDAs (set at deployment) --
 
@@ -90,7 +90,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
     /// @inheritdoc IIFTSendCallConstructor
     /// @dev Receiver format: "0x" + wallet_hex(64) + ata_hex(64) = 130 chars.
-    ///      Returns `abi.encode(packedAccounts, instructionData, payerPosition)`.
+    ///      Returns `abi.encode(packedAccounts, instructionData, prefundLamports)`.
     function constructMintCall(string calldata receiver, uint256 amount) external view returns (bytes memory) {
         require(bytes(receiver).length == SOLANA_RECEIVER_HEX_LENGTH, SolanaIFTInvalidReceiver(receiver));
 
@@ -99,7 +99,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         bytes memory packedAccounts = _buildPackedAccounts(wallet, ata);
         bytes memory instructionData = _buildInstructionData(wallet, amount);
 
-        return abi.encode(packedAccounts, instructionData, PAYER_POSITION);
+        return abi.encode(packedAccounts, instructionData, PREFUND_LAMPORTS);
     }
 
     /// @inheritdoc ERC165
@@ -146,6 +146,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
         offset = _packAccount(packed, offset, ata, false, true);
         offset = _packAccount(packed, offset, wallet, false, false);
         offset = _packAccount(packed, offset, GMP_ACCOUNT, true, false);
+        offset = _packAccount(packed, offset, GMP_ACCOUNT, true, true);
         offset = _packAccount(packed, offset, TOKEN_PROGRAM, false, false);
         offset = _packAccount(packed, offset, ASSOCIATED_TOKEN_PROGRAM, false, false);
         _packAccount(packed, offset, SYSTEM_PROGRAM, false, false);

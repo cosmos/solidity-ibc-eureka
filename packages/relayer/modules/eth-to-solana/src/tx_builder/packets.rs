@@ -794,6 +794,42 @@ impl super::SolanaTxBuilder {
         }
     }
 
+    /// Build a `system_program::transfer` to pre-fund the GMP PDA when the
+    /// packet carries a non-zero `prefund_lamports` value.
+    ///
+    /// Returns `None` for non-GMP packets or when `prefund_lamports` is zero.
+    fn build_gmp_prefund_instruction(
+        &self,
+        msg: &MsgRecvPacket,
+        payload_data: &[Vec<u8>],
+    ) -> Result<Option<Instruction>> {
+        let payload_info = extract_recv_payload_info(msg, payload_data)?;
+        let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
+
+        let Some((gmp_pda, prefund_lamports)) = gmp::extract_gmp_prefund_lamports(
+            payload_info.dest_port,
+            payload_info.encoding,
+            payload_info.value,
+            &msg.packet.dest_client,
+            ibc_app_program_id,
+        )?
+        else {
+            return Ok(None);
+        };
+
+        let capped = prefund_lamports.min(gmp::MAX_PREFUND_LAMPORTS);
+        if capped == 0 {
+            return Ok(None);
+        }
+
+        tracing::info!("GMP PDA {gmp_pda}: pre-funding {capped} lamports");
+        Ok(Some(solana_sdk::system_instruction::transfer(
+            &self.fee_payer,
+            &gmp_pda,
+            capped,
+        )))
+    }
+
     // -----------------------------------------------------------------------
     // High-level chunked packet builders (called from attested.rs)
     // -----------------------------------------------------------------------
@@ -825,6 +861,7 @@ impl super::SolanaTxBuilder {
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
         let mut instructions = Self::extend_compute_ix();
+        instructions.extend(self.build_gmp_prefund_instruction(msg, payload_data)?);
         instructions.push(recv_instruction);
 
         let recv_tx = self.create_tx_bytes(&instructions)?;

@@ -19,7 +19,7 @@ use solana_ibc_types::{
 
 use super::transaction::derive_alt_address;
 
-use crate::{constants::MAX_PREFUND_LAMPORTS, gmp, ift};
+use crate::{gmp, gmp::MAX_PREFUND_LAMPORTS, ift};
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
