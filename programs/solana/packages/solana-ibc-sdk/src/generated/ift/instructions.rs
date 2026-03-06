@@ -752,7 +752,6 @@ impl IftMintBuilder {
 
 /// Input accounts for the `finalize_transfer` instruction.
 pub struct FinalizeTransferAccounts {
-    pub ift_bridge: Pubkey,
     pub pending_transfer: Pubkey,
     pub gmp_result: Pubkey,
     pub mint: Pubkey,
@@ -766,7 +765,7 @@ pub struct FinalizeTransfer;
 
 impl FinalizeTransfer {
     /// Total number of accounts (including fixed-address accounts).
-    pub const COUNT: usize = 12;
+    pub const COUNT: usize = 11;
 
     /// Anchor instruction discriminator.
     pub const DISCRIMINATOR: [u8; 8] = [124, 126, 103, 188, 144, 65, 135, 51];
@@ -784,14 +783,6 @@ impl FinalizeTransfer {
     #[must_use]
     pub fn mint_authority_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"ift_mint_authority", mint.as_ref()], program_id)
-    }
-
-    #[must_use]
-    pub fn ift_bridge_pda(mint: &Pubkey, client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(
-            &[b"ift_bridge", mint.as_ref(), client_id.as_bytes()],
-            program_id,
-        )
     }
 
     #[must_use]
@@ -878,7 +869,6 @@ impl FinalizeTransferBuilder {
         let mut account_metas = vec![
             AccountMeta::new_readonly(app_state, false),
             AccountMeta::new(app_mint_state, false),
-            AccountMeta::new_readonly(accounts.ift_bridge, false),
             AccountMeta::new(accounts.pending_transfer, false),
             AccountMeta::new_readonly(accounts.gmp_result, false),
             AccountMeta::new(accounts.mint, false),

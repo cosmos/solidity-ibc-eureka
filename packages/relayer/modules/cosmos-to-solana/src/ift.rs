@@ -156,7 +156,6 @@ fn build_finalize_transfer_ix(
 ) -> Instruction {
     let mint = pending_transfer.mint;
 
-    let (ift_bridge_pda, _) = FinalizeTransfer::ift_bridge_pda(&mint, client_id, &ift_program_id);
     let (pending_transfer_pda, _) =
         FinalizeTransfer::pending_transfer_pda(&mint, client_id, sequence, &ift_program_id);
     let (gmp_result_pda, _) =
@@ -170,7 +169,6 @@ fn build_finalize_transfer_ix(
 
     FinalizeTransfer::builder(&ift_program_id)
         .accounts(FinalizeTransferAccounts {
-            ift_bridge: ift_bridge_pda,
             pending_transfer: pending_transfer_pda,
             gmp_result: gmp_result_pda,
             mint,
