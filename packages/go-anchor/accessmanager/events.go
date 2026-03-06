@@ -15,13 +15,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
-	case Event_AccessManagerEventsProgramExtendedEvent:
-		value := new(AccessManagerEventsProgramExtendedEvent)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsProgramExtendedEvent: %w", err)
-		}
-		return value, nil
 	case Event_AccessManagerEventsProgramUpgradedEvent:
 		value := new(AccessManagerEventsProgramUpgradedEvent)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -53,23 +46,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
-}
-
-func ParseEvent_AccessManagerEventsProgramExtendedEvent(eventData []byte) (*AccessManagerEventsProgramExtendedEvent, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_AccessManagerEventsProgramExtendedEvent {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_AccessManagerEventsProgramExtendedEvent, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(AccessManagerEventsProgramExtendedEvent)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsProgramExtendedEvent: %w", err)
-	}
-	return event, nil
 }
 
 func ParseEvent_AccessManagerEventsProgramUpgradedEvent(eventData []byte) (*AccessManagerEventsProgramUpgradedEvent, error) {
