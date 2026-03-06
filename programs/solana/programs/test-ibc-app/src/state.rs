@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 pub use solana_ibc_types::{
     IBCAppError, IBCAppState, OnAcknowledgementPacketMsg, OnRecvPacketMsg, OnTimeoutPacketMsg,
+    MAX_CLIENT_ID_LENGTH,
 };
 
 /// Test IBC App state
@@ -28,7 +29,7 @@ impl TestIbcAppState {
 #[derive(InitSpace)]
 pub struct EscrowState {
     /// Client ID this escrow is for
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
     /// Total amount currently held in escrow (in lamports)
     pub total_escrowed: u64,
