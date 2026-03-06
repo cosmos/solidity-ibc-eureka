@@ -86,6 +86,7 @@ build-08-wasm-eth:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: 1.93.0
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 

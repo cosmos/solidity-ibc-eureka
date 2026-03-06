@@ -31,12 +31,3 @@ pub struct WhitelistedProgramsUpdatedEvent {
     pub new_programs: Vec<Pubkey>,
     pub updated_by: Pubkey,
 }
-
-#[event]
-#[derive(Debug, Clone)]
-pub struct ProgramExtendedEvent {
-    pub program: Pubkey,
-    pub authority: Pubkey,
-    pub additional_bytes: u32,
-    pub timestamp: i64,
-}
