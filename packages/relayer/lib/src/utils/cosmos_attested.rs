@@ -7,13 +7,7 @@ use crate::utils::attestor::{
     collect_send_and_ack_packets_with_height, collect_timeout_packets, fetch_attestations,
 };
 use crate::utils::{cosmos, wait_for_condition, RelayEventsParams};
-use alloy::primitives::Address as AttestorAddress;
 use anyhow::Result;
-use attestor_light_client::{
-    client_state::ClientState as WasmAttestorClientState,
-    consensus_state::ConsensusState as WasmAttestorConsensusState, header::Header,
-    membership::MembershipProof,
-};
 use ibc_proto_eureka::cosmos::tx::v1beta1::TxBody;
 use ibc_proto_eureka::{
     google::protobuf::Any,
@@ -22,21 +16,14 @@ use ibc_proto_eureka::{
             channel::v2::{MsgAcknowledgement, MsgRecvPacket, MsgTimeout},
             client::v1::{Height, MsgCreateClient, MsgUpdateClient},
         },
-        lightclients::{
-            attestations::v1::{
-                AttestationProof, ClientState as IbcGoAttestorClientState,
-                ConsensusState as IbcGoAttestorConsensusState,
-            },
-            wasm::v1::{
-                ClientMessage, ClientState as WasmClientState, ConsensusState as WasmConsensusState,
-            },
+        lightclients::attestations::v1::{
+            AttestationProof, ClientState as IbcGoAttestorClientState,
+            ConsensusState as IbcGoAttestorConsensusState,
         },
     },
 };
 use prost::Message;
 
-/// Parameter key for wasm light client checksum (empty for native attestor).
-pub const PARAM_CHECKSUM_HEX: &str = "checksum_hex";
 /// Parameter key for attestor addresses.
 pub const PARAM_ATTESTOR_ADDRESSES: &str = "attestor_addresses";
 /// Parameter key for minimum required signatures.
@@ -46,115 +33,43 @@ pub const PARAM_HEIGHT: &str = "height";
 /// Parameter key for timestamp.
 pub const PARAM_TIMESTAMP: &str = "timestamp";
 
-/// Client ID prefix for native ibc-go attestations light client.
-pub const NATIVE_ATTESTOR_CLIENT_PREFIX: &str = "attestations-";
-
 /// Nanoseconds per second for timestamp conversion.
 pub const NANOS_PER_SECOND: u64 = 1_000_000_000;
 
-/// Attestor client type based on the client ID.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum AttestorClientType {
-    /// Native ibc-go attestations light client.
-    Native,
-    /// Wasm-based attestor light client.
-    Wasm,
-}
-
-/// Determines the attestor client type based on the client ID prefix.
-#[must_use]
-pub fn determine_attestor_client_type(client_id: &str) -> AttestorClientType {
-    if client_id.starts_with(NATIVE_ATTESTOR_CLIENT_PREFIX) {
-        AttestorClientType::Native
-    } else {
-        AttestorClientType::Wasm
-    }
-}
-
-/// Trait for building attestor proofs in different formats.
+/// Build the client message `Any` for `MsgUpdateClient`.
 ///
-/// This trait abstracts the proof format differences between native ibc-go attestor
-/// and wasm attestor light clients.
-pub trait AttestorProofBuilder {
-    /// Build membership proof bytes from attested data and signatures.
-    ///
-    /// # Errors
-    /// Returns an error if proof serialization fails.
-    fn build_membership_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Result<Vec<u8>>;
-
-    /// Build the client message `Any` for `MsgUpdateClient`.
-    ///
-    /// # Errors
-    /// Returns an error if message encoding fails.
-    fn build_client_message(
-        attested_data: Vec<u8>,
-        signatures: Vec<Vec<u8>>,
-        height: u64,
-        timestamp: u64,
-    ) -> Result<Any>;
+/// # Errors
+/// Returns an error if message encoding fails.
+fn build_client_message(
+    attested_data: Vec<u8>,
+    signatures: Vec<Vec<u8>>,
+    _height: u64,
+    _timestamp: u64,
+) -> Result<Any> {
+    let attestation_proof = AttestationProof {
+        attestation_data: attested_data,
+        signatures,
+    };
+    Any::from_msg(&attestation_proof).map_err(Into::into)
 }
 
-/// Proof builder for native ibc-go attestor light client.
+/// Build membership proof bytes from attested data and signatures.
 ///
-/// Uses protobuf-encoded `AttestationProof` for both membership proofs and client messages.
-pub struct NativeAttestorProofBuilder;
-
-impl AttestorProofBuilder for NativeAttestorProofBuilder {
-    fn build_membership_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Result<Vec<u8>> {
-        let proof = AttestationProof {
-            attestation_data: attested_data,
-            signatures,
-        };
-        Ok(proof.encode_to_vec())
+/// # Errors
+/// Returns an error if proof serialization fails.
+fn build_membership_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Vec<u8> {
+    AttestationProof {
+        attestation_data: attested_data,
+        signatures,
     }
-
-    fn build_client_message(
-        attested_data: Vec<u8>,
-        signatures: Vec<Vec<u8>>,
-        _height: u64,
-        _timestamp: u64,
-    ) -> Result<Any> {
-        let attestation_proof = AttestationProof {
-            attestation_data: attested_data,
-            signatures,
-        };
-        Any::from_msg(&attestation_proof).map_err(Into::into)
-    }
-}
-
-/// Proof builder for wasm attestor light client.
-///
-/// Uses JSON-encoded `MembershipProof` for membership proofs and
-/// JSON-encoded `Header` wrapped in `ClientMessage` for client messages.
-pub struct WasmAttestorProofBuilder;
-
-impl AttestorProofBuilder for WasmAttestorProofBuilder {
-    fn build_membership_proof(attested_data: Vec<u8>, signatures: Vec<Vec<u8>>) -> Result<Vec<u8>> {
-        serde_json::to_vec(&MembershipProof {
-            attestation_data: attested_data,
-            signatures,
-        })
-        .map_err(Into::into)
-    }
-
-    fn build_client_message(
-        attested_data: Vec<u8>,
-        signatures: Vec<Vec<u8>>,
-        height: u64,
-        timestamp: u64,
-    ) -> Result<Any> {
-        let header = Header::new(height, timestamp, attested_data, signatures);
-        let header_bz = serde_json::to_vec(&header)
-            .map_err(|_| anyhow::anyhow!("header could not be serialized"))?;
-        Any::from_msg(&ClientMessage { data: header_bz }).map_err(Into::into)
-    }
+    .encode_to_vec()
 }
 
 /// Builds an `MsgUpdateClient` using the specified proof builder.
 ///
 /// # Errors
 /// Returns an error if message encoding fails.
-pub fn build_update_client_message<P: AttestorProofBuilder>(
+pub fn build_update_client_message(
     client_id: &str,
     signer: &str,
     attested_data: Vec<u8>,
@@ -162,7 +77,7 @@ pub fn build_update_client_message<P: AttestorProofBuilder>(
     height: u64,
     timestamp: u64,
 ) -> Result<MsgUpdateClient> {
-    let client_message = P::build_client_message(attested_data, signatures, height, timestamp)?;
+    let client_message = build_client_message(attested_data, signatures, height, timestamp)?;
     Ok(MsgUpdateClient {
         client_id: client_id.to_string(),
         client_message: Some(client_message),
@@ -175,7 +90,7 @@ pub fn build_update_client_message<P: AttestorProofBuilder>(
 /// # Errors
 /// Returns an error if proof serialization fails.
 #[allow(clippy::too_many_arguments)]
-pub fn inject_cosmos_attestor_proofs<P: AttestorProofBuilder>(
+pub fn inject_cosmos_attestor_proofs(
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
     timeout_msgs: &mut [MsgTimeout],
@@ -185,7 +100,7 @@ pub fn inject_cosmos_attestor_proofs<P: AttestorProofBuilder>(
     proof_height: u64,
 ) -> Result<()> {
     if let Some(send_attest) = send_attestation {
-        let proof = P::build_membership_proof(send_attest.attested_data, send_attest.signatures)?;
+        let proof = build_membership_proof(send_attest.attested_data, send_attest.signatures);
         for msg in recv_msgs.iter_mut() {
             msg.proof_commitment.clone_from(&proof);
             msg.proof_height = Some(Height {
@@ -196,7 +111,7 @@ pub fn inject_cosmos_attestor_proofs<P: AttestorProofBuilder>(
     }
 
     if let Some(ack_attest) = ack_attestation {
-        let proof = P::build_membership_proof(ack_attest.attested_data, ack_attest.signatures)?;
+        let proof = build_membership_proof(ack_attest.attested_data, ack_attest.signatures);
         for msg in ack_msgs.iter_mut() {
             msg.proof_acked.clone_from(&proof);
             msg.proof_height = Some(Height {
@@ -207,8 +122,7 @@ pub fn inject_cosmos_attestor_proofs<P: AttestorProofBuilder>(
     }
 
     if let Some(receipt_attest) = receipt_attestation {
-        let proof =
-            P::build_membership_proof(receipt_attest.attested_data, receipt_attest.signatures)?;
+        let proof = build_membership_proof(receipt_attest.attested_data, receipt_attest.signatures);
         for msg in timeout_msgs.iter_mut() {
             msg.proof_unreceived.clone_from(&proof);
             msg.proof_height = Some(Height {
@@ -265,62 +179,6 @@ pub fn build_ibc_go_attestor_create_client_msg(
     })
 }
 
-/// Builds a `MsgCreateClient` for wasm attestor light client.
-///
-/// # Arguments
-/// * `addrs_hex` - Comma or space separated attestor addresses (checksummed hex)
-/// * `min_required_sigs` - Minimum number of signatures required
-/// * `height` - Initial height
-/// * `timestamp` - Initial timestamp in seconds
-/// * `checksum_hex` - Wasm contract checksum (hex encoded)
-/// * `signer_address` - Cosmos signer address
-///
-/// # Errors
-/// Returns an error if address parsing or message encoding fails.
-pub fn build_wasm_attestor_create_client_msg(
-    addrs_hex: &str,
-    min_required_sigs: u8,
-    height: u64,
-    timestamp: u64,
-    checksum_hex: &str,
-    signer_address: &str,
-) -> Result<MsgCreateClient> {
-    tracing::info!("Creating wasm attestor light client at height {height}");
-
-    let checksum = alloy::hex::decode(checksum_hex)?;
-
-    let attestor_addresses: Vec<AttestorAddress> = addrs_hex
-        .split(&[',', ' '][..])
-        .filter(|s| !s.is_empty())
-        .map(|s| AttestorAddress::parse_checksummed(s, None))
-        .collect::<Result<_, _>>()
-        .map_err(|_| anyhow::anyhow!("failed to parse ethereum address list"))?;
-
-    let client_state = WasmAttestorClientState::new(attestor_addresses, min_required_sigs, height)?;
-    let consensus_state = WasmAttestorConsensusState { height, timestamp };
-
-    let client_state_bz = serde_json::to_vec(&client_state)?;
-    let consensus_state_bz = serde_json::to_vec(&consensus_state)?;
-
-    let wasm_client_state = WasmClientState {
-        data: client_state_bz,
-        checksum,
-        latest_height: Some(Height {
-            revision_number: 0,
-            revision_height: height,
-        }),
-    };
-    let wasm_consensus_state = WasmConsensusState {
-        data: consensus_state_bz,
-    };
-
-    Ok(MsgCreateClient {
-        client_state: Some(Any::from_msg(&wasm_client_state)?),
-        consensus_state: Some(Any::from_msg(&wasm_consensus_state)?),
-        signer: signer_address.to_string(),
-    })
-}
-
 /// Builds an update client transaction for an attested light client.
 ///
 /// Fetches the latest state attestation from the aggregator and builds
@@ -356,24 +214,14 @@ pub async fn build_attestor_update_client_tx(
     );
 
     let timestamp = state.timestamp.expect("state attestation must contain ts");
-    let update_msg = match determine_attestor_client_type(dst_client_id) {
-        AttestorClientType::Native => build_update_client_message::<NativeAttestorProofBuilder>(
-            dst_client_id,
-            signer_address,
-            state.attested_data,
-            state.signatures,
-            state.height,
-            timestamp,
-        )?,
-        AttestorClientType::Wasm => build_update_client_message::<WasmAttestorProofBuilder>(
-            dst_client_id,
-            signer_address,
-            state.attested_data,
-            state.signatures,
-            state.height,
-            timestamp,
-        )?,
-    };
+    let update_msg = build_update_client_message(
+        dst_client_id,
+        signer_address,
+        state.attested_data,
+        state.signatures,
+        state.height,
+        timestamp,
+    )?;
 
     tracing::info!(
         "Built MsgUpdateClient for client {} at height {}",
@@ -391,19 +239,12 @@ pub async fn build_attestor_update_client_tx(
 
 /// Builds an attestor `MsgCreateClient` from parameters.
 ///
-/// Automatically selects between native ibc-go attestor and wasm attestor based on
-/// whether `checksum_hex` is provided.
-///
 /// # Errors
 /// Returns an error if required parameters are missing or message encoding fails.
 pub fn build_attestor_create_client_msg<S: std::hash::BuildHasher>(
     parameters: &std::collections::HashMap<String, String, S>,
     signer_address: &str,
 ) -> Result<MsgCreateClient> {
-    let checksum_hex = parameters
-        .get(PARAM_CHECKSUM_HEX)
-        .map_or("", String::as_str);
-
     let height: u64 = parameters
         .get(PARAM_HEIGHT)
         .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PARAM_HEIGHT}` parameter")))?
@@ -418,38 +259,18 @@ pub fn build_attestor_create_client_msg<S: std::hash::BuildHasher>(
         anyhow::anyhow!(format!("Missing `{PARAM_ATTESTOR_ADDRESSES}` parameter"))
     })?;
 
-    if checksum_hex.is_empty() {
-        let min_required_sigs: u32 = parameters
-            .get(PARAM_MIN_REQUIRED_SIGS)
-            .ok_or_else(|| {
-                anyhow::anyhow!(format!("Missing `{PARAM_MIN_REQUIRED_SIGS}` parameter"))
-            })?
-            .parse()?;
+    let min_required_sigs: u32 = parameters
+        .get(PARAM_MIN_REQUIRED_SIGS)
+        .ok_or_else(|| anyhow::anyhow!(format!("Missing `{PARAM_MIN_REQUIRED_SIGS}` parameter")))?
+        .parse()?;
 
-        build_ibc_go_attestor_create_client_msg(
-            addrs_hex,
-            min_required_sigs,
-            height,
-            timestamp,
-            signer_address,
-        )
-    } else {
-        let min_required_sigs: u8 = parameters
-            .get(PARAM_MIN_REQUIRED_SIGS)
-            .ok_or_else(|| {
-                anyhow::anyhow!(format!("Missing `{PARAM_MIN_REQUIRED_SIGS}` parameter"))
-            })?
-            .parse()?;
-
-        build_wasm_attestor_create_client_msg(
-            addrs_hex,
-            min_required_sigs,
-            height,
-            timestamp,
-            checksum_hex,
-            signer_address,
-        )
-    }
+    build_ibc_go_attestor_create_client_msg(
+        addrs_hex,
+        min_required_sigs,
+        height,
+        timestamp,
+        signer_address,
+    )
 }
 
 /// Builds an attestor create client transaction.
@@ -492,28 +313,11 @@ pub async fn build_attestor_relay_events_tx(
     params: RelayEventsParams,
     signer_address: &str,
 ) -> Result<Vec<u8>> {
-    match determine_attestor_client_type(&params.dst_client_id) {
-        AttestorClientType::Native => {
-            build_attestor_relay_events_tx_with::<NativeAttestorProofBuilder>(
-                aggregator,
-                params,
-                signer_address,
-            )
-            .await
-        }
-        AttestorClientType::Wasm => {
-            build_attestor_relay_events_tx_with::<WasmAttestorProofBuilder>(
-                aggregator,
-                params,
-                signer_address,
-            )
-            .await
-        }
-    }
+    build_attestor_relay_events_tx_with(aggregator, params, signer_address).await
 }
 
 #[allow(clippy::too_many_lines)]
-async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>(
+async fn build_attestor_relay_events_tx_with(
     aggregator: &Aggregator,
     params: RelayEventsParams,
     signer_address: &str,
@@ -578,7 +382,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
     );
 
     let timestamp = state.timestamp.expect("state attestation must contain ts");
-    let update_msg = build_update_client_message::<ProofBuilder>(
+    let update_msg = build_update_client_message(
         &params.dst_client_id,
         signer_address,
         state.attested_data,
@@ -610,7 +414,7 @@ async fn build_attestor_relay_events_tx_with<ProofBuilder: AttestorProofBuilder>
     tracing::debug!("Recv messages: #{}", recv_msgs.len());
     tracing::debug!("Ack messages: #{}", ack_msgs.len());
 
-    inject_cosmos_attestor_proofs::<ProofBuilder>(
+    inject_cosmos_attestor_proofs(
         &mut recv_msgs,
         &mut ack_msgs,
         &mut timeout_msgs,

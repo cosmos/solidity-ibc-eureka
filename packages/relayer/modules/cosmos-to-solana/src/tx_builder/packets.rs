@@ -10,7 +10,6 @@ use solana_sdk::{
 
 use crate::gmp;
 use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
-use solana_ibc_sdk::attestation::instructions as attestation_instructions;
 use solana_ibc_sdk::ics07_tendermint::instructions as ics07_tendermint_instructions;
 use solana_ibc_sdk::ics26_router::{
     accounts::IBCApp,
@@ -23,28 +22,24 @@ use solana_ibc_sdk::ics26_router::{
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 
-/// Derives client state and consensus state PDAs based on client type.
-fn derive_light_client_pdas(client_id: &str, height: u64, program_id: Pubkey) -> (Pubkey, Pubkey) {
-    use attestation_instructions as att;
-    use ics07_tendermint_instructions as tm;
-    use solana_ibc_constants::{client_type_from_id, CLIENT_TYPE_ATTESTATION};
-
-    if client_type_from_id(client_id) == Some(CLIENT_TYPE_ATTESTATION) {
-        let (cs, _) = att::Initialize::client_state_pda(&program_id);
-        let (cons, _) = att::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
-        (cs, cons)
-    } else {
-        let (cs, _) = tm::Initialize::client_state_account_pda(&program_id);
-        let (cons, _) = tm::VerifyMembership::consensus_state_at_height_pda(height, &program_id);
-        (cs, cons)
-    }
+/// Derives client state and consensus state PDAs which always use the same seeds across
+/// different light client implementations
+fn derive_light_client_pdas(height: u64, light_client_program_id: Pubkey) -> (Pubkey, Pubkey) {
+    let (cs, _) =
+        ics07_tendermint_instructions::Initialize::client_state_account_pda(&light_client_program_id);
+    let (cons, _) =
+        ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+            height,
+            &light_client_program_id,
+        );
+    (cs, cons)
 }
 
 /// Extracted payload info for recv packet processing.
-struct RecvPayloadInfo<'a> {
-    dest_port: &'a str,
-    encoding: &'a str,
-    value: &'a [u8],
+pub(super) struct RecvPayloadInfo<'a> {
+    pub dest_port: &'a str,
+    pub encoding: &'a str,
+    pub value: &'a [u8],
 }
 
 /// Extract `source_port` from either inline payloads or chunked metadata.
@@ -75,7 +70,7 @@ fn extract_source_port<'a>(
 }
 
 /// Extract payload info from either `packet.payloads` or metadata + `payload_data`.
-fn extract_recv_payload_info<'a>(
+pub(super) fn extract_recv_payload_info<'a>(
     msg: &'a MsgRecvPacket,
     payload_data: &'a [Vec<u8>],
 ) -> Result<RecvPayloadInfo<'a>> {
@@ -114,11 +109,8 @@ impl super::TxBuilder {
         let payload_info = extract_recv_payload_info(msg, payload_data)?;
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.dest_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.dest_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let ibc_app_program_id = self.resolve_port_program_id(payload_info.dest_port)?;
         let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
@@ -185,11 +177,8 @@ impl super::TxBuilder {
         let (app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program);
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.source_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
@@ -239,11 +228,8 @@ impl super::TxBuilder {
         let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);
 
         let light_client_program_id = self.resolve_client_program_id(&msg.packet.source_client)?;
-        let (client_state, consensus_state) = derive_light_client_pdas(
-            &msg.packet.source_client,
-            msg.proof.height,
-            light_client_program_id,
-        );
+        let (client_state, consensus_state) =
+            derive_light_client_pdas(msg.proof.height, light_client_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =

@@ -96,13 +96,11 @@ const (
 	EthTestnetType_None = "none"
 
 	// Dummy light client (for Eth verification on Cosmos)
-	EthWasmTypeDummy = "dummy"
+	EthLCOnCosmosTypeDummyWasm = "dummy"
 	// Full light client (for Eth verification on Cosmos)
-	EthWasmTypeFull = "full"
-	// Wasm attestor light client (for Eth verification on Cosmos) - uses 08-wasm
-	EthWasmTypeAttestorWasm = "attestor-wasm"
+	EthLCOnCosmosTypeFullWasm = "full"
 	// Native ibc-go attestor light client (for Eth verification on Cosmos) - uses attestations module
-	EthWasmTypeAttestorNative = "attestor-native"
+	EthLCOnCosmosTypeAttestorNative = "attestor-native"
 
 	// SP1 light client (for Cosmos verification on Ethereum)
 	CosmosLcTypeSp1 = "sp1"
@@ -125,7 +123,7 @@ const (
 	// otherwise, it will download the version from the github release with the given tag
 	EnvKeyE2EWasmLightClientTag = "E2E_WASM_LIGHT_CLIENT_TAG"
 	// EnvKeyEthLcOnCosmos is the environment variable name to configure the Ethereum light client
-	// deployed on Cosmos (dummy|full|attestor-wasm|attestor-native)
+	// deployed on Cosmos (dummy|full|attestor-native)
 	EnvKeyEthLcOnCosmos = "ETH_LC_ON_COSMOS"
 	// EnvKeyCosmosLcOnEth is the environment variable name to configure the Cosmos light client
 	// deployed on Ethereum (sp1|attestor). Defaults to sp1.

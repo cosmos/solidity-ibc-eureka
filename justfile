@@ -700,13 +700,6 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
-# Build and optimize the attestor wasm light client using `cosmwasm/optimizer`. Requires `docker` and `gzip`
-[group('build')]
-build-cw-ics08-wasm-attestor:
-	docker run --rm -v "$(pwd)":/code --mount type=volume,source="$(basename "$(pwd)")_cache",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.17.0 ./programs/cw-ics08-wasm-attestor
-	cp artifacts/cw_ics08_wasm_attestor.wasm e2e/interchaintestv8/wasm
-	gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_attestor.wasm -f
-
 # Build the relayer docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
@@ -731,7 +724,6 @@ lint:
 	just lint-go
 	just lint-buf
 	just lint-rust
-	just lint-solana
 
 # Lint the Solidity code using `forge fmt` and `bun:solhint`
 [group('lint')]
@@ -755,14 +747,14 @@ lint-buf:
 	@echo "Linting the Protobuf files..."
 	buf lint
 
-# Lint the Rust code using `cargo fmt` and `cargo clippy`
+# Lint the all the Rust code using `cargo fmt` and `cargo clippy`
 [group('lint')]
 lint-rust:
 	@echo "Linting the Rust code..."
 	cargo fmt --all -- --check
-	cargo clippy --all-targets --all-features -- -D warnings
-	cd programs/sp1-programs && cargo fmt --all -- --check
-	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets -- -D warnings
+	just lint-sp1
+	just lint-solana
 
 # Lint the Solana code using `cargo fmt` and `cargo clippy`
 [group('lint')]
@@ -771,6 +763,12 @@ lint-solana:
 	cd programs/solana && cargo fmt --all -- --check
 	cd programs/solana && cargo +nightly clippy --all-targets --all-features -- -D warnings
 
+# Lint the Solana code using `cargo fmt` and `cargo clippy`
+[group('lint')]
+lint-sp1:
+	@echo "Linting the SP1 programs..."
+	cd programs/sp1-programs && cargo fmt --all -- --check
+	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
 # Generate the (non-bytecode) ABI files for the contracts
 [group('generate')]

@@ -65,12 +65,12 @@ func (c *setupConfig) validate() error {
 	}
 
 	// Anvil cannot use full light client (no beacon chain to verify)
-	if c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthWasmTypeFull {
+	if c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthLCOnCosmosTypeFullWasm {
 		return fmt.Errorf("invalid config: ETH_TESTNET_TYPE=%s cannot use ETH_LC_ON_COSMOS=%s (Anvil doesn't have beacon chain)", ethTestnetType, ethLcOnCosmos)
 	}
 
 	// PoS testnets cannot use dummy light client (requires actual verification)
-	if !c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthWasmTypeDummy {
+	if !c.ethereum.isAnvilBased() && ethLcOnCosmos == testvalues.EthLCOnCosmosTypeDummyWasm {
 		return fmt.Errorf("invalid config: ETH_TESTNET_TYPE=%s cannot use ETH_LC_ON_COSMOS=%s (PoS requires actual verification)", ethTestnetType, ethLcOnCosmos)
 	}
 
