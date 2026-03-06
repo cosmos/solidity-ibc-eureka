@@ -44,7 +44,7 @@ impl TryFrom<AbiGmpSolanaPayload> for solana_ibc_proto::RawGmpSolanaPayload {
         Ok(Self {
             accounts,
             data: abi.instructionData.into(),
-            payer_position: Some(abi.payerPosition),
+            prefund_lamports: u64::from(abi.payerPosition),
         })
     }
 }
@@ -129,7 +129,7 @@ mod tests {
         assert!(!decoded.accounts[1].is_signer);
         assert!(decoded.accounts[1].is_writable);
         assert_eq!(decoded.data, instr_data);
-        assert_eq!(decoded.payer_position, Some(8));
+        assert_eq!(decoded.prefund_lamports, 8);
     }
 
     #[test]
@@ -146,7 +146,7 @@ mod tests {
 
         assert!(decoded.accounts.is_empty());
         assert_eq!(decoded.data, instr_data);
-        assert_eq!(decoded.payer_position, Some(0));
+        assert_eq!(decoded.prefund_lamports, 0);
     }
 
     #[test]

@@ -40,7 +40,7 @@ mod tests {
                 is_writable: false,
             }],
             data: vec![0xAA, 0xBB],
-            payer_position: Some(0),
+            prefund_lamports: 0,
         };
         let encoded = raw.encode_to_vec();
 
@@ -51,7 +51,7 @@ mod tests {
         assert!(decoded.accounts[0].is_signer);
         assert!(!decoded.accounts[0].is_writable);
         assert_eq!(decoded.data, vec![0xAA, 0xBB]);
-        assert_eq!(decoded.payer_position, Some(0));
+        assert_eq!(decoded.prefund_lamports, 0);
     }
 
     #[test]
@@ -79,7 +79,7 @@ mod tests {
         assert!(decoded.accounts[0].is_signer);
         assert!(!decoded.accounts[0].is_writable);
         assert_eq!(decoded.data, vec![0xCC, 0xDD]);
-        assert_eq!(decoded.payer_position, Some(0));
+        assert_eq!(decoded.prefund_lamports, 0);
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
         let raw = solana_ibc_proto::RawGmpSolanaPayload {
             accounts: vec![],
             data: vec![],
-            payer_position: None,
+            prefund_lamports: 0,
         };
         let encoded = raw.encode_to_vec();
 
