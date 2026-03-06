@@ -25,13 +25,13 @@ use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 /// Derives client state and consensus state PDAs which always use the same seeds across
 /// different light client implementations
 fn derive_light_client_pdas(height: u64, light_client_program_id: Pubkey) -> (Pubkey, Pubkey) {
-    let (cs, _) =
-        ics07_tendermint_instructions::Initialize::client_state_account_pda(&light_client_program_id);
-    let (cons, _) =
-        ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
-            height,
-            &light_client_program_id,
-        );
+    let (cs, _) = ics07_tendermint_instructions::Initialize::client_state_account_pda(
+        &light_client_program_id,
+    );
+    let (cons, _) = ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+        height,
+        &light_client_program_id,
+    );
     (cs, cons)
 }
 

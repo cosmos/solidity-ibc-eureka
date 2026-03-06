@@ -178,15 +178,10 @@ pub fn extract_gmp_prefund_lamports(
         return Ok(None);
     };
 
-    let client_id = ClientId::new(dest_client)
-        .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
+    let client_id =
+        ClientId::new(dest_client).map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
-    let gmp_account = GMPAccount::new(
-        client_id,
-        packet.sender,
-        packet.salt,
-        &ibc_app_program_id,
-    );
+    let gmp_account = GMPAccount::new(client_id, packet.sender, packet.salt, &ibc_app_program_id);
     let (gmp_pda, _) = gmp_account.pda();
 
     let solana_payload = GmpSolanaPayload::decode_vec(&packet.payload)
