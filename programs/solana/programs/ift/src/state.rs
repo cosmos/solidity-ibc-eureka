@@ -189,7 +189,7 @@ pub struct PendingTransfer {
     pub mint: Pubkey,
 
     /// Client ID the transfer was sent to
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
 
     /// Packet sequence number
