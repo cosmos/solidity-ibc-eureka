@@ -53,6 +53,16 @@ pub struct IBCAppAdded {
 #[event]
 pub struct NoopEvent {}
 
+/// Event emitted when the router is paused
+#[derive(Clone, Debug)]
+#[event]
+pub struct RouterPausedEvent {}
+
+/// Event emitted when the router is unpaused
+#[derive(Clone, Debug)]
+#[event]
+pub struct RouterUnpausedEvent {}
+
 /// Event emitted when a packet is sent
 #[derive(Clone, Debug)]
 #[event]
@@ -81,13 +91,3 @@ pub struct WriteAcknowledgementEvent {
     pub packet: Packet,
     pub acknowledgements: Vec<Vec<u8>>,
 }
-
-/// Event emitted when the router is paused
-#[event]
-#[derive(Debug, Clone)]
-pub struct RouterPausedEvent {}
-
-/// Event emitted when the router is unpaused
-#[event]
-#[derive(Debug, Clone)]
-pub struct RouterUnpausedEvent {}

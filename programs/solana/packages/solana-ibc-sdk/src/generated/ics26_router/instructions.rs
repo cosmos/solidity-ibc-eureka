@@ -1251,3 +1251,151 @@ impl SetAccessManagerBuilder {
         }
     }
 }
+
+/// Input accounts for the `pause` instruction.
+pub struct PauseAccounts {
+    pub access_manager: Pubkey,
+    pub pauser: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `pause`.
+pub struct Pause;
+
+impl Pause {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 4;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [211, 22, 221, 251, 74, 121, 193, 47];
+
+    #[must_use]
+    pub fn router_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"router_state"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> PauseBuilder {
+        PauseBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+/// Builder for the `pause` instruction.
+pub struct PauseBuilder {
+    program_id: Pubkey,
+    accounts: Option<PauseAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl PauseBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: PauseAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = Pause::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(accounts.pauser, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `unpause` instruction.
+pub struct UnpauseAccounts {
+    pub access_manager: Pubkey,
+    pub unpauser: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `unpause`.
+pub struct Unpause;
+
+impl Unpause {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 4;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [169, 144, 4, 38, 10, 141, 188, 255];
+
+    #[must_use]
+    pub fn router_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"router_state"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> UnpauseBuilder {
+        UnpauseBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+/// Builder for the `unpause` instruction.
+pub struct UnpauseBuilder {
+    program_id: Pubkey,
+    accounts: Option<UnpauseAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl UnpauseBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: UnpauseAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (router_state, _) = Unpause::router_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(router_state, false),
+            AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(accounts.unpauser, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}

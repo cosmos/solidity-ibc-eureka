@@ -141,6 +141,8 @@ pub struct RouterState {
     pub version: SolanaIbcTypes_Router_AccountVersion,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Whether the router is paused (emergency brake for all IBC traffic)
+    pub paused: bool,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
