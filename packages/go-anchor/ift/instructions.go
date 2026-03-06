@@ -99,7 +99,7 @@ func NewCreateAndInitializeSplTokenInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// Global IFT app state (must exist)
+		// Global IFT app state
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
 		// Per-mint IFT app state PDA (to be created)
