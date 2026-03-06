@@ -37,7 +37,7 @@ pub use solana::{
     GmpSolanaPayload as RawGmpSolanaPayload, SolanaAccountMeta as RawSolanaAccountMeta,
 };
 
-/// Maximum client ID length (32 bytes)
+/// Maximum client ID length — capped at Solana's `MAX_SEED_LEN` (32 bytes per seed element).
 pub const MAX_CLIENT_ID_LENGTH: usize = 32;
 /// Maximum sender address length (128 bytes)
 pub const MAX_SENDER_LENGTH: usize = 128;
