@@ -91,6 +91,12 @@ pub enum RouterError {
 
     #[msg("App program must be executable")]
     AppProgramNotExecutable,
+
+    #[msg("Router is paused")]
+    RouterPaused,
+
+    #[msg("Router is not paused")]
+    RouterNotPaused,
 }
 
 /// Convert CPI validation errors to Router errors
