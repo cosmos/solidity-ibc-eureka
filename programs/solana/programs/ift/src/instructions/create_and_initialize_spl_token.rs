@@ -15,7 +15,7 @@ use crate::state::{AccountVersion, CreateTokenParams, IFTAppMintState, IFTAppSta
 #[derive(Accounts)]
 #[instruction(params: CreateTokenParams)]
 pub struct CreateAndInitializeSplToken<'info> {
-    /// Global IFT app state (must exist)
+    /// Global IFT app state
     #[account(
         seeds = [IFT_APP_STATE_SEED],
         bump = app_state.bump
