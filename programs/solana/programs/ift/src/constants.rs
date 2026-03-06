@@ -1,11 +1,5 @@
 //! Program constants for ICS27 IFT
 
-/// Port ID for IFT app instance
-pub const IFT_PORT_ID: &str = "iftport";
-
-/// ICS27 version (must match Cosmos IFT module version)
-pub const IFT_VERSION: &str = "ift-1";
-
 /// Default timeout duration (15 minutes in seconds)
 pub const DEFAULT_TIMEOUT_DURATION: i64 = 60 * 15;
 
