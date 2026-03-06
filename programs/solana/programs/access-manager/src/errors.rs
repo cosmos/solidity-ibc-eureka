@@ -19,8 +19,8 @@ pub enum AccessManagerError {
     CpiNotAllowed,
     #[msg("Program account does not match target_program")]
     ProgramMismatch,
-    #[msg("Invalid account: zero address is not allowed")]
-    InvalidAccount,
+    #[msg("Zero account is not allowed")]
+    ZeroAccount,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

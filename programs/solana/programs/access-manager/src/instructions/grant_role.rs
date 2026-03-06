@@ -36,7 +36,7 @@ pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Res
 
     require!(
         account != Pubkey::default(),
-        AccessManagerError::InvalidAccount
+        AccessManagerError::ZeroAccount
     );
 
     // Cannot grant PUBLIC_ROLE
@@ -209,7 +209,7 @@ mod tests {
 
         let mollusk = setup_mollusk();
         let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + AccessManagerError::InvalidAccount as u32,
+            ANCHOR_ERROR_OFFSET + AccessManagerError::ZeroAccount as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
