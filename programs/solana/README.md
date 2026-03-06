@@ -261,7 +261,7 @@ The AccessManager provides role-based access control across all IBC programs.
 | `6`        | `ID_CUSTOMIZER_ROLE` | Customize client and connection IDs     |
 | `u64::MAX` | `PUBLIC_ROLE`        | Anyone (unrestricted access)            |
 
-**Note:** Some role IDs (4, 5, 7) are reserved for future use and Ethereum compatibility but not currently implemented on Solana.
+**Note:** Role IDs 4, 5 and 7 exist on Ethereum but are not used by any Solana program. The access manager does not restrict which IDs can be granted — consuming programs define and enforce role semantics.
 
 ### Role Management
 
