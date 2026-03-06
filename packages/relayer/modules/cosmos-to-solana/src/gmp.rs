@@ -178,10 +178,10 @@ pub fn extract_gmp_prefund_lamports(
         return Ok(None);
     };
 
-    let client_id = solana_ibc_types::ClientId::new(dest_client)
+    let client_id = ClientId::new(dest_client)
         .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
-    let gmp_account = solana_ibc_types::GMPAccount::new(
+    let gmp_account = GMPAccount::new(
         client_id,
         packet.sender,
         packet.salt,
