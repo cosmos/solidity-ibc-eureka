@@ -34,6 +34,11 @@ pub fn grant_role(ctx: Context<GrantRole>, role_id: u64, account: Pubkey) -> Res
         &crate::ID,
     )?;
 
+    require!(
+        account != Pubkey::default(),
+        AccessManagerError::ZeroAccount
+    );
+
     // Cannot grant PUBLIC_ROLE
     require!(
         role_id != roles::PUBLIC_ROLE,
@@ -170,6 +175,41 @@ mod tests {
         let mollusk = setup_mollusk();
         let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + AccessManagerError::InvalidRoleId as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_grant_role_zero_address_rejected() {
+        let admin = Pubkey::new_unique();
+
+        let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
+
+        let instruction = build_instruction(
+            crate::instruction::GrantRole {
+                role_id: roles::RELAYER_ROLE,
+                account: Pubkey::default(),
+            },
+            vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+        );
+
+        let accounts = vec![
+            (access_manager_pda, access_manager_account),
+            (admin, create_signer_account()),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+        ];
+
+        let mollusk = setup_mollusk();
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + AccessManagerError::ZeroAccount as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
