@@ -20,7 +20,8 @@ pub struct RecvPacket<'info> {
     /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
-        bump
+        bump,
+        constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
     pub router_state: Account<'info, RouterState>,
 
@@ -375,6 +376,7 @@ mod tests {
         timeout_offset: i64,
         source_client_id: &'static str,
         unauthorized_relayer: Option<Pubkey>,
+        paused_router: bool,
     }
 
     impl Default for RecvPacketTestParams {
@@ -384,6 +386,7 @@ mod tests {
                 timeout_offset: 1000,
                 source_client_id: "source-client",
                 unauthorized_relayer: None,
+                paused_router: false,
             }
         }
     }
@@ -395,7 +398,11 @@ mod tests {
         let port_id = "test-port";
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
-        let (router_state_pda, router_state_data) = setup_router_state();
+        let (router_state_pda, router_state_data) = if params.paused_router {
+            setup_paused_router_state()
+        } else {
+            setup_router_state()
+        };
 
         // Always setup client expecting "source-client" as counterparty
         let (client_pda, client_data) = setup_client(
@@ -1631,5 +1638,21 @@ mod tests {
             receipt_value_1, receipt_value_2,
             "Receipts should differ for distinct packets"
         );
+    }
+
+    #[test]
+    fn test_recv_packet_paused() {
+        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
+            paused_router: true,
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }
