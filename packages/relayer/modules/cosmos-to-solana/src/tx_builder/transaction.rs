@@ -392,3 +392,27 @@ impl super::TxBuilder {
             .unwrap_or(false)
     }
 }
+
+impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
+    for super::TxBuilder
+{
+    fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
+        self.resolve_client_program_id(client_id)
+    }
+
+    fn attestation_client_min_sigs(&self, program_id: Pubkey) -> Result<usize> {
+        self.attestation_client_min_sigs(program_id)
+    }
+
+    fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
+        self.resolve_access_manager_program_id()
+    }
+
+    fn fee_payer(&self) -> Pubkey {
+        self.fee_payer
+    }
+
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
+        self.create_tx_bytes(instructions)
+    }
+}

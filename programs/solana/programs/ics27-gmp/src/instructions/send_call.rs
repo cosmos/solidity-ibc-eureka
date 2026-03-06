@@ -4,7 +4,7 @@ use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
 use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
-use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_proto::RawGmpPacketData;
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
@@ -161,13 +161,13 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    let packet_data_bytes = packet_data.encode_vec();
+    let (encoding, packet_data_bytes) = crate::gmp_packet_data::encode(packet_data, msg.encoding);
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
         dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
-        encoding: ICS27_ENCODING.to_string(),
+        encoding: encoding.to_string(),
         value: packet_data_bytes,
     };
 
@@ -217,7 +217,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::state::GMPAppState;
+    use crate::state::{GMPAppState, GmpEncoding};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use mollusk_svm::Mollusk;
@@ -287,6 +287,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
+                encoding: GmpEncoding::default(),
             }
         }
 
@@ -664,7 +665,7 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
-    use crate::state::GMPAppState;
+    use crate::state::{GMPAppState, GmpEncoding};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use solana_sdk::{
@@ -683,6 +684,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
+            encoding: GmpEncoding::default(),
         };
 
         let (router_state, _) = create_router_state_pda();

@@ -13,6 +13,9 @@ pub const ICS27_VERSION: &str = "ics27-2";
 /// ICS27 encoding (must match Cosmos IBC-Go's `EncodingProtobuf` constant)
 pub const ICS27_ENCODING: &str = "application/x-protobuf";
 
+/// ABI encoding used by Ethereum ICS27 GMP
+pub const ABI_ENCODING: &str = "application/x-solidity-abi";
+
 /// Maximum timeout duration (24 hours in seconds)
 pub const MAX_TIMEOUT_DURATION: i64 = 86400;
 
