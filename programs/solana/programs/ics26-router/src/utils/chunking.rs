@@ -354,6 +354,8 @@ pub fn validate_and_reconstruct_packet(
         }
         inline.clone()
     } else {
+        // Chunked mode: must have chunked metadata
+        require!(has_chunked_metadata, RouterError::InvalidPayloadCount);
         let payload_data_vec = assemble_multiple_payloads(
             params.remaining_accounts,
             params.relayer,
@@ -674,11 +676,54 @@ mod tests {
             client_id: "client-0",
         };
 
-        let result = validate_and_reconstruct_packet(params).unwrap();
+        let result = validate_and_reconstruct_packet(params);
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("InvalidPayloadCount"),
+            "Expected InvalidPayloadCount error, got: {error}",
+        );
+    }
 
-        // Should succeed but return empty payloads
-        // Note: This is handled at a higher level (get_single_payload will fail)
-        assert_eq!(result.payloads.len(), 0);
+    #[test]
+    fn test_validate_and_reconstruct_packet_rejects_neither_mode() {
+        // Neither inline payloads nor chunked metadata — should be rejected
+        let packet = solana_ibc_types::MsgPacket {
+            sequence: 1,
+            source_client: "client-0".to_string(),
+            dest_client: "client-1".to_string(),
+            timeout_timestamp: 1000,
+            payloads: None,
+        };
+
+        let relayer = Pubkey::new_unique();
+        let mut lamports = 0u64;
+        let mut data = [];
+        let relayer_account = AccountInfo::new(
+            &relayer,
+            false,
+            false,
+            &mut lamports,
+            &mut data,
+            &crate::ID,
+            false,
+            0,
+        );
+
+        let params = ReconstructPacketParams {
+            packet: &packet,
+            payloads_metadata: &[],
+            remaining_accounts: &[],
+            relayer: &relayer_account,
+            submitter: relayer,
+            client_id: "client-0",
+        };
+
+        let result = validate_and_reconstruct_packet(params);
+        assert!(
+            result.is_err(),
+            "Expected InvalidPayloadCount when neither inline nor chunked mode is active",
+        );
     }
 
     // Helper function to create mock AccountInfo for testing
