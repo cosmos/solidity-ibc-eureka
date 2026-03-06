@@ -238,7 +238,7 @@ mod tests {
         let raw = RawGmpSolanaPayload {
             data: vec![1],
             accounts: vec![valid_account(); MAX_GMP_ACCOUNTS + 1],
-            payer_position: None,
+            prefund_lamports: 0,
         };
         assert_eq!(
             GmpSolanaPayload::try_from(raw).unwrap_err(),
@@ -251,7 +251,7 @@ mod tests {
         let raw = RawGmpSolanaPayload {
             data: vec![1],
             accounts: vec![valid_account(); MAX_GMP_ACCOUNTS],
-            payer_position: None,
+            prefund_lamports: 0,
         };
         assert!(GmpSolanaPayload::try_from(raw).is_ok());
     }
