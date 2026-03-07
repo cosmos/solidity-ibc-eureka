@@ -75,6 +75,8 @@ pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> 
         .find(|p| p.path == path_hash)
         .ok_or_else(|| error!(ErrorCode::NotMember))?;
 
+    require!(packet.commitment != [0u8; 32], ErrorCode::ZeroCommitment);
+
     let value_hash: [u8; 32] = msg
         .value
         .as_slice()
@@ -530,6 +532,25 @@ mod tests {
             wrong_commitment.to_vec(),
         );
         expect_error(&test_accounts, msg, ErrorCode::CommitmentMismatch);
+    }
+
+    #[test]
+    fn test_verify_membership_rejects_zero_commitment() {
+        let attestor = TestAttestor::new(1);
+        let test_accounts = setup_attestor_accounts(vec![attestor.eth_address], 1);
+
+        let path = b"ibc/commitments/channel-0/sequence/1";
+        let Hash(path_hash) = solana_keccak_hasher::hash(path);
+        let zero_commitment = [0u8; 32];
+
+        let msg = build_signed_msg(
+            &[&attestor],
+            HEIGHT,
+            &[(path_hash, zero_commitment)],
+            path,
+            zero_commitment.to_vec(),
+        );
+        expect_error(&test_accounts, msg, ErrorCode::ZeroCommitment);
     }
 
     #[test]
