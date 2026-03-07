@@ -79,4 +79,7 @@ pub enum ErrorCode {
 
     #[msg("No trusted timestamp at requested height")]
     ConsensusTimestampNotFound,
+
+    #[msg("Invalid access manager")]
+    InvalidAccessManager,
 }
