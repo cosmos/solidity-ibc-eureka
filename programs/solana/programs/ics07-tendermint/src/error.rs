@@ -90,6 +90,9 @@ pub enum ErrorCode {
     // Conversion errors
     #[msg("Conversion error: invalid header data")]
     ConversionError,
+
+    #[msg("Invalid access manager")]
+    InvalidAccessManager,
 }
 
 impl From<crate::conversions::ConversionError> for ErrorCode {

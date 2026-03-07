@@ -1,6 +1,8 @@
 use crate::errors::RouterError;
 use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
-use crate::state::{AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState};
+use crate::state::{
+    AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState, MAX_CLIENT_ID_LENGTH,
+};
 use anchor_lang::prelude::*;
 
 /// Registers a new IBC light client with the router and initializes its
@@ -208,7 +210,7 @@ const CHANNEL_ID_PREFIX: &str = "channel-";
 
 // TODO: move to another crate
 /// Validates a custom IBC identifier
-/// - Length must be between 4 and 128 characters
+/// - Length must be between 4 and 32 characters (matching Solana's `MAX_SEED_LEN`)
 /// - Must NOT start with "client-" or "channel-" (reserved prefixes)
 /// - Can only contain:
 ///   - Alphanumeric characters (a-z, A-Z, 0-9)
@@ -220,7 +222,7 @@ pub fn validate_custom_ibc_identifier(custom_id: &str) -> bool {
 
     let bytes = custom_id.as_bytes();
 
-    if bytes.len() < 4 || bytes.len() > 128 {
+    if bytes.len() < 4 || bytes.len() > MAX_CLIENT_ID_LENGTH {
         return false;
     }
 
