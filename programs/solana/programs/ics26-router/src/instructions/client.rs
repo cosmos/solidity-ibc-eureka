@@ -2,7 +2,9 @@ use crate::errors::RouterError;
 use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
 use crate::state::{
     AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState, MAX_CLIENT_ID_LENGTH,
+    MIN_CLIENT_ID_LENGTH,
 };
+use crate::utils::validation::validate_custom_ibc_identifier;
 use anchor_lang::prelude::*;
 
 /// Registers a new IBC light client with the router and initializes its
@@ -130,7 +132,7 @@ pub fn add_client(
     let light_client_program = &ctx.accounts.light_client_program;
 
     require!(
-        validate_custom_ibc_identifier(&client_id),
+        validate_custom_ibc_identifier(&client_id, MIN_CLIENT_ID_LENGTH, MAX_CLIENT_ID_LENGTH),
         RouterError::InvalidClientId
     );
 
@@ -203,48 +205,6 @@ pub fn migrate_client(
     });
 
     Ok(())
-}
-
-const CLIENT_ID_PREFIX: &str = "client-";
-const CHANNEL_ID_PREFIX: &str = "channel-";
-
-// TODO: move to another crate
-/// Validates a custom IBC identifier
-/// - Length must be between 4 and 32 characters (matching Solana's `MAX_SEED_LEN`)
-/// - Must NOT start with "client-" or "channel-" (reserved prefixes)
-/// - Can only contain:
-///   - Alphanumeric characters (a-z, A-Z, 0-9)
-///   - Special characters: ., _, +, -, #, [, ], <, >
-pub fn validate_custom_ibc_identifier(custom_id: &str) -> bool {
-    if custom_id.trim().is_empty() {
-        return false;
-    }
-
-    let bytes = custom_id.as_bytes();
-
-    if bytes.len() < 4 || bytes.len() > MAX_CLIENT_ID_LENGTH {
-        return false;
-    }
-
-    if custom_id.starts_with(CLIENT_ID_PREFIX) || custom_id.starts_with(CHANNEL_ID_PREFIX) {
-        return false;
-    }
-
-    for &c in bytes {
-        let valid = matches!(c,
-            b'a'..=b'z' |    // a-z
-            b'0'..=b'9' |    // 0-9
-            b'A'..=b'Z' |    // A-Z
-            b'.' | b'_' | b'+' | b'-' |    // ., _, +, -
-            b'#' | b'[' | b']' | b'<' | b'>'    // #, [, ], <, >
-        );
-
-        if !valid {
-            return false;
-        }
-    }
-
-    true
 }
 
 #[cfg(test)]
