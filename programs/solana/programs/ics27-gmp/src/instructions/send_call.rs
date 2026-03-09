@@ -8,6 +8,9 @@ use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
+///
+/// NOTE: Accounts use `Box<Account<..>>` to move large deserialized data to the heap
+/// See: <https://github.com/solana-developers/anchor-zero-copy-example>
 #[derive(Accounts)]
 #[instruction(msg: SendCallMsg)]
 pub struct SendCall<'info> {
