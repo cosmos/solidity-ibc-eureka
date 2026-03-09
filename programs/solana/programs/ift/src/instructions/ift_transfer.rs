@@ -147,7 +147,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         clock.unix_timestamp + DEFAULT_TIMEOUT_DURATION
     } else {
         require!(
-            msg.timeout_timestamp > clock.unix_timestamp,
+            msg.timeout_timestamp > clock.unix_timestamp + MIN_TIMEOUT_DURATION,
             IFTError::TimeoutInPast
         );
         require!(
@@ -559,6 +559,8 @@ mod tests {
         AppPaused,
         InvalidGmpProgram,
         TimeoutAtExactCurrent,
+        TimeoutBelowMinDuration,
+        TimeoutAtExactMinDuration,
         TimeoutOneOverMax,
     }
 
@@ -658,6 +660,16 @@ mod tests {
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
                     timeout_timestamp: 1_700_000_000, // exactly == clock
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
+                    ..default
+                },
+                TransferErrorCase::TimeoutBelowMinDuration => Self {
+                    timeout_timestamp: 1_700_000_000 + 30, // 30s in future, below 60s min
+                    expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
+                    ..default
+                },
+                TransferErrorCase::TimeoutAtExactMinDuration => Self {
+                    timeout_timestamp: 1_700_000_000 + crate::constants::MIN_TIMEOUT_DURATION, // exactly == clock + min
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
@@ -836,6 +848,8 @@ mod tests {
     #[case::app_paused(TransferErrorCase::AppPaused)]
     #[case::invalid_gmp_program(TransferErrorCase::InvalidGmpProgram)]
     #[case::timeout_at_exact_current(TransferErrorCase::TimeoutAtExactCurrent)]
+    #[case::timeout_below_min_duration(TransferErrorCase::TimeoutBelowMinDuration)]
+    #[case::timeout_at_exact_min_duration(TransferErrorCase::TimeoutAtExactMinDuration)]
     #[case::timeout_one_over_max(TransferErrorCase::TimeoutOneOverMax)]
     fn test_ift_transfer_validation(#[case] case: TransferErrorCase) {
         run_transfer_error_test(case);
