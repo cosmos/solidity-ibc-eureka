@@ -362,6 +362,9 @@ type AttestationTypesClientState struct {
 
 	// Whether the client has been frozen due to misbehaviour detection.
 	IsFrozen bool `json:"isFrozen"`
+
+	// Maximum elapsed seconds since the latest consensus state before the client is considered expired.
+	TrustingPeriod uint64 `json:"trustingPeriod"`
 }
 
 func (obj AttestationTypesClientState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -389,6 +392,11 @@ func (obj AttestationTypesClientState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.IsFrozen)
 	if err != nil {
 		return errors.NewField("IsFrozen", err)
+	}
+	// Serialize `TrustingPeriod`:
+	err = encoder.Encode(obj.TrustingPeriod)
+	if err != nil {
+		return errors.NewField("TrustingPeriod", err)
 	}
 	return nil
 }
@@ -428,6 +436,11 @@ func (obj *AttestationTypesClientState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.IsFrozen)
 	if err != nil {
 		return errors.NewField("IsFrozen", err)
+	}
+	// Deserialize `TrustingPeriod`:
+	err = decoder.Decode(&obj.TrustingPeriod)
+	if err != nil {
+		return errors.NewField("TrustingPeriod", err)
 	}
 	return nil
 }

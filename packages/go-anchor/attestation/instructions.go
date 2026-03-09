@@ -17,6 +17,7 @@ func NewInitializeInstruction(
 	attestorAddressesParam [][20]uint8,
 	minRequiredSigsParam uint8,
 	accessManagerParam solanago.PublicKey,
+	trustingPeriodParam uint64,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -47,6 +48,11 @@ func NewInitializeInstruction(
 		err = enc__.Encode(accessManagerParam)
 		if err != nil {
 			return nil, errors.NewField("accessManagerParam", err)
+		}
+		// Serialize `trustingPeriodParam`:
+		err = enc__.Encode(trustingPeriodParam)
+		if err != nil {
+			return nil, errors.NewField("trustingPeriodParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
