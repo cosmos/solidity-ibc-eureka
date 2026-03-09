@@ -413,6 +413,14 @@ mod tests {
             payloads: Some(vec![inline_payload]),
         };
 
+        let metadata = vec![PayloadMetadata {
+            source_port: "transfer".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "ics20-1".to_string(),
+            encoding: "json".to_string(),
+            total_chunks: 0,
+        }];
+
         let relayer = Pubkey::new_unique();
         let mut lamports = 0u64;
         let mut data = [];
@@ -429,7 +437,7 @@ mod tests {
 
         let params = ReconstructPacketParams {
             packet: &packet,
-            payloads_metadata: &[],
+            payloads_metadata: &metadata,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
