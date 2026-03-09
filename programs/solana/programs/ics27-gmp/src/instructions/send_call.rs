@@ -115,56 +115,7 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
     )
 }
 
-/// Validates and encodes the GMP packet data, returning the serialized bytes.
-///
-/// Separated into its own frame so that `RawGmpPacketData` and `GmpPacketData`
-/// are dropped before the caller builds the IBC payload and router message,
-/// reducing peak stack usage in `send_call_inner`.
-#[inline(never)]
-fn validate_and_encode_packet(msg: &SendCallMsg, sender_pubkey: Pubkey) -> Result<Vec<u8>> {
-    let raw_packet_data = RawGmpPacketData {
-        sender: sender_pubkey.to_string(),
-        receiver: msg.receiver.clone(),
-        salt: msg.salt.clone(),
-        payload: msg.payload.clone(),
-        memo: msg.memo.clone(),
-    };
-
-    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
-        msg!("GMP packet validation failed: {}", e);
-        GMPError::InvalidPacketData
-    })?;
-
-    Ok(packet_data.encode_vec())
-}
-
-/// Builds the `MsgSendPacket` with the IBC payload.
-///
-/// Separated into its own frame so that the `Payload` and `MsgSendPacket`
-/// construction doesn't overlap with packet encoding locals.
-#[inline(never)]
-fn build_router_msg(
-    source_client: &solana_ibc_types::ClientId,
-    timeout_timestamp: i64,
-    packet_data_bytes: Vec<u8>,
-) -> MsgSendPacket {
-    let ibc_payload = Payload {
-        source_port: GMP_PORT_ID.to_string(),
-        dest_port: GMP_PORT_ID.to_string(),
-        version: ICS27_VERSION.to_string(),
-        encoding: ICS27_ENCODING.to_string(),
-        value: packet_data_bytes,
-    };
-
-    MsgSendPacket {
-        source_client: source_client.to_string(),
-        timeout_timestamp,
-        payload: ibc_payload,
-    }
-}
-
 /// Shared logic for `send_call` and `send_call_cpi`
-#[inline(never)]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn send_call_inner<'info>(
     app_state: &Account<'info, GMPAppState>,
@@ -197,8 +148,34 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::TimeoutTooLong
     );
 
-    let packet_data_bytes = validate_and_encode_packet(&msg, sender_pubkey)?;
-    let router_msg = build_router_msg(&source_client, msg.timeout_timestamp, packet_data_bytes);
+    let raw_packet_data = RawGmpPacketData {
+        sender: sender_pubkey.to_string(),
+        receiver: msg.receiver.clone(),
+        salt: msg.salt.clone(),
+        payload: msg.payload.clone(),
+        memo: msg.memo.clone(),
+    };
+
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
+
+    let packet_data_bytes = packet_data.encode_vec();
+
+    let ibc_payload = Payload {
+        source_port: GMP_PORT_ID.to_string(),
+        dest_port: GMP_PORT_ID.to_string(),
+        version: ICS27_VERSION.to_string(),
+        encoding: ICS27_ENCODING.to_string(),
+        value: packet_data_bytes,
+    };
+
+    let router_msg = MsgSendPacket {
+        source_client: source_client.to_string(),
+        timeout_timestamp: msg.timeout_timestamp,
+        payload: ibc_payload,
+    };
 
     let sequence = crate::router_cpi::send_packet_cpi(
         router_program,
