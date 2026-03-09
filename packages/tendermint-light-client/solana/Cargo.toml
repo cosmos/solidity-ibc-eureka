@@ -6,7 +6,7 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
-tendermint = { workspace = true, features = ["rust-crypto"] }
+tendermint = { workspace = true }
 tendermint-light-client-verifier = { workspace = true }
 brine-ed25519 = { workspace = true, features = ["std"] }
 sha2 = { workspace = true }

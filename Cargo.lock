@@ -722,7 +722,7 @@ dependencies = [
  "alloy-rlp",
  "alloy-serde",
  "alloy-sol-types 1.5.4",
- "itertools 0.14.0",
+ "itertools 0.13.0",
  "serde",
  "serde_json",
  "serde_with",
@@ -5332,16 +5332,15 @@ dependencies = [
 [[package]]
 name = "ibc-client-tendermint"
 version = "0.57.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11225e842c5e3bf0787a36cf10d16b954dafbef357533fa2a87c7ac1bb2739f7"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
 dependencies = [
  "derive_more 1.0.0",
- "ibc-client-tendermint-types",
- "ibc-core-client",
- "ibc-core-commitment-types",
- "ibc-core-handler-types",
- "ibc-core-host",
- "ibc-primitives",
+ "ibc-client-tendermint-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-client 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-handler-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "serde",
  "tendermint",
  "tendermint-light-client-verifier",
@@ -5354,10 +5353,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa16efb7dc6d7b73d483e55553e6c69eeaf0b82384b464514c52fe813d3c55d2"
 dependencies = [
  "displaydoc",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-proto",
+]
+
+[[package]]
+name = "ibc-client-tendermint-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "displaydoc",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "tendermint",
@@ -5373,11 +5388,29 @@ checksum = "681d986a6943683ef16fbaab8295125bf795ab4e15a1909eccb8574bb4567f10"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-connection-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-connection-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sha2 0.10.9",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-channel-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-connection-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "sha2 0.10.9",
@@ -5391,12 +5424,25 @@ version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e95616bda7fa163c1ed5e96aa2a5c902d07b31fddbcd756ebaca7a004bc078e8"
 dependencies = [
- "ibc-core-client-context",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-handler-types",
- "ibc-core-host",
- "ibc-primitives",
+ "ibc-core-client-context 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-handler-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "ibc-core-client"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "ibc-core-client-context 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-handler-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
 ]
 
 [[package]]
@@ -5407,11 +5453,27 @@ checksum = "2540ce861ac8fe7ce6ff14de043d8a3e8e239875c058f0b5baa9fe9b0a31ac94"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-handler-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-handler-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-client-context"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-handler-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "subtle-encoding",
  "tendermint",
 ]
@@ -5424,9 +5486,24 @@ checksum = "6f741122f7504846a6099d41244687e5db3235b7ce5f651de8a552489c1f5c9a"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-client-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
@@ -5441,8 +5518,22 @@ checksum = "4ba35d2bde395cff6ddbf550d604c3098903e661430588995b1e5f8db1f2e1d1"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ics23",
+ "subtle-encoding",
+]
+
+[[package]]
+name = "ibc-core-commitment-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics23",
  "serde",
@@ -5457,10 +5548,26 @@ checksum = "f2eed5ea03d3900f89b3b498c7f2ff83ca50c2f4f76cebc339bfa5ecb2f0ffc1"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-connection-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
@@ -5475,13 +5582,32 @@ checksum = "426cdb98d683cf8f65b1ebb7638fd4e8a35e1718aa143bcf895636ee34c68385"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-channel-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-connection-types",
- "ibc-core-host-types",
- "ibc-core-router-types",
- "ibc-primitives",
+ "ibc-core-channel-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-connection-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-router-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-handler-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-channel-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-connection-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-router-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
@@ -5496,14 +5622,32 @@ checksum = "2ff10f831f430b02462e71852bcbc947dde972762ee26dce1202f861003366f2"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-channel-types",
- "ibc-core-client-context",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-connection-types",
- "ibc-core-handler-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-channel-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-context 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-connection-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-handler-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+]
+
+[[package]]
+name = "ibc-core-host"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-channel-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-client-context 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-client-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-commitment-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-connection-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-handler-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "subtle-encoding",
 ]
 
@@ -5516,7 +5660,19 @@ dependencies = [
  "base64 0.22.1",
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-primitives",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+]
+
+[[package]]
+name = "ibc-core-host-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "base64 0.22.1",
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "prost",
  "serde",
 ]
@@ -5529,8 +5685,22 @@ checksum = "61cdfb5f8f7986ac50941f556c16d46e81cdf3529b257be1ab3beca8281f953e"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "subtle-encoding",
+ "tendermint",
+]
+
+[[package]]
+name = "ibc-core-router-types"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-core-host-types 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
+ "ibc-primitives 0.57.0 (git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
  "subtle-encoding",
@@ -5611,7 +5781,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "ibc-core-host-types",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
@@ -5633,7 +5803,7 @@ dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
- "ibc-core-host-types",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
@@ -5663,7 +5833,7 @@ dependencies = [
  "ed25519-consensus",
  "hex",
  "ibc-client-tendermint",
- "ibc-core-client-types",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
@@ -5790,8 +5960,8 @@ dependencies = [
  "ethereum-types 0.1.0",
  "futures",
  "futures-timer",
- "ibc-client-tendermint-types",
- "ibc-core-commitment-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5835,7 +6005,7 @@ dependencies = [
  "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "futures",
  "futures-timer",
- "ibc-core-commitment-types",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
@@ -5888,9 +6058,9 @@ dependencies = [
  "alloy-primitives 1.5.4",
  "alloy-sol-types 1.5.4",
  "hex",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.52.0",
  "sha2 0.10.9",
  "tendermint",
@@ -5907,9 +6077,9 @@ source = "git+https://github.com/cosmos/solidity-ibc-eureka?tag=cw-ics08-wasm-et
 dependencies = [
  "alloy-primitives 0.8.26",
  "alloy-sol-types 0.8.26",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "serde",
  "sha2 0.10.9",
@@ -5928,9 +6098,9 @@ dependencies = [
  "alloy-primitives 1.5.4",
  "alloy-sol-types 1.5.4",
  "hex",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "sha2 0.10.9",
  "tendermint",
@@ -5946,10 +6116,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cosmos-sdk-proto 0.26.1",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.52.0",
@@ -5970,10 +6140,10 @@ dependencies = [
  "anyhow",
  "async-trait",
  "cosmos-sdk-proto 0.26.1",
- "ibc-client-tendermint-types",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
@@ -5988,6 +6158,19 @@ name = "ibc-primitives"
 version = "0.57.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ff3dab00855e9ab99fa7276814bd29b0350f2da70b3e9f67f1d86f4e269655b"
+dependencies = [
+ "derive_more 1.0.0",
+ "displaydoc",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "prost",
+ "serde",
+ "time",
+]
+
+[[package]]
+name = "ibc-primitives"
+version = "0.57.0"
+source = "git+https://github.com/vaporif/ibc-rs?branch=vaporif%2Fibc-client-tendermint-optional-rust-crypto-dep#c36b82edc0823a4f5499a52a03a60c2d9e4da307"
 dependencies = [
  "derive_more 1.0.0",
  "displaydoc",
@@ -8006,7 +8189,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
  "heck 0.5.0",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "log",
  "multimap",
  "once_cell",
@@ -8026,7 +8209,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a56d757972c98b346a9b766e3f02746cde6dd1cd1d1d563472929fdd74bec4d"
 dependencies = [
  "anyhow",
- "itertools 0.14.0",
+ "itertools 0.10.5",
  "proc-macro2",
  "quote",
  "syn 2.0.114",
@@ -10122,7 +10305,7 @@ dependencies = [
  "anchor-lang",
  "borsh 0.10.4",
  "ibc-client-tendermint",
- "ibc-core-client-types",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "solana-ibc-constants",
  "solana-ibc-macros",
  "solana-ibc-proto",
@@ -11856,8 +12039,8 @@ dependencies = [
  "futures",
  "hex",
  "ibc-client-tendermint",
- "ibc-client-tendermint-types",
- "ibc-core-commitment-types",
+ "ibc-client-tendermint-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -11880,7 +12063,7 @@ name = "sp1-ics07-tendermint-prover"
 version = "0.1.0"
 dependencies = [
  "alloy-sol-types 1.5.4",
- "ibc-core-commitment-types",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
@@ -11895,7 +12078,7 @@ version = "0.1.0"
 source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
 dependencies = [
  "alloy-sol-types 1.5.4",
- "ibc-core-commitment-types",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
@@ -12922,8 +13105,8 @@ name = "tendermint-light-client-membership"
 version = "0.1.0"
 dependencies = [
  "hex",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
@@ -12938,8 +13121,8 @@ version = "0.1.0"
 dependencies = [
  "anchor-lang",
  "ibc-client-tendermint",
- "ibc-core-client-types",
- "ibc-core-host-types",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha2 0.10.9",
  "tendermint",
  "tendermint-light-client-solana",
@@ -12953,7 +13136,7 @@ name = "tendermint-light-client-solana"
 version = "0.1.0"
 dependencies = [
  "brine-ed25519",
- "ibc-core-commitment-types",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ics23",
  "rstest",
  "sha2 0.10.9",
@@ -12973,8 +13156,8 @@ version = "0.1.0"
 dependencies = [
  "hex",
  "ibc-client-tendermint",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
@@ -12992,11 +13175,11 @@ dependencies = [
  "anchor-lang",
  "hex",
  "ibc-client-tendermint",
- "ibc-core-client",
- "ibc-core-client-types",
- "ibc-core-commitment-types",
- "ibc-core-host-types",
- "ibc-primitives",
+ "ibc-core-client 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-client-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-commitment-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-core-host-types 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-primitives 0.57.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "prost",
  "serde",
  "serde_json",

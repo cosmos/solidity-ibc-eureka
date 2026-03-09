@@ -160,3 +160,17 @@ codegen-units = 1
 tendermint = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
 tendermint-proto = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
 tendermint-light-client-verifier = { git = "https://github.com/cometbft/tendermint-rs", rev = "a2aa5bf" }
+# TODO: remove once cosmos/ibc-rs makes rust-crypto optional in ibc-client-tendermint
+ibc-client-tendermint = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-client-tendermint-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-channel-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-client = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-client-context = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-client-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-commitment-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-connection-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-handler-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-host = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-host-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-core-router-types = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
+ibc-primitives = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
