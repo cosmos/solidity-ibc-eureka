@@ -40,7 +40,6 @@ mock-ibc-app = { path = "../mock-ibc-app" }
 mock-light-client = { path = "../mock-light-client" }
 rstest.workspace = true
 test-ibc-app = { path = "../test-ibc-app" }
-rstest.workspace = true
 
 [lints]
 workspace = true
