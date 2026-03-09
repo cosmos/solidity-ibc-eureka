@@ -566,7 +566,11 @@ mod tests {
         );
 
         let supply = unpack_mint_supply(&result, MINT_IDX);
-        assert_eq!(supply, TEST_AMOUNT, "refund should mint tokens");
+        assert_eq!(
+            supply,
+            1_000_000_000 + TEST_AMOUNT,
+            "refund should mint tokens"
+        );
     }
 
     #[test]
@@ -593,7 +597,11 @@ mod tests {
         );
 
         let supply = unpack_mint_supply(&result, MINT_IDX);
-        assert_eq!(supply, TEST_AMOUNT, "refund should mint tokens");
+        assert_eq!(
+            supply,
+            1_000_000_000 + TEST_AMOUNT,
+            "refund should mint tokens"
+        );
     }
 
     #[test]
@@ -994,7 +1002,11 @@ mod tests {
         );
 
         let supply = unpack_mint_supply(&result, MINT_IDX);
-        assert_eq!(supply, TEST_AMOUNT, "refund should mint tokens");
+        assert_eq!(
+            supply,
+            1_000_000_000 + TEST_AMOUNT,
+            "refund should mint tokens"
+        );
 
         let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
         let mint_state: crate::state::IFTAppMintState =
@@ -1042,7 +1054,11 @@ mod tests {
         );
 
         let supply = unpack_mint_supply(&result, MINT_IDX);
-        assert_eq!(supply, TEST_AMOUNT, "refund should mint tokens");
+        assert_eq!(
+            supply,
+            1_000_000_000 + TEST_AMOUNT,
+            "refund should mint tokens"
+        );
 
         let (_, mint_state_account) = &result.resulting_accounts[APP_MINT_STATE_IDX];
         let mint_state: crate::state::IFTAppMintState =
