@@ -218,4 +218,3 @@ tendermint-proto.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-light-client-verifier.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-config.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-rpc.git = "https://github.com/cometbft/tendermint-rs"
-ibc-client-tendermint = { git = "https://github.com/vaporif/ibc-rs", branch = "vaporif/ibc-client-tendermint-optional-rust-crypto-dep" }
