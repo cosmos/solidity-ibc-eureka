@@ -15,7 +15,7 @@ import { IICS26Router } from "../../contracts/interfaces/IICS26Router.sol";
 import { IIBCUUPSUpgradeable } from "../../contracts/interfaces/IIBCUUPSUpgradeable.sol";
 
 import { ICS20Transfer } from "../../contracts/ICS20Transfer.sol";
-import { TestERC20, MalfunctioningERC20 } from "./mocks/TestERC20.sol";
+import { TestERC20, MalfunctioningERC20, FeeOnTransferERC20 } from "./mocks/TestERC20.sol";
 import { ICS20Lib } from "../../contracts/utils/ICS20Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
@@ -196,9 +196,30 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, invalidSignature);
 
-        // prove that it works with a valid signature
+        // ===== Case: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = _getTestSendTransferMsg();
+
+        FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
+
+        msgSendTransfer.denom = address(feeOnTransferERC20);
+
+        ISignatureTransfer.PermitTransferFrom memory feePermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(feeOnTransferERC20), amount: defaultAmount }),
+            nonce: 2,
+            deadline: block.timestamp + 100
+        });
+        bytes memory feeSignature =
+            this.getPermitTransferSignature(feePermit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+
+        feeOnTransferERC20.mint(sender, defaultAmount);
         vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
+        feeOnTransferERC20.approve(address(permit2), defaultAmount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, defaultAmount - 1)
+        );
+        vm.prank(sender);
+        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, feePermit, feeSignature);
     }
 
     function test_success_sendTransferWithSender() public {

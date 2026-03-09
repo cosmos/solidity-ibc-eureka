@@ -4,11 +4,13 @@ runs:
   using: composite
   steps:
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@1.87.0
       with:
         components: rustfmt, clippy
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1
+      with:
+        version: v1.1.0
     - name: Install Bun
       uses: oven-sh/setup-bun@v2
     - name: Install the Node.js dependencies
