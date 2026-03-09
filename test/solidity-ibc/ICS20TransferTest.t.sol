@@ -88,173 +88,11 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         assertEq(sequence, 42);
     }
 
-<<<<<<< HEAD
     function test_failure_sendTransfer() public {
         // this contract acts as the ics26Router
         vm.mockCall(address(this), IICS26Router.sendPacket.selector, abi.encode(uint32(42)));
 
         // test missing approval
-=======
-    function testFuzz_failure_sendTransfer(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        vm.assume(amount > 1);
-
-        vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
-
-        string memory sourceClient = th.randomString();
-        string memory destClient = th.randomString();
-        string memory memo = th.randomString();
-        string memory receiver = th.randomString();
-
-        address sender = makeAddr("sender");
-
-        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(env.erc20()),
-            amount: amount,
-            receiver: receiver,
-            sourceClient: sourceClient,
-            destPort: destClient,
-            timeoutTimestamp: timeoutTimestamp,
-            memo: memo
-        });
-
-        // ===== Case 1: Test missing approval =====
-        vm.expectRevert(
-            abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, amount)
-        );
-        vm.prank(sender);
-        ics20Transfer.sendTransfer(msgSendTransfer);
-
-        // ===== Case 2: Test insufficient balance =====
-        vm.startPrank(sender);
-        env.erc20().approve(address(ics20Transfer), amount);
-        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientBalance.selector, sender, 0, amount));
-        ics20Transfer.sendTransfer(msgSendTransfer);
-        vm.stopPrank();
-
-        env.erc20().mint(sender, amount);
-
-        // ===== Case 3: Empty amount =====
-        msgSendTransfer.amount = 0;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
-        vm.prank(sender);
-        ics20Transfer.sendTransfer(msgSendTransfer);
-
-        // reset amount
-        msgSendTransfer.amount = amount;
-
-        // ===== Case 4: Malfunctioning ERC20 =====
-        MalfunctioningERC20 malfunctioningERC20 = new MalfunctioningERC20();
-        malfunctioningERC20.mint(sender, amount);
-        malfunctioningERC20.setMalfunction(true); // Turn on the malfunctioning behaviour (no update)
-        vm.prank(sender);
-        malfunctioningERC20.approve(address(ics20Transfer), amount);
-
-        msgSendTransfer.denom = address(malfunctioningERC20);
-
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, 0));
-        vm.prank(sender);
-        ics20Transfer.sendTransfer(msgSendTransfer);
-
-        // ===== Case 5: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
-        FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
-        feeOnTransferERC20.mint(sender, amount);
-        vm.prank(sender);
-        feeOnTransferERC20.approve(address(ics20Transfer), amount);
-
-        msgSendTransfer.denom = address(feeOnTransferERC20);
-
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, amount - 1));
-        vm.prank(sender);
-        ics20Transfer.sendTransfer(msgSendTransfer);
-    }
-
-    function testFuzz_success_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        vm.assume(amount > 0);
-
-        address sender = env.createAndFundUser(amount);
-        string memory sourceClient = th.randomString();
-        string memory destClient = th.randomString();
-        string memory memo = th.randomString();
-        string memory receiver = th.randomString();
-
-        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(env.erc20()),
-            amount: amount,
-            receiver: receiver,
-            sourceClient: sourceClient,
-            destPort: destClient,
-            timeoutTimestamp: timeoutTimestamp,
-            memo: memo
-        });
-
-        vm.prank(sender);
-        env.erc20().approve(env.permit2(), amount);
-
-        vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
-
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =
-            env.getPermitAndSignature(sender, address(ics20Transfer), amount);
-
-        vm.prank(sender);
-        uint64 sequence = ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
-        assertEq(sequence, seq);
-    }
-
-    function testFuzz_failure_sendTransferWithPermit2(uint256 amount, uint64 seq, uint64 timeoutTimestamp) public {
-        vm.assume(amount > 1);
-
-        address sender = env.createAndFundUser(amount);
-        string memory sourceClient = th.randomString();
-        string memory destClient = th.randomString();
-
-        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = IICS20TransferMsgs.SendTransferMsg({
-            denom: address(env.erc20()),
-            amount: amount,
-            receiver: th.randomString(),
-            sourceClient: sourceClient,
-            destPort: destClient,
-            timeoutTimestamp: timeoutTimestamp,
-            memo: th.randomString()
-        });
-
-        vm.mockCall(ics26, IICS26Router.sendPacket.selector, abi.encode(seq));
-
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory signature) =
-            env.getPermitAndSignature(sender, address(ics20Transfer), amount);
-
-        // ===== Case 1: Missing Approval =====
-        vm.startPrank(sender);
-        env.erc20().approve(env.permit2(), 0);
-
-        vm.expectRevert("TRANSFER_FROM_FAILED");
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
-
-        vm.stopPrank();
-        // ===== Mint and Approve permit2 =====
-        env.erc20().approve(env.permit2(), amount);
-
-        // ===== Case 2: Invalid Amount =====
-        vm.startPrank(sender);
-        msgSendTransfer.amount = 0;
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20InvalidAmount.selector, 0));
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
-        // reset amount
-        msgSendTransfer.amount = amount;
-        vm.stopPrank();
-
-        // ===== Case 3: Invalid Signature =====
-        vm.expectRevert();
-        vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, new bytes(65));
-
-        // ===== Case 4: Permit and Token Mismatch =====
-        TestERC20 differentERC20 = new TestERC20();
-        vm.startPrank(sender);
-        differentERC20.mint(sender, amount);
-        differentERC20.approve(env.permit2(), amount);
-        vm.stopPrank();
-        (permit, signature) = env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(differentERC20));
->>>>>>> 2bf877d (imp(contracts/ics20): add more balance validation to permit2 transfers (#954))
         vm.expectRevert(
             abi.encodeWithSelector(
                 IERC20Errors.ERC20InsufficientAllowance.selector, address(ics20Transfer), 0, defaultAmount
@@ -350,7 +188,6 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
             )
         );
         vm.prank(sender);
-<<<<<<< HEAD
         ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), differentPermit, differentSignature);
 
         // test invalid signature
@@ -359,26 +196,30 @@ contract ICS20TransferTest is Test, DeployPermit2, PermitSignature {
         vm.prank(sender);
         ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, invalidSignature);
 
-        // prove that it works with a valid signature
-        vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(_getTestSendTransferMsg(), permit, signature);
-=======
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
+        // ===== Case: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
+        IICS20TransferMsgs.SendTransferMsg memory msgSendTransfer = _getTestSendTransferMsg();
 
-        // ===== Case 5: ERC20 token with fee on transfer, where the balance after transfer is less than expected =====
         FeeOnTransferERC20 feeOnTransferERC20 = new FeeOnTransferERC20(); // 1 unit fee on every transfer
-        feeOnTransferERC20.mint(sender, amount);
-        vm.prank(sender);
-        feeOnTransferERC20.approve(env.permit2(), amount);
-        (permit, signature) =
-            env.getPermitAndSignature(sender, address(ics20Transfer), amount, address(feeOnTransferERC20));
 
         msgSendTransfer.denom = address(feeOnTransferERC20);
 
-        vm.expectRevert(abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, amount, amount - 1));
+        ISignatureTransfer.PermitTransferFrom memory feePermit = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({ token: address(feeOnTransferERC20), amount: defaultAmount }),
+            nonce: 2,
+            deadline: block.timestamp + 100
+        });
+        bytes memory feeSignature =
+            this.getPermitTransferSignature(feePermit, senderKey, address(ics20Transfer), permit2.DOMAIN_SEPARATOR());
+
+        feeOnTransferERC20.mint(sender, defaultAmount);
         vm.prank(sender);
-        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, permit, signature);
->>>>>>> 2bf877d (imp(contracts/ics20): add more balance validation to permit2 transfers (#954))
+        feeOnTransferERC20.approve(address(permit2), defaultAmount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IICS20Errors.ICS20UnexpectedERC20Balance.selector, defaultAmount, defaultAmount - 1)
+        );
+        vm.prank(sender);
+        ics20Transfer.sendTransferWithPermit2(msgSendTransfer, feePermit, feeSignature);
     }
 
     function test_success_sendTransferWithSender() public {
