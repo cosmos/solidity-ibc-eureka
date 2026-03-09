@@ -702,9 +702,9 @@ func NewRevokeMintAuthorityInstruction(
 		// Account 0 "app_state": Read-only, Non-signer, Required
 		// Global IFT app state (read-only, for admin check)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
-		// Account 1 "app_mint_state": Read-only, Non-signer, Required
-		// Per-mint IFT app state (for `mint_authority_bump`)
-		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, false, false))
+		// Account 1 "app_mint_state": Writable, Non-signer, Required
+		// Per-mint IFT app state (closed on revocation)
+		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
 		// Account 2 "mint": Writable, Non-signer, Required
 		// SPL Token mint - authority will be transferred
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
@@ -714,9 +714,9 @@ func NewRevokeMintAuthorityInstruction(
 		// Account 4 "new_mint_authority": Read-only, Non-signer, Required
 		// New mint authority to receive ownership
 		accounts__.Append(solanago.NewAccountMeta(newMintAuthorityAccount, false, false))
-		// Account 5 "admin": Read-only, Signer, Required
-		// Admin signer
-		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 5 "admin": Writable, Signer, Required
+		// Admin signer (receives rent from closed `app_mint_state`)
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, true, true))
 		// Account 6 "token_program": Read-only, Non-signer, Required
 		// SPL Token or Token 2022 program for the `set_authority` CPI
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
