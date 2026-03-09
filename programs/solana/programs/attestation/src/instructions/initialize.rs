@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 
 /// Creates the attestation [`ClientState`] and [`AppState`] PDAs with the initial attestor set.
 #[derive(Accounts)]
-#[instruction(attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>, min_required_sigs: u8, access_manager: Pubkey)]
+#[instruction(attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>, min_required_sigs: u8, access_manager: Pubkey, trusting_period: u64)]
 pub struct Initialize<'info> {
     /// The attestation client state PDA to initialize (created here).
     #[account(
@@ -38,6 +38,7 @@ pub fn initialize(
     attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
     min_required_sigs: u8,
     access_manager: Pubkey,
+    trusting_period: u64,
 ) -> Result<()> {
     require!(
         access_manager != Pubkey::default(),
@@ -48,6 +49,7 @@ pub fn initialize(
         min_required_sigs > 0 && (min_required_sigs as usize) <= attestor_addresses.len(),
         ErrorCode::BadQuorum
     );
+    require!(trusting_period > 0, ErrorCode::InvalidTrustingPeriod);
 
     let mut attestor_addresses = attestor_addresses;
     let original_len = attestor_addresses.len();
@@ -64,6 +66,7 @@ pub fn initialize(
     client_state_account.min_required_sigs = min_required_sigs;
     client_state_account.latest_height = 0;
     client_state_account.is_frozen = false;
+    client_state_account.trusting_period = trusting_period;
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
@@ -121,10 +124,25 @@ mod tests {
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
     ) -> Instruction {
+        create_initialize_instruction_with_trusting_period(
+            test_accounts,
+            attestor_addresses,
+            min_required_sigs,
+            crate::test_helpers::fixtures::DEFAULT_TRUSTING_PERIOD,
+        )
+    }
+
+    fn create_initialize_instruction_with_trusting_period(
+        test_accounts: &TestAccounts,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
+        min_required_sigs: u8,
+        trusting_period: u64,
+    ) -> Instruction {
         let instruction_data = crate::instruction::Initialize {
             attestor_addresses,
             min_required_sigs,
             access_manager: access_manager::ID,
+            trusting_period,
         };
 
         Instruction {
@@ -173,6 +191,22 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
     }
 
+    #[test]
+    fn test_initialize_rejects_zero_trusting_period() {
+        let test_accounts = setup_test_accounts();
+        let instruction = create_initialize_instruction_with_trusting_period(
+            &test_accounts,
+            vec![[1u8; 20], [2u8; 20]],
+            1,
+            0,
+        );
+        expect_error(
+            &test_accounts,
+            instruction,
+            ErrorCode::InvalidTrustingPeriod,
+        );
+    }
+
     #[rstest::rstest]
     #[case::empty_attestors(vec![], 1, ErrorCode::NoAttestors)]
     #[case::zero_min_sigs(vec![[1u8; 20]], 0, ErrorCode::BadQuorum)]
@@ -212,6 +246,7 @@ mod tests {
             attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
             min_required_sigs: 2,
             access_manager: Pubkey::default(),
+            trusting_period: crate::test_helpers::fixtures::DEFAULT_TRUSTING_PERIOD,
         };
 
         let instruction = Instruction {

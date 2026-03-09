@@ -119,6 +119,9 @@ pub mod fixtures {
 
     pub const DEFAULT_TIMESTAMP: u64 = 1_700_000_000;
 
+    /// Default trusting period for tests: 14 days in seconds.
+    pub const DEFAULT_TRUSTING_PERIOD: u64 = 1_209_600;
+
     pub fn default_client_state(height: u64) -> ClientState {
         ClientState {
             version: crate::types::AccountVersion::V1,
@@ -126,6 +129,7 @@ pub mod fixtures {
             min_required_sigs: 1,
             latest_height: height,
             is_frozen: false,
+            trusting_period: DEFAULT_TRUSTING_PERIOD,
         }
     }
 
@@ -140,6 +144,7 @@ pub mod fixtures {
             min_required_sigs,
             latest_height,
             is_frozen: false,
+            trusting_period: DEFAULT_TRUSTING_PERIOD,
         }
     }
 

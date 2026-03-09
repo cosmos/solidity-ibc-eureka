@@ -223,6 +223,7 @@ mod tests {
             min_required_sigs,
             latest_height: HEIGHT,
             is_frozen: false,
+            trusting_period: crate::test_helpers::fixtures::DEFAULT_TRUSTING_PERIOD,
         };
         setup_test_accounts(new_height, client_state)
     }
@@ -440,6 +441,7 @@ mod tests {
                 min_required_sigs: 1,
                 latest_height: HEIGHT,
                 is_frozen: false,
+                trusting_period: crate::test_helpers::fixtures::DEFAULT_TRUSTING_PERIOD,
             },
             Some((HEIGHT, existing_timestamp)),
         );
@@ -479,6 +481,7 @@ mod tests {
                 min_required_sigs: 1,
                 latest_height: HEIGHT,
                 is_frozen: false,
+                trusting_period: crate::test_helpers::fixtures::DEFAULT_TRUSTING_PERIOD,
             },
             Some((HEIGHT, timestamp)),
         );

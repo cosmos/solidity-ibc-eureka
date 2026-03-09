@@ -96,7 +96,9 @@ mod tests {
     use crate::test_helpers::accounts::{
         create_client_state_account, create_consensus_state_account,
     };
-    use crate::test_helpers::fixtures::{default_client_state, DEFAULT_TIMESTAMP};
+    use crate::test_helpers::fixtures::{
+        default_client_state, DEFAULT_TIMESTAMP, DEFAULT_TRUSTING_PERIOD,
+    };
     use crate::test_helpers::signing::TestAttestor;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{ClientState, MembershipProof};
@@ -150,6 +152,7 @@ mod tests {
             min_required_sigs,
             latest_height: HEIGHT,
             is_frozen: false,
+            trusting_period: DEFAULT_TRUSTING_PERIOD,
         };
         setup_test_accounts(HEIGHT, client_state, DEFAULT_TIMESTAMP)
     }
@@ -564,6 +567,7 @@ mod tests {
             min_required_sigs: 1,
             latest_height: HEIGHT,
             is_frozen: false,
+            trusting_period: DEFAULT_TRUSTING_PERIOD,
         };
 
         let test_accounts = setup_test_accounts(HEIGHT, client_state, timestamp);

@@ -59,6 +59,7 @@ mod tests {
             min_required_sigs,
             latest_height: 100,
             is_frozen: false,
+            trusting_period: 1_209_600,
         }
     }
 

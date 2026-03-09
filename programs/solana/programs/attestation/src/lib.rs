@@ -29,12 +29,14 @@ pub mod attestation {
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
         access_manager: Pubkey,
+        trusting_period: u64,
     ) -> Result<()> {
         instructions::initialize::initialize(
             ctx,
             attestor_addresses,
             min_required_sigs,
             access_manager,
+            trusting_period,
         )
     }
 

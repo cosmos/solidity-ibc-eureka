@@ -82,4 +82,7 @@ pub enum ErrorCode {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+
+    #[msg("Trusting period must be greater than zero")]
+    InvalidTrustingPeriod,
 }

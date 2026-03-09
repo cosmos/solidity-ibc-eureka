@@ -30,6 +30,8 @@ pub struct ClientState {
     pub latest_height: u64,
     /// Whether the client has been frozen due to misbehaviour detection.
     pub is_frozen: bool,
+    /// Maximum elapsed seconds since the latest consensus state before the client is considered expired.
+    pub trusting_period: u64,
 }
 
 impl ClientState {

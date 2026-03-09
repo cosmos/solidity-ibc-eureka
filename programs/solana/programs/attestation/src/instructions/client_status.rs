@@ -4,7 +4,7 @@ use anchor_lang::solana_program::program::set_return_data;
 use crate::state::ConsensusStateStore;
 use crate::types::ClientState;
 
-/// Returns the client status (active or frozen) via return data.
+/// Returns the client status (active, frozen, or expired) via return data.
 #[derive(Accounts)]
 pub struct ClientStatus<'info> {
     /// The attestation client state to check for frozen status.
@@ -22,10 +22,18 @@ pub struct ClientStatus<'info> {
 }
 
 pub fn client_status(ctx: Context<ClientStatus>) -> Result<()> {
-    let status = if ctx.accounts.client_state.is_frozen {
+    let client_state = &ctx.accounts.client_state;
+    let status = if client_state.is_frozen {
         ics25_handler::ClientStatus::Frozen
     } else {
-        ics25_handler::ClientStatus::Active
+        let clock = Clock::get()?;
+        let consensus_ts = ctx.accounts.consensus_state.timestamp as i64;
+        let elapsed = clock.unix_timestamp.saturating_sub(consensus_ts);
+        if elapsed > client_state.trusting_period as i64 {
+            ics25_handler::ClientStatus::Expired
+        } else {
+            ics25_handler::ClientStatus::Active
+        }
     };
     set_return_data(&[status.into()]);
     Ok(())
@@ -87,27 +95,56 @@ mod tests {
         (instruction, accounts)
     }
 
-    #[test]
-    fn test_client_status_active() {
-        let (instruction, accounts) = setup_client_status_test(false);
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    fn run_client_status_test(frozen: bool, clock_timestamp: i64) -> Vec<u8> {
+        let (instruction, accounts) = setup_client_status_test(frozen);
+        let mut mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        mollusk.sysvars.clock.unix_timestamp = clock_timestamp;
+        mollusk.sysvars.clock.slot = 1;
         let checks = vec![Check::success()];
         let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        result.return_data
+    }
+
+    #[test]
+    fn test_client_status_active() {
+        // Clock just after consensus timestamp — within trusting period
+        let clock_ts = DEFAULT_TIMESTAMP as i64 + 1;
+        let return_data = run_client_status_test(false, clock_ts);
         assert_eq!(
-            result.return_data,
+            return_data,
             vec![u8::from(ics25_handler::ClientStatus::Active)]
         );
     }
 
     #[test]
     fn test_client_status_frozen() {
-        let (instruction, accounts) = setup_client_status_test(true);
-        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        let clock_ts = DEFAULT_TIMESTAMP as i64 + 1;
+        let return_data = run_client_status_test(true, clock_ts);
         assert_eq!(
-            result.return_data,
+            return_data,
             vec![u8::from(ics25_handler::ClientStatus::Frozen)]
+        );
+    }
+
+    #[test]
+    fn test_client_status_expired() {
+        // Clock past consensus timestamp + trusting period
+        let clock_ts = DEFAULT_TIMESTAMP as i64 + DEFAULT_TRUSTING_PERIOD as i64 + 1;
+        let return_data = run_client_status_test(false, clock_ts);
+        assert_eq!(
+            return_data,
+            vec![u8::from(ics25_handler::ClientStatus::Expired)]
+        );
+    }
+
+    #[test]
+    fn test_client_status_active_at_boundary() {
+        // Clock exactly at consensus timestamp + trusting period — should still be active
+        let clock_ts = DEFAULT_TIMESTAMP as i64 + DEFAULT_TRUSTING_PERIOD as i64;
+        let return_data = run_client_status_test(false, clock_ts);
+        assert_eq!(
+            return_data,
+            vec![u8::from(ics25_handler::ClientStatus::Active)]
         );
     }
 }
