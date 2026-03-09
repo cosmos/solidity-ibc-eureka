@@ -483,6 +483,7 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 		attestorAddresses,
 		minRequiredSigs,
 		access_manager.ProgramID,
+		uint64(testvalues.DefaultTrustPeriod),
 		clientStatePDA,
 		appStatePDA,
 		s.SolanaUser.PublicKey(),
