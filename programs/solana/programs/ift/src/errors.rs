@@ -28,7 +28,7 @@ pub enum IFTError {
     #[msg("Invalid receiver address")]
     InvalidReceiver,
 
-    #[msg("Timeout must be in the future")]
+    #[msg("Timeout too soon")]
     TimeoutInPast,
 
     #[msg("Timeout too far in the future")]
