@@ -1,3 +1,4 @@
+use crate::errors::RouterError;
 use crate::state::{AccountVersion, RouterState};
 use anchor_lang::prelude::*;
 
@@ -24,6 +25,10 @@ pub struct Initialize<'info> {
 }
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
+    require!(
+        access_manager != Pubkey::default(),
+        RouterError::InvalidAccessManager
+    );
     let router_state = &mut ctx.accounts.router_state;
     router_state.version = AccountVersion::V1;
     router_state.access_manager = access_manager;
@@ -197,6 +202,68 @@ mod tests {
         // Anchor's `init` constraint fails when account already exists
         // Error code 0 means the account is already in use
         let checks = vec![Check::err(ProgramError::Custom(0))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_rejects_default_access_manager() {
+        let payer = Pubkey::new_unique();
+
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+
+        let instruction_data = crate::instruction::Initialize {
+            access_manager: Pubkey::default(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(router_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            (
+                router_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidAccessManager as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
