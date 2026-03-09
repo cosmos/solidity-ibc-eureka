@@ -37,7 +37,7 @@ pub struct SendCallCpi<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub router_state: Account<'info, RouterState>,
+    pub router_state: Box<Account<'info, RouterState>>,
 
     /// Packet sequence counter for the source client, incremented by the router.
     #[account(
@@ -46,7 +46,7 @@ pub struct SendCallCpi<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub client_sequence: Account<'info, ClientSequence>,
+    pub client_sequence: Box<Account<'info, ClientSequence>>,
 
     /// Stores the packet commitment hash after the router processes the packet.
     /// CHECK: PDA validated by router (sequence computed at runtime)
@@ -59,7 +59,7 @@ pub struct SendCallCpi<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub ibc_app: Account<'info, IBCApp>,
+    pub ibc_app: Box<Account<'info, IBCApp>>,
 
     /// IBC client account that identifies the destination chain for routing.
     #[account(
@@ -67,7 +67,7 @@ pub struct SendCallCpi<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub client: Account<'info, Client>,
+    pub client: Box<Account<'info, Client>>,
 
     /// Light client program used by the router to check client status.
     /// CHECK: Validated against client registry.
