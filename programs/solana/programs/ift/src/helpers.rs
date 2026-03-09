@@ -7,11 +7,8 @@ use crate::constants::{MINT_AUTHORITY_SEED, SECONDS_PER_DAY};
 use crate::errors::IFTError;
 use crate::state::IFTAppMintState;
 
-/// Rate-limited mint: checks the daily rate limit, updates usage, then mints
-/// tokens via the IFT mint authority PDA.
-///
-/// Every token mint in the program goes through this function, ensuring no
-/// unchecked mint paths exist.
+/// Rate-limited mint via the IFT mint authority PDA.
+/// For refund mints use [`refund_mint_to_account`] which bypasses the rate limit.
 pub fn mint_to_account<'info>(
     mint_state: &mut IFTAppMintState,
     clock: &Clock,
@@ -22,7 +19,29 @@ pub fn mint_to_account<'info>(
     amount: u64,
 ) -> Result<()> {
     check_and_update_mint_rate_limit(mint_state, amount, clock)?;
+    mint_cpi(mint_state, mint, to, mint_authority, token_program, amount)
+}
 
+/// Mint tokens for a refund (timeout or error ACK) bypassing rate limits.
+pub fn refund_mint_to_account<'info>(
+    mint_state: &IFTAppMintState,
+    mint: &InterfaceAccount<'info, Mint>,
+    to: &InterfaceAccount<'info, TokenAccount>,
+    mint_authority: &AccountInfo<'info>,
+    token_program: &Interface<'info, TokenInterface>,
+    amount: u64,
+) -> Result<()> {
+    mint_cpi(mint_state, mint, to, mint_authority, token_program, amount)
+}
+
+fn mint_cpi<'info>(
+    mint_state: &IFTAppMintState,
+    mint: &InterfaceAccount<'info, Mint>,
+    to: &InterfaceAccount<'info, TokenAccount>,
+    mint_authority: &AccountInfo<'info>,
+    token_program: &Interface<'info, TokenInterface>,
+    amount: u64,
+) -> Result<()> {
     let mint_key = mint.key();
     let seeds = &[
         MINT_AUTHORITY_SEED,
@@ -226,15 +245,10 @@ mod tests {
         let clock = make_clock(SECONDS_PER_DAY as i64);
         let mut state = make_mint_state(1000, day, 0);
 
-        // Mint to limit
         assert!(check_and_update_mint_rate_limit(&mut state, 1000, &clock).is_ok());
 
-        // Transfer out (no rate limit change at burn time)
-        // Refund (no rate limit change — net zero)
-        // Usage stays at limit
+        // Refund bypasses rate limits, so usage stays at 1000
         assert_eq!(state.rate_limit_daily_usage, 1000);
-
-        // New mint should fail — usage unchanged
         assert!(check_and_update_mint_rate_limit(&mut state, 1, &clock).is_err());
     }
 
