@@ -713,9 +713,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			err = proto.Unmarshal(ackBytes, &ack)
 			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
-			// SPL Token program returns empty result on success
-			s.Require().Empty(ack.Result, "SPL transfer ack result should be empty")
-			s.T().Logf("SPL transfer ack verified on Solana: empty result (success)")
+			// SPL Token program returns no data; GMP uses [0] sentinel for success with no return data
+			s.Require().Equal([]byte{0}, ack.Result, "SPL transfer ack result should be success sentinel")
+			s.T().Logf("SPL transfer ack verified on Solana: success sentinel (no return data)")
 		}))
 
 		var ackRelayTxBodyBz []byte
