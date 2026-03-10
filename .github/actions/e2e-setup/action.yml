@@ -9,12 +9,15 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
+    - name: Login to GHCR
+      uses: nick-fields/retry@v3
+      env:
+          GH_TOKEN: ${{ inputs.github_token }}
       with:
-        registry: ghcr.io
-        username: ${{ github.actor }}
-        password: ${{ inputs.github_token }}
+        timeout_minutes: 1
+        max_attempts: 5
+        retry_wait_seconds: 5
+        command: docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "$GH_TOKEN"
 
     - name: Pre-pull private images
       uses: nick-invision/retry@v3
@@ -103,16 +106,6 @@ runs:
       uses: solana-developers/github-actions/setup-all@v0.2.5
       with:
         solana_version: ${{ env.SOLANA_VERSION }}
-
-    - name: Login to GHCR
-      uses: nick-fields/retry@v3
-      env:
-          GH_TOKEN: ${{ inputs.github_token }}
-      with:
-        timeout_minutes: 1
-        max_attempts: 5
-        retry_wait_seconds: 5
-        command: docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "$GH_TOKEN"
 
     - name: Pull attestor Docker image
       uses: nick-invision/retry@v3
