@@ -47,6 +47,10 @@ pub fn initialize(
     consensus_state: ConsensusState,
     access_manager: Pubkey,
 ) -> Result<()> {
+    require!(
+        access_manager != Pubkey::default(),
+        ErrorCode::InvalidAccessManager
+    );
     require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
 
     require!(
@@ -596,6 +600,37 @@ mod tests {
             consensus_state,
             |cs| cs.latest_height.revision_height = 0,
             ErrorCode::InvalidHeight,
+        );
+    }
+
+    #[test]
+    fn test_initialize_rejects_default_access_manager() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let test_accounts = setup_test_accounts(client_state.latest_height.revision_height);
+
+        let instruction_data = crate::instruction::Initialize {
+            client_state,
+            consensus_state,
+            access_manager: Pubkey::default(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(test_accounts.client_state_pda, false),
+                AccountMeta::new(test_accounts.consensus_state_store_pda, false),
+                AccountMeta::new(test_accounts.app_state_pda, false),
+                AccountMeta::new(test_accounts.payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        assert_instruction_fails_with_error(
+            &instruction,
+            &test_accounts.accounts,
+            ErrorCode::InvalidAccessManager,
         );
     }
 

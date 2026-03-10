@@ -7,6 +7,7 @@ pub use solana_ibc_types::{
     MAX_CLIENT_ID_LENGTH,
 };
 
+pub const MIN_CLIENT_ID_LENGTH: usize = 4;
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
