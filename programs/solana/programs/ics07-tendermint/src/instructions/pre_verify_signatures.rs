@@ -85,10 +85,11 @@ pub fn pre_verify_signature<'info>(
 }
 
 const ED25519_NUM_SIGNATURES_OFFSET: usize = 0;
-const ED25519_SIGNATURE_OFFSET: usize = 2;
-const ED25519_PUBKEY_OFFSET: usize = 6;
+const ED25519_SIGNATURE_IX_INDEX_OFFSET: usize = 4;
+const ED25519_PUBKEY_IX_INDEX_OFFSET: usize = 8;
 const ED25519_MESSAGE_OFFSET: usize = 10;
 const ED25519_MESSAGE_SIZE_OFFSET: usize = 12;
+const ED25519_MESSAGE_IX_INDEX_OFFSET: usize = 14;
 const ED25519_HEADER_SIZE: usize = 16;
 
 fn verify_ed25519_from_sysvar(
@@ -104,6 +105,10 @@ fn verify_ed25519_from_sysvar(
         || ix.data.len() < ED25519_HEADER_SIZE + 96
         || ix.data[ED25519_NUM_SIGNATURES_OFFSET] != 1
     {
+        return Ok(false);
+    }
+
+    if !all_instruction_indices_inline(&ix.data) {
         return Ok(false);
     }
 
@@ -145,6 +150,25 @@ struct Offsets {
     signature: usize,
     pubkey: usize,
     msg: usize,
+}
+
+/// Returns `true` only when all three `*_instruction_index` fields equal
+/// `u16::MAX`, meaning the Ed25519 precompile reads signature, pubkey, and
+/// message from its own instruction data (not from another instruction).
+fn all_instruction_indices_inline(data: &[u8]) -> bool {
+    let sig_ix = u16::from_le_bytes([
+        data[ED25519_SIGNATURE_IX_INDEX_OFFSET],
+        data[ED25519_SIGNATURE_IX_INDEX_OFFSET + 1],
+    ]);
+    let pk_ix = u16::from_le_bytes([
+        data[ED25519_PUBKEY_IX_INDEX_OFFSET],
+        data[ED25519_PUBKEY_IX_INDEX_OFFSET + 1],
+    ]);
+    let msg_ix = u16::from_le_bytes([
+        data[ED25519_MESSAGE_IX_INDEX_OFFSET],
+        data[ED25519_MESSAGE_IX_INDEX_OFFSET + 1],
+    ]);
+    sig_ix == u16::MAX && pk_ix == u16::MAX && msg_ix == u16::MAX
 }
 
 #[cfg(test)]
