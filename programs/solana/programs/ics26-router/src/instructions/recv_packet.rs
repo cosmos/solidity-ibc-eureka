@@ -637,7 +637,8 @@ mod tests {
         let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
             .expect("packet ack account not found");
         assert_eq!(
-            ack_data[..32], expected_ack_commitment,
+            ack_data[..32],
+            expected_ack_commitment,
             "ack commitment must match raw ack bytes (Borsh prefix must be stripped)"
         );
     }
