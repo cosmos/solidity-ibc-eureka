@@ -14,10 +14,10 @@ pub const ICS27_VERSION: &str = "ics27-2";
 pub const ICS27_ENCODING: &str = "application/x-protobuf";
 
 /// Maximum timeout duration (24 hours in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
 /// Minimum timeout duration (12 seconds)
-pub const MIN_TIMEOUT_DURATION: i64 = 12;
+pub const MIN_TIMEOUT_DURATION: u64 = 12;
 
 /// Universal error acknowledgement bytes
 pub const ACK_ERROR: &[u8] = b"error";

@@ -24,7 +24,7 @@ pub struct SendPacketMsg {
     /// Arbitrary packet data
     pub packet_data: Vec<u8>,
     /// Timeout timestamp (Unix timestamp in seconds)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Accounts for sending an arbitrary IBC packet via the router.
@@ -101,7 +101,9 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
     let clock = Clock::get()?;
 
     // Validate timeout
-    if msg.timeout_timestamp <= clock.unix_timestamp {
+    let current_timestamp =
+        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::InvalidPacketData)?;
+    if msg.timeout_timestamp <= current_timestamp {
         return Err(error!(TestIbcAppError::InvalidPacketData));
     }
 

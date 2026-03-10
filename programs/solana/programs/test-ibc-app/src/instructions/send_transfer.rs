@@ -24,7 +24,7 @@ pub struct SendTransferMsg {
     /// Destination port (usually "transfer")
     pub dest_port: String,
     /// Timeout timestamp (Unix timestamp in seconds)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     /// Optional memo field
     pub memo: String,
 }
@@ -124,7 +124,9 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     // No need to validate router_caller since it's a PDA derived by Anchor
 
     // Validate timeout - for this demo we'll just use a simple check
-    if msg.timeout_timestamp <= clock.unix_timestamp {
+    let current_timestamp =
+        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::InvalidPacketData)?;
+    if msg.timeout_timestamp <= current_timestamp {
         return Err(error!(TestIbcAppError::InvalidPacketData));
     }
 

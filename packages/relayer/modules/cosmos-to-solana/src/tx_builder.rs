@@ -529,7 +529,7 @@ impl TxBuilder {
             .iter()
             .filter_map(|e| match &e.event {
                 SolanaEurekaEvent::SendPacket(event) => {
-                    Some(u64::try_from(event.timeout_timestamp).unwrap_or_default())
+                    Some(event.timeout_timestamp)
                 }
                 SolanaEurekaEvent::WriteAcknowledgement(_) => None,
             })
