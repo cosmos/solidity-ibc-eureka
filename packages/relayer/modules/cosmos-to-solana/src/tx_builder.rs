@@ -528,9 +528,7 @@ impl TxBuilder {
         dest_events
             .iter()
             .filter_map(|e| match &e.event {
-                SolanaEurekaEvent::SendPacket(event) => {
-                    Some(event.timeout_timestamp)
-                }
+                SolanaEurekaEvent::SendPacket(event) => Some(event.timeout_timestamp),
                 SolanaEurekaEvent::WriteAcknowledgement(_) => None,
             })
             .max()
