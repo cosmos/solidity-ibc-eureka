@@ -630,12 +630,19 @@ mod tests {
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
 
-        // Check acknowledgement - mock app returns "packet received"
-        // Just verify that an acknowledgement was written (non-zero)
+        // Check acknowledgement - mock app returns "packet received" via Result<Vec<u8>>.
+        // Anchor Borsh-serializes the return value (prepending a 4-byte length prefix),
+        // so the router's CPI helper must strip it to get the raw ack bytes.
+        // Verify the commitment matches the raw ack (without Borsh prefix).
+        let raw_ack = b"packet received";
+        let expected_ack_commitment =
+            ics24::packet_acknowledgement_commitment_bytes32(&[raw_ack.to_vec()]).unwrap();
         let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
             .expect("packet ack account not found");
-        // Verify the acknowledgement commitment is not empty (all zeros)
-        assert_ne!(ack_data[..32], [0u8; 32], "acknowledgement should be set");
+        assert_eq!(
+            ack_data[..32], expected_ack_commitment,
+            "ack commitment must match raw ack bytes (Borsh prefix must be stripped)"
+        );
     }
 
     #[test]
