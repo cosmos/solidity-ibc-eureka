@@ -469,17 +469,11 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 				event := events[0]
 				s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack (one payload)")
 
-				// The ack is Borsh-encoded Vec<u8> containing protobuf GmpAcknowledgement
 				ackBytes := event.Acknowledgements[0]
-
-				// Decode Borsh-encoded bytes
-				var protoBytes []byte
-				err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
-				s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
 
 				// Parse protobuf acknowledgement
 				var ack gmptypes.Acknowledgement
-				err = proto.Unmarshal(protoBytes, &ack)
+				err = proto.Unmarshal(ackBytes, &ack)
 				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 				// Extract counter value (u64 little-endian)
@@ -714,14 +708,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			ackBytes := event.Acknowledgements[0]
 			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
 
-			// Decode Borsh-encoded bytes
-			var protoBytes []byte
-			err = bin.NewBorshDecoder(ackBytes).Decode(&protoBytes)
-			s.Require().NoError(err, "Failed to decode Borsh-encoded ack bytes")
-
 			// Parse protobuf acknowledgement
 			var ack gmptypes.Acknowledgement
-			err = proto.Unmarshal(protoBytes, &ack)
+			err = proto.Unmarshal(ackBytes, &ack)
 			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 			// SPL Token program returns empty result on success
@@ -2649,12 +2638,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 		event := events[0]
 		s.Require().Len(event.Acknowledgements, 1)
 
-		var protoBytes []byte
-		err = bin.NewBorshDecoder(event.Acknowledgements[0]).Decode(&protoBytes)
-		s.Require().NoError(err)
-
 		var ack gmptypes.Acknowledgement
-		err = proto.Unmarshal(protoBytes, &ack)
+		err = proto.Unmarshal(event.Acknowledgements[0], &ack)
 		s.Require().NoError(err)
 
 		s.Require().Len(ack.Result, 8)

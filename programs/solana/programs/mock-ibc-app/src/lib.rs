@@ -9,11 +9,6 @@ declare_id!("4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1");
 /// This program is a minimal implementation of the IBC app interface
 /// used only for testing the router. It has no state and no logic,
 /// just accepts the calls and returns success.
-///
-/// Returns `Result<Vec<u8>>` from `on_recv_packet` to match real IBC apps
-/// (e.g. ics27-gmp). This ensures Anchor's Borsh serialization of the return
-/// value is exercised in tests, covering the length-prefix stripping in the
-/// router's CPI helper.
 #[ibc_app]
 pub mod mock_ibc_app {
     use super::*;

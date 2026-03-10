@@ -630,10 +630,7 @@ mod tests {
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
 
-        // Check acknowledgement - mock app returns "packet received" via Result<Vec<u8>>.
-        // Anchor Borsh-serializes the return value (prepending a 4-byte length prefix),
-        // so the router's CPI helper must strip it to get the raw ack bytes.
-        // Verify the commitment matches the raw ack (without Borsh prefix).
+        // Verify ack commitment matches the raw ack bytes (Borsh prefix stripped by router).
         let raw_ack = b"packet received";
         let expected_ack_commitment =
             ics24::packet_acknowledgement_commitment_bytes32(&[raw_ack.to_vec()]).unwrap();
