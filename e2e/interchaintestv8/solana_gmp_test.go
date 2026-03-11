@@ -866,7 +866,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
-					TimeoutTimestamp: int64(timeout),
+					TimeoutTimestamp: timeout,
 					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
@@ -1188,7 +1188,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
-					TimeoutTimestamp: int64(timeout),
+					TimeoutTimestamp: timeout,
 					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
@@ -1894,7 +1894,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
-					TimeoutTimestamp: int64(timeout),
+					TimeoutTimestamp: timeout,
 					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,

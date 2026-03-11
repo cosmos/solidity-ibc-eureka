@@ -173,7 +173,7 @@ pub fn timeout_packet<'info>(
     )?;
 
     require!(
-        counterparty_timestamp_secs >= packet.timeout_timestamp as u64,
+        counterparty_timestamp_secs >= packet.timeout_timestamp,
         RouterError::InvalidTimeoutTimestamp
     );
 
@@ -250,7 +250,7 @@ mod tests {
         wrong_dest_client: Option<&'static str>,
         active_client: bool,
         initial_sequence: u64,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         proof_height: u64,
         paused_router: bool,
     }

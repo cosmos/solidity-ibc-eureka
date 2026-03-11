@@ -79,8 +79,7 @@ pub fn solana_timeout_packet_to_tm_timeout(
         sequence: msg.packet.sequence,
         source_client: msg.packet.source_client.clone(),
         destination_client: msg.packet.dest_client.clone(),
-        timeout_timestamp: u64::try_from(msg.packet.timeout_timestamp)
-            .context("timeout should be u64 compatible")?,
+        timeout_timestamp: msg.packet.timeout_timestamp,
         payloads: msg
             .packet
             .payloads
@@ -124,7 +123,6 @@ pub fn solana_timeout_packet_to_tm_timeout(
 /// # Errors
 /// * Returns error if the packet field is missing
 /// * Returns error if the `proof_height` field is missing
-/// * Returns error if `timeout_timestamp` cannot be converted to i64
 pub fn tm_timeout_to_solana_timeout_packet(
     msg: ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
 ) -> anyhow::Result<solana_ibc_types::MsgTimeoutPacket> {
@@ -207,7 +205,7 @@ fn to_sol_packet(value: SolanaPacket) -> SolPacket {
         sequence: value.sequence,
         sourceClient: value.source_client.clone(),
         destClient: value.dest_client.clone(),
-        timeoutTimestamp: u64::try_from(value.timeout_timestamp).unwrap_or(0),
+        timeoutTimestamp: value.timeout_timestamp,
         payloads: value.payloads.into_iter().map(to_sol_payload).collect(),
     }
 }

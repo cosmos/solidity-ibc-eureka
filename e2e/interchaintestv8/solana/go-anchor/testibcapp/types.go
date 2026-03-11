@@ -1003,7 +1003,7 @@ type TestIbcAppInstructionsSendPacketSendPacketMsg struct {
 	PacketData []byte `json:"packetData"`
 
 	// Timeout timestamp (Unix timestamp in seconds)
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 }
 
 func (obj TestIbcAppInstructionsSendPacketSendPacketMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1129,7 +1129,7 @@ type TestIbcAppInstructionsSendTransferSendTransferMsg struct {
 	DestPort string `json:"destPort"`
 
 	// Timeout timestamp (Unix timestamp in seconds)
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 
 	// Optional memo field
 	Memo string `json:"memo"`

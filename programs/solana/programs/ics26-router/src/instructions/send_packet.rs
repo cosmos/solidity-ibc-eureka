@@ -101,7 +101,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    let current_timestamp = clock.unix_timestamp;
+    let current_timestamp =
+        u64::try_from(clock.unix_timestamp).map_err(|_| RouterError::ArithmeticOverflow)?;
     require!(
         msg.timeout_timestamp > current_timestamp,
         RouterError::InvalidTimeoutTimestamp
@@ -236,7 +237,7 @@ mod tests {
     /// between `TEST_CLOCK_TIME + 1` and `TEST_CLOCK_TIME + MAX_TIMEOUT_DURATION`.
     const TEST_CLOCK_TIME: i64 = 1000;
     /// Default timeout used in success-path tests (within `MAX_TIMEOUT_DURATION` of `TEST_CLOCK_TIME`).
-    const TEST_TIMEOUT: i64 = TEST_CLOCK_TIME + 1000;
+    const TEST_TIMEOUT: u64 = TEST_CLOCK_TIME as u64 + 1000;
 
     /// Set up a `ProgramTest` environment for `send_packet` integration tests.
     ///
@@ -418,7 +419,7 @@ mod tests {
     fn build_test_app_send_packet_ix(
         user: Pubkey,
         client_id: &str,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -479,7 +480,7 @@ mod tests {
         user: &Keypair,
         client_id: &str,
         initial_sequence: u64,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -520,7 +521,7 @@ mod tests {
         user: Pubkey,
         client_id: &str,
         source_port: &str,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -576,7 +577,7 @@ mod tests {
         client_id: &str,
         source_port: &str,
         next_sequence_send: u64,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,

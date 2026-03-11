@@ -137,7 +137,7 @@ pub(crate) fn send_call_inner<'info>(
     msg: SendCallMsg,
 ) -> Result<u64> {
     let clock = Clock::get()?;
-    let current_time = clock.unix_timestamp;
+    let current_time = u64::try_from(clock.unix_timestamp).map_err(|_| GMPError::InvalidTimeout)?;
 
     let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
         .map_err(|_| GMPError::InvalidClientId)?;
@@ -612,7 +612,7 @@ mod tests {
                 (instruction, accounts, gmp_error(GMPError::TimeoutTooSoon))
             }
             SendCallErrorCase::TimeoutTooLong => {
-                msg.timeout_timestamp = i64::MAX;
+                msg.timeout_timestamp = MAX_TIMEOUT_DURATION * 2;
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
                 (instruction, accounts, gmp_error(GMPError::TimeoutTooLong))

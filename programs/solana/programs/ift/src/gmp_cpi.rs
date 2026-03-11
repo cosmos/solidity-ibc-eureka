@@ -43,7 +43,7 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
 /// Message parameters for GMP `send_call_cpi`
 pub struct SendGmpCallMsg {
     pub source_client: String,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     pub receiver: String,
     pub payload: Vec<u8>,
 }

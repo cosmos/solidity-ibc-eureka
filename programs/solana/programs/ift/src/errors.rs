@@ -105,6 +105,9 @@ pub enum IFTError {
 
     #[msg("Token program does not match the requested token type")]
     TokenProgramMismatch,
+
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
 }
 
 impl From<CpiValidationError> for IFTError {

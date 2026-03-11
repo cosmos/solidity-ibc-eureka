@@ -265,8 +265,7 @@ pub fn target_events_to_timeout_msgs(
     target_events
         .into_iter()
         .filter_map(|e| match e.event {
-            SolanaEurekaEvent::SendPacket(event) => (now
-                >= u64::try_from(event.timeout_timestamp).unwrap_or_default()
+            SolanaEurekaEvent::SendPacket(event) => (now >= event.timeout_timestamp
                 && event.packet.source_client == dst_client_id
                 && event.packet.dest_client == src_client_id
                 && (dst_packet_seqs.is_empty()

@@ -165,7 +165,7 @@ impl Commitment {
 }
 
 /// Maximum timeout duration (1 day in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
 pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
