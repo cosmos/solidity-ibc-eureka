@@ -85,7 +85,7 @@ pub struct Packet {
     pub sequence: u64,
     pub source_client: String,
     pub dest_client: String,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     pub payloads: Vec<Payload>,
 }
 
@@ -145,7 +145,7 @@ pub struct ProofMetadata {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     pub payload: Payload,
 }
 

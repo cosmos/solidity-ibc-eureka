@@ -640,7 +640,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			Version:          transfertypes.V1,
 			Encoding:         "application/json",
 			PacketData:       packetData,
-			TimeoutTimestamp: time.Now().Unix() + 3600,
+			TimeoutTimestamp: uint64(time.Now().Unix() + 3600),
 		}
 
 		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
@@ -815,7 +815,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			escrowState, _ = solana.TestIbcApp.EscrowStateWithArgSeedPDA(s.TestAppProgramID, []byte(SolanaClientID))
 		}))
 
-		timeoutTimestamp := time.Now().Unix() + 3600
+		timeoutTimestamp := uint64(time.Now().Unix() + 3600)
 
 		transferMsg := test_ibc_app.TestIbcAppInstructionsSendTransferSendTransferMsg{
 			Denom:            SolDenom,

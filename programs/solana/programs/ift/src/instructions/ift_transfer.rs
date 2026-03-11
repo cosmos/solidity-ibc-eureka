@@ -143,15 +143,17 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         IFTError::InvalidReceiver
     );
 
+    let current_time =
+        u64::try_from(clock.unix_timestamp).map_err(|_| IFTError::ArithmeticOverflow)?;
     let timeout = if msg.timeout_timestamp == 0 {
-        clock.unix_timestamp + DEFAULT_TIMEOUT_DURATION
+        current_time + DEFAULT_TIMEOUT_DURATION
     } else {
         require!(
-            msg.timeout_timestamp > clock.unix_timestamp + MIN_TIMEOUT_DURATION,
+            msg.timeout_timestamp > current_time + MIN_TIMEOUT_DURATION,
             IFTError::TimeoutInPast
         );
         require!(
-            msg.timeout_timestamp <= clock.unix_timestamp + MAX_TIMEOUT_DURATION,
+            msg.timeout_timestamp <= current_time + MAX_TIMEOUT_DURATION,
             IFTError::TimeoutTooLong
         );
         msg.timeout_timestamp
@@ -574,7 +576,7 @@ mod tests {
         use_wrong_token_owner: bool,
         use_wrong_token_mint: bool,
         use_wrong_gmp_program: bool,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         token_paused: bool,
         expected_error: u32,
     }
@@ -639,7 +641,7 @@ mod tests {
                     ..default
                 },
                 TransferErrorCase::TimeoutTooLong => Self {
-                    timeout_timestamp: i64::MAX,
+                    timeout_timestamp: 1_700_000_000 + crate::constants::MAX_TIMEOUT_DURATION * 2,
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutTooLong as u32,
                     ..default
                 },
