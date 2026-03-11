@@ -37,7 +37,7 @@ pub struct GMPCallSent {
     /// Size of the payload in bytes.
     pub payload_size: u64,
     /// Timeout timestamp (Unix seconds).
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Event emitted when the GMP app is paused.

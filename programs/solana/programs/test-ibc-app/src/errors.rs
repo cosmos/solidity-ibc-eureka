@@ -6,4 +6,6 @@ pub enum TestIbcAppError {
     UnauthorizedCaller,
     #[msg("Invalid packet data")]
     InvalidPacketData,
+    #[msg("Arithmetic overflow")]
+    ArithmeticOverflow,
 }

@@ -605,7 +605,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
 		packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), namespacedSequenceBytes)
 
-		timeoutTimestamp := time.Now().Add(1 * time.Hour).Unix()
+		timeoutTimestamp := uint64(time.Now().Add(1 * time.Hour).Unix())
 		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     s.AttestationClientID,
 			SourcePort:       transfertypes.PortID,
@@ -1116,7 +1116,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
 			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), namespacedSequenceBytes)
 
-			timeoutTimestamp := time.Now().Add(1 * time.Hour).Unix()
+			timeoutTimestamp := uint64(time.Now().Add(1 * time.Hour).Unix())
 			packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
 				SourceClient:     s.AttestationClientID,
 				SourcePort:       transfertypes.PortID,
