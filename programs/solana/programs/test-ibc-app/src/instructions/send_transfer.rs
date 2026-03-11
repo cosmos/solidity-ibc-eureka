@@ -125,7 +125,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
 
     // Validate timeout - for this demo we'll just use a simple check
     let current_timestamp =
-        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::InvalidPacketData)?;
+        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::ArithmeticOverflow)?;
     if msg.timeout_timestamp <= current_timestamp {
         return Err(error!(TestIbcAppError::InvalidPacketData));
     }

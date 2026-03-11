@@ -143,7 +143,8 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         IFTError::InvalidReceiver
     );
 
-    let current_time = u64::try_from(clock.unix_timestamp).map_err(|_| IFTError::TimeoutInPast)?;
+    let current_time =
+        u64::try_from(clock.unix_timestamp).map_err(|_| IFTError::ArithmeticOverflow)?;
     let timeout = if msg.timeout_timestamp == 0 {
         current_time + DEFAULT_TIMEOUT_DURATION
     } else {

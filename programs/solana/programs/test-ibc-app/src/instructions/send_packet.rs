@@ -102,7 +102,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: SendPacketMsg) -> Result<()> {
 
     // Validate timeout
     let current_timestamp =
-        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::InvalidPacketData)?;
+        u64::try_from(clock.unix_timestamp).map_err(|_| TestIbcAppError::ArithmeticOverflow)?;
     if msg.timeout_timestamp <= current_timestamp {
         return Err(error!(TestIbcAppError::InvalidPacketData));
     }
