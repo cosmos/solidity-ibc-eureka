@@ -184,11 +184,12 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // Get return data from the target program (if any)
-    // Only accept return data from the target program itself, not from nested CPIs
+    // Get return data from the target program (if any).
+    // Not an error when absent — GMP targets (e.g. SPL Token) may succeed without
+    // setting return data. Use [0] sentinel so proto3 result field is non-empty.
     let result = match anchor_lang::solana_program::program::get_return_data() {
         Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![0], // Success with no return data (non-empty so proto3 encoding is non-empty)
+        _ => vec![0],
     };
 
     // Create acknowledgement with execution result
