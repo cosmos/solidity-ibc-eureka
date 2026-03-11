@@ -9,9 +9,10 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
     Packet as SolPacket, Payload as SolPayload,
 };
-use solana_ibc_types::{
-    events::{SendPacketEvent, WriteAcknowledgementEvent},
-    Packet as SolanaPacket, Payload as SolanaPayload,
+use solana_ibc_sdk::ics26_router::events::{SendPacketEvent, WriteAcknowledgementEvent};
+use solana_ibc_sdk::ics26_router::types::{
+    MsgTimeoutPacket, Packet as SolanaPacket, Payload as SolanaPayload, PayloadMetadata,
+    ProofMetadata,
 };
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
@@ -72,7 +73,7 @@ impl From<SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
 /// # Errors
 /// * this function will return error if timeout timestamp is 0 or negative
 pub fn solana_timeout_packet_to_tm_timeout(
-    msg: solana_ibc_types::MsgTimeoutPacket,
+    msg: MsgTimeoutPacket,
     signer: String,
 ) -> anyhow::Result<ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout> {
     let packet = ibc_proto_eureka::ibc::core::channel::v2::Packet {
@@ -126,11 +127,11 @@ pub fn solana_timeout_packet_to_tm_timeout(
 /// * Returns error if `timeout_timestamp` cannot be converted to i64
 pub fn tm_timeout_to_solana_timeout_packet(
     msg: ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
-) -> anyhow::Result<solana_ibc_types::MsgTimeoutPacket> {
+) -> anyhow::Result<MsgTimeoutPacket> {
     let packet = msg.packet.context("packet field is required")?;
     let proof_height = msg.proof_height.context("proof_height field is required")?;
 
-    let solana_packet = solana_ibc_types::Packet {
+    let solana_packet = SolanaPacket {
         sequence: packet.sequence,
         source_client: packet.source_client.clone(),
         dest_client: packet.destination_client.clone(),
@@ -139,7 +140,7 @@ pub fn tm_timeout_to_solana_timeout_packet(
         payloads: packet
             .payloads
             .iter()
-            .map(|p| solana_ibc_types::Payload {
+            .map(|p| SolanaPayload {
                 source_port: p.source_port.clone(),
                 dest_port: p.destination_port.clone(),
                 version: p.version.clone(),
@@ -149,18 +150,17 @@ pub fn tm_timeout_to_solana_timeout_packet(
             .collect(),
     };
 
-    let payload_metadata: Vec<solana_ibc_types::PayloadMetadata> = packet
+    let payload_metadata: Vec<PayloadMetadata> = packet
         .payloads
         .into_iter()
         .map(|p| {
-            // Calculate total chunks for each payload
             let total_chunks = if p.value.len() > CHUNK_DATA_SIZE {
                 u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE)).context("payload too big")?
             } else {
                 0
             };
 
-            anyhow::Ok(solana_ibc_types::PayloadMetadata {
+            anyhow::Ok(PayloadMetadata {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
@@ -177,12 +177,12 @@ pub fn tm_timeout_to_solana_timeout_packet(
         0
     };
 
-    let proof_metadata = solana_ibc_types::ProofMetadata {
+    let proof_metadata = ProofMetadata {
         height: proof_height.revision_height,
         total_chunks: proof_total_chunks,
     };
 
-    let msg = solana_ibc_types::MsgTimeoutPacket {
+    let msg = MsgTimeoutPacket {
         packet: solana_packet,
         payloads: payload_metadata,
         proof: proof_metadata,
@@ -264,7 +264,7 @@ fn try_parse_event_from_log(
     Ok(Some(event))
 }
 
-fn log_payload_list(payloads: &[solana_ibc_types::Payload]) {
+fn log_payload_list(payloads: &[SolanaPayload]) {
     for (i, payload) in payloads.iter().enumerate() {
         tracing::debug!(
             "  Payload {}: source_port={}, dest_port={}, value_len={}",

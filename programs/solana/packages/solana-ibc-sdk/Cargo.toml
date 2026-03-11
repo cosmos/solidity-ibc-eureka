@@ -1,0 +1,22 @@
+[package]
+name = "solana-ibc-sdk"
+version.workspace = true
+edition.workspace = true
+description = "Off-chain SDK for Solana IBC programs (instruction builders, PDA helpers, event types)"
+license.workspace = true
+repository.workspace = true
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "sdk", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[dependencies]
+anchor-lang.workspace = true
+
+[build-dependencies]
+solana-ibc-sdk-codegen = { path = "codegen" }
+
+[features]
+idl-build = ["anchor-lang/idl-build"]
+
+[lints]
+workspace = true

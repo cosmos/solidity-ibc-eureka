@@ -262,13 +262,29 @@ func UnmarshalAttestationStateConsensusStateStore(buf []byte) (*AttestationState
 	return obj, nil
 }
 
+// Account schema version for upgrades
+type AttestationTypesAccountVersion binary.BorshEnum
+
+const (
+	AttestationTypesAccountVersion_V1 AttestationTypesAccountVersion = iota
+)
+
+func (value AttestationTypesAccountVersion) String() string {
+	switch value {
+	case AttestationTypesAccountVersion_V1:
+		return "V1"
+	default:
+		return ""
+	}
+}
+
 // Global attestation program configuration.
 //
 // Singleton PDA that links the attestation program to its access manager
 // for admin-gated operations such as updating the attestor set or freezing
 // the client.
 type AttestationTypesAppState struct {
-	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
+	Version AttestationTypesAccountVersion `json:"version"`
 
 	// Program ID of the access manager that controls admin operations.
 	AccessManager solanago.PublicKey `json:"accessManager"`
@@ -349,7 +365,7 @@ func UnmarshalAttestationTypesAppState(buf []byte) (*AttestationTypesAppState, e
 // router to verify membership proofs that arrive as signed attestations
 // instead of ZK proofs.
 type AttestationTypesClientState struct {
-	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
+	Version AttestationTypesAccountVersion `json:"version"`
 
 	// 20-byte Ethereum addresses of trusted attestors.
 	AttestorAddresses [][20]uint8 `json:"attestorAddresses"`
@@ -616,20 +632,4 @@ func UnmarshalIcs25HandlerNonMembershipMsg(buf []byte) (*Ics25HandlerNonMembersh
 		return nil, err
 	}
 	return obj, nil
-}
-
-// Account schema version for upgrades
-type SolanaIbcTypesAttestationAccountVersion binary.BorshEnum
-
-const (
-	SolanaIbcTypesAttestationAccountVersion_V1 SolanaIbcTypesAttestationAccountVersion = iota
-)
-
-func (value SolanaIbcTypesAttestationAccountVersion) String() string {
-	switch value {
-	case SolanaIbcTypesAttestationAccountVersion_V1:
-		return "V1"
-	default:
-		return ""
-	}
 }

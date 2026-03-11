@@ -32,10 +32,10 @@ ibc-core-commitment-types   = { workspace = true }
 prost = { workspace = true }
 hex   = { workspace = true }
 
-# borsh 0.10.4 required for solana-ibc-types compatibility (renamed to avoid workspace conflict)
+# borsh 0.10.4 required for solana-ibc-borsh-header compatibility (renamed to avoid workspace conflict)
 borsh_0_10 = { package = "borsh", version = "0.10.4" }
 
-solana-ibc-types = { path = "../solana/packages/solana-ibc-types", features = ["light-client"] }
+solana-ibc-borsh-header = { path = "../solana/packages/solana-ibc-borsh-header", features = ["light-client"] }
 
 ibc-eureka-solidity-types     = { workspace = true, features = ["rpc"] }
 ibc-eureka-utils              = { workspace = true }

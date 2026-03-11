@@ -41,26 +41,16 @@ use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 
-use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
-use solana_ibc_types::ics07::{ClientState, ConsensusState};
+use solana_ibc_sdk::attestation::instructions::{
+    UpdateClient, UpdateClientAccounts, UpdateClientArgs,
+};
+use solana_ibc_sdk::attestation::types::UpdateClientParams;
+use solana_ibc_sdk::ics07_tendermint::{
+    instructions::{self as ics07_tendermint_instructions, AssembleAndUpdateClient},
+    types::ConsensusState,
+};
 
 pub use transaction::derive_alt_address;
-
-/// Parameters for assembling timeout packet accounts
-pub(crate) struct TimeoutAccountsParams {
-    pub access_manager: Pubkey,
-    pub router_state: Pubkey,
-    pub ibc_app: Pubkey,
-    pub packet_commitment: Pubkey,
-    pub ibc_app_program_id: Pubkey,
-    pub ibc_app_state: Pubkey,
-    pub client: Pubkey,
-    pub client_state: Pubkey,
-    pub consensus_state: Pubkey,
-    pub fee_payer: Pubkey,
-    pub light_client_program_id: Pubkey,
-    pub chunk_accounts: Vec<Pubkey>,
-}
 
 /// Parameters for relaying events between Cosmos and Solana
 pub struct RelayParams {
@@ -89,32 +79,6 @@ const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
 
 /// Nanoseconds per second for timestamp conversion
 const NANOS_PER_SECOND: u64 = 1_000_000_000;
-
-/// Parameters for uploading a header chunk (mirrors the Solana program's type)
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub(crate) struct UploadChunkParams {
-    pub target_height: u64,
-    pub chunk_index: u8,
-    pub chunk_data: Vec<u8>,
-}
-
-/// Helper to derive header chunk PDA
-pub(crate) fn derive_header_chunk(
-    submitter: Pubkey,
-    height: u64,
-    chunk_index: u8,
-    program_id: Pubkey,
-) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[
-            b"header_chunk",
-            submitter.as_ref(),
-            &height.to_le_bytes(),
-            &[chunk_index],
-        ],
-        &program_id,
-    )
-}
 
 /// The `TxBuilder` produces Solana transactions based on events from Cosmos SDK.
 ///
@@ -184,7 +148,7 @@ impl TxBuilder {
             &client_state,
             &consensus_state,
             access_manager_program_id,
-        )?;
+        );
 
         self.create_tx_bytes(&[instruction])
     }
@@ -236,7 +200,7 @@ impl TxBuilder {
 
         // Check if we can use the optimized path (skip pre-verify and ALT)
         // Accounts = static accounts + chunk PDAs (no signature PDAs in optimized path)
-        let optimized_accounts = ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS + total_chunks as usize;
+        let optimized_accounts = AssembleAndUpdateClient::COUNT + total_chunks as usize;
         let can_skip_alt = optimized_accounts <= MAX_ACCOUNTS_WITHOUT_ALT;
 
         let use_optimized_path = self
@@ -299,10 +263,20 @@ impl TxBuilder {
 
         let alt_create_tx = self.build_create_alt_tx(slot)?;
 
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
+        let (client_state_pda, _) =
+            ics07_tendermint_instructions::Initialize::client_state_account_pda(
+                &solana_ics07_program_id,
+            );
         let (trusted_consensus_state, _) =
-            ConsensusState::pda(trusted_height, solana_ics07_program_id);
-        let (new_consensus_state, _) = ConsensusState::pda(target_height, solana_ics07_program_id);
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                trusted_height,
+                &solana_ics07_program_id,
+            );
+        let (new_consensus_state, _) =
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                target_height,
+                &solana_ics07_program_id,
+            );
 
         let mut alt_accounts = vec![
             client_state_pda,
@@ -313,18 +287,18 @@ impl TxBuilder {
         ];
 
         alt_accounts.extend((0..total_chunks).map(|chunk_index| {
-            derive_header_chunk(
-                self.fee_payer,
+            solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+                &self.fee_payer,
                 target_height,
                 chunk_index,
-                solana_ics07_program_id,
+                &solana_ics07_program_id,
             )
             .0
         }));
 
         alt_accounts.extend(signature_data.iter().map(|sig_data| {
-            Pubkey::find_program_address(
-                &[b"sig_verify", &sig_data.signature_hash],
+            solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
+                &sig_data.signature_hash,
                 &solana_ics07_program_id,
             )
             .0
@@ -541,7 +515,11 @@ impl TxBuilder {
         height: u64,
         solana_ics07_program_id: Pubkey,
     ) -> Result<u64> {
-        let (consensus_state_pda, _) = ConsensusState::pda(height, solana_ics07_program_id);
+        let (consensus_state_pda, _) =
+            ics07_tendermint_instructions::VerifyMembership::consensus_state_at_height_pda(
+                height,
+                &solana_ics07_program_id,
+            );
 
         let account = self
             .target_solana_client
@@ -924,65 +902,23 @@ impl AttestedTxBuilder {
         proof: Vec<u8>,
         light_client_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use sha2::{Digest, Sha256};
-        use solana_ibc_types::attestation::{
-            AppState as AttestationAppState, ClientState as AttestationClientState,
-            ConsensusState as AttestationConsensusState,
-        };
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
-        let (new_consensus_state_pda, _) =
-            AttestationConsensusState::pda(new_height, light_client_program_id);
-        let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
-
         let access_manager_program_id = self.tx_builder.resolve_access_manager_program_id()?;
-        let (access_manager_pda, _) = Pubkey::find_program_address(
-            &[solana_ibc_types::AccessManager::SEED],
-            &access_manager_program_id,
-        );
+        let (access_manager_pda, _) =
+            solana_ibc_sdk::access_manager::instructions::Initialize::access_manager_pda(
+                &access_manager_program_id,
+            );
 
-        // Build instruction data: discriminator + borsh(new_height, params)
-        // Anchor discriminator = sha256("global:update_client")[..8]
-        let discriminator = {
-            let mut hasher = Sha256::new();
-            hasher.update(b"global:update_client");
-            let result = hasher.finalize();
-            <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
-        };
-
-        #[allow(clippy::items_after_statements)] // TODO: this type should not be duplicated
-        #[derive(AnchorSerialize)]
-        struct UpdateClientParams {
-            proof: Vec<u8>,
-        }
-
-        let mut data = discriminator.to_vec();
-        new_height
-            .serialize(&mut data)
-            .context("Failed to serialize new_height")?;
-        UpdateClientParams { proof }
-            .serialize(&mut data)
-            .context("Failed to serialize UpdateClientParams")?;
-
-        let instruction = solana_sdk::instruction::Instruction {
-            program_id: light_client_program_id,
-            accounts: vec![
-                solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::sysvar::instructions::ID,
-                    false,
-                ),
-                solana_sdk::instruction::AccountMeta::new(self.tx_builder.fee_payer, true),
-                solana_sdk::instruction::AccountMeta::new_readonly(
-                    solana_sdk::system_program::ID,
-                    false,
-                ),
-            ],
-            data,
-        };
+        let instruction = UpdateClient::builder(&light_client_program_id)
+            .accounts(UpdateClientAccounts {
+                access_manager: access_manager_pda,
+                submitter: self.tx_builder.fee_payer,
+                new_height,
+            })
+            .args(&UpdateClientArgs {
+                new_height,
+                params: UpdateClientParams { proof },
+            })
+            .build();
 
         let mut instructions = TxBuilder::extend_compute_ix();
         instructions.push(instruction);
