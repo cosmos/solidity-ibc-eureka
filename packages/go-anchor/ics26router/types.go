@@ -1773,12 +1773,159 @@ func UnmarshalSolanaIbcTypesRouterCounterpartyInfo(buf []byte) (*SolanaIbcTypesR
 	return obj, nil
 }
 
+// The "isSolanaIbcTypesRouterDelivery" interface for the "SolanaIbcTypesRouterDelivery" complex enum.
+type SolanaIbcTypesRouterDelivery interface {
+	isSolanaIbcTypesRouterDelivery()
+}
+
+type solanaIbcTypesRouterDeliveryEnumContainer struct {
+	Enum    binary.BorshEnum `bin:"enum"`
+	Inline  SolanaIbcTypesRouterDelivery_Inline
+	Chunked SolanaIbcTypesRouterDelivery_Chunked
+}
+
+func DecodeSolanaIbcTypesRouterDelivery(decoder *binary.Decoder) (SolanaIbcTypesRouterDelivery, error) {
+	{
+		tmp := new(solanaIbcTypesRouterDeliveryEnumContainer)
+		err := decoder.Decode(tmp)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing SolanaIbcTypesRouterDelivery: %w", err)
+		}
+		switch tmp.Enum {
+		case 0:
+			return &tmp.Inline, nil
+		case 1:
+			return &tmp.Chunked, nil
+		default:
+			return nil, fmt.Errorf("SolanaIbcTypesRouterDelivery: unknown enum index: %v", tmp.Enum)
+		}
+	}
+}
+
+func EncodeSolanaIbcTypesRouterDelivery(encoder *binary.Encoder, value SolanaIbcTypesRouterDelivery) error {
+	{
+		tmp := solanaIbcTypesRouterDeliveryEnumContainer{}
+		switch realvalue := value.(type) {
+		case *SolanaIbcTypesRouterDelivery_Inline:
+			tmp.Enum = 0
+			tmp.Inline = *realvalue
+		case *SolanaIbcTypesRouterDelivery_Chunked:
+			tmp.Enum = 1
+			tmp.Chunked = *realvalue
+		}
+		return encoder.Encode(tmp)
+	}
+}
+
+// Variant "Inline" of enum "SolanaIbcTypesRouterDelivery"
+type SolanaIbcTypesRouterDelivery_Inline struct {
+	Data []byte `json:"data"`
+}
+
+func (obj SolanaIbcTypesRouterDelivery_Inline) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Data`:
+	err = encoder.Encode(obj.Data)
+	if err != nil {
+		return errors.NewField("Data", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterDelivery_Inline) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterDelivery_Inline: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterDelivery_Inline) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Data`:
+	err = decoder.Decode(&obj.Data)
+	if err != nil {
+		return errors.NewField("Data", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterDelivery_Inline) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterDelivery_Inline: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterDelivery_Inline(buf []byte) (*SolanaIbcTypesRouterDelivery_Inline, error) {
+	obj := new(SolanaIbcTypesRouterDelivery_Inline)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *SolanaIbcTypesRouterDelivery_Inline) isSolanaIbcTypesRouterDelivery() {}
+
+// Variant "Chunked" of enum "SolanaIbcTypesRouterDelivery"
+type SolanaIbcTypesRouterDelivery_Chunked struct {
+	TotalChunks uint8 `json:"totalChunks"`
+}
+
+func (obj SolanaIbcTypesRouterDelivery_Chunked) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `TotalChunks`:
+	err = encoder.Encode(obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterDelivery_Chunked) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterDelivery_Chunked: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterDelivery_Chunked) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `TotalChunks`:
+	err = decoder.Decode(&obj.TotalChunks)
+	if err != nil {
+		return errors.NewField("TotalChunks", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterDelivery_Chunked) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterDelivery_Chunked: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterDelivery_Chunked(buf []byte) (*SolanaIbcTypesRouterDelivery_Chunked, error) {
+	obj := new(SolanaIbcTypesRouterDelivery_Chunked)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *SolanaIbcTypesRouterDelivery_Chunked) isSolanaIbcTypesRouterDelivery() {}
+
 // Message for acknowledging a packet
 type SolanaIbcTypesRouterMsgAckPacket struct {
-	Packet          SolanaIbcTypesRouterMsgPacket         `json:"packet"`
-	Payloads        []SolanaIbcTypesRouterPayloadMetadata `json:"payloads"`
-	Acknowledgement []byte                                `json:"acknowledgement"`
-	Proof           SolanaIbcTypesRouterProofMetadata     `json:"proof"`
+	Packet          SolanaIbcTypesRouterMsgPacket `json:"packet"`
+	Acknowledgement []byte                        `json:"acknowledgement"`
+	Proof           SolanaIbcTypesRouterMsgProof  `json:"proof"`
 }
 
 func (obj SolanaIbcTypesRouterMsgAckPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1786,11 +1933,6 @@ func (obj SolanaIbcTypesRouterMsgAckPacket) MarshalWithEncoder(encoder *binary.E
 	err = encoder.Encode(obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Serialize `Payloads`:
-	err = encoder.Encode(obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Serialize `Acknowledgement`:
 	err = encoder.Encode(obj.Acknowledgement)
@@ -1820,11 +1962,6 @@ func (obj *SolanaIbcTypesRouterMsgAckPacket) UnmarshalWithDecoder(decoder *binar
 	err = decoder.Decode(&obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Deserialize `Payloads`:
-	err = decoder.Decode(&obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Deserialize `Acknowledgement`:
 	err = decoder.Decode(&obj.Acknowledgement)
@@ -1939,15 +2076,12 @@ func UnmarshalSolanaIbcTypesRouterMsgCleanupChunks(buf []byte) (*SolanaIbcTypesR
 	return obj, nil
 }
 
-// Packet as it appears in router messages.
-// Payloads are `None` in chunked mode (assembled from chunk accounts),
-// `Some(vec![...])` in inline mode.
 type SolanaIbcTypesRouterMsgPacket struct {
-	Sequence         uint64                          `json:"sequence"`
-	SourceClient     string                          `json:"sourceClient"`
-	DestClient       string                          `json:"destClient"`
-	TimeoutTimestamp int64                           `json:"timeoutTimestamp"`
-	Payloads         *[]SolanaIbcTypesAppMsgsPayload `bin:"optional" json:"payloads,omitempty"`
+	Sequence         uint64                           `json:"sequence"`
+	SourceClient     string                           `json:"sourceClient"`
+	DestClient       string                           `json:"destClient"`
+	TimeoutTimestamp uint64                           `json:"timeoutTimestamp"`
+	Payloads         []SolanaIbcTypesRouterMsgPayload `json:"payloads"`
 }
 
 func (obj SolanaIbcTypesRouterMsgPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1971,23 +2105,10 @@ func (obj SolanaIbcTypesRouterMsgPacket) MarshalWithEncoder(encoder *binary.Enco
 	if err != nil {
 		return errors.NewField("TimeoutTimestamp", err)
 	}
-	// Serialize `Payloads` (optional):
-	{
-		if obj.Payloads == nil {
-			err = encoder.WriteOption(false)
-			if err != nil {
-				return errors.NewOption("Payloads", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-		} else {
-			err = encoder.WriteOption(true)
-			if err != nil {
-				return errors.NewOption("Payloads", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-			err = encoder.Encode(obj.Payloads)
-			if err != nil {
-				return errors.NewField("Payloads", err)
-			}
-		}
+	// Serialize `Payloads`:
+	err = encoder.Encode(obj.Payloads)
+	if err != nil {
+		return errors.NewField("Payloads", err)
 	}
 	return nil
 }
@@ -2023,18 +2144,10 @@ func (obj *SolanaIbcTypesRouterMsgPacket) UnmarshalWithDecoder(decoder *binary.D
 	if err != nil {
 		return errors.NewField("TimeoutTimestamp", err)
 	}
-	// Deserialize `Payloads` (optional):
-	{
-		ok, err := decoder.ReadOption()
-		if err != nil {
-			return errors.NewOption("Payloads", fmt.Errorf("error while reading optionality: %w", err))
-		}
-		if ok {
-			err = decoder.Decode(&obj.Payloads)
-			if err != nil {
-				return errors.NewField("Payloads", err)
-			}
-		}
+	// Deserialize `Payloads`:
+	err = decoder.Decode(&obj.Payloads)
+	if err != nil {
+		return errors.NewField("Payloads", err)
 	}
 	return nil
 }
@@ -2056,11 +2169,173 @@ func UnmarshalSolanaIbcTypesRouterMsgPacket(buf []byte) (*SolanaIbcTypesRouterMs
 	return obj, nil
 }
 
+type SolanaIbcTypesRouterMsgPayload struct {
+	SourcePort string                       `json:"sourcePort"`
+	DestPort   string                       `json:"destPort"`
+	Version    string                       `json:"version"`
+	Encoding   string                       `json:"encoding"`
+	Data       SolanaIbcTypesRouterDelivery `json:"data"`
+}
+
+func (obj SolanaIbcTypesRouterMsgPayload) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `SourcePort`:
+	err = encoder.Encode(obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Serialize `DestPort`:
+	err = encoder.Encode(obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Serialize `Version`:
+	err = encoder.Encode(obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Serialize `Data`:
+	{
+		err := EncodeSolanaIbcTypesRouterDelivery(encoder, obj.Data)
+		if err != nil {
+			return errors.NewField("Data", err)
+		}
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterMsgPayload) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterMsgPayload: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterMsgPayload) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `SourcePort`:
+	err = decoder.Decode(&obj.SourcePort)
+	if err != nil {
+		return errors.NewField("SourcePort", err)
+	}
+	// Deserialize `DestPort`:
+	err = decoder.Decode(&obj.DestPort)
+	if err != nil {
+		return errors.NewField("DestPort", err)
+	}
+	// Deserialize `Version`:
+	err = decoder.Decode(&obj.Version)
+	if err != nil {
+		return errors.NewField("Version", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
+	}
+	// Deserialize `Data`:
+	{
+		var err error
+		obj.Data, err = DecodeSolanaIbcTypesRouterDelivery(decoder)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterMsgPayload) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterMsgPayload: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterMsgPayload(buf []byte) (*SolanaIbcTypesRouterMsgPayload, error) {
+	obj := new(SolanaIbcTypesRouterMsgPayload)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type SolanaIbcTypesRouterMsgProof struct {
+	Height uint64                       `json:"height"`
+	Data   SolanaIbcTypesRouterDelivery `json:"data"`
+}
+
+func (obj SolanaIbcTypesRouterMsgProof) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Height`:
+	err = encoder.Encode(obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Serialize `Data`:
+	{
+		err := EncodeSolanaIbcTypesRouterDelivery(encoder, obj.Data)
+		if err != nil {
+			return errors.NewField("Data", err)
+		}
+	}
+	return nil
+}
+
+func (obj SolanaIbcTypesRouterMsgProof) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterMsgProof: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcTypesRouterMsgProof) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Height`:
+	err = decoder.Decode(&obj.Height)
+	if err != nil {
+		return errors.NewField("Height", err)
+	}
+	// Deserialize `Data`:
+	{
+		var err error
+		obj.Data, err = DecodeSolanaIbcTypesRouterDelivery(decoder)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (obj *SolanaIbcTypesRouterMsgProof) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterMsgProof: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcTypesRouterMsgProof(buf []byte) (*SolanaIbcTypesRouterMsgProof, error) {
+	obj := new(SolanaIbcTypesRouterMsgProof)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Message for receiving a packet
 type SolanaIbcTypesRouterMsgRecvPacket struct {
-	Packet   SolanaIbcTypesRouterMsgPacket         `json:"packet"`
-	Payloads []SolanaIbcTypesRouterPayloadMetadata `json:"payloads"`
-	Proof    SolanaIbcTypesRouterProofMetadata     `json:"proof"`
+	Packet SolanaIbcTypesRouterMsgPacket `json:"packet"`
+	Proof  SolanaIbcTypesRouterMsgProof  `json:"proof"`
 }
 
 func (obj SolanaIbcTypesRouterMsgRecvPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2068,11 +2343,6 @@ func (obj SolanaIbcTypesRouterMsgRecvPacket) MarshalWithEncoder(encoder *binary.
 	err = encoder.Encode(obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Serialize `Payloads`:
-	err = encoder.Encode(obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Serialize `Proof`:
 	err = encoder.Encode(obj.Proof)
@@ -2097,11 +2367,6 @@ func (obj *SolanaIbcTypesRouterMsgRecvPacket) UnmarshalWithDecoder(decoder *bina
 	err = decoder.Decode(&obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Deserialize `Payloads`:
-	err = decoder.Decode(&obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Deserialize `Proof`:
 	err = decoder.Decode(&obj.Proof)
@@ -2202,9 +2467,8 @@ func UnmarshalSolanaIbcTypesRouterMsgSendPacket(buf []byte) (*SolanaIbcTypesRout
 
 // Message for timing out a packet
 type SolanaIbcTypesRouterMsgTimeoutPacket struct {
-	Packet   SolanaIbcTypesRouterMsgPacket         `json:"packet"`
-	Payloads []SolanaIbcTypesRouterPayloadMetadata `json:"payloads"`
-	Proof    SolanaIbcTypesRouterProofMetadata     `json:"proof"`
+	Packet SolanaIbcTypesRouterMsgPacket `json:"packet"`
+	Proof  SolanaIbcTypesRouterMsgProof  `json:"proof"`
 }
 
 func (obj SolanaIbcTypesRouterMsgTimeoutPacket) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2212,11 +2476,6 @@ func (obj SolanaIbcTypesRouterMsgTimeoutPacket) MarshalWithEncoder(encoder *bina
 	err = encoder.Encode(obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Serialize `Payloads`:
-	err = encoder.Encode(obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Serialize `Proof`:
 	err = encoder.Encode(obj.Proof)
@@ -2241,11 +2500,6 @@ func (obj *SolanaIbcTypesRouterMsgTimeoutPacket) UnmarshalWithDecoder(decoder *b
 	err = decoder.Decode(&obj.Packet)
 	if err != nil {
 		return errors.NewField("Packet", err)
-	}
-	// Deserialize `Payloads`:
-	err = decoder.Decode(&obj.Payloads)
-	if err != nil {
-		return errors.NewField("Payloads", err)
 	}
 	// Deserialize `Proof`:
 	err = decoder.Decode(&obj.Proof)
@@ -2453,161 +2707,6 @@ func (obj *SolanaIbcTypesRouterPacket) Unmarshal(buf []byte) error {
 
 func UnmarshalSolanaIbcTypesRouterPacket(buf []byte) (*SolanaIbcTypesRouterPacket, error) {
 	obj := new(SolanaIbcTypesRouterPacket)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Payload metadata for chunked operations
-type SolanaIbcTypesRouterPayloadMetadata struct {
-	SourcePort  string `json:"sourcePort"`
-	DestPort    string `json:"destPort"`
-	Version     string `json:"version"`
-	Encoding    string `json:"encoding"`
-	TotalChunks uint8  `json:"totalChunks"`
-}
-
-func (obj SolanaIbcTypesRouterPayloadMetadata) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `SourcePort`:
-	err = encoder.Encode(obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Serialize `DestPort`:
-	err = encoder.Encode(obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `Encoding`:
-	err = encoder.Encode(obj.Encoding)
-	if err != nil {
-		return errors.NewField("Encoding", err)
-	}
-	// Serialize `TotalChunks`:
-	err = encoder.Encode(obj.TotalChunks)
-	if err != nil {
-		return errors.NewField("TotalChunks", err)
-	}
-	return nil
-}
-
-func (obj SolanaIbcTypesRouterPayloadMetadata) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterPayloadMetadata: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *SolanaIbcTypesRouterPayloadMetadata) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `SourcePort`:
-	err = decoder.Decode(&obj.SourcePort)
-	if err != nil {
-		return errors.NewField("SourcePort", err)
-	}
-	// Deserialize `DestPort`:
-	err = decoder.Decode(&obj.DestPort)
-	if err != nil {
-		return errors.NewField("DestPort", err)
-	}
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `Encoding`:
-	err = decoder.Decode(&obj.Encoding)
-	if err != nil {
-		return errors.NewField("Encoding", err)
-	}
-	// Deserialize `TotalChunks`:
-	err = decoder.Decode(&obj.TotalChunks)
-	if err != nil {
-		return errors.NewField("TotalChunks", err)
-	}
-	return nil
-}
-
-func (obj *SolanaIbcTypesRouterPayloadMetadata) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterPayloadMetadata: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalSolanaIbcTypesRouterPayloadMetadata(buf []byte) (*SolanaIbcTypesRouterPayloadMetadata, error) {
-	obj := new(SolanaIbcTypesRouterPayloadMetadata)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Proof metadata for chunked operations
-type SolanaIbcTypesRouterProofMetadata struct {
-	Height      uint64 `json:"height"`
-	TotalChunks uint8  `json:"totalChunks"`
-}
-
-func (obj SolanaIbcTypesRouterProofMetadata) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Height`:
-	err = encoder.Encode(obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Serialize `TotalChunks`:
-	err = encoder.Encode(obj.TotalChunks)
-	if err != nil {
-		return errors.NewField("TotalChunks", err)
-	}
-	return nil
-}
-
-func (obj SolanaIbcTypesRouterProofMetadata) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding SolanaIbcTypesRouterProofMetadata: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *SolanaIbcTypesRouterProofMetadata) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Height`:
-	err = decoder.Decode(&obj.Height)
-	if err != nil {
-		return errors.NewField("Height", err)
-	}
-	// Deserialize `TotalChunks`:
-	err = decoder.Decode(&obj.TotalChunks)
-	if err != nil {
-		return errors.NewField("TotalChunks", err)
-	}
-	return nil
-}
-
-func (obj *SolanaIbcTypesRouterProofMetadata) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling SolanaIbcTypesRouterProofMetadata: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalSolanaIbcTypesRouterProofMetadata(buf []byte) (*SolanaIbcTypesRouterProofMetadata, error) {
-	obj := new(SolanaIbcTypesRouterProofMetadata)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err

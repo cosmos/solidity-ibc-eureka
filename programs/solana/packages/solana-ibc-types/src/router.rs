@@ -124,33 +124,43 @@ impl Packet {
     }
 }
 
-/// Packet as it appears in router messages.
-/// Payloads are `None` in chunked mode (assembled from chunk accounts),
-/// `Some(vec![...])` in inline mode.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub enum Delivery {
+    Inline { data: Vec<u8> },
+    Chunked { total_chunks: u8 },
+}
+
+impl Delivery {
+    pub fn total_chunks(&self) -> u8 {
+        match self {
+            Self::Inline { .. } => 0,
+            Self::Chunked { total_chunks } => *total_chunks,
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPayload {
+    pub source_port: String,
+    pub dest_port: String,
+    pub version: String,
+    pub encoding: String,
+    pub data: Delivery,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgProof {
+    pub height: u64,
+    pub data: Delivery,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgPacket {
     pub sequence: u64,
     pub source_client: String,
     pub dest_client: String,
-    pub timeout_timestamp: i64,
-    pub payloads: Option<Vec<Payload>>,
-}
-
-/// Payload metadata for chunked operations
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct PayloadMetadata {
-    pub source_port: String,
-    pub dest_port: String,
-    pub version: String,
-    pub encoding: String,
-    pub total_chunks: u8,
-}
-
-/// Proof metadata for chunked operations
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ProofMetadata {
-    pub height: u64,
-    pub total_chunks: u8,
+    pub timeout_timestamp: u64,
+    pub payloads: Vec<MsgPayload>,
 }
 
 /// Message for sending a packet
@@ -165,25 +175,22 @@ pub struct MsgSendPacket {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
     pub packet: MsgPacket,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub proof: MsgProof,
 }
 
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
     pub packet: MsgPacket,
-    pub payloads: Vec<PayloadMetadata>,
-    pub acknowledgement: Vec<u8>, // Not chunked
-    pub proof: ProofMetadata,
+    pub acknowledgement: Vec<u8>,
+    pub proof: MsgProof,
 }
 
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
     pub packet: MsgPacket,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub proof: MsgProof,
 }
 
 /// Message for uploading chunks
