@@ -158,7 +158,7 @@ impl Client {
 pub struct ClientSequence;
 
 impl ClientSequence {
-    pub const SEED: &'static [u8] = b"client_sequence";
+    pub const SEED: &'static [u8] = b"cseq";
 
     /// Get client sequence PDA
     pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {

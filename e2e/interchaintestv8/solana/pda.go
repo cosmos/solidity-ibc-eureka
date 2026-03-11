@@ -26,17 +26,17 @@ type testGmpAppPDAs struct{}
 type testIbcAppPDAs struct{}
 
 var (
-	AccessManager = accessManagerPDAs{}
-	Attestation = attestationPDAs{}
-	GmpCounterApp = gmpCounterAppPDAs{}
+	AccessManager   = accessManagerPDAs{}
+	Attestation     = attestationPDAs{}
+	GmpCounterApp   = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router = ics26RouterPDAs{}
-	Ics27Gmp = ics27GmpPDAs{}
-	Ift = iftPDAs{}
+	Ics26Router     = ics26RouterPDAs{}
+	Ics27Gmp        = ics27GmpPDAs{}
+	Ift             = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
-	TestCpiTarget = testCpiTargetPDAs{}
-	TestGmpApp = testGmpAppPDAs{}
-	TestIbcApp = testIbcAppPDAs{}
+	TestCpiTarget   = testCpiTargetPDAs{}
+	TestGmpApp      = testGmpAppPDAs{}
+	TestIbcApp      = testIbcAppPDAs{}
 )
 
 func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
@@ -195,7 +195,7 @@ func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 
 func (ics26RouterPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client_sequence"), sourceClient},
+		[][]byte{[]byte("cseq"), sourceClient},
 		programID,
 	)
 	if err != nil {
@@ -283,7 +283,7 @@ func (ics27GmpPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKe
 
 func (ics27GmpPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client_sequence"), sourceClient},
+		[][]byte{[]byte("cseq"), sourceClient},
 		programID,
 	)
 	if err != nil {
@@ -514,7 +514,7 @@ func (testIbcAppPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.Public
 
 func (testIbcAppPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("client_sequence"), sourceClient},
+		[][]byte{[]byte("cseq"), sourceClient},
 		programID,
 	)
 	if err != nil {
@@ -588,4 +588,3 @@ func (testIbcAppPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.Pub
 	}
 	return pda, bump
 }
-
