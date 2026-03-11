@@ -12,7 +12,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + AccessManager::INIT_SPACE,
-        seeds = [AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump
     )]
     pub access_manager: Account<'info, AccessManager>,

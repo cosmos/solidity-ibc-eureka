@@ -11,7 +11,7 @@ use anchor_lang::solana_program::bpf_loader_upgradeable;
 pub struct UpgradeProgram<'info> {
     /// The access manager PDA for admin authorization.
     #[account(
-        seeds = [AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump
     )]
     pub access_manager: Account<'info, AccessManager>,
@@ -49,7 +49,7 @@ pub struct UpgradeProgram<'info> {
     /// CHECK: Validated via seeds constraint
     #[account(
         mut,
-        seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
+        seeds = [b"upgrade_authority", target_program.as_ref()],
         bump
     )]
     pub upgrade_authority: AccountInfo<'info>,

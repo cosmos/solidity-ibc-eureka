@@ -10,7 +10,7 @@ pub struct SetWhitelistedPrograms<'info> {
     /// The access manager PDA whose whitelist will be updated.
     #[account(
         mut,
-        seeds = [AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump
     )]
     pub access_manager: Account<'info, AccessManager>,

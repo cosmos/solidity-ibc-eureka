@@ -29,7 +29,7 @@ pub struct PreVerifySignature<'info> {
 
     /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -37,7 +37,7 @@ pub struct PreVerifySignature<'info> {
     /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 pub struct UploadPayloadChunk<'info> {
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -18,7 +18,7 @@ pub struct UploadPayloadChunk<'info> {
     /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager,
     )]
@@ -31,7 +31,7 @@ pub struct UploadPayloadChunk<'info> {
         payer = relayer,
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
-            PayloadChunk::SEED,
+            &b"payload_chunk"[..],
             relayer.key().as_ref(),
             msg.client_id.as_bytes(),
             &msg.sequence.to_le_bytes(),

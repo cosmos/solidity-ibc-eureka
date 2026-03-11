@@ -16,14 +16,14 @@ use solana_keccak_hasher::{hash as keccak256, Hash};
 pub struct VerifyNonMembership<'info> {
     /// The attestation client state holding the trusted attestor set and frozen flag.
     #[account(
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump,
         constraint = !client_state.is_frozen @ ErrorCode::FrozenClientState
     )]
     pub client_state: Account<'info, ClientState>,
     /// The consensus state at the requested proof height (must already exist on-chain).
     #[account(
-        seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &msg.height.to_le_bytes()],
         bump,
         constraint = consensus_state_at_height.timestamp != 0 @ ErrorCode::ConsensusTimestampNotFound
     )]

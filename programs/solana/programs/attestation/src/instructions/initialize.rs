@@ -12,7 +12,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ClientState::INIT_SPACE,
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + AppState::INIT_SPACE,
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,

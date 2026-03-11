@@ -14,7 +14,7 @@ use solana_ibc_types::IBCAppState;
 pub struct SendPacket<'info> {
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
@@ -22,7 +22,7 @@ pub struct SendPacket<'info> {
 
     /// PDA mapping the source port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payload.source_port.as_bytes()],
+        seeds = [b"ibc_app", msg.payload.source_port.as_bytes()],
         bump,
         constraint = ibc_app.port_id == msg.payload.source_port @ RouterError::PortIdentifierMismatch,
     )]
@@ -31,7 +31,7 @@ pub struct SendPacket<'info> {
     /// Mutable sequence counter for this client; incremented on each send.
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [b"cseq", msg.source_client.as_bytes()],
         bump
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -44,7 +44,7 @@ pub struct SendPacket<'info> {
 
     /// PDA signed by the calling IBC app program, proving it authorized this send.
     #[account(
-        seeds = [IBCAppState::SEED],
+        seeds = [b"app_state"],
         bump,
         seeds::program = ibc_app.app_program_id
     )]
@@ -59,7 +59,7 @@ pub struct SendPacket<'info> {
 
     /// Client PDA for the source client; must be active.
     #[account(
-        seeds = [Client::SEED, msg.source_client.as_bytes()],
+        seeds = [b"client", msg.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]

@@ -23,7 +23,7 @@ use solana_ibc_types::IBCAppState;
 pub struct TimeoutPacket<'info> {
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
@@ -32,7 +32,7 @@ pub struct TimeoutPacket<'info> {
     /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager,
     )]
@@ -40,7 +40,7 @@ pub struct TimeoutPacket<'info> {
 
     /// PDA mapping the source port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
+        seeds = [b"ibc_app", msg.payloads[0].source_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
@@ -84,7 +84,7 @@ pub struct TimeoutPacket<'info> {
 
     /// Client PDA for the source client; must be active.
     #[account(
-        seeds = [Client::SEED, msg.packet.source_client.as_bytes()],
+        seeds = [b"client", msg.packet.source_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]

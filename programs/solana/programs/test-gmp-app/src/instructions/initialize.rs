@@ -15,7 +15,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + CounterAppState::INIT_SPACE,
-        seeds = [CounterAppState::SEED],
+        seeds = [b"counter_app_state"],
         bump
     )]
     pub app_state: Account<'info, CounterAppState>,

@@ -36,7 +36,7 @@ pub struct SendTransfer<'info> {
     /// App state PDA, also used as the `app_signer` for router CPI.
     #[account(
         mut,
-        seeds = [IBCAppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,
@@ -49,7 +49,7 @@ pub struct SendTransfer<'info> {
     /// CHECK: PDA derived from `client_id`, will be validated
     #[account(
         mut,
-        seeds = [TestIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
+        seeds = [b"escrow", msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_account: AccountInfo<'info>,
@@ -59,14 +59,14 @@ pub struct SendTransfer<'info> {
         init_if_needed,
         payer = user,
         space = 8 + EscrowState::INIT_SPACE,
-        seeds = [EscrowState::SEED, msg.source_client.as_bytes()],
+        seeds = [b"escrow_state", msg.source_client.as_bytes()],
         bump
     )]
     pub escrow_state: Account<'info, EscrowState>,
 
     /// Router global state (read-only).
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         seeds::program = router_program
     )]
@@ -74,7 +74,7 @@ pub struct SendTransfer<'info> {
 
     /// Router port-to-app binding for the transfer port.
     #[account(
-        seeds = [IBCApp::SEED, TRANSFER_PORT.as_bytes()],
+        seeds = [b"ibc_app", TRANSFER_PORT.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -83,7 +83,7 @@ pub struct SendTransfer<'info> {
     /// Per-client sequence counter (incremented by the router).
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [b"cseq", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -96,7 +96,7 @@ pub struct SendTransfer<'info> {
 
     /// Client registration entry for the source client.
     #[account(
-        seeds = [Client::SEED, msg.source_client.as_bytes()],
+        seeds = [b"client", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]

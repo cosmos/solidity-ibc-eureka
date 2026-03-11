@@ -39,7 +39,7 @@ pub struct OnRecvPacket<'info> {
     /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         mut,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]

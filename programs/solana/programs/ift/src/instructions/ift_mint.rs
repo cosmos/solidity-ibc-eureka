@@ -16,7 +16,7 @@ use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, IFTMintMsg};
 pub struct IFTMint<'info> {
     /// Global IFT app state (read-only, for paused check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused,
     )]
@@ -25,7 +25,7 @@ pub struct IFTMint<'info> {
     /// Per-mint IFT app state (mut, for rate limits)
     #[account(
         mut,
-        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        seeds = [b"ift_app_mint_state", mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -33,7 +33,7 @@ pub struct IFTMint<'info> {
     /// IFT bridge - provides counterparty info for GMP account validation.
     /// Seeds use self-referencing `ift_bridge.client_id` (Anchor deserializes before checking seeds).
     #[account(
-        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), ift_bridge.client_id.as_bytes()],
+        seeds = [b"ift_bridge", app_mint_state.mint.as_ref(), ift_bridge.client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive
@@ -50,7 +50,7 @@ pub struct IFTMint<'info> {
     /// Mint authority PDA
     /// CHECK: Derived PDA that signs for minting
     #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        seeds = [b"ift_mint_authority", mint.key().as_ref()],
         // Use stored bump to avoid expensive `find_program_address` computation.
         // The bump is needed for PDA signing during the mint CPI call.
         bump = app_mint_state.mint_authority_bump

@@ -9,7 +9,7 @@ pub struct SetAccessManager<'info> {
     /// PDA holding program-level settings; the `access_manager` field is overwritten on success.
     #[account(
         mut,
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -17,7 +17,7 @@ pub struct SetAccessManager<'info> {
     /// Current access-manager PDA used to verify the caller holds the admin role.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

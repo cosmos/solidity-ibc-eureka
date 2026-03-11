@@ -18,7 +18,7 @@ pub struct AddClient<'info> {
 
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -26,7 +26,7 @@ pub struct AddClient<'info> {
     /// Global access control state used for role verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager
     )]
@@ -37,7 +37,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + Client::INIT_SPACE,
-        seeds = [Client::SEED, client_id.as_bytes()],
+        seeds = [b"client", client_id.as_bytes()],
         bump,
     )]
     pub client: Account<'info, Client>,
@@ -47,7 +47,7 @@ pub struct AddClient<'info> {
         init,
         payer = authority,
         space = 8 + ClientSequence::INIT_SPACE,
-        seeds = [ClientSequence::SEED, client_id.as_bytes()],
+        seeds = [b"cseq", client_id.as_bytes()],
         bump,
     )]
     pub client_sequence: Account<'info, ClientSequence>,
@@ -76,7 +76,7 @@ pub struct MigrateClient<'info> {
 
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -84,7 +84,7 @@ pub struct MigrateClient<'info> {
     /// Global access control state used for admin verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager
     )]
@@ -93,7 +93,7 @@ pub struct MigrateClient<'info> {
     /// Mutable client PDA whose fields will be updated.
     #[account(
         mut,
-        seeds = [Client::SEED, client_id.as_bytes()],
+        seeds = [b"client", client_id.as_bytes()],
         bump
     )]
     pub client: Account<'info, Client>,

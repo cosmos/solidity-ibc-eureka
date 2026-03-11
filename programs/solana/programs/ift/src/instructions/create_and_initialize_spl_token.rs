@@ -17,7 +17,7 @@ use crate::state::{AccountVersion, CreateTokenParams, IFTAppMintState, IFTAppSta
 pub struct CreateAndInitializeSplToken<'info> {
     /// Global IFT app state
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -27,7 +27,7 @@ pub struct CreateAndInitializeSplToken<'info> {
         init,
         payer = payer,
         space = 8 + IFTAppMintState::INIT_SPACE,
-        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        seeds = [b"ift_app_mint_state", mint.key().as_ref()],
         bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -40,7 +40,7 @@ pub struct CreateAndInitializeSplToken<'info> {
     /// Mint authority PDA
     /// CHECK: Derived PDA set as mint authority
     #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        seeds = [b"ift_mint_authority", mint.key().as_ref()],
         bump
     )]
     pub mint_authority: AccountInfo<'info>,

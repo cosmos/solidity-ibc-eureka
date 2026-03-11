@@ -12,7 +12,7 @@ pub struct GrantRole<'info> {
     /// The access manager PDA storing all role assignments.
     #[account(
         mut,
-        seeds = [AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump
     )]
     pub access_manager: Account<'info, AccessManager>,

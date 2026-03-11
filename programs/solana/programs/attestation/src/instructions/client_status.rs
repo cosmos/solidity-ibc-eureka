@@ -9,13 +9,13 @@ use crate::types::ClientState;
 pub struct ClientStatus<'info> {
     /// The attestation client state to check for frozen status.
     #[account(
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
     /// The consensus state at the client's latest height (validates the client is initialized).
     #[account(
-        seeds = [ConsensusStateStore::SEED, &client_state.latest_height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &client_state.latest_height.to_le_bytes()],
         bump
     )]
     pub consensus_state: Account<'info, ConsensusStateStore>,

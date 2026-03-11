@@ -13,7 +13,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + GMPAppState::INIT_SPACE,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, GMPAppState>,

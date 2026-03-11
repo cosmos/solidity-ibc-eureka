@@ -8,7 +8,7 @@ pub struct PauseApp<'info> {
     /// GMP program's global configuration PDA that holds the paused flag.
     #[account(
         mut,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -16,7 +16,7 @@ pub struct PauseApp<'info> {
     /// Access manager account used for role-based authorization.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]
@@ -61,7 +61,7 @@ pub struct UnpauseApp<'info> {
     /// GMP program's global configuration PDA that holds the paused flag.
     #[account(
         mut,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -69,7 +69,7 @@ pub struct UnpauseApp<'info> {
     /// Access manager account used for role-based authorization.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

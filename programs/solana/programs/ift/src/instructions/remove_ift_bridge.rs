@@ -11,14 +11,14 @@ use crate::state::{IFTAppMintState, IFTAppState, IFTBridge};
 pub struct RemoveIFTBridge<'info> {
     /// Global IFT app state (read-only, for admin check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
     /// Per-mint IFT app state (for mint reference)
     #[account(
-        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        seeds = [b"ift_app_mint_state", app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -27,7 +27,7 @@ pub struct RemoveIFTBridge<'info> {
     #[account(
         mut,
         close = payer,
-        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
+        seeds = [b"ift_bridge", app_mint_state.mint.as_ref(), client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::BridgeNotFound
     )]

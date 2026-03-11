@@ -8,7 +8,7 @@ use anchor_lang::solana_program::program::set_return_data;
 pub struct ClientStatus<'info> {
     /// PDA holding the light client configuration; checked for frozen state and trusting period.
     #[account(
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -16,7 +16,7 @@ pub struct ClientStatus<'info> {
     /// current clock to determine whether the client has expired.
     #[account(
         seeds = [
-            ConsensusStateStore::SEED,
+            &b"consensus_state"[..],
             &client_state.latest_height.revision_height.to_le_bytes()
         ],
         bump

@@ -11,7 +11,7 @@ use crate::state::{IFTAppMintState, IFTAppState, SetMintRateLimitMsg};
 pub struct SetMintRateLimit<'info> {
     /// Global IFT app state (read-only, for admin check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -19,7 +19,7 @@ pub struct SetMintRateLimit<'info> {
     /// Per-mint IFT app state (mut, for `daily_mint_limit`)
     #[account(
         mut,
-        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        seeds = [b"ift_app_mint_state", app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,

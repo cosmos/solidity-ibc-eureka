@@ -10,7 +10,7 @@ use anchor_lang::prelude::*;
 pub struct AddIbcApp<'info> {
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -18,7 +18,7 @@ pub struct AddIbcApp<'info> {
     /// Global access control state used for role verification.
     /// CHECK: Validated via seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager
     )]
@@ -29,7 +29,7 @@ pub struct AddIbcApp<'info> {
         init,
         payer = payer,
         space = 8 + IBCApp::INIT_SPACE,
-        seeds = [IBCApp::SEED, port_id.as_bytes()],
+        seeds = [b"ibc_app", port_id.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,

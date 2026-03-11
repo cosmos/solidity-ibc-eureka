@@ -13,13 +13,13 @@ use tendermint_light_client_membership::KVPair;
 pub struct VerifyNonMembership<'info> {
     /// PDA holding the light client configuration; used to check the frozen status.
     #[account(
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
     /// PDA storing the verified consensus state at the requested proof height.
     #[account(
-        seeds = [ConsensusStateStore::SEED, &msg.height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &msg.height.to_le_bytes()],
         bump
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,

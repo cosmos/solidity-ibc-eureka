@@ -12,7 +12,7 @@ pub struct SetPaused<'info> {
     /// Global IFT app state (mut, `paused` field will be updated)
     #[account(
         mut,
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,

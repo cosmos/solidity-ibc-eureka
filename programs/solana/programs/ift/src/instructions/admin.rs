@@ -17,7 +17,7 @@ pub struct SetAdmin<'info> {
     /// Global IFT app state (mut, admin field will be updated)
     #[account(
         mut,
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -54,7 +54,7 @@ pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
 pub struct RevokeMintAuthority<'info> {
     /// Global IFT app state (read-only, for admin check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, IFTAppState>,
@@ -63,7 +63,7 @@ pub struct RevokeMintAuthority<'info> {
     #[account(
         mut,
         close = admin,
-        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        seeds = [b"ift_app_mint_state", mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -78,7 +78,7 @@ pub struct RevokeMintAuthority<'info> {
     /// Current mint authority PDA (IFT's)
     /// CHECK: Derived PDA verified by seeds
     #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        seeds = [b"ift_mint_authority", mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,
@@ -145,7 +145,7 @@ pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
 pub struct AdminMint<'info> {
     /// Global IFT app state (read-only, for admin + pause check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused,
     )]
@@ -154,7 +154,7 @@ pub struct AdminMint<'info> {
     /// Per-mint IFT app state (mut for rate limits)
     #[account(
         mut,
-        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        seeds = [b"ift_app_mint_state", mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -169,7 +169,7 @@ pub struct AdminMint<'info> {
     /// Mint authority PDA
     /// CHECK: Derived PDA that signs for minting
     #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        seeds = [b"ift_mint_authority", mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,

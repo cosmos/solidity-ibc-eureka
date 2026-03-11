@@ -11,7 +11,7 @@ use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
 pub struct OnTimeoutPacket<'info> {
     /// GMP program's global configuration PDA. Must not be paused.
     #[account(
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -35,7 +35,7 @@ pub struct OnTimeoutPacket<'info> {
         init,
         payer = payer,
         space = 8 + GMPCallResultAccount::INIT_SPACE,
-        seeds = [GMPCallResult::SEED, msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
+        seeds = [&b"gmp_result"[..], msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
         bump,
     )]
     pub result_account: Account<'info, GMPCallResultAccount>,

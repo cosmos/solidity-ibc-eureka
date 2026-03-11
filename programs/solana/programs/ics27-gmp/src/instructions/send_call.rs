@@ -17,7 +17,7 @@ pub struct SendCall<'info> {
     /// GMP program's global configuration PDA. Must not be paused.
     #[account(
         mut,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ GMPError::AppPaused
     )]
@@ -35,7 +35,7 @@ pub struct SendCall<'info> {
 
     /// Router's global state PDA, forwarded to the router CPI.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         seeds::program = router_program
     )]
@@ -44,7 +44,7 @@ pub struct SendCall<'info> {
     /// Packet sequence counter for the source client, incremented by the router.
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [b"cseq", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -57,7 +57,7 @@ pub struct SendCall<'info> {
 
     /// Port-to-program mapping that authorizes this GMP program for the GMP port.
     #[account(
-        seeds = [IBCApp::SEED, GMP_PORT_ID.as_bytes()],
+        seeds = [b"ibc_app", GMP_PORT_ID.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -65,7 +65,7 @@ pub struct SendCall<'info> {
 
     /// IBC client account that identifies the destination chain for routing.
     #[account(
-        seeds = [Client::SEED, msg.source_client.as_bytes()],
+        seeds = [b"client", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]

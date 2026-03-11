@@ -15,7 +15,7 @@ pub struct UpdateClient<'info> {
     /// The attestation client state (updated with `latest_height` or frozen on misbehaviour).
     #[account(
         mut,
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
@@ -25,14 +25,14 @@ pub struct UpdateClient<'info> {
         init_if_needed,
         payer = submitter,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, &new_height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &new_height.to_le_bytes()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,
 
     /// The attestation app state linking to the access manager.
     #[account(
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -40,7 +40,7 @@ pub struct UpdateClient<'info> {
     /// The access manager account for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

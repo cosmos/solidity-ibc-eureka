@@ -29,7 +29,7 @@ use crate::state::{IFTAppMintState, IFTAppState, PendingTransfer};
 pub struct FinalizeTransfer<'info> {
     /// Global IFT app state (read-only)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused
     )]
@@ -38,7 +38,7 @@ pub struct FinalizeTransfer<'info> {
     /// Per-mint IFT app state (mut for rate limit updates)
     #[account(
         mut,
-        seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
+        seeds = [b"ift_app_mint_state", mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -63,7 +63,7 @@ pub struct FinalizeTransfer<'info> {
     /// GMP result account - proves the ack/timeout happened
     /// This is a cross-program account owned by the GMP program
     #[account(
-        seeds = [GMPCallResult::SEED, client_id.as_bytes(), &sequence.to_le_bytes()],
+        seeds = [&b"gmp_result"[..], client_id.as_bytes(), &sequence.to_le_bytes()],
         seeds::program = ics27_gmp::ID,
         bump,
     )]
@@ -76,7 +76,7 @@ pub struct FinalizeTransfer<'info> {
     /// Mint authority PDA
     /// CHECK: Derived PDA verified by seeds constraint
     #[account(
-        seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
+        seeds = [b"ift_mint_authority", mint.key().as_ref()],
         bump = app_mint_state.mint_authority_bump
     )]
     pub mint_authority: AccountInfo<'info>,

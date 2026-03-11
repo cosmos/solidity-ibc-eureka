@@ -34,7 +34,7 @@ pub struct SendPacket<'info> {
     /// App state PDA, also used as the `app_signer` for router CPI.
     #[account(
         mut,
-        seeds = [IBCAppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,
@@ -45,7 +45,7 @@ pub struct SendPacket<'info> {
 
     /// Router global state (read-only).
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         seeds::program = router_program
     )]
@@ -53,7 +53,7 @@ pub struct SendPacket<'info> {
 
     /// Router port-to-app binding for the source port.
     #[account(
-        seeds = [IBCApp::SEED, msg.source_port.as_bytes()],
+        seeds = [b"ibc_app", msg.source_port.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -62,7 +62,7 @@ pub struct SendPacket<'info> {
     /// Per-client sequence counter (incremented by the router).
     #[account(
         mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
+        seeds = [b"cseq", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]
@@ -75,7 +75,7 @@ pub struct SendPacket<'info> {
 
     /// Client registration entry for the source client.
     #[account(
-        seeds = [Client::SEED, msg.source_client.as_bytes()],
+        seeds = [b"client", msg.source_client.as_bytes()],
         bump,
         seeds::program = router_program
     )]

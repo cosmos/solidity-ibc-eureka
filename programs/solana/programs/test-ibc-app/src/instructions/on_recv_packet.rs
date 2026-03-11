@@ -13,7 +13,7 @@ pub struct OnRecvPacket<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + TestIbcAppState::INIT_SPACE,
-        seeds = [IBCAppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, TestIbcAppState>,

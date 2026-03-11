@@ -19,7 +19,7 @@ pub struct CheckIsCpi<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + 1,
-        seeds = [CPI_RESULT_SEED],
+        seeds = [b"cpi_result"],
         bump,
     )]
     pub result: Account<'info, CpiResult>,

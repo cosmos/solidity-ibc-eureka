@@ -9,7 +9,7 @@ pub struct SetAccessManager<'info> {
     /// GMP program's global configuration PDA whose `access_manager` field will be updated.
     #[account(
         mut,
-        seeds = [GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -17,7 +17,7 @@ pub struct SetAccessManager<'info> {
     /// Current access manager account used to verify admin privileges.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

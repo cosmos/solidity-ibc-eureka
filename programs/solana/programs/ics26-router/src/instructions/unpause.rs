@@ -10,7 +10,7 @@ pub struct Unpause<'info> {
     /// Mutable global router configuration PDA whose `paused` flag will be cleared.
     #[account(
         mut,
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         constraint = router_state.paused @ RouterError::RouterNotPaused,
     )]
@@ -19,7 +19,7 @@ pub struct Unpause<'info> {
     /// Global access control state used for unpauser role verification.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager,
     )]

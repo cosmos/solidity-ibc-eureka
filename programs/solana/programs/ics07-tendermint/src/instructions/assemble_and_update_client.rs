@@ -18,14 +18,14 @@ pub struct AssembleAndUpdateClient<'info> {
     /// PDA holding the light client configuration; updated with the new latest height on success.
     #[account(
         mut,
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
 
     /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -33,7 +33,7 @@ pub struct AssembleAndUpdateClient<'info> {
     /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]
@@ -41,7 +41,7 @@ pub struct AssembleAndUpdateClient<'info> {
 
     /// Consensus state the header declares as its trust anchor; validated against PDA seeds.
     #[account(
-        seeds = [ConsensusStateStore::SEED, &trusted_height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &trusted_height.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state: Account<'info, ConsensusStateStore>,
@@ -51,7 +51,7 @@ pub struct AssembleAndUpdateClient<'info> {
         init_if_needed,
         payer = submitter,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [ConsensusStateStore::SEED, &target_height.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &target_height.to_le_bytes()],
         bump
     )]
     pub new_consensus_state_store: Account<'info, ConsensusStateStore>,

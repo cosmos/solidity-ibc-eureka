@@ -17,14 +17,14 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     /// PDA holding the light client configuration; frozen when misbehaviour is confirmed.
     #[account(
         mut,
-        seeds = [ClientState::SEED],
+        seeds = [b"client"],
         bump
     )]
     pub client_state: Account<'info, ClientState>,
 
     /// PDA holding program-level settings; provides the `access_manager` address for role checks.
     #[account(
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -32,7 +32,7 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
     /// Access-manager PDA used to verify the submitter holds the relayer role.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]
@@ -40,14 +40,14 @@ pub struct AssembleAndSubmitMisbehaviour<'info> {
 
     /// First trusted consensus state referenced by the misbehaviour evidence.
     #[account(
-        seeds = [ConsensusStateStore::SEED, &trusted_height_1.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &trusted_height_1.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_1: Account<'info, ConsensusStateStore>,
 
     /// Second trusted consensus state referenced by the misbehaviour evidence.
     #[account(
-        seeds = [ConsensusStateStore::SEED, &trusted_height_2.to_le_bytes()],
+        seeds = [&b"consensus_state"[..], &trusted_height_2.to_le_bytes()],
         bump
     )]
     pub trusted_consensus_state_2: Account<'info, ConsensusStateStore>,

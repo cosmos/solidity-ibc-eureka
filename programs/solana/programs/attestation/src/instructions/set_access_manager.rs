@@ -9,7 +9,7 @@ pub struct SetAccessManager<'info> {
     /// The attestation app state PDA whose access manager will be updated.
     #[account(
         mut,
-        seeds = [AppState::SEED],
+        seeds = [b"app_state"],
         bump
     )]
     pub app_state: Account<'info, AppState>,
@@ -17,7 +17,7 @@ pub struct SetAccessManager<'info> {
     /// The current access manager account for admin verification.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = app_state.access_manager
     )]

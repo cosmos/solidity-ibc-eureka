@@ -20,7 +20,7 @@ use crate::state::{
 pub struct IFTTransfer<'info> {
     /// Global IFT app state (read-only, for GMP program reference and pause check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
         constraint = !app_state.paused @ IFTError::AppPaused,
     )]
@@ -28,14 +28,14 @@ pub struct IFTTransfer<'info> {
 
     /// Per-mint IFT app state (read-only, for mint and bridge references)
     #[account(
-        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        seeds = [b"ift_app_mint_state", app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
 
     /// IFT bridge for the destination
     #[account(
-        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
+        seeds = [b"ift_bridge", app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
         constraint = !msg.client_id.is_empty() @ IFTError::EmptyClientId,
         constraint = msg.client_id.len() <= MAX_CLIENT_ID_LENGTH @ IFTError::InvalidClientIdLength,
@@ -77,7 +77,7 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Validated by GMP program via CPI
     #[account(
         mut,
-        seeds = [solana_ibc_types::GMPAppState::SEED],
+        seeds = [b"app_state"],
         bump,
         seeds::program = gmp_program.key()
     )]

@@ -12,7 +12,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + IFTAppState::INIT_SPACE,
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump
     )]
     pub app_state: Account<'info, IFTAppState>,

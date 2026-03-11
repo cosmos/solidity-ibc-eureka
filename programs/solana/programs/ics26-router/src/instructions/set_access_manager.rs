@@ -11,7 +11,7 @@ pub struct SetAccessManager<'info> {
     /// will be updated.
     #[account(
         mut,
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
@@ -19,7 +19,7 @@ pub struct SetAccessManager<'info> {
     /// Current access control state used for admin verification.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager
     )]

@@ -19,7 +19,7 @@ use solana_ibc_types::ics24;
 pub struct RecvPacket<'info> {
     /// Global router configuration PDA.
     #[account(
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump,
         constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
@@ -28,7 +28,7 @@ pub struct RecvPacket<'info> {
     /// Global access control state used for relayer role verification.
     /// CHECK: Validated by seeds constraint using stored `access_manager` program ID
     #[account(
-        seeds = [access_manager::state::AccessManager::SEED],
+        seeds = [b"access_manager"],
         bump,
         seeds::program = router_state.access_manager,
     )]
@@ -36,7 +36,7 @@ pub struct RecvPacket<'info> {
 
     /// PDA mapping the destination port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
+        seeds = [b"ibc_app", msg.payloads[0].dest_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
@@ -93,7 +93,7 @@ pub struct RecvPacket<'info> {
 
     /// Client PDA for the destination client; must be active.
     #[account(
-        seeds = [Client::SEED, msg.packet.dest_client.as_bytes()],
+        seeds = [b"client", msg.packet.dest_client.as_bytes()],
         bump,
         constraint = client.active @ RouterError::ClientNotActive,
     )]

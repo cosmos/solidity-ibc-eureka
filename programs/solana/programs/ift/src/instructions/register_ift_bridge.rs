@@ -11,14 +11,14 @@ use crate::state::{AccountVersion, IFTAppMintState, IFTAppState, IFTBridge, Regi
 pub struct RegisterIFTBridge<'info> {
     /// Global IFT app state (read-only, for admin check)
     #[account(
-        seeds = [IFT_APP_STATE_SEED],
+        seeds = [b"ift_app_state"],
         bump = app_state.bump,
     )]
     pub app_state: Account<'info, IFTAppState>,
 
     /// Per-mint IFT app state (for mint reference)
     #[account(
-        seeds = [IFT_APP_MINT_STATE_SEED, app_mint_state.mint.as_ref()],
+        seeds = [b"ift_app_mint_state", app_mint_state.mint.as_ref()],
         bump = app_mint_state.bump,
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
@@ -28,7 +28,7 @@ pub struct RegisterIFTBridge<'info> {
         init,
         payer = payer,
         space = 8 + IFTBridge::INIT_SPACE,
-        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
+        seeds = [b"ift_bridge", app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump
     )]
     pub ift_bridge: Account<'info, IFTBridge>,

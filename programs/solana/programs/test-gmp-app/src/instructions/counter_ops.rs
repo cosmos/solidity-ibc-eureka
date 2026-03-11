@@ -16,7 +16,7 @@ pub struct IncrementCounter<'info> {
     /// when a new [`UserCounter`] is initialized.
     #[account(
         mut,
-        seeds = [CounterAppState::SEED],
+        seeds = [b"counter_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, CounterAppState>,
@@ -27,7 +27,7 @@ pub struct IncrementCounter<'info> {
         init_if_needed,
         payer = payer,
         space = 8 + UserCounter::INIT_SPACE,
-        seeds = [UserCounter::SEED, user_authority.key().as_ref()],
+        seeds = [b"user_counter", user_authority.key().as_ref()],
         bump
     )]
     pub user_counter: Account<'info, UserCounter>,
@@ -56,7 +56,7 @@ pub struct DecrementCounter<'info> {
     /// but not mutated during a decrement.
     #[account(
         mut,
-        seeds = [CounterAppState::SEED],
+        seeds = [b"counter_app_state"],
         bump = app_state.bump
     )]
     pub app_state: Account<'info, CounterAppState>,
@@ -65,7 +65,7 @@ pub struct DecrementCounter<'info> {
     /// Must already exist; its `count` is reduced by the requested `amount`.
     #[account(
         mut,
-        seeds = [UserCounter::SEED, user.as_ref()],
+        seeds = [b"user_counter", user.as_ref()],
         bump = user_counter.bump
     )]
     pub user_counter: Account<'info, UserCounter>,
@@ -81,7 +81,7 @@ pub struct GetCounter<'info> {
     /// Per-user counter PDA derived from `[UserCounter::SEED, user]`.
     /// Read-only; its `count` field is returned to the caller.
     #[account(
-        seeds = [UserCounter::SEED, user.as_ref()],
+        seeds = [b"user_counter", user.as_ref()],
         bump = user_counter.bump
     )]
     pub user_counter: Account<'info, UserCounter>,

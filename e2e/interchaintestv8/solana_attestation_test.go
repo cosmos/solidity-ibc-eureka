@@ -374,7 +374,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Adding attestation client to Router on Solana...")
 	routerStateAccount, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-	clientSequenceAccount, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
+	clientSequenceAccount, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 
 	counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
 		ClientId:     CosmosClientID,
@@ -588,7 +588,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-		clientSequence, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
+		clientSequence, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 
 		clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
 			Commitment: rpc.CommitmentFinalized,
@@ -1098,7 +1098,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-		clientSequence, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
+		clientSequence, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		s.Require().True(s.Run("Send packet from Solana", func() {

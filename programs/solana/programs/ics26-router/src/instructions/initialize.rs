@@ -11,7 +11,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + RouterState::INIT_SPACE,
-        seeds = [RouterState::SEED],
+        seeds = [b"router_state"],
         bump
     )]
     pub router_state: Account<'info, RouterState>,
