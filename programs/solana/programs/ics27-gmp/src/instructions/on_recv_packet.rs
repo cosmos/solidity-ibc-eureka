@@ -184,6 +184,7 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
+    // TODO: make sure encoding match
     // Get return data from the target program (if any).
     // Not an error when absent — GMP targets (e.g. SPL Token) may succeed without
     // setting return data. Use [0] sentinel so proto3 result field is non-empty.
