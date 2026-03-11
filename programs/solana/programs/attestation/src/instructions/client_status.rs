@@ -15,7 +15,7 @@ pub struct ClientStatus<'info> {
     pub client_state: Account<'info, ClientState>,
     /// The consensus state at the client's latest height (validates the client is initialized).
     #[account(
-        seeds = [&b"consensus_state"[..], &client_state.latest_height.to_le_bytes()],
+        seeds = [b"consensus_state", client_state.latest_height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state: Account<'info, ConsensusStateStore>,

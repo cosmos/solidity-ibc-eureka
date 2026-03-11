@@ -41,7 +41,7 @@ pub struct AssembleAndUpdateClient<'info> {
 
     /// Consensus state the header declares as its trust anchor; validated against PDA seeds.
     #[account(
-        seeds = [&b"consensus_state"[..], &trusted_height.to_le_bytes()],
+        seeds = [b"consensus_state", trusted_height.to_le_bytes().as_ref()],
         bump
     )]
     pub trusted_consensus_state: Account<'info, ConsensusStateStore>,
@@ -51,7 +51,7 @@ pub struct AssembleAndUpdateClient<'info> {
         init_if_needed,
         payer = submitter,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [&b"consensus_state"[..], &target_height.to_le_bytes()],
+        seeds = [b"consensus_state", target_height.to_le_bytes().as_ref()],
         bump
     )]
     pub new_consensus_state_store: Account<'info, ConsensusStateStore>,

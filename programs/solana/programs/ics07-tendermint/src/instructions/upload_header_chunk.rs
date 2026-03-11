@@ -16,9 +16,9 @@ pub struct UploadHeaderChunk<'info> {
         payer = submitter,
         space = 8 + HeaderChunk::INIT_SPACE,
         seeds = [
-            &b"header_chunk"[..],
+            HeaderChunk::SEED,
             submitter.key().as_ref(),
-            &params.target_height.to_le_bytes(),
+            params.target_height.to_le_bytes().as_ref(),
             &[params.chunk_index]
         ],
         bump

@@ -21,7 +21,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [&b"consensus_state"[..], &client_state.latest_height.revision_height.to_le_bytes()],
+        seeds = [b"consensus_state", client_state.latest_height.revision_height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,

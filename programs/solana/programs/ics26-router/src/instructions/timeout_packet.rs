@@ -53,7 +53,7 @@ pub struct TimeoutPacket<'info> {
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
-            &msg.packet.sequence.to_le_bytes()
+            msg.packet.sequence.to_le_bytes().as_ref()
         ],
         bump
     )]

@@ -92,6 +92,28 @@ func (attestationPDAs) ClientPDA(programID solanago.PublicKey) (solanago.PublicK
 	return pda, bump
 }
 
+func (attestationPDAs) ConsensusStateWithAccountSeedPDA(programID solanago.PublicKey, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, height []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), height},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ConsensusStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics07TendermintPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state")},
@@ -110,6 +132,28 @@ func (ics07TendermintPDAs) ClientPDA(programID solanago.PublicKey) (solanago.Pub
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ClientPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics07TendermintPDAs) ConsensusStateWithAccountSeedPDA(programID solanago.PublicKey, revisionHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), revisionHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, revisionHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), revisionHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -224,6 +268,17 @@ func (ics27GmpPDAs) CseqWithArgSeedPDA(programID solanago.PublicKey, sourceClien
 	return pda, bump
 }
 
+func (ics27GmpPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("gmp_result"), sourceClient, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.GmpResultWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics27GmpPDAs) IbcAppGmpportPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("ibc_app"), []byte("gmpport")},
@@ -253,6 +308,17 @@ func (iftPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, ui
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ift.AppStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (iftPDAs) GmpResultWithArgSeedPDA(programID solanago.PublicKey, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("gmp_result"), clientId, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.GmpResultWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -341,6 +407,17 @@ func (mockLightClientPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, ch
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive MockLightClient.ClientWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (mockLightClientPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey, clientState []byte, latestHeight []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("consensus_state"), clientState, latestHeight},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive MockLightClient.ConsensusStateWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }

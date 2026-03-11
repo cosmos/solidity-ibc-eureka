@@ -82,7 +82,7 @@ pub struct Initialize<'info> {
         init,
         payer = payer,
         space = 8 + 512, // Mock space allocation
-        seeds = [&b"consensus_state"[..], client_state.key().as_ref(), &latest_height.to_le_bytes()],
+        seeds = [b"consensus_state", client_state.key().as_ref(), latest_height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state_store: AccountInfo<'info>,

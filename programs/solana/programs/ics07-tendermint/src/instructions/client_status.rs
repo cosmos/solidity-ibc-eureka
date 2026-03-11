@@ -16,8 +16,8 @@ pub struct ClientStatus<'info> {
     /// current clock to determine whether the client has expired.
     #[account(
         seeds = [
-            &b"consensus_state"[..],
-            &client_state.latest_height.revision_height.to_le_bytes()
+            b"consensus_state",
+            client_state.latest_height.revision_height.to_le_bytes().as_ref()
         ],
         bump
     )]

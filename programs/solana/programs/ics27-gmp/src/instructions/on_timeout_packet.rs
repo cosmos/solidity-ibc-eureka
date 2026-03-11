@@ -35,7 +35,7 @@ pub struct OnTimeoutPacket<'info> {
         init,
         payer = payer,
         space = 8 + GMPCallResultAccount::INIT_SPACE,
-        seeds = [&b"gmp_result"[..], msg.source_client.as_bytes(), &msg.sequence.to_le_bytes()],
+        seeds = [b"gmp_result", msg.source_client.as_bytes(), msg.sequence.to_le_bytes().as_ref()],
         bump,
     )]
     pub result_account: Account<'info, GMPCallResultAccount>,

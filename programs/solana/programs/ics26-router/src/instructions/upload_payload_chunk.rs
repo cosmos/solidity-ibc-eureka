@@ -31,10 +31,10 @@ pub struct UploadPayloadChunk<'info> {
         payer = relayer,
         space = 8 + PayloadChunk::INIT_SPACE,
         seeds = [
-            &b"payload_chunk"[..],
+            PayloadChunk::SEED,
             relayer.key().as_ref(),
             msg.client_id.as_bytes(),
-            &msg.sequence.to_le_bytes(),
+            msg.sequence.to_le_bytes().as_ref(),
             &[msg.payload_index],
             &[msg.chunk_index]
         ],

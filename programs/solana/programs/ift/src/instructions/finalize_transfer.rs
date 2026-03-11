@@ -51,7 +51,7 @@ pub struct FinalizeTransfer<'info> {
             PENDING_TRANSFER_SEED,
             app_mint_state.mint.as_ref(),
             client_id.as_bytes(),
-            &sequence.to_le_bytes()
+            sequence.to_le_bytes().as_ref()
         ],
         bump = pending_transfer.bump,
         constraint = pending_transfer.mint == app_mint_state.mint @ IFTError::PendingTransferNotFound,
@@ -63,7 +63,7 @@ pub struct FinalizeTransfer<'info> {
     /// GMP result account - proves the ack/timeout happened
     /// This is a cross-program account owned by the GMP program
     #[account(
-        seeds = [&b"gmp_result"[..], client_id.as_bytes(), &sequence.to_le_bytes()],
+        seeds = [b"gmp_result", client_id.as_bytes(), sequence.to_le_bytes().as_ref()],
         seeds::program = ics27_gmp::ID,
         bump,
     )]

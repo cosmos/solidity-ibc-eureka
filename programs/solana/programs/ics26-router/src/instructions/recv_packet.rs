@@ -49,7 +49,7 @@ pub struct RecvPacket<'info> {
         seeds = [
             Commitment::PACKET_RECEIPT_SEED,
             msg.packet.dest_client.as_bytes(),
-            &msg.packet.sequence.to_le_bytes()
+            msg.packet.sequence.to_le_bytes().as_ref()
         ],
         bump
     )]
@@ -63,7 +63,7 @@ pub struct RecvPacket<'info> {
         seeds = [
             Commitment::PACKET_ACK_SEED,
             msg.packet.dest_client.as_bytes(),
-            &msg.packet.sequence.to_le_bytes()
+            msg.packet.sequence.to_le_bytes().as_ref()
         ],
         bump
     )]

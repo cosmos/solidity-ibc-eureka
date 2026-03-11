@@ -19,7 +19,7 @@ pub struct VerifyNonMembership<'info> {
     pub client_state: Account<'info, ClientState>,
     /// PDA storing the verified consensus state at the requested proof height.
     #[account(
-        seeds = [&b"consensus_state"[..], &msg.height.to_le_bytes()],
+        seeds = [b"consensus_state", msg.height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state_at_height: Account<'info, ConsensusStateStore>,

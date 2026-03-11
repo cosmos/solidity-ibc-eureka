@@ -25,7 +25,7 @@ pub struct UpdateClient<'info> {
         init_if_needed,
         payer = submitter,
         space = 8 + ConsensusStateStore::INIT_SPACE,
-        seeds = [&b"consensus_state"[..], &new_height.to_le_bytes()],
+        seeds = [b"consensus_state", new_height.to_le_bytes().as_ref()],
         bump
     )]
     pub consensus_state_store: Account<'info, ConsensusStateStore>,

@@ -31,10 +31,10 @@ pub struct UploadProofChunk<'info> {
         payer = relayer,
         space = 8 + ProofChunk::INIT_SPACE,
         seeds = [
-            &b"proof_chunk"[..],
+            ProofChunk::SEED,
             relayer.key().as_ref(),
             msg.client_id.as_bytes(),
-            &msg.sequence.to_le_bytes(),
+            msg.sequence.to_le_bytes().as_ref(),
             &[msg.chunk_index]
         ],
         bump

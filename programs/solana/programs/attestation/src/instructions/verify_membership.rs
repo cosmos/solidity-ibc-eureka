@@ -21,7 +21,7 @@ pub struct VerifyMembership<'info> {
     pub client_state: Account<'info, ClientState>,
     /// The consensus state at the requested proof height (must already exist on-chain).
     #[account(
-        seeds = [&b"consensus_state"[..], &msg.height.to_le_bytes()],
+        seeds = [b"consensus_state", msg.height.to_le_bytes().as_ref()],
         bump,
         constraint = consensus_state_at_height.timestamp != 0 @ ErrorCode::ConsensusTimestampNotFound
     )]
