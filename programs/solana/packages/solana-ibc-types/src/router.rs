@@ -131,7 +131,7 @@ pub enum Delivery {
 }
 
 impl Delivery {
-    pub fn total_chunks(&self) -> u8 {
+    pub const fn total_chunks(&self) -> u8 {
         match self {
             Self::Inline { .. } => 0,
             Self::Chunked { total_chunks } => *total_chunks,
