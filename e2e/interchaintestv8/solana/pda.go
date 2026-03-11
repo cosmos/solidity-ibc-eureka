@@ -27,7 +27,6 @@ type testIbcAppPDAs struct{}
 var (
 	AccessManager   = accessManagerPDAs{}
 	Attestation     = attestationPDAs{}
-	GmpCounterApp   = gmpCounterAppPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
 	Ics26Router     = ics26RouterPDAs{}
 	Ics27Gmp        = ics27GmpPDAs{}
