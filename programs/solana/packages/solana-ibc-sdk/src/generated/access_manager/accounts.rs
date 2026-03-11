@@ -14,6 +14,8 @@ use super::types::*;
 /// admin configuration) delegates authorization checks to this account.
 /// It stores a list of roles with their members and a whitelist of program IDs
 /// that are allowed to invoke admin-gated instructions via CPI.
+/// Role IDs are opaque `u64` values — the access manager does not interpret them.
+/// Consuming programs define and enforce what each role ID means.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AccessManager {
     pub roles: Vec<RoleData>,

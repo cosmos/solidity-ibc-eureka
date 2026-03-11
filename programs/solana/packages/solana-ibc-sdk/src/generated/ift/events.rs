@@ -139,7 +139,7 @@ pub struct IFTTransferInitiated {
     /// Amount transferred
     pub amount: u64,
     /// Timeout timestamp
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Event emitted when an IFT transfer is refunded (failed or timed out)

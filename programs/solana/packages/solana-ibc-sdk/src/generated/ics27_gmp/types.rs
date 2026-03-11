@@ -153,7 +153,7 @@ pub struct SendCallMsg {
     /// Source client identifier
     pub source_client: String,
     /// Timeout timestamp (unix seconds)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     /// Receiver address (string format to support any destination chain)
     pub receiver: String,
     /// Account salt

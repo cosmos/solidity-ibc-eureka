@@ -10,15 +10,6 @@ use anchor_lang::prelude::*;
 
 #[derive(Clone, Debug)]
 #[event]
-pub struct ProgramExtendedEvent {
-    pub program: Pubkey,
-    pub authority: Pubkey,
-    pub additional_bytes: u32,
-    pub timestamp: i64,
-}
-
-#[derive(Clone, Debug)]
-#[event]
 pub struct ProgramUpgradedEvent {
     pub program: Pubkey,
     pub authority: Pubkey,

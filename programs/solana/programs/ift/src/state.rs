@@ -239,7 +239,7 @@ pub struct IFTTransferMsg {
     /// Amount to transfer
     pub amount: u64,
     /// Timeout timestamp (0 for default 15 minutes)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Message for minting IFT tokens (called by GMP)

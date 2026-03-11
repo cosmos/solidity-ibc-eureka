@@ -1049,11 +1049,11 @@ impl RevokeMintAuthorityBuilder {
             RevokeMintAuthority::mint_authority_pda(&accounts.mint, &self.program_id);
         let mut account_metas = vec![
             AccountMeta::new_readonly(app_state, false),
-            AccountMeta::new_readonly(app_mint_state, false),
+            AccountMeta::new(app_mint_state, false),
             AccountMeta::new(accounts.mint, false),
             AccountMeta::new_readonly(mint_authority, false),
             AccountMeta::new_readonly(accounts.new_mint_authority, false),
-            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new(accounts.admin, true),
             AccountMeta::new_readonly(accounts.token_program, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ];

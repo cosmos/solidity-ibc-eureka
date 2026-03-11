@@ -229,7 +229,7 @@ impl SendPacket {
 
     #[must_use]
     pub fn client_sequence_pda(source_client: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"client_sequence", source_client.as_bytes()], program_id)
+        Pubkey::find_program_address(&[b"cseq", source_client.as_bytes()], program_id)
     }
 
     #[must_use]
@@ -746,7 +746,7 @@ impl AddClient {
 
     #[must_use]
     pub fn client_sequence_pda(client_id: &str, program_id: &Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[b"client_sequence", client_id.as_bytes()], program_id)
+        Pubkey::find_program_address(&[b"cseq", client_id.as_bytes()], program_id)
     }
 
     /// Creates a builder for this instruction.

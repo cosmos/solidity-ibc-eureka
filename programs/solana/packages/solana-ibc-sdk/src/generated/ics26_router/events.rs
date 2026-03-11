@@ -70,7 +70,7 @@ pub struct SendPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Event emitted when a packet times out

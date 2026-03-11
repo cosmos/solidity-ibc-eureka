@@ -1,13 +1,13 @@
 //! Program constants for ICS27 IFT
 
 /// Default timeout duration (15 minutes in seconds)
-pub const DEFAULT_TIMEOUT_DURATION: i64 = 60 * 15;
+pub const DEFAULT_TIMEOUT_DURATION: u64 = 60 * 15;
 
 /// Maximum timeout duration (24 hours in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 60 * 60 * 24;
+pub const MAX_TIMEOUT_DURATION: u64 = 60 * 60 * 24;
 
 /// Minimum timeout duration (1 minute in seconds)
-pub const MIN_TIMEOUT_DURATION: i64 = 60;
+pub const MIN_TIMEOUT_DURATION: u64 = 60;
 
 /// Maximum client ID length — capped at Solana's `MAX_SEED_LEN` (32 bytes per seed element).
 pub const MAX_CLIENT_ID_LENGTH: usize = 32;
