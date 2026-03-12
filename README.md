@@ -39,6 +39,7 @@ This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplifi
       - [Admin Powers and Restrictions](#admin-powers-and-restrictions)
       - [Key Distinction Between Admins](#key-distinction-between-admins)
     - [Roles and Permissions](#roles-and-permissions)
+  - [Releases](#releases)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 
@@ -362,6 +363,10 @@ The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin
 | `ID_CUSTOMIZER_ROLE` | 6 | Can set custom client and port ids for applications. |
 | `ERC20_CUSTOMIZER_ROLE` | 7 | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
 | `PUBLIC_ROLE` | `type(uint64).max` | A role that everyone has by default. |
+
+## Releases
+
+The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `relayer-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
 
 ## License
 
