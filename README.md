@@ -10,7 +10,7 @@
 [codecov]: https://codecov.io/github/cosmos/solidity-ibc-eureka
 [codecov-badge]: https://codecov.io/github/cosmos/solidity-ibc-eureka/graph/badge.svg?token=lhplGORQxX
 
-This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
+This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplified version of the IBC protocol that is encoding agnostic. This enables a trust-minimized IBC connection between Ethereum and a Cosmos SDK chain.
 
 ## Overview
 
@@ -19,8 +19,9 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
 - [IBC in Solidity](#ibc-in-solidity------)
   - [Overview](#overview)
     - [Project Structure](#project-structure)
-    - [Contracts](#contracts)
+    - [Solidity Contracts](#solidity-contracts)
     - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
+    - [Solana Programs](#solana-programs)
   - [Build Requirements](#build-requirements)
     - [Ethereum Requirements](#ethereum-requirements)
     - [Solana Requirements](#solana-requirements)
@@ -38,6 +39,7 @@ This is a work-in-progress implementation of IBC v2 in Solidity. IBC v2 is a sim
       - [Admin Powers and Restrictions](#admin-powers-and-restrictions)
       - [Key Distinction Between Admins](#key-distinction-between-admins)
     - [Roles and Permissions](#roles-and-permissions)
+  - [Releases](#releases)
   - [License](#license)
   - [Acknowledgements](#acknowledgements)
 
@@ -47,6 +49,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 
 - `contracts/`: Contains the Solidity contracts.
 - `test/`: Contains the Solidity tests.
+- `docs/`: Contains the ADRs and audits for the project.
 - `scripts/`: Contains Solidity scripts and tools.
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
@@ -55,17 +58,21 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
     - `operator/`: Contains the fixture generator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
+    - `solana/`: Contains the Solana programs for IBC.
 - `packages/`: Contains the Rust packages for the project.
   - `go-abigen/`: Contains the abi generated go files for the Solidity contracts.
+- `tools/`: Contains various tools used for testing.
 
-### Contracts
+### Solidity Contracts
 
 | **Contracts** | **Description** | **Status** |
 |:---:|:---:|:---:|
 | `ICS26Router.sol` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract.  | ✅ |
 | `ICS20Transfer.sol` | IBC transfer application to send and receive tokens to/from another IBC transfer implementation. | ✅ |
-| `SP1ICS07Tendermint.sol` | The light client contract, and the entry point for SP1 proofs. | ✅ |
-| `ICS27GMP.sol` | IBC General Message Passing via Interchain Accounts. | ⏳ |
+| `SP1ICS07Tendermint.sol` | Tendermint light client powered by SP1. The entry point for SP1 proofs. | ✅ |
+| `ICS27GMP.sol` | IBC General Message Passing via Interchain Accounts. | ✅ |
+| `AttestationLightClient.sol` | The multisig contract implementing IBC Light Client specs. | ✅ |
+| `utils/IFTBaseUpgradeable.sol` | Interchain Fungible Token standard. Mint and burn alternative to ICS-20. | ⏳ |
 
 ### SP1 Programs for the Light Client
 
@@ -75,6 +82,17 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 |     `membership`    | As consensus states are added to the client, they can be used for proof verification by relayers wishing to prove packet flow messages against a particular height on the counterparty. This uses the `verify_membership` and `verify_non_membership` methods on the tendermint client. |      ✅     |
 | `uc-and-membership` | This is a program that combines `update-client` and `membership` to update the client, and prove membership of packet flow messages against the new consensus state.                                                                                                                    |      ✅     |
 |    `misbehaviour`   | In case, the malicious subset of the validators exceeds the trust level of the client; then the client can be deceived into accepting invalid blocks and the connection is no longer secure. The tendermint client has some mitigations in place to prevent this.                       |      ✅     |
+
+### Solana Programs
+
+| **Programs** | **Description** | **Status** |
+|:---:|:---:|:---:|
+| `access-manager` | A central contract to store the permissions of a system. | ✅ |
+| `attestation` | The multisig contract implementing IBC Light Client specs. | ✅ |
+| `ics07-tendermint` | ICS-07 tendermint light client, powered by tendermint-rs | ✅ |
+| `ics26-router` | IBC router handles sequencing, replay protection, and timeout checks. Passes proofs to light clients for verification, and resolves `portId` for app callbacks. Provable IBC storage is stored in this contract. | ✅ |
+| `ics27-gmp` | IBC General Message Passing via Interchain Accounts. | ✅ |
+| `ift` | Interchain Fungible Token standard. Mint and burn alternative to ICS-20. | ⏳ |
 
 ## Build Requirements
 
@@ -279,10 +297,12 @@ Note: These gas benchmarks are with Groth16.
 
 ## Security Assumptions
 
-IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains two light clients:
+IBC is a peer-to-peer, light-client-based interoperability protocol. This repository contains the following light clients:
 
-- **SP1 Light Client** – Verifies the consensus state of a Cosmos SDK chain.
-- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain.
+- **SP1 Tendermint Light Client** – Verifies the consensus state of a Cosmos SDK chain powered by SP1 and `tendermint-rs`. (Solidity)
+- [**Ethereum Light Client**](./programs/cw-ics08-wasm-eth/README.md) – Verifies the consensus state of the Ethereum chain. (CosmWasm)
+- **Attestation Light Client** – A multisig that can be used if the counterparty chain does not have a light client protocol. (Solidity and Solana)
+- **Solana Tendermint Light Client** - Verifies the consensus state of a Cosmos SDK chain powered by `tendermint-rs`. (Solana)
 
 The security of an IBC connection depends on the integrity of these light clients and the validator sets of the respective chains. However, IBC light clients can become **frozen** under certain conditions, such as:
 
@@ -291,7 +311,7 @@ The security of an IBC connection depends on the integrity of these light client
 
 ### Handling Frozen Light Clients
 
-When a light client freezes, Cosmos SDK chains rely on **governance** to restart the client. However, Ethereum lacks a native governance mechanism for this purpose. **To address this, the Solidity implementation of IBC requires a timelocked Security Council to restart the light client in case of a freeze.**
+When a light client freezes, Cosmos SDK chains rely on **governance** to restart the client. However, Ethereum and Solana lack a native governance mechanism for this purpose. **To address this, the Solidity and Solana implementations of IBC requires a timelocked Security Council to restart the light client in case of a freeze.**
 
 Additionally, the Security Council is responsible for:
 
@@ -330,7 +350,7 @@ The Security Council must **apply a timelock** to itself. This ensures that afte
 
 ### Roles and Permissions
 
-The IBC contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) to manage roles and permissions and allow the admins to reassign roles. All the roles are defined in [`IBCRolesLib.sol`](./contracts/utils/IBCRolesLib.sol):
+The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.3.0/contracts/access/manager/AccessManager.sol) to manage roles and permissions and allow the admins to reassign roles. All the roles are defined in [`IBCRolesLib.sol`](./contracts/utils/IBCRolesLib.sol):
 
 | **Role Name** | **Role Id** | **Description** |
 |:---:|:---:|:---:|
@@ -343,6 +363,10 @@ The IBC contracts use [`AccessManager`](https://github.com/OpenZeppelin/openzepp
 | `ID_CUSTOMIZER_ROLE` | 6 | Can set custom client and port ids for applications. |
 | `ERC20_CUSTOMIZER_ROLE` | 7 | Can set custom `ERC20` contracts for non-native tokens instead of the default `IBCERC20`. |
 | `PUBLIC_ROLE` | `type(uint64).max` | A role that everyone has by default. |
+
+## Releases
+
+The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `relayer-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
 
 ## License
 
