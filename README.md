@@ -21,7 +21,7 @@ This is an implementation of IBC v2 in Solidity and Solana. IBC v2 is a simplifi
     - [Project Structure](#project-structure)
     - [Solidity Contracts](#solidity-contracts)
     - [SP1 Programs for the Light Client](#sp1-programs-for-the-light-client)
-    - [Solana Contracts](#solana-contracts)
+    - [Solana Programs](#solana-programs)
   - [Build Requirements](#build-requirements)
     - [Ethereum Requirements](#ethereum-requirements)
     - [Solana Requirements](#solana-requirements)
