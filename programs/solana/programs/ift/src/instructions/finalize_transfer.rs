@@ -175,6 +175,8 @@ pub fn finalize_transfer(
                     &ctx.accounts.token_program,
                     pending.amount,
                 )?;
+                ctx.accounts.mint.reload()?;
+                ctx.accounts.sender_token_account.reload()?;
 
                 emit!(IFTTransferRefunded {
                     mint: ctx.accounts.app_mint_state.mint,
