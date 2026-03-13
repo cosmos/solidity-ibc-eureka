@@ -124,21 +124,43 @@ impl Packet {
     }
 }
 
-/// Payload metadata for chunked operations
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct PayloadMetadata {
+pub enum Delivery {
+    Inline { data: Vec<u8> },
+    Chunked { total_chunks: u8 },
+}
+
+impl Delivery {
+    pub const fn total_chunks(&self) -> u8 {
+        match self {
+            Self::Inline { .. } => 0,
+            Self::Chunked { total_chunks } => *total_chunks,
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPayload {
     pub source_port: String,
     pub dest_port: String,
     pub version: String,
     pub encoding: String,
-    pub total_chunks: u8,
+    pub data: Delivery,
 }
 
-/// Proof metadata for chunked operations
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ProofMetadata {
+pub struct MsgProof {
     pub height: u64,
-    pub total_chunks: u8,
+    pub data: Delivery,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPacket {
+    pub sequence: u64,
+    pub source_client: String,
+    pub dest_client: String,
+    pub timeout_timestamp: u64,
+    pub payloads: Vec<MsgPayload>,
 }
 
 /// Message for sending a packet
@@ -152,26 +174,23 @@ pub struct MsgSendPacket {
 /// Message for receiving a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub acknowledgement: Vec<u8>, // Not chunked
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub acknowledgement: Vec<u8>,
+    pub proof: MsgProof,
 }
 
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for uploading chunks

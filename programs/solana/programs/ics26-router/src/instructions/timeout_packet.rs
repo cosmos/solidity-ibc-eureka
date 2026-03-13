@@ -40,7 +40,7 @@ pub struct TimeoutPacket<'info> {
 
     /// PDA mapping the source port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
+        seeds = [IBCApp::SEED, msg.packet.payloads[0].source_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
@@ -135,7 +135,6 @@ pub fn timeout_packet<'info>(
 
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
         packet: &msg.packet,
-        payloads_metadata: &msg.payloads,
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
@@ -144,16 +143,22 @@ pub fn timeout_packet<'info>(
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let total_payload_chunks = total_payload_chunks(&msg.payloads);
-    let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
-        remaining_accounts: ctx.remaining_accounts,
-        relayer: &ctx.accounts.relayer,
-        submitter: ctx.accounts.relayer.key(),
-        client_id: &msg.packet.source_client,
-        sequence: msg.packet.sequence,
-        total_chunks: msg.proof.total_chunks,
-        start_index: total_payload_chunks,
-    })?;
+    let total_payload_chunks = total_payload_chunks(&msg.packet.payloads);
+    let (proof_data, proof_total_chunks) = match &msg.proof.data {
+        Delivery::Inline { data } => (data.clone(), 0u8),
+        Delivery::Chunked { total_chunks } => {
+            let data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
+                remaining_accounts: ctx.remaining_accounts,
+                relayer: &ctx.accounts.relayer,
+                submitter: ctx.accounts.relayer.key(),
+                client_id: &msg.packet.source_client,
+                sequence: msg.packet.sequence,
+                total_chunks: *total_chunks,
+                start_index: total_payload_chunks,
+            })?;
+            (data, *total_chunks)
+        }
+    };
 
     // Verify non-membership proof on counterparty chain via light client
     let receipt_path = ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
@@ -186,7 +191,7 @@ pub fn timeout_packet<'info>(
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
         total_payload_chunks,
-        msg.proof.total_chunks,
+        proof_total_chunks,
     );
 
     let cpi_ctx = CpiContext::new(
@@ -226,7 +231,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, Delivery, MsgPacket, MsgPayload, MsgProof, Payload};
     use solana_sdk::instruction::InstructionError;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
@@ -237,7 +242,7 @@ mod tests {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
-        packet: Packet,
+        packet: MsgPacket,
         dummy_app_state_pubkey: Pubkey,
     }
 
@@ -305,12 +310,18 @@ mod tests {
 
         let test_proof = vec![0u8; 32];
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence: params.initial_sequence,
             source_client: params.source_client_id.to_string(),
             dest_client: packet_dest_client.to_string(),
             timeout_timestamp: params.timeout_timestamp,
-            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+            payloads: vec![MsgPayload {
+                source_port: params.port_id.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            }],
         };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
@@ -324,16 +335,9 @@ mod tests {
 
         let msg = MsgTimeoutPacket {
             packet: packet.clone(),
-            payloads: vec![PayloadMetadata {
-                source_port: params.port_id.to_string(),
-                dest_port: "dest-port".to_string(),
-                version: "1".to_string(),
-                encoding: "json".to_string(),
-                total_chunks: 1, // 1 chunk for testing
-            }],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: params.proof_height,
-                total_chunks: 1, // 1 chunk for testing
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -515,12 +519,12 @@ mod tests {
     fn test_timeout_packet_zero_payloads() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
+        ctx.packet.payloads = vec![];
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -541,28 +545,31 @@ mod tests {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
         ctx.packet.payloads = vec![
-            solana_ibc_types::Payload {
+            MsgPayload {
                 source_port: "test-port".to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"data1".to_vec(),
+                data: Delivery::Inline {
+                    data: b"data1".to_vec(),
+                },
             },
-            solana_ibc_types::Payload {
+            MsgPayload {
                 source_port: "test-port".to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"data2".to_vec(),
+                data: Delivery::Inline {
+                    data: b"data2".to_vec(),
+                },
             },
         ];
 
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -570,39 +577,35 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        // Empty payloads metadata vec causes index-out-of-bounds in Anchor seed resolution
-        let checks = vec![Check::instruction_err(
-            InstructionError::ProgramFailedToComplete,
-        )];
+        // 2 inline payloads reconstruct successfully, then get_single_payload
+        // rejects multi-payload packets (only single-payload supported today)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
-    fn test_timeout_packet_conflicting_inline_and_chunked() {
+    fn test_timeout_packet_wrong_source_port_seeds_mismatch() {
         let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
 
-        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+        ctx.packet.payloads = vec![MsgPayload {
             source_port: "other-port".to_string(),
             dest_port: "dest-port".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
-            value: b"inline data".to_vec(),
+            data: Delivery::Inline {
+                data: b"inline data".to_vec(),
+            },
         }];
 
         // Metadata source_port doesn't match the ibc_app PDA ("test-port")
         let msg = MsgTimeoutPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![PayloadMetadata {
-                source_port: "other-port".to_string(),
-                dest_port: "dest-port".to_string(),
-                version: "1".to_string(),
-                encoding: "json".to_string(),
-                total_chunks: 1,
-            }],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -657,6 +660,41 @@ mod tests {
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32,
         ))];
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_timeout_packet_wrong_source_port() {
+        let mut ctx = setup_timeout_packet_test_with_params(TimeoutPacketTestParams::default());
+
+        // Use wrong source_port that doesn't match the ibc_app PDA ("test-port")
+        ctx.packet.payloads = vec![MsgPayload {
+            source_port: "transfer".to_string(),
+            dest_port: "dest-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            data: Delivery::Inline {
+                data: b"inline data".to_vec(),
+            },
+        }];
+
+        let msg = MsgTimeoutPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
+                height: 100,
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::TimeoutPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        // Anchor seeds constraint fails: ibc_app PDA derived from "transfer" != account seeded with "test-port"
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
+
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 

@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
 pub use solana_ibc_types::{
-    AccountVersion, ClientAccount, CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
-    MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadMetadata, ProofMetadata,
+    AccountVersion, ClientAccount, CounterpartyInfo, Delivery, MsgAckPacket, MsgCleanupChunks,
+    MsgPayload, MsgProof, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet,
     MAX_CLIENT_ID_LENGTH,
 };
 

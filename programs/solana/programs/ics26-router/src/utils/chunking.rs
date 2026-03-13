@@ -1,5 +1,5 @@
 use crate::errors::RouterError;
-use crate::state::{PayloadChunk, PayloadMetadata, ProofChunk};
+use crate::state::{Delivery, MsgPayload, PayloadChunk, ProofChunk};
 use anchor_lang::prelude::*;
 
 /// Parameters for assembling single payload chunks
@@ -27,8 +27,7 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
 
 /// Parameters for reconstructing a packet
 pub struct ReconstructPacketParams<'a, 'b, 'c> {
-    pub packet: &'a solana_ibc_types::Packet,
-    pub payloads_metadata: &'a [PayloadMetadata],
+    pub packet: &'a solana_ibc_types::MsgPacket,
     pub remaining_accounts: &'a [AccountInfo<'b>],
     pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
@@ -59,12 +58,19 @@ pub fn assemble_multiple_payloads<'b>(
     submitter: Pubkey,
     client_id: &str,
     sequence: u64,
-    payloads_metadata: &[PayloadMetadata],
+    payloads: &[MsgPayload],
 ) -> Result<Vec<Vec<u8>>> {
     let mut all_payloads = Vec::new();
     let mut account_offset = 0;
 
-    for (payload_index, metadata) in payloads_metadata.iter().enumerate() {
+    for (payload_index, payload) in payloads.iter().enumerate() {
+        let total_chunks = match &payload.data {
+            Delivery::Chunked { total_chunks } => *total_chunks,
+            Delivery::Inline { .. } => {
+                return Err(RouterError::MixedDeliveryModes.into());
+            }
+        };
+
         let payload_data = assemble_single_payload_chunks(AssemblePayloadParams {
             remaining_accounts,
             relayer,
@@ -72,12 +78,12 @@ pub fn assemble_multiple_payloads<'b>(
             client_id,
             sequence,
             payload_index: payload_index as u8,
-            total_chunks: metadata.total_chunks,
+            total_chunks,
             start_index: account_offset,
         })?;
 
         all_payloads.push(payload_data);
-        account_offset += metadata.total_chunks as usize;
+        account_offset += total_chunks as usize;
     }
 
     Ok(all_payloads)
@@ -145,8 +151,14 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     Ok(payload_data)
 }
 
-pub fn total_payload_chunks(metadata: &[PayloadMetadata]) -> usize {
-    metadata.iter().map(|p| p.total_chunks as usize).sum()
+pub fn total_payload_chunks(payloads: &[MsgPayload]) -> usize {
+    payloads
+        .iter()
+        .filter_map(|p| match &p.data {
+            Delivery::Chunked { total_chunks } => Some(*total_chunks as usize),
+            Delivery::Inline { .. } => None,
+        })
+        .sum()
 }
 
 /// Filter out chunk accounts from `remaining_accounts` before passing to IBC app CPI
@@ -321,54 +333,71 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
 /// Reconstruct a complete packet from either inline mode or chunked mode
 ///
 /// This function provides a unified interface for packet reconstruction, handling both:
-/// - **Inline mode**: When packet.payloads is not empty, the packet is returned as-is
-/// - **Chunked mode**: When packet.payloads is empty, payloads are assembled from chunks and packet is reconstructed
+/// - **Inline mode**: All payloads use `Delivery::Inline` — data is extracted directly
+/// - **Chunked mode**: All payloads use `Delivery::Chunked` — data is assembled from chunk accounts
+///
+/// All payloads must use the same delivery variant (no mixed modes).
 ///
 /// # Returns
 /// * `Ok(solana_ibc_types::Packet)` - Reconstructed packet with payloads
-/// * `Err` - If validation fails, or chunks cannot be assembled or both inline and payload
-/// *  metadata was provided
+/// * `Err` - If validation fails, mixed delivery modes, or chunks cannot be assembled
 pub fn validate_and_reconstruct_packet(
     params: ReconstructPacketParams,
 ) -> Result<solana_ibc_types::Packet> {
-    let has_inline_payloads = !params.packet.payloads.is_empty();
-    let has_chunked_metadata = params.payloads_metadata.iter().any(|p| p.total_chunks > 0);
+    let msg_payloads = &params.packet.payloads;
+    require!(!msg_payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    require!(
-        has_inline_payloads ^ has_chunked_metadata,
-        RouterError::InvalidPayloadCount
-    );
-    let payloads = if params.packet.payloads.is_empty() {
-        // Chunked mode: Assemble payloads from chunks
+    // Check all payloads use the same delivery variant (no mixed modes)
+    let all_inline = msg_payloads
+        .iter()
+        .all(|p| matches!(&p.data, Delivery::Inline { .. }));
+    let all_chunked = msg_payloads
+        .iter()
+        .all(|p| matches!(&p.data, Delivery::Chunked { .. }));
+    require!(all_inline || all_chunked, RouterError::MixedDeliveryModes);
+
+    let payloads = if all_inline {
+        // Inline mode: extract data directly from each MsgPayload
+        msg_payloads
+            .iter()
+            .map(|p| {
+                let data = match &p.data {
+                    Delivery::Inline { data } => data.clone(),
+                    Delivery::Chunked { .. } => unreachable!(),
+                };
+                solana_ibc_types::Payload {
+                    source_port: p.source_port.clone(),
+                    dest_port: p.dest_port.clone(),
+                    version: p.version.clone(),
+                    encoding: p.encoding.clone(),
+                    value: data,
+                }
+            })
+            .collect()
+    } else {
+        // Chunked mode: assemble from chunk accounts
         let payload_data_vec = assemble_multiple_payloads(
             params.remaining_accounts,
             params.relayer,
             params.submitter,
             params.client_id,
             params.packet.sequence,
-            params.payloads_metadata,
+            msg_payloads,
         )?;
 
-        // Reconstruct the full payloads
-        let mut assembled_payloads = Vec::new();
-        for (i, metadata) in params.payloads_metadata.iter().enumerate() {
-            let payload = solana_ibc_types::Payload {
-                source_port: metadata.source_port.clone(),
-                dest_port: metadata.dest_port.clone(),
-                version: metadata.version.clone(),
-                encoding: metadata.encoding.clone(),
+        msg_payloads
+            .iter()
+            .enumerate()
+            .map(|(i, p)| solana_ibc_types::Payload {
+                source_port: p.source_port.clone(),
+                dest_port: p.dest_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
                 value: payload_data_vec[i].clone(),
-            };
-            assembled_payloads.push(payload);
-        }
-        assembled_payloads
-    } else {
-        // Inline mode: Use payloads directly from packet (no metadata needed)
-        // The packet commitment is already verified via light client membership proof
-        params.packet.payloads.clone()
+            })
+            .collect()
     };
 
-    // Return reconstructed packet
     Ok(solana_ibc_types::Packet {
         sequence: params.packet.sequence,
         source_client: params.packet.source_client.clone(),
@@ -381,25 +410,23 @@ pub fn validate_and_reconstruct_packet(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_ibc_types::Payload;
 
     #[test]
     fn test_validate_and_reconstruct_packet_inline_mode_success() {
-        // Test inline mode: packet has payloads, no chunked metadata
-        let inline_payload = Payload {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            value: b"test data".to_vec(),
-        };
-
-        let packet = solana_ibc_types::Packet {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "source-client".to_string(),
             dest_client: "dest-client".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
+            payloads: vec![MsgPayload {
+                source_port: "transfer".to_string(),
+                dest_port: "transfer".to_string(),
+                version: "ics20-1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Inline {
+                    data: b"test data".to_vec(),
+                },
+            }],
         };
 
         let relayer = Pubkey::new_unique();
@@ -418,7 +445,6 @@ mod tests {
 
         let params = ReconstructPacketParams {
             packet: &packet,
-            payloads_metadata: &[],
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
@@ -427,7 +453,6 @@ mod tests {
 
         let result = validate_and_reconstruct_packet(params).unwrap();
 
-        // Should return packet unchanged (inline mode)
         assert_eq!(result.sequence, 1);
         assert_eq!(result.payloads.len(), 1);
         assert_eq!(result.payloads[0].value, b"test data");
@@ -435,31 +460,31 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_and_reconstruct_packet_conflicting_inline_and_chunked() {
-        // Test error case: packet has inline payloads AND chunked metadata
-        let inline_payload = Payload {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            value: b"test data".to_vec(),
-        };
-
-        let packet = solana_ibc_types::Packet {
+    fn test_validate_and_reconstruct_packet_mixed_delivery_rejected() {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
+            payloads: vec![
+                MsgPayload {
+                    source_port: "transfer".to_string(),
+                    dest_port: "transfer".to_string(),
+                    version: "ics20-1".to_string(),
+                    encoding: "json".to_string(),
+                    data: Delivery::Inline {
+                        data: b"test data".to_vec(),
+                    },
+                },
+                MsgPayload {
+                    source_port: "transfer".to_string(),
+                    dest_port: "transfer".to_string(),
+                    version: "ics20-1".to_string(),
+                    encoding: "json".to_string(),
+                    data: Delivery::Chunked { total_chunks: 2 },
+                },
+            ],
         };
-
-        let chunked_metadata = vec![PayloadMetadata {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            total_chunks: 1, // Conflict: has both inline and chunked
-        }];
 
         let relayer = Pubkey::new_unique();
         let mut lamports = 0u64;
@@ -477,7 +502,6 @@ mod tests {
 
         let params = ReconstructPacketParams {
             packet: &packet,
-            payloads_metadata: &chunked_metadata,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
@@ -485,78 +509,17 @@ mod tests {
         };
 
         let result = validate_and_reconstruct_packet(params);
-
-        // Should fail with InvalidPayloadCount
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert!(
-            error.to_string().contains("InvalidPayloadCount"),
-            "Expected InvalidPayloadCount error, got: {error}",
+            error.to_string().contains("MixedDeliveryModes"),
+            "Expected MixedDeliveryModes error, got: {error}",
         );
     }
 
     #[test]
-    fn test_validate_and_reconstruct_packet_inline_mode_with_zero_chunk_metadata() {
-        // Test inline mode: packet has payloads, metadata exists but has total_chunks=0
-        let inline_payload = Payload {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            value: b"test data".to_vec(),
-        };
-
-        let packet = solana_ibc_types::Packet {
-            sequence: 1,
-            source_client: "client-0".to_string(),
-            dest_client: "client-1".to_string(),
-            timeout_timestamp: 1000,
-            payloads: vec![inline_payload],
-        };
-
-        // Metadata with total_chunks=0 (should be treated as no metadata)
-        let metadata_with_zero_chunks = vec![PayloadMetadata {
-            source_port: "transfer".to_string(),
-            dest_port: "transfer".to_string(),
-            version: "ics20-1".to_string(),
-            encoding: "json".to_string(),
-            total_chunks: 0,
-        }];
-
-        let relayer = Pubkey::new_unique();
-        let mut lamports = 0u64;
-        let mut data = [];
-        let relayer_account = AccountInfo::new(
-            &relayer,
-            false,
-            false,
-            &mut lamports,
-            &mut data,
-            &crate::ID,
-            false,
-            0,
-        );
-
-        let params = ReconstructPacketParams {
-            packet: &packet,
-            payloads_metadata: &metadata_with_zero_chunks,
-            remaining_accounts: &[],
-            relayer: &relayer_account,
-            submitter: relayer,
-            client_id: "client-0",
-        };
-
-        let result = validate_and_reconstruct_packet(params).unwrap();
-
-        // Should succeed in inline mode (total_chunks=0 means no chunking)
-        assert_eq!(result.payloads.len(), 1);
-        assert_eq!(result.payloads[0].value, b"test data");
-    }
-
-    #[test]
-    fn test_validate_and_reconstruct_packet_empty_payloads_and_empty_metadata() {
-        // Test error case: no inline payloads and no chunked metadata
-        let packet = solana_ibc_types::Packet {
+    fn test_validate_and_reconstruct_packet_empty_payloads() {
+        let packet = solana_ibc_types::MsgPacket {
             sequence: 1,
             source_client: "client-0".to_string(),
             dest_client: "client-1".to_string(),
@@ -580,7 +543,6 @@ mod tests {
 
         let params = ReconstructPacketParams {
             packet: &packet,
-            payloads_metadata: &[],
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
@@ -596,48 +558,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_validate_and_reconstruct_packet_rejects_neither_mode() {
-        // Neither inline payloads nor chunked metadata — should be rejected
-        let packet = solana_ibc_types::Packet {
-            sequence: 1,
-            source_client: "client-0".to_string(),
-            dest_client: "client-1".to_string(),
-            timeout_timestamp: 1000,
-            payloads: vec![],
-        };
-
-        let relayer = Pubkey::new_unique();
-        let mut lamports = 0u64;
-        let mut data = [];
-        let relayer_account = AccountInfo::new(
-            &relayer,
-            false,
-            false,
-            &mut lamports,
-            &mut data,
-            &crate::ID,
-            false,
-            0,
-        );
-
-        let params = ReconstructPacketParams {
-            packet: &packet,
-            payloads_metadata: &[],
-            remaining_accounts: &[],
-            relayer: &relayer_account,
-            submitter: relayer,
-            client_id: "client-0",
-        };
-
-        let result = validate_and_reconstruct_packet(params);
-        assert!(
-            result.is_err(),
-            "Expected InvalidPayloadCount when neither inline nor chunked mode is active",
-        );
-    }
-
-    // Helper function to create mock AccountInfo for testing
     fn create_mock_account_info<'a>(
         key: &'a Pubkey,
         lamports: &'a mut u64,
@@ -649,7 +569,6 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_with_payload_and_proof_chunks() {
-        // Create 3 payload chunks + 2 proof chunks + 4 app accounts (9 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -693,10 +612,8 @@ mod tests {
             create_mock_account_info(&keys[8], &mut lamports8, &mut data8, &owner),
         ];
 
-        // Filter: 3 payload chunks + 2 proof chunks = 5 chunks to skip
         let result = filter_app_remaining_accounts(&accounts, 3, 2);
 
-        // Should return last 4 accounts (app accounts after chunks)
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].key, &keys[5]);
         assert_eq!(result[1].key, &keys[6]);
@@ -706,7 +623,6 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_only_payload_chunks() {
-        // Create 2 payload chunks + 0 proof chunks + 3 app accounts (5 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -734,10 +650,8 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
-        // Filter: 2 payload chunks + 0 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 2, 0);
 
-        // Should return last 3 accounts
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].key, &keys[2]);
         assert_eq!(result[1].key, &keys[3]);
@@ -746,7 +660,6 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_only_proof_chunks() {
-        // Create 0 payload chunks + 3 proof chunks + 2 app accounts (5 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -774,10 +687,8 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
-        // Filter: 0 payload chunks + 3 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 0, 3);
 
-        // Should return last 2 accounts
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].key, &keys[3]);
         assert_eq!(result[1].key, &keys[4]);
@@ -785,7 +696,6 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_no_chunks() {
-        // Create 5 app accounts only (no chunks)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -813,10 +723,8 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
-        // Filter: 0 payload chunks + 0 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 0, 0);
 
-        // Should return all 5 accounts unchanged
         assert_eq!(result.len(), 5);
         for (i, account) in result.iter().enumerate() {
             assert_eq!(account.key, &keys[i]);
@@ -825,7 +733,6 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_all_chunks_no_app_accounts() {
-        // Create 2 payload chunks + 1 proof chunk (3 total, no app accounts)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -845,16 +752,13 @@ mod tests {
             create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
         ];
 
-        // Filter: 2 payload chunks + 1 proof chunk = all 3 accounts
         let result = filter_app_remaining_accounts(&accounts, 2, 1);
 
-        // Should return empty slice (no app accounts after chunks)
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn test_filter_app_remaining_accounts_more_chunks_than_accounts() {
-        // Create 3 accounts total
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -874,10 +778,8 @@ mod tests {
             create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
         ];
 
-        // Filter: 2 payload chunks + 2 proof chunks = 4 chunks expected (more than available)
         let result = filter_app_remaining_accounts(&accounts, 2, 2);
 
-        // Should return empty slice (defensive behavior when chunks >= total accounts)
         assert_eq!(result.len(), 0);
     }
 }
