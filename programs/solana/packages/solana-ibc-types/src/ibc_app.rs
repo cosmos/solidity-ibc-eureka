@@ -23,6 +23,7 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_lang::solana_program::program::get_return_data;
+use borsh::BorshDeserialize;
 use solana_ibc_macros::discriminator;
 
 // Re-export message types for convenient imports
@@ -155,9 +156,16 @@ pub fn on_recv_packet<'info>(
 ) -> Result<Vec<u8>> {
     invoke_ibc_app(&ctx, OnRecvPacket::DISCRIMINATOR, msg)?;
 
-    // Get acknowledgement from return data
+    // Get acknowledgement from return data.
+    // Anchor's #[program] codegen Borsh-serializes the return value before
+    // calling set_return_data(), which prepends a 4-byte LE length prefix
+    // for Vec<u8>. We must deserialize to recover the raw ack bytes.
     match get_return_data() {
-        Some((program_id, data)) if program_id == *ctx.program.key => Ok(data),
+        Some((program_id, data)) if program_id == *ctx.program.key => {
+            let ack = Vec::<u8>::try_from_slice(&data)
+                .map_err(|_| error!(IbcAppError::InvalidAppResponse))?;
+            Ok(ack)
+        }
         _ => err!(IbcAppError::InvalidAppResponse),
     }
 }
