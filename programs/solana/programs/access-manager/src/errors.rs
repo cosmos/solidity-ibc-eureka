@@ -19,10 +19,6 @@ pub enum AccessManagerError {
     CpiNotAllowed,
     #[msg("Program account does not match target_program")]
     ProgramMismatch,
-    #[msg("Zero account is not allowed")]
-    ZeroAccount,
-    #[msg("Duplicate entry in whitelisted programs list")]
-    DuplicateWhitelistedProgram,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

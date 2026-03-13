@@ -99,7 +99,7 @@ func NewCreateAndInitializeSplTokenInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Read-only, Non-signer, Required
-		// Global IFT app state
+		// Global IFT app state (must exist)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, false, false))
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
 		// Per-mint IFT app state PDA (to be created)
@@ -340,7 +340,6 @@ func NewIftTransferInstruction(
 	gmpAppStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	gmpIbcAppAccount solanago.PublicKey,
 	ibcClientAccount solanago.PublicKey,
@@ -407,30 +406,25 @@ func NewIftTransferInstruction(
 		// Account 12 "router_state": Read-only, Non-signer, Required
 		// Router state account
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 13 "client_sequence": Writable, Non-signer, Required
-		// Client sequence account for packet sequencing
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 14 "packet_commitment": Writable, Non-signer, Required
+		// Account 13 "packet_commitment": Writable, Non-signer, Required
 		// Packet commitment account to be created
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 15 "gmp_ibc_app": Read-only, Non-signer, Required
-		// GMP's IBC app registration account — required by the router for
-		// authorization and deterministic sequence namespacing (the router hashes
-		// `app_program_id` to derive a collision-resistant sequence suffix).
+		// Account 14 "gmp_ibc_app": Read-only, Non-signer, Required
+		// GMP's IBC app registration account — required by the router for authorization.
 		accounts__.Append(solanago.NewAccountMeta(gmpIbcAppAccount, false, false))
-		// Account 16 "ibc_client": Read-only, Non-signer, Required
+		// Account 15 "ibc_client": Read-only, Non-signer, Required
 		// IBC client account
 		accounts__.Append(solanago.NewAccountMeta(ibcClientAccount, false, false))
-		// Account 17 "light_client_program": Read-only, Non-signer, Required
+		// Account 16 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 18 "light_client_state": Read-only, Non-signer, Required
+		// Account 17 "light_client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientStateAccount, false, false))
-		// Account 19 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 18 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI caller detection by GMP
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 20 "consensus_state": Read-only, Non-signer, Required
+		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 21 "pending_transfer": Writable, Non-signer, Required
+		// Account 20 "pending_transfer": Writable, Non-signer, Required
 		// CPI, which is only known at runtime. Validated and created manually in the
 		// handler after the CPI completes.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
@@ -540,6 +534,7 @@ func NewFinalizeTransferInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	appMintStateAccount solanago.PublicKey,
+	iftBridgeAccount solanago.PublicKey,
 	pendingTransferAccount solanago.PublicKey,
 	gmpResultAccount solanago.PublicKey,
 	mintAccount solanago.PublicKey,
@@ -580,20 +575,23 @@ func NewFinalizeTransferInstruction(
 		// Account 1 "app_mint_state": Writable, Non-signer, Required
 		// Per-mint IFT app state (mut for rate limit updates)
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, true, false))
-		// Account 2 "pending_transfer": Writable, Non-signer, Required
+		// Account 2 "ift_bridge": Read-only, Non-signer, Required
+		// IFT bridge for this client
+		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
+		// Account 3 "pending_transfer": Writable, Non-signer, Required
 		// Pending transfer to process
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
-		// Account 3 "gmp_result": Read-only, Non-signer, Required
+		// Account 4 "gmp_result": Read-only, Non-signer, Required
 		// GMP result account - proves the ack/timeout happened
 		// This is a cross-program account owned by the GMP program
 		accounts__.Append(solanago.NewAccountMeta(gmpResultAccount, false, false))
-		// Account 4 "mint": Writable, Non-signer, Required
+		// Account 5 "mint": Writable, Non-signer, Required
 		// SPL Token mint
 		accounts__.Append(solanago.NewAccountMeta(mintAccount, true, false))
-		// Account 5 "mint_authority": Read-only, Non-signer, Required
+		// Account 6 "mint_authority": Read-only, Non-signer, Required
 		// Mint authority PDA
 		accounts__.Append(solanago.NewAccountMeta(mintAuthorityAccount, false, false))
-		// Account 6 "sender_token_account": Writable, Non-signer, Required
+		// Account 7 "sender_token_account": Writable, Non-signer, Required
 		// Original sender's token account for refunds.
 		//
 		// The caller provides this account but cannot redirect funds — the owner
@@ -605,17 +603,17 @@ func NewFinalizeTransferInstruction(
 		// transaction will fail. A new ATA must be created for the sender before
 		// calling this instruction.
 		accounts__.Append(solanago.NewAccountMeta(senderTokenAccountAccount, true, false))
-		// Account 7 "payer": Writable, Signer, Required
+		// Account 8 "payer": Writable, Signer, Required
 		// Only required signer. Receives rent from the closed `PendingTransfer`
 		// account as an incentive. Does not need to be the original sender.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 8 "token_program": Read-only, Non-signer, Required
+		// Account 9 "token_program": Read-only, Non-signer, Required
 		// SPL Token or Token 2022 program for refund minting
 		accounts__.Append(solanago.NewAccountMeta(tokenProgramAccount, false, false))
-		// Account 9 "system_program": Read-only, Non-signer, Required
+		// Account 10 "system_program": Read-only, Non-signer, Required
 		// Required by Anchor for the `close` constraint
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 10 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 11 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 

@@ -3,7 +3,7 @@ use crate::errors::GMPError;
 use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
-use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
+use ics26_router::state::{Client, IBCApp, RouterState};
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
@@ -40,15 +40,6 @@ pub struct SendCall<'info> {
         seeds::program = router_program
     )]
     pub router_state: Box<Account<'info, RouterState>>,
-
-    /// Packet sequence counter for the source client, incremented by the router.
-    #[account(
-        mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
-        bump,
-        seeds::program = router_program
-    )]
-    pub client_sequence: Box<Account<'info, ClientSequence>>,
 
     /// Stores the packet commitment hash after the router processes the packet.
     /// CHECK: PDA validated by router (sequence computed at runtime)
@@ -104,7 +95,6 @@ pub fn send_call(ctx: Context<SendCall>, msg: SendCallMsg) -> Result<u64> {
         &ctx.accounts.app_state,
         &ctx.accounts.router_program,
         &ctx.accounts.router_state,
-        &ctx.accounts.client_sequence,
         &ctx.accounts.packet_commitment,
         &ctx.accounts.payer,
         &ctx.accounts.ibc_app,
@@ -124,7 +114,6 @@ pub(crate) fn send_call_inner<'info>(
     app_state: &Account<'info, GMPAppState>,
     router_program: &Program<'info, ics26_router::program::Ics26Router>,
     router_state: &Account<'info, RouterState>,
-    client_sequence: &Account<'info, ClientSequence>,
     packet_commitment: &AccountInfo<'info>,
     payer: &Signer<'info>,
     ibc_app: &Account<'info, IBCApp>,
@@ -176,6 +165,7 @@ pub(crate) fn send_call_inner<'info>(
 
     let router_msg = MsgSendPacket {
         source_client: source_client.to_string(),
+        sequence: msg.sequence,
         timeout_timestamp: msg.timeout_timestamp,
         payload: ibc_payload,
     };
@@ -183,7 +173,6 @@ pub(crate) fn send_call_inner<'info>(
     let sequence = crate::router_cpi::send_packet_cpi(
         router_program,
         &router_state.to_account_info(),
-        &client_sequence.to_account_info(),
         packet_commitment,
         &app_state.to_account_info(),
         app_state.bump,
@@ -237,7 +226,6 @@ mod tests {
         payer: Pubkey,
         router_program: Pubkey,
         router_state: Pubkey,
-        client_sequence: Pubkey,
         packet_commitment: Pubkey,
         ibc_app: Pubkey,
         client: Pubkey,
@@ -254,7 +242,6 @@ mod tests {
             let payer = Pubkey::new_unique();
             let router_program = ics26_router::ID;
             let (router_state, _) = create_router_state_pda();
-            let (client_sequence, _) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
             let packet_commitment = Pubkey::new_unique();
             let (ibc_app, _) = create_ibc_app_pda(GMP_PORT_ID);
             let light_client_program = Pubkey::new_unique();
@@ -270,7 +257,6 @@ mod tests {
                 payer,
                 router_program,
                 router_state,
-                client_sequence,
                 packet_commitment,
                 ibc_app,
                 client,
@@ -285,6 +271,7 @@ mod tests {
         fn create_valid_msg() -> SendCallMsg {
             SendCallMsg {
                 source_client: TEST_SOURCE_CLIENT.to_string(),
+                sequence: 1,
                 receiver: Pubkey::new_unique().to_string(),
                 salt: vec![1, 2, 3],
                 payload: vec![4, 5, 6],
@@ -304,7 +291,6 @@ mod tests {
                     AccountMeta::new(self.payer, true),
                     AccountMeta::new_readonly(self.router_program, false),
                     AccountMeta::new_readonly(self.router_state, false),
-                    AccountMeta::new(self.client_sequence, false),
                     AccountMeta::new(self.packet_commitment, false),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
@@ -325,7 +311,6 @@ mod tests {
                 create_authority_account(self.payer),
                 create_router_program_account(self.router_program),
                 create_router_state_pda(),
-                create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
@@ -352,7 +337,6 @@ mod tests {
                     AccountMeta::new(self.payer, true),
                     AccountMeta::new_readonly(self.router_program, false),
                     AccountMeta::new_readonly(self.router_state, false),
-                    AccountMeta::new(self.client_sequence, false),
                     AccountMeta::new(self.packet_commitment, false),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
@@ -376,7 +360,6 @@ mod tests {
                 create_authority_account(self.payer),
                 create_router_program_account(self.router_program),
                 create_router_state_pda(),
-                create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
@@ -403,7 +386,6 @@ mod tests {
                     AccountMeta::new(self.payer, true),
                     AccountMeta::new_readonly(wrong_router, false), // Wrong router!
                     AccountMeta::new_readonly(self.router_state, false),
-                    AccountMeta::new(self.client_sequence, false),
                     AccountMeta::new(self.packet_commitment, false),
                     AccountMeta::new_readonly(self.ibc_app, false),
                     AccountMeta::new_readonly(self.client, false),
@@ -427,7 +409,6 @@ mod tests {
                 create_authority_account(self.payer),
                 create_router_program_account(wrong_router),
                 create_router_state_pda(),
-                create_client_sequence_pda(TEST_SOURCE_CLIENT),
                 create_authority_account(self.packet_commitment),
                 create_ibc_app_pda(GMP_PORT_ID),
                 create_client_pda(TEST_SOURCE_CLIENT, self.light_client_program),
@@ -455,7 +436,6 @@ mod tests {
         InvalidAppStatePda,
         WrongRouterProgram,
         WrongRouterStatePda,
-        WrongClientSequencePda,
         WrongIbcAppPda,
         WrongClientPda,
         WrongLightClientProgram,
@@ -490,8 +470,8 @@ mod tests {
                 let fake_sysvar = create_fake_instructions_sysvar_account(Pubkey::new_unique());
                 let mut instruction = ctx.build_instruction(msg, true);
                 let mut accounts = ctx.build_accounts(false);
-                instruction.accounts[11] = AccountMeta::new_readonly(fake_sysvar.0, false);
-                accounts[11] = fake_sysvar;
+                instruction.accounts[10] = AccountMeta::new_readonly(fake_sysvar.0, false);
+                accounts[10] = fake_sysvar;
                 (
                     instruction,
                     accounts,
@@ -518,15 +498,15 @@ mod tests {
                 accounts[4].0 = wrong_pda;
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
-            SendCallErrorCase::WrongClientSequencePda => {
+            SendCallErrorCase::WrongIbcAppPda => {
                 let wrong_pda = Pubkey::new_unique();
                 let mut instruction = ctx.build_instruction(msg, true);
                 let mut accounts = ctx.build_accounts(false);
-                instruction.accounts[5] = AccountMeta::new(wrong_pda, false);
-                accounts[5].0 = wrong_pda;
+                instruction.accounts[6] = AccountMeta::new_readonly(wrong_pda, false);
+                accounts[6].0 = wrong_pda;
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
-            SendCallErrorCase::WrongIbcAppPda => {
+            SendCallErrorCase::WrongClientPda => {
                 let wrong_pda = Pubkey::new_unique();
                 let mut instruction = ctx.build_instruction(msg, true);
                 let mut accounts = ctx.build_accounts(false);
@@ -534,20 +514,12 @@ mod tests {
                 accounts[7].0 = wrong_pda;
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
-            SendCallErrorCase::WrongClientPda => {
-                let wrong_pda = Pubkey::new_unique();
-                let mut instruction = ctx.build_instruction(msg, true);
-                let mut accounts = ctx.build_accounts(false);
-                instruction.accounts[8] = AccountMeta::new_readonly(wrong_pda, false);
-                accounts[8].0 = wrong_pda;
-                (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
-            }
             SendCallErrorCase::WrongLightClientProgram => {
                 let wrong_program = Pubkey::new_unique();
                 let mut instruction = ctx.build_instruction(msg, true);
                 let mut accounts = ctx.build_accounts(false);
-                instruction.accounts[9] = AccountMeta::new_readonly(wrong_program, false);
-                accounts[9] = create_authority_account(wrong_program);
+                instruction.accounts[8] = AccountMeta::new_readonly(wrong_program, false);
+                accounts[8] = create_authority_account(wrong_program);
                 (
                     instruction,
                     accounts,
@@ -558,7 +530,7 @@ mod tests {
                 let wrong_owner = Pubkey::new_unique();
                 let instruction = ctx.build_instruction(msg, true);
                 let mut accounts = ctx.build_accounts(false);
-                accounts[10] = create_owned_account(ctx.client_state, wrong_owner);
+                accounts[9] = create_owned_account(ctx.client_state, wrong_owner);
                 (
                     instruction,
                     accounts,
@@ -642,7 +614,6 @@ mod tests {
     #[case::invalid_app_state_pda(SendCallErrorCase::InvalidAppStatePda)]
     #[case::wrong_router_program(SendCallErrorCase::WrongRouterProgram)]
     #[case::wrong_router_state_pda(SendCallErrorCase::WrongRouterStatePda)]
-    #[case::wrong_client_sequence_pda(SendCallErrorCase::WrongClientSequencePda)]
     #[case::wrong_ibc_app_pda(SendCallErrorCase::WrongIbcAppPda)]
     #[case::wrong_client_pda(SendCallErrorCase::WrongClientPda)]
     #[case::wrong_light_client_program(SendCallErrorCase::WrongLightClientProgram)]
@@ -681,6 +652,7 @@ mod integration_tests {
 
         let msg = SendCallMsg {
             source_client: TEST_SOURCE_CLIENT.to_string(),
+            sequence: 1,
             receiver: Pubkey::new_unique().to_string(),
             salt: vec![1, 2, 3],
             payload: vec![4, 5, 6],
@@ -689,7 +661,6 @@ mod integration_tests {
         };
 
         let (router_state, _) = create_router_state_pda();
-        let (client_sequence, _) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
         let (ibc_app, _) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
         let (client, _) = create_client_pda(TEST_SOURCE_CLIENT, TEST_LIGHT_CLIENT_ID);
 
@@ -703,7 +674,6 @@ mod integration_tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(ics26_router::ID, false),
                 AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
                 AccountMeta::new(Pubkey::new_unique(), false), // packet_commitment
                 AccountMeta::new_readonly(ibc_app, false),
                 AccountMeta::new_readonly(client, false),

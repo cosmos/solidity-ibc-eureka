@@ -1,7 +1,6 @@
-use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
 use access_manager::RoleData;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
+use anchor_lang::{AnchorSerialize, Discriminator};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
@@ -113,18 +112,6 @@ pub fn setup_client(
     let client_data = create_account_data(&client);
 
     (client_pda, client_data)
-}
-
-pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Vec<u8>) {
-    let (client_sequence_pda, _) =
-        Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
-    let client_sequence = ClientSequence {
-        next_sequence_send: next_sequence,
-        version: AccountVersion::V1,
-        _reserved: [0; 256],
-    };
-    let client_sequence_data = create_account_data(&client_sequence);
-    (client_sequence_pda, client_sequence_data)
 }
 
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
@@ -508,57 +495,6 @@ pub fn get_account_data_from_mollusk<'a>(
         .iter()
         .find(|(key, _)| key == pubkey)
         .map(|(_, account)| &account.data[DISCRIMINATOR_SIZE..])
-}
-
-pub fn get_client_sequence_from_result(result: &mollusk_svm::result::InstructionResult) -> u64 {
-    use anchor_lang::{Discriminator, Space};
-
-    // ClientSequence discriminator to verify account type
-    let expected_discriminator = ClientSequence::DISCRIMINATOR;
-    let account_size = 8 + ClientSequence::INIT_SPACE;
-
-    // Find the client_sequence account by checking discriminator, size and owner
-    let (_, sequence_account) = result
-        .resulting_accounts
-        .iter()
-        .find(|(_, account)| {
-            account.data.len() == account_size
-                && account.owner == crate::ID
-                && account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == expected_discriminator
-        })
-        .expect("client_sequence account not found");
-
-    // Deserialize the account properly
-    let client_sequence: ClientSequence =
-        ClientSequence::try_deserialize(&mut &sequence_account.data[..])
-            .expect("Failed to deserialize ClientSequence");
-
-    client_sequence.next_sequence_send
-}
-
-pub fn get_client_sequence_from_result_by_pubkey(
-    result: &mollusk_svm::result::InstructionResult,
-    pubkey: &Pubkey,
-) -> Option<u64> {
-    use anchor_lang::Discriminator;
-
-    result
-        .resulting_accounts
-        .iter()
-        .find(|(key, _)| key == pubkey)
-        .and_then(|(_, account)| {
-            // Verify it's a ClientSequence account
-            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR
-            {
-                let client_sequence: ClientSequence =
-                    ClientSequence::try_deserialize(&mut &account.data[..]).ok()?;
-                Some(client_sequence.next_sequence_send)
-            } else {
-                None
-            }
-        })
 }
 
 /// Setup mollusk with mock programs for testing
