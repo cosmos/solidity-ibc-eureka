@@ -5,13 +5,12 @@ package ics26_router
 
 // Account discriminators
 var (
-	Account_Ics26RouterStateClient         = [8]byte{221, 237, 145, 143, 170, 194, 133, 115}
-	Account_Ics26RouterStateClientSequence = [8]byte{18, 97, 143, 135, 107, 101, 53, 226}
-	Account_Ics26RouterStateCommitment     = [8]byte{61, 112, 129, 128, 24, 147, 77, 87}
-	Account_Ics26RouterStateIbcApp         = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
-	Account_Ics26RouterStatePayloadChunk   = [8]byte{82, 192, 37, 21, 4, 6, 71, 89}
-	Account_Ics26RouterStateProofChunk     = [8]byte{44, 69, 61, 168, 202, 104, 103, 207}
-	Account_Ics26RouterStateRouterState    = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
+	Account_Ics26RouterStateClient       = [8]byte{221, 237, 145, 143, 170, 194, 133, 115}
+	Account_Ics26RouterStateCommitment   = [8]byte{61, 112, 129, 128, 24, 147, 77, 87}
+	Account_Ics26RouterStateIbcApp       = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
+	Account_Ics26RouterStatePayloadChunk = [8]byte{82, 192, 37, 21, 4, 6, 71, 89}
+	Account_Ics26RouterStateProofChunk   = [8]byte{44, 69, 61, 168, 202, 104, 103, 207}
+	Account_Ics26RouterStateRouterState  = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
 )
 
 // Event discriminators
@@ -22,8 +21,6 @@ var (
 	Event_Ics26RouterEventsClientUpdatedEvent        = [8]byte{153, 180, 170, 210, 48, 212, 204, 6}
 	Event_Ics26RouterEventsIbcAppAdded               = [8]byte{203, 71, 209, 220, 197, 188, 7, 160}
 	Event_Ics26RouterEventsNoopEvent                 = [8]byte{59, 182, 57, 141, 7, 255, 75, 55}
-	Event_Ics26RouterEventsRouterPausedEvent         = [8]byte{40, 27, 17, 246, 87, 124, 86, 242}
-	Event_Ics26RouterEventsRouterUnpausedEvent       = [8]byte{88, 10, 250, 68, 26, 119, 39, 124}
 	Event_Ics26RouterEventsSendPacketEvent           = [8]byte{193, 230, 168, 142, 93, 141, 211, 151}
 	Event_Ics26RouterEventsTimeoutPacketEvent        = [8]byte{175, 73, 51, 208, 241, 155, 242, 254}
 	Event_Ics26RouterEventsWriteAcknowledgementEvent = [8]byte{10, 54, 186, 209, 240, 25, 50, 0}
@@ -43,6 +40,4 @@ var (
 	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
 	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
 	Instruction_SetAccessManager   = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
-	Instruction_Pause              = [8]byte{211, 22, 221, 251, 74, 121, 193, 47}
-	Instruction_Unpause            = [8]byte{169, 144, 4, 38, 10, 141, 188, 255}
 )

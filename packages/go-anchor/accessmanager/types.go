@@ -11,6 +11,88 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+type AccessManagerEventsProgramExtendedEvent struct {
+	Program         solanago.PublicKey `json:"program"`
+	Authority       solanago.PublicKey `json:"authority"`
+	AdditionalBytes uint32             `json:"additionalBytes"`
+	Timestamp       int64              `json:"timestamp"`
+}
+
+func (obj AccessManagerEventsProgramExtendedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `Authority`:
+	err = encoder.Encode(obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Serialize `AdditionalBytes`:
+	err = encoder.Encode(obj.AdditionalBytes)
+	if err != nil {
+		return errors.NewField("AdditionalBytes", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsProgramExtendedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsProgramExtendedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsProgramExtendedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `Authority`:
+	err = decoder.Decode(&obj.Authority)
+	if err != nil {
+		return errors.NewField("Authority", err)
+	}
+	// Deserialize `AdditionalBytes`:
+	err = decoder.Decode(&obj.AdditionalBytes)
+	if err != nil {
+		return errors.NewField("AdditionalBytes", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsProgramExtendedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsProgramExtendedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsProgramExtendedEvent(buf []byte) (*AccessManagerEventsProgramExtendedEvent, error) {
+	obj := new(AccessManagerEventsProgramExtendedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerEventsProgramUpgradedEvent struct {
 	Program   solanago.PublicKey `json:"program"`
 	Authority solanago.PublicKey `json:"authority"`

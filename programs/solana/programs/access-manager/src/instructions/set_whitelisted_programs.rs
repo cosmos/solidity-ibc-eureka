@@ -35,14 +35,6 @@ pub fn set_whitelisted_programs(
         &crate::ID,
     )?;
 
-    let mut deduped = whitelisted_programs.clone();
-    deduped.sort();
-    deduped.dedup();
-    require!(
-        deduped.len() == whitelisted_programs.len(),
-        crate::errors::AccessManagerError::DuplicateWhitelistedProgram
-    );
-
     let old = ctx.accounts.access_manager.whitelisted_programs.clone();
     ctx.accounts
         .access_manager
@@ -175,43 +167,6 @@ mod tests {
             &instruction,
             &accounts,
             &[expect_access_manager_cpi_rejection_error()],
-        );
-    }
-
-    #[test]
-    fn test_set_whitelisted_programs_rejects_duplicates() {
-        let admin = Pubkey::new_unique();
-        let duplicate_program = Pubkey::new_unique();
-
-        let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
-
-        let instruction = build_instruction(
-            crate::instruction::SetWhitelistedPrograms {
-                whitelisted_programs: vec![duplicate_program, duplicate_program],
-            },
-            vec![
-                AccountMeta::new(access_manager_pda, false),
-                AccountMeta::new_readonly(admin, true),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-        );
-
-        let accounts = vec![
-            (access_manager_pda, access_manager_account),
-            (admin, create_signer_account()),
-            (
-                solana_sdk::sysvar::instructions::ID,
-                create_instructions_sysvar_account(),
-            ),
-        ];
-
-        let mollusk = setup_mollusk();
-        mollusk.process_and_validate_instruction(
-            &instruction,
-            &accounts,
-            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + AccessManagerError::DuplicateWhitelistedProgram as u32,
-            ))],
         );
     }
 }

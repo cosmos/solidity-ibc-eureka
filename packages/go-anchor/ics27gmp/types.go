@@ -134,88 +134,6 @@ func UnmarshalIcs26RouterStateClient(buf []byte) (*Ics26RouterStateClient, error
 	return obj, nil
 }
 
-// Per-client packet sequence counter.
-//
-// Tracks the next sequence number to assign when sending a packet
-// through a given client. Each `send_packet` call reads and increments
-// this value to guarantee unique, monotonically increasing sequence
-// numbers for replay protection.
-type Ics26RouterStateClientSequence struct {
-	// Schema version for upgrades
-	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
-
-	// Next sequence number for sending packets
-	NextSequenceSend uint64 `json:"nextSequenceSend"`
-
-	// Reserved space for future fields
-	Reserved [256]uint8 `json:"reserved"`
-}
-
-func (obj Ics26RouterStateClientSequence) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `Version`:
-	err = encoder.Encode(obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Serialize `NextSequenceSend`:
-	err = encoder.Encode(obj.NextSequenceSend)
-	if err != nil {
-		return errors.NewField("NextSequenceSend", err)
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj Ics26RouterStateClientSequence) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics26RouterStateClientSequence: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics26RouterStateClientSequence) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `Version`:
-	err = decoder.Decode(&obj.Version)
-	if err != nil {
-		return errors.NewField("Version", err)
-	}
-	// Deserialize `NextSequenceSend`:
-	err = decoder.Decode(&obj.NextSequenceSend)
-	if err != nil {
-		return errors.NewField("NextSequenceSend", err)
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
-	}
-	return nil
-}
-
-func (obj *Ics26RouterStateClientSequence) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics26RouterStateClientSequence: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs26RouterStateClientSequence(buf []byte) (*Ics26RouterStateClientSequence, error) {
-	obj := new(Ics26RouterStateClientSequence)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Port-to-program mapping for IBC applications.
 //
 // Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
@@ -337,9 +255,6 @@ type Ics26RouterStateRouterState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
-	// Whether the router is paused (emergency brake for all IBC traffic)
-	Paused bool `json:"paused"`
-
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -354,11 +269,6 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `Paused`:
-	err = encoder.Encode(obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -388,11 +298,6 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `Paused`:
-	err = decoder.Decode(&obj.Paused)
-	if err != nil {
-		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -1408,6 +1313,9 @@ type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
 	SourceClient string `json:"sourceClient"`
 
+	// Caller-chosen packet sequence number
+	Sequence uint64 `json:"sequence"`
+
 	// Timeout timestamp (unix seconds)
 	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 
@@ -1429,6 +1337,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Serialize `TimeoutTimestamp`:
 	err = encoder.Encode(obj.TimeoutTimestamp)
@@ -1473,6 +1386,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Deserialize `TimeoutTimestamp`:
 	err = decoder.Decode(&obj.TimeoutTimestamp)

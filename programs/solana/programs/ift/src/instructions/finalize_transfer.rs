@@ -10,13 +10,14 @@ use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 use solana_ibc_types::{reject_cpi, CallResultStatus, GMPCallResult};
 
 use crate::constants::{
-    IFT_APP_MINT_STATE_SEED, IFT_APP_STATE_SEED, MINT_AUTHORITY_SEED, PENDING_TRANSFER_SEED,
+    IFT_APP_MINT_STATE_SEED, IFT_APP_STATE_SEED, IFT_BRIDGE_SEED, MINT_AUTHORITY_SEED,
+    PENDING_TRANSFER_SEED,
 };
 use crate::errors::IFTError;
 use crate::events::{IFTTransferCompleted, IFTTransferRefunded, RefundReason};
 use crate::evm_selectors::ERROR_ACK_COMMITMENT;
 use crate::helpers::mint_to_account;
-use crate::state::{IFTAppMintState, IFTAppState, PendingTransfer};
+use crate::state::{IFTAppMintState, IFTAppState, IFTBridge, PendingTransfer};
 
 /// Accounts for the `finalize_transfer` instruction.
 ///
@@ -42,6 +43,15 @@ pub struct FinalizeTransfer<'info> {
         bump = app_mint_state.bump
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
+
+    /// IFT bridge for this client
+    #[account(
+        seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), client_id.as_bytes()],
+        bump = ift_bridge.bump,
+        constraint = ift_bridge.mint == app_mint_state.mint @ IFTError::InvalidBridge,
+        constraint = ift_bridge.active @ IFTError::BridgeNotActive,
+    )]
+    pub ift_bridge: Account<'info, IFTBridge>,
 
     /// Pending transfer to process
     #[account(
@@ -219,18 +229,20 @@ mod tests {
 
     use crate::errors::IFTError;
     use crate::evm_selectors::ERROR_ACK_COMMITMENT;
+    use crate::state::ChainOptions;
     use crate::test_utils::*;
 
     const TEST_CLIENT_ID: &str = "07-tendermint-0";
+    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
     const TEST_SEQUENCE: u64 = 42;
     const TEST_AMOUNT: u64 = 1_000_000;
     const TOKEN_DECIMALS: u8 = 9;
 
     // Account indices in instruction's account list
     const APP_MINT_STATE_IDX: usize = 1;
-    const PENDING_TRANSFER_IDX: usize = 2;
-    const MINT_IDX: usize = 4;
-    const SENDER_TOKEN_IDX: usize = 6;
+    const PENDING_TRANSFER_IDX: usize = 3;
+    const MINT_IDX: usize = 5;
+    const SENDER_TOKEN_IDX: usize = 7;
 
     fn empty_pda_account() -> solana_sdk::account::Account {
         solana_sdk::account::Account {
@@ -255,6 +267,7 @@ mod tests {
         app_mint_state_override: Option<IftAppMintStateParams>,
         token_owner_override: Option<Pubkey>,
         token_mint_override: Option<Pubkey>,
+        bridge_active: bool,
         app_paused: bool,
     }
 
@@ -272,6 +285,7 @@ mod tests {
             app_mint_state_override: None,
             token_owner_override: None,
             token_mint_override: None,
+            bridge_active: true,
             app_paused: false,
         })
     }
@@ -287,6 +301,7 @@ mod tests {
             app_mint_state_override,
             token_owner_override,
             token_mint_override,
+            bridge_active,
             app_paused,
         } = params;
         let mint = Pubkey::new_unique();
@@ -297,6 +312,7 @@ mod tests {
         let gmp_result_sender = gmp_result_sender.unwrap_or(crate::ID);
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
         let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
@@ -320,6 +336,15 @@ mod tests {
                     ..params
                 })
             },
+        );
+
+        let ift_bridge_account = create_ift_bridge_account(
+            mint,
+            TEST_CLIENT_ID,
+            TEST_COUNTERPARTY_ADDRESS,
+            ChainOptions::Evm,
+            ift_bridge_bump,
+            bridge_active,
         );
 
         let pending_transfer_account = create_pending_transfer_account(
@@ -352,6 +377,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -372,6 +398,7 @@ mod tests {
         let accounts = vec![
             (app_state_pda, app_state_account),
             (app_mint_state_pda, app_mint_state_account),
+            (ift_bridge_pda, ift_bridge_account),
             (pending_transfer_pda, pending_transfer_account),
             (gmp_result_pda, gmp_result_account),
             (mint, mint_account),
@@ -508,6 +535,7 @@ mod tests {
                 app_mint_state_override: None,
                 token_owner_override: Some(Pubkey::new_unique()), // wrong owner
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -531,6 +559,7 @@ mod tests {
                 app_mint_state_override: None,
                 token_owner_override: None,
                 token_mint_override: Some(Pubkey::new_unique()), // wrong mint
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -538,6 +567,141 @@ mod tests {
             &mollusk,
             &setup,
             ANCHOR_ERROR_OFFSET + IFTError::TokenAccountOwnerMismatch as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_bridge_mint_mismatch_fails() {
+        let mollusk = setup_mollusk();
+
+        let mint = Pubkey::new_unique();
+        let wrong_mint = Pubkey::new_unique();
+        let sender = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
+        let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
+        let (pending_transfer_pda, pending_transfer_bump) =
+            get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
+        let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
+        let (system_program, system_account) = create_system_program_account();
+        let (token_program_id, token_program_account) = token_program_keyed_account();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let sender_token_pda = Pubkey::new_unique();
+
+        let setup = FinalizeTransferTestSetup {
+            instruction: Instruction {
+                program_id: crate::ID,
+                accounts: vec![
+                    AccountMeta::new_readonly(app_state_pda, false),
+                    AccountMeta::new(app_mint_state_pda, false),
+                    AccountMeta::new_readonly(ift_bridge_pda, false),
+                    AccountMeta::new(pending_transfer_pda, false),
+                    AccountMeta::new_readonly(gmp_result_pda, false),
+                    AccountMeta::new(mint, false),
+                    AccountMeta::new_readonly(mint_authority_pda, false),
+                    AccountMeta::new(sender_token_pda, false),
+                    AccountMeta::new(payer, true),
+                    AccountMeta::new_readonly(token_program_id, false),
+                    AccountMeta::new_readonly(system_program, false),
+                    AccountMeta::new_readonly(sysvar_id, false),
+                ],
+                data: crate::instruction::FinalizeTransfer {
+                    client_id: TEST_CLIENT_ID.to_string(),
+                    sequence: TEST_SEQUENCE,
+                }
+                .data(),
+            },
+            accounts: vec![
+                (
+                    app_state_pda,
+                    create_ift_app_state_account(app_state_bump, Pubkey::new_unique()),
+                ),
+                (
+                    app_mint_state_pda,
+                    create_ift_app_mint_state_account(
+                        mint,
+                        app_mint_state_bump,
+                        mint_authority_bump,
+                    ),
+                ),
+                (
+                    ift_bridge_pda,
+                    create_ift_bridge_account(
+                        wrong_mint, // mint mismatch triggers InvalidBridge
+                        TEST_CLIENT_ID,
+                        TEST_COUNTERPARTY_ADDRESS,
+                        ChainOptions::Evm,
+                        ift_bridge_bump,
+                        true,
+                    ),
+                ),
+                (
+                    pending_transfer_pda,
+                    create_pending_transfer_account(
+                        mint,
+                        TEST_CLIENT_ID,
+                        TEST_SEQUENCE,
+                        sender,
+                        TEST_AMOUNT,
+                        pending_transfer_bump,
+                    ),
+                ),
+                (
+                    gmp_result_pda,
+                    create_gmp_result_account(
+                        crate::ID,
+                        TEST_SEQUENCE,
+                        TEST_CLIENT_ID,
+                        "dest-client",
+                        CallResultStatus::Timeout,
+                        gmp_result_bump,
+                    ),
+                ),
+                (
+                    mint,
+                    create_mint_account(mint_authority_pda, TOKEN_DECIMALS),
+                ),
+                (mint_authority_pda, empty_pda_account()),
+                (sender_token_pda, create_token_account(mint, sender, 0)),
+                (payer, create_signer_account()),
+                (token_program_id, token_program_account),
+                (system_program, system_account),
+                (sysvar_id, sysvar_account),
+            ],
+        };
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::InvalidBridge as u32,
+        );
+    }
+
+    #[test]
+    fn test_finalize_transfer_bridge_not_active_fails() {
+        let mollusk = setup_mollusk();
+
+        let setup =
+            build_finalize_transfer_test_setup_from_params(FinalizeTransferTestSetupParams {
+                status: CallResultStatus::Timeout,
+                gmp_result_sender: None,
+                gmp_result_client_id: TEST_CLIENT_ID,
+                gmp_result_sequence: TEST_SEQUENCE,
+                app_mint_state_override: None,
+                token_owner_override: None,
+                token_mint_override: None,
+                bridge_active: false,
+                app_paused: false,
+            });
+
+        assert_finalize_error(
+            &mollusk,
+            &setup,
+            ANCHOR_ERROR_OFFSET + IFTError::BridgeNotActive as u32,
         );
     }
 
@@ -554,6 +718,7 @@ mod tests {
                 app_mint_state_override: None,
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: true,
             });
 
@@ -565,34 +730,6 @@ mod tests {
     }
 
     // ─── Happy path tests ───────────────────────────────────────────
-
-    #[test]
-    fn test_finalize_transfer_succeeds_after_bridge_removed() {
-        let mollusk = setup_mollusk_with_token();
-
-        let setup = build_finalize_transfer_test_setup(
-            CallResultStatus::Timeout,
-            None,
-            TEST_CLIENT_ID,
-            TEST_SEQUENCE,
-        );
-
-        let result = mollusk.process_instruction(&setup.instruction, &setup.accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "finalization should succeed even when bridge is removed: {:?}",
-            result.program_result
-        );
-
-        assert_eq!(
-            unpack_token_balance(&result, SENDER_TOKEN_IDX),
-            TEST_AMOUNT,
-            "sender should receive refund even without bridge"
-        );
-
-        let (_, pending) = &result.resulting_accounts[PENDING_TRANSFER_IDX];
-        assert_eq!(pending.lamports, 0, "pending transfer should be closed");
-    }
 
     #[test]
     fn test_finalize_transfer_timeout_refund_succeeds() {
@@ -721,6 +858,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -756,6 +894,7 @@ mod tests {
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
         let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+        let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
         let (pending_transfer_pda, pending_transfer_bump) =
             get_pending_transfer_pda(&mint, TEST_CLIENT_ID, TEST_SEQUENCE);
         let (gmp_result_pda, gmp_result_bump) = get_gmp_result_pda(TEST_CLIENT_ID, TEST_SEQUENCE);
@@ -770,6 +909,7 @@ mod tests {
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
                 AccountMeta::new(app_mint_state_pda, false),
+                AccountMeta::new_readonly(ift_bridge_pda, false),
                 AccountMeta::new(pending_transfer_pda, false),
                 AccountMeta::new_readonly(gmp_result_pda, false),
                 AccountMeta::new(mint, false),
@@ -795,6 +935,17 @@ mod tests {
             (
                 app_mint_state_pda,
                 create_ift_app_mint_state_account(mint, app_mint_state_bump, mint_authority_bump),
+            ),
+            (
+                ift_bridge_pda,
+                create_ift_bridge_account(
+                    mint,
+                    TEST_CLIENT_ID,
+                    TEST_COUNTERPARTY_ADDRESS,
+                    ChainOptions::Evm,
+                    ift_bridge_bump,
+                    true,
+                ),
             ),
             (
                 pending_transfer_pda,
@@ -875,6 +1026,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -923,6 +1075,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -958,6 +1111,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -994,6 +1148,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -1043,6 +1198,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -1086,6 +1242,7 @@ mod tests {
                 }),
                 token_owner_override: None,
                 token_mint_override: None,
+                bridge_active: true,
                 app_paused: false,
             });
 
@@ -1110,7 +1267,7 @@ mod tests {
     // ─── Multi-step attack simulation tests ─────────────────────────
 
     /// Shared context for multi-step `finalize_transfer` tests.
-    /// All steps share the same mint, sender and static accounts;
+    /// All steps share the same mint, sender, bridge and static accounts;
     /// only the sequence (and thus `PendingTransfer` + `GMPCallResult` PDAs) varies.
     struct MultiStepContext {
         mint: Pubkey,
@@ -1122,6 +1279,8 @@ mod tests {
         app_mint_state_bump: u8,
         mint_authority_pda: Pubkey,
         mint_authority_bump: u8,
+        ift_bridge_pda: Pubkey,
+        ift_bridge_account: solana_sdk::account::Account,
         sender_token_pda: Pubkey,
         token_program_id: Pubkey,
         token_program_account: solana_sdk::account::Account,
@@ -1139,12 +1298,22 @@ mod tests {
             let (app_state_pda, app_state_bump) = get_app_state_pda();
             let (app_mint_state_pda, app_mint_state_bump) = get_app_mint_state_pda(&mint);
             let (mint_authority_pda, mint_authority_bump) = get_mint_authority_pda(&mint);
+            let (ift_bridge_pda, ift_bridge_bump) = get_bridge_pda(&mint, TEST_CLIENT_ID);
             let (system_program, system_account) = create_system_program_account();
             let (token_program_id, token_program_account) = token_program_keyed_account();
             let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
             let app_state_account =
                 create_ift_app_state_account(app_state_bump, Pubkey::new_unique());
+
+            let ift_bridge_account = create_ift_bridge_account(
+                mint,
+                TEST_CLIENT_ID,
+                TEST_COUNTERPARTY_ADDRESS,
+                ChainOptions::Evm,
+                ift_bridge_bump,
+                true,
+            );
 
             Self {
                 mint,
@@ -1156,6 +1325,8 @@ mod tests {
                 app_mint_state_bump,
                 mint_authority_pda,
                 mint_authority_bump,
+                ift_bridge_pda,
+                ift_bridge_account,
                 sender_token_pda: Pubkey::new_unique(),
                 token_program_id,
                 token_program_account,
@@ -1201,6 +1372,7 @@ mod tests {
                 accounts: vec![
                     AccountMeta::new_readonly(self.app_state_pda, false),
                     AccountMeta::new(self.app_mint_state_pda, false),
+                    AccountMeta::new_readonly(self.ift_bridge_pda, false),
                     AccountMeta::new(pending_transfer_pda, false),
                     AccountMeta::new_readonly(gmp_result_pda, false),
                     AccountMeta::new(self.mint, false),
@@ -1221,6 +1393,7 @@ mod tests {
             let accounts = vec![
                 (self.app_state_pda, self.app_state_account.clone()),
                 (self.app_mint_state_pda, app_mint_state_account),
+                (self.ift_bridge_pda, self.ift_bridge_account.clone()),
                 (
                     pending_transfer_pda,
                     create_pending_transfer_account(
