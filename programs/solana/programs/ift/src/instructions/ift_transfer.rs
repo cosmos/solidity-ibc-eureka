@@ -91,11 +91,6 @@ pub struct IFTTransfer<'info> {
     #[account()]
     pub router_state: AccountInfo<'info>,
 
-    /// Client sequence account for packet sequencing
-    /// CHECK: Router program validates this
-    #[account(mut)]
-    pub client_sequence: AccountInfo<'info>,
-
     /// Packet commitment account to be created
     /// CHECK: Router program validates this
     #[account(mut)]
@@ -181,7 +176,6 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         payer: ctx.accounts.payer.to_account_info(),
         router_program: ctx.accounts.router_program.to_account_info(),
         router_state: ctx.accounts.router_state.clone(),
-        client_sequence: ctx.accounts.client_sequence.clone(),
         packet_commitment: ctx.accounts.packet_commitment.clone(),
         ibc_app: ctx.accounts.gmp_ibc_app.clone(),
         client: ctx.accounts.ibc_client.clone(),
@@ -194,6 +188,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let gmp_msg = SendGmpCallMsg {
         source_client: msg.client_id.clone(),
+        sequence: msg.sequence,
         timeout_timestamp: timeout,
         receiver: ctx.accounts.ift_bridge.counterparty_ift_address.clone(),
         payload: mint_call_payload,
@@ -755,7 +750,6 @@ mod tests {
             Pubkey::find_program_address(&[solana_ibc_types::GMPAppState::SEED], &gmp_program_key);
 
         let router_state = Pubkey::new_unique();
-        let client_sequence = Pubkey::new_unique();
         let packet_commitment = Pubkey::new_unique();
         let gmp_ibc_app = Pubkey::new_unique();
         let ibc_client = Pubkey::new_unique();
@@ -767,6 +761,7 @@ mod tests {
 
         let msg = IFTTransferMsg {
             client_id: config.client_id,
+            sequence: 1,
             receiver: config.receiver,
             amount: config.amount,
             timeout_timestamp: config.timeout_timestamp,
@@ -788,7 +783,6 @@ mod tests {
                 AccountMeta::new(gmp_app_state_pda, false),
                 AccountMeta::new_readonly(ics26_router::ID, false),
                 AccountMeta::new_readonly(router_state, false),
-                AccountMeta::new(client_sequence, false),
                 AccountMeta::new(packet_commitment, false),
                 AccountMeta::new_readonly(gmp_ibc_app, false),
                 AccountMeta::new_readonly(ibc_client, false),
@@ -815,7 +809,6 @@ mod tests {
             (gmp_app_state_pda, create_signer_account()),
             (ics26_router::ID, token_program_account),
             (router_state, create_signer_account()),
-            (client_sequence, create_signer_account()),
             (packet_commitment, create_uninitialized_pda()),
             (gmp_ibc_app, create_signer_account()),
             (ibc_client, create_signer_account()),

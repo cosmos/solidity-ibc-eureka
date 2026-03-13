@@ -2341,6 +2341,9 @@ type IftStateIftTransferMsg struct {
 	// IBC client identifier for destination
 	ClientId string `json:"clientId"`
 
+	// Packet sequence number (caller-chosen, must be unique per client)
+	Sequence uint64 `json:"sequence"`
+
 	// Receiver address on destination chain
 	Receiver string `json:"receiver"`
 
@@ -2356,6 +2359,11 @@ func (obj IftStateIftTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Serialize `Receiver`:
 	err = encoder.Encode(obj.Receiver)
@@ -2390,6 +2398,11 @@ func (obj *IftStateIftTransferMsg) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.ClientId)
 	if err != nil {
 		return errors.NewField("ClientId", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Deserialize `Receiver`:
 	err = decoder.Decode(&obj.Receiver)

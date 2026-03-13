@@ -801,30 +801,26 @@ func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }
 
-func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, baseSequence uint64, callingProgram, sender solana.PublicKey) {
+func (s *Solana) VerifyPacketCommitmentZeroed(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
 	t.Helper()
-
-	namespacedSequence := CalculateNamespacedSequence(baseSequence, callingProgram, sender)
-
 	sequenceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
-	if err != nil {
-		t.Logf("Packet commitment deleted (account not found) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
-		return
-	}
+	require.NoError(err)
+	require.NotNil(accountInfo.Value, "Packet commitment account should still exist")
 
-	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		t.Logf("Packet commitment deleted (account closed) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
-		return
+	data := accountInfo.Value.Data.GetBinary()
+	commitment := data[8:40]
+	for _, b := range commitment {
+		if b != 0 {
+			require.Fail("Packet commitment should be zeroed after ack/timeout")
+		}
 	}
-
-	require.Fail("Packet commitment should have been deleted after acknowledgment",
-		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
+	t.Logf("Packet commitment zeroed for client %s, sequence %d", clientID, sequence)
 }
 
 // VerifyPendingTransferExists verifies that an IFT PendingTransfer PDA exists (was created during transfer)

@@ -521,7 +521,7 @@ The account stores:
 - `ack_commitment` (SHA256 hash of acknowledgement bytes, or zeros for timeout)
 - `result_timestamp` (Unix seconds)
 
-See [Namespaced Sequence Calculation](solana-storage-architecture.md#namespaced-sequence-calculation) for details on sequence namespacing.
+See [Caller-Chosen Sequences](solana-storage-architecture.md#caller-chosen-sequences) for details on sequence selection.
 
 **Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
 

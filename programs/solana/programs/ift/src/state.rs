@@ -234,6 +234,8 @@ pub struct RegisterIFTBridgeMsg {
 pub struct IFTTransferMsg {
     /// IBC client identifier for destination
     pub client_id: String,
+    /// Packet sequence number (caller-chosen, must be unique per client)
+    pub sequence: u64,
     /// Receiver address on destination chain
     pub receiver: String,
     /// Amount to transfer

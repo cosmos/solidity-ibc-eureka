@@ -48,6 +48,9 @@ pub struct SendCallMsg {
     /// Source client identifier
     pub source_client: String,
 
+    /// Packet sequence number (caller-chosen, must be unique per source_client)
+    pub sequence: u64,
+
     /// Timeout timestamp (unix seconds)
     pub timeout_timestamp: u64,
 

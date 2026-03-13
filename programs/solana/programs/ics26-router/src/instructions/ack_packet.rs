@@ -46,11 +46,9 @@ pub struct AckPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Packet commitment PDA; closed after successful acknowledgement and
-    /// its rent is returned to the relayer.
+    /// Packet commitment PDA; zeroed after successful acknowledgement.
     #[account(
         mut,
-        close = relayer,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
@@ -185,6 +183,8 @@ pub fn ack_packet<'info>(
         ctx.accounts.packet_commitment.value == expected_commitment,
         RouterError::PacketCommitmentMismatch
     );
+
+    ctx.accounts.packet_commitment.value = Commitment::EMPTY;
 
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
@@ -458,15 +458,15 @@ mod tests {
         let result =
             mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
 
-        // Verify packet commitment data was deleted
+        // Verify packet commitment value was zeroed (account stays open)
         let packet_commitment_account = result
             .get_account(&ctx.packet_commitment_pubkey)
             .expect("packet commitment account should exist");
 
-        // Data should be all zeros after deletion
+        // The value field (after the 8-byte discriminator) should be all zeros
         assert!(
-            packet_commitment_account.data.iter().all(|&b| b == 0),
-            "Packet commitment data should be zeroed"
+            packet_commitment_account.data[8..].iter().all(|&b| b == 0),
+            "Packet commitment value should be zeroed"
         );
     }
 

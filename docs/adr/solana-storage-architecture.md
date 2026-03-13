@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-06-17
-**Updated**: 2025-12-19
+**Updated**: 2026-03-13
 
 ## Context
 
@@ -16,7 +16,7 @@ We implement a PDA-based storage architecture with chunked storage for large dat
 
 1. **PDA-Based Storage**: All state stored in Program Derived Addresses
 2. **Chunked Uploads**: Large data (headers, proofs, payloads) split into ~900-byte chunks
-3. **Rent Reclamation**: Temporary accounts (chunks, commitments) closed after use
+3. **Rent Reclamation**: Temporary accounts (chunks) closed after use; packet commitments are permanent
 4. **Access Control**: Centralized access-manager program for role-based permissions
 
 ## Storage Architecture
@@ -73,15 +73,6 @@ Stores:
 - `client_program_id`: Pubkey (light client program)
 - `counterparty_info`: CounterpartyInfo { client_id, merkle_prefix }
 - `active`: bool
-- `_reserved`: [u8; 256]
-
-**Client Sequence PDA:**
-```
-Seeds: [b"client_sequence", client_id.as_bytes()]
-```
-Stores:
-- `version`: AccountVersion
-- `next_sequence_send`: u64 (starts at 1 per IBC spec)
 - `_reserved`: [u8; 256]
 
 **IBC App Registry PDA:**
@@ -217,8 +208,8 @@ Programs reference `access_manager` pubkey in their state to validate permission
 ### Packet Lifecycle
 ```
 1. Send:
-   - Increment sequence in ClientSequence
-   - Create PacketCommitment PDA
+   - Caller provides sequence number
+   - Create PacketCommitment PDA (Anchor `init` enforces uniqueness)
    - Emit event
 
 2. Receive:
@@ -228,13 +219,11 @@ Programs reference `access_manager` pubkey in their state to validate permission
 
 3. Acknowledge:
    - Verify ack proof against commitment
-   - Close PacketCommitment PDA
-   - Reclaim rent
+   - Zero PacketCommitment value (account persists to prevent sequence reuse)
 
 4. Timeout:
    - Verify non-receipt on destination
-   - Close PacketCommitment PDA
-   - Reclaim rent
+   - Zero PacketCommitment value (account persists to prevent sequence reuse)
 ```
 
 ### Client Update Lifecycle
@@ -270,15 +259,15 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 **Per-Packet Cost:**
 ```
-- Commitment creation: ~0.01 SOL (refunded on ack/timeout)
+- Commitment creation: ~0.01 SOL (permanent — not refunded)
 - Transaction fees: ~0.000005 SOL
-- Net cost after reclaim: ~0.000005 SOL
 ```
 
 **Key Insights:**
 - Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
-- Chunk and commitment rent is fully refundable
-- Relayers must call cleanup instructions to reclaim rent
+- Chunk rent is fully refundable after assembly
+- Packet commitment rent is permanent (accounts persist to prevent sequence reuse)
+- Relayers must call cleanup instructions to reclaim chunk rent
 
 ## Security Considerations
 
@@ -286,28 +275,15 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 2. **Authority Checks**: Only authorized parties can modify state
 3. **Chunk Ownership**: Per-submitter PDAs prevent interference
 4. **Access Control**: Role-based permissions via access-manager
-5. **Commitment Integrity**: Only router can create/close commitment PDAs
+5. **Commitment Integrity**: Only router can create commitment PDAs; Anchor `init` constraint prevents duplicate sequences
 
-## Byte Encoding and Sequence Calculation
+## Byte Encoding and Sequence Selection
 
-### Namespaced Sequence Calculation
+### Caller-Chosen Sequences
 
-Multiple IBC apps share one `ClientSequence` counter per client. To avoid collisions, each packet sequence is namespaced:
+Packet sequences are chosen by the caller (submitter) rather than assigned by an on-chain counter. Uniqueness is enforced by the Anchor `init` constraint on the PacketCommitment PDA — attempting to create a PDA that already exists will fail. After ack/timeout, the commitment value is zeroed but the account persists, permanently reserving that sequence number.
 
-```
-sequence = base_sequence * 10000 + SHA256(app_program_id || sender)[0..2] % 10000
-```
-
-- `base_sequence` — on-chain counter, increments on each `send_packet`
-- suffix — deterministic per `(app, sender)` pair, gives each combination its own lane
-
-**Why not use a timestamp?** The relayer needs to predict the sequence off-chain to derive PDAs (packet commitments, pending transfers). Timestamps are unknown until execution and would collide across apps in the same slot.
-
-The `IBCApp` account is required by `send_packet` both for authorization (verify caller's PDA) and to read `app_program_id` for the suffix. Downstream programs (e.g. IFT) pass it through via CPI.
-
-**Example** (suffix `1234`): base 1 → `11234`, base 2 → `21234`
-
-**Implementation**: `programs/solana/programs/ics26-router/src/utils/sequence.rs`
+Callers typically use `time.Now().UnixNano()` or similar high-entropy values to avoid collisions.
 
 ### PDA Seed Encoding (Little-Endian)
 
@@ -329,9 +305,9 @@ IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
 
 ### Sequence Management
 
-- **Base sequence**: Stored in `ClientSequence` PDA, starts at 1 (per IBC spec)
-- **Increment**: Base sequence incremented atomically on each `send_packet`
-- **Type**: u64, allowing ~1.8 × 10^15 packets per `(client, app, sender)` triple
+- **Selection**: Caller-chosen u64, must be unique per `(source_client, sequence)` pair
+- **Uniqueness**: Enforced by Anchor `init` constraint on PacketCommitment PDA
+- **Permanence**: PacketCommitment accounts are never closed — zeroed on ack/timeout to prevent sequence reuse
 
 ## Configuration Constants
 

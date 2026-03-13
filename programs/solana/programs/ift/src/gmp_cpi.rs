@@ -9,7 +9,6 @@ pub struct SendGmpCallAccounts<'info> {
     pub payer: AccountInfo<'info>,
     pub router_program: AccountInfo<'info>,
     pub router_state: AccountInfo<'info>,
-    pub client_sequence: AccountInfo<'info>,
     pub packet_commitment: AccountInfo<'info>,
     pub ibc_app: AccountInfo<'info>,
     pub client: AccountInfo<'info>,
@@ -27,7 +26,6 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
             payer: accounts.payer,
             router_program: accounts.router_program,
             router_state: accounts.router_state,
-            client_sequence: accounts.client_sequence,
             packet_commitment: accounts.packet_commitment,
             ibc_app: accounts.ibc_app,
             client: accounts.client,
@@ -43,6 +41,7 @@ impl<'info> From<SendGmpCallAccounts<'info>> for ics27_gmp::cpi::accounts::SendC
 /// Message parameters for GMP `send_call_cpi`
 pub struct SendGmpCallMsg {
     pub source_client: String,
+    pub sequence: u64,
     pub timeout_timestamp: u64,
     pub receiver: String,
     pub payload: Vec<u8>,
@@ -52,6 +51,7 @@ impl From<SendGmpCallMsg> for ics27_gmp::state::SendCallMsg {
     fn from(msg: SendGmpCallMsg) -> Self {
         Self {
             source_client: msg.source_client,
+            sequence: msg.sequence,
             timeout_timestamp: msg.timeout_timestamp,
             receiver: msg.receiver,
             salt: vec![], // Empty salt for IFT
