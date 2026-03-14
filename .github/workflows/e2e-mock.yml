@@ -36,7 +36,7 @@ jobs:
     name: lint
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version: 1.25
@@ -53,7 +53,7 @@ jobs:
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Generate Test Matrix
         id: get-matrix
         uses: ./.github/actions/e2e-matrix
@@ -83,7 +83,7 @@ jobs:
 
     runs-on: depot-ubuntu-24.04-4
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up E2E environment
         uses: ./.github/actions/e2e-setup
         with:
