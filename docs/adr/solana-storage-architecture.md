@@ -292,7 +292,7 @@ PacketCommitment: [b"packet_commitment", client_id, sequence]
 - `client_id` — IBC client identifier
 - `sequence` — caller-chosen u64 (little-endian)
 
-**Why caller-chosen?** Any shared on-chain counter is a write-lock bottleneck — concurrent senders contend for the same account, causing transaction failures. With caller-chosen sequences, each sender picks a random u64 independently, eliminating contention. The probability of collision in a 2^64 space is negligible.
+**Why caller-chosen?** A shared on-chain counter is a write-lock bottleneck. Caller-chosen random u64 sequences eliminate contention with negligible collision probability.
 
 **Collision handling**: If a caller picks a sequence that already has a commitment PDA, `create_account` fails and the transaction reverts. Callers should use random u64 values to avoid this.
 
