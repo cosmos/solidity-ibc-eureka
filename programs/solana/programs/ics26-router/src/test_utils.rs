@@ -182,7 +182,7 @@ pub fn create_test_packet(
     dest_client: &str,
     source_port: &str,
     dest_port: &str,
-    timeout_timestamp: i64,
+    timeout_timestamp: u64,
 ) -> Packet {
     Packet {
         sequence,
