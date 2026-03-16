@@ -5,4 +5,4 @@ package ics26_router
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("HCVZrk8MJ8PZQ68oxJNGQVh7hcJUqmN7UkX5um7BVdTv")
+var ProgramID = solanago.MustPublicKeyFromBase58("FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx")

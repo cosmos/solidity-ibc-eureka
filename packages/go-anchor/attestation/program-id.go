@@ -5,4 +5,4 @@ package attestation
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("5meYfGDgPpVZPMb8W5K2wbffnyWXPayxc6YZWn5v85wg")
+var ProgramID = solanago.MustPublicKeyFromBase58("F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe")
