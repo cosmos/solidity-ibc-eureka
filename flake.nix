@@ -53,9 +53,11 @@
               ++ solidity.packages
               ++ [
                 node-modules
-                pkgs.sp1."v5.2.4".cargo-prove
-                pkgs.sp1."v5.2.4".sp1-rust-toolchain
-              ];
+              ]
+              ++ (with pkgs.sp1."v5.2.4"; [
+                cargo-prove
+                sp1-rust-toolchain
+              ]);
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
