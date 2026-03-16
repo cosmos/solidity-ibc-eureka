@@ -153,7 +153,7 @@ pub fn recv_packet<'info>(
     );
 
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
-        packet: &msg.packet,
+        msg_packet: &msg.packet,
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),

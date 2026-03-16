@@ -27,7 +27,7 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
 
 /// Parameters for reconstructing a packet
 pub struct ReconstructPacketParams<'a, 'b, 'c> {
-    pub packet: &'a solana_ibc_types::MsgPacket,
+    pub msg_packet: &'a solana_ibc_types::MsgPacket,
     pub remaining_accounts: &'a [AccountInfo<'b>],
     pub relayer: &'c AccountInfo<'b>,
     pub submitter: Pubkey,
@@ -344,7 +344,7 @@ fn cleanup_proof_chunks(params: CleanupProofChunksParams) -> Result<()> {
 pub fn validate_and_reconstruct_packet(
     params: ReconstructPacketParams,
 ) -> Result<solana_ibc_types::Packet> {
-    let msg_payloads = &params.packet.payloads;
+    let msg_payloads = &params.msg_packet.payloads;
     require!(!msg_payloads.is_empty(), RouterError::InvalidPayloadCount);
 
     // Check all payloads use the same delivery variant (no mixed modes)
@@ -381,7 +381,7 @@ pub fn validate_and_reconstruct_packet(
             params.relayer,
             params.submitter,
             params.client_id,
-            params.packet.sequence,
+            params.msg_packet.sequence,
             msg_payloads,
         )?;
 
@@ -399,10 +399,10 @@ pub fn validate_and_reconstruct_packet(
     };
 
     Ok(solana_ibc_types::Packet {
-        sequence: params.packet.sequence,
-        source_client: params.packet.source_client.clone(),
-        dest_client: params.packet.dest_client.clone(),
-        timeout_timestamp: params.packet.timeout_timestamp,
+        sequence: params.msg_packet.sequence,
+        source_client: params.msg_packet.source_client.clone(),
+        dest_client: params.msg_packet.dest_client.clone(),
+        timeout_timestamp: params.msg_packet.timeout_timestamp,
         payloads,
     })
 }
@@ -444,7 +444,7 @@ mod tests {
         );
 
         let params = ReconstructPacketParams {
-            packet: &packet,
+            msg_packet: &packet,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
@@ -501,7 +501,7 @@ mod tests {
         );
 
         let params = ReconstructPacketParams {
-            packet: &packet,
+            msg_packet: &packet,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
@@ -542,7 +542,7 @@ mod tests {
         );
 
         let params = ReconstructPacketParams {
-            packet: &packet,
+            msg_packet: &packet,
             remaining_accounts: &[],
             relayer: &relayer_account,
             submitter: relayer,
