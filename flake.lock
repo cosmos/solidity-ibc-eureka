@@ -194,7 +194,8 @@
         "natlint": "natlint",
         "nixpkgs": "nixpkgs_4",
         "rust-overlay": "rust-overlay_2",
-        "solc": "solc"
+        "solc": "solc",
+        "sp1-overlay": "sp1-overlay"
       }
     },
     "rust-overlay": {
@@ -267,6 +268,27 @@
         "url": "https://github.com/argotorg/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
       }
     },
+    "sp1-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ],
+        "systems": "systems_4"
+      },
+      "locked": {
+        "lastModified": 1773631711,
+        "narHash": "sha256-1SexnIDFBXP9Q13sudHnG++VgznnSNqH/FebtzY+0/M=",
+        "owner": "vaporif",
+        "repo": "sp1-overlay",
+        "rev": "082a12953f14bb25a47f7c4d6a25f581b173840c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vaporif",
+        "repo": "sp1-overlay",
+        "type": "github"
+      }
+    },
     "systems": {
       "locked": {
         "lastModified": 1681028828,
@@ -298,6 +320,21 @@
       }
     },
     "systems_3": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    },
+    "systems_4": {
       "locked": {
         "lastModified": 1681028828,
         "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
