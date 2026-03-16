@@ -55,8 +55,8 @@
               ++ solidity.packages
               ++ [
                 node-modules
-                sp1Pkgs.cargo-prove-v5
-                sp1Pkgs.sp1-rust-toolchain
+                sp1Pkgs."v5.2.4".cargo-prove
+                sp1Pkgs."v5.2.4".sp1-rust-toolchain
               ];
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
