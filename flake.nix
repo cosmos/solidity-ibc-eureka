@@ -11,6 +11,10 @@
     foundry.url = "github:shazow/foundry.nix/main";
     rust-overlay.url = "github:oxalica/rust-overlay";
     natlint.url = "github:srdtrk/natlint";
+    sp1 = {
+      url = "github:vaporif/sp1-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -24,6 +28,7 @@
             (import inputs.rust-overlay)
             inputs.foundry.overlay
             inputs.solc.overlay
+            inputs.sp1.overlays.default
           ];
         };
 
@@ -32,7 +37,6 @@
         common = import ./nix/common.nix {inherit pkgs;};
         solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
         node-modules = import ./nix/node-modules.nix {inherit pkgs;};
-
         anchor = pkgs.callPackage ./nix/anchor.nix {};
         solana-agave = pkgs.callPackage ./nix/agave.nix {
           inherit (pkgs) rust-bin;
@@ -42,7 +46,18 @@
       in {
         devShells = {
           default = pkgs.mkShell {
-            buildInputs = rust.packages ++ go.packages ++ common.packages ++ solidity.packages ++ [node-modules];
+            buildInputs =
+              rust.packages
+              ++ go.packages
+              ++ common.packages
+              ++ solidity.packages
+              ++ [
+                node-modules
+              ]
+              ++ (with pkgs.sp1."v5.2.4"; [
+                cargo-prove
+                sp1-rust-toolchain
+              ]);
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
@@ -52,11 +67,6 @@
                   if [ ! -e node_modules ] || [ -L node_modules ]; then
                     ln -sfn "${node-modules}/node_modules" node_modules
                   fi
-                fi
-
-                if [ ! -x "$HOME/.sp1/bin/cargo-prove" ]; then
-                  echo "SP1 toolchain is not installed. To install:"
-                  echo "https://docs.succinct.xyz/docs/sp1/getting-started/install"
                 fi
               '';
           };
