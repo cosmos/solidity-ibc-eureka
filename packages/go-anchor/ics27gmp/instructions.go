@@ -116,7 +116,7 @@ func NewSendCallInstruction(
 		// Router's global state PDA, forwarded to the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 5 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash after the router processes the packet.
+		// Stores the packet commitment hash; initialized by the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 6 "ibc_app": Read-only, Non-signer, Required
 		// Port-to-program mapping that authorizes this GMP program for the GMP port.
@@ -201,7 +201,7 @@ func NewSendCallCpiInstruction(
 		// Router's global state PDA, forwarded to the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 4 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash after the router processes the packet.
+		// Stores the packet commitment hash; initialized by the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 5 "ibc_app": Read-only, Non-signer, Required
 		// Port-to-program mapping that authorizes this GMP program for the GMP port.
