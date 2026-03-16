@@ -407,7 +407,7 @@ func NewIftTransferInstruction(
 		// Router state account
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
 		// Account 13 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment account to be created
+		// Packet commitment account; initialized by the router via GMP CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 14 "gmp_ibc_app": Read-only, Non-signer, Required
 		// GMP's IBC app registration account — required by the router for authorization.
@@ -425,8 +425,7 @@ func NewIftTransferInstruction(
 		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 20 "pending_transfer": Writable, Non-signer, Required
-		// CPI, which is only known at runtime. Validated and created manually in the
-		// handler after the CPI completes.
+		// Seeds are verified in `create_pending_transfer_account`.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 

@@ -44,7 +44,7 @@ type Ics27GmpStateGmpCallResultAccount struct {
 	// Original sender pubkey.
 	Sender solanago.PublicKey `json:"sender"`
 
-	// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+	// Caller-chosen IBC packet sequence number.
 	Sequence uint64 `json:"sequence"`
 
 	// Source client ID (light client on this chain tracking the destination).

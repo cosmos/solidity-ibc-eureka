@@ -729,8 +729,6 @@ mod tests {
         );
     }
 
-    // ─── Happy path tests ───────────────────────────────────────────
-
     #[test]
     fn test_finalize_transfer_timeout_refund_succeeds() {
         let mollusk = setup_mollusk_with_token();

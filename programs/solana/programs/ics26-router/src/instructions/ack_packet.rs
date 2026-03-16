@@ -463,7 +463,7 @@ mod tests {
             .get_account(&ctx.packet_commitment_pubkey)
             .expect("packet commitment account should exist");
 
-        // The value field (after the 8-byte discriminator) should be all zeros
+        // Should be zeroed
         assert!(
             packet_commitment_account.data[8..].iter().all(|&b| b == 0),
             "Packet commitment value should be zeroed"

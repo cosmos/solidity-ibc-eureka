@@ -255,6 +255,9 @@ type Ics26RouterStateRouterState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Whether the router is paused (emergency brake for all IBC traffic)
+	Paused bool `json:"paused"`
+
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -269,6 +272,11 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -298,6 +306,11 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -1169,7 +1182,7 @@ type Ics27GmpStateGmpCallResultAccount struct {
 	// Original sender pubkey.
 	Sender solanago.PublicKey `json:"sender"`
 
-	// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+	// Caller-chosen IBC packet sequence number.
 	Sequence uint64 `json:"sequence"`
 
 	// Source client ID (light client on this chain tracking the destination).

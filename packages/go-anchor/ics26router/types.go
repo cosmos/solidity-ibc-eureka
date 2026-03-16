@@ -354,6 +354,82 @@ func UnmarshalIcs26RouterEventsNoopEvent(buf []byte) (*Ics26RouterEventsNoopEven
 	return obj, nil
 }
 
+// Event emitted when the router is paused
+type Ics26RouterEventsRouterPausedEvent struct{}
+
+func (obj Ics26RouterEventsRouterPausedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj Ics26RouterEventsRouterPausedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsRouterPausedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterEventsRouterPausedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (obj *Ics26RouterEventsRouterPausedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsRouterPausedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterEventsRouterPausedEvent(buf []byte) (*Ics26RouterEventsRouterPausedEvent, error) {
+	obj := new(Ics26RouterEventsRouterPausedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+// Event emitted when the router is unpaused
+type Ics26RouterEventsRouterUnpausedEvent struct{}
+
+func (obj Ics26RouterEventsRouterUnpausedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj Ics26RouterEventsRouterUnpausedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding Ics26RouterEventsRouterUnpausedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *Ics26RouterEventsRouterUnpausedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (obj *Ics26RouterEventsRouterUnpausedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling Ics26RouterEventsRouterUnpausedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIcs26RouterEventsRouterUnpausedEvent(buf []byte) (*Ics26RouterEventsRouterUnpausedEvent, error) {
+	obj := new(Ics26RouterEventsRouterUnpausedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when a packet is sent
 type Ics26RouterEventsSendPacketEvent struct {
 	ClientId         string                     `json:"clientId"`
@@ -1243,6 +1319,9 @@ type Ics26RouterStateRouterState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Whether the router is paused (emergency brake for all IBC traffic)
+	Paused bool `json:"paused"`
+
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -1257,6 +1336,11 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -1286,6 +1370,11 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -1844,7 +1933,7 @@ func UnmarshalSolanaIbcTypesRouterMsgRecvPacket(buf []byte) (*SolanaIbcTypesRout
 type SolanaIbcTypesRouterMsgSendPacket struct {
 	SourceClient     string                       `json:"sourceClient"`
 	Sequence         uint64                       `json:"sequence"`
-	TimeoutTimestamp uint64                        `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64                       `json:"timeoutTimestamp"`
 	Payload          SolanaIbcTypesAppMsgsPayload `json:"payload"`
 }
 

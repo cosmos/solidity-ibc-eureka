@@ -170,8 +170,8 @@ func NewSendPacketInstruction(
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 2 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash. Created manually because the PDA
-		// includes the sequence number, which is only known at runtime.
+		// Stores the packet commitment hash. Anchor `init` rejects duplicate sequences —
+		// the PDA persists after ack/timeout (zeroed), so each sequence is single-use.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 3 "app_signer": Read-only, Signer, Required
 		// PDA signed by the calling IBC app program, proving it authorized this send.
@@ -193,7 +193,6 @@ func NewSendPacketInstruction(
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
 		// Account 9 "consensus_state": Read-only, Non-signer, Required
 		// Consensus state account owned by the light client program (for expiry check).
-		// light client program itself validates it.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
 
@@ -346,8 +345,7 @@ func NewAckPacketInstruction(
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment PDA; closed after successful acknowledgement and
-		// its rent is returned to the relayer.
+		// Packet commitment PDA; zeroed after successful acknowledgement.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		// IBC application program to notify via CPI.
@@ -436,8 +434,7 @@ func NewTimeoutPacketInstruction(
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment PDA; closed after successful timeout and its rent
-		// is returned to the relayer.
+		// Packet commitment PDA; zeroed after successful timeout.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		// IBC application program to notify via CPI.
@@ -824,6 +821,88 @@ func NewSetAccessManagerInstruction(
 		// Account 2 "admin": Read-only, Signer, Required
 		// Admin signer authorized to change the access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "pause" instruction.
+func NewPauseInstruction(
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	pauserAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Pause[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// Mutable global router configuration PDA whose `paused` flag will be set.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for pauser role verification.
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "pauser": Read-only, Signer, Required
+		// Signer authorized to pause the router.
+		accounts__.Append(solanago.NewAccountMeta(pauserAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used for CPI detection.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "unpause" instruction.
+func NewUnpauseInstruction(
+	routerStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	unpauserAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_Unpause[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// Mutable global router configuration PDA whose `paused` flag will be cleared.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Global access control state used for unpauser role verification.
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "unpauser": Read-only, Signer, Required
+		// Signer authorized to unpause the router.
+		accounts__.Append(solanago.NewAccountMeta(unpauserAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
