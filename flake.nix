@@ -37,8 +37,6 @@
         common = import ./nix/common.nix {inherit pkgs;};
         solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
         node-modules = import ./nix/node-modules.nix {inherit pkgs;};
-        sp1Pkgs = inputs.sp1-overlay.packages.${system};
-
         anchor = pkgs.callPackage ./nix/anchor.nix {};
         solana-agave = pkgs.callPackage ./nix/agave.nix {
           inherit (pkgs) rust-bin;
@@ -55,8 +53,8 @@
               ++ solidity.packages
               ++ [
                 node-modules
-                sp1Pkgs."v5.2.4".cargo-prove
-                sp1Pkgs."v5.2.4".sp1-rust-toolchain
+                pkgs.sp1."v5.2.4".cargo-prove
+                pkgs.sp1."v5.2.4".sp1-rust-toolchain
               ];
             inherit (rust) NIX_LD_LIBRARY_PATH;
             inherit (rust.env) RUST_SRC_PATH;
