@@ -82,4 +82,7 @@ pub enum ErrorCode {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+
+    #[msg("Attestor count exceeds maximum")]
+    TooManyAttestors,
 }

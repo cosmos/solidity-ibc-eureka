@@ -11,6 +11,9 @@ pub use sol_types::IAttestationMsgs::{PacketAttestation, PacketCompact, StateAtt
 
 use crate::ETH_ADDRESS_LEN;
 
+/// Maximum number of attestor addresses the client state can hold.
+pub const MAX_ATTESTORS: usize = 20;
+
 /// Attestation light client state.
 ///
 /// Holds the set of trusted attestor Ethereum addresses and the signature
@@ -22,7 +25,7 @@ use crate::ETH_ADDRESS_LEN;
 pub struct ClientState {
     pub version: AccountVersion,
     /// 20-byte Ethereum addresses of trusted attestors.
-    #[max_len(20)]
+    #[max_len(MAX_ATTESTORS)]
     pub attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
     /// Minimum number of valid attestor signatures required for verification.
     pub min_required_sigs: u8,

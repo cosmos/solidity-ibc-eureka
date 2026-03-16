@@ -45,6 +45,14 @@ pub mod attestation {
         instructions::set_access_manager::set_access_manager(ctx, new_access_manager)
     }
 
+    pub fn update_attestors(
+        ctx: Context<UpdateAttestors>,
+        attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
+        min_required_sigs: u8,
+    ) -> Result<()> {
+        instructions::update_attestors::update_attestors(ctx, attestor_addresses, min_required_sigs)
+    }
+
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
         instructions::verify_membership::verify_membership(ctx, msg)
     }

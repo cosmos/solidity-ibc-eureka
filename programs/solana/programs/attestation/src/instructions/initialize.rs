@@ -1,5 +1,5 @@
 use crate::error::ErrorCode;
-use crate::types::{AccountVersion, AppState, ClientState};
+use crate::types::{AccountVersion, AppState, ClientState, MAX_ATTESTORS};
 use crate::ETH_ADDRESS_LEN;
 use anchor_lang::prelude::*;
 
@@ -44,6 +44,10 @@ pub fn initialize(
         ErrorCode::InvalidAccessManager
     );
     require!(!attestor_addresses.is_empty(), ErrorCode::NoAttestors);
+    require!(
+        attestor_addresses.len() <= MAX_ATTESTORS,
+        ErrorCode::TooManyAttestors
+    );
     require!(
         min_required_sigs > 0 && (min_required_sigs as usize) <= attestor_addresses.len(),
         ErrorCode::BadQuorum
@@ -180,6 +184,7 @@ mod tests {
     #[case::duplicate_attestors(vec![[1u8; 20], [2u8; 20], [1u8; 20]], 2, ErrorCode::DuplicateSigner)]
     #[case::duplicate_attestors_adjacent(vec![[5u8; 20], [5u8; 20]], 1, ErrorCode::DuplicateSigner)]
     #[case::multiple_duplicate_groups(vec![[1u8; 20], [2u8; 20], [1u8; 20], [2u8; 20]], 2, ErrorCode::DuplicateSigner)]
+    #[case::too_many_attestors((0u8..21).map(|i| [i; 20]).collect::<Vec<_>>(), 10, ErrorCode::TooManyAttestors)]
     fn test_initialize_error(
         #[case] attestors: Vec<[u8; ETH_ADDRESS_LEN]>,
         #[case] min_sigs: u8,
