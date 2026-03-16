@@ -41,7 +41,7 @@ const (
 	gethELImage = "ethereum/client-go:v1.16.8"
 	gethELType  = "geth"
 
-	besuELImage = "hyperledger/besu:26.2.0"
+	besuELImage = "hyperledger/besu:25.12.0"
 	besuELType  = "besu"
 
 	lodestarCLImage = "chainsafe/lodestar:v1.40.0"
@@ -49,16 +49,19 @@ const (
 )
 
 var (
+	elType, elImage = GetKurtosisELImageAndType()
+	clType, clImage = GetKurtosisCLImageAndType()
+
 	// KurtosisConfig sets up the default values for the eth testnet
 	// It can be changed before calling SetupSuite to alter the testnet configuration
 	KurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
-				CLType:         defaultCLType,
-				CLImage:        defaultCLImage,
-				ELType:         defaultELType,
-				ELImage:        defaultELImage,
-				ELExtraParams:  []string{"--gcmode=archive"},
+				CLType:         clType,
+				CLImage:        clImage,
+				ELType:         elType,
+				ELImage:        elImage,
+				ELExtraParams:  []string{},
 				ELLogLevel:     "info",
 				ValidatorCount: 128,
 				// Supernode required for Fulu testing
@@ -177,15 +180,6 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		KurtosisConfig.NetworkParams.SlotDuration = 2000
 		KurtosisConfig.NetworkParams.SecondsPerSlot = 2
 	}
-
-	elImage, elType := GetKurtosisELImageAndType()
-	clImage, clType := GetKurtosisCLImageAndType()
-
-	// Update the config with the retrieved EL and CL images and types
-	KurtosisConfig.Participants[0].ELImage = elImage
-	KurtosisConfig.Participants[0].ELType = elType
-	KurtosisConfig.Participants[0].CLImage = clImage
-	KurtosisConfig.Participants[0].CLType = clType
 
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
