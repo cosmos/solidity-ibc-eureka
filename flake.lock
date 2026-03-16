@@ -195,7 +195,7 @@
         "nixpkgs": "nixpkgs_4",
         "rust-overlay": "rust-overlay_2",
         "solc": "solc",
-        "sp1-overlay": "sp1-overlay"
+        "sp1": "sp1"
       }
     },
     "rust-overlay": {
@@ -268,7 +268,7 @@
         "url": "https://github.com/argotorg/solc-bin/raw/26fc3fd/macosx-amd64/list.json"
       }
     },
-    "sp1-overlay": {
+    "sp1": {
       "inputs": {
         "nixpkgs": [
           "nixpkgs"
@@ -276,11 +276,11 @@
         "systems": "systems_4"
       },
       "locked": {
-        "lastModified": 1773634384,
-        "narHash": "sha256-PRTuVpHrr7MV81IczAJuukBjCFutsIC+0QqLE/XIBU8=",
+        "lastModified": 1773635092,
+        "narHash": "sha256-5k7YfxDFgAAoizsfmQ08+6y8SCGpGrNB4G1Yi/7+UW8=",
         "owner": "vaporif",
         "repo": "sp1-overlay",
-        "rev": "908d6b7d28b4ae6125d5b333080a5240052ee3a9",
+        "rev": "edbebf02ac5be6cc97c8707b2941cbd6d0388f6f",
         "type": "github"
       },
       "original": {
