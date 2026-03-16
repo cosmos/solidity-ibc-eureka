@@ -276,11 +276,11 @@
         "systems": "systems_4"
       },
       "locked": {
-        "lastModified": 1773636852,
-        "narHash": "sha256-S9jG2AwLDt5Q6O2+BX9gMHN1km+32TPP3wjfWR78Hsw=",
+        "lastModified": 1773678681,
+        "narHash": "sha256-vEiOihCtSocbDTEqq+lQf5QNdutxwqnQ2i2RJL8CyO0=",
         "owner": "vaporif",
         "repo": "sp1-overlay",
-        "rev": "eababab3063a58810df99f7315b4a3625961a169",
+        "rev": "31631ee9eda03c60712896bc449ecb5d44d38b18",
         "type": "github"
       },
       "original": {
