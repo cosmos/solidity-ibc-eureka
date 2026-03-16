@@ -96,6 +96,9 @@ pub enum RouterError {
 
     #[msg("Router is not paused")]
     RouterNotPaused,
+
+    #[msg("Packet sequence must be greater than zero")]
+    InvalidSequence,
 }
 
 /// Convert CPI validation errors to Router errors

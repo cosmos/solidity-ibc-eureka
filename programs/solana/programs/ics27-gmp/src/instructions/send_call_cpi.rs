@@ -39,9 +39,18 @@ pub struct SendCallCpi<'info> {
     )]
     pub router_state: Box<Account<'info, RouterState>>,
 
-    /// Stores the packet commitment hash after the router processes the packet.
-    /// CHECK: PDA validated by router (sequence computed at runtime)
-    #[account(mut)]
+    /// Stores the packet commitment hash; initialized by the router CPI.
+    /// CHECK: PDA seeds verified against the router program.
+    #[account(
+        mut,
+        seeds = [
+            solana_ibc_types::Commitment::PACKET_COMMITMENT_SEED,
+            msg.source_client.as_bytes(),
+            &msg.sequence.to_le_bytes()
+        ],
+        bump,
+        seeds::program = router_program
+    )]
     pub packet_commitment: AccountInfo<'info>,
 
     /// Port-to-program mapping that authorizes this GMP program for the GMP port.

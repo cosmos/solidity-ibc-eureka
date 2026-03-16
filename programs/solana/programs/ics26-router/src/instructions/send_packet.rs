@@ -109,6 +109,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     );
 
     let sequence = msg.sequence;
+    require!(sequence > 0, RouterError::InvalidSequence);
 
     let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 
@@ -1520,6 +1521,32 @@ mod tests {
         assert_eq!(
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_zero_sequence_rejected() {
+        let (pt, mock_client_state, mock_consensus_state) =
+            setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true);
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            0, // zero sequence
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidSequence as u32),
         );
     }
 }

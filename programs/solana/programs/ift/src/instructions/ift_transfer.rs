@@ -91,9 +91,18 @@ pub struct IFTTransfer<'info> {
     #[account()]
     pub router_state: AccountInfo<'info>,
 
-    /// Packet commitment account to be created
-    /// CHECK: Router program validates this
-    #[account(mut)]
+    /// Packet commitment account; initialized by the router via GMP CPI.
+    /// CHECK: PDA seeds verified against the router program.
+    #[account(
+        mut,
+        seeds = [
+            solana_ibc_types::Commitment::PACKET_COMMITMENT_SEED,
+            msg.client_id.as_bytes(),
+            &msg.sequence.to_le_bytes()
+        ],
+        bump,
+        seeds::program = router_program
+    )]
     pub packet_commitment: AccountInfo<'info>,
 
     /// GMP's IBC app registration account — required by the router for authorization.
@@ -119,9 +128,8 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// CHECK: PDA seed includes the sequence returned by the router's `send_packet`
-    /// CPI, which is only known at runtime. Validated and created manually in the
-    /// handler after the CPI completes.
+    /// CHECK: Created manually in the handler because the PDA includes the mint.
+    /// Seeds are verified in `create_pending_transfer_account`.
     #[account(mut)]
     pub pending_transfer: UncheckedAccount<'info>,
 }
