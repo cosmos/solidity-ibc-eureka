@@ -27,6 +27,25 @@ const (
 	ethereumPackageId = "github.com/ethpandaops/ethereum-package@6.0.0"
 
 	faucetPrivateKey = "0x04b9f63ecf84210c5366c66d68fa1f5da1fa4f634fad6dfc86178e4d79ff9e59"
+
+	// defaultELImage is the default execution layer docker image used if not specified in the environment variables
+	defaultELImage = gethELImage
+	// defaultELType is the default execution layer client type used if not specified in the environment variables
+	defaultELType = gethELType
+
+	// defaultCLImage is the default consensus layer docker image used if not specified in the environment variables
+	defaultCLImage = lodestarCLImage
+	// defaultCLType is the default consensus layer client type used if not specified in the environment variables
+	defaultCLType = lodestarCLType
+
+	gethELImage = "ethereum/client-go:v1.16.8"
+	gethELType  = "geth"
+
+	besuELImage = "hyperledger/besu:26.2.0"
+	besuELType  = "besu"
+
+	lodestarCLImage = "chainsafe/lodestar:v1.40.0"
+	lodestarCLType  = "lodestar"
 )
 
 var (
@@ -35,10 +54,10 @@ var (
 	KurtosisConfig = kurtosisNetworkParams{
 		Participants: []kurtosisParticipant{
 			{
-				CLType:         "lodestar",
-				CLImage:        "chainsafe/lodestar:v1.40.0",
-				ELType:         "geth",
-				ELImage:        "ethereum/client-go:v1.16.8",
+				CLType:         defaultCLType,
+				CLImage:        defaultCLImage,
+				ELType:         defaultELType,
+				ELImage:        defaultELImage,
 				ELExtraParams:  []string{"--gcmode=archive"},
 				ELLogLevel:     "info",
 				ValidatorCount: 128,
@@ -66,6 +85,36 @@ func GetKurtosisPreset() string {
 		return testvalues.EnvValueEthereumPosPreset_Minimal
 	}
 	return preset
+}
+
+func GetKurtosisELImageAndType() (string, string) {
+	elType := os.Getenv(testvalues.EnvKeyEthereumPosELType)
+	if elType == "" {
+		return defaultELImage, defaultELType
+	}
+
+	switch elType {
+	case testvalues.EnvValueEthereumELType_Geth:
+		return gethELImage, gethELType
+	case testvalues.EnvValueEthereumELType_Besu:
+		return besuELImage, besuELType
+	default:
+		panic(fmt.Sprintf("Unsupported EL type: %s", elType))
+	}
+}
+
+func GetKurtosisCLImageAndType() (string, string) {
+	clType := os.Getenv(testvalues.EnvKeyEthereumPosCLType)
+	if clType == "" {
+		return defaultCLImage, defaultCLType
+	}
+
+	switch clType {
+	case testvalues.EnvValueEthereumCLType_Lodestar:
+		return lodestarCLImage, lodestarCLType
+	default:
+		panic(fmt.Sprintf("Unsupported CL type: %s", clType))
+	}
 }
 
 type EthKurtosisChain struct {
@@ -128,6 +177,15 @@ func SpinUpKurtosisPoS(ctx context.Context) (EthKurtosisChain, error) {
 		KurtosisConfig.NetworkParams.SlotDuration = 2000
 		KurtosisConfig.NetworkParams.SecondsPerSlot = 2
 	}
+
+	elImage, elType := GetKurtosisELImageAndType()
+	clImage, clType := GetKurtosisCLImageAndType()
+
+	// Update the config with the retrieved EL and CL images and types
+	KurtosisConfig.Participants[0].ELImage = elImage
+	KurtosisConfig.Participants[0].ELType = elType
+	KurtosisConfig.Participants[0].CLImage = clImage
+	KurtosisConfig.Participants[0].CLType = clType
 
 	faucet, err := crypto.ToECDSA(ethcommon.FromHex(faucetPrivateKey))
 	if err != nil {
