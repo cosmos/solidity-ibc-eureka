@@ -11,7 +11,7 @@
     foundry.url = "github:shazow/foundry.nix/main";
     rust-overlay.url = "github:oxalica/rust-overlay";
     natlint.url = "github:srdtrk/natlint";
-    sp1-overlay = {
+    sp1 = {
       url = "github:vaporif/sp1-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -28,7 +28,7 @@
             (import inputs.rust-overlay)
             inputs.foundry.overlay
             inputs.solc.overlay
-            inputs.sp1-overlay.overlays.default
+            inputs.sp1.overlays.default
           ];
         };
 
