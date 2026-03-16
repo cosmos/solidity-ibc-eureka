@@ -316,9 +316,7 @@ IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
 
 ### Sequence Management
 
-- **Caller-chosen**: No on-chain counter; callers provide a random u64 in `MsgSendPacket.sequence`
-- **Uniqueness**: Enforced by PDA creation — duplicate `(client_id, sequence)` pairs fail at `create_account`
-- **Type**: u64, ~1.8 × 10^19 possible values per client
+- Callers provide a random u64 in `MsgSendPacket.sequence`; uniqueness enforced by PDA creation
 
 ## Configuration Constants
 
