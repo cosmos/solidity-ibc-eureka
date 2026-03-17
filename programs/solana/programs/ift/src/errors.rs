@@ -108,6 +108,12 @@ pub enum IFTError {
 
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+
+    #[msg("No pending admin proposal")]
+    NoPendingAdmin,
+
+    #[msg("Signer is not the pending admin")]
+    UnauthorizedPendingAdmin,
 }
 
 impl From<CpiValidationError> for IFTError {

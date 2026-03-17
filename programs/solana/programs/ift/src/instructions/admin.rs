@@ -7,14 +7,14 @@ use solana_ibc_types::reject_cpi;
 
 use crate::constants::*;
 use crate::errors::IFTError;
-use crate::events::{AdminMintExecuted, AdminUpdated, MintAuthorityRevoked};
+use crate::events::{AdminAccepted, AdminMintExecuted, AdminProposed, MintAuthorityRevoked};
 use crate::helpers::mint_to_account;
 use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
 #[derive(Accounts)]
 #[instruction(new_admin: Pubkey)]
-pub struct SetAdmin<'info> {
-    /// Global IFT app state (mut, admin field will be updated)
+pub struct ProposeAdmin<'info> {
+    /// Global IFT app state (mut, `pending_admin` field will be updated)
     #[account(
         mut,
         seeds = [IFT_APP_STATE_SEED],
@@ -33,16 +33,60 @@ pub struct SetAdmin<'info> {
     pub instructions_sysvar: AccountInfo<'info>,
 }
 
-/// Transfer admin to `new_admin`.
-/// TODO: consider a two-step transfer (propose + accept) to guard against typos.
-pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+/// Propose a new admin. The proposed admin must call `accept_admin` to finalize.
+pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
     reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
-    ctx.accounts.app_state.admin = new_admin;
+    ctx.accounts.app_state.pending_admin = new_admin;
 
     let clock = Clock::get()?;
-    emit!(AdminUpdated {
-        new_admin,
+    emit!(AdminProposed {
+        current_admin: ctx.accounts.admin.key(),
+        proposed_admin: new_admin,
+        timestamp: clock.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct AcceptAdmin<'info> {
+    /// Global IFT app state (mut, `admin` and `pending_admin` will be updated)
+    #[account(
+        mut,
+        seeds = [IFT_APP_STATE_SEED],
+        bump = app_state.bump
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// Pending admin who accepts the role
+    #[account(
+        constraint = pending_admin.key() == app_state.pending_admin @ IFTError::UnauthorizedPendingAdmin
+    )]
+    pub pending_admin: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+}
+
+/// Accept a pending admin proposal. Must be called by the proposed admin.
+pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
+
+    require!(
+        ctx.accounts.app_state.pending_admin != Pubkey::default(),
+        IFTError::NoPendingAdmin
+    );
+
+    let previous_admin = ctx.accounts.app_state.admin;
+    ctx.accounts.app_state.admin = ctx.accounts.app_state.pending_admin;
+    ctx.accounts.app_state.pending_admin = Pubkey::default();
+
+    let clock = Clock::get()?;
+    emit!(AdminAccepted {
+        previous_admin,
+        new_admin: ctx.accounts.pending_admin.key(),
         timestamp: clock.unix_timestamp,
     });
 
@@ -256,7 +300,7 @@ mod tests {
     use crate::test_utils::*;
 
     #[test]
-    fn test_set_admin_success() {
+    fn test_propose_admin_success() {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
@@ -273,7 +317,7 @@ mod tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: crate::instruction::SetAdmin { new_admin }.data(),
+            data: crate::instruction::ProposeAdmin { new_admin }.data(),
         };
 
         let accounts = vec![
@@ -285,7 +329,7 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
-            "set_admin should succeed: {:?}",
+            "propose_admin should succeed: {:?}",
             result.program_result
         );
 
@@ -297,11 +341,15 @@ mod tests {
             .1
             .clone();
         let updated_state = deserialize_app_state(&updated_account);
-        assert_eq!(updated_state.admin, new_admin, "Admin should be updated");
+        assert_eq!(updated_state.admin, admin, "Admin should remain unchanged");
+        assert_eq!(
+            updated_state.pending_admin, new_admin,
+            "Pending admin should be set"
+        );
     }
 
     #[test]
-    fn test_set_admin_unauthorized() {
+    fn test_propose_admin_unauthorized() {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
@@ -320,7 +368,7 @@ mod tests {
                 AccountMeta::new_readonly(unauthorized, true),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: crate::instruction::SetAdmin { new_admin }.data(),
+            data: crate::instruction::ProposeAdmin { new_admin }.data(),
         };
 
         let accounts = vec![
@@ -340,7 +388,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_admin_cpi_rejected() {
+    fn test_propose_admin_cpi_rejected() {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
@@ -358,12 +406,177 @@ mod tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
-            data: crate::instruction::SetAdmin { new_admin }.data(),
+            data: crate::instruction::ProposeAdmin { new_admin }.data(),
         };
 
         let accounts = vec![
             (app_state_pda, app_state_account),
             (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::CpiNotAllowed as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_accept_admin_success() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let new_admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, new_admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(new_admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::AcceptAdmin {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (new_admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "accept_admin should succeed: {:?}",
+            result.program_result
+        );
+
+        let updated_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(k, _)| *k == app_state_pda)
+            .expect("app state should exist")
+            .1
+            .clone();
+        let updated_state = deserialize_app_state(&updated_account);
+        assert_eq!(updated_state.admin, new_admin, "Admin should be updated");
+        assert_eq!(
+            updated_state.pending_admin,
+            Pubkey::default(),
+            "Pending admin should be cleared"
+        );
+    }
+
+    #[test]
+    fn test_accept_admin_wrong_signer() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let pending = Pubkey::new_unique();
+        let wrong_signer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, pending);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(wrong_signer, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::AcceptAdmin {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (wrong_signer, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedPendingAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_accept_admin_no_pending() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(Pubkey::default(), true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::AcceptAdmin {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (Pubkey::default(), create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::NoPendingAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_accept_admin_cpi_rejected() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let new_admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) =
+            create_cpi_instructions_sysvar_account(Pubkey::new_unique());
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, new_admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(new_admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::AcceptAdmin {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (new_admin, create_signer_account()),
             (sysvar_id, sysvar_account),
         ];
 

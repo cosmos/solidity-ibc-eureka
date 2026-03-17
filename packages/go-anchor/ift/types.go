@@ -183,6 +183,83 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Event emitted when a proposed admin accepts the role
+type IftEventsAdminAccepted struct {
+	// Previous admin
+	PreviousAdmin solanago.PublicKey `json:"previousAdmin"`
+
+	// New admin who accepted
+	NewAdmin solanago.PublicKey `json:"newAdmin"`
+
+	// Acceptance timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsAdminAccepted) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `PreviousAdmin`:
+	err = encoder.Encode(obj.PreviousAdmin)
+	if err != nil {
+		return errors.NewField("PreviousAdmin", err)
+	}
+	// Serialize `NewAdmin`:
+	err = encoder.Encode(obj.NewAdmin)
+	if err != nil {
+		return errors.NewField("NewAdmin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsAdminAccepted) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsAdminAccepted: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsAdminAccepted) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `PreviousAdmin`:
+	err = decoder.Decode(&obj.PreviousAdmin)
+	if err != nil {
+		return errors.NewField("PreviousAdmin", err)
+	}
+	// Deserialize `NewAdmin`:
+	err = decoder.Decode(&obj.NewAdmin)
+	if err != nil {
+		return errors.NewField("NewAdmin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsAdminAccepted) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsAdminAccepted: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsAdminAccepted(buf []byte) (*IftEventsAdminAccepted, error) {
+	obj := new(IftEventsAdminAccepted)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when admin mints tokens
 type IftEventsAdminMintExecuted struct {
 	// SPL Token mint address
@@ -286,20 +363,28 @@ func UnmarshalIftEventsAdminMintExecuted(buf []byte) (*IftEventsAdminMintExecute
 	return obj, nil
 }
 
-// Event emitted when the admin authority is updated
-type IftEventsAdminUpdated struct {
-	// New admin authority
-	NewAdmin solanago.PublicKey `json:"newAdmin"`
+// Event emitted when a new admin is proposed
+type IftEventsAdminProposed struct {
+	// Current admin who proposed the change
+	CurrentAdmin solanago.PublicKey `json:"currentAdmin"`
 
-	// Update timestamp
+	// Proposed new admin
+	ProposedAdmin solanago.PublicKey `json:"proposedAdmin"`
+
+	// Proposal timestamp
 	Timestamp int64 `json:"timestamp"`
 }
 
-func (obj IftEventsAdminUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `NewAdmin`:
-	err = encoder.Encode(obj.NewAdmin)
+func (obj IftEventsAdminProposed) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `CurrentAdmin`:
+	err = encoder.Encode(obj.CurrentAdmin)
 	if err != nil {
-		return errors.NewField("NewAdmin", err)
+		return errors.NewField("CurrentAdmin", err)
+	}
+	// Serialize `ProposedAdmin`:
+	err = encoder.Encode(obj.ProposedAdmin)
+	if err != nil {
+		return errors.NewField("ProposedAdmin", err)
 	}
 	// Serialize `Timestamp`:
 	err = encoder.Encode(obj.Timestamp)
@@ -309,21 +394,26 @@ func (obj IftEventsAdminUpdated) MarshalWithEncoder(encoder *binary.Encoder) (er
 	return nil
 }
 
-func (obj IftEventsAdminUpdated) Marshal() ([]byte, error) {
+func (obj IftEventsAdminProposed) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding IftEventsAdminUpdated: %w", err)
+		return nil, fmt.Errorf("error while encoding IftEventsAdminProposed: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *IftEventsAdminUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `NewAdmin`:
-	err = decoder.Decode(&obj.NewAdmin)
+func (obj *IftEventsAdminProposed) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `CurrentAdmin`:
+	err = decoder.Decode(&obj.CurrentAdmin)
 	if err != nil {
-		return errors.NewField("NewAdmin", err)
+		return errors.NewField("CurrentAdmin", err)
+	}
+	// Deserialize `ProposedAdmin`:
+	err = decoder.Decode(&obj.ProposedAdmin)
+	if err != nil {
+		return errors.NewField("ProposedAdmin", err)
 	}
 	// Deserialize `Timestamp`:
 	err = decoder.Decode(&obj.Timestamp)
@@ -333,16 +423,16 @@ func (obj *IftEventsAdminUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) 
 	return nil
 }
 
-func (obj *IftEventsAdminUpdated) Unmarshal(buf []byte) error {
+func (obj *IftEventsAdminProposed) Unmarshal(buf []byte) error {
 	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling IftEventsAdminUpdated: %w", err)
+		return fmt.Errorf("error while unmarshaling IftEventsAdminProposed: %w", err)
 	}
 	return nil
 }
 
-func UnmarshalIftEventsAdminUpdated(buf []byte) (*IftEventsAdminUpdated, error) {
-	obj := new(IftEventsAdminUpdated)
+func UnmarshalIftEventsAdminProposed(buf []byte) (*IftEventsAdminProposed, error) {
+	obj := new(IftEventsAdminProposed)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -2041,8 +2131,11 @@ type IftStateIftAppState struct {
 	Admin solanago.PublicKey `json:"admin"`
 
 	// Whether IFT is paused (blocks mint and transfer, not refunds)
-	Paused   bool       `json:"paused"`
-	Reserved [128]uint8 `json:"reserved"`
+	Paused bool `json:"paused"`
+
+	// Pending admin for two-step transfer (`Pubkey::default()` = none)
+	PendingAdmin solanago.PublicKey `json:"pendingAdmin"`
+	Reserved     [96]uint8          `json:"reserved"`
 }
 
 func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2065,6 +2158,11 @@ func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err 
 	err = encoder.Encode(obj.Paused)
 	if err != nil {
 		return errors.NewField("Paused", err)
+	}
+	// Serialize `PendingAdmin`:
+	err = encoder.Encode(obj.PendingAdmin)
+	if err != nil {
+		return errors.NewField("PendingAdmin", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -2104,6 +2202,11 @@ func (obj *IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (e
 	err = decoder.Decode(&obj.Paused)
 	if err != nil {
 		return errors.NewField("Paused", err)
+	}
+	// Deserialize `PendingAdmin`:
+	err = decoder.Decode(&obj.PendingAdmin)
+	if err != nil {
+		return errors.NewField("PendingAdmin", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

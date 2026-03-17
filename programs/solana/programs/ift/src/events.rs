@@ -173,12 +173,25 @@ pub struct ExistingTokenInitialized {
     pub timestamp: i64,
 }
 
-/// Event emitted when the admin authority is updated
+/// Event emitted when a new admin is proposed
 #[event]
-pub struct AdminUpdated {
-    /// New admin authority
+pub struct AdminProposed {
+    /// Current admin who proposed the change
+    pub current_admin: Pubkey,
+    /// Proposed new admin
+    pub proposed_admin: Pubkey,
+    /// Proposal timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when a proposed admin accepts the role
+#[event]
+pub struct AdminAccepted {
+    /// Previous admin
+    pub previous_admin: Pubkey,
+    /// New admin who accepted
     pub new_admin: Pubkey,
-    /// Update timestamp
+    /// Acceptance timestamp
     pub timestamp: i64,
 }
 

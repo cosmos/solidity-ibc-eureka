@@ -67,11 +67,22 @@ pub fn create_ift_app_state_account_with_options(
     admin: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
+    create_ift_app_state_account_full(bump, admin, paused, Pubkey::default())
+}
+
+/// Create a serialized global IFT app state account with all configurable fields
+pub fn create_ift_app_state_account_full(
+    bump: u8,
+    admin: Pubkey,
+    paused: bool,
+    pending_admin: Pubkey,
+) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
         bump,
         admin,
         paused,
+        pending_admin,
         _reserved: [0; 128],
     };
 
