@@ -2,6 +2,7 @@ use crate::error::ErrorCode;
 use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 
 /// Initializes the ICS-07 Tendermint light client with its initial state and configuration.
 #[derive(Accounts)]
@@ -39,6 +40,19 @@ pub struct Initialize<'info> {
     pub payer: Signer<'info>,
     /// Required by Anchor for PDA creation via the System Program.
     pub system_program: Program<'info, System>,
+
+    /// BPF Loader Upgradeable `ProgramData` account for this program.
+    #[account(
+        seeds = [crate::ID.as_ref()],
+        bump,
+        seeds::program = bpf_loader_upgradeable::ID,
+        constraint = program_data.upgrade_authority_address == Some(authority.key())
+            @ ErrorCode::UnauthorizedDeployer
+    )]
+    pub program_data: Account<'info, ProgramData>,
+
+    /// The program's upgrade authority — must sign to prove deployer identity.
+    pub authority: Signer<'info>,
 }
 
 pub fn initialize(
@@ -51,6 +65,7 @@ pub fn initialize(
         access_manager != Pubkey::default(),
         ErrorCode::InvalidAccessManager
     );
+
     require!(!client_state.chain_id.is_empty(), ErrorCode::InvalidChainId);
 
     require!(
@@ -106,6 +121,7 @@ mod tests {
 
     struct TestAccounts {
         payer: Pubkey,
+        authority: Pubkey,
         client_state_pda: Pubkey,
         consensus_state_store_pda: Pubkey,
         app_state_pda: Pubkey,
@@ -114,6 +130,7 @@ mod tests {
 
     fn setup_test_accounts(latest_height: u64) -> TestAccounts {
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
         let (client_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
         let (consensus_state_store_pda, _) = Pubkey::find_program_address(
@@ -125,6 +142,8 @@ mod tests {
         );
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            crate::test_helpers::create_program_data_account(&crate::ID, Some(authority));
 
         let accounts = vec![
             (
@@ -177,10 +196,22 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         TestAccounts {
             payer,
+            authority,
             client_state_pda,
             consensus_state_store_pda,
             app_state_pda,
@@ -193,6 +224,11 @@ mod tests {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
     ) -> Instruction {
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[crate::ID.as_ref()],
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+        );
+
         let instruction_data = crate::instruction::Initialize {
             client_state: client_state.clone(),
             consensus_state: consensus_state.clone(),
@@ -207,6 +243,8 @@ mod tests {
                 AccountMeta::new(test_accounts.app_state_pda, false),
                 AccountMeta::new(test_accounts.payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(test_accounts.authority, true),
             ],
             data: instruction_data.data(),
         }
@@ -259,6 +297,7 @@ mod tests {
         let (client_state, consensus_state, _) = load_primary_fixtures();
 
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         let (client_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
@@ -273,6 +312,8 @@ mod tests {
         );
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            crate::test_helpers::create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize {
             client_state: client_state.clone(),
@@ -288,6 +329,8 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -341,6 +384,17 @@ mod tests {
                     data: vec![],
                     owner: native_loader::ID,
                     executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
                     rent_epoch: 0,
                 },
             ),
@@ -609,6 +663,11 @@ mod tests {
 
         let test_accounts = setup_test_accounts(client_state.latest_height.revision_height);
 
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[crate::ID.as_ref()],
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+        );
+
         let instruction_data = crate::instruction::Initialize {
             client_state,
             consensus_state,
@@ -623,6 +682,8 @@ mod tests {
                 AccountMeta::new(test_accounts.app_state_pda, false),
                 AccountMeta::new(test_accounts.payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(test_accounts.authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -640,6 +701,7 @@ mod tests {
 
         let latest_height = client_state.latest_height.revision_height;
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         let (client_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
@@ -652,6 +714,8 @@ mod tests {
         );
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            crate::test_helpers::create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize {
             client_state,
@@ -667,6 +731,8 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -723,6 +789,17 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
@@ -734,5 +811,166 @@ mod tests {
         ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_wrong_authority_rejected() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let test_accounts = setup_test_accounts(client_state.latest_height.revision_height);
+
+        let wrong_authority = Pubkey::new_unique();
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[crate::ID.as_ref()],
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+        );
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(test_accounts.client_state_pda, false),
+                AccountMeta::new(test_accounts.consensus_state_store_pda, false),
+                AccountMeta::new(test_accounts.app_state_pda, false),
+                AccountMeta::new(test_accounts.payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(wrong_authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                client_state,
+                consensus_state,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let mut accounts = test_accounts.accounts;
+        accounts.pop(); // remove the correct authority
+        accounts.push((
+            wrong_authority,
+            Account {
+                lamports: 1_000_000_000,
+                data: vec![],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        ));
+
+        assert_instruction_fails_with_error(
+            &instruction,
+            &accounts,
+            ErrorCode::UnauthorizedDeployer,
+        );
+    }
+
+    #[test]
+    fn test_initialize_immutable_program_rejected() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                crate::state::ConsensusStateStore::SEED,
+                &client_state.latest_height.revision_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            crate::test_helpers::create_program_data_account(&crate::ID, None);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                client_state,
+                consensus_state,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                app_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        assert_instruction_fails_with_error(
+            &instruction,
+            &accounts,
+            ErrorCode::UnauthorizedDeployer,
+        );
     }
 }
