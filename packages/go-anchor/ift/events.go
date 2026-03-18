@@ -29,6 +29,13 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as IftEventsAdminMintExecuted: %w", err)
 		}
 		return value, nil
+	case Event_IftEventsAdminProposalCancelled:
+		value := new(IftEventsAdminProposalCancelled)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as IftEventsAdminProposalCancelled: %w", err)
+		}
+		return value, nil
 	case Event_IftEventsAdminProposed:
 		value := new(IftEventsAdminProposed)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -155,6 +162,23 @@ func ParseEvent_IftEventsAdminMintExecuted(eventData []byte) (*IftEventsAdminMin
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsAdminMintExecuted: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_IftEventsAdminProposalCancelled(eventData []byte) (*IftEventsAdminProposalCancelled, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_IftEventsAdminProposalCancelled {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_IftEventsAdminProposalCancelled, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(IftEventsAdminProposalCancelled)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type IftEventsAdminProposalCancelled: %w", err)
 	}
 	return event, nil
 }

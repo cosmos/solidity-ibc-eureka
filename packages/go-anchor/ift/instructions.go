@@ -712,6 +712,43 @@ func NewAcceptAdminInstruction(
 	), nil
 }
 
+// Builds a "cancel_admin_proposal" instruction.
+// Cancel a pending admin proposal. Must be signed by the current admin.
+func NewCancelAdminProposalInstruction(
+	appStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelAdminProposal[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// Global IFT app state (mut, `pending_admin` will be cleared)
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "admin": Read-only, Signer, Required
+		// Current admin authority, must match `app_state.admin`
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
 // Builds a "revoke_mint_authority" instruction.
 // Revoke mint authority from IFT and transfer it to a new authority.
 func NewRevokeMintAuthorityInstruction(

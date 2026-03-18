@@ -184,6 +184,17 @@ pub struct AdminProposed {
     pub timestamp: i64,
 }
 
+/// Event emitted when a pending admin proposal is cancelled
+#[event]
+pub struct AdminProposalCancelled {
+    /// Admin who cancelled the proposal
+    pub admin: Pubkey,
+    /// Proposed admin whose proposal was cancelled
+    pub cancelled_admin: Pubkey,
+    /// Cancellation timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when a proposed admin accepts the role
 #[event]
 pub struct AdminAccepted {

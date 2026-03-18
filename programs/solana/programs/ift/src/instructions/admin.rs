@@ -7,7 +7,9 @@ use solana_ibc_types::reject_cpi;
 
 use crate::constants::*;
 use crate::errors::IFTError;
-use crate::events::{AdminAccepted, AdminMintExecuted, AdminProposed, MintAuthorityRevoked};
+use crate::events::{
+    AdminAccepted, AdminMintExecuted, AdminProposalCancelled, AdminProposed, MintAuthorityRevoked,
+};
 use crate::helpers::mint_to_account;
 use crate::state::{AdminMintMsg, IFTAppMintState, IFTAppState};
 
@@ -37,7 +39,7 @@ pub struct ProposeAdmin<'info> {
 pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
     reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
-    ctx.accounts.app_state.pending_admin = new_admin;
+    ctx.accounts.app_state.pending_admin = Some(new_admin);
 
     let clock = Clock::get()?;
     emit!(AdminProposed {
@@ -61,7 +63,7 @@ pub struct AcceptAdmin<'info> {
 
     /// Pending admin who accepts the role
     #[account(
-        constraint = pending_admin.key() == app_state.pending_admin @ IFTError::UnauthorizedPendingAdmin
+        constraint = app_state.pending_admin.is_some_and(|p| p == pending_admin.key()) @ IFTError::UnauthorizedPendingAdmin
     )]
     pub pending_admin: Signer<'info>,
 
@@ -74,19 +76,57 @@ pub struct AcceptAdmin<'info> {
 pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
     reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
-    require!(
-        ctx.accounts.app_state.pending_admin != Pubkey::default(),
-        IFTError::NoPendingAdmin
-    );
-
     let previous_admin = ctx.accounts.app_state.admin;
-    ctx.accounts.app_state.admin = ctx.accounts.app_state.pending_admin;
-    ctx.accounts.app_state.pending_admin = Pubkey::default();
+    ctx.accounts.app_state.admin = ctx.accounts.pending_admin.key();
+    ctx.accounts.app_state.pending_admin = None;
 
     let clock = Clock::get()?;
     emit!(AdminAccepted {
         previous_admin,
         new_admin: ctx.accounts.pending_admin.key(),
+        timestamp: clock.unix_timestamp,
+    });
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct CancelAdminProposal<'info> {
+    /// Global IFT app state (mut, `pending_admin` will be cleared)
+    #[account(
+        mut,
+        seeds = [IFT_APP_STATE_SEED],
+        bump = app_state.bump
+    )]
+    pub app_state: Account<'info, IFTAppState>,
+
+    /// Current admin authority, must match `app_state.admin`
+    #[account(
+        constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
+    )]
+    pub admin: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+}
+
+/// Cancel a pending admin proposal. Must be called by the current admin.
+pub fn cancel_admin_proposal(ctx: Context<CancelAdminProposal>) -> Result<()> {
+    reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
+
+    let cancelled_admin = ctx
+        .accounts
+        .app_state
+        .pending_admin
+        .ok_or_else(|| error!(IFTError::NoPendingAdmin))?;
+
+    ctx.accounts.app_state.pending_admin = None;
+
+    let clock = Clock::get()?;
+    emit!(AdminProposalCancelled {
+        admin: ctx.accounts.admin.key(),
+        cancelled_admin,
         timestamp: clock.unix_timestamp,
     });
 
@@ -343,7 +383,8 @@ mod tests {
         let updated_state = deserialize_app_state(&updated_account);
         assert_eq!(updated_state.admin, admin, "Admin should remain unchanged");
         assert_eq!(
-            updated_state.pending_admin, new_admin,
+            updated_state.pending_admin,
+            Some(new_admin),
             "Pending admin should be set"
         );
     }
@@ -435,7 +476,7 @@ mod tests {
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
-            create_ift_app_state_account_full(app_state_bump, admin, false, new_admin);
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(new_admin));
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -470,8 +511,7 @@ mod tests {
         let updated_state = deserialize_app_state(&updated_account);
         assert_eq!(updated_state.admin, new_admin, "Admin should be updated");
         assert_eq!(
-            updated_state.pending_admin,
-            Pubkey::default(),
+            updated_state.pending_admin, None,
             "Pending admin should be cleared"
         );
     }
@@ -487,7 +527,7 @@ mod tests {
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
         let app_state_account =
-            create_ift_app_state_account_full(app_state_bump, admin, false, pending);
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(pending));
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -520,6 +560,7 @@ mod tests {
         let mollusk = setup_mollusk();
 
         let admin = Pubkey::new_unique();
+        let random_signer = Pubkey::new_unique();
         let (app_state_pda, app_state_bump) = get_app_state_pda();
         let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
 
@@ -529,7 +570,7 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new(app_state_pda, false),
-                AccountMeta::new_readonly(Pubkey::default(), true),
+                AccountMeta::new_readonly(random_signer, true),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
             data: crate::instruction::AcceptAdmin {}.data(),
@@ -537,7 +578,7 @@ mod tests {
 
         let accounts = vec![
             (app_state_pda, app_state_account),
-            (Pubkey::default(), create_signer_account()),
+            (random_signer, create_signer_account()),
             (sysvar_id, sysvar_account),
         ];
 
@@ -545,7 +586,7 @@ mod tests {
         assert_eq!(
             result.program_result,
             Err(solana_sdk::instruction::InstructionError::Custom(
-                ANCHOR_ERROR_OFFSET + IFTError::NoPendingAdmin as u32,
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedPendingAdmin as u32,
             ))
             .into(),
         );
@@ -562,7 +603,7 @@ mod tests {
             create_cpi_instructions_sysvar_account(Pubkey::new_unique());
 
         let app_state_account =
-            create_ift_app_state_account_full(app_state_bump, admin, false, new_admin);
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(new_admin));
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -587,6 +628,315 @@ mod tests {
                 ANCHOR_ERROR_OFFSET + IFTError::CpiNotAllowed as u32,
             ))
             .into(),
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_proposal_success() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let proposed = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(proposed));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::CancelAdminProposal {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert!(
+            !result.program_result.is_err(),
+            "cancel_admin_proposal should succeed: {:?}",
+            result.program_result
+        );
+
+        let updated_account = result
+            .resulting_accounts
+            .iter()
+            .find(|(k, _)| *k == app_state_pda)
+            .expect("app state should exist")
+            .1
+            .clone();
+        let updated_state = deserialize_app_state(&updated_account);
+        assert_eq!(updated_state.admin, admin, "Admin should remain unchanged");
+        assert_eq!(
+            updated_state.pending_admin, None,
+            "Pending admin should be cleared"
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_proposal_no_pending() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::CancelAdminProposal {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::NoPendingAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_proposal_unauthorized() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let unauthorized = Pubkey::new_unique();
+        let proposed = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(proposed));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(unauthorized, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::CancelAdminProposal {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (unauthorized, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::UnauthorizedAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_cancel_admin_proposal_cpi_rejected() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let proposed = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) =
+            create_cpi_instructions_sysvar_account(Pubkey::new_unique());
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(proposed));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::CancelAdminProposal {}.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::CpiNotAllowed as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_cancel_then_propose_and_accept_new_admin() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let first_proposed = Pubkey::new_unique();
+        let second_proposed = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+
+        // Start with a pending proposal for first_proposed
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(first_proposed));
+
+        // Step 1: Cancel the proposal
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+        let cancel_ix = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::CancelAdminProposal {}.data(),
+        };
+        let cancel_result = mollusk.process_instruction(
+            &cancel_ix,
+            &[
+                (app_state_pda, app_state_account),
+                (admin, create_signer_account()),
+                (sysvar_id, sysvar_account),
+            ],
+        );
+        assert!(
+            !cancel_result.program_result.is_err(),
+            "cancel should succeed: {:?}",
+            cancel_result.program_result
+        );
+
+        let cancelled_state = deserialize_app_state(
+            &cancel_result
+                .resulting_accounts
+                .iter()
+                .find(|(k, _)| *k == app_state_pda)
+                .unwrap()
+                .1,
+        );
+        assert_eq!(cancelled_state.admin, admin);
+        assert_eq!(cancelled_state.pending_admin, None);
+
+        // Step 2: Propose a different admin
+        let post_cancel_account = cancel_result
+            .resulting_accounts
+            .into_iter()
+            .find(|(k, _)| *k == app_state_pda)
+            .unwrap()
+            .1;
+
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+        let propose_ix = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::ProposeAdmin {
+                new_admin: second_proposed,
+            }
+            .data(),
+        };
+        let propose_result = mollusk.process_instruction(
+            &propose_ix,
+            &[
+                (app_state_pda, post_cancel_account),
+                (admin, create_signer_account()),
+                (sysvar_id, sysvar_account),
+            ],
+        );
+        assert!(
+            !propose_result.program_result.is_err(),
+            "propose should succeed: {:?}",
+            propose_result.program_result
+        );
+
+        let proposed_state = deserialize_app_state(
+            &propose_result
+                .resulting_accounts
+                .iter()
+                .find(|(k, _)| *k == app_state_pda)
+                .unwrap()
+                .1,
+        );
+        assert_eq!(proposed_state.admin, admin);
+        assert_eq!(proposed_state.pending_admin, Some(second_proposed));
+
+        // Step 3: Accept with the second proposed admin
+        let post_propose_account = propose_result
+            .resulting_accounts
+            .into_iter()
+            .find(|(k, _)| *k == app_state_pda)
+            .unwrap()
+            .1;
+
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+        let accept_ix = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(second_proposed, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::AcceptAdmin {}.data(),
+        };
+        let accept_result = mollusk.process_instruction(
+            &accept_ix,
+            &[
+                (app_state_pda, post_propose_account),
+                (second_proposed, create_signer_account()),
+                (sysvar_id, sysvar_account),
+            ],
+        );
+        assert!(
+            !accept_result.program_result.is_err(),
+            "accept should succeed: {:?}",
+            accept_result.program_result
+        );
+
+        let final_state = deserialize_app_state(
+            &accept_result
+                .resulting_accounts
+                .iter()
+                .find(|(k, _)| *k == app_state_pda)
+                .unwrap()
+                .1,
+        );
+        assert_eq!(
+            final_state.admin, second_proposed,
+            "Admin should be the second proposed admin"
+        );
+        assert_eq!(
+            final_state.pending_admin, None,
+            "Pending admin should be cleared"
         );
     }
 

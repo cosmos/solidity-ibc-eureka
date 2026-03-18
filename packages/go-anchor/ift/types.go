@@ -363,6 +363,83 @@ func UnmarshalIftEventsAdminMintExecuted(buf []byte) (*IftEventsAdminMintExecute
 	return obj, nil
 }
 
+// Event emitted when a pending admin proposal is cancelled
+type IftEventsAdminProposalCancelled struct {
+	// Admin who cancelled the proposal
+	Admin solanago.PublicKey `json:"admin"`
+
+	// Proposed admin whose proposal was cancelled
+	CancelledAdmin solanago.PublicKey `json:"cancelledAdmin"`
+
+	// Cancellation timestamp
+	Timestamp int64 `json:"timestamp"`
+}
+
+func (obj IftEventsAdminProposalCancelled) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Admin`:
+	err = encoder.Encode(obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Serialize `CancelledAdmin`:
+	err = encoder.Encode(obj.CancelledAdmin)
+	if err != nil {
+		return errors.NewField("CancelledAdmin", err)
+	}
+	// Serialize `Timestamp`:
+	err = encoder.Encode(obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj IftEventsAdminProposalCancelled) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding IftEventsAdminProposalCancelled: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *IftEventsAdminProposalCancelled) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Admin`:
+	err = decoder.Decode(&obj.Admin)
+	if err != nil {
+		return errors.NewField("Admin", err)
+	}
+	// Deserialize `CancelledAdmin`:
+	err = decoder.Decode(&obj.CancelledAdmin)
+	if err != nil {
+		return errors.NewField("CancelledAdmin", err)
+	}
+	// Deserialize `Timestamp`:
+	err = decoder.Decode(&obj.Timestamp)
+	if err != nil {
+		return errors.NewField("Timestamp", err)
+	}
+	return nil
+}
+
+func (obj *IftEventsAdminProposalCancelled) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling IftEventsAdminProposalCancelled: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalIftEventsAdminProposalCancelled(buf []byte) (*IftEventsAdminProposalCancelled, error) {
+	obj := new(IftEventsAdminProposalCancelled)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Event emitted when a new admin is proposed
 type IftEventsAdminProposed struct {
 	// Current admin who proposed the change
@@ -2133,9 +2210,9 @@ type IftStateIftAppState struct {
 	// Whether IFT is paused (blocks mint and transfer, not refunds)
 	Paused bool `json:"paused"`
 
-	// Pending admin for two-step transfer (`Pubkey::default()` = none)
-	PendingAdmin solanago.PublicKey `json:"pendingAdmin"`
-	Reserved     [96]uint8          `json:"reserved"`
+	// Pending admin for two-step transfer
+	PendingAdmin *solanago.PublicKey `bin:"optional" json:"pendingAdmin,omitempty"`
+	Reserved     [128]uint8          `json:"reserved"`
 }
 
 func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2159,10 +2236,23 @@ func (obj IftStateIftAppState) MarshalWithEncoder(encoder *binary.Encoder) (err 
 	if err != nil {
 		return errors.NewField("Paused", err)
 	}
-	// Serialize `PendingAdmin`:
-	err = encoder.Encode(obj.PendingAdmin)
-	if err != nil {
-		return errors.NewField("PendingAdmin", err)
+	// Serialize `PendingAdmin` (optional):
+	{
+		if obj.PendingAdmin == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAdmin", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAdmin", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAdmin)
+			if err != nil {
+				return errors.NewField("PendingAdmin", err)
+			}
+		}
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -2203,10 +2293,18 @@ func (obj *IftStateIftAppState) UnmarshalWithDecoder(decoder *binary.Decoder) (e
 	if err != nil {
 		return errors.NewField("Paused", err)
 	}
-	// Deserialize `PendingAdmin`:
-	err = decoder.Decode(&obj.PendingAdmin)
-	if err != nil {
-		return errors.NewField("PendingAdmin", err)
+	// Deserialize `PendingAdmin` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAdmin", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAdmin)
+			if err != nil {
+				return errors.NewField("PendingAdmin", err)
+			}
+		}
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

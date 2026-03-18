@@ -67,15 +67,19 @@ pub fn create_ift_app_state_account_with_options(
     admin: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
-    create_ift_app_state_account_full(bump, admin, paused, Pubkey::default())
+    create_ift_app_state_account_full(bump, admin, paused, None)
 }
 
-/// Create a serialized global IFT app state account with all configurable fields
+/// Create a serialized global IFT app state account with all configurable fields.
+///
+/// The account buffer is always allocated to the maximum size
+/// (discriminator + `INIT_SPACE`) so that Anchor can write back
+/// `Option<Pubkey>` variants of any size without `AccountDidNotSerialize`.
 pub fn create_ift_app_state_account_full(
     bump: u8,
     admin: Pubkey,
     paused: bool,
-    pending_admin: Pubkey,
+    pending_admin: Option<Pubkey>,
 ) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
@@ -86,8 +90,11 @@ pub fn create_ift_app_state_account_full(
         _reserved: [0; 128],
     };
 
-    let mut data = IFTAppState::DISCRIMINATOR.to_vec();
+    let max_size = 8 + IFTAppState::INIT_SPACE;
+    let mut data = Vec::with_capacity(max_size);
+    data.extend_from_slice(&IFTAppState::DISCRIMINATOR);
     app_state.serialize(&mut data).unwrap();
+    data.resize(max_size, 0);
 
     SolanaAccount {
         lamports: 1_000_000,

@@ -88,6 +88,11 @@ pub mod ift {
         instructions::accept_admin(ctx)
     }
 
+    /// Cancel a pending admin proposal. Must be signed by the current admin.
+    pub fn cancel_admin_proposal(ctx: Context<CancelAdminProposal>) -> Result<()> {
+        instructions::cancel_admin_proposal(ctx)
+    }
+
     /// Revoke mint authority from IFT and transfer it to a new authority.
     pub fn revoke_mint_authority(ctx: Context<RevokeMintAuthority>) -> Result<()> {
         instructions::revoke_mint_authority(ctx)
