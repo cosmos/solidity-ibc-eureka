@@ -20,7 +20,8 @@ pub struct RecvPacket<'info> {
     /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
-        bump
+        bump,
+        constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
     pub router_state: Account<'info, RouterState>,
 
@@ -144,7 +145,8 @@ pub fn recv_packet<'info>(
         RouterError::ClientMismatch
     );
 
-    let current_timestamp = clock.unix_timestamp;
+    let current_timestamp =
+        u64::try_from(clock.unix_timestamp).map_err(|_| RouterError::ArithmeticOverflow)?;
     require!(
         msg.packet.timeout_timestamp > current_timestamp,
         RouterError::InvalidTimeoutTimestamp
@@ -333,11 +335,12 @@ mod tests {
 
     #[test]
     fn test_recv_packet_timeout_expired() {
-        let mut ctx = setup_recv_packet_test(true, -100); // Expired timeout
+        // timeout_timestamp = 1000 + 0 = 1000, clock = 1000
+        // Check requires timeout > current_timestamp, so 1000 > 1000 is false (expired)
+        let mut ctx = setup_recv_packet_test(true, 0);
 
         let mollusk = Mollusk::new(&crate::ID, crate::test_utils::get_router_program_path());
 
-        // Add Clock sysvar with current timestamp (1000) - packet timeout is 900 (expired)
         let clock_data = create_clock_data(1000);
         ctx.accounts
             .push(create_clock_account_with_data(clock_data));
@@ -372,9 +375,10 @@ mod tests {
 
     struct RecvPacketTestParams {
         active_client: bool,
-        timeout_offset: i64,
+        timeout_offset: u64,
         source_client_id: &'static str,
         unauthorized_relayer: Option<Pubkey>,
+        paused_router: bool,
     }
 
     impl Default for RecvPacketTestParams {
@@ -384,6 +388,7 @@ mod tests {
                 timeout_offset: 1000,
                 source_client_id: "source-client",
                 unauthorized_relayer: None,
+                paused_router: false,
             }
         }
     }
@@ -395,7 +400,11 @@ mod tests {
         let port_id = "test-port";
         let light_client_program = MOCK_LIGHT_CLIENT_ID;
 
-        let (router_state_pda, router_state_data) = setup_router_state();
+        let (router_state_pda, router_state_data) = if params.paused_router {
+            setup_paused_router_state()
+        } else {
+            setup_router_state()
+        };
 
         // Always setup client expecting "source-client" as counterparty
         let (client_pda, client_data) = setup_client(
@@ -551,7 +560,7 @@ mod tests {
         }
     }
 
-    fn setup_recv_packet_test(active_client: bool, timeout_offset: i64) -> RecvPacketTestContext {
+    fn setup_recv_packet_test(active_client: bool, timeout_offset: u64) -> RecvPacketTestContext {
         setup_recv_packet_test_with_params(RecvPacketTestParams {
             active_client,
             timeout_offset,
@@ -1149,7 +1158,7 @@ mod tests {
     const RECV_DEST_CLIENT: &str = "dest-client";
     const RECV_SOURCE_CLIENT: &str = "source-client";
     const RECV_TEST_CLOCK_TIME: i64 = 1000;
-    const RECV_TEST_TIMEOUT: i64 = RECV_TEST_CLOCK_TIME + 2000;
+    const RECV_TEST_TIMEOUT: u64 = RECV_TEST_CLOCK_TIME as u64 + 2000;
 
     fn setup_recv_two_packets_program_test(relayer_pubkey: Pubkey) -> ProgramTest {
         if std::env::var("SBF_OUT_DIR").is_err() {
@@ -1631,5 +1640,21 @@ mod tests {
             receipt_value_1, receipt_value_2,
             "Receipts should differ for distinct packets"
         );
+    }
+
+    #[test]
+    fn test_recv_packet_paused() {
+        let ctx = setup_recv_packet_test_with_params(RecvPacketTestParams {
+            paused_router: true,
+            ..Default::default()
+        });
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

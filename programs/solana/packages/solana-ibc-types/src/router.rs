@@ -85,7 +85,7 @@ pub struct Packet {
     pub sequence: u64,
     pub source_client: String,
     pub dest_client: String,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     pub payloads: Vec<Payload>,
 }
 
@@ -145,7 +145,7 @@ pub struct ProofMetadata {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
     pub payload: Payload,
 }
 
@@ -225,6 +225,8 @@ pub struct RouterState {
     pub version: AccountVersion,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Whether the router is paused (emergency brake for all IBC traffic)
+    pub paused: bool,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -252,7 +254,7 @@ impl Client {
 pub struct ClientSequence;
 
 impl ClientSequence {
-    pub const SEED: &'static [u8] = b"client_sequence";
+    pub const SEED: &'static [u8] = b"cseq";
 
     /// Get client sequence PDA
     pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {

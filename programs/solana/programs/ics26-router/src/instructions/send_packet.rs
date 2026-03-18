@@ -15,7 +15,8 @@ pub struct SendPacket<'info> {
     /// Global router configuration PDA.
     #[account(
         seeds = [RouterState::SEED],
-        bump
+        bump,
+        constraint = !router_state.paused @ RouterError::RouterPaused,
     )]
     pub router_state: Account<'info, RouterState>,
 
@@ -75,8 +76,8 @@ pub struct SendPacket<'info> {
     pub client_state: AccountInfo<'info>,
 
     /// Consensus state account owned by the light client program (for expiry check).
-    /// CHECK: Forwarded to light client CPI; ownership not enforced here because the
-    /// light client program itself validates it.
+    /// CHECK: Ownership validated against light client program.
+    #[account(owner = light_client_program.key() @ RouterError::InvalidAccountOwner)]
     pub consensus_state: AccountInfo<'info>,
 }
 
@@ -100,7 +101,8 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     // Get clock directly via syscall
     let clock = Clock::get()?;
 
-    let current_timestamp = clock.unix_timestamp;
+    let current_timestamp =
+        u64::try_from(clock.unix_timestamp).map_err(|_| RouterError::ArithmeticOverflow)?;
     require!(
         msg.timeout_timestamp > current_timestamp,
         RouterError::InvalidTimeoutTimestamp
@@ -235,7 +237,7 @@ mod tests {
     /// between `TEST_CLOCK_TIME + 1` and `TEST_CLOCK_TIME + MAX_TIMEOUT_DURATION`.
     const TEST_CLOCK_TIME: i64 = 1000;
     /// Default timeout used in success-path tests (within `MAX_TIMEOUT_DURATION` of `TEST_CLOCK_TIME`).
-    const TEST_TIMEOUT: i64 = TEST_CLOCK_TIME + 1000;
+    const TEST_TIMEOUT: u64 = TEST_CLOCK_TIME as u64 + 1000;
 
     /// Set up a `ProgramTest` environment for `send_packet` integration tests.
     ///
@@ -417,7 +419,7 @@ mod tests {
     fn build_test_app_send_packet_ix(
         user: Pubkey,
         client_id: &str,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -478,7 +480,7 @@ mod tests {
         user: &Keypair,
         client_id: &str,
         initial_sequence: u64,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -519,7 +521,7 @@ mod tests {
         user: Pubkey,
         client_id: &str,
         source_port: &str,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -575,7 +577,7 @@ mod tests {
         client_id: &str,
         source_port: &str,
         next_sequence_send: u64,
-        timeout_timestamp: i64,
+        timeout_timestamp: u64,
         packet_data: &[u8],
         mock_client_state: Pubkey,
         mock_consensus_state: Pubkey,
@@ -1332,6 +1334,50 @@ mod tests {
         );
     }
 
+    #[tokio::test]
+    async fn test_send_packet_paused() {
+        let initial_sequence = 1u64;
+        let (mut pt, mock_client_state, mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        // Replace the RouterState with a paused one
+        let (router_state_pda, router_state_data) = setup_paused_router_state();
+        pt.add_account(
+            router_state_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: router_state_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32),
+        );
+    }
+
     #[test]
     fn test_app_state_pda_does_not_include_port_id() {
         // Verify that IBCAppState PDA is derived from [SEED] only, not [SEED, port_id].
@@ -1607,6 +1653,50 @@ mod tests {
         assert_eq!(
             pt_extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidLightClientProgram as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_wrong_consensus_state_owner() {
+        let initial_sequence = 1u64;
+        let (mut pt, mock_client_state, _mock_consensus_state) = setup_send_packet_program_test(
+            TEST_CLIENT_ID,
+            COUNTERPARTY_CLIENT_ID,
+            true,
+            initial_sequence,
+        );
+
+        // Consensus state owned by the WRONG program (system_program instead of mock_light_client)
+        let wrong_consensus_state = Pubkey::new_unique();
+        pt.add_account(
+            wrong_consensus_state,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: vec![0u8; 64],
+                owner: system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            initial_sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            wrong_consensus_state,
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .unwrap_err();
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidAccountOwner as u32),
         );
     }
 

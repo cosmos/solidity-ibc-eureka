@@ -37,8 +37,8 @@ pub use solana::{
     GmpSolanaPayload as RawGmpSolanaPayload, SolanaAccountMeta as RawSolanaAccountMeta,
 };
 
-/// Maximum client ID length (64 bytes)
-pub const MAX_CLIENT_ID_LENGTH: usize = 64;
+/// Maximum client ID length — capped at Solana's `MAX_SEED_LEN` (32 bytes per seed element).
+pub const MAX_CLIENT_ID_LENGTH: usize = 32;
 /// Maximum sender address length (128 bytes)
 pub const MAX_SENDER_LENGTH: usize = 128;
 /// Maximum receiver address length (128 bytes)
@@ -141,12 +141,15 @@ impl From<&SolanaAccountMeta> for anchor_lang::prelude::AccountMeta {
     }
 }
 
+/// Maximum number of accounts allowed in a [`GmpSolanaPayload`]
+pub const MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS: usize = 32;
+
 /// Domain type for GMP Solana payload with type-safe fields
 #[derive(Debug, Clone)]
 pub struct GmpSolanaPayload {
     pub data: Vec<u8>,
     pub accounts: Vec<SolanaAccountMeta>,
-    pub payer_position: Option<u32>,
+    pub prefund_lamports: u64,
 }
 
 impl GmpSolanaPayload {
@@ -169,7 +172,7 @@ impl From<GmpSolanaPayload> for RawGmpSolanaPayload {
                     is_writable: acc.is_writable,
                 })
                 .collect(),
-            payer_position: payload.payer_position,
+            prefund_lamports: payload.prefund_lamports,
         }
     }
 }
@@ -183,6 +186,10 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
         // Validate data
         if raw.data.is_empty() {
             return Err(GmpValidationError::EmptyPayload);
+        }
+
+        if raw.accounts.len() > MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS {
+            return Err(GmpValidationError::TooManyAccounts);
         }
 
         let mut accounts = Vec::with_capacity(raw.accounts.len());
@@ -199,7 +206,7 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
         Ok(Self {
             data: raw.data,
             accounts,
-            payer_position: raw.payer_position,
+            prefund_lamports: raw.prefund_lamports,
         })
     }
 }
@@ -211,5 +218,41 @@ impl GmpAcknowledgement {
     /// Create new acknowledgement with result data
     pub const fn new(result: Vec<u8>) -> Self {
         Self { result }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_account() -> RawSolanaAccountMeta {
+        RawSolanaAccountMeta {
+            pubkey: vec![0u8; 32],
+            is_signer: false,
+            is_writable: false,
+        }
+    }
+
+    #[test]
+    fn try_from_rejects_too_many_accounts() {
+        let raw = RawGmpSolanaPayload {
+            data: vec![1],
+            accounts: vec![valid_account(); MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS + 1],
+            prefund_lamports: 0,
+        };
+        assert_eq!(
+            GmpSolanaPayload::try_from(raw).unwrap_err(),
+            GmpValidationError::TooManyAccounts,
+        );
+    }
+
+    #[test]
+    fn try_from_accepts_max_accounts() {
+        let raw = RawGmpSolanaPayload {
+            data: vec![1],
+            accounts: vec![valid_account(); MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS],
+            prefund_lamports: 0,
+        };
+        assert!(GmpSolanaPayload::try_from(raw).is_ok());
     }
 }

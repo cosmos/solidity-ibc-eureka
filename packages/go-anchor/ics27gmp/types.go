@@ -11,7 +11,14 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Client mapping client IDs to light client program IDs
+// Client-ID-to-light-client mapping with counterparty chain metadata.
+//
+// Created when an admin registers a new IBC client (e.g. an ICS07
+// Tendermint or attestation light client). The router reads this
+// account during `send_packet`, `recv_packet`, `ack_packet` and
+// `timeout_packet` to resolve which light client program to call for
+// proof verification, and to obtain the counterparty chain's client
+// and Merkle prefix information.
 type Ics26RouterStateClient struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -127,7 +134,12 @@ func UnmarshalIcs26RouterStateClient(buf []byte) (*Ics26RouterStateClient, error
 	return obj, nil
 }
 
-// Client sequence tracking
+// Per-client packet sequence counter.
+//
+// Tracks the next sequence number to assign when sending a packet
+// through a given client. Each `send_packet` call reads and increments
+// this value to guarantee unique, monotonically increasing sequence
+// numbers for replay protection.
 type Ics26RouterStateClientSequence struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -204,7 +216,12 @@ func UnmarshalIcs26RouterStateClientSequence(buf []byte) (*Ics26RouterStateClien
 	return obj, nil
 }
 
-// `IBCApp` mapping port IDs to IBC app program IDs
+// Port-to-program mapping for IBC applications.
+//
+// Each registered IBC application (e.g. ICS20 transfer, ICS27 GMP) gets
+// one `IBCApp` PDA derived from its port ID. The router uses this account
+// to look up which program to CPI into when delivering a received packet
+// or forwarding an acknowledgement/timeout to the application layer.
 type Ics26RouterStateIbcApp struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
@@ -307,13 +324,21 @@ func UnmarshalIcs26RouterStateIbcApp(buf []byte) (*Ics26RouterStateIbcApp, error
 	return obj, nil
 }
 
-// Router state account
+// Global ICS26 router configuration.
+//
+// Singleton PDA initialized once during program setup. Stores the link
+// to the access manager for admin-gated operations (e.g. registering
+// clients, migrating light clients) and a schema version for future
+// on-chain migrations.
 type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
 
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Whether the router is paused (emergency brake for all IBC traffic)
+	Paused bool `json:"paused"`
 
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
@@ -329,6 +354,11 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `Paused`:
+	err = encoder.Encode(obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -358,6 +388,11 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `Paused`:
+	err = decoder.Decode(&obj.Paused)
+	if err != nil {
+		return errors.NewField("Paused", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -774,7 +809,7 @@ type Ics27GmpEventsGmpCallSent struct {
 	PayloadSize uint64 `json:"payloadSize"`
 
 	// Timeout timestamp (Unix seconds).
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 }
 
 func (obj Ics27GmpEventsGmpCallSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1104,7 +1139,12 @@ func (value Ics27GmpStateAccountVersion) String() string {
 	}
 }
 
-// Main GMP application state
+// Global ICS27 General Message Passing (GMP) application state.
+//
+// Singleton PDA that stores the pause flag, access manager reference
+// and PDA bump seed. The ICS26 router CPIs into this program to deliver
+// received packets; this account gates whether the app accepts new
+// cross-chain calls and controls admin operations via the access manager.
 type Ics27GmpStateGmpAppState struct {
 	// Schema version for upgrades
 	Version Ics27GmpStateAccountVersion `json:"version"`
@@ -1207,10 +1247,13 @@ func UnmarshalIcs27GmpStateGmpAppState(buf []byte) (*Ics27GmpStateGmpAppState, e
 	return obj, nil
 }
 
-// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+// Persisted outcome of a cross-chain GMP call.
 //
-// This account is created when a GMP packet is either acknowledged or times out,
-// allowing the original sender to query the outcome of their cross-chain call.
+// Created when the ICS26 router delivers an acknowledgement or timeout
+// callback to the GMP app. Stores either the IBC acknowledgement
+// commitment hash (on success/failure) or a timeout marker, so the
+// original sender can query the result on-chain after the round-trip
+// completes.
 //
 // # PDA Seeds
 // `["gmp_result", source_client, sequence (little-endian u64)]`
@@ -1366,7 +1409,7 @@ type Ics27GmpStateSendCallMsg struct {
 	SourceClient string `json:"sourceClient"`
 
 	// Timeout timestamp (unix seconds)
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 
 	// Receiver address (string format to support any destination chain)
 	Receiver string `json:"receiver"`

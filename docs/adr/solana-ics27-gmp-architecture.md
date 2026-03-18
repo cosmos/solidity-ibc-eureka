@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-09-18
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-03-02
 
 ## Executive Summary
 
@@ -110,20 +110,20 @@ invoke_signed(
 )?;
 ```
 
-**Critical Design: Conditional Fee Payer Injection**
+**Fee Payer: Sender-Specified Pre-Funding**
 
-Solana PDAs with data cannot pay for account creation. We solve this with a **configurable payer injection** mechanism controlled by the optional `payer_position` field in `GMPSolanaPayload`:
+The sender declares `prefund_lamports` in `GMPSolanaPayload` — the exact amount of SOL the GMP PDA needs for rent during execution. The relayer reads this value, caps it at `MAX_PREFUND_LAMPORTS`, and adds a `system_program::transfer` instruction before `recv_packet`. The GMP PDA then acts as the payer during the target CPI, signing via `invoke_signed`.
 
-- **`payer_position` not set**: No injection (for programs that don't create accounts, e.g., SPL Token Transfer)
-- **`payer_position = N`**: Inject at index N (0-indexed array position)
+- `prefund_lamports = 0`: no funding instruction (e.g. SPL transfers that create no accounts)
+- `prefund_lamports = 3_000_000`: covers rent for one account creation + GMP PDA rent-exempt minimum
+- The relayer caps the value to prevent griefing
 
 This allows:
 
-- GMP PDA to sign for operations via `invoke_signed`
-- Relayer to pay for new account rent when needed
-- Target programs to create accounts as needed
-- Preserves exact account layouts for programs with fixed schemas
-- Full flexibility for sender to control account ordering
+- GMP PDA to sign for operations and pay rent via `invoke_signed`
+- Target programs to create accounts using the GMP PDA as payer
+- No relayer signer exposure to arbitrary target programs
+- No guessing or RPC balance checks — each packet is self-describing
 
 ### Payload Structure
 
@@ -139,7 +139,7 @@ message SolanaAccountMeta {
 message GMPSolanaPayload {
   repeated SolanaAccountMeta accounts = 1; // Accounts needed by target
   bytes data = 2;                          // Instruction data
-  optional uint32 payer_position = 3;      // Position to inject relayer as payer
+  uint64 prefund_lamports = 3;             // SOL for rent (relayer pre-funds PDA)
 }
 
 message GMPPacketData {
@@ -206,18 +206,17 @@ incrementData := []byte{
 }
 
 // 2. User provides only target-specific accounts
-// Note: payer_position = 3 tells GMP program to inject relayer at index 3
-payerPosition := uint32(3)
+// The GMP PDA acts as both user_authority and payer (pre-funded by relayer)
 gmpSolanaPayload := &GMPSolanaPayload{
     Data: incrementData,
     Accounts: []*SolanaAccountMeta{
         {counterAppState, false, true},   // [0] app_state (not a signer, writable)
         {userCounterPDA, false, true},    // [1] user_counter (not a signer, writable)
         {ics27AccountPDA, true, false},   // [2] user_authority (PDA signer, read-only)
-        // [3] payer will be injected here by GMP program
+        {ics27AccountPDA, true, true},    // [3] payer (GMP PDA, pre-funded by relayer)
         {systemProgram, false, false},    // [4] system_program (not a signer, read-only)
     },
-    PayerPosition: &payerPosition,  // Inject relayer at index 3
+    PrefundLamports: 5_000_000,  // rent for UserCounter + PDA rent-exempt minimum
 }
 
 // 3. Send via IBC as GMPPacketData
@@ -231,14 +230,13 @@ msg := &MsgSendCall{
 
 ### Relayer Processing
 
-The relayer automatically adds protocol accounts and handles payer injection:
+The relayer automatically adds protocol accounts and handles pre-funding:
 
 ```rust
 // Relayer adds protocol accounts at the beginning:
 // [0] gmp_account_pda   - Derived from Borsh-hashed AccountIdentifier
 // [1] target_program    - From GMPPacketData.receiver
 // [2+] user accounts    - From GMPSolanaPayload.accounts
-// [N] payer (injected)  - Injected at payer_position if specified
 
 let gmp_account_pda = derive_gmp_pda(client_id, sender, salt);  // Uses Borsh + SHA256
 accounts.insert(0, AccountMeta {
@@ -262,13 +260,15 @@ for account in gmp_solana_payload.accounts {
     });
 }
 
-// Inject payer at specified position if payer_position is set
-if let Some(position) = gmp_solana_payload.payer_position {
-    accounts.insert(position, AccountMeta {
-        pubkey: relayer_keypair.pubkey(),
-        is_signer: true,   // Relayer signs to pay for rent
-        is_writable: true,
-    });
+// Pre-fund GMP PDA with sender-specified amount (capped by relayer).
+// Placed before recv_packet in the same transaction.
+let prefund = gmp_solana_payload.prefund_lamports.min(MAX_PREFUND_LAMPORTS);
+if prefund > 0 {
+    instructions.push(system_instruction::transfer(
+        &relayer_keypair.pubkey(),
+        &gmp_account_pda,
+        prefund,
+    ));
 }
 ```
 
@@ -303,7 +303,6 @@ transferInstruction := token.NewTransferInstruction(
 ).Build()
 
 // 3. Create GMPSolanaPayload with required accounts
-// Note: PayerPosition is NOT set because SPL Transfer doesn't create accounts
 gmpSolanaPayload := &GMPSolanaPayload{
     Data: transferInstruction.Data(),
     Accounts: []*SolanaAccountMeta{
@@ -311,7 +310,6 @@ gmpSolanaPayload := &GMPSolanaPayload{
         {destTokenAccount, false, true},    // Destination (not a signer, writable)
         {ics27AccountPDA, true, false},     // Authority (PDA signer, read-only)
     },
-    // PayerPosition: nil - no payer injection needed for SPL transfers
 }
 
 // 4. Send as GMP packet

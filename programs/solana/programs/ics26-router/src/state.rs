@@ -7,6 +7,7 @@ pub use solana_ibc_types::{
     MAX_CLIENT_ID_LENGTH,
 };
 
+pub const MIN_CLIENT_ID_LENGTH: usize = 4;
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
@@ -23,6 +24,8 @@ pub struct RouterState {
     pub version: AccountVersion,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Whether the router is paused (emergency brake for all IBC traffic)
+    pub paused: bool,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -162,7 +165,7 @@ impl Commitment {
 }
 
 /// Maximum timeout duration (1 day in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
 pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 
@@ -268,6 +271,7 @@ mod compatibility_tests {
         let router_state = RouterState {
             version: AccountVersion::V1,
             access_manager: Pubkey::new_unique(),
+            paused: false,
             _reserved: [0; 256],
         };
 
@@ -285,6 +289,7 @@ mod compatibility_tests {
             router_state.access_manager,
             types_router_state.access_manager
         );
+        assert_eq!(router_state.paused, types_router_state.paused);
         assert_eq!(router_state._reserved, types_router_state._reserved);
 
         // Verify SEED constant matches

@@ -114,9 +114,6 @@ pub enum GMPError {
     #[msg("Insufficient funds for account creation")]
     InsufficientFunds,
 
-    #[msg("Invalid payer position")]
-    InvalidPayerPosition,
-
     #[msg("Invalid IBC version")]
     InvalidVersion,
 
@@ -140,6 +137,9 @@ pub enum GMPError {
 
     #[msg("Account not owned by expected program")]
     InvalidAccountOwner,
+
+    #[msg("Invalid access manager")]
+    InvalidAccessManager,
 }
 
 /// Convert GMP validation errors to GMP errors

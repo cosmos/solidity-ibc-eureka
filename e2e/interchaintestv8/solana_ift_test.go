@@ -157,7 +157,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_SolanaToCosmosRound
 				ClientId:         SolanaClientID,
 				Receiver:         s.CosmosUser.FormattedAddress(),
 				Amount:           IFTTransferAmount,
-				TimeoutTimestamp: solanaClockTime + 900,
+				TimeoutTimestamp: uint64(solanaClockTime + 900),
 			}
 
 			consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -411,7 +411,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 				ClientId:         SolanaClientID,
 				Receiver:         s.CosmosUser.FormattedAddress(),
 				Amount:           IFTTransferAmount,
-				TimeoutTimestamp: solanaClockTime + 900,
+				TimeoutTimestamp: uint64(solanaClockTime + 900),
 			}
 
 			consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -571,7 +571,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken2022_SolanaToCosmos() {
 			ClientId:         SolanaClientID,
 			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 900,
+			TimeoutTimestamp: uint64(solanaClockTime + 900),
 		}
 
 		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -691,7 +691,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TwoConsecutiveTransfersWithBatchR
 				ClientId:         SolanaClientID,
 				Receiver:         s.CosmosUser.FormattedAddress(),
 				Amount:           IFTTransferAmount,
-				TimeoutTimestamp: solanaClockTime + 900,
+				TimeoutTimestamp: uint64(solanaClockTime + 900),
 			}
 
 			consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -916,7 +916,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 			ClientId:         SolanaClientID,
 			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 900,
+			TimeoutTimestamp: uint64(solanaClockTime + 900),
 		}
 
 		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -1033,7 +1033,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken2022_SolanaToCosmos(
 			ClientId:         SolanaClientID,
 			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 900,
+			TimeoutTimestamp: uint64(solanaClockTime + 900),
 		}
 
 		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
@@ -1202,6 +1202,18 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_RevokeMintAuthority() {
 		s.Solana.Chain.VerifyIftAppStateExists(ctx, s.T(), s.Require(), ift.ProgramID)
 	}))
 
+	s.Require().True(s.Run("Verify mint state closed", func() {
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, s.IFTAppMintState, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		// Closed accounts may return "not found" error or nil Value depending on RPC client
+		if err != nil {
+			s.Require().Contains(err.Error(), "not found", "expected 'not found' for closed account, got: %v", err)
+		} else {
+			s.Require().Nil(accountInfo.Value, "IFTAppMintState should be closed after revoke")
+		}
+	}))
+
 	s.Require().True(s.Run("Verify new authority can mint tokens", func() {
 		mint := s.IFTMint()
 		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, newAuthorityWallet, mint, newAuthorityWallet.PublicKey())
@@ -1259,7 +1271,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp := solanaClockTime + 35
+		timeoutTimestamp := uint64(solanaClockTime + 65)
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -1319,7 +1331,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 	}))
 
 	s.Require().True(s.Run("Wait for packet timeout", func() {
-		time.Sleep(40 * time.Second)
+		time.Sleep(70 * time.Second)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
@@ -1416,7 +1428,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_AckFailureRefund() 
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp := solanaClockTime + 900 // 15 minutes
+		timeoutTimestamp := uint64(solanaClockTime + 900) // 15 minutes
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -1641,7 +1653,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_InvalidPendingTrans
 			ClientId:         SolanaClientID,
 			Receiver:         s.CosmosUser.FormattedAddress(),
 			Amount:           IFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 900,
+			TimeoutTimestamp: uint64(solanaClockTime + 900),
 		}
 
 		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)

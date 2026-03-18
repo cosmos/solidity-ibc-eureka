@@ -19,7 +19,7 @@ pub struct SendPacketEvent {
     pub client_id: String,
     pub sequence: u64,
     pub packet: Packet,
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Event emitted when a packet acknowledgement is written
@@ -85,3 +85,13 @@ pub struct AccessManagerUpdated {
     pub old_access_manager: Pubkey,
     pub new_access_manager: Pubkey,
 }
+
+/// Event emitted when the router is paused
+#[event]
+#[derive(Debug, Clone)]
+pub struct RouterPausedEvent {}
+
+/// Event emitted when the router is unpaused
+#[event]
+#[derive(Debug, Clone)]
+pub struct RouterUnpausedEvent {}

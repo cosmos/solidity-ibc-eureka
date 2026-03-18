@@ -27,10 +27,13 @@ func (value Ics27GmpStateAccountVersion) String() string {
 	}
 }
 
-// Stores the result of a GMP call (acknowledgement or timeout) for sender queries.
+// Persisted outcome of a cross-chain GMP call.
 //
-// This account is created when a GMP packet is either acknowledged or times out,
-// allowing the original sender to query the outcome of their cross-chain call.
+// Created when the ICS26 router delivers an acknowledgement or timeout
+// callback to the GMP app. Stores either the IBC acknowledgement
+// commitment hash (on success/failure) or a timeout marker, so the
+// original sender can query the result on-chain after the round-trip
+// completes.
 //
 // # PDA Seeds
 // `["gmp_result", source_client, sequence (little-endian u64)]`
@@ -939,7 +942,7 @@ type IftEventsIftTransferInitiated struct {
 	Amount uint64 `json:"amount"`
 
 	// Timeout timestamp
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 }
 
 func (obj IftEventsIftTransferInitiated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2345,7 +2348,7 @@ type IftStateIftTransferMsg struct {
 	Amount uint64 `json:"amount"`
 
 	// Timeout timestamp (0 for default 15 minutes)
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 }
 
 func (obj IftStateIftTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
