@@ -92,7 +92,7 @@ pub fn create_ift_app_state_account_full(
 
     let max_size = 8 + IFTAppState::INIT_SPACE;
     let mut data = Vec::with_capacity(max_size);
-    data.extend_from_slice(&IFTAppState::DISCRIMINATOR);
+    data.extend_from_slice(IFTAppState::DISCRIMINATOR);
     app_state.serialize(&mut data).unwrap();
     data.resize(max_size, 0);
 
