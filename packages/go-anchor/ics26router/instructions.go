@@ -109,7 +109,7 @@ func NewAddIbcAppInstruction(
 		// Pays for creating the `IBCApp` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "authority": Read-only, Signer, Required
-		// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
+		// Signer with the `ID_CUSTOMIZER_ROLE`.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
