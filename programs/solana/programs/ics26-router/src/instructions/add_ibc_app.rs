@@ -43,7 +43,7 @@ pub struct AddIbcApp<'info> {
     #[account(mut)]
     pub payer: Signer<'info>,
 
-    /// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
+    /// Signer with the `ID_CUSTOMIZER_ROLE`.
     pub authority: Signer<'info>,
 
     /// Solana system program used for account creation.
@@ -73,7 +73,6 @@ pub fn add_ibc_app(ctx: Context<AddIbcApp>, port_id: String) -> Result<()> {
     ibc_app.version = AccountVersion::V1;
     ibc_app.port_id = port_id;
     ibc_app.app_program_id = ctx.accounts.app_program.key();
-    ibc_app.authority = ctx.accounts.authority.key();
     ibc_app._reserved = [0u8; 256];
 
     emit!(IBCAppAdded {
