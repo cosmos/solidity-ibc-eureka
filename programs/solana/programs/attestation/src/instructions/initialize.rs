@@ -320,7 +320,9 @@ mod tests {
         mollusk.process_and_validate_instruction(
             &instruction,
             &accounts,
-            &[Check::err(solana_sdk::program_error::ProgramError::Custom(0))],
+            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
+                0,
+            ))],
         );
     }
 
