@@ -59,8 +59,10 @@ pub struct RevokeMintAuthority<'info> {
     )]
     pub app_state: Account<'info, IFTAppState>,
 
-    /// Per-mint IFT app state (for `mint_authority_bump`)
+    /// Per-mint IFT app state (closed on revocation)
     #[account(
+        mut,
+        close = admin,
         seeds = [IFT_APP_MINT_STATE_SEED, mint.key().as_ref()],
         bump = app_mint_state.bump
     )]
@@ -85,8 +87,9 @@ pub struct RevokeMintAuthority<'info> {
     /// CHECK: Can be any pubkey chosen by admin
     pub new_mint_authority: AccountInfo<'info>,
 
-    /// Admin signer
+    /// Admin signer (receives rent from closed `app_mint_state`)
     #[account(
+        mut,
         constraint = admin.key() == app_state.admin @ IFTError::UnauthorizedAdmin
     )]
     pub admin: Signer<'info>,
@@ -220,8 +223,8 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
     mint_to_account(
         &mut ctx.accounts.app_mint_state,
         &clock,
-        &ctx.accounts.mint,
-        &ctx.accounts.receiver_token_account,
+        &mut ctx.accounts.mint,
+        &mut ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
         &ctx.accounts.token_program,
         msg.amount,
@@ -582,11 +585,11 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new_readonly(new_mint_authority, false),
-                AccountMeta::new_readonly(unauthorized, true),
+                AccountMeta::new(unauthorized, true),
                 AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
@@ -811,11 +814,11 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new_readonly(new_mint_authority, false),
-                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(admin, true),
                 AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],
@@ -847,6 +850,13 @@ mod tests {
             updated_mint.mint_authority,
             solana_sdk::program_option::COption::Some(new_mint_authority),
         );
+
+        // Verify app_mint_state was closed (lamports zeroed, data cleared)
+        let (_, closed_mint_state) = &result.resulting_accounts[1];
+        assert_eq!(
+            closed_mint_state.lamports, 0,
+            "app_mint_state should be closed (zero lamports)"
+        );
     }
 
     #[test]
@@ -873,11 +883,11 @@ mod tests {
             program_id: crate::ID,
             accounts: vec![
                 AccountMeta::new_readonly(app_state_pda, false),
-                AccountMeta::new_readonly(app_mint_state_pda, false),
+                AccountMeta::new(app_mint_state_pda, false),
                 AccountMeta::new(mint, false),
                 AccountMeta::new_readonly(mint_authority_pda, false),
                 AccountMeta::new_readonly(new_mint_authority, false),
-                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new(admin, true),
                 AccountMeta::new_readonly(token_program_id, false),
                 AccountMeta::new_readonly(sysvar_id, false),
             ],

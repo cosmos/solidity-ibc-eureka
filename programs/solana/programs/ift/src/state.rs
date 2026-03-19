@@ -189,7 +189,7 @@ pub struct PendingTransfer {
     pub mint: Pubkey,
 
     /// Client ID the transfer was sent to
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub client_id: String,
 
     /// Packet sequence number
@@ -239,7 +239,7 @@ pub struct IFTTransferMsg {
     /// Amount to transfer
     pub amount: u64,
     /// Timeout timestamp (0 for default 15 minutes)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 }
 
 /// Message for minting IFT tokens (called by GMP)

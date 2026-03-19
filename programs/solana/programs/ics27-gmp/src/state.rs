@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use solana_ibc_types::packet_acknowledgement_commitment_bytes32;
+use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, MAX_CLIENT_ID_LENGTH};
 
 /// Account schema version
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace, Debug)]
@@ -63,7 +63,7 @@ pub struct SendCallMsg {
     pub source_client: String,
 
     /// Timeout timestamp (unix seconds)
-    pub timeout_timestamp: i64,
+    pub timeout_timestamp: u64,
 
     /// Receiver address (string format to support any destination chain)
     pub receiver: String,
@@ -108,10 +108,10 @@ pub struct GMPCallResultAccount {
     /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub source_client: String,
     /// Destination client ID (light client on the destination chain).
-    #[max_len(64)]
+    #[max_len(MAX_CLIENT_ID_LENGTH)]
     pub dest_client: String,
     /// Result status: acknowledgement (with IBC commitment) or timeout.
     pub status: CallResultStatus,

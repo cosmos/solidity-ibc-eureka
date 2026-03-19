@@ -435,7 +435,7 @@ type Ics26RouterEventsSendPacketEvent struct {
 	ClientId         string                     `json:"clientId"`
 	Sequence         uint64                     `json:"sequence"`
 	Packet           SolanaIbcTypesRouterPacket `json:"packet"`
-	TimeoutTimestamp int64                      `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64                     `json:"timeoutTimestamp"`
 }
 
 func (obj Ics26RouterEventsSendPacketEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2014,7 +2014,7 @@ func UnmarshalSolanaIbcTypesRouterMsgRecvPacket(buf []byte) (*SolanaIbcTypesRout
 // Message for sending a packet
 type SolanaIbcTypesRouterMsgSendPacket struct {
 	SourceClient     string                       `json:"sourceClient"`
-	TimeoutTimestamp int64                        `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64                       `json:"timeoutTimestamp"`
 	Payload          SolanaIbcTypesAppMsgsPayload `json:"payload"`
 }
 
@@ -2254,7 +2254,7 @@ type SolanaIbcTypesRouterPacket struct {
 	Sequence         uint64                         `json:"sequence"`
 	SourceClient     string                         `json:"sourceClient"`
 	DestClient       string                         `json:"destClient"`
-	TimeoutTimestamp int64                          `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64                         `json:"timeoutTimestamp"`
 	Payloads         []SolanaIbcTypesAppMsgsPayload `json:"payloads"`
 }
 

@@ -39,6 +39,10 @@ pub fn initialize(
     min_required_sigs: u8,
     access_manager: Pubkey,
 ) -> Result<()> {
+    require!(
+        access_manager != Pubkey::default(),
+        ErrorCode::InvalidAccessManager
+    );
     require!(!attestor_addresses.is_empty(), ErrorCode::NoAttestors);
     require!(
         min_required_sigs > 0 && (min_required_sigs as usize) <= attestor_addresses.len(),
@@ -198,5 +202,29 @@ mod tests {
         let test_accounts = setup_test_accounts();
         let instruction = create_initialize_instruction(&test_accounts, attestors, min_sigs);
         expect_success(&test_accounts, instruction);
+    }
+
+    #[test]
+    fn test_initialize_rejects_default_access_manager() {
+        let test_accounts = setup_test_accounts();
+
+        let instruction_data = crate::instruction::Initialize {
+            attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+            min_required_sigs: 2,
+            access_manager: Pubkey::default(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(test_accounts.client_state_pda, false),
+                AccountMeta::new(test_accounts.app_state_pda, false),
+                AccountMeta::new(test_accounts.payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        expect_error(&test_accounts, instruction, ErrorCode::InvalidAccessManager);
     }
 }

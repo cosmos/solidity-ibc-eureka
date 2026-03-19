@@ -8,6 +8,9 @@ use solana_ibc_proto::RawGmpPacketData;
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
+///
+/// NOTE: Accounts use `Box<Account<..>>` to move large deserialized data to the heap
+/// See: <https://github.com/solana-developers/anchor-zero-copy-example>
 #[derive(Accounts)]
 #[instruction(msg: SendCallMsg)]
 pub struct SendCall<'info> {
@@ -36,7 +39,7 @@ pub struct SendCall<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub router_state: Account<'info, RouterState>,
+    pub router_state: Box<Account<'info, RouterState>>,
 
     /// Packet sequence counter for the source client, incremented by the router.
     #[account(
@@ -45,7 +48,7 @@ pub struct SendCall<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub client_sequence: Account<'info, ClientSequence>,
+    pub client_sequence: Box<Account<'info, ClientSequence>>,
 
     /// Stores the packet commitment hash after the router processes the packet.
     /// CHECK: PDA validated by router (sequence computed at runtime)
@@ -58,7 +61,7 @@ pub struct SendCall<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub ibc_app: Account<'info, IBCApp>,
+    pub ibc_app: Box<Account<'info, IBCApp>>,
 
     /// IBC client account that identifies the destination chain for routing.
     #[account(
@@ -66,7 +69,7 @@ pub struct SendCall<'info> {
         bump,
         seeds::program = router_program
     )]
-    pub client: Account<'info, Client>,
+    pub client: Box<Account<'info, Client>>,
 
     /// Light client program used by the router to check client status.
     /// CHECK: Validated against client registry.
@@ -134,7 +137,7 @@ pub(crate) fn send_call_inner<'info>(
     msg: SendCallMsg,
 ) -> Result<u64> {
     let clock = Clock::get()?;
-    let current_time = clock.unix_timestamp;
+    let current_time = u64::try_from(clock.unix_timestamp).map_err(|_| GMPError::InvalidTimeout)?;
 
     let source_client = solana_ibc_types::ClientId::new(&msg.source_client)
         .map_err(|_| GMPError::InvalidClientId)?;
@@ -610,7 +613,7 @@ mod tests {
                 (instruction, accounts, gmp_error(GMPError::TimeoutTooSoon))
             }
             SendCallErrorCase::TimeoutTooLong => {
-                msg.timeout_timestamp = i64::MAX;
+                msg.timeout_timestamp = MAX_TIMEOUT_DURATION * 2;
                 let instruction = ctx.build_instruction(msg, true);
                 let accounts = ctx.build_accounts(false);
                 (instruction, accounts, gmp_error(GMPError::TimeoutTooLong))

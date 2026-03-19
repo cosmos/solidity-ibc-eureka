@@ -7,6 +7,7 @@ pub use solana_ibc_types::{
     MAX_CLIENT_ID_LENGTH,
 };
 
+pub const MIN_CLIENT_ID_LENGTH: usize = 4;
 pub const MIN_PORT_ID_LENGTH: usize = 2;
 pub const MAX_PORT_ID_LENGTH: usize = 128;
 
@@ -164,7 +165,7 @@ impl Commitment {
 }
 
 /// Maximum timeout duration (1 day in seconds)
-pub const MAX_TIMEOUT_DURATION: i64 = 86400;
+pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
 pub use solana_ibc_constants::CHUNK_DATA_SIZE;
 

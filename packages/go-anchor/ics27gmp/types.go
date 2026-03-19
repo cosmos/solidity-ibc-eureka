@@ -809,7 +809,7 @@ type Ics27GmpEventsGmpCallSent struct {
 	PayloadSize uint64 `json:"payloadSize"`
 
 	// Timeout timestamp (Unix seconds).
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 }
 
 func (obj Ics27GmpEventsGmpCallSent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1432,7 +1432,7 @@ type Ics27GmpStateSendCallMsg struct {
 	SourceClient string `json:"sourceClient"`
 
 	// Timeout timestamp (unix seconds)
-	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
+	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
 
 	// Receiver address (string format to support any destination chain)
 	Receiver string `json:"receiver"`

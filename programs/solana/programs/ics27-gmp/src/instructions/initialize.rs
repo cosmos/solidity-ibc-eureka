@@ -1,4 +1,5 @@
 use crate::constants::*;
+use crate::errors::GMPError;
 use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
 use anchor_lang::prelude::*;
@@ -26,6 +27,10 @@ pub struct Initialize<'info> {
 }
 
 pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()> {
+    require!(
+        access_manager != Pubkey::default(),
+        GMPError::InvalidAccessManager
+    );
     let app_state = &mut ctx.accounts.app_state;
     let clock = Clock::get()?;
 
@@ -160,6 +165,57 @@ mod tests {
         // Anchor's `init` constraint fails when account already exists
         // Error code 0 means the account is already in use
         let checks = vec![Check::err(ProgramError::Custom(0))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_rejects_default_access_manager() {
+        let payer = Pubkey::new_unique();
+
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+
+        let instruction_data = crate::instruction::Initialize {
+            access_manager: Pubkey::default(),
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, solana_sdk::account::Account::default()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 1_000_000_000,
+                    owner: system_program::ID,
+                    ..Default::default()
+                },
+            ),
+            (
+                system_program::ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    executable: true,
+                    owner: solana_sdk::native_loader::ID,
+                    ..Default::default()
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            crate::test_utils::ANCHOR_ERROR_OFFSET
+                + crate::errors::GMPError::InvalidAccessManager as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
