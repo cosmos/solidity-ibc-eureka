@@ -320,8 +320,8 @@ pub fn admin_mint(ctx: Context<AdminMint>, msg: AdminMintMsg) -> Result<()> {
     mint_to_account(
         &mut ctx.accounts.app_mint_state,
         &clock,
-        &ctx.accounts.mint,
-        &ctx.accounts.receiver_token_account,
+        &mut ctx.accounts.mint,
+        &mut ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
         &ctx.accounts.token_program,
         msg.amount,
