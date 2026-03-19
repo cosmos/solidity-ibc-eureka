@@ -251,4 +251,46 @@ mod tests {
             .into(),
         );
     }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (app_state_pda, _) = get_app_state_pda();
+        let (system_program, system_account) = create_system_program_account();
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize { admin }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, create_uninitialized_pda()),
+            (payer, create_signer_account()),
+            (system_program, system_account),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (authority, create_signer_account()),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        // Anchor ConstraintSeeds = 2006
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(2006)).into(),
+        );
+    }
 }

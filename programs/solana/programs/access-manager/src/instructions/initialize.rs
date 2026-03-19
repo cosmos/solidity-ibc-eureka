@@ -585,6 +585,90 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        // Derive ProgramData from a *different* program — should be rejected by the seeds constraint.
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize { admin }.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                access_manager_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
+
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            2006,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
 
 #[cfg(test)]

@@ -412,4 +412,49 @@ mod tests {
         )];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let client_state_pda = ClientState::pda();
+        let app_state_pda = AppState::pda();
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+                min_required_sigs: 2,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, create_empty_account()),
+            (app_state_pda, create_empty_account()),
+            (payer, create_payer_account()),
+            (system_program::ID, create_system_program_account()),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (authority, create_payer_account()),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            2006,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

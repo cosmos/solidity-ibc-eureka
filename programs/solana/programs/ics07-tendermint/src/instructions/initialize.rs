@@ -973,4 +973,117 @@ mod tests {
             ErrorCode::UnauthorizedDeployer,
         );
     }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let (client_state, consensus_state, _) = load_primary_fixtures();
+
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::ClientState::SEED], &crate::ID);
+        let (consensus_state_store_pda, _) = Pubkey::find_program_address(
+            &[
+                crate::state::ConsensusStateStore::SEED,
+                &client_state.latest_height.revision_height.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            crate::test_helpers::create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(consensus_state_store_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                client_state,
+                consensus_state,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                consensus_state_store_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                app_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            2006,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

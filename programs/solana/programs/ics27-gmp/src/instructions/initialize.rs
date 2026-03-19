@@ -407,4 +407,54 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (app_state_pda, _) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction =
+            create_initialize_instruction(app_state_pda, payer, wrong_program_data_pda, authority);
+
+        let accounts = vec![
+            (app_state_pda, solana_sdk::account::Account::default()),
+            (
+                payer,
+                solana_sdk::account::Account {
+                    lamports: 1_000_000_000,
+                    owner: system_program::ID,
+                    ..Default::default()
+                },
+            ),
+            (
+                system_program::ID,
+                solana_sdk::account::Account {
+                    lamports: 1,
+                    executable: true,
+                    owner: solana_sdk::native_loader::ID,
+                    ..Default::default()
+                },
+            ),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (
+                authority,
+                solana_sdk::account::Account {
+                    lamports: 1_000_000_000,
+                    owner: system_program::ID,
+                    ..Default::default()
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }

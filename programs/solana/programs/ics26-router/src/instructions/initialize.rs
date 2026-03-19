@@ -481,4 +481,79 @@ mod tests {
         ))];
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(router_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (
+                router_state_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: 10_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, get_router_program_path());
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(ProgramError::Custom(2006))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
