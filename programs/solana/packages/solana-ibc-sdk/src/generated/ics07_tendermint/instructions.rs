@@ -15,6 +15,8 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 /// Input accounts for the `initialize` instruction.
 pub struct InitializeAccounts {
     pub payer: Pubkey,
+    pub program_data: Pubkey,
+    pub authority: Pubkey,
     pub revision_height: u64,
 }
 
@@ -23,7 +25,7 @@ pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
-    pub const COUNT: usize = 5;
+    pub const COUNT: usize = 7;
 
     /// Anchor instruction discriminator.
     pub const DISCRIMINATOR: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
@@ -44,6 +46,17 @@ impl Initialize {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn program_data_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[&[
+                250, 32, 110, 202, 82, 12, 166, 191, 10, 143, 94, 237, 150, 211, 149, 3, 120, 208,
+                107, 85, 113, 90, 230, 68, 163, 253, 244, 77, 132, 9, 8, 236,
+            ]],
+            program_id,
+        )
     }
 
     /// Creates a builder for this instruction.
@@ -107,6 +120,8 @@ impl InitializeBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(accounts.program_data, false),
+            AccountMeta::new_readonly(accounts.authority, true),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {

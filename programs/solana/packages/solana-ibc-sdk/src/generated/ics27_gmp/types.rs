@@ -162,6 +162,8 @@ pub struct SendCallMsg {
     pub payload: Vec<u8>,
     /// Optional memo
     pub memo: String,
+    /// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+    pub encoding: String,
 }
 
 /// Account schema version for upgradability
