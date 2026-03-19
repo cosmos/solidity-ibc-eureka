@@ -189,7 +189,7 @@ pub(crate) fn send_call_inner<'info>(
             payload: msg.payload.clone().into(),
             memo: msg.memo.clone(),
         }
-        .abi_encode_params()
+        .abi_encode()
     } else {
         packet_data.encode_vec()
     };
@@ -707,9 +707,8 @@ mod tests {
             memo: "test memo".to_string(),
         };
 
-        let encoded = original.abi_encode_params();
-        let decoded =
-            GmpPacketDataAbi::abi_decode_params(&encoded).expect("ABI decoding should succeed");
+        let encoded = original.abi_encode();
+        let decoded = GmpPacketDataAbi::abi_decode(&encoded).expect("ABI decoding should succeed");
 
         assert_eq!(decoded.sender, "solana_sender_pubkey");
         assert_eq!(
