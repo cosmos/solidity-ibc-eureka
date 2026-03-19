@@ -48,6 +48,9 @@ pub struct SendCallMsg {
     /// Source client identifier
     pub source_client: String,
 
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
+
     /// Timeout timestamp (unix seconds)
     pub timeout_timestamp: u64,
 
@@ -88,7 +91,7 @@ pub struct GMPCallResultAccount {
     pub version: AccountVersion,
     /// Original sender pubkey.
     pub sender: Pubkey,
-    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+    /// Caller-chosen IBC packet sequence number.
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
     #[max_len(MAX_CLIENT_ID_LENGTH)]

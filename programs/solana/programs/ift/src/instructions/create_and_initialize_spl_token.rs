@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, system_instruction};
 use anchor_spl::token_2022_extensions::{
     metadata_pointer_initialize, token_metadata_initialize, MetadataPointerInitialize,
     TokenMetadataInitialize,
@@ -127,41 +126,6 @@ pub fn create_and_initialize_spl_token(
     Ok(())
 }
 
-/// Defensive account creation that tolerates pre-funded accounts.
-///
-/// Unlike `system_program::create_account`, which fails with `AccountAlreadyInUse`
-/// when the target already holds lamports, this function uses transfer + allocate +
-/// assign to safely initialize the account regardless of existing balance.
-fn create_account_defensively<'info>(
-    payer: &AccountInfo<'info>,
-    target: &AccountInfo<'info>,
-    system_program: &AccountInfo<'info>,
-    required_lamports: u64,
-    space: u64,
-    owner: &Pubkey,
-) -> Result<()> {
-    let transfer_amount = required_lamports.saturating_sub(target.lamports());
-
-    if transfer_amount > 0 {
-        invoke(
-            &system_instruction::transfer(payer.key, target.key, transfer_amount),
-            &[payer.clone(), target.clone(), system_program.clone()],
-        )?;
-    }
-
-    invoke(
-        &system_instruction::allocate(target.key, space),
-        &[target.clone(), system_program.clone()],
-    )?;
-
-    invoke(
-        &system_instruction::assign(target.key, owner),
-        &[target.clone(), system_program.clone()],
-    )?;
-
-    Ok(())
-}
-
 /// Create a Token 2022 mint with `MetadataPointer` extension and on-chain metadata.
 fn create_token_2022_mint(
     ctx: &Context<CreateAndInitializeSplToken>,
@@ -203,10 +167,14 @@ fn create_token_2022_mint(
     let rent = Rent::get()?;
     let lamports = rent.minimum_balance(total_space);
 
-    create_account_defensively(
-        &ctx.accounts.payer.to_account_info(),
-        &ctx.accounts.mint.to_account_info(),
-        &ctx.accounts.system_program.to_account_info(),
+    anchor_lang::system_program::create_account(
+        CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.mint.to_account_info(),
+            },
+        ),
         lamports,
         extension_space as u64,
         &TOKEN_2022_PROGRAM_ID,
@@ -284,10 +252,14 @@ fn create_legacy_mint(
     let rent = Rent::get()?;
     let lamports = rent.minimum_balance(space);
 
-    create_account_defensively(
-        &ctx.accounts.payer.to_account_info(),
-        &ctx.accounts.mint.to_account_info(),
-        &ctx.accounts.system_program.to_account_info(),
+    anchor_lang::system_program::create_account(
+        CpiContext::new(
+            ctx.accounts.system_program.to_account_info(),
+            anchor_lang::system_program::CreateAccount {
+                from: ctx.accounts.payer.to_account_info(),
+                to: ctx.accounts.mint.to_account_info(),
+            },
+        ),
         lamports,
         space as u64,
         &token_program_id,
@@ -317,8 +289,7 @@ mod tests {
     use anchor_spl::token_2022_extensions::spl_token_metadata_interface::state::TokenMetadata;
     use anchor_spl::token_interface::spl_token_2022::{
         extension::{
-            metadata_pointer::MetadataPointer, BaseStateWithExtensions as _, ExtensionType,
-            StateWithExtensions,
+            metadata_pointer::MetadataPointer, BaseStateWithExtensions as _, StateWithExtensions,
         },
         state::Mint as Token2022Mint,
     };
@@ -990,290 +961,5 @@ mod tests {
             .into(),
             "Token2022 variant with SPL Token program should fail"
         );
-    }
-
-    // ─── Pre-funding griefing resistance tests ────────────────────
-
-    fn adversary_account(lamports: u64) -> solana_sdk::account::Account {
-        solana_sdk::account::Account {
-            lamports,
-            data: vec![],
-            owner: solana_sdk::system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        }
-    }
-
-    #[test]
-    fn test_prefunded_spl_token_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token();
-        let (token_program_id, token_program_account) = token_program_keyed_account();
-
-        let setup = build_spl_token_setup(token_program_id, token_program_account, 6);
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let adversary = Pubkey::new_unique();
-        let prefund_amount: u64 = 500_000;
-
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, prefund_amount);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(prefund_amount.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Partially pre-funded SPL Token mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let created_mint =
-            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
-        assert_eq!(created_mint.decimals, 6);
-    }
-
-    #[test]
-    fn test_prefunded_token_2022_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token_2022();
-        let (token_program_id, token_program_account) = token_2022_keyed_account();
-
-        let setup = build_token_2022_setup(
-            token_program_id,
-            token_program_account,
-            9,
-            "Test Token",
-            "TST",
-            "https://example.com/metadata.json",
-        );
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let adversary = Pubkey::new_unique();
-        let prefund_amount: u64 = 500_000;
-
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, prefund_amount);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(prefund_amount.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Partially pre-funded Token 2022 mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let state = StateWithExtensions::<Token2022Mint>::unpack(&mint_acc.data)
-            .expect("valid Token 2022 mint");
-        assert_eq!(state.base.decimals, 9);
-
-        let metadata = state
-            .get_variable_len_extension::<TokenMetadata>()
-            .expect("TokenMetadata should be present");
-        assert_eq!(metadata.name, "Test Token");
-        assert_eq!(metadata.symbol, "TST");
-    }
-
-    /// Compute the total lamports Token 2022 needs for a mint with metadata.
-    ///
-    /// Mirrors the production calculation: `rent.minimum_balance(extension_space + metadata_space)`.
-    fn token_2022_required_lamports(name: &str, symbol: &str, uri: &str) -> u64 {
-        use anchor_spl::token_2022_extensions::spl_pod::optional_keys::OptionalNonZeroPubkey;
-        use anchor_spl::token_2022_extensions::spl_token_metadata_interface::state::TokenMetadata;
-        use anchor_spl::token_interface::spl_token_2022::state::Mint as T22Mint;
-
-        let metadata = TokenMetadata {
-            update_authority: OptionalNonZeroPubkey::default(),
-            mint: Pubkey::default(),
-            name: name.to_string(),
-            symbol: symbol.to_string(),
-            uri: uri.to_string(),
-            additional_metadata: vec![],
-        };
-
-        let extension_space =
-            ExtensionType::try_calculate_account_len::<T22Mint>(&[ExtensionType::MetadataPointer])
-                .unwrap();
-        let metadata_space = metadata.tlv_size_of().unwrap();
-        let total_space = extension_space.saturating_add(metadata_space);
-        Rent::default().minimum_balance(total_space)
-    }
-
-    #[test]
-    fn test_exact_prefunded_token_2022_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token_2022();
-        let (token_program_id, token_program_account) = token_2022_keyed_account();
-
-        let name = "Exact Token";
-        let symbol = "EXT";
-        let uri = "https://example.com/exact.json";
-
-        let setup = build_token_2022_setup(
-            token_program_id,
-            token_program_account,
-            6,
-            name,
-            symbol,
-            uri,
-        );
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let exact_rent = token_2022_required_lamports(name, symbol, uri);
-
-        let adversary = Pubkey::new_unique();
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, exact_rent);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(exact_rent.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Exactly pre-funded Token 2022 mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let state = StateWithExtensions::<Token2022Mint>::unpack(&mint_acc.data)
-            .expect("valid Token 2022 mint");
-        assert_eq!(state.base.decimals, 6);
-
-        let metadata = state
-            .get_variable_len_extension::<TokenMetadata>()
-            .expect("TokenMetadata should be present");
-        assert_eq!(metadata.name, name);
-    }
-
-    #[test]
-    fn test_overfunded_token_2022_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token_2022();
-        let (token_program_id, token_program_account) = token_2022_keyed_account();
-
-        let name = "Over Token";
-        let symbol = "OVR";
-        let uri = "";
-
-        let setup = build_token_2022_setup(
-            token_program_id,
-            token_program_account,
-            6,
-            name,
-            symbol,
-            uri,
-        );
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let overfund_amount =
-            token_2022_required_lamports(name, symbol, uri).saturating_add(5_000_000);
-
-        let adversary = Pubkey::new_unique();
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, overfund_amount);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(overfund_amount.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Over-funded Token 2022 mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let state = StateWithExtensions::<Token2022Mint>::unpack(&mint_acc.data)
-            .expect("valid Token 2022 mint");
-        assert_eq!(state.base.decimals, 6);
-
-        let metadata = state
-            .get_variable_len_extension::<TokenMetadata>()
-            .expect("TokenMetadata should be present");
-        assert_eq!(metadata.name, name);
-    }
-
-    #[test]
-    fn test_exact_prefunded_spl_token_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token();
-        let (token_program_id, token_program_account) = token_program_keyed_account();
-
-        let setup = build_spl_token_setup(token_program_id, token_program_account, 6);
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let space = anchor_spl::token::spl_token::state::Mint::LEN;
-        let exact_rent = Rent::default().minimum_balance(space);
-
-        let adversary = Pubkey::new_unique();
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, exact_rent);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(exact_rent.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Exactly pre-funded SPL Token mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let created_mint =
-            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
-        assert_eq!(created_mint.decimals, 6);
-    }
-
-    #[test]
-    fn test_overfunded_spl_token_mint_succeeds() {
-        let mollusk = setup_mollusk_with_token();
-        let (token_program_id, token_program_account) = token_program_keyed_account();
-
-        let setup = build_spl_token_setup(token_program_id, token_program_account, 6);
-        let mint_key = setup.instruction.accounts[2].pubkey;
-
-        let space = anchor_spl::token::spl_token::state::Mint::LEN;
-        let overfund_amount = Rent::default()
-            .minimum_balance(space)
-            .saturating_add(5_000_000);
-
-        let adversary = Pubkey::new_unique();
-        let prefund_ix =
-            solana_sdk::system_instruction::transfer(&adversary, &mint_key, overfund_amount);
-
-        let mut accounts = setup.accounts;
-        accounts.push((
-            adversary,
-            adversary_account(overfund_amount.saturating_add(1_000_000)),
-        ));
-
-        let result = mollusk.process_instruction_chain(&[prefund_ix, setup.instruction], &accounts);
-        assert!(
-            !result.program_result.is_err(),
-            "Over-funded SPL Token mint must not block creation: {:?}",
-            result.program_result
-        );
-
-        let (_, mint_acc) = &result.resulting_accounts[2];
-        let created_mint =
-            anchor_spl::token::spl_token::state::Mint::unpack(&mint_acc.data).expect("valid mint");
-        assert_eq!(created_mint.decimals, 6);
     }
 }

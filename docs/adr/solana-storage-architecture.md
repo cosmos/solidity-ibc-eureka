@@ -75,15 +75,6 @@ Stores:
 - `active`: bool
 - `_reserved`: [u8; 256]
 
-**Client Sequence PDA:**
-```
-Seeds: [b"client_sequence", client_id.as_bytes()]
-```
-Stores:
-- `version`: AccountVersion
-- `next_sequence_send`: u64 (starts at 1 per IBC spec)
-- `_reserved`: [u8; 256]
-
 **IBC App Registry PDA:**
 ```
 Seeds: [b"ibc_app", port_id.as_bytes()]
@@ -217,8 +208,7 @@ Programs reference `access_manager` pubkey in their state to validate permission
 ### Packet Lifecycle
 ```
 1. Send:
-   - Increment sequence in ClientSequence
-   - Create PacketCommitment PDA
+   - Create PacketCommitment PDA (caller-chosen sequence; create_account fails on duplicates)
    - Emit event
 
 2. Receive:
@@ -290,24 +280,21 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 ## Byte Encoding and Sequence Calculation
 
-### Namespaced Sequence Calculation
+### Caller-Chosen Sequence
 
-Multiple IBC apps share one `ClientSequence` counter per client. To avoid collisions, each packet sequence is namespaced:
+Callers provide a random `u64` sequence in `MsgSendPacket.sequence`. There is no on-chain sequence counter — uniqueness is enforced by `create_account` failing if the `PacketCommitment` PDA already exists.
 
+**PDA Seeds:**
 ```
-sequence = base_sequence * 10000 + SHA256(app_program_id || sender)[0..2] % 10000
+PacketCommitment: [b"packet_commitment", client_id, sequence]
 ```
 
-- `base_sequence` — on-chain counter, increments on each `send_packet`
-- suffix — deterministic per `(app, sender)` pair, gives each combination its own lane
+- `client_id` — IBC client identifier
+- `sequence` — caller-chosen u64 (little-endian)
 
-**Why not use a timestamp?** The relayer needs to predict the sequence off-chain to derive PDAs (packet commitments, pending transfers). Timestamps are unknown until execution and would collide across apps in the same slot.
+**Why caller-chosen?** A shared on-chain counter is a write-lock bottleneck. Caller-chosen random u64 sequences eliminate contention with negligible collision probability.
 
-The `IBCApp` account is required by `send_packet` both for authorization (verify caller's PDA) and to read `app_program_id` for the suffix. Downstream programs (e.g. IFT) pass it through via CPI.
-
-**Example** (suffix `1234`): base 1 → `11234`, base 2 → `21234`
-
-**Implementation**: `programs/solana/programs/ics26-router/src/utils/sequence.rs`
+**Collision handling**: If a caller picks a sequence that already has a commitment PDA, `create_account` fails and the transaction reverts. Callers should use random u64 values to avoid this.
 
 ### PDA Seed Encoding (Little-Endian)
 
@@ -329,9 +316,7 @@ IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
 
 ### Sequence Management
 
-- **Base sequence**: Stored in `ClientSequence` PDA, starts at 1 (per IBC spec)
-- **Increment**: Base sequence incremented atomically on each `send_packet`
-- **Type**: u64, allowing ~1.8 × 10^15 packets per `(client, app, sender)` triple
+- Callers provide a random u64 in `MsgSendPacket.sequence`; uniqueness enforced by PDA creation
 
 ## Configuration Constants
 
