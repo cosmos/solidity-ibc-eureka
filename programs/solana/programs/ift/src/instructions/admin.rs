@@ -39,6 +39,19 @@ pub struct ProposeAdmin<'info> {
 pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
     reject_cpi(&ctx.accounts.instructions_sysvar, &crate::ID).map_err(IFTError::from)?;
 
+    require!(
+        new_admin != Pubkey::default(),
+        IFTError::InvalidProposedAdmin
+    );
+    require!(
+        new_admin != ctx.accounts.admin.key(),
+        IFTError::SelfProposal
+    );
+    require!(
+        ctx.accounts.app_state.pending_admin.is_none(),
+        IFTError::PendingAdminAlreadyExists
+    );
+
     ctx.accounts.app_state.pending_admin = Some(new_admin);
 
     let clock = Clock::get()?;
@@ -461,6 +474,123 @@ mod tests {
             result.program_result,
             Err(solana_sdk::instruction::InstructionError::Custom(
                 ANCHOR_ERROR_OFFSET + IFTError::CpiNotAllowed as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_propose_admin_zero_address_rejected() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::ProposeAdmin {
+                new_admin: Pubkey::default(),
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::InvalidProposedAdmin as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_propose_admin_self_proposal_rejected() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account = create_ift_app_state_account(app_state_bump, admin);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::ProposeAdmin { new_admin: admin }.data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::SelfProposal as u32,
+            ))
+            .into(),
+        );
+    }
+
+    #[test]
+    fn test_propose_admin_pending_already_exists() {
+        let mollusk = setup_mollusk();
+
+        let admin = Pubkey::new_unique();
+        let first_proposed = Pubkey::new_unique();
+        let second_proposed = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) = get_app_state_pda();
+        let (sysvar_id, sysvar_account) = create_instructions_sysvar_account();
+
+        let app_state_account =
+            create_ift_app_state_account_full(app_state_bump, admin, false, Some(first_proposed));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(sysvar_id, false),
+            ],
+            data: crate::instruction::ProposeAdmin {
+                new_admin: second_proposed,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (app_state_pda, app_state_account),
+            (admin, create_signer_account()),
+            (sysvar_id, sysvar_account),
+        ];
+
+        let result = mollusk.process_instruction(&instruction, &accounts);
+        assert_eq!(
+            result.program_result,
+            Err(solana_sdk::instruction::InstructionError::Custom(
+                ANCHOR_ERROR_OFFSET + IFTError::PendingAdminAlreadyExists as u32,
             ))
             .into(),
         );

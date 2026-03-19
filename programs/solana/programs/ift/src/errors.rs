@@ -114,6 +114,15 @@ pub enum IFTError {
 
     #[msg("Signer is not the pending admin")]
     UnauthorizedPendingAdmin,
+
+    #[msg("Cannot propose the zero address as admin")]
+    InvalidProposedAdmin,
+
+    #[msg("Cannot propose the current admin as the new admin")]
+    SelfProposal,
+
+    #[msg("A pending admin proposal already exists; cancel it first")]
+    PendingAdminAlreadyExists,
 }
 
 impl From<CpiValidationError> for IFTError {
