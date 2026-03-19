@@ -80,7 +80,7 @@ pub fn on_acknowledgement_packet(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
+    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
     use crate::state::{GMPAppState, GMPCallResult};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
@@ -108,7 +108,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],
@@ -191,7 +191,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],
@@ -341,7 +341,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![], // Empty - will fail to decode
             },
             acknowledgement: vec![1, 2, 3],
@@ -410,7 +410,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_bytes,
             },
             acknowledgement: ack_bytes.clone(),
@@ -485,7 +485,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data.encode_to_vec(),
             },
             acknowledgement: vec![1, 2, 3],
@@ -619,7 +619,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],

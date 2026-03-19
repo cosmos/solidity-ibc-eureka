@@ -1422,6 +1422,9 @@ type Ics27GmpStateSendCallMsg struct {
 
 	// Optional memo
 	Memo string `json:"memo"`
+
+	// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+	Encoding string `json:"encoding"`
 }
 
 func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1454,6 +1457,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
@@ -1498,6 +1506,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }

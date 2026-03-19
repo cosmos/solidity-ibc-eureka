@@ -83,7 +83,7 @@ pub fn on_recv_packet<'info>(
     );
 
     require!(
-        msg.payload.encoding == ICS27_ENCODING,
+        msg.payload.encoding == ICS27_ENCODING_PROTOBUF,
         GMPError::InvalidEncoding
     );
 
@@ -406,7 +406,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -596,7 +596,10 @@ mod tests {
                 source_port: overrides.source_port.unwrap_or(GMP_PORT_ID).to_string(),
                 dest_port: overrides.dest_port.unwrap_or(GMP_PORT_ID).to_string(),
                 version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
-                encoding: overrides.encoding.unwrap_or(ICS27_ENCODING).to_string(),
+                encoding: overrides
+                    .encoding
+                    .unwrap_or(ICS27_ENCODING_PROTOBUF)
+                    .to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -846,7 +849,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1091,7 +1094,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: proto_packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -1307,7 +1310,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1545,7 +1548,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![0],
             },
             relayer: Pubkey::new_unique(),
