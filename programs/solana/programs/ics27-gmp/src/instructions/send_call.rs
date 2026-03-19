@@ -183,11 +183,11 @@ pub(crate) fn send_call_inner<'info>(
     let packet_data_bytes = if msg.encoding == ICS27_ENCODING_ABI {
         use alloy_sol_types::SolValue;
         GmpPacketDataAbi {
-            sender: sender_pubkey.to_string(),
-            receiver: msg.receiver.clone(),
-            salt: msg.salt.clone().into(),
-            payload: msg.payload.clone().into(),
-            memo: msg.memo.clone(),
+            sender: packet_data.sender.into_string(),
+            receiver: packet_data.receiver.into_string(),
+            salt: packet_data.salt.into_vec().into(),
+            payload: packet_data.payload.into_inner().into(),
+            memo: packet_data.memo.into_string(),
         }
         .abi_encode()
     } else {
