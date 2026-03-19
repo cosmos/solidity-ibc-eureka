@@ -42,6 +42,20 @@ impl GMPAppState {
     }
 }
 
+/// Encoding format for outbound GMP packets.
+///
+/// Determines how the `GmpPacketData` is serialized and what encoding string
+/// is set in the IBC payload. The sender must use the encoding the destination
+/// chain's ICS27 GMP module expects.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum GmpEncoding {
+    /// Protobuf encoding (`"application/x-protobuf"`). Used for Cosmos/Solana destinations.
+    #[default]
+    Protobuf,
+    /// ABI encoding (`"application/x-solidity-abi"`). Used for EVM destinations.
+    Abi,
+}
+
 /// Send call message (unvalidated input from user)
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct SendCallMsg {
@@ -62,6 +76,9 @@ pub struct SendCallMsg {
 
     /// Optional memo
     pub memo: String,
+
+    /// Encoding format for the IBC payload.
+    pub encoding: GmpEncoding,
 }
 
 // Re-export types from proto crate

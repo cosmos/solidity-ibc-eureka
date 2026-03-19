@@ -1,0 +1,22 @@
+[package]
+name = "ibc-eureka-relayer-solana-to-eth"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-relayer-lib = { workspace = true }
+
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+tonic = { workspace = true, default-features = true }
+anyhow = { workspace = true, features = ["std"] }
+tracing = { workspace = true, default-features = true }
+
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+
+# Solana specific dependencies
+solana-sdk.workspace = true

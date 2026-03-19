@@ -1403,6 +1403,29 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Encoding format for outbound GMP packets.
+//
+// Determines how the `GmpPacketData` is serialized and what encoding string
+// is set in the IBC payload. The sender must use the encoding the destination
+// chain's ICS27 GMP module expects.
+type Ics27GmpStateGmpEncoding binary.BorshEnum
+
+const (
+	Ics27GmpStateGmpEncoding_Protobuf Ics27GmpStateGmpEncoding = iota
+	Ics27GmpStateGmpEncoding_Abi
+)
+
+func (value Ics27GmpStateGmpEncoding) String() string {
+	switch value {
+	case Ics27GmpStateGmpEncoding_Protobuf:
+		return "Protobuf"
+	case Ics27GmpStateGmpEncoding_Abi:
+		return "Abi"
+	default:
+		return ""
+	}
+}
+
 // Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
@@ -1422,6 +1445,9 @@ type Ics27GmpStateSendCallMsg struct {
 
 	// Optional memo
 	Memo string `json:"memo"`
+
+	// Encoding format for the IBC payload.
+	Encoding Ics27GmpStateGmpEncoding `json:"encoding"`
 }
 
 func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1454,6 +1480,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
@@ -1498,6 +1529,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
