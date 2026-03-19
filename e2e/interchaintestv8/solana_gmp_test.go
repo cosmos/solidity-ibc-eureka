@@ -145,7 +145,7 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 
 		// Initialize ICS27 GMP app
 		gmpProgramDataPDA, _ := solana.Ics27Gmp.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
-		deployerWallet, err := solana.LoadDeployerWallet("solana-keypairs/localnet/deployer_wallet.json")
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
 
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(

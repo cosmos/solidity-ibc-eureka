@@ -1803,7 +1803,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 
 	// Initialize global app state (idempotent - will fail silently if already initialized)
 	iftProgramDataPDA, _ := solana.Ift.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
-	deployerWallet, err := solana.LoadDeployerWallet("solana-keypairs/localnet/deployer_wallet.json")
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 	s.Require().NoError(err)
 
 	globalInitIx, err := ift.NewInitializeInstruction(
@@ -1956,7 +1956,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingTokenWithProgram(ctx con
 
 	// Initialize global app state (idempotent)
 	iftProgramDataPDA, _ := solana.Ift.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
-	deployerWallet, err := solana.LoadDeployerWallet("solana-keypairs/localnet/deployer_wallet.json")
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 	s.Require().NoError(err)
 
 	globalInitIx, err := ift.NewInitializeInstruction(
