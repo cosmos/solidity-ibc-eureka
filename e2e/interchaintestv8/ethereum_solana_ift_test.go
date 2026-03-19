@@ -954,7 +954,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 				ClientId:         EthClientIDOnSolana,
 				Receiver:         ethUserAddr.Hex(),
 				Amount:           EthSolanaIFTTransferAmount,
-				TimeoutTimestamp: solanaClockTime + 900,
+				TimeoutTimestamp: uint64(solanaClockTime) + 900,
 			}
 
 			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1578,7 +1578,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 45,
+			TimeoutTimestamp: uint64(solanaClockTime) + 45,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1723,7 +1723,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: solanaClockTime + 900,
+			TimeoutTimestamp: uint64(solanaClockTime) + 900,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
