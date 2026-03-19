@@ -151,14 +151,22 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     Ok(payload_data)
 }
 
-pub fn total_payload_chunks(payloads: &[MsgPayload]) -> usize {
-    payloads
+pub fn total_payload_chunks(payloads: &[MsgPayload]) -> Result<usize> {
+    require!(
+        payloads.windows(2).all(|w| {
+            matches!(
+                (&w[0].data, &w[1].data),
+                (Delivery::Inline { .. }, Delivery::Inline { .. })
+                    | (Delivery::Chunked { .. }, Delivery::Chunked { .. })
+            )
+        }),
+        RouterError::MixedDeliveryModes
+    );
+
+    Ok(payloads
         .iter()
-        .filter_map(|p| match &p.data {
-            Delivery::Chunked { total_chunks } => Some(*total_chunks as usize),
-            Delivery::Inline { .. } => None,
-        })
-        .sum()
+        .map(|p| p.data.total_chunks() as usize)
+        .sum())
 }
 
 /// Filter out chunk accounts from `remaining_accounts` before passing to IBC app CPI
@@ -415,6 +423,68 @@ pub fn validate_and_reconstruct_packet(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_total_payload_chunks_rejects_mixed_delivery() {
+        let payloads = vec![
+            MsgPayload {
+                source_port: "port".to_string(),
+                dest_port: "port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Inline {
+                    data: b"data".to_vec(),
+                },
+            },
+            MsgPayload {
+                source_port: "port".to_string(),
+                dest_port: "port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 2 },
+            },
+        ];
+
+        let result = total_payload_chunks(&payloads);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_total_payload_chunks_all_inline() {
+        let payloads = vec![MsgPayload {
+            source_port: "port".to_string(),
+            dest_port: "port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            data: Delivery::Inline {
+                data: b"data".to_vec(),
+            },
+        }];
+
+        assert_eq!(total_payload_chunks(&payloads).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_total_payload_chunks_all_chunked() {
+        let payloads = vec![
+            MsgPayload {
+                source_port: "port".to_string(),
+                dest_port: "port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 2 },
+            },
+            MsgPayload {
+                source_port: "port".to_string(),
+                dest_port: "port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 3 },
+            },
+        ];
+
+        assert_eq!(total_payload_chunks(&payloads).unwrap(), 5);
+    }
 
     #[test]
     fn test_validate_and_reconstruct_packet_inline_mode_success() {

@@ -162,7 +162,7 @@ pub fn recv_packet<'info>(
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let total_payload_chunks = total_payload_chunks(&msg.packet.payloads);
+    let total_payload_chunks = total_payload_chunks(&msg.packet.payloads)?;
 
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
@@ -171,6 +171,7 @@ pub fn recv_packet<'info>(
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
         delivery: &msg.proof.data,
+        // proof chunks come after payload chunks
         start_index: total_payload_chunks,
     })?;
 
