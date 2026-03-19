@@ -756,16 +756,6 @@ mod tests {
         let (gmp_app_state_pda, _) =
             Pubkey::find_program_address(&[solana_ibc_types::GMPAppState::SEED], &gmp_program_key);
 
-        let router_state = Pubkey::new_unique();
-        let packet_commitment = Pubkey::new_unique();
-        let gmp_ibc_app = Pubkey::new_unique();
-        let ibc_client = Pubkey::new_unique();
-        let light_client_program = Pubkey::new_unique();
-        let light_client_state = Pubkey::new_unique();
-        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
-        let consensus_state = Pubkey::new_unique();
-        let pending_transfer = Pubkey::new_unique();
-
         let msg = IFTTransferMsg {
             client_id: config.client_id,
             receiver: config.receiver,
@@ -773,6 +763,23 @@ mod tests {
             timeout_timestamp: config.timeout_timestamp,
             sequence: 1,
         };
+
+        let router_state = Pubkey::new_unique();
+        let (packet_commitment, _) = Pubkey::find_program_address(
+            &[
+                solana_ibc_types::Commitment::PACKET_COMMITMENT_SEED,
+                msg.client_id.as_bytes(),
+                &msg.sequence.to_le_bytes(),
+            ],
+            &ics26_router::ID,
+        );
+        let gmp_ibc_app = Pubkey::new_unique();
+        let ibc_client = Pubkey::new_unique();
+        let light_client_program = Pubkey::new_unique();
+        let light_client_state = Pubkey::new_unique();
+        let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
+        let consensus_state = Pubkey::new_unique();
+        let pending_transfer = Pubkey::new_unique();
 
         let instruction = Instruction {
             program_id: crate::ID,
