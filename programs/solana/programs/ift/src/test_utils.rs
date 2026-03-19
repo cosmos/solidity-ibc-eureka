@@ -90,11 +90,9 @@ pub fn create_ift_app_state_account_full(
         _reserved: [0; 128],
     };
 
-    let max_size = 8 + IFTAppState::INIT_SPACE;
-    let mut data = Vec::with_capacity(max_size);
-    data.extend_from_slice(IFTAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
-    data.resize(max_size, 0);
+    let mut data = vec![0u8; 8 + IFTAppState::INIT_SPACE];
+    data[0..8].copy_from_slice(IFTAppState::DISCRIMINATOR);
+    app_state.serialize(&mut &mut data[8..]).unwrap();
 
     SolanaAccount {
         lamports: 1_000_000,
