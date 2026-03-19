@@ -15,8 +15,8 @@ use crate::state::IFTAppMintState;
 pub fn mint_to_account<'info>(
     mint_state: &mut IFTAppMintState,
     clock: &Clock,
-    mint: &InterfaceAccount<'info, Mint>,
-    to: &InterfaceAccount<'info, TokenAccount>,
+    mint: &mut InterfaceAccount<'info, Mint>,
+    token_account: &mut InterfaceAccount<'info, TokenAccount>,
     mint_authority: &AccountInfo<'info>,
     token_program: &Interface<'info, TokenInterface>,
     amount: u64,
@@ -33,12 +33,16 @@ pub fn mint_to_account<'info>(
 
     let mint_accounts = MintTo {
         mint: mint.to_account_info(),
-        to: to.to_account_info(),
+        to: token_account.to_account_info(),
         authority: mint_authority.to_account_info(),
     };
     let mint_ctx =
         CpiContext::new_with_signer(token_program.to_account_info(), mint_accounts, signer_seeds);
-    token_interface::mint_to(mint_ctx, amount)
+    token_interface::mint_to(mint_ctx, amount)?;
+
+    mint.reload()?;
+    token_account.reload()?;
+    Ok(())
 }
 
 const fn current_day(clock: &Clock) -> u64 {
