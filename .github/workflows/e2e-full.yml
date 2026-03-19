@@ -18,6 +18,14 @@ on:
         options:
           - groth16
           - plonk
+      el-type:
+        description: 'Ethereum execution layer'
+        type: choice
+        required: true
+        default: 'geth'
+        options:
+          - geth
+          - besu
   schedule:
     - cron: '0 0 */3 * *'  # Run every 3 days at midnight UTC
 
@@ -30,6 +38,7 @@ env:
   ETH_TESTNET_TYPE: pos
   SP1_PROVER: network
   ETHEREUM_POS_NETWORK_PRESET: mainnet
+  ETHEREUM_EL_TYPE: ${{ inputs.el-type || 'geth' }}
   E2E_PROOF_TYPE: ${{ inputs.proof-type || 'groth16' }}
   E2E_PRIVATE_CLUSTER: true
   E2E_WASM_LIGHT_CLIENT_TAG: ${{ inputs.wasm-eth-light-client-tag }}
