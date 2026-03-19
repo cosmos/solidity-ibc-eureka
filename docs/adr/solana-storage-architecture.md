@@ -218,13 +218,11 @@ Programs reference `access_manager` pubkey in their state to validate permission
 
 3. Acknowledge:
    - Verify ack proof against commitment
-   - Close PacketCommitment PDA
-   - Reclaim rent
+   - Zero PacketCommitment PDA (PDA persists to prevent sequence reuse)
 
 4. Timeout:
    - Verify non-receipt on destination
-   - Close PacketCommitment PDA
-   - Reclaim rent
+   - Zero PacketCommitment PDA (PDA persists to prevent sequence reuse)
 ```
 
 ### Client Update Lifecycle
@@ -260,15 +258,15 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 **Per-Packet Cost:**
 ```
-- Commitment creation: ~0.01 SOL (refunded on ack/timeout)
+- Commitment creation: ~0.002 SOL (permanently locked — PDA persists after zeroing for replay protection)
 - Transaction fees: ~0.000005 SOL
-- Net cost after reclaim: ~0.000005 SOL
+- Net cost per packet: ~0.002 SOL
 ```
 
 **Key Insights:**
 - Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
-- Chunk and commitment rent is fully refundable
-- Relayers must call cleanup instructions to reclaim rent
+- Chunk rent is fully refundable; commitment rent is permanently locked (replay protection trade-off)
+- Relayers must call cleanup instructions to reclaim chunk rent
 
 ## Security Considerations
 
@@ -276,7 +274,7 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 2. **Authority Checks**: Only authorized parties can modify state
 3. **Chunk Ownership**: Per-submitter PDAs prevent interference
 4. **Access Control**: Role-based permissions via access-manager
-5. **Commitment Integrity**: Only router can create/close commitment PDAs
+5. **Commitment Integrity**: Only router can create commitment PDAs; after ack/timeout the commitment is zeroed but the PDA persists, preventing sequence reuse via Anchor's `init` constraint
 
 ## Byte Encoding and Sequence Calculation
 
