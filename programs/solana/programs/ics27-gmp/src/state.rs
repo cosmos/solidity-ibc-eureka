@@ -62,6 +62,9 @@ pub struct SendCallMsg {
 
     /// Optional memo
     pub memo: String,
+
+    /// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+    pub encoding: String,
 }
 
 // Re-export types from proto crate

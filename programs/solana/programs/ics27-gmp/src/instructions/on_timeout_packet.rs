@@ -80,7 +80,7 @@ pub fn on_timeout_packet(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
+    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
     use crate::state::{GMPAppState, GMPCallResult};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
@@ -108,7 +108,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -194,7 +194,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -343,7 +343,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![], // Empty - will fail to decode
             },
             relayer: Pubkey::new_unique(),
@@ -410,7 +410,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -476,7 +476,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -609,7 +609,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),

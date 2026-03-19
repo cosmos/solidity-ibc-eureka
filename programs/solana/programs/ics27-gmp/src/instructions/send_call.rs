@@ -7,6 +7,17 @@ use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
 use solana_ibc_proto::{Protobuf, RawGmpPacketData};
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
+alloy_sol_types::sol! {
+    /// ABI-compatible layout of the EVM `IICS27GMPMsgs.GMPPacketData` struct.
+    struct GmpPacketDataAbi {
+        string sender;
+        string receiver;
+        bytes salt;
+        bytes payload;
+        string memo;
+    }
+}
+
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
 ///
 /// NOTE: Accounts use `Box<Account<..>>` to move large deserialized data to the heap
@@ -151,6 +162,11 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::TimeoutTooLong
     );
 
+    require!(
+        msg.encoding == ICS27_ENCODING_PROTOBUF || msg.encoding == ICS27_ENCODING_ABI,
+        GMPError::InvalidEncoding
+    );
+
     let raw_packet_data = RawGmpPacketData {
         sender: sender_pubkey.to_string(),
         receiver: msg.receiver.clone(),
@@ -164,13 +180,25 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    let packet_data_bytes = packet_data.encode_vec();
+    let packet_data_bytes = if msg.encoding == ICS27_ENCODING_ABI {
+        use alloy_sol_types::SolValue;
+        GmpPacketDataAbi {
+            sender: packet_data.sender.into_string(),
+            receiver: packet_data.receiver.into_string(),
+            salt: packet_data.salt.into_vec().into(),
+            payload: packet_data.payload.into_inner().into(),
+            memo: packet_data.memo.into_string(),
+        }
+        .abi_encode()
+    } else {
+        packet_data.encode_vec()
+    };
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
         dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
-        encoding: ICS27_ENCODING.to_string(),
+        encoding: msg.encoding.clone(),
         value: packet_data_bytes,
     };
 
@@ -290,6 +318,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
             }
         }
 
@@ -467,6 +496,7 @@ mod tests {
         TimeoutTooSoon,
         TimeoutTooLong,
         EmptyClientId,
+        InvalidEncoding,
     }
 
     const ANCHOR_SIGNER_ERROR: u32 = anchor_lang::error::ErrorCode::AccountNotSigner as u32;
@@ -623,6 +653,12 @@ mod tests {
                 let accounts = ctx.build_accounts(false);
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
+            SendCallErrorCase::InvalidEncoding => {
+                msg.encoding = "application/json".to_string();
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts, gmp_error(GMPError::InvalidEncoding))
+            }
         };
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -654,8 +690,34 @@ mod tests {
     #[case::timeout_too_soon(SendCallErrorCase::TimeoutTooSoon)]
     #[case::timeout_too_long(SendCallErrorCase::TimeoutTooLong)]
     #[case::empty_client_id(SendCallErrorCase::EmptyClientId)]
+    #[case::invalid_encoding(SendCallErrorCase::InvalidEncoding)]
     fn test_send_call_validation(#[case] case: SendCallErrorCase) {
         run_send_call_error_test(case);
+    }
+
+    #[test]
+    fn test_abi_encode_gmp_packet_data_round_trip() {
+        use alloy_sol_types::SolValue;
+
+        let original = GmpPacketDataAbi {
+            sender: "solana_sender_pubkey".to_string(),
+            receiver: "0xabcdef1234567890abcdef1234567890abcdef12".to_string(),
+            salt: vec![1, 2, 3].into(),
+            payload: vec![4, 5, 6, 7].into(),
+            memo: "test memo".to_string(),
+        };
+
+        let encoded = original.abi_encode();
+        let decoded = GmpPacketDataAbi::abi_decode(&encoded).expect("ABI decoding should succeed");
+
+        assert_eq!(decoded.sender, "solana_sender_pubkey");
+        assert_eq!(
+            decoded.receiver,
+            "0xabcdef1234567890abcdef1234567890abcdef12"
+        );
+        assert_eq!(decoded.salt.as_ref(), &[1, 2, 3]);
+        assert_eq!(decoded.payload.as_ref(), &[4, 5, 6, 7]);
+        assert_eq!(decoded.memo, "test memo");
     }
 }
 
@@ -686,6 +748,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
+            encoding: crate::constants::ICS27_ENCODING_PROTOBUF.to_string(),
         };
 
         let (router_state, _) = create_router_state_pda();
