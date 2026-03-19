@@ -181,7 +181,6 @@ impl TxBuilder {
 
         let authority = self
             .fetch_ics07_upgrade_authority()
-            .await
             .context("Failed to fetch ICS07 upgrade authority")?;
 
         let instruction = self.build_create_client_instruction(

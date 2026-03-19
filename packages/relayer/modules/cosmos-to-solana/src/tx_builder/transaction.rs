@@ -35,7 +35,7 @@ pub fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
 
 impl super::TxBuilder {
     /// Fetches the ICS07 Tendermint program's upgrade authority from its `ProgramData` account.
-    pub(crate) async fn fetch_ics07_upgrade_authority(&self) -> Result<Pubkey> {
+    pub(crate) fn fetch_ics07_upgrade_authority(&self) -> Result<Pubkey> {
         let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
