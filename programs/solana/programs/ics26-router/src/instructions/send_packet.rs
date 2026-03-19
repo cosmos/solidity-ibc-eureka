@@ -1550,4 +1550,59 @@ mod tests {
             Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidSequence as u32),
         );
     }
+
+    #[tokio::test]
+    async fn test_send_packet_replay_after_zeroing_rejected() {
+        let sequence = 1u64;
+
+        let (mut pt, mock_client_state, mock_consensus_state) =
+            setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true);
+
+        // Pre-create a zeroed commitment PDA (simulates post-ack state)
+        let (packet_commitment_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                TEST_CLIENT_ID.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+        let zeroed_commitment = Commitment {
+            value: Commitment::EMPTY,
+        };
+        let commitment_data = create_account_data(&zeroed_commitment);
+        pt.add_account(
+            packet_commitment_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: commitment_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
+            .await
+            .expect_err("send_packet must reject a reused sequence after ack zeroing");
+
+        // Anchor's `init` constraint fails when the PDA already exists
+        let code = pt_extract_custom_error(&err);
+        assert!(
+            code.is_some(),
+            "Expected an error when reusing a zeroed sequence PDA"
+        );
+    }
 }
