@@ -19,7 +19,10 @@ use sp1_ics07_tendermint_prover::{
     },
     prover::{SP1ICS07TendermintProver, Sp1Prover},
 };
-use sp1_sdk::{HashableKey, ProverClient};
+use sp1_sdk::{
+    network::{FulfillmentStrategy, NetworkMode},
+    HashableKey, ProverClient,
+};
 use std::path::PathBuf;
 use tendermint_rpc::HttpClient;
 
@@ -51,9 +54,15 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
 
     let tm_rpc_client = HttpClient::from_env();
     let sp1_prover = if args.sp1.private_cluster {
-        Sp1Prover::new_private_cluster(ProverClient::builder().network().build())
+        Sp1Prover::Network(
+            ProverClient::builder()
+                .network_for(NetworkMode::Reserved)
+                .build()
+                .await,
+            FulfillmentStrategy::Reserved,
+        )
     } else {
-        Sp1Prover::new_public_cluster(ProverClient::from_env())
+        Sp1Prover::Env(ProverClient::from_env().await)
     };
 
     let update_client_elf = std::fs::read(args.elf_paths.update_client_path)?;
@@ -66,7 +75,8 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let uc_and_membership_program = UpdateClientAndMembershipProgram::new(uc_and_membership_elf);
 
     let uc_prover =
-        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &update_client_program);
+        SP1ICS07TendermintProver::new(args.sp1.proof_type, &sp1_prover, &update_client_program)
+            .await;
 
     let trusted_light_block = tm_rpc_client
         .get_light_block(Some(args.trusted_block))
@@ -93,12 +103,14 @@ pub async fn run(args: UpdateClientCmd) -> anyhow::Result<()> {
     let proposed_header = target_light_block.into_header(&trusted_light_block);
     let now_since_unix = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?;
     // Generate a header update proof for the specified blocks.
-    let proof_data = uc_prover.generate_proof(
-        &trusted_client_state,
-        &trusted_consensus_state,
-        &proposed_header,
-        now_since_unix.as_nanos(),
-    );
+    let proof_data = uc_prover
+        .generate_proof(
+            &trusted_client_state,
+            &trusted_consensus_state,
+            &proposed_header,
+            now_since_unix.as_nanos(),
+        )
+        .await;
 
     let output = UpdateClientOutput::abi_decode(proof_data.public_values.as_slice())?;
 

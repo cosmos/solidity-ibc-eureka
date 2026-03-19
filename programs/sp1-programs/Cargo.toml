@@ -16,7 +16,7 @@ repository = "https://github.com/cosmos/solidity-ibc-eureka"
 keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solidity", "eureka"]
 
 [workspace.dependencies]
-sp1-zkvm   = { version = "5.0", default-features = false }
+sp1-zkvm   = { version = "6.0", default-features = false }
 
 sp1-ics07-tendermint-update-client = { path = "update-client", default-features = false }
 sp1-ics07-tendermint-membership    = { path = "membership", default-features = false }
@@ -41,8 +41,8 @@ tendermint-light-client-uc-and-membership = { path = "../../packages/tendermint-
 tendermint-light-client-update-client     = { path = "../../packages/tendermint-light-client/update-client", default-features = false }
 
 [patch.crates-io]
-sha2-v0-9-9         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-4.0.0" }
-sha2-v0-10-8        = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-4.0.0" }
-tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-4.0.0" }
-curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", tag = "patch-4.1.1-sp1-5.0.0" }
-sha3-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-4.0.0" }
+sha2-v0-9-9         = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.9.9-sp1-6.0.0" }
+sha2-v0-10-8        = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha2", tag = "patch-sha2-0.10.8-sp1-6.0.0" }
+tiny-keccak         = { git = "https://github.com/sp1-patches/tiny-keccak", tag = "patch-2.0.2-sp1-6.0.0" }
+curve25519-dalek-ng = { git = "https://github.com/sp1-patches/curve25519-dalek-ng", tag = "patch-4.1.1-sp1-6.0.0" }
+sha3-v0-10-8 = { git = "https://github.com/sp1-patches/RustCrypto-hashes", package = "sha3", tag = "patch-sha3-0.10.8-sp1-6.0.0" }
