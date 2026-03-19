@@ -1610,6 +1610,315 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_AdminMint() {
 	}))
 }
 
+// Test_IFT_TwoStepAdminTransfer tests the propose → verify unchanged → accept → verify changed flow,
+// and also tests cancel_admin_proposal.
+func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_TwoStepAdminTransfer() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	s.Require().True(s.Run("Create IFT SPL token", func() {
+		s.IFTMintWallet = solanago.NewWallet()
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+	}))
+
+	var newAdminWallet *solanago.Wallet
+	s.Require().True(s.Run("Create new admin wallet", func() {
+		var err error
+		newAdminWallet, err = s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+	}))
+
+	readAppState := func() *ift.IftStateIftAppState {
+		s.T().Helper()
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, s.IFTAppState, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+		state, err := ift.ParseAccount_IftStateIftAppState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+		return state
+	}
+
+	s.Require().True(s.Run("Verify initial admin is relayer", func() {
+		state := readAppState()
+		s.Require().Equal(s.SolanaRelayer.PublicKey(), state.Admin)
+		s.Require().Nil(state.PendingAdmin)
+	}))
+
+	s.Require().True(s.Run("Propose new admin", func() {
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			newAdminWallet.PublicKey(),
+			s.IFTAppState,
+			s.SolanaRelayer.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Propose admin tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify admin not changed yet, pending admin set", func() {
+		state := readAppState()
+		s.Require().Equal(s.SolanaRelayer.PublicKey(), state.Admin, "Admin should not change after propose")
+		s.Require().NotNil(state.PendingAdmin)
+		s.Require().Equal(newAdminWallet.PublicKey(), *state.PendingAdmin)
+	}))
+
+	s.Require().True(s.Run("Accept admin", func() {
+		acceptIx, err := ift.NewAcceptAdminInstruction(
+			s.IFTAppState,
+			newAdminWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(newAdminWallet.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, newAdminWallet)
+		s.Require().NoError(err)
+		s.T().Logf("Accept admin tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify admin changed to new admin", func() {
+		state := readAppState()
+		s.Require().Equal(newAdminWallet.PublicKey(), state.Admin, "Admin should be the new admin")
+		s.Require().Nil(state.PendingAdmin, "Pending admin should be cleared")
+	}))
+
+	// Transfer admin back and test cancel flow
+	s.Require().True(s.Run("Propose original admin back", func() {
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			s.SolanaRelayer.PublicKey(),
+			s.IFTAppState,
+			newAdminWallet.PublicKey(), // current admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(newAdminWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, newAdminWallet)
+		s.Require().NoError(err)
+		s.T().Logf("Propose original admin back tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify pending admin set to original", func() {
+		state := readAppState()
+		s.Require().Equal(newAdminWallet.PublicKey(), state.Admin, "Admin should still be new admin")
+		s.Require().NotNil(state.PendingAdmin)
+		s.Require().Equal(s.SolanaRelayer.PublicKey(), *state.PendingAdmin)
+	}))
+
+	s.Require().True(s.Run("Cancel admin proposal", func() {
+		cancelIx, err := ift.NewCancelAdminProposalInstruction(
+			s.IFTAppState,
+			newAdminWallet.PublicKey(), // current admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(newAdminWallet.PublicKey(), cancelIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, newAdminWallet)
+		s.Require().NoError(err)
+		s.T().Logf("Cancel admin proposal tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify proposal cancelled", func() {
+		state := readAppState()
+		s.Require().Equal(newAdminWallet.PublicKey(), state.Admin, "Admin should still be new admin")
+		s.Require().Nil(state.PendingAdmin, "Pending admin should be cleared after cancel")
+	}))
+
+	// After cancel, propose a different admin and verify it can be accepted
+	var thirdAdminWallet *solanago.Wallet
+	s.Require().True(s.Run("Create third admin wallet", func() {
+		var err error
+		thirdAdminWallet, err = s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Propose third admin after cancel", func() {
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			thirdAdminWallet.PublicKey(),
+			s.IFTAppState,
+			newAdminWallet.PublicKey(), // current admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(newAdminWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, newAdminWallet)
+		s.Require().NoError(err)
+		s.T().Logf("Propose third admin tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Accept third admin", func() {
+		acceptIx, err := ift.NewAcceptAdminInstruction(
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().NoError(err)
+		s.T().Logf("Accept third admin tx: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify third admin is now admin", func() {
+		state := readAppState()
+		s.Require().Equal(thirdAdminWallet.PublicKey(), state.Admin, "Admin should be the third admin")
+		s.Require().Nil(state.PendingAdmin, "Pending admin should be cleared")
+	}))
+
+	// Edge case: unauthorized propose (non-admin tries to propose)
+	s.Require().True(s.Run("Unauthorized propose is rejected", func() {
+		unauthorizedWallet, err := s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			unauthorizedWallet.PublicKey(),
+			s.IFTAppState,
+			unauthorizedWallet.PublicKey(), // not the admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(unauthorizedWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, unauthorizedWallet)
+		s.Require().Error(err, "Non-admin should not be able to propose")
+	}))
+
+	// Edge case: cancel with no pending proposal
+	s.Require().True(s.Run("Cancel with no pending proposal is rejected", func() {
+		cancelIx, err := ift.NewCancelAdminProposalInstruction(
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(), // current admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), cancelIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().Error(err, "Cancel should fail when no pending proposal exists")
+	}))
+
+	// Set up a proposal so we can test more edge cases
+	var fourthAdminWallet *solanago.Wallet
+	s.Require().True(s.Run("Propose fourth admin for edge case tests", func() {
+		var err error
+		fourthAdminWallet, err = s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			fourthAdminWallet.PublicKey(),
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().NoError(err)
+	}))
+
+	// Edge case: unauthorized accept (non-pending wallet tries to accept)
+	s.Require().True(s.Run("Unauthorized accept is rejected", func() {
+		acceptIx, err := ift.NewAcceptAdminInstruction(
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(), // current admin, not the pending admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().Error(err, "Non-pending admin should not be able to accept")
+	}))
+
+	// Edge case: propose while pending already exists
+	s.Require().True(s.Run("Propose while pending exists is rejected", func() {
+		anotherWallet, err := s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+
+		proposeIx, err := ift.NewProposeAdminInstruction(
+			anotherWallet.PublicKey(),
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(), // current admin
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().Error(err, "Propose should fail when a pending proposal already exists")
+	}))
+
+	// Edge case: cancel then stale accept
+	s.Require().True(s.Run("Cancel the proposal", func() {
+		cancelIx, err := ift.NewCancelAdminProposalInstruction(
+			s.IFTAppState,
+			thirdAdminWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(thirdAdminWallet.PublicKey(), cancelIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, thirdAdminWallet)
+		s.Require().NoError(err)
+	}))
+
+	s.Require().True(s.Run("Stale accept after cancel is rejected", func() {
+		acceptIx, err := ift.NewAcceptAdminInstruction(
+			s.IFTAppState,
+			fourthAdminWallet.PublicKey(), // was the pending admin before cancel
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(fourthAdminWallet.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, fourthAdminWallet)
+		s.Require().Error(err, "Previously-pending admin should not be able to accept after cancel")
+	}))
+
+	// Verify state unchanged after all negative tests
+	s.Require().True(s.Run("Verify admin unchanged after edge case tests", func() {
+		state := readAppState()
+		s.Require().Equal(thirdAdminWallet.PublicKey(), state.Admin, "Admin should still be the third admin")
+		s.Require().Nil(state.PendingAdmin, "Pending admin should be nil")
+	}))
+}
+
 // Test_IFT_ExistingToken_InvalidPendingTransfer tests that ift_transfer rejects a wrong pending_transfer PDA
 func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_InvalidPendingTransfer() {
 	ctx := context.Background()
