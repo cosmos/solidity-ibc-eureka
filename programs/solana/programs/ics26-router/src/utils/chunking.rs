@@ -21,7 +21,7 @@ pub struct AssembleProofParams<'a, 'b, 'c> {
     pub submitter: Pubkey,
     pub client_id: &'a str,
     pub sequence: u64,
-    pub total_chunks: u8,
+    pub delivery: &'a Delivery,
     pub start_index: usize,
 }
 
@@ -198,13 +198,18 @@ pub fn filter_app_remaining_accounts<'a, 'b>(
     }
 }
 
-/// Assemble proof chunks from remaining accounts and verify commitment
+/// Assemble proof data from either inline delivery or chunked accounts
 pub fn assemble_proof_chunks(params: AssembleProofParams) -> Result<Vec<u8>> {
+    let total_chunks = match params.delivery {
+        Delivery::Inline { data } => return Ok(data.clone()),
+        Delivery::Chunked { total_chunks } => *total_chunks,
+    };
+
     let mut proof_data = Vec::new();
     let mut accounts_processed = 0;
 
     // Collect and validate chunks
-    for i in 0..params.total_chunks {
+    for i in 0..total_chunks {
         let account_index = params.start_index + accounts_processed;
         require!(
             account_index < params.remaining_accounts.len(),
@@ -358,22 +363,21 @@ pub fn validate_and_reconstruct_packet(
 
     let payloads = if all_inline {
         // Inline mode: extract data directly from each MsgPayload
-        msg_payloads
-            .iter()
-            .map(|p| {
-                let data = match &p.data {
-                    Delivery::Inline { data } => data.clone(),
-                    Delivery::Chunked { .. } => unreachable!(),
-                };
-                solana_ibc_types::Payload {
-                    source_port: p.source_port.clone(),
-                    dest_port: p.dest_port.clone(),
-                    version: p.version.clone(),
-                    encoding: p.encoding.clone(),
-                    value: data,
-                }
-            })
-            .collect()
+        let mut inline_payloads = Vec::new();
+        for p in msg_payloads {
+            let data = match &p.data {
+                Delivery::Inline { data } => data.clone(),
+                Delivery::Chunked { .. } => unreachable!(),
+            };
+            inline_payloads.push(solana_ibc_types::Payload {
+                source_port: p.source_port.clone(),
+                dest_port: p.dest_port.clone(),
+                version: p.version.clone(),
+                encoding: p.encoding.clone(),
+                value: data,
+            });
+        }
+        inline_payloads
     } else {
         // Chunked mode: assemble from chunk accounts
         let payload_data_vec = assemble_multiple_payloads(
@@ -385,17 +389,18 @@ pub fn validate_and_reconstruct_packet(
             msg_payloads,
         )?;
 
-        msg_payloads
-            .iter()
-            .enumerate()
-            .map(|(i, p)| solana_ibc_types::Payload {
-                source_port: p.source_port.clone(),
-                dest_port: p.dest_port.clone(),
-                version: p.version.clone(),
-                encoding: p.encoding.clone(),
+        let mut assembled_payloads = Vec::new();
+        for (i, metadata) in msg_payloads.iter().enumerate() {
+            let payload = solana_ibc_types::Payload {
+                source_port: metadata.source_port.clone(),
+                dest_port: metadata.dest_port.clone(),
+                version: metadata.version.clone(),
+                encoding: metadata.encoding.clone(),
                 value: payload_data_vec[i].clone(),
-            })
-            .collect()
+            };
+            assembled_payloads.push(payload);
+        }
+        assembled_payloads
     };
 
     Ok(solana_ibc_types::Packet {

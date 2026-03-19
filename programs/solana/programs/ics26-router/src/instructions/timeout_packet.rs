@@ -144,21 +144,15 @@ pub fn timeout_packet<'info>(
     let payload = packet::get_single_payload(&packet)?;
 
     let total_payload_chunks = total_payload_chunks(&msg.packet.payloads);
-    let (proof_data, proof_total_chunks) = match &msg.proof.data {
-        Delivery::Inline { data } => (data.clone(), 0u8),
-        Delivery::Chunked { total_chunks } => {
-            let data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
-                remaining_accounts: ctx.remaining_accounts,
-                relayer: &ctx.accounts.relayer,
-                submitter: ctx.accounts.relayer.key(),
-                client_id: &msg.packet.source_client,
-                sequence: msg.packet.sequence,
-                total_chunks: *total_chunks,
-                start_index: total_payload_chunks,
-            })?;
-            (data, *total_chunks)
-        }
-    };
+    let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
+        remaining_accounts: ctx.remaining_accounts,
+        relayer: &ctx.accounts.relayer,
+        submitter: ctx.accounts.relayer.key(),
+        client_id: &msg.packet.source_client,
+        sequence: msg.packet.sequence,
+        delivery: &msg.proof.data,
+        start_index: total_payload_chunks,
+    })?;
 
     // Verify non-membership proof on counterparty chain via light client
     let receipt_path = ics24::packet_receipt_commitment_path(&packet.dest_client, packet.sequence);
@@ -191,7 +185,7 @@ pub fn timeout_packet<'info>(
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
         total_payload_chunks,
-        proof_total_chunks,
+        msg.proof.data.total_chunks(),
     );
 
     let cpi_ctx = CpiContext::new(
