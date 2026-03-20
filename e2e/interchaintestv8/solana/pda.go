@@ -25,16 +25,16 @@ type testGmpAppPDAs struct{}
 type testIbcAppPDAs struct{}
 
 var (
-	AccessManager   = accessManagerPDAs{}
-	Attestation     = attestationPDAs{}
+	AccessManager = accessManagerPDAs{}
+	Attestation = attestationPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router     = ics26RouterPDAs{}
-	Ics27Gmp        = ics27GmpPDAs{}
-	Ift             = iftPDAs{}
+	Ics26Router = ics26RouterPDAs{}
+	Ics27Gmp = ics27GmpPDAs{}
+	Ift = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
-	TestCpiTarget   = testCpiTargetPDAs{}
-	TestGmpApp      = testGmpAppPDAs{}
-	TestIbcApp      = testIbcAppPDAs{}
+	TestCpiTarget = testCpiTargetPDAs{}
+	TestGmpApp = testGmpAppPDAs{}
+	TestIbcApp = testIbcAppPDAs{}
 )
 
 func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
@@ -158,17 +158,6 @@ func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 	return pda, bump
 }
 
-func (ics26RouterPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("cseq"), sourceClient},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics26Router.ClientSequenceWithArgSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
 func (ics26RouterPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), sourceClient},
@@ -246,17 +235,6 @@ func (ics27GmpPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKe
 	return pda, bump
 }
 
-func (ics27GmpPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("cseq"), sourceClient},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive Ics27Gmp.ClientSequenceWithArgSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
 func (ics27GmpPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), sourceClient},
@@ -286,6 +264,17 @@ func (ics27GmpPDAs) IbcAppGmpportPDA(programID solanago.PublicKey) (solanago.Pub
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics27Gmp.IbcAppGmpportPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) PacketCommitmentWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("packet_commitment"), sourceClient, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.PacketCommitmentWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -374,6 +363,17 @@ func (iftPDAs) IftMintAuthorityWithAccountSeedPDA(programID solanago.PublicKey, 
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ift.IftMintAuthorityWithAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (iftPDAs) PacketCommitmentWithArgSeedPDA(programID solanago.PublicKey, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("packet_commitment"), clientId, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.PacketCommitmentWithArgSeedPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -477,17 +477,6 @@ func (testIbcAppPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.Public
 	return pda, bump
 }
 
-func (testIbcAppPDAs) ClientSequenceWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
-	pda, bump, err := solanago.FindProgramAddress(
-		[][]byte{[]byte("cseq"), sourceClient},
-		programID,
-	)
-	if err != nil {
-		panic(fmt.Sprintf("failed to derive TestIbcApp.ClientSequenceWithArgSeedPDA PDA: %v", err))
-	}
-	return pda, bump
-}
-
 func (testIbcAppPDAs) ClientWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("client"), sourceClient},
@@ -553,3 +542,4 @@ func (testIbcAppPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.Pub
 	}
 	return pda, bump
 }
+

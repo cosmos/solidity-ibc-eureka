@@ -80,9 +80,6 @@ pub enum RouterError {
     #[msg("Invalid account owner: account is not owned by the expected program")]
     InvalidAccountOwner,
 
-    #[msg("Invalid sequence suffix: must match hash(program_id || sender) % 10000")]
-    InvalidSequenceSuffix,
-
     #[msg("Failed to serialize packet")]
     PacketSerializationError,
 
@@ -99,6 +96,9 @@ pub enum RouterError {
 
     #[msg("Router is not paused")]
     RouterNotPaused,
+
+    #[msg("Packet sequence must be greater than zero")]
+    InvalidSequence,
 }
 
 /// Convert CPI validation errors to Router errors

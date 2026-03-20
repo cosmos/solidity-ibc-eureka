@@ -516,12 +516,12 @@ let (result_pda, bump) = Pubkey::find_program_address(&[
 The account stores:
 - `status` (Acknowledged/TimedOut)
 - `sender` (original sender address)
-- `sequence` (namespaced: `base_sequence * 10000 + hash(app_program, sender) % 10000`)
+- `sequence` (per-sender counter from `ClientSequence` PDA)
 - `source_client` / `dest_client` (client IDs)
 - `ack_commitment` (SHA256 hash of acknowledgement bytes, or zeros for timeout)
 - `result_timestamp` (Unix seconds)
 
-See [Namespaced Sequence Calculation](solana-storage-architecture.md#namespaced-sequence-calculation) for details on sequence namespacing.
+See [Per-Sender Sequence Counter](solana-storage-architecture.md#per-sender-sequence-counter) for details on sequence management.
 
 **Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
 

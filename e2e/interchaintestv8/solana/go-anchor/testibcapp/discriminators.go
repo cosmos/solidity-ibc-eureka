@@ -6,7 +6,6 @@ package test_ibc_app
 // Account discriminators
 var (
 	Account_Ics26RouterStateClient         = [8]byte{221, 237, 145, 143, 170, 194, 133, 115}
-	Account_Ics26RouterStateClientSequence = [8]byte{18, 97, 143, 135, 107, 101, 53, 226}
 	Account_Ics26RouterStateIbcApp         = [8]byte{204, 125, 117, 159, 158, 163, 105, 66}
 	Account_Ics26RouterStateRouterState    = [8]byte{141, 157, 194, 155, 75, 208, 200, 27}
 	Account_TestIbcAppStateEscrowState     = [8]byte{19, 90, 148, 111, 55, 130, 229, 108}

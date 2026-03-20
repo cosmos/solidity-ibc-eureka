@@ -547,29 +547,6 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
     )
 }
 
-pub fn create_client_sequence_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
-    let (pda, _) = Pubkey::find_program_address(
-        &[
-            ics26_router::state::ClientSequence::SEED,
-            source_client.as_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let state = ics26_router::state::ClientSequence::default();
-    let mut data = ics26_router::state::ClientSequence::DISCRIMINATOR.to_vec();
-    state.serialize(&mut data).unwrap();
-    (
-        pda,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data,
-            owner: ics26_router::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
 pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
     let (pda, _) = Pubkey::find_program_address(
         &[ics26_router::state::IBCApp::SEED, port_id.as_bytes()],
@@ -733,9 +710,6 @@ pub fn setup_program_test_with_access_manager(
     // Pre-create router PDA accounts for send_call tests
     let (router_state_pda, router_state_account) = create_router_state_pda();
     pt.add_account(router_state_pda, router_state_account);
-
-    let (client_seq_pda, client_seq_account) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
-    pt.add_account(client_seq_pda, client_seq_account);
 
     let (ibc_app_pda, ibc_app_account) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
     pt.add_account(ibc_app_pda, ibc_app_account);
