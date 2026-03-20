@@ -360,16 +360,18 @@ pub fn validate_and_reconstruct_packet(
     let msg_payloads = &params.msg_packet.payloads;
     require!(!msg_payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    // Check all payloads use the same delivery variant (no mixed modes)
-    let all_inline = msg_payloads
+    let has_inline_payloads = msg_payloads
         .iter()
-        .all(|p| matches!(&p.data, Delivery::Inline { .. }));
-    let all_chunked = msg_payloads
+        .any(|p| matches!(&p.data, Delivery::Inline { .. }));
+    let has_chunked_payloads = msg_payloads
         .iter()
-        .all(|p| matches!(&p.data, Delivery::Chunked { .. }));
-    require!(all_inline || all_chunked, RouterError::MixedDeliveryModes);
+        .any(|p| matches!(&p.data, Delivery::Chunked { .. }));
+    require!(
+        has_inline_payloads ^ has_chunked_payloads,
+        RouterError::MixedDeliveryModes
+    );
 
-    let payloads = if all_inline {
+    let payloads = if has_inline_payloads {
         // Inline mode: extract data directly from each MsgPayload
         let mut inline_payloads = Vec::new();
         for p in msg_payloads {
