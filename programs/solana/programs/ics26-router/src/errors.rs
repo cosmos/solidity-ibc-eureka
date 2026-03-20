@@ -70,6 +70,8 @@ pub enum RouterError {
     InvalidMigrationParams,
     #[msg("Port identifier mismatch")]
     PortIdentifierMismatch,
+    #[msg("Mixed delivery modes: all payloads must use the same delivery variant")]
+    MixedDeliveryModes,
 
     #[msg("Invalid sysvar account provided")]
     InvalidSysvar,
