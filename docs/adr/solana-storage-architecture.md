@@ -280,7 +280,7 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 ### Caller-Chosen Sequence
 
-Callers provide a random `u64` sequence in `MsgSendPacket.sequence`. There is no on-chain sequence counter — uniqueness is enforced by `create_account` failing if the `PacketCommitment` PDA already exists.
+Callers provide a `u64` sequence in `MsgSendPacket.sequence`. There is no on-chain sequence counter — uniqueness is enforced by `create_account` failing if the `PacketCommitment` PDA already exists.
 
 **PDA Seeds:**
 ```
@@ -290,9 +290,9 @@ PacketCommitment: [b"packet_commitment", client_id, sequence]
 - `client_id` — IBC client identifier
 - `sequence` — caller-chosen u64 (little-endian)
 
-**Why caller-chosen?** A shared on-chain counter is a write-lock bottleneck. Caller-chosen random u64 sequences eliminate contention with negligible collision probability.
+**Why caller-chosen?** A shared on-chain counter is a write-lock bottleneck. Caller-chosen u64 sequences eliminate contention with negligible collision probability.
 
-**Collision handling**: If a caller picks a sequence that already has a commitment PDA, `create_account` fails and the transaction reverts. Callers should use random u64 values to avoid this.
+**Collision handling**: If a caller picks a sequence that already has a commitment PDA, `create_account` fails and the transaction reverts. Callers should use unique u64 values to avoid this.
 
 ### PDA Seed Encoding (Little-Endian)
 
@@ -314,7 +314,7 @@ IBC commitment paths (for cross-chain proofs) use **big-endian** per IBC spec:
 
 ### Sequence Management
 
-- Callers provide a random u64 in `MsgSendPacket.sequence`; uniqueness enforced by PDA creation
+- Callers provide a u64 in `MsgSendPacket.sequence`; uniqueness enforced by PDA creation
 
 ## Configuration Constants
 

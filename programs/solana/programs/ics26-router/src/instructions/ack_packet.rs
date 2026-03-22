@@ -700,7 +700,7 @@ mod tests {
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
         ))];
-        let mollusk = setup_mollusk();
+        let mollusk = setup_mollusk_with_mock_programs();
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

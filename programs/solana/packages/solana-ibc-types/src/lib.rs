@@ -43,8 +43,7 @@ pub use ics27::{
 
 pub use events::{
     AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
-    NoopEvent, RouterPausedEvent, RouterUnpausedEvent, SendPacketEvent, TimeoutPacketEvent,
-    WriteAcknowledgementEvent,
+    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
 pub use access_manager::{roles, AccessManager};

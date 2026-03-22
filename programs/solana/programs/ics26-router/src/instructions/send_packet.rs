@@ -110,7 +110,7 @@ pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> 
     );
 
     let sequence = msg.sequence;
-    require!(msg.sequence > 0, RouterError::InvalidSequence);
+    require!(msg.sequence > 0, RouterError::ZeroPacketSequence);
 
     let counterparty_client_id = ctx.accounts.client.counterparty_info.client_id.clone();
 
@@ -1876,7 +1876,7 @@ mod tests {
             .unwrap_err();
         assert_eq!(
             pt_extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + RouterError::InvalidSequence as u32),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::ZeroPacketSequence as u32),
         );
     }
 
