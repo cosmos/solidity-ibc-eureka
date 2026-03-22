@@ -609,6 +609,50 @@ mod tests {
     }
 
     #[test]
+    fn test_ack_packet_mixed_delivery_modes() {
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        // Mix inline and chunked payloads in the same packet
+        ctx.packet.payloads = vec![
+            MsgPayload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Inline {
+                    data: b"inline data".to_vec(),
+                },
+            },
+            MsgPayload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+        ];
+
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
+                height: 100,
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::MixedDeliveryModes as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
     fn test_ack_packet_wrong_source_port_seeds_mismatch() {
         let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 

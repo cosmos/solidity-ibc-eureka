@@ -151,7 +151,9 @@ pub fn assemble_single_payload_chunks(params: AssemblePayloadParams) -> Result<V
     Ok(payload_data)
 }
 
-pub fn total_payload_chunks(payloads: &[MsgPayload]) -> Result<usize> {
+/// Validates that all payloads use the same delivery mode (all inline or all chunked)
+/// and returns an error if mixed modes are detected.
+fn validate_uniform_delivery(payloads: &[MsgPayload]) -> Result<()> {
     require!(
         payloads.windows(2).all(|w| {
             matches!(
@@ -162,6 +164,18 @@ pub fn total_payload_chunks(payloads: &[MsgPayload]) -> Result<usize> {
         }),
         RouterError::MixedDeliveryModes
     );
+    Ok(())
+}
+
+/// Returns the total number of payload chunk accounts needed for the given payloads.
+///
+/// All payloads must use the same delivery variant (all inline or all chunked).
+/// Inline payloads contribute 0 chunks; chunked payloads contribute their `total_chunks` value.
+///
+/// # Errors
+/// Returns `RouterError::MixedDeliveryModes` if payloads mix inline and chunked delivery.
+pub fn total_payload_chunks(payloads: &[MsgPayload]) -> Result<usize> {
+    validate_uniform_delivery(payloads)?;
 
     Ok(payloads
         .iter()
@@ -360,16 +374,10 @@ pub fn validate_and_reconstruct_packet(
     let msg_payloads = &params.msg_packet.payloads;
     require!(!msg_payloads.is_empty(), RouterError::InvalidPayloadCount);
 
-    let has_inline_payloads = msg_payloads
-        .iter()
-        .any(|p| matches!(&p.data, Delivery::Inline { .. }));
-    let has_chunked_payloads = msg_payloads
-        .iter()
-        .any(|p| matches!(&p.data, Delivery::Chunked { .. }));
-    require!(
-        has_inline_payloads ^ has_chunked_payloads,
-        RouterError::MixedDeliveryModes
-    );
+    validate_uniform_delivery(msg_payloads)?;
+
+    // Safe to check only first: validate_uniform_delivery guarantees all payloads use the same mode
+    let has_inline_payloads = matches!(&msg_payloads[0].data, Delivery::Inline { .. });
 
     let payloads = if has_inline_payloads {
         // Inline mode: extract data directly from each MsgPayload
@@ -635,6 +643,7 @@ mod tests {
         );
     }
 
+    // Helper function to create mock AccountInfo for testing
     fn create_mock_account_info<'a>(
         key: &'a Pubkey,
         lamports: &'a mut u64,
@@ -646,6 +655,7 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_with_payload_and_proof_chunks() {
+        // Create 3 payload chunks + 2 proof chunks + 4 app accounts (9 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -689,8 +699,10 @@ mod tests {
             create_mock_account_info(&keys[8], &mut lamports8, &mut data8, &owner),
         ];
 
+        // Filter: 3 payload chunks + 2 proof chunks = 5 chunks to skip
         let result = filter_app_remaining_accounts(&accounts, 3, 2);
 
+        // Should return last 4 accounts (app accounts after chunks)
         assert_eq!(result.len(), 4);
         assert_eq!(result[0].key, &keys[5]);
         assert_eq!(result[1].key, &keys[6]);
@@ -700,6 +712,7 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_only_payload_chunks() {
+        // Create 2 payload chunks + 0 proof chunks + 3 app accounts (5 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -727,8 +740,10 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
+        // Filter: 2 payload chunks + 0 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 2, 0);
 
+        // Should return last 3 accounts
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].key, &keys[2]);
         assert_eq!(result[1].key, &keys[3]);
@@ -737,6 +752,7 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_only_proof_chunks() {
+        // Create 0 payload chunks + 3 proof chunks + 2 app accounts (5 total)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -764,8 +780,10 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
+        // Filter: 0 payload chunks + 3 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 0, 3);
 
+        // Should return last 2 accounts
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].key, &keys[3]);
         assert_eq!(result[1].key, &keys[4]);
@@ -773,6 +791,7 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_no_chunks() {
+        // Create 5 app accounts only (no chunks)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -800,8 +819,10 @@ mod tests {
             create_mock_account_info(&keys[4], &mut lamports4, &mut data4, &owner),
         ];
 
+        // Filter: 0 payload chunks + 0 proof chunks
         let result = filter_app_remaining_accounts(&accounts, 0, 0);
 
+        // Should return all 5 accounts unchanged
         assert_eq!(result.len(), 5);
         for (i, account) in result.iter().enumerate() {
             assert_eq!(account.key, &keys[i]);
@@ -810,6 +831,7 @@ mod tests {
 
     #[test]
     fn test_filter_app_remaining_accounts_all_chunks_no_app_accounts() {
+        // Create 2 payload chunks + 1 proof chunk (3 total, no app accounts)
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -829,13 +851,16 @@ mod tests {
             create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
         ];
 
+        // Filter: 2 payload chunks + 1 proof chunk = all 3 accounts
         let result = filter_app_remaining_accounts(&accounts, 2, 1);
 
+        // Should return empty slice (no app accounts after chunks)
         assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn test_filter_app_remaining_accounts_more_chunks_than_accounts() {
+        // Create 3 accounts total
         let keys = [
             Pubkey::new_unique(),
             Pubkey::new_unique(),
@@ -855,8 +880,10 @@ mod tests {
             create_mock_account_info(&keys[2], &mut lamports2, &mut data2, &owner),
         ];
 
+        // Filter: 2 payload chunks + 2 proof chunks = 4 chunks expected (more than available)
         let result = filter_app_remaining_accounts(&accounts, 2, 2);
 
+        // Should return empty slice (defensive behavior when chunks >= total accounts)
         assert_eq!(result.len(), 0);
     }
 }
