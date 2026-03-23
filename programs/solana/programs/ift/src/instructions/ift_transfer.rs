@@ -1,8 +1,5 @@
 use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::solana_program::system_instruction;
-use anchor_lang::Space;
 use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use serde::Serialize;
 
@@ -128,11 +125,19 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// CHECK: PDA seed includes the sequence returned by the router's `send_packet`
-    /// CPI, which is only known at runtime. Validated and created manually in the
-    /// handler after the CPI completes.
-    #[account(mut)]
-    pub pending_transfer: UncheckedAccount<'info>,
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + PendingTransfer::INIT_SPACE,
+        seeds = [
+            PENDING_TRANSFER_SEED,
+            app_mint_state.mint.as_ref(),
+            msg.client_id.as_bytes(),
+            &msg.sequence.to_le_bytes(),
+        ],
+        bump,
+    )]
+    pub pending_transfer: Account<'info, PendingTransfer>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
@@ -203,17 +208,16 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let sequence = crate::gmp_cpi::send_gmp_call(gmp_accounts, gmp_msg)?;
 
-    create_pending_transfer_account(CreatePendingTransferParams {
-        mint: &ctx.accounts.app_mint_state.mint,
-        client_id: &msg.client_id,
-        sequence,
-        sender: &ctx.accounts.sender.key(),
-        amount: msg.amount,
-        pending_transfer: &ctx.accounts.pending_transfer,
-        payer: &ctx.accounts.payer.to_account_info(),
-        system_program: &ctx.accounts.system_program.to_account_info(),
-        clock: &clock,
-    })?;
+    let pending = &mut ctx.accounts.pending_transfer;
+    pending.version = AccountVersion::V1;
+    pending.bump = ctx.bumps.pending_transfer;
+    pending.mint = ctx.accounts.app_mint_state.mint;
+    pending.client_id = msg.client_id.clone();
+    pending.sequence = sequence;
+    pending.sender = ctx.accounts.sender.key();
+    pending.amount = msg.amount;
+    pending.timestamp = clock.unix_timestamp;
+    pending._reserved = [0; 32];
 
     emit!(IFTTransferInitiated {
         mint: ctx.accounts.app_mint_state.mint,
@@ -307,96 +311,6 @@ fn construct_cosmos_mint_call(
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
 }
 
-/// Parameters for creating a pending transfer account
-struct CreatePendingTransferParams<'a, 'info> {
-    mint: &'a Pubkey,
-    client_id: &'a str,
-    sequence: u64,
-    sender: &'a Pubkey,
-    amount: u64,
-    pending_transfer: &'a UncheckedAccount<'info>,
-    payer: &'a AccountInfo<'info>,
-    system_program: &'a AccountInfo<'info>,
-    clock: &'a Clock,
-}
-
-/// Creates pending transfer PDA (sequence is runtime-computed, can't use Anchor's `init`)
-fn create_pending_transfer_account(params: CreatePendingTransferParams) -> Result<()> {
-    let CreatePendingTransferParams {
-        mint,
-        client_id,
-        sequence,
-        sender,
-        amount,
-        pending_transfer: pending_transfer_info,
-        payer,
-        system_program,
-        clock,
-    } = params;
-    let sequence_bytes = sequence.to_le_bytes();
-
-    // TODO: `find_program_address` is O(n) ~10k CUs. Consider accepting bump as parameter
-    // (client computes off-chain via simulation) and using `create_program_address` ~1.5k CUs.
-    let (expected_pda, bump) = Pubkey::find_program_address(
-        &[
-            PENDING_TRANSFER_SEED,
-            mint.as_ref(),
-            client_id.as_bytes(),
-            &sequence_bytes,
-        ],
-        &crate::ID,
-    );
-    require!(
-        pending_transfer_info.key() == expected_pda,
-        IFTError::InvalidPendingTransfer
-    );
-
-    let account_size = 8 + PendingTransfer::INIT_SPACE;
-    let lamports = Rent::get()?.minimum_balance(account_size);
-
-    let signer_seeds: &[&[&[u8]]] = &[&[
-        PENDING_TRANSFER_SEED,
-        mint.as_ref(),
-        client_id.as_bytes(),
-        &sequence_bytes,
-        &[bump],
-    ]];
-
-    invoke_signed(
-        &system_instruction::create_account(
-            payer.key,
-            pending_transfer_info.key,
-            lamports,
-            account_size as u64,
-            &crate::ID,
-        ),
-        &[
-            payer.clone(),
-            pending_transfer_info.to_account_info(),
-            system_program.clone(),
-        ],
-        signer_seeds,
-    )?;
-
-    let pending = PendingTransfer {
-        version: AccountVersion::V1,
-        bump,
-        mint: *mint,
-        client_id: client_id.to_string(),
-        sequence,
-        sender: *sender,
-        amount,
-        timestamp: clock.unix_timestamp,
-        _reserved: [0; 32],
-    };
-
-    let mut data = pending_transfer_info.try_borrow_mut_data()?;
-    data[0..8].copy_from_slice(PendingTransfer::DISCRIMINATOR);
-    pending.serialize(&mut &mut data[8..])?;
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -409,10 +323,6 @@ mod tests {
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
     };
-
-    const TEST_CLIENT_ID: &str = "07-tendermint-0";
-    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
-    const VALID_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
 
     #[rstest]
     #[case::invalid_hex("0xnothex")]
@@ -509,6 +419,10 @@ mod tests {
             }
         }
     }
+
+    const TEST_CLIENT_ID: &str = "07-tendermint-0";
+    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
+    const VALID_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
 
     fn create_token_account(
         mint: &Pubkey,
@@ -663,17 +577,17 @@ mod tests {
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
-                    timeout_timestamp: 1_700_000_000, // exactly == clock
+                    timeout_timestamp: 1_700_000_000,
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutBelowMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + 30, // 30s in future, below 60s min
+                    timeout_timestamp: 1_700_000_000 + 30,
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + crate::constants::MIN_TIMEOUT_DURATION, // exactly == clock + min
+                    timeout_timestamp: 1_700_000_000 + crate::constants::MIN_TIMEOUT_DURATION,
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
@@ -779,7 +693,23 @@ mod tests {
         let light_client_state = Pubkey::new_unique();
         let (instructions_sysvar, instructions_account) = create_instructions_sysvar_account();
         let consensus_state = Pubkey::new_unique();
-        let pending_transfer = Pubkey::new_unique();
+        let (pending_transfer, _) = Pubkey::find_program_address(
+            &[
+                PENDING_TRANSFER_SEED,
+                mint.as_ref(),
+                msg.client_id.as_bytes(),
+                &msg.sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+
+        let pending_transfer_account = solana_sdk::account::Account {
+            lamports: 0,
+            data: vec![],
+            owner: solana_sdk::system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        };
 
         let instruction = Instruction {
             program_id: crate::ID,
@@ -830,7 +760,7 @@ mod tests {
             (light_client_state, create_signer_account()),
             (instructions_sysvar, instructions_account),
             (consensus_state, create_signer_account()),
-            (pending_transfer, create_uninitialized_pda()),
+            (pending_transfer, pending_transfer_account),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);

@@ -433,7 +433,7 @@ func NewIftTransferInstruction(
 		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 20 "pending_transfer": Writable, Non-signer, Required
-		// Seeds are verified in `create_pending_transfer_account`.
+		// PDA derived from [PENDING_TRANSFER_SEED, mint, client_id, sequence].
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 
