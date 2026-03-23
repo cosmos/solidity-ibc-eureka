@@ -4,19 +4,8 @@ use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
 use ics26_router::state::{Client, ClientSequence, IBCApp, RouterState};
-use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_proto::RawGmpPacketData;
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
-
-alloy_sol_types::sol! {
-    /// ABI-compatible layout of the EVM `IICS27GMPMsgs.GMPPacketData` struct.
-    struct GmpPacketDataAbi {
-        string sender;
-        string receiver;
-        bytes salt;
-        bytes payload;
-        string memo;
-    }
-}
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
 ///
@@ -162,11 +151,6 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::TimeoutTooLong
     );
 
-    require!(
-        msg.encoding == ICS27_ENCODING_PROTOBUF || msg.encoding == ICS27_ENCODING_ABI,
-        GMPError::InvalidEncoding
-    );
-
     let raw_packet_data = RawGmpPacketData {
         sender: sender_pubkey.to_string(),
         receiver: msg.receiver.clone(),
@@ -180,19 +164,7 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    let packet_data_bytes = if msg.encoding == ICS27_ENCODING_ABI {
-        use alloy_sol_types::SolValue;
-        GmpPacketDataAbi {
-            sender: packet_data.sender.into_string(),
-            receiver: packet_data.receiver.into_string(),
-            salt: packet_data.salt.into_vec().into(),
-            payload: packet_data.payload.into_inner().into(),
-            memo: packet_data.memo.into_string(),
-        }
-        .abi_encode()
-    } else {
-        packet_data.encode_vec()
-    };
+    let packet_data_bytes = crate::encoding::encode_gmp_packet(packet_data, &msg.encoding)?;
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
@@ -248,6 +220,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -697,27 +670,28 @@ mod tests {
 
     #[test]
     fn test_abi_encode_gmp_packet_data_round_trip() {
-        use alloy_sol_types::SolValue;
-
-        let original = GmpPacketDataAbi {
+        let raw = RawGmpPacketData {
             sender: "solana_sender_pubkey".to_string(),
             receiver: "0xabcdef1234567890abcdef1234567890abcdef12".to_string(),
-            salt: vec![1, 2, 3].into(),
-            payload: vec![4, 5, 6, 7].into(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6, 7],
             memo: "test memo".to_string(),
         };
+        let packet_data = GmpPacketData::try_from(raw).unwrap();
 
-        let encoded = original.abi_encode();
-        let decoded = GmpPacketDataAbi::abi_decode(&encoded).expect("ABI decoding should succeed");
+        let encoded =
+            encode_gmp_packet(packet_data, ICS27_ENCODING_ABI).expect("ABI encoding should work");
+        let decoded =
+            decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).expect("ABI decoding should succeed");
 
-        assert_eq!(decoded.sender, "solana_sender_pubkey");
+        assert_eq!(decoded.sender.as_ref(), "solana_sender_pubkey");
         assert_eq!(
-            decoded.receiver,
+            decoded.receiver.as_ref(),
             "0xabcdef1234567890abcdef1234567890abcdef12"
         );
-        assert_eq!(decoded.salt.as_ref(), &[1, 2, 3]);
-        assert_eq!(decoded.payload.as_ref(), &[4, 5, 6, 7]);
-        assert_eq!(decoded.memo, "test memo");
+        assert_eq!(&decoded.salt[..], &[1, 2, 3]);
+        assert_eq!(&decoded.payload[..], &[4, 5, 6, 7]);
+        assert_eq!(decoded.memo.as_ref(), "test memo");
     }
 }
 
