@@ -23,6 +23,7 @@ impl super::TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
         access_manager: Pubkey,
+        authority: Pubkey,
     ) -> Result<Instruction> {
         // For create_client, we use the default ICS07 Tendermint light client.
         let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
@@ -33,12 +34,19 @@ impl super::TxBuilder {
         let (consensus_state_pda, _) = ConsensusState::pda(latest_height, solana_ics07_program_id);
         let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[solana_ics07_program_id.as_ref()],
+            &solana_sdk::bpf_loader_upgradeable::id(),
+        );
+
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
             AccountMeta::new(app_state_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority, true),
         ];
 
         let discriminator = ics07_instructions::initialize_discriminator();

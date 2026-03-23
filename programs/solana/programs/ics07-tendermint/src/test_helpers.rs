@@ -1084,6 +1084,36 @@ pub mod access_control {
     }
 }
 
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &solana_sdk::pubkey::Pubkey,
+    authority: Option<solana_sdk::pubkey::Pubkey>,
+) -> (solana_sdk::pubkey::Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) = solana_sdk::pubkey::Pubkey::find_program_address(
+        &[program_id.as_ref()],
+        &bpf_loader_upgradeable::ID,
+    );
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 /// Create instructions sysvar account for direct call (not CPI)
 pub fn create_instructions_sysvar_account() -> solana_sdk::account::Account {
     use solana_sdk::pubkey::Pubkey;

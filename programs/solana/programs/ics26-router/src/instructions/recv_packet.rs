@@ -855,7 +855,6 @@ mod tests {
             version: AccountVersion::V1,
             port_id: "test-port".to_string(),
             app_program_id: MOCK_IBC_APP_PROGRAM_ID,
-            authority: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
 
@@ -1649,12 +1648,10 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = setup_mollusk_with_mock_programs();
-
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
         ))];
-
+        let mollusk = setup_mollusk_with_mock_programs();
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }
