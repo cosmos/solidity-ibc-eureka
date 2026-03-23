@@ -277,6 +277,34 @@ pub fn create_clock_sysvar_account(unix_timestamp: i64) -> (Pubkey, SolanaAccoun
     )
 }
 
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 /// Get the global IFT app state PDA (singleton, no mint param)
 pub fn get_app_state_pda() -> (Pubkey, u8) {
     Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &crate::ID)

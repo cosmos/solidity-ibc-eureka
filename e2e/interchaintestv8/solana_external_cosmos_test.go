@@ -164,19 +164,26 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize Access Control", func() {
+		const deployerPath = keypairDir + "/deployer_wallet.json"
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		amProgramDataPDA, _ := solana.AccessManager.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 		initInstruction, err := access_manager.NewInitializeInstruction(
 			s.SolanaUser.PublicKey(),
 			accessControlAccount,
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
 			solanago.SysVarInstructionsPubkey,
+			amProgramDataPDA,
+			solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 		s.Require().NoError(err)
 		s.T().Log("Access control initialized")
 	}))
@@ -203,20 +210,27 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
 		s.T().Log("Initializing ICS26 Router...")
+		const deployerPath = keypairDir + "/deployer_wallet.json"
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 
+		routerProgramDataPDA, _ := solana.Ics26Router.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 		initInstruction, err := ics26_router.NewInitializeInstruction(
 			access_manager.ProgramID,
 			routerStateAccount,
 			s.SolanaUser.PublicKey(),
 			solanago.SystemProgramID,
+			routerProgramDataPDA,
+			solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 		s.Require().NoError(err)
 		s.T().Log("ICS26 Router initialized successfully")
 	}))

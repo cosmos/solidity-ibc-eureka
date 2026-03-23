@@ -123,6 +123,9 @@ pub enum IFTError {
 
     #[msg("A pending admin proposal already exists; cancel it first")]
     PendingAdminAlreadyExists,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 impl From<CpiValidationError> for IFTError {
