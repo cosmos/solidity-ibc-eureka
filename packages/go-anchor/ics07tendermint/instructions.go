@@ -24,6 +24,8 @@ func NewInitializeInstruction(
 	appStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	authorityAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -69,6 +71,12 @@ func NewInitializeInstruction(
 		// Account 4 "system_program": Read-only, Non-signer, Required
 		// Required by Anchor for PDA creation via the System Program.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 5 "program_data": Read-only, Non-signer, Required
+		// BPF Loader Upgradeable `ProgramData` account for this program.
+		accounts__.Append(solanago.NewAccountMeta(programDataAccount, false, false))
+		// Account 6 "authority": Read-only, Signer, Required
+		// The program's upgrade authority — must sign to prove deployer identity.
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 	}
 
 	// Create the instruction.

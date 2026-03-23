@@ -23,6 +23,8 @@ pub enum AccessManagerError {
     ZeroAccount,
     #[msg("Duplicate entry in whitelisted programs list")]
     DuplicateWhitelistedProgram,
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

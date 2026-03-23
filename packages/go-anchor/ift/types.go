@@ -44,7 +44,7 @@ type Ics27GmpStateGmpCallResultAccount struct {
 	// Original sender pubkey.
 	Sender solanago.PublicKey `json:"sender"`
 
-	// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+	// Caller-chosen IBC packet sequence number.
 	Sequence uint64 `json:"sequence"`
 
 	// Source client ID (light client on this chain tracking the destination).
@@ -2349,6 +2349,9 @@ type IftStateIftTransferMsg struct {
 
 	// Timeout timestamp (0 for default 15 minutes)
 	TimeoutTimestamp uint64 `json:"timeoutTimestamp"`
+
+	// Caller-chosen packet sequence number
+	Sequence uint64 `json:"sequence"`
 }
 
 func (obj IftStateIftTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -2371,6 +2374,11 @@ func (obj IftStateIftTransferMsg) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.TimeoutTimestamp)
 	if err != nil {
 		return errors.NewField("TimeoutTimestamp", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	return nil
 }
@@ -2405,6 +2413,11 @@ func (obj *IftStateIftTransferMsg) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.TimeoutTimestamp)
 	if err != nil {
 		return errors.NewField("TimeoutTimestamp", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	return nil
 }

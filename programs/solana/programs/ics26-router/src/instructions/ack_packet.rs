@@ -16,9 +16,9 @@ use solana_ibc_types::IBCAppState;
 /// Processes an acknowledgement for a previously sent packet.
 ///
 /// Verifies the ack proof via the light client, invokes the source IBC app's
-/// `on_acknowledgement_packet` callback, closes the packet commitment account
-/// and returns its rent to the relayer. Remaining accounts carry payload
-/// chunks, proof chunks and any extra accounts forwarded to the IBC app.
+/// `on_acknowledgement_packet` callback, and zeroes the packet commitment.
+/// Remaining accounts carry payload chunks, proof chunks and any extra
+/// accounts forwarded to the IBC app.
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
 pub struct AckPacket<'info> {
@@ -41,16 +41,14 @@ pub struct AckPacket<'info> {
 
     /// PDA mapping the source port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payloads[0].source_port.as_bytes()],
+        seeds = [IBCApp::SEED, msg.packet.payloads[0].source_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Packet commitment PDA; closed after successful acknowledgement and
-    /// its rent is returned to the relayer.
+    /// Packet commitment PDA; zeroed after successful acknowledgement.
     #[account(
         mut,
-        close = relayer,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
@@ -135,8 +133,7 @@ pub fn ack_packet<'info>(
     );
 
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
-        packet: &msg.packet,
-        payloads_metadata: &msg.payloads,
+        msg_packet: &msg.packet,
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
@@ -145,14 +142,14 @@ pub fn ack_packet<'info>(
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let total_payload_chunks = total_payload_chunks(&msg.payloads);
+    let total_payload_chunks = total_payload_chunks(&msg.packet.payloads)?;
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.source_client,
         sequence: msg.packet.sequence,
-        total_chunks: msg.proof.total_chunks,
+        delivery: &msg.proof.data,
         // proof chunks come after payload chunks
         start_index: total_payload_chunks,
     })?;
@@ -186,10 +183,12 @@ pub fn ack_packet<'info>(
         RouterError::PacketCommitmentMismatch
     );
 
+    ctx.accounts.packet_commitment.value = Commitment::EMPTY;
+
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
         total_payload_chunks,
-        msg.proof.total_chunks,
+        msg.proof.data.total_chunks(),
     );
 
     let cpi_ctx = CpiContext::new(
@@ -231,7 +230,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, Delivery, MsgPacket, MsgPayload, MsgProof, Payload};
     use solana_sdk::instruction::InstructionError;
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
@@ -242,7 +241,7 @@ mod tests {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
         packet_commitment_pubkey: Pubkey,
-        packet: Packet,
+        packet: MsgPacket,
         dummy_app_state_pubkey: Pubkey,
     }
 
@@ -314,12 +313,18 @@ mod tests {
 
         let test_proof = vec![0u8; 32];
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence: params.initial_sequence,
             source_client: params.source_client_id.to_string(),
             dest_client: packet_dest_client.to_string(),
             timeout_timestamp: 1000,
-            payloads: vec![], // Empty for the message, will be reconstructed from chunks
+            payloads: vec![MsgPayload {
+                source_port: params.port_id.to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            }],
         };
 
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
@@ -333,17 +338,10 @@ mod tests {
 
         let msg = MsgAckPacket {
             packet: packet.clone(),
-            payloads: vec![PayloadMetadata {
-                source_port: params.port_id.to_string(),
-                dest_port: "dest-port".to_string(),
-                version: "1".to_string(),
-                encoding: "json".to_string(),
-                total_chunks: 1, // 1 chunk for testing
-            }],
             acknowledgement: params.acknowledgement,
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: params.proof_height,
-                total_chunks: 1, // 1 chunk for testing
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -463,10 +461,10 @@ mod tests {
             .get_account(&ctx.packet_commitment_pubkey)
             .expect("packet commitment account should exist");
 
-        // Data should be all zeros after deletion
+        // Should be zeroed
         assert!(
-            packet_commitment_account.data.iter().all(|&b| b == 0),
-            "Packet commitment data should be zeroed"
+            packet_commitment_account.data[8..].iter().all(|&b| b == 0),
+            "Packet commitment value should be zeroed"
         );
     }
 
@@ -541,12 +539,12 @@ mod tests {
     fn test_ack_packet_zero_payloads() {
         let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
+        ctx.packet.payloads = vec![];
         let msg = MsgAckPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
             acknowledgement: vec![1u8; 32],
         };
@@ -568,28 +566,31 @@ mod tests {
         let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
         ctx.packet.payloads = vec![
-            solana_ibc_types::Payload {
+            MsgPayload {
                 source_port: "test-port".to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"data1".to_vec(),
+                data: Delivery::Inline {
+                    data: b"data1".to_vec(),
+                },
             },
-            solana_ibc_types::Payload {
+            MsgPayload {
                 source_port: "test-port".to_string(),
                 dest_port: "dest-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                value: b"data2".to_vec(),
+                data: Delivery::Inline {
+                    data: b"data2".to_vec(),
+                },
             },
         ];
 
         let msg = MsgAckPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
             acknowledgement: vec![1u8; 32],
         };
@@ -598,39 +599,79 @@ mod tests {
 
         let mollusk = setup_mollusk_with_mock_programs();
 
-        // Empty payloads metadata vec causes index-out-of-bounds in Anchor seed resolution
-        let checks = vec![Check::instruction_err(
-            InstructionError::ProgramFailedToComplete,
-        )];
+        // 2 inline payloads reconstruct successfully, then get_single_payload
+        // rejects multi-payload packets (only single-payload supported today)
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+        ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
-    fn test_ack_packet_conflicting_inline_and_chunked() {
+    fn test_ack_packet_mixed_delivery_modes() {
         let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
 
-        ctx.packet.payloads = vec![solana_ibc_types::Payload {
+        // Mix inline and chunked payloads in the same packet
+        ctx.packet.payloads = vec![
+            MsgPayload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Inline {
+                    data: b"inline data".to_vec(),
+                },
+            },
+            MsgPayload {
+                source_port: "test-port".to_string(),
+                dest_port: "dest-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+        ];
+
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
+                height: 100,
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + RouterError::MixedDeliveryModes as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
+    fn test_ack_packet_wrong_source_port_seeds_mismatch() {
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        ctx.packet.payloads = vec![MsgPayload {
             source_port: "other-port".to_string(),
             dest_port: "dest-port".to_string(),
             version: "1".to_string(),
             encoding: "json".to_string(),
-            value: b"inline data".to_vec(),
+            data: Delivery::Inline {
+                data: b"inline data".to_vec(),
+            },
         }];
 
-        // Metadata source_port doesn't match the ibc_app PDA ("test-port")
+        // source_port doesn't match the ibc_app PDA ("test-port")
         let msg = MsgAckPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![PayloadMetadata {
-                source_port: "other-port".to_string(),
-                dest_port: "dest-port".to_string(),
-                version: "1".to_string(),
-                encoding: "json".to_string(),
-                total_chunks: 1,
-            }],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
             acknowledgement: vec![1u8; 32],
         };
@@ -691,18 +732,52 @@ mod tests {
     }
 
     #[test]
+    fn test_ack_packet_wrong_source_port() {
+        let mut ctx = setup_ack_packet_test_with_params(AckPacketTestParams::default());
+
+        // Use wrong source_port that doesn't match the ibc_app PDA ("test-port")
+        ctx.packet.payloads = vec![MsgPayload {
+            source_port: "transfer".to_string(),
+            dest_port: "dest-port".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            data: Delivery::Inline {
+                data: b"inline data".to_vec(),
+            },
+        }];
+
+        let msg = MsgAckPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
+                height: 100,
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+            acknowledgement: vec![1u8; 32],
+        };
+
+        ctx.instruction.data = crate::instruction::AckPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        // Anchor seeds constraint fails: ibc_app PDA derived from "transfer" != account seeded with "test-port"
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
+    }
+
+    #[test]
     fn test_ack_packet_paused() {
         let ctx = setup_ack_packet_test_with_params(AckPacketTestParams {
             paused_router: true,
             ..Default::default()
         });
 
-        let mollusk = setup_mollusk_with_mock_programs();
-
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
         ))];
-
+        let mollusk = setup_mollusk_with_mock_programs();
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }
