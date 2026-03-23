@@ -19,6 +19,16 @@ const deployerAddress = "8ntLtUdGwBaXfFPCrNis9MWsKMdEUYyonwuw7NQwhs5z"
 // DeployerPubkey is the public key of the deployer wallet used for deploying all Solana programs.
 var DeployerPubkey = solana.MustPublicKeyFromBase58(deployerAddress)
 
+// LoadDeployerWallet loads the deployer wallet from the standard keypair file.
+// The deployer is the upgrade authority for all programs and must sign initialize transactions.
+func LoadDeployerWallet(deployerKeypairPath string) (*solana.Wallet, error) {
+	privKey, err := solana.PrivateKeyFromSolanaKeygenFile(deployerKeypairPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load deployer wallet from %s: %w", deployerKeypairPath, err)
+	}
+	return &solana.Wallet{PrivateKey: privKey}, nil
+}
+
 func DeploySolanaProgram(ctx context.Context, programSoFile, programKeypairFile, payerKeypairFile, rpcURL string) (solana.PublicKey, solana.Signature, error) {
 	absProgramFile, err := filepath.Abs(programSoFile)
 	if err != nil {

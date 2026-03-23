@@ -25,16 +25,16 @@ type testGmpAppPDAs struct{}
 type testIbcAppPDAs struct{}
 
 var (
-	AccessManager   = accessManagerPDAs{}
-	Attestation     = attestationPDAs{}
+	AccessManager = accessManagerPDAs{}
+	Attestation = attestationPDAs{}
 	Ics07Tendermint = ics07TendermintPDAs{}
-	Ics26Router     = ics26RouterPDAs{}
-	Ics27Gmp        = ics27GmpPDAs{}
-	Ift             = iftPDAs{}
+	Ics26Router = ics26RouterPDAs{}
+	Ics27Gmp = ics27GmpPDAs{}
+	Ift = iftPDAs{}
 	MockLightClient = mockLightClientPDAs{}
-	TestCpiTarget   = testCpiTargetPDAs{}
-	TestGmpApp      = testGmpAppPDAs{}
-	TestIbcApp      = testIbcAppPDAs{}
+	TestCpiTarget = testCpiTargetPDAs{}
+	TestGmpApp = testGmpAppPDAs{}
+	TestIbcApp = testIbcAppPDAs{}
 )
 
 func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
@@ -619,3 +619,4 @@ func (testIbcAppPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.Pub
 	}
 	return pda, bump
 }
+

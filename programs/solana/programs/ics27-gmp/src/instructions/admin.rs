@@ -133,7 +133,10 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
         let (app_state_pda, _bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize {
             access_manager: access_manager::ID,
@@ -145,7 +148,8 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -154,7 +158,8 @@ mod tests {
             create_pda_for_init(app_state_pda),
             create_payer_account(payer),
             create_system_program_account(),
-            create_instructions_sysvar_account_with_caller(crate::ID),
+            (program_data_pda, program_data_account),
+            create_payer_account(authority),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);

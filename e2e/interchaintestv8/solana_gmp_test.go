@@ -144,18 +144,24 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
 
 		// Initialize ICS27 GMP app
+		gmpProgramDataPDA, _ := solana.Ics27Gmp.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
 			access_manager.ProgramID,    // access_manager program ID
 			gmpAppStatePDA,              // app state account
 			s.SolanaRelayer.PublicKey(), // payer
 			solanago.SystemProgramID,    // system program
+			gmpProgramDataPDA,
+			solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
 
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, deployerWallet)
 		s.Require().NoError(err)
 
 		s.T().Logf("ICS27 GMP program initialized at: %s", s.ICS27GMPProgramID)

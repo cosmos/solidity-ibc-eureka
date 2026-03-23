@@ -21,6 +21,8 @@ func NewInitializeInstruction(
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	authorityAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -53,6 +55,12 @@ func NewInitializeInstruction(
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+		// Account 4 "program_data": Read-only, Non-signer, Required
+		// BPF Loader Upgradeable `ProgramData` account for this program.
+		accounts__.Append(solanago.NewAccountMeta(programDataAccount, false, false))
+		// Account 5 "authority": Read-only, Signer, Required
+		// The program's upgrade authority — must sign to prove deployer identity.
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 	}
 
 	// Create the instruction.

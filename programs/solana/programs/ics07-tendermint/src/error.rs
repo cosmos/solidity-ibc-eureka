@@ -93,6 +93,9 @@ pub enum ErrorCode {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 impl From<crate::conversions::ConversionError> for ErrorCode {
