@@ -2,6 +2,7 @@ use crate::errors::GMPError;
 use crate::events::GMPCallTimeout;
 use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
+use solana_ibc_proto::GmpPacketData;
 
 /// Processes an IBC packet timeout received from the router via CPI.
 /// Creates a `GMPCallResultAccount` PDA to record the timeout status.
@@ -51,8 +52,12 @@ pub fn on_timeout_packet(
     )
     .map_err(GMPError::from)?;
 
-    let packet_data =
+    let raw_packet_data =
         crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     let clock = Clock::get()?;
     let sender: Pubkey = packet_data

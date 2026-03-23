@@ -4,7 +4,7 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -92,9 +92,13 @@ pub fn on_recv_packet<'info>(
 
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode and validate GMP packet data using the payload's declared encoding
-    let packet_data =
+    // Decode GMP packet data using the payload's declared encoding
+    let raw_packet_data =
         crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =

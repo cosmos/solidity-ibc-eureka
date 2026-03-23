@@ -21,21 +21,15 @@ impl From<GmpPacketData> for GmpPacketDataAbi {
     }
 }
 
-impl TryFrom<GmpPacketDataAbi> for GmpPacketData {
-    type Error = anchor_lang::error::Error;
-
-    fn try_from(abi: GmpPacketDataAbi) -> Result<Self> {
-        let raw = RawGmpPacketData {
+impl From<GmpPacketDataAbi> for RawGmpPacketData {
+    fn from(abi: GmpPacketDataAbi) -> Self {
+        Self {
             sender: abi.sender,
             receiver: abi.receiver,
             salt: abi.salt.into(),
             payload: abi.payload.into(),
             memo: abi.memo,
-        };
-        Self::try_from(raw).map_err(|e| {
-            msg!("GMP packet validation failed: {}", e);
-            GMPError::InvalidPacketData.into()
-        })
+        }
     }
 }
 
@@ -50,20 +44,16 @@ pub fn encode_gmp_packet(data: GmpPacketData, encoding: &str) -> Result<Vec<u8>>
     }
 }
 
-pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<GmpPacketData> {
+pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketData> {
     match encoding {
         ICS27_ENCODING_ABI => {
             use alloy_sol_types::SolValue;
             let abi =
                 GmpPacketDataAbi::abi_decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
-            GmpPacketData::try_from(abi)
+            Ok(RawGmpPacketData::from(abi))
         }
         ICS27_ENCODING_PROTOBUF => {
-            let raw = RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
-            GmpPacketData::try_from(raw).map_err(|e| {
-                msg!("GMP packet validation failed: {}", e);
-                GMPError::InvalidPacketData.into()
-            })
+            RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData.into())
         }
         _ => Err(GMPError::InvalidEncoding.into()),
     }
@@ -85,36 +75,34 @@ mod tests {
         GmpPacketData::try_from(raw).unwrap()
     }
 
+    fn assert_raw_matches_sample(raw: &RawGmpPacketData) {
+        assert_eq!(raw.sender, "solana_sender_pubkey");
+        assert_eq!(raw.receiver, "0xabcdef1234567890abcdef1234567890abcdef12");
+        assert_eq!(raw.salt, [1, 2, 3]);
+        assert_eq!(raw.payload, [4, 5, 6, 7]);
+        assert_eq!(raw.memo, "test memo");
+    }
+
     #[test]
     fn abi_round_trip() {
         let original = sample_packet_data();
         let encoded = encode_gmp_packet(original, ICS27_ENCODING_ABI).unwrap();
-        let decoded = decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).unwrap();
+        let raw = decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).unwrap();
+        assert_raw_matches_sample(&raw);
 
-        assert_eq!(decoded.sender.as_ref(), "solana_sender_pubkey");
-        assert_eq!(
-            decoded.receiver.as_ref(),
-            "0xabcdef1234567890abcdef1234567890abcdef12"
-        );
-        assert_eq!(&decoded.salt[..], &[1, 2, 3]);
-        assert_eq!(&decoded.payload[..], &[4, 5, 6, 7]);
-        assert_eq!(decoded.memo.as_ref(), "test memo");
+        let validated = GmpPacketData::try_from(raw).unwrap();
+        assert_eq!(validated.sender.as_ref(), "solana_sender_pubkey");
     }
 
     #[test]
     fn protobuf_round_trip() {
         let original = sample_packet_data();
         let encoded = encode_gmp_packet(original, ICS27_ENCODING_PROTOBUF).unwrap();
-        let decoded = decode_gmp_packet(&encoded, ICS27_ENCODING_PROTOBUF).unwrap();
+        let raw = decode_gmp_packet(&encoded, ICS27_ENCODING_PROTOBUF).unwrap();
+        assert_raw_matches_sample(&raw);
 
-        assert_eq!(decoded.sender.as_ref(), "solana_sender_pubkey");
-        assert_eq!(
-            decoded.receiver.as_ref(),
-            "0xabcdef1234567890abcdef1234567890abcdef12"
-        );
-        assert_eq!(&decoded.salt[..], &[1, 2, 3]);
-        assert_eq!(&decoded.payload[..], &[4, 5, 6, 7]);
-        assert_eq!(decoded.memo.as_ref(), "test memo");
+        let validated = GmpPacketData::try_from(raw).unwrap();
+        assert_eq!(validated.sender.as_ref(), "solana_sender_pubkey");
     }
 
     #[test]
@@ -157,7 +145,7 @@ mod tests {
     }
 
     #[test]
-    fn try_from_abi_validates_constraints() {
+    fn abi_to_raw_then_validation_catches_invalid() {
         let abi = GmpPacketDataAbi {
             sender: String::new(), // Empty sender should fail validation
             receiver: "test".to_string(),
@@ -165,7 +153,8 @@ mod tests {
             payload: vec![1].into(),
             memo: String::new(),
         };
-        let result = GmpPacketData::try_from(abi);
+        let raw = RawGmpPacketData::from(abi);
+        let result = GmpPacketData::try_from(raw);
         assert!(result.is_err());
     }
 }
