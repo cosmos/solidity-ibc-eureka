@@ -20,6 +20,8 @@ func NewInitializeInstruction(
 	routerStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	authorityAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -49,6 +51,12 @@ func NewInitializeInstruction(
 		// Account 2 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 3 "program_data": Read-only, Non-signer, Required
+		// BPF Loader Upgradeable `ProgramData` account for this program.
+		accounts__.Append(solanago.NewAccountMeta(programDataAccount, false, false))
+		// Account 4 "authority": Read-only, Signer, Required
+		// The program's upgrade authority — must sign to prove deployer identity.
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 	}
 
 	// Create the instruction.
@@ -109,7 +117,7 @@ func NewAddIbcAppInstruction(
 		// Pays for creating the `IBCApp` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "authority": Read-only, Signer, Required
-		// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
+		// Signer with the `ID_CUSTOMIZER_ROLE`.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.

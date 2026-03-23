@@ -101,6 +101,9 @@ pub enum RouterError {
 
     #[msg("Router is not paused")]
     RouterNotPaused,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 /// Convert CPI validation errors to Router errors

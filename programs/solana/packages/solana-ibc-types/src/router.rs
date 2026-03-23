@@ -222,8 +222,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }

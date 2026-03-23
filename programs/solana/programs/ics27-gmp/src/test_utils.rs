@@ -143,6 +143,34 @@ pub const fn create_payer_account(pubkey: Pubkey) -> (Pubkey, SolanaAccount) {
     )
 }
 
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 pub const fn create_system_program_account() -> (Pubkey, SolanaAccount) {
     (
         system_program::ID,
@@ -579,7 +607,6 @@ pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
         version: ics26_router::state::AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id: crate::ID,
-        authority: Pubkey::new_unique(),
         _reserved: [0; 256],
     };
     let mut data = ics26_router::state::IBCApp::DISCRIMINATOR.to_vec();
