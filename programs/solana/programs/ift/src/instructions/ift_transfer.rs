@@ -577,17 +577,17 @@ mod tests {
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactCurrent => Self {
-                    timeout_timestamp: 1_700_000_000,
+                    timeout_timestamp: 1_700_000_000, // exactly == clock
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutBelowMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + 30,
+                    timeout_timestamp: 1_700_000_000 + 30, // 30s in future, below 60s min
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
                 TransferErrorCase::TimeoutAtExactMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + crate::constants::MIN_TIMEOUT_DURATION,
+                    timeout_timestamp: 1_700_000_000 + crate::constants::MIN_TIMEOUT_DURATION, // exactly == clock + min
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },
