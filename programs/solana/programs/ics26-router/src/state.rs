@@ -129,6 +129,11 @@ impl Commitment {
 
     /// Empty commitment value (used to detect newly initialized accounts)
     pub const EMPTY: [u8; 32] = [0; 32];
+
+    /// Sentinel written after ack/timeout to mark the sequence as consumed.
+    /// Distinct from `EMPTY` so that `init_if_needed` + `value == EMPTY`
+    /// check correctly rejects replay of consumed sequences.
+    pub const CONSUMED: [u8; 32] = [0xFF; 32];
 }
 
 /// Maximum timeout duration (1 day in seconds)

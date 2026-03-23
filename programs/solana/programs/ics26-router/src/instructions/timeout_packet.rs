@@ -180,7 +180,7 @@ pub fn timeout_packet<'info>(
         RouterError::PacketCommitmentMismatch
     );
 
-    ctx.accounts.packet_commitment.value = Commitment::EMPTY;
+    ctx.accounts.packet_commitment.value = Commitment::CONSUMED;
 
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
@@ -452,10 +452,12 @@ mod tests {
             .get_account(&ctx.packet_commitment_pubkey)
             .expect("packet commitment account should exist");
 
-        // Should be zeroed
+        // Should be marked as consumed (0xFF sentinel)
         assert!(
-            packet_commitment_account.data[8..].iter().all(|&b| b == 0),
-            "Packet commitment value should be zeroed"
+            packet_commitment_account.data[8..]
+                .iter()
+                .all(|&b| b == 0xFF),
+            "Packet commitment value should be marked as consumed"
         );
     }
 

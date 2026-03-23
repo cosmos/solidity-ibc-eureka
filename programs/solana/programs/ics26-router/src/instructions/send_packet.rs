@@ -27,10 +27,12 @@ pub struct SendPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Stores the packet commitment hash. Anchor `init` rejects duplicate sequences —
-    /// the PDA persists after ack/timeout (zeroed), so each sequence is single-use.
+    /// Stores the packet commitment hash. Uses `init_if_needed` so that
+    /// pre-funded PDAs (e.g. attacker-transferred lamports) do not block
+    /// account creation. The handler checks the value is empty to prevent
+    /// reuse of an already-committed sequence.
     #[account(
-        init,
+        init_if_needed,
         payer = payer,
         space = 8 + Commitment::INIT_SPACE,
         seeds = [
@@ -82,6 +84,13 @@ pub struct SendPacket<'info> {
 }
 
 pub fn send_packet(ctx: Context<SendPacket>, msg: MsgSendPacket) -> Result<u64> {
+    // Reject reuse: if init_if_needed found an existing account, the value
+    // will be non-empty when a commitment was already written.
+    require!(
+        ctx.accounts.packet_commitment.value == Commitment::EMPTY,
+        RouterError::PacketCommitmentAlreadyExists
+    );
+
     // Check light client status before proceeding
     let light_client_cpi = LightClientCpi::new(&ctx.accounts.client);
     let status = light_client_cpi.client_status(
@@ -1886,7 +1895,7 @@ mod tests {
         let (mut pt, mock_client_state, mock_consensus_state) =
             setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true);
 
-        // Pre-create a zeroed commitment PDA (simulates post-ack state)
+        // Pre-create a consumed commitment PDA (simulates post-ack state)
         let (packet_commitment_pda, _) = Pubkey::find_program_address(
             &[
                 Commitment::PACKET_COMMITMENT_SEED,
@@ -1895,10 +1904,10 @@ mod tests {
             ],
             &crate::ID,
         );
-        let zeroed_commitment = Commitment {
-            value: Commitment::EMPTY,
+        let consumed_commitment = Commitment {
+            value: Commitment::CONSUMED,
         };
-        let commitment_data = create_account_data(&zeroed_commitment);
+        let commitment_data = create_account_data(&consumed_commitment);
         pt.add_account(
             packet_commitment_pda,
             solana_sdk::account::Account {
@@ -1924,13 +1933,61 @@ mod tests {
 
         let err = process_tx(&banks_client, &payer, recent_blockhash, &[ix])
             .await
-            .expect_err("send_packet must reject a reused sequence after ack zeroing");
+            .expect_err("send_packet must reject a reused sequence after ack/timeout");
 
-        // Anchor's `init` constraint fails when the PDA already exists
-        let code = pt_extract_custom_error(&err);
+        assert_eq!(
+            pt_extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + RouterError::PacketCommitmentAlreadyExists as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_send_packet_succeeds_with_prefunded_pda() {
+        // Simulates an attacker transferring lamports to the PDA before
+        // the legitimate sender calls send_packet. With `init_if_needed`
+        // this should succeed instead of reverting.
+        let sequence = 1u64;
+
+        let (mut pt, mock_client_state, mock_consensus_state) =
+            setup_send_packet_program_test(TEST_CLIENT_ID, COUNTERPARTY_CLIENT_ID, true);
+
+        // Pre-fund the PDA with 1 lamport (attacker transfer)
+        let (packet_commitment_pda, _) = Pubkey::find_program_address(
+            &[
+                Commitment::PACKET_COMMITMENT_SEED,
+                TEST_CLIENT_ID.as_bytes(),
+                &sequence.to_le_bytes(),
+            ],
+            &crate::ID,
+        );
+        pt.add_account(
+            packet_commitment_pda,
+            solana_sdk::account::Account {
+                lamports: 1,
+                data: vec![],
+                owner: solana_sdk::system_program::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let (ix, _) = build_send_packet_ix_with_commitment(
+            &payer,
+            TEST_CLIENT_ID,
+            sequence,
+            TEST_TIMEOUT,
+            b"test data",
+            mock_client_state,
+            mock_consensus_state,
+        );
+
+        let result = process_tx(&banks_client, &payer, recent_blockhash, &[ix]).await;
         assert!(
-            code.is_some(),
-            "Expected an error when reusing a zeroed sequence PDA"
+            result.is_ok(),
+            "send_packet should succeed despite pre-funded PDA: {:?}",
+            result.err()
         );
     }
 }

@@ -102,6 +102,9 @@ pub enum RouterError {
 
     #[msg("Only the program's upgrade authority can call initialize")]
     UnauthorizedDeployer,
+
+    #[msg("Packet commitment already exists for this sequence")]
+    PacketCommitmentAlreadyExists,
 }
 
 /// Convert CPI validation errors to Router errors
