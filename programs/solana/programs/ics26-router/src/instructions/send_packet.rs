@@ -1908,11 +1908,15 @@ mod tests {
             value: Commitment::CONSUMED,
         };
         let commitment_data = create_account_data(&consumed_commitment);
+        let space = 8 + Commitment::INIT_SPACE;
+        let mut padded_data = commitment_data;
+        padded_data.resize(space, 0);
+        let rent = solana_sdk::rent::Rent::default();
         pt.add_account(
             packet_commitment_pda,
             solana_sdk::account::Account {
-                lamports: 1_000_000,
-                data: commitment_data,
+                lamports: rent.minimum_balance(space),
+                data: padded_data,
                 owner: crate::ID,
                 executable: false,
                 rent_epoch: 0,
