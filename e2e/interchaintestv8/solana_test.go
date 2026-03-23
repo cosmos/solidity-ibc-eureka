@@ -426,7 +426,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 				accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 				clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-				clientSequenceAccount, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+				clientSequenceAccount, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 				counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
 					ClientId:     CosmosClientID,
@@ -608,7 +608,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			clientSequence, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientSequence, _ = solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			// Use confirmed commitment to match overall test commitment level
 			clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
@@ -787,7 +787,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 			routerState, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 			ibcApp, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 			client, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
-			clientSequence, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+			clientSequence, _ = solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 			// Use confirmed commitment to match overall test commitment level
 			clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
@@ -1073,7 +1073,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 		s.T().Logf("Solana dummy app has received %d packets total", appState.PacketsReceived)
 
 		// Check that packet receipt was written
-		clientSequenceAccount, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+		clientSequenceAccount, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 
 		// Use confirmed commitment to match relay transaction confirmation level
 		clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequenceAccount, &rpc.GetAccountInfoOpts{

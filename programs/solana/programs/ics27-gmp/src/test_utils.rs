@@ -579,7 +579,6 @@ pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
         version: ics26_router::state::AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id: crate::ID,
-        authority: Pubkey::new_unique(),
         _reserved: [0; 256],
     };
     let mut data = ics26_router::state::IBCApp::DISCRIMINATOR.to_vec();

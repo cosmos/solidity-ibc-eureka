@@ -860,7 +860,6 @@ mod tests {
             version: AccountVersion::V1,
             port_id: "test-port".to_string(),
             app_program_id: MOCK_IBC_APP_PROGRAM_ID,
-            authority: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
 

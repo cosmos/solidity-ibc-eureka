@@ -134,7 +134,6 @@ pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>)
         version: AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id,
-        authority: Pubkey::new_unique(),
         _reserved: [0; 256],
     };
     let ibc_app_data = create_account_data(&ibc_app);
