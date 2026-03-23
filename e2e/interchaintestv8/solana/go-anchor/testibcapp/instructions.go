@@ -72,7 +72,6 @@ func NewSendTransferInstruction(
 	escrowStateAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
@@ -118,25 +117,22 @@ func NewSendTransferInstruction(
 		// Account 5 "ibc_app": Read-only, Non-signer, Required
 		// Router port-to-app binding for the transfer port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 6 "client_sequence": Writable, Non-signer, Required
-		// Per-client sequence counter (incremented by the router).
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 7 "packet_commitment": Writable, Non-signer, Required
+		// Account 6 "packet_commitment": Writable, Non-signer, Required
 		// Will be created by the router
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 8 "client": Read-only, Non-signer, Required
+		// Account 7 "client": Read-only, Non-signer, Required
 		// Client registration entry for the source client.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 9 "light_client_program": Read-only, Non-signer, Required
+		// Account 8 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 10 "client_state": Read-only, Non-signer, Required
+		// Account 9 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 11 "consensus_state": Read-only, Non-signer, Required
+		// Account 10 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 12 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Account 11 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// ICS26 router program for CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 13 "system_program": Read-only, Non-signer, Required
+		// Account 12 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 
@@ -159,7 +155,6 @@ func NewSendPacketInstruction(
 	userAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
@@ -199,25 +194,22 @@ func NewSendPacketInstruction(
 		// Account 3 "ibc_app": Read-only, Non-signer, Required
 		// Router port-to-app binding for the source port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 4 "client_sequence": Writable, Non-signer, Required
-		// Per-client sequence counter (incremented by the router).
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 5 "packet_commitment": Writable, Non-signer, Required
+		// Account 4 "packet_commitment": Writable, Non-signer, Required
 		// Will be created by the router
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 6 "client": Read-only, Non-signer, Required
+		// Account 5 "client": Read-only, Non-signer, Required
 		// Client registration entry for the source client.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 7 "light_client_program": Read-only, Non-signer, Required
+		// Account 6 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 8 "client_state": Read-only, Non-signer, Required
+		// Account 7 "client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 9 "consensus_state": Read-only, Non-signer, Required
+		// Account 8 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 10 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
+		// Account 9 "router_program": Read-only, Non-signer, Required, Address: FRGF7cthWUvDvAHMUARUHFycyUK2VDUtBchmkwrz7hgx
 		// ICS26 router program for CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerProgramAccount, false, false))
-		// Account 11 "system_program": Read-only, Non-signer, Required
+		// Account 10 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

@@ -348,7 +348,6 @@ func NewIftTransferInstruction(
 	gmpAppStateAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	gmpIbcAppAccount solanago.PublicKey,
 	ibcClientAccount solanago.PublicKey,
@@ -415,32 +414,26 @@ func NewIftTransferInstruction(
 		// Account 12 "router_state": Read-only, Non-signer, Required
 		// Router state account
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 13 "client_sequence": Writable, Non-signer, Required
-		// Client sequence account for packet sequencing
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 14 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment account to be created
+		// Account 13 "packet_commitment": Writable, Non-signer, Required
+		// Packet commitment account; initialized by the router via GMP CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 15 "gmp_ibc_app": Read-only, Non-signer, Required
-		// GMP's IBC app registration account — required by the router for
-		// authorization and deterministic sequence namespacing (the router hashes
-		// `app_program_id` to derive a collision-resistant sequence suffix).
+		// Account 14 "gmp_ibc_app": Read-only, Non-signer, Required
+		// GMP's IBC app registration account — required by the router for authorization.
 		accounts__.Append(solanago.NewAccountMeta(gmpIbcAppAccount, false, false))
-		// Account 16 "ibc_client": Read-only, Non-signer, Required
+		// Account 15 "ibc_client": Read-only, Non-signer, Required
 		// IBC client account
 		accounts__.Append(solanago.NewAccountMeta(ibcClientAccount, false, false))
-		// Account 17 "light_client_program": Read-only, Non-signer, Required
+		// Account 16 "light_client_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 18 "light_client_state": Read-only, Non-signer, Required
+		// Account 17 "light_client_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(lightClientStateAccount, false, false))
-		// Account 19 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 18 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI caller detection by GMP
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 20 "consensus_state": Read-only, Non-signer, Required
+		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 21 "pending_transfer": Writable, Non-signer, Required
-		// CPI, which is only known at runtime. Validated and created manually in the
-		// handler after the CPI completes.
+		// Account 20 "pending_transfer": Writable, Non-signer, Required
+		// Seeds are verified in `create_pending_transfer_account`.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 

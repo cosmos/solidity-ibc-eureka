@@ -5,7 +5,7 @@ use ics26_router::cpi as router_cpi;
 use ics26_router::program::Ics26Router;
 use ics26_router::{
     cpi::accounts::SendPacket as RouterSendPacket,
-    state::{Client, ClientSequence, IBCApp, MsgSendPacket, RouterState},
+    state::{Client, IBCApp, MsgSendPacket, RouterState},
 };
 use prost::Message;
 use solana_ibc_types::Payload;
@@ -27,6 +27,8 @@ pub struct SendTransferMsg {
     pub timeout_timestamp: u64,
     /// Optional memo field
     pub memo: String,
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
 }
 
 /// Accounts for sending an ICS-20 transfer via the router.
@@ -79,15 +81,6 @@ pub struct SendTransfer<'info> {
         seeds::program = router_program
     )]
     pub ibc_app: Account<'info, IBCApp>,
-
-    /// Per-client sequence counter (incremented by the router).
-    #[account(
-        mut,
-        seeds = [ClientSequence::SEED, msg.source_client.as_bytes()],
-        bump,
-        seeds::program = router_program
-    )]
-    pub client_sequence: Account<'info, ClientSequence>,
 
     /// Will be created by the router
     /// CHECK: PDA will be validated by router program
@@ -207,6 +200,7 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     // Call router via CPI to send packet
     let router_msg = MsgSendPacket {
         source_client: msg.source_client.clone(),
+        sequence: msg.sequence,
         timeout_timestamp: msg.timeout_timestamp,
         payload,
     };
@@ -214,7 +208,6 @@ pub fn send_transfer(ctx: Context<SendTransfer>, msg: SendTransferMsg) -> Result
     let cpi_accounts = RouterSendPacket {
         router_state: ctx.accounts.router_state.to_account_info(),
         ibc_app: ctx.accounts.ibc_app.to_account_info(),
-        client_sequence: ctx.accounts.client_sequence.to_account_info(),
         packet_commitment: ctx.accounts.packet_commitment.to_account_info(),
         app_signer: ctx.accounts.app_state.to_account_info(),
         payer: ctx.accounts.user.to_account_info(),
