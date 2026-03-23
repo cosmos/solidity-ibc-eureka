@@ -162,7 +162,7 @@ pub fn on_recv_packet<'info>(
     // for Vec<u8>. We must deserialize to recover the raw ack bytes.
     match get_return_data() {
         Some((program_id, data)) if program_id == *ctx.program.key => {
-            let ack = Vec::<u8>::try_from_slice(&data)
+            let ack = borsh::BorshDeserialize::try_from_slice(&data)
                 .map_err(|_| error!(IbcAppError::InvalidAppResponse))?;
             Ok(ack)
         }
