@@ -8,7 +8,6 @@ use solana_ibc_types::MsgSendPacket;
 pub fn send_packet_cpi<'a>(
     router_program: &AccountInfo<'a>,
     router_state: &AccountInfo<'a>,
-    client_sequence: &AccountInfo<'a>,
     packet_commitment: &AccountInfo<'a>,
     app_state: &AccountInfo<'a>,
     bump: u8,
@@ -24,7 +23,6 @@ pub fn send_packet_cpi<'a>(
     let cpi_accounts = SendPacket {
         router_state: router_state.clone(),
         ibc_app: ibc_app.clone(),
-        client_sequence: client_sequence.clone(),
         packet_commitment: packet_commitment.clone(),
         app_signer: app_state.clone(),
         payer: payer.clone(),

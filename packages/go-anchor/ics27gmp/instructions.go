@@ -80,7 +80,6 @@ func NewSendCallInstruction(
 	payerAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
@@ -124,31 +123,28 @@ func NewSendCallInstruction(
 		// Account 4 "router_state": Read-only, Non-signer, Required
 		// Router's global state PDA, forwarded to the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 5 "client_sequence": Writable, Non-signer, Required
-		// Packet sequence counter for the source client, incremented by the router.
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 6 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash after the router processes the packet.
+		// Account 5 "packet_commitment": Writable, Non-signer, Required
+		// Stores the packet commitment hash; initialized by the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 7 "ibc_app": Read-only, Non-signer, Required
+		// Account 6 "ibc_app": Read-only, Non-signer, Required
 		// Port-to-program mapping that authorizes this GMP program for the GMP port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 8 "client": Read-only, Non-signer, Required
+		// Account 7 "client": Read-only, Non-signer, Required
 		// IBC client account that identifies the destination chain for routing.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 9 "light_client_program": Read-only, Non-signer, Required
+		// Account 8 "light_client_program": Read-only, Non-signer, Required
 		// Light client program used by the router to check client status.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 10 "client_state": Read-only, Non-signer, Required
+		// Account 9 "client_state": Read-only, Non-signer, Required
 		// Light client's state account, forwarded to the router for status verification.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 11 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 10 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar used to reject CPI callers (direct-call-only enforcement).
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 12 "consensus_state": Read-only, Non-signer, Required
+		// Account 11 "consensus_state": Read-only, Non-signer, Required
 		// Consensus state account, forwarded to the router for client expiry check.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 13 "system_program": Read-only, Non-signer, Required
+		// Account 12 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account allocation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
@@ -172,7 +168,6 @@ func NewSendCallCpiInstruction(
 	payerAccount solanago.PublicKey,
 	routerProgramAccount solanago.PublicKey,
 	routerStateAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
@@ -213,31 +208,28 @@ func NewSendCallCpiInstruction(
 		// Account 3 "router_state": Read-only, Non-signer, Required
 		// Router's global state PDA, forwarded to the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, false, false))
-		// Account 4 "client_sequence": Writable, Non-signer, Required
-		// Packet sequence counter for the source client, incremented by the router.
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 5 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash after the router processes the packet.
+		// Account 4 "packet_commitment": Writable, Non-signer, Required
+		// Stores the packet commitment hash; initialized by the router CPI.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 6 "ibc_app": Read-only, Non-signer, Required
+		// Account 5 "ibc_app": Read-only, Non-signer, Required
 		// Port-to-program mapping that authorizes this GMP program for the GMP port.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 7 "client": Read-only, Non-signer, Required
+		// Account 6 "client": Read-only, Non-signer, Required
 		// IBC client account that identifies the destination chain for routing.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 8 "light_client_program": Read-only, Non-signer, Required
+		// Account 7 "light_client_program": Read-only, Non-signer, Required
 		// Light client program used by the router to check client status.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 9 "client_state": Read-only, Non-signer, Required
+		// Account 8 "client_state": Read-only, Non-signer, Required
 		// Light client's state account, forwarded to the router for status verification.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 10 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 9 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar used to enforce single-level CPI and extract the caller program ID.
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 11 "consensus_state": Read-only, Non-signer, Required
+		// Account 10 "consensus_state": Read-only, Non-signer, Required
 		// Consensus state account, forwarded to the router for client expiry check.
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
-		// Account 12 "system_program": Read-only, Non-signer, Required
+		// Account 11 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account allocation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}

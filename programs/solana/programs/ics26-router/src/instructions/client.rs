@@ -1,14 +1,13 @@
 use crate::errors::RouterError;
 use crate::events::{ClientAddedEvent, ClientUpdatedEvent};
 use crate::state::{
-    AccountVersion, Client, ClientSequence, CounterpartyInfo, RouterState, MAX_CLIENT_ID_LENGTH,
+    AccountVersion, Client, CounterpartyInfo, RouterState, MAX_CLIENT_ID_LENGTH,
     MIN_CLIENT_ID_LENGTH,
 };
 use crate::utils::validation::validate_custom_ibc_identifier;
 use anchor_lang::prelude::*;
 
-/// Registers a new IBC light client with the router and initializes its
-/// sequence counter.
+/// Registers a new IBC light client with the router.
 #[derive(Accounts)]
 #[instruction(client_id: String, counterparty_info: CounterpartyInfo)]
 pub struct AddClient<'info> {
@@ -41,16 +40,6 @@ pub struct AddClient<'info> {
         bump,
     )]
     pub client: Account<'info, Client>,
-
-    /// PDA tracking the next send-side packet sequence for this client.
-    #[account(
-        init,
-        payer = authority,
-        space = 8 + ClientSequence::INIT_SPACE,
-        seeds = [ClientSequence::SEED, client_id.as_bytes()],
-        bump,
-    )]
-    pub client_sequence: Account<'info, ClientSequence>,
 
     /// Light client program to associate with this client.
     /// CHECK: Unchecked; the caller decides which light client to associate
@@ -150,10 +139,6 @@ pub fn add_client(
     client.counterparty_info = counterparty_info;
     client.active = true;
     client._reserved = [0u8; 256];
-
-    // Initialize client sequence to start from 1 (IBC sequences start from 1, not 0)
-    let client_sequence = &mut ctx.accounts.client_sequence;
-    client_sequence.next_sequence_send = 1;
 
     emit!(ClientAddedEvent {
         client: client.to_client_account(),
@@ -265,10 +250,6 @@ mod tests {
             setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, config.client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) = Pubkey::find_program_address(
-            &[ClientSequence::SEED, config.client_id.as_bytes()],
-            &crate::ID,
-        );
 
         let instruction_data = crate::instruction::AddClient {
             client_id: config.client_id.to_string(),
@@ -284,7 +265,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -297,7 +277,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
-            create_uninitialized_account(client_sequence_pda, 0),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             create_instructions_sysvar_account_with_caller(crate::ID),
@@ -310,9 +289,6 @@ mod tests {
                 vec![
                     Check::success(),
                     Check::account(&client_pda).owner(&crate::ID).build(),
-                    Check::account(&client_sequence_pda)
-                        .owner(&crate::ID)
-                        .build(),
                 ]
             },
             |error| {
@@ -351,8 +327,6 @@ mod tests {
 
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         // Verify authority paid for account creation
         let authority_account = result
@@ -401,33 +375,6 @@ mod tests {
         );
         // Just verify that a light client program was set
         assert_ne!(deserialized_client.client_program_id, Pubkey::default());
-
-        // Verify ClientSequence account was created correctly
-        let client_sequence_account = result
-            .resulting_accounts
-            .iter()
-            .find(|(pubkey, _)| pubkey == &client_sequence_pda)
-            .map(|(_, account)| account)
-            .expect("ClientSequence account not found");
-
-        assert_eq!(
-            client_sequence_account.owner,
-            crate::ID,
-            "ClientSequence account should be owned by program"
-        );
-        assert!(
-            client_sequence_account.lamports > 0,
-            "ClientSequence account should be rent-exempt"
-        );
-
-        let deserialized_sequence: ClientSequence =
-            ClientSequence::try_deserialize(&mut &client_sequence_account.data[..])
-                .expect("Failed to deserialize client sequence");
-
-        assert_eq!(
-            deserialized_sequence.next_sequence_send, 1,
-            "Sequence should be initialized to 1"
-        );
     }
 
     #[test]
@@ -865,8 +812,6 @@ mod tests {
             setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddClient {
             client_id: client_id.to_string(),
@@ -883,7 +828,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -896,7 +840,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
-            create_uninitialized_account(client_sequence_pda, 0),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             create_instructions_sysvar_account_with_caller(crate::ID),
@@ -923,8 +866,6 @@ mod tests {
             setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddClient {
             client_id: client_id.to_string(),
@@ -941,7 +882,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -956,7 +896,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
-            create_uninitialized_account(client_sequence_pda, 0),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             fake_sysvar_account,
@@ -981,8 +920,6 @@ mod tests {
             setup_access_manager_with_roles(&[(roles::ID_CUSTOMIZER_ROLE, &[authority])]);
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         let instruction_data = crate::instruction::AddClient {
             client_id: client_id.to_string(),
@@ -999,7 +936,6 @@ mod tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(light_client_program, false),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
@@ -1015,7 +951,6 @@ mod tests {
             create_account(router_state_pda, router_state_data, crate::ID),
             create_account(access_manager_pda, access_manager_data, access_manager::ID),
             create_uninitialized_account(client_pda, 0),
-            create_uninitialized_account(client_sequence_pda, 0),
             create_program_account(light_client_program),
             create_program_account(system_program::ID),
             cpi_sysvar_account,
@@ -1033,7 +968,7 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use crate::state::{Client, ClientSequence, CounterpartyInfo, RouterState};
+    use crate::state::{Client, CounterpartyInfo, RouterState};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use solana_sdk::{
@@ -1053,8 +988,6 @@ mod integration_tests {
         );
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &crate::ID);
-        let (client_sequence_pda, _) =
-            Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
 
         Instruction {
             program_id: crate::ID,
@@ -1063,7 +996,6 @@ mod integration_tests {
                 AccountMeta::new_readonly(router_state_pda, false),
                 AccountMeta::new_readonly(access_manager_pda, false),
                 AccountMeta::new(client_pda, false),
-                AccountMeta::new(client_sequence_pda, false),
                 AccountMeta::new_readonly(Pubkey::new_unique(), false),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
