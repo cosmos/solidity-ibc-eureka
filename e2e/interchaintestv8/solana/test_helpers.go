@@ -821,25 +821,33 @@ func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T
 		return
 	}
 
-	// Account persists after ack/timeout but value (bytes 8..40, after discriminator) must be zeroed
+	// Account persists after ack/timeout but value (bytes 8..40, after discriminator)
+	// must be either zeroed (EMPTY) or marked as consumed (all 0xFF sentinel).
 	data := accountInfo.Value.Data.GetBinary()
 	if len(data) >= 40 {
 		value := data[8:40]
 		allZeros := true
+		allOnes := true
 		for _, b := range value {
 			if b != 0 {
 				allZeros = false
-				break
+			}
+			if b != 0xFF {
+				allOnes = false
 			}
 		}
 		if allZeros {
 			t.Logf("Packet commitment zeroed for client %s, sequence %d", clientID, sequence)
 			return
 		}
+		if allOnes {
+			t.Logf("Packet commitment consumed (0xFF sentinel) for client %s, sequence %d", clientID, sequence)
+			return
+		}
 	}
 
-	require.Fail("Packet commitment should have been zeroed after acknowledgment",
-		"Account %s still has non-zero commitment value (sequence: %d)", packetCommitmentPDA.String(), sequence)
+	require.Fail("Packet commitment should have been cleared after acknowledgment",
+		"Account %s still has active commitment value (sequence: %d)", packetCommitmentPDA.String(), sequence)
 }
 
 // VerifyPendingTransferExists verifies that an IFT PendingTransfer PDA exists (was created during transfer)

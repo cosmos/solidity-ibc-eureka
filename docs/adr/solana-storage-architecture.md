@@ -218,11 +218,11 @@ Programs reference `access_manager` pubkey in their state to validate permission
 
 3. Acknowledge:
    - Verify ack proof against commitment
-   - Zero PacketCommitment PDA (PDA persists to prevent sequence reuse)
+   - Write CONSUMED sentinel to PacketCommitment PDA (PDA persists to prevent sequence reuse)
 
 4. Timeout:
    - Verify non-receipt on destination
-   - Zero PacketCommitment PDA (PDA persists to prevent sequence reuse)
+   - Write CONSUMED sentinel to PacketCommitment PDA (PDA persists to prevent sequence reuse)
 ```
 
 ### Client Update Lifecycle
@@ -258,7 +258,7 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 
 **Per-Packet Cost:**
 ```
-- Commitment creation: ~0.002 SOL (permanently locked — PDA persists after zeroing for replay protection)
+- Commitment creation: ~0.002 SOL (permanently locked — PDA persists with CONSUMED sentinel for replay protection)
 - Transaction fees: ~0.000005 SOL
 - Net cost per packet: ~0.002 SOL
 ```
@@ -274,13 +274,13 @@ Per account rent: ~0.01 SOL (refundable when account closed)
 2. **Authority Checks**: Only authorized parties can modify state
 3. **Chunk Ownership**: Per-submitter PDAs prevent interference
 4. **Access Control**: Role-based permissions via access-manager
-5. **Commitment Integrity**: Only router can create commitment PDAs; after ack/timeout the commitment is zeroed but the PDA persists, preventing sequence reuse via Anchor's `init` constraint
+5. **Commitment Integrity**: Only router can create commitment PDAs; after ack/timeout a CONSUMED sentinel (`0xFF`) is written. The `send_packet` instruction uses `init_if_needed` (to prevent pre-funding griefing) and rejects any account with a non-empty value, preventing sequence reuse
 
 ## Byte Encoding and Sequence Calculation
 
 ### Caller-Chosen Sequence
 
-Callers provide a `u64` sequence in `MsgSendPacket.sequence`. There is no on-chain sequence counter — uniqueness is enforced by `create_account` failing if the `PacketCommitment` PDA already exists.
+Callers provide a `u64` sequence in `MsgSendPacket.sequence`. There is no on-chain sequence counter — uniqueness is enforced by `init_if_needed` combined with a runtime check that the commitment value is empty (rejecting both pre-funded PDAs and consumed sequences).
 
 **PDA Seeds:**
 ```
