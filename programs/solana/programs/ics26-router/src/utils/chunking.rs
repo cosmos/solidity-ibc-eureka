@@ -375,21 +375,22 @@ pub fn validate_and_reconstruct_packet(
 
     let payloads = if has_inline_payloads {
         // Inline mode: extract data directly from each MsgPayload
-        let mut inline_payloads = Vec::new();
-        for p in msg_payloads {
-            let data = match &p.data {
-                Delivery::Inline { data } => data.clone(),
-                Delivery::Chunked { .. } => unreachable!(),
-            };
-            inline_payloads.push(solana_ibc_types::Payload {
-                source_port: p.source_port.clone(),
-                dest_port: p.dest_port.clone(),
-                version: p.version.clone(),
-                encoding: p.encoding.clone(),
-                value: data,
-            });
-        }
-        inline_payloads
+        msg_payloads
+            .iter()
+            .map(|payload| {
+                let data = match &payload.data {
+                    Delivery::Inline { data } => data.clone(),
+                    Delivery::Chunked { .. } => unreachable!(),
+                };
+                solana_ibc_types::Payload {
+                    source_port: payload.source_port.clone(),
+                    dest_port: payload.dest_port.clone(),
+                    version: payload.version.clone(),
+                    encoding: payload.encoding.clone(),
+                    value: data,
+                }
+            })
+            .collect()
     } else {
         // Chunked mode: assemble from chunk accounts
         let payload_data_vec = assemble_multiple_payloads(
