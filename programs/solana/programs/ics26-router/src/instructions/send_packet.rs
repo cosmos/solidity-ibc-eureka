@@ -1196,7 +1196,6 @@ mod tests {
             version: AccountVersion::V1,
             port_id: "wrong-port".to_string(),
             app_program_id,
-            authority: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
         let ibc_app_account = solana_sdk::account::Account {

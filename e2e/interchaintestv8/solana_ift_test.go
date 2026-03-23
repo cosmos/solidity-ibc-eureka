@@ -110,7 +110,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.RouterStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
-	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+	s.ClientSequencePDA, _ = solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
 	s.LightClientStatePDA, _ = solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
 }
 
