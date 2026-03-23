@@ -23,7 +23,6 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::AccountMeta;
 use anchor_lang::solana_program::program::get_return_data;
-use borsh::BorshDeserialize;
 use solana_ibc_macros::discriminator;
 
 // Re-export message types for convenient imports
