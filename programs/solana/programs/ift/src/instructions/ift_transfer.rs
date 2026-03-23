@@ -137,7 +137,7 @@ pub struct IFTTransfer<'info> {
         ],
         bump,
     )]
-    pub pending_transfer: Account<'info, PendingTransfer>,
+    pub pending_transfer: Box<Account<'info, PendingTransfer>>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {
