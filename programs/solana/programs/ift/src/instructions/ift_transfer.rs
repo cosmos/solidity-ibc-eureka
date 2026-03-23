@@ -212,7 +212,7 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
     pending.version = AccountVersion::V1;
     pending.bump = ctx.bumps.pending_transfer;
     pending.mint = ctx.accounts.app_mint_state.mint;
-    pending.client_id = msg.client_id.clone();
+    pending.client_id.clone_from(&msg.client_id);
     pending.sequence = sequence;
     pending.sender = ctx.accounts.sender.key();
     pending.amount = msg.amount;
