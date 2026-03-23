@@ -1,0 +1,23 @@
+[package]
+name = "solana-ibc-gmp-types"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "GMP (General Message Passing) types for Solana IBC"
+readme = "../../../README.md"
+keywords = ["cosmos", "ibc", "solana", "gmp", "anchor"]
+categories = ["cryptography", "blockchain"]
+
+[dependencies]
+anchor-lang.workspace = true
+# Explicitly pin borsh 0.10.4 for Anchor compatibility (not workspace = true).
+borsh = { version = "0.10.4", default-features = false }
+solana-sha256-hasher.workspace = true
+solana-ibc-proto = { path = "../solana-ibc-proto" }
+
+[dev-dependencies]
+solana-sdk.workspace = true
+
+[lints]
+workspace = true

@@ -17,6 +17,10 @@ members = [
   "packages/ics25-handler",
   "packages/solana-ibc-constants",
   "packages/solana-ibc-macros",
+  "packages/solana-ibc-sdk",
+  "packages/solana-ibc-sdk/codegen",
+  "packages/solana-ibc-borsh-header",
+  "packages/solana-ibc-gmp-types",
 ]
 resolver = "2"
 
@@ -87,6 +91,9 @@ solana-ibc-proto = { path = "./packages/solana-ibc-proto", default-features = fa
 ics25-handler = { path = "./packages/ics25-handler", default-features = false }
 solana-ibc-constants = { path = "./packages/solana-ibc-constants", default-features = false }
 solana-ibc-macros = { path = "./packages/solana-ibc-macros" }
+solana-ibc-sdk = { path = "./packages/solana-ibc-sdk", default-features = false }
+solana-ibc-borsh-header = { path = "./packages/solana-ibc-borsh-header", default-features = false }
+solana-ibc-gmp-types = { path = "./packages/solana-ibc-gmp-types", default-features = false }
 access-manager = { path = "./programs/access-manager", default-features = false }
 ics26-router = { path = "./programs/ics26-router", default-features = false }
 ics27-gmp = { path = "./programs/ics27-gmp", default-features = false }

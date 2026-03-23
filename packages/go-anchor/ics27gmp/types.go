@@ -1274,7 +1274,7 @@ type Ics27GmpStateGmpCallResultAccount struct {
 	DestClient string `json:"destClient"`
 
 	// Result status: acknowledgement (with IBC commitment) or timeout.
-	Status SolanaIbcTypesIcs27CallResultStatus `json:"status"`
+	Status SolanaIbcGmpTypesCallResultStatus `json:"status"`
 
 	// Unix timestamp (seconds) when the result was recorded.
 	ResultTimestamp int64 `json:"resultTimestamp"`
@@ -1311,7 +1311,7 @@ func (obj Ics27GmpStateGmpCallResultAccount) MarshalWithEncoder(encoder *binary.
 	}
 	// Serialize `Status`:
 	{
-		err := EncodeSolanaIbcTypesIcs27CallResultStatus(encoder, obj.Status)
+		err := EncodeSolanaIbcGmpTypesCallResultStatus(encoder, obj.Status)
 		if err != nil {
 			return errors.NewField("Status", err)
 		}
@@ -1368,7 +1368,7 @@ func (obj *Ics27GmpStateGmpCallResultAccount) UnmarshalWithDecoder(decoder *bina
 	// Deserialize `Status`:
 	{
 		var err error
-		obj.Status, err = DecodeSolanaIbcTypesIcs27CallResultStatus(decoder)
+		obj.Status, err = DecodeSolanaIbcGmpTypesCallResultStatus(decoder)
 		if err != nil {
 			return err
 		}
@@ -1518,6 +1518,115 @@ func UnmarshalIcs27GmpStateSendCallMsg(buf []byte) (*Ics27GmpStateSendCallMsg, e
 	}
 	return obj, nil
 }
+
+// Status of a GMP call result.
+// The "isSolanaIbcGmpTypesCallResultStatus" interface for the "SolanaIbcGmpTypesCallResultStatus" complex enum.
+type SolanaIbcGmpTypesCallResultStatus interface {
+	isSolanaIbcGmpTypesCallResultStatus()
+}
+
+type solanaIbcGmpTypesCallResultStatusEnumContainer struct {
+	Enum            binary.BorshEnum `bin:"enum"`
+	Acknowledgement SolanaIbcGmpTypesCallResultStatus_Acknowledgement
+	Timeout         SolanaIbcGmpTypesCallResultStatus_Timeout
+}
+
+func DecodeSolanaIbcGmpTypesCallResultStatus(decoder *binary.Decoder) (SolanaIbcGmpTypesCallResultStatus, error) {
+	{
+		tmp := new(solanaIbcGmpTypesCallResultStatusEnumContainer)
+		err := decoder.Decode(tmp)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing SolanaIbcGmpTypesCallResultStatus: %w", err)
+		}
+		switch tmp.Enum {
+		case 0:
+			return &tmp.Acknowledgement, nil
+		case 1:
+			return (*SolanaIbcGmpTypesCallResultStatus_Timeout)(&tmp.Enum), nil
+		default:
+			return nil, fmt.Errorf("SolanaIbcGmpTypesCallResultStatus: unknown enum index: %v", tmp.Enum)
+		}
+	}
+}
+
+func EncodeSolanaIbcGmpTypesCallResultStatus(encoder *binary.Encoder, value SolanaIbcGmpTypesCallResultStatus) error {
+	{
+		tmp := solanaIbcGmpTypesCallResultStatusEnumContainer{}
+		switch realvalue := value.(type) {
+		case *SolanaIbcGmpTypesCallResultStatus_Acknowledgement:
+			tmp.Enum = 0
+			tmp.Acknowledgement = *realvalue
+		case *SolanaIbcGmpTypesCallResultStatus_Timeout:
+			tmp.Enum = 1
+			tmp.Timeout = *realvalue
+		}
+		return encoder.Encode(tmp)
+	}
+}
+
+// Variant "Acknowledgement" of enum "SolanaIbcGmpTypesCallResultStatus"
+type SolanaIbcGmpTypesCallResultStatus_Acknowledgement struct {
+	V0 [32]uint8 `json:"v0"`
+}
+
+func (obj SolanaIbcGmpTypesCallResultStatus_Acknowledgement) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `V0`:
+	err = encoder.Encode(obj.V0)
+	if err != nil {
+		return errors.NewField("V0", err)
+	}
+	return nil
+}
+
+func (obj SolanaIbcGmpTypesCallResultStatus_Acknowledgement) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding SolanaIbcGmpTypesCallResultStatus_Acknowledgement: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *SolanaIbcGmpTypesCallResultStatus_Acknowledgement) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `V0`:
+	err = decoder.Decode(&obj.V0)
+	if err != nil {
+		return errors.NewField("V0", err)
+	}
+	return nil
+}
+
+func (obj *SolanaIbcGmpTypesCallResultStatus_Acknowledgement) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling SolanaIbcGmpTypesCallResultStatus_Acknowledgement: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalSolanaIbcGmpTypesCallResultStatus_Acknowledgement(buf []byte) (*SolanaIbcGmpTypesCallResultStatus_Acknowledgement, error) {
+	obj := new(SolanaIbcGmpTypesCallResultStatus_Acknowledgement)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+func (_ *SolanaIbcGmpTypesCallResultStatus_Acknowledgement) isSolanaIbcGmpTypesCallResultStatus() {}
+
+type SolanaIbcGmpTypesCallResultStatus_Timeout uint8
+
+func (obj SolanaIbcGmpTypesCallResultStatus_Timeout) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	return nil
+}
+
+func (obj *SolanaIbcGmpTypesCallResultStatus_Timeout) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	return nil
+}
+
+func (_ *SolanaIbcGmpTypesCallResultStatus_Timeout) isSolanaIbcGmpTypesCallResultStatus() {}
 
 // Message for onAcknowledgementPacket callback
 // Sent from router to IBC app when an acknowledgement is received
@@ -1908,116 +2017,6 @@ func UnmarshalSolanaIbcTypesAppMsgsPayload(buf []byte) (*SolanaIbcTypesAppMsgsPa
 	}
 	return obj, nil
 }
-
-// Status of a GMP call result.
-// The "isSolanaIbcTypesIcs27CallResultStatus" interface for the "SolanaIbcTypesIcs27CallResultStatus" complex enum.
-type SolanaIbcTypesIcs27CallResultStatus interface {
-	isSolanaIbcTypesIcs27CallResultStatus()
-}
-
-type solanaIbcTypesIcs27CallResultStatusEnumContainer struct {
-	Enum            binary.BorshEnum `bin:"enum"`
-	Acknowledgement SolanaIbcTypesIcs27CallResultStatus_Acknowledgement
-	Timeout         SolanaIbcTypesIcs27CallResultStatus_Timeout
-}
-
-func DecodeSolanaIbcTypesIcs27CallResultStatus(decoder *binary.Decoder) (SolanaIbcTypesIcs27CallResultStatus, error) {
-	{
-		tmp := new(solanaIbcTypesIcs27CallResultStatusEnumContainer)
-		err := decoder.Decode(tmp)
-		if err != nil {
-			return nil, fmt.Errorf("failed parsing SolanaIbcTypesIcs27CallResultStatus: %w", err)
-		}
-		switch tmp.Enum {
-		case 0:
-			return &tmp.Acknowledgement, nil
-		case 1:
-			return (*SolanaIbcTypesIcs27CallResultStatus_Timeout)(&tmp.Enum), nil
-		default:
-			return nil, fmt.Errorf("SolanaIbcTypesIcs27CallResultStatus: unknown enum index: %v", tmp.Enum)
-		}
-	}
-}
-
-func EncodeSolanaIbcTypesIcs27CallResultStatus(encoder *binary.Encoder, value SolanaIbcTypesIcs27CallResultStatus) error {
-	{
-		tmp := solanaIbcTypesIcs27CallResultStatusEnumContainer{}
-		switch realvalue := value.(type) {
-		case *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement:
-			tmp.Enum = 0
-			tmp.Acknowledgement = *realvalue
-		case *SolanaIbcTypesIcs27CallResultStatus_Timeout:
-			tmp.Enum = 1
-			tmp.Timeout = *realvalue
-		}
-		return encoder.Encode(tmp)
-	}
-}
-
-// Variant "Acknowledgement" of enum "SolanaIbcTypesIcs27CallResultStatus"
-type SolanaIbcTypesIcs27CallResultStatus_Acknowledgement struct {
-	V0 [32]uint8 `json:"v0"`
-}
-
-func (obj SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `V0`:
-	err = encoder.Encode(obj.V0)
-	if err != nil {
-		return errors.NewField("V0", err)
-	}
-	return nil
-}
-
-func (obj SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding SolanaIbcTypesIcs27CallResultStatus_Acknowledgement: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `V0`:
-	err = decoder.Decode(&obj.V0)
-	if err != nil {
-		return errors.NewField("V0", err)
-	}
-	return nil
-}
-
-func (obj *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling SolanaIbcTypesIcs27CallResultStatus_Acknowledgement: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalSolanaIbcTypesIcs27CallResultStatus_Acknowledgement(buf []byte) (*SolanaIbcTypesIcs27CallResultStatus_Acknowledgement, error) {
-	obj := new(SolanaIbcTypesIcs27CallResultStatus_Acknowledgement)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-func (_ *SolanaIbcTypesIcs27CallResultStatus_Acknowledgement) isSolanaIbcTypesIcs27CallResultStatus() {
-}
-
-type SolanaIbcTypesIcs27CallResultStatus_Timeout uint8
-
-func (obj SolanaIbcTypesIcs27CallResultStatus_Timeout) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	return nil
-}
-
-func (obj *SolanaIbcTypesIcs27CallResultStatus_Timeout) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	return nil
-}
-
-func (_ *SolanaIbcTypesIcs27CallResultStatus_Timeout) isSolanaIbcTypesIcs27CallResultStatus() {}
 
 // Account schema version for upgradability
 type SolanaIbcTypesRouterAccountVersion binary.BorshEnum
