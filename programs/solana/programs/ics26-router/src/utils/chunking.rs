@@ -168,12 +168,6 @@ fn validate_uniform_delivery(payloads: &[MsgPayload]) -> Result<()> {
 }
 
 /// Returns the total number of payload chunk accounts needed for the given payloads.
-///
-/// All payloads must use the same delivery variant (all inline or all chunked).
-/// Inline payloads contribute 0 chunks; chunked payloads contribute their `total_chunks` value.
-///
-/// # Errors
-/// Returns `RouterError::MixedDeliveryModes` if payloads mix inline and chunked delivery.
 pub fn total_payload_chunks(payloads: &[MsgPayload]) -> Result<usize> {
     validate_uniform_delivery(payloads)?;
 
