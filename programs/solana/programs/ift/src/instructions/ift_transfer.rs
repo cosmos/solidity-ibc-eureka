@@ -324,6 +324,10 @@ mod tests {
         pubkey::Pubkey,
     };
 
+    const TEST_CLIENT_ID: &str = "07-tendermint-0";
+    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
+    const VALID_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
+
     #[rstest]
     #[case::invalid_hex("0xnothex")]
     #[case::short_address("0xabcd")]
@@ -419,10 +423,6 @@ mod tests {
             }
         }
     }
-
-    const TEST_CLIENT_ID: &str = "07-tendermint-0";
-    const TEST_COUNTERPARTY_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
-    const VALID_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
 
     fn create_token_account(
         mint: &Pubkey,
