@@ -16,9 +16,9 @@ use solana_ibc_types::IBCAppState;
 /// Processes an acknowledgement for a previously sent packet.
 ///
 /// Verifies the ack proof via the light client, invokes the source IBC app's
-/// `on_acknowledgement_packet` callback, closes the packet commitment account
-/// and returns its rent to the relayer. Remaining accounts carry payload
-/// chunks, proof chunks and any extra accounts forwarded to the IBC app.
+/// `on_acknowledgement_packet` callback, and zeroes the packet commitment.
+/// Remaining accounts carry payload chunks, proof chunks and any extra
+/// accounts forwarded to the IBC app.
 #[derive(Accounts)]
 #[instruction(msg: MsgAckPacket)]
 pub struct AckPacket<'info> {
@@ -46,11 +46,9 @@ pub struct AckPacket<'info> {
     )]
     pub ibc_app: Account<'info, IBCApp>,
 
-    /// Packet commitment PDA; closed after successful acknowledgement and
-    /// its rent is returned to the relayer.
+    /// Packet commitment PDA; zeroed after successful acknowledgement.
     #[account(
         mut,
-        close = relayer,
         seeds = [
             Commitment::PACKET_COMMITMENT_SEED,
             msg.packet.source_client.as_bytes(),
@@ -184,6 +182,8 @@ pub fn ack_packet<'info>(
         ctx.accounts.packet_commitment.value == expected_commitment,
         RouterError::PacketCommitmentMismatch
     );
+
+    ctx.accounts.packet_commitment.value = Commitment::EMPTY;
 
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
@@ -461,10 +461,10 @@ mod tests {
             .get_account(&ctx.packet_commitment_pubkey)
             .expect("packet commitment account should exist");
 
-        // Data should be all zeros after deletion
+        // Should be zeroed
         assert!(
-            packet_commitment_account.data.iter().all(|&b| b == 0),
-            "Packet commitment data should be zeroed"
+            packet_commitment_account.data[8..].iter().all(|&b| b == 0),
+            "Packet commitment value should be zeroed"
         );
     }
 
@@ -774,12 +774,10 @@ mod tests {
             ..Default::default()
         });
 
-        let mollusk = setup_mollusk_with_mock_programs();
-
         let checks = vec![Check::err(ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + RouterError::RouterPaused as u32,
         ))];
-
+        let mollusk = setup_mollusk_with_mock_programs();
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 }

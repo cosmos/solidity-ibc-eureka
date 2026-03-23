@@ -771,6 +771,9 @@ type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier
 	SourceClient string `json:"sourceClient"`
 
+	// Caller-chosen packet sequence number
+	Sequence uint64 `json:"sequence"`
+
 	// Timeout timestamp (unix seconds)
 	TimeoutTimestamp int64 `json:"timeoutTimestamp"`
 
@@ -792,6 +795,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
+	}
+	// Serialize `Sequence`:
+	err = encoder.Encode(obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Serialize `TimeoutTimestamp`:
 	err = encoder.Encode(obj.TimeoutTimestamp)
@@ -836,6 +844,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.SourceClient)
 	if err != nil {
 		return errors.NewField("SourceClient", err)
+	}
+	// Deserialize `Sequence`:
+	err = decoder.Decode(&obj.Sequence)
+	if err != nil {
+		return errors.NewField("Sequence", err)
 	}
 	// Deserialize `TimeoutTimestamp`:
 	err = decoder.Decode(&obj.TimeoutTimestamp)

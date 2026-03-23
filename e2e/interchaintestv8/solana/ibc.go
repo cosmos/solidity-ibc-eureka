@@ -1,13 +1,11 @@
 package solana
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/gagliardetto/solana-go/rpc"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	attestation_light_client "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/attestation"
@@ -15,39 +13,6 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 	ics27_gmp "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics27gmp"
 )
-
-func (s *Solana) GetNextSequenceNumber(ctx context.Context, clientSequencePDA solana.PublicKey) (uint64, error) {
-	// Use confirmed commitment to match relayer read commitment level
-	clientSequenceAccount, err := s.RPCClient.GetAccountInfoWithOpts(ctx, clientSequencePDA, &rpc.GetAccountInfoOpts{
-		Commitment: rpc.CommitmentConfirmed,
-	})
-	if err != nil || clientSequenceAccount.Value == nil {
-		return 1, nil
-	}
-
-	data := clientSequenceAccount.Value.Data.GetBinary()
-	if len(data) < 17 {
-		return 0, fmt.Errorf("client sequence account data too short: expected >= 17 bytes, got %d", len(data))
-	}
-
-	nextSequence := binary.LittleEndian.Uint64(data[9:17])
-	return nextSequence, nil
-}
-
-// CalculateNamespacedSequence mirrors the on-chain Rust logic for sequence namespacing.
-// Formula: sequence = base_sequence * 10000 + suffix
-// where suffix = hash(calling_program || sender) % 10000
-func CalculateNamespacedSequence(baseSequence uint64, callingProgram, sender solana.PublicKey) uint64 {
-	hasher := sha256.New()
-	hasher.Write(callingProgram.Bytes())
-	hasher.Write(sender.Bytes())
-	hash := hasher.Sum(nil)
-
-	rawU16 := binary.LittleEndian.Uint16(hash[0:2])
-	suffix := uint64(rawU16 % 10000)
-
-	return baseSequence*10000 + suffix
-}
 
 // GMPCallResultPDA derives the PDA for a GMP call result account.
 // This PDA stores the acknowledgement or timeout result of a GMP call.

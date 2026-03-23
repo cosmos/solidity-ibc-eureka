@@ -167,6 +167,7 @@ pub struct MsgPacket {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
+    pub sequence: u64,
     pub timeout_timestamp: u64,
     pub payload: Payload,
 }
@@ -263,17 +264,6 @@ impl Client {
     pub const SEED: &'static [u8] = b"client";
 
     /// Get client PDA
-    pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
-    }
-}
-
-pub struct ClientSequence;
-
-impl ClientSequence {
-    pub const SEED: &'static [u8] = b"cseq";
-
-    /// Get client sequence PDA
     pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
     }
