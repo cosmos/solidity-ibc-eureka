@@ -36,7 +36,7 @@ pub struct RecvPacket<'info> {
 
     /// PDA mapping the destination port to its registered IBC application.
     #[account(
-        seeds = [IBCApp::SEED, msg.payloads[0].dest_port.as_bytes()],
+        seeds = [IBCApp::SEED, msg.packet.payloads[0].dest_port.as_bytes()],
         bump
     )]
     pub ibc_app: Account<'info, IBCApp>,
@@ -153,8 +153,7 @@ pub fn recv_packet<'info>(
     );
 
     let packet = chunking::validate_and_reconstruct_packet(chunking::ReconstructPacketParams {
-        packet: &msg.packet,
-        payloads_metadata: &msg.payloads,
+        msg_packet: &msg.packet,
         remaining_accounts: ctx.remaining_accounts,
         relayer: &ctx.accounts.relayer,
         submitter: ctx.accounts.relayer.key(),
@@ -163,7 +162,7 @@ pub fn recv_packet<'info>(
 
     let payload = packet::get_single_payload(&packet)?;
 
-    let total_payload_chunks = total_payload_chunks(&msg.payloads);
+    let total_payload_chunks = total_payload_chunks(&msg.packet.payloads)?;
 
     let proof_data = chunking::assemble_proof_chunks(chunking::AssembleProofParams {
         remaining_accounts: ctx.remaining_accounts,
@@ -171,7 +170,7 @@ pub fn recv_packet<'info>(
         submitter: ctx.accounts.relayer.key(),
         client_id: &msg.packet.dest_client,
         sequence: msg.packet.sequence,
-        total_chunks: msg.proof.total_chunks,
+        delivery: &msg.proof.data,
         // proof chunks come after payload chunks
         start_index: total_payload_chunks,
     })?;
@@ -213,7 +212,7 @@ pub fn recv_packet<'info>(
     let app_remaining_accounts = chunking::filter_app_remaining_accounts(
         ctx.remaining_accounts,
         total_payload_chunks,
-        msg.proof.total_chunks,
+        msg.proof.data.total_chunks(),
     );
 
     let cpi_ctx = CpiContext::new(
@@ -293,7 +292,7 @@ mod tests {
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
-    use solana_ibc_types::{roles, Payload, PayloadMetadata, ProofMetadata};
+    use solana_ibc_types::{roles, Delivery, MsgPacket, MsgPayload, MsgProof, Payload};
     use solana_sdk::instruction::{AccountMeta, Instruction};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::pubkey::Pubkey;
@@ -368,7 +367,7 @@ mod tests {
     struct RecvPacketTestContext {
         instruction: Instruction,
         accounts: Vec<(Pubkey, solana_sdk::account::Account)>,
-        packet: Packet,
+        packet: MsgPacket,
         packet_receipt_pubkey: Pubkey,
         packet_ack_pubkey: Pubkey,
     }
@@ -425,26 +424,25 @@ mod tests {
 
         let test_proof = vec![0u8; 32];
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence: 1,
             source_client: params.source_client_id.to_string(),
             dest_client: client_id.to_string(),
             timeout_timestamp: current_timestamp + params.timeout_offset,
-            payloads: vec![], // Empty for the message, will be reconstructed from chunks
-        };
-
-        let msg = MsgRecvPacket {
-            packet: packet.clone(),
-            payloads: vec![PayloadMetadata {
+            payloads: vec![MsgPayload {
                 source_port: "source-port".to_string(),
                 dest_port: port_id.to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                total_chunks: 1, // 1 chunk for testing
+                data: Delivery::Chunked { total_chunks: 1 },
             }],
-            proof: ProofMetadata {
+        };
+
+        let msg = MsgRecvPacket {
+            packet: packet.clone(),
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1, // 1 chunk for testing
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -650,16 +648,9 @@ mod tests {
         // Update the instruction with modified metadata
         let msg = MsgRecvPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![PayloadMetadata {
-                source_port: "source-port".to_string(),
-                dest_port: "test-port".to_string(),
-                version: "1".to_string(),
-                encoding: "json".to_string(),
-                total_chunks: 1,
-            }],
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -888,12 +879,12 @@ mod tests {
     fn test_recv_packet_zero_payloads() {
         let mut ctx = setup_recv_packet_test(true, 1000);
 
+        ctx.packet.payloads = vec![];
         let msg = MsgRecvPacket {
             packet: ctx.packet.clone(),
-            payloads: vec![], // Empty payloads causes panic in seeds constraint (msg.payloads[0])
-            proof: ProofMetadata {
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -917,36 +908,32 @@ mod tests {
         let mut ctx = setup_recv_packet_test(true, 1000);
 
         // Create a packet with 2 inline payloads
-        let payload1 = solana_ibc_types::Payload {
-            source_port: "source-port-1".to_string(),
-            dest_port: "test-port".to_string(),
-            version: "1".to_string(),
-            encoding: "json".to_string(),
-            value: b"data1".to_vec(),
-        };
-
-        let payload2 = solana_ibc_types::Payload {
-            source_port: "source-port-2".to_string(),
-            dest_port: "test-port".to_string(),
-            version: "1".to_string(),
-            encoding: "json".to_string(),
-            value: b"data2".to_vec(),
-        };
-
-        ctx.packet.payloads = vec![payload1, payload2];
-
-        let msg = MsgRecvPacket {
-            packet: ctx.packet.clone(),
-            payloads: vec![PayloadMetadata {
+        ctx.packet.payloads = vec![
+            MsgPayload {
                 source_port: "source-port-1".to_string(),
                 dest_port: "test-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                total_chunks: 1,
-            }],
-            proof: ProofMetadata {
+                data: Delivery::Inline {
+                    data: b"data1".to_vec(),
+                },
+            },
+            MsgPayload {
+                source_port: "source-port-2".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Inline {
+                    data: b"data2".to_vec(),
+                },
+            },
+        ];
+
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -962,34 +949,35 @@ mod tests {
     }
 
     #[test]
-    fn test_recv_packet_conflicting_inline_and_chunked() {
-        // Test that packet with both inline payloads AND chunked metadata fails
+    fn test_recv_packet_mixed_delivery_modes() {
+        // Test that packet with mixed inline and chunked payloads fails
         let mut ctx = setup_recv_packet_test(true, 1000);
 
-        // Add inline payload to packet
-        let payload = solana_ibc_types::Payload {
-            source_port: "source-port".to_string(),
-            dest_port: "test-port".to_string(),
-            version: "1".to_string(),
-            encoding: "json".to_string(),
-            value: b"inline data".to_vec(),
-        };
-
-        ctx.packet.payloads = vec![payload];
-
-        // Also provide chunked metadata (conflicting!)
-        let msg = MsgRecvPacket {
-            packet: ctx.packet.clone(),
-            payloads: vec![PayloadMetadata {
+        // Mix inline and chunked payloads in the same packet
+        ctx.packet.payloads = vec![
+            MsgPayload {
                 source_port: "source-port".to_string(),
                 dest_port: "test-port".to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                total_chunks: 1, // This conflicts with inline payload above
-            }],
-            proof: ProofMetadata {
+                data: Delivery::Inline {
+                    data: b"inline data".to_vec(),
+                },
+            },
+            MsgPayload {
+                source_port: "source-port".to_string(),
+                dest_port: "test-port".to_string(),
+                version: "1".to_string(),
+                encoding: "json".to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+        ];
+
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -998,7 +986,7 @@ mod tests {
         let mollusk = setup_mollusk_with_mock_programs();
 
         let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + RouterError::InvalidPayloadCount as u32,
+            ANCHOR_ERROR_OFFSET + RouterError::MixedDeliveryModes as u32,
         ))];
 
         mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
@@ -1312,26 +1300,25 @@ mod tests {
         let (client_pda, _) =
             Pubkey::find_program_address(&[Client::SEED, RECV_DEST_CLIENT.as_bytes()], &crate::ID);
 
-        let packet = Packet {
+        let packet = MsgPacket {
             sequence,
             source_client: RECV_SOURCE_CLIENT.to_string(),
             dest_client: RECV_DEST_CLIENT.to_string(),
             timeout_timestamp: RECV_TEST_TIMEOUT,
-            payloads: vec![],
-        };
-
-        let msg = MsgRecvPacket {
-            packet,
-            payloads: vec![PayloadMetadata {
+            payloads: vec![MsgPayload {
                 source_port: "source-port".to_string(),
                 dest_port: RECV_TEST_PORT.to_string(),
                 version: "1".to_string(),
                 encoding: "json".to_string(),
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             }],
-            proof: ProofMetadata {
+        };
+
+        let msg = MsgRecvPacket {
+            packet,
+            proof: MsgProof {
                 height: 100,
-                total_chunks: 1,
+                data: Delivery::Chunked { total_chunks: 1 },
             },
         };
 
@@ -1639,6 +1626,41 @@ mod tests {
             receipt_value_1, receipt_value_2,
             "Receipts should differ for distinct packets"
         );
+    }
+
+    #[test]
+    fn test_recv_packet_inline_wrong_dest_port() {
+        let mut ctx = setup_recv_packet_test(true, 1000);
+
+        // Use wrong dest_port that doesn't match the ibc_app PDA ("test-port")
+        ctx.packet.payloads = vec![MsgPayload {
+            source_port: "source-port".to_string(),
+            dest_port: "transfer".to_string(),
+            version: "1".to_string(),
+            encoding: "json".to_string(),
+            data: Delivery::Inline {
+                data: b"inline data".to_vec(),
+            },
+        }];
+
+        let msg = MsgRecvPacket {
+            packet: ctx.packet.clone(),
+            proof: MsgProof {
+                height: 100,
+                data: Delivery::Chunked { total_chunks: 1 },
+            },
+        };
+
+        ctx.instruction.data = crate::instruction::RecvPacket { msg }.data();
+
+        let mollusk = setup_mollusk_with_mock_programs();
+
+        // Anchor seeds constraint fails: ibc_app PDA derived from "transfer" != account seeded with "test-port"
+        let checks = vec![Check::err(ProgramError::Custom(
+            anchor_lang::error::ErrorCode::ConstraintSeeds as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&ctx.instruction, &ctx.accounts, &checks);
     }
 
     #[test]
