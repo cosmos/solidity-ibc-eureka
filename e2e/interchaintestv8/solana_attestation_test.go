@@ -188,20 +188,26 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	access_manager.ProgramID = deployResults["Deploy Access Manager"]
 
 	s.T().Log("Initializing Access Manager...")
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err)
+
 	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+	amProgramDataPDA, _ := solana.AccessManager.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initAccessManagerInstruction, err := access_manager.NewInitializeInstruction(
 		s.SolanaUser.PublicKey(),
 		accessControlAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
 		solanago.SysVarInstructionsPubkey,
+		amProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAccessManagerInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 	s.T().Log("Access Manager initialized")
 
@@ -243,18 +249,21 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 
 	s.T().Log("Initializing ICS26 Router...")
 	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	routerProgramDataPDA, _ := solana.Ics26Router.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initInstruction, err := ics26_router.NewInitializeInstruction(
 		access_manager.ProgramID,
 		routerStateAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
+		routerProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 
 	simd := s.Cosmos.Chains[0]
@@ -477,6 +486,7 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
 
+	attestationProgramDataPDA, _ := solana.Attestation.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initInstruction, err := attestation.NewInitializeInstruction(
 		attestorAddresses,
 		minRequiredSigs,
@@ -485,13 +495,18 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 		appStatePDA,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
+		attestationProgramDataPDA,
+		solana.DeployerPubkey,
 	)
+	s.Require().NoError(err)
+
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 	s.Require().NoError(err)
 
 	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 	s.T().Logf("Attestation Light Client initialized - tx: %s", sig)
 }

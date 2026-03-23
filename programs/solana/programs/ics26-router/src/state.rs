@@ -50,8 +50,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -205,7 +203,6 @@ mod compatibility_tests {
             version: AccountVersion::V1,
             port_id: "transfer".to_string(),
             app_program_id: Pubkey::new_unique(),
-            authority: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
 
@@ -221,7 +218,6 @@ mod compatibility_tests {
         // Verify all fields match
         assert_eq!(app.port_id, types_app.port_id);
         assert_eq!(app.app_program_id, types_app.app_program_id);
-        assert_eq!(app.authority, types_app.authority);
         assert_eq!(app._reserved, types_app._reserved);
     }
 

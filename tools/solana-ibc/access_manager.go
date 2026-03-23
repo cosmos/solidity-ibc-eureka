@@ -17,20 +17,27 @@ var accessManagerCmd = &cobra.Command{
 }
 
 var initializeCmd = &cobra.Command{
-	Use:   "initialize <cluster-url> <payer-keypair> <admin-pubkey> <access-manager-program-id>",
-	Short: "Initialize AccessManager with an admin",
-	Args:  cobra.ExactArgs(4),
+	Use:   "initialize <cluster-url> <payer-keypair> <authority-keypair> <admin-pubkey> <access-manager-program-id>",
+	Short: "Initialize AccessManager with an admin (requires program upgrade authority to sign)",
+	Args:  cobra.ExactArgs(5),
 	Run: func(cmd *cobra.Command, args []string) {
 		clusterURL := args[0]
 		payerKeypairPath := args[1]
-		adminPubkey := solanago.MustPublicKeyFromBase58(args[2])
-		accessManagerProgramID := solanago.MustPublicKeyFromBase58(args[3])
+		authorityKeypairPath := args[2]
+		adminPubkey := solanago.MustPublicKeyFromBase58(args[3])
+		accessManagerProgramID := solanago.MustPublicKeyFromBase58(args[4])
 
 		payerWallet := loadWallet(payerKeypairPath)
+		authorityWallet := loadWallet(authorityKeypairPath)
 
 		accessManagerPda, _, _ := solanago.FindProgramAddress(
 			[][]byte{[]byte("access_manager")},
 			accessManagerProgramID,
+		)
+
+		programDataPda, _, _ := solanago.FindProgramAddress(
+			[][]byte{accessManagerProgramID.Bytes()},
+			solanago.BPFLoaderUpgradeableProgramID,
 		)
 
 		initIx, err := access_manager.NewInitializeInstruction(
@@ -39,6 +46,8 @@ var initializeCmd = &cobra.Command{
 			payerWallet.PublicKey(),
 			solanago.SystemProgramID,
 			solanago.SysVarInstructionsPubkey,
+			programDataPda,
+			authorityWallet.PublicKey(),
 		)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error building initialize instruction: %v\n", err)
@@ -47,7 +56,7 @@ var initializeCmd = &cobra.Command{
 
 		fmt.Printf("Initializing AccessManager with admin %s...\n", adminPubkey)
 
-		sig := sendTransaction(clusterURL, payerWallet, []solanago.Instruction{initIx})
+		sig := sendTransaction(clusterURL, payerWallet, []solanago.Instruction{initIx}, authorityWallet)
 
 		fmt.Printf("✅ Transaction sent: %s\n", sig)
 		fmt.Println("Waiting for confirmation...")

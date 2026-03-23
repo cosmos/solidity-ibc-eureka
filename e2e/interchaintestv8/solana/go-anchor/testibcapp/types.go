@@ -150,9 +150,6 @@ type Ics26RouterStateIbcApp struct {
 	// The program ID of the IBC application
 	AppProgramId solanago.PublicKey `json:"appProgramId"`
 
-	// Authority that registered this port
-	Authority solanago.PublicKey `json:"authority"`
-
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -172,11 +169,6 @@ func (obj Ics26RouterStateIbcApp) MarshalWithEncoder(encoder *binary.Encoder) (e
 	err = encoder.Encode(obj.AppProgramId)
 	if err != nil {
 		return errors.NewField("AppProgramId", err)
-	}
-	// Serialize `Authority`:
-	err = encoder.Encode(obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -211,11 +203,6 @@ func (obj *Ics26RouterStateIbcApp) UnmarshalWithDecoder(decoder *binary.Decoder)
 	err = decoder.Decode(&obj.AppProgramId)
 	if err != nil {
 		return errors.NewField("AppProgramId", err)
-	}
-	// Deserialize `Authority`:
-	err = decoder.Decode(&obj.Authority)
-	if err != nil {
-		return errors.NewField("Authority", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

@@ -1743,11 +1743,17 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 	s.IFTMintAuthority = mintAuthorityPDA
 
 	// Initialize global app state (idempotent - will fail silently if already initialized)
+	iftProgramDataPDA, _ := solana.Ift.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err)
+
 	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(), // admin
 		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
 		solanago.SystemProgramID,
+		iftProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
@@ -1755,7 +1761,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) createIFTSplTokenWithProgram(ctx context.C
 	s.Require().NoError(err)
 
 	// Ignore error - may already be initialized
-	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer, deployerWallet)
 
 	var createTokenParams ift.IftStateCreateTokenParams
 	if tokenProgramID == solanago.Token2022ProgramID {
@@ -1890,17 +1896,23 @@ func (s *IbcEurekaSolanaIFTTestSuite) initializeExistingTokenWithProgram(ctx con
 	s.IFTMintAuthority = mintAuthorityPDA
 
 	// Initialize global app state (idempotent)
+	iftProgramDataPDA, _ := solana.Ift.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err)
+
 	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(),
 		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
 		solanago.SystemProgramID,
+		iftProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	globalInitTx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), globalInitIx)
 	s.Require().NoError(err)
-	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer, deployerWallet)
 
 	// Transfer mint authority to IFT via initialize_existing_token
 	initExistingIx, err := ift.NewInitializeExistingTokenInstruction(

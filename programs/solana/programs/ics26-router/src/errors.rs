@@ -99,6 +99,9 @@ pub enum RouterError {
 
     #[msg("Packet sequence must be greater than zero")]
     ZeroPacketSequence,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 /// Convert CPI validation errors to Router errors
