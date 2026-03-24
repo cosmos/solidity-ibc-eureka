@@ -45,6 +45,7 @@ pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     app_state.version = AccountVersion::V1;
     app_state.bump = ctx.bumps.app_state;
     app_state.admin = admin;
+    app_state.pending_admin = None;
 
     let clock = Clock::get()?;
     emit!(IFTInitialized {
@@ -115,6 +116,7 @@ mod tests {
         let state = deserialize_app_state(&updated_account);
         assert_eq!(state.admin, admin);
         assert!(!state.paused);
+        assert_eq!(state.pending_admin, None);
     }
 
     #[test]
