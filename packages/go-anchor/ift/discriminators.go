@@ -14,8 +14,10 @@ var (
 
 // Event discriminators
 var (
+	Event_IftEventsAdminAccepted            = [8]byte{174, 12, 76, 139, 158, 99, 110, 254}
 	Event_IftEventsAdminMintExecuted        = [8]byte{96, 100, 181, 34, 239, 17, 170, 41}
-	Event_IftEventsAdminUpdated             = [8]byte{69, 82, 49, 171, 43, 3, 80, 161}
+	Event_IftEventsAdminProposalCancelled   = [8]byte{158, 7, 69, 243, 15, 126, 0, 184}
+	Event_IftEventsAdminProposed            = [8]byte{129, 249, 226, 227, 199, 82, 110, 243}
 	Event_IftEventsExistingTokenInitialized = [8]byte{208, 76, 129, 169, 87, 75, 247, 38}
 	Event_IftEventsIftBridgeRegistered      = [8]byte{38, 145, 142, 93, 180, 246, 96, 92}
 	Event_IftEventsIftBridgeRemoved         = [8]byte{24, 210, 106, 149, 160, 249, 170, 249}
@@ -40,7 +42,9 @@ var (
 	Instruction_IftTransfer                 = [8]byte{90, 149, 241, 191, 75, 3, 50, 100}
 	Instruction_IftMint                     = [8]byte{156, 201, 217, 144, 114, 175, 170, 83}
 	Instruction_FinalizeTransfer            = [8]byte{124, 126, 103, 188, 144, 65, 135, 51}
-	Instruction_SetAdmin                    = [8]byte{251, 163, 0, 52, 91, 194, 187, 92}
+	Instruction_ProposeAdmin                = [8]byte{121, 214, 199, 212, 87, 39, 117, 234}
+	Instruction_AcceptAdmin                 = [8]byte{112, 42, 45, 90, 116, 181, 13, 170}
+	Instruction_CancelAdminProposal         = [8]byte{68, 6, 145, 131, 16, 73, 182, 229}
 	Instruction_RevokeMintAuthority         = [8]byte{140, 52, 61, 238, 209, 157, 189, 32}
 	Instruction_SetMintRateLimit            = [8]byte{130, 207, 16, 33, 36, 175, 200, 83}
 	Instruction_SetPaused                   = [8]byte{91, 60, 125, 192, 176, 225, 166, 218}
