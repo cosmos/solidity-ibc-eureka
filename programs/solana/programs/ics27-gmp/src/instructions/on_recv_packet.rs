@@ -184,16 +184,16 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // Get return data from the target program (if any)
-    // Only accept return data from the target program itself, not from nested CPIs
-    let result = match anchor_lang::solana_program::program::get_return_data() {
-        Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![], // No return data or came from nested CPI
+    // Wrap the CPI call result in the ICS27 GMP acknowledgement.
+    // Only accept return data from the target program itself, not from nested CPIs.
+    let ack = match anchor_lang::solana_program::program::get_return_data() {
+        Some((return_program_id, data)) if return_program_id == receiver_pubkey => {
+            GmpAcknowledgement::success(data)
+        }
+        _ => GmpAcknowledgement::empty_success(),
     };
 
-    // Create acknowledgement with execution result
-    // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(GmpAcknowledgement::new(result).encode_to_vec())
+    Ok(ack.encode_to_vec())
 }
 
 #[cfg(test)]
