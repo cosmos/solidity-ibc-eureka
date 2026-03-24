@@ -526,6 +526,10 @@ See [Per-Sender Sequence Counter](solana-storage-architecture.md#per-sender-sequ
 **Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
 
 
+## Acknowledgement Encoding
+
+After executing the target program, GMP wraps the CPI return data in a protobuf `Acknowledgement { bytes result = 1 }`. Proto3 omits empty bytes fields, so an empty result encodes to zero bytes — which the router rejects. When a target returns no data (e.g. SPL Token), GMP uses a `[0]` sentinel via `GmpAcknowledgement::empty_success()` to keep the encoding non-empty. On the Solidity side this isn't an issue because `abi.encode` always produces non-empty output.
+
 ## Security Model
 
 - **Account Control**: Only GMP program can sign via `invoke_signed` - users cannot directly control PDAs
