@@ -126,7 +126,6 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
-    /// Boxed to reduce stack frame size and avoid BPF stack overflow.
     #[account(
         init,
         payer = payer,
@@ -139,7 +138,7 @@ pub struct IFTTransfer<'info> {
         ],
         bump,
     )]
-    pub pending_transfer: Box<Account<'info, PendingTransfer>>,
+    pub pending_transfer: Account<'info, PendingTransfer>,
 }
 
 pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u64> {

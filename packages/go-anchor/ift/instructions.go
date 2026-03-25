@@ -434,7 +434,6 @@ func NewIftTransferInstruction(
 		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 20 "pending_transfer": Writable, Non-signer, Required
-		// Boxed to reduce stack frame size and avoid BPF stack overflow.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 
