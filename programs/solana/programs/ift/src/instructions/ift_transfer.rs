@@ -30,7 +30,8 @@ pub struct IFTTransfer<'info> {
     )]
     pub app_mint_state: Account<'info, IFTAppMintState>,
 
-    /// IFT bridge for the destination
+    /// IFT bridge for the destination.
+    /// Boxed to reduce stack frame size and avoid BPF stack overflow.
     #[account(
         seeds = [IFT_BRIDGE_SEED, app_mint_state.mint.as_ref(), msg.client_id.as_bytes()],
         bump = ift_bridge.bump,
@@ -38,7 +39,7 @@ pub struct IFTTransfer<'info> {
         constraint = msg.client_id.len() <= MAX_CLIENT_ID_LENGTH @ IFTError::InvalidClientIdLength,
         constraint = ift_bridge.active @ IFTError::BridgeNotActive,
     )]
-    pub ift_bridge: Account<'info, IFTBridge>,
+    pub ift_bridge: Box<Account<'info, IFTBridge>>,
 
     /// SPL Token mint
     #[account(
@@ -125,6 +126,7 @@ pub struct IFTTransfer<'info> {
     /// CHECK: Consensus state account, forwarded through GMP to router for expiry check
     pub consensus_state: AccountInfo<'info>,
 
+    /// Boxed to reduce stack frame size and avoid BPF stack overflow.
     #[account(
         init,
         payer = payer,

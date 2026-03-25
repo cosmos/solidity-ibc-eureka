@@ -383,7 +383,8 @@ func NewIftTransferInstruction(
 		// Per-mint IFT app state (read-only, for mint and bridge references)
 		accounts__.Append(solanago.NewAccountMeta(appMintStateAccount, false, false))
 		// Account 2 "ift_bridge": Read-only, Non-signer, Required
-		// IFT bridge for the destination
+		// IFT bridge for the destination.
+		// Boxed to reduce stack frame size and avoid BPF stack overflow.
 		accounts__.Append(solanago.NewAccountMeta(iftBridgeAccount, false, false))
 		// Account 3 "mint": Writable, Non-signer, Required
 		// SPL Token mint
@@ -433,7 +434,7 @@ func NewIftTransferInstruction(
 		// Account 19 "consensus_state": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 		// Account 20 "pending_transfer": Writable, Non-signer, Required
-		// PDA derived from [PENDING_TRANSFER_SEED, mint, client_id, sequence].
+		// Boxed to reduce stack frame size and avoid BPF stack overflow.
 		accounts__.Append(solanago.NewAccountMeta(pendingTransferAccount, true, false))
 	}
 
