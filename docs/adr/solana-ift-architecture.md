@@ -273,6 +273,7 @@ This PDA-based validation is more efficient and Solana-native than instruction s
 
 1. **Mint Authority Transfer**: For existing tokens, authority must be transferred to IFT PDA (recoverable via `revoke_mint_authority`)
 2. **No WSOL**: Native SOL bridging requires ICS-20
+3. **No error ack on CPI failure**: On Ethereum the router can catch an app revert and still write an error ack. Solana doesn't work that way - a failed CPI takes down the whole transaction, so the router never gets a chance to write anything. The `Err` branch in `recv_packet.rs` is `unreachable!()`. If `ift_mint` or any callback keeps reverting, the packet just sits there until timeout. Relayers should cap retries and simulate first.
 
 ## References
 
