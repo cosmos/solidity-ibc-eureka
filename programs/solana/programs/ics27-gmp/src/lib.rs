@@ -3,6 +3,7 @@ use solana_ibc_macros::ibc_app;
 
 pub mod abi;
 pub mod constants;
+pub mod encoding;
 pub mod errors;
 pub mod events;
 pub mod gmp_packet_data;

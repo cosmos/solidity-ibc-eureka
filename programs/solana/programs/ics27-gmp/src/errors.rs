@@ -143,6 +143,9 @@ pub enum GMPError {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 /// Convert GMP validation errors to GMP errors

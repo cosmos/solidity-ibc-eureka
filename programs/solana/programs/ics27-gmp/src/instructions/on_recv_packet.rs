@@ -81,11 +81,6 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    require!(
-        msg.payload.encoding == ABI_ENCODING || msg.payload.encoding == ICS27_ENCODING,
-        GMPError::InvalidEncoding
-    );
-
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
     // Extract target_program from `remaining_accounts`
@@ -96,8 +91,13 @@ pub fn on_recv_packet<'info>(
 
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode GMP packet data from either protobuf or ABI encoding
-    let packet_data = crate::gmp_packet_data::decode(&msg.payload.value, &msg.payload.encoding)?;
+    // Decode GMP packet data using the payload's declared encoding
+    let raw_packet_data =
+        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     // Parse receiver as Solana Pubkey (for incoming packets, receiver is a Solana address)
     let receiver_pubkey =
@@ -175,11 +175,13 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // Get return data from the target program (if any)
-    // Only accept return data from the target program itself, not from nested CPIs
+    // TODO: make sure encoding match
+    // Get return data from the target program (if any).
+    // Not an error when absent — GMP targets (e.g. SPL Token) may succeed without
+    // setting return data. Use [0] sentinel so proto3 result field is non-empty.
     let result = match anchor_lang::solana_program::program::get_return_data() {
         Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![], // No return data or came from nested CPI
+        _ => vec![0],
     };
 
     // Create acknowledgement with execution result
@@ -197,8 +199,8 @@ mod tests {
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use rstest::rstest;
-    use solana_ibc_proto::{ProstMessage, Protobuf};
-    use solana_ibc_types::GMPAccount;
+    use solana_ibc_proto::ProstMessage;
+    use solana_ibc_types::{GMPAccount, GmpPacketData};
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;
     use solana_sdk::program_error::ProgramError;
@@ -397,7 +399,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -587,13 +589,26 @@ mod tests {
                 source_port: overrides.source_port.unwrap_or(GMP_PORT_ID).to_string(),
                 dest_port: overrides.dest_port.unwrap_or(GMP_PORT_ID).to_string(),
                 version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
-                encoding: overrides.encoding.unwrap_or(ICS27_ENCODING).to_string(),
+                encoding: overrides
+                    .encoding
+                    .unwrap_or(ICS27_ENCODING_PROTOBUF)
+                    .to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Push remaining accounts so the program reaches payload/encoding validation
+        instruction
+            .accounts
+            .push(AccountMeta::new(gmp_account_pda, false));
+        instruction.accounts.push(AccountMeta::new_readonly(
+            crate::test_utils::DUMMY_TARGET_PROGRAM,
+            false,
+        ));
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
@@ -736,8 +751,17 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    #[test]
-    fn test_on_recv_packet_success_with_cpi() {
+    fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
+        match encoding {
+            ICS27_ENCODING_ABI => {
+                let validated = GmpPacketData::try_from(raw).unwrap();
+                crate::encoding::encode_gmp_packet(validated, encoding).unwrap()
+            }
+            _ => raw.encode_to_vec(),
+        }
+    }
+
+    fn run_recv_success_test(encoding: &str) {
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
@@ -818,8 +842,7 @@ mod tests {
 
         let solana_payload_bytes = solana_payload.encode_to_vec();
 
-        // Create GMPPacketData with the counter instruction as payload using protobuf
-        let proto_packet_data = RawGmpPacketData {
+        let raw_packet = RawGmpPacketData {
             sender: sender.to_string(),
             receiver: COUNTER_APP_ID.to_string(),
             salt,
@@ -827,7 +850,8 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = proto_packet_data.encode_to_vec();
+        // Encode GMPPacketData using the test's encoding (protobuf or ABI)
+        let packet_data_bytes = encode_test_packet(raw_packet, encoding);
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
@@ -837,7 +861,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: encoding.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -925,12 +949,9 @@ mod tests {
 
         let result = mollusk.process_instruction(&instruction, &accounts);
 
-        // OnRecvPacket should succeed even if CPI fails (returns error ack instead)
-        // This is the correct behavior - OnRecvPacket never fails the transaction,
-        // it returns success/error acks
         assert!(
             !result.program_result.is_err(),
-            "OnRecvPacket instruction should succeed (returns ack even on CPI failure): {:?}",
+            "OnRecvPacket should succeed with {encoding} encoding: {:?}",
             result.program_result
         );
 
@@ -940,11 +961,8 @@ mod tests {
             "Should return acknowledgement"
         );
 
-        // Parse the acknowledgement and verify CPI succeeded
-        // The ack is protobuf-encoded
-        // The return data in Mollusk is just the raw bytes, but OnRecvPacket uses
-        // anchor's return mechanism which prefixes with length
-        // Skip the first 4 bytes (u32 length prefix) that Anchor adds
+        // Parse the acknowledgement and verify CPI succeeded.
+        // Skip the 4-byte u32 length prefix that Anchor adds.
         let ack_bytes = if result.return_data.len() > 4 {
             &result.return_data[4..]
         } else {
@@ -959,7 +977,6 @@ mod tests {
             "CPI execution should succeed (non-empty result)"
         );
 
-        // Verify the acknowledgement contains the correct counter value
         // Counter app returns u64 in little-endian (8 bytes)
         assert_eq!(
             ack.result.len(),
@@ -973,8 +990,15 @@ mod tests {
             "Acknowledgement should contain counter value 5, got {returned_counter}"
         );
 
-        // With stateless approach, no account state is created
-        // The GMP account PDA is used as a signer without storing state
+        // With stateless approach, no account state is created.
+        // The GMP account PDA is used as a signer without storing state.
+    }
+
+    #[rstest]
+    #[case::protobuf(ICS27_ENCODING_PROTOBUF)]
+    #[case::abi(ICS27_ENCODING_ABI)]
+    fn test_on_recv_packet_success_with_cpi(#[case] encoding: &str) {
+        run_recv_success_test(encoding);
     }
 
     /// Proves GMP PDAs are immune to the pre-funding DoS attack that affects
@@ -1082,7 +1106,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: proto_packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -1298,7 +1322,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1444,10 +1468,6 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    // NOTE: integration_tests module below covers the same CPI validation
-    // scenarios using a real BPF runtime (ProgramTest) where `get_stack_height()`
-    // works correctly. The Mollusk tests above use fake sysvar data instead.
-
     #[test]
     fn test_invalid_solana_payload_returns_error() {
         let ctx = create_gmp_test_context();
@@ -1536,7 +1556,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![0],
             },
             relayer: Pubkey::new_unique(),

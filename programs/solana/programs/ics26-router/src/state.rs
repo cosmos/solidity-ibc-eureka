@@ -2,8 +2,8 @@ use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
 pub use solana_ibc_types::{
-    AccountVersion, ClientAccount, CounterpartyInfo, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
-    MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadMetadata, ProofMetadata,
+    AccountVersion, ClientAccount, CounterpartyInfo, Delivery, MsgAckPacket, MsgCleanupChunks,
+    MsgPayload, MsgProof, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet,
     MAX_CLIENT_ID_LENGTH,
 };
 
@@ -50,8 +50,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -98,37 +96,6 @@ impl Client {
             counterparty_info: self.counterparty_info.clone(),
             active: self.active,
             _reserved: self._reserved,
-        }
-    }
-}
-
-/// Per-client packet sequence counter.
-///
-/// Tracks the next sequence number to assign when sending a packet
-/// through a given client. Each `send_packet` call reads and increments
-/// this value to guarantee unique, monotonically increasing sequence
-/// numbers for replay protection.
-#[account]
-#[derive(InitSpace)]
-pub struct ClientSequence {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// Next sequence number for sending packets
-    pub next_sequence_send: u64,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
-
-impl ClientSequence {
-    pub const SEED: &'static [u8] = solana_ibc_types::ClientSequence::SEED;
-}
-
-impl Default for ClientSequence {
-    fn default() -> Self {
-        Self {
-            next_sequence_send: 1, // IBC sequences start from 1
-            version: AccountVersion::V1,
-            _reserved: [0; 256],
         }
     }
 }
@@ -236,7 +203,6 @@ mod compatibility_tests {
             version: AccountVersion::V1,
             port_id: "transfer".to_string(),
             app_program_id: Pubkey::new_unique(),
-            authority: Pubkey::new_unique(),
             _reserved: [0; 256],
         };
 
@@ -252,7 +218,6 @@ mod compatibility_tests {
         // Verify all fields match
         assert_eq!(app.port_id, types_app.port_id);
         assert_eq!(app.app_program_id, types_app.app_program_id);
-        assert_eq!(app.authority, types_app.authority);
         assert_eq!(app._reserved, types_app._reserved);
     }
 
@@ -294,12 +259,6 @@ mod compatibility_tests {
 
         // Verify SEED constant matches
         assert_eq!(RouterState::SEED, solana_ibc_types::RouterState::SEED);
-    }
-
-    /// Ensures `ClientSequence` in this program remains compatible with marker type pattern
-    #[test]
-    fn test_client_sequence_seed_compatibility() {
-        assert_eq!(ClientSequence::SEED, solana_ibc_types::ClientSequence::SEED);
     }
 
     /// Ensures `Commitment` in this program remains compatible with marker type pattern

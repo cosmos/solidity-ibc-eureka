@@ -7,6 +7,7 @@ name = "access-manager"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "bincode",
  "mollusk-svm",
  "solana-ibc-types",
  "solana-program-test",
@@ -6905,6 +6906,7 @@ name = "solana-ibc-types"
 version = "0.1.0"
 dependencies = [
  "anchor-lang",
+ "bincode",
  "borsh 0.10.4",
  "ibc-client-tendermint",
  "ibc-core-client-types",

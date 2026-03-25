@@ -836,6 +836,7 @@ generate-pda:
 	go run e2e/interchaintestv8/solana/generate-pdas/main.go \
 		--idl-dir programs/solana/target/idl \
 		--output e2e/interchaintestv8/solana/pda.go
+	gofmt -w e2e/interchaintestv8/solana/pda.go
 	@echo "✅ Generated e2e/interchaintestv8/solana/pda.go"
 
 # Generate the fixtures for the wasm tests using the e2e tests
