@@ -4,7 +4,7 @@ use crate::events::GMPCallSent;
 use crate::state::{GMPAppState, SendCallMsg};
 use anchor_lang::prelude::*;
 use ics26_router::state::{Client, IBCApp, RouterState};
-use solana_ibc_proto::{Protobuf, RawGmpPacketData};
+use solana_ibc_proto::RawGmpPacketData;
 use solana_ibc_types::{GmpPacketData, MsgSendPacket, Payload};
 
 /// Sends a GMP call packet via direct wallet signature. Rejects CPI callers.
@@ -162,13 +162,13 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    let packet_data_bytes = packet_data.encode_vec();
+    let packet_data_bytes = crate::encoding::encode_gmp_packet(packet_data, &msg.encoding)?;
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
         dest_port: GMP_PORT_ID.to_string(),
         version: ICS27_VERSION.to_string(),
-        encoding: ICS27_ENCODING.to_string(),
+        encoding: msg.encoding.clone(),
         value: packet_data_bytes,
     };
 
@@ -218,6 +218,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -293,6 +294,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
             }
         }
 
@@ -463,6 +465,7 @@ mod tests {
         TimeoutTooSoon,
         TimeoutTooLong,
         EmptyClientId,
+        InvalidEncoding,
     }
 
     const ANCHOR_SIGNER_ERROR: u32 = anchor_lang::error::ErrorCode::AccountNotSigner as u32;
@@ -611,6 +614,12 @@ mod tests {
                 let accounts = ctx.build_accounts(false);
                 (instruction, accounts, ANCHOR_CONSTRAINT_SEEDS)
             }
+            SendCallErrorCase::InvalidEncoding => {
+                msg.encoding = "application/json".to_string();
+                let instruction = ctx.build_instruction(msg, true);
+                let accounts = ctx.build_accounts(false);
+                (instruction, accounts, gmp_error(GMPError::InvalidEncoding))
+            }
         };
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
@@ -641,8 +650,36 @@ mod tests {
     #[case::timeout_too_soon(SendCallErrorCase::TimeoutTooSoon)]
     #[case::timeout_too_long(SendCallErrorCase::TimeoutTooLong)]
     #[case::empty_client_id(SendCallErrorCase::EmptyClientId)]
+    #[case::invalid_encoding(SendCallErrorCase::InvalidEncoding)]
     fn test_send_call_validation(#[case] case: SendCallErrorCase) {
         run_send_call_error_test(case);
+    }
+
+    #[test]
+    fn test_abi_encode_gmp_packet_data_round_trip() {
+        let raw = RawGmpPacketData {
+            sender: "solana_sender_pubkey".to_string(),
+            receiver: "0xabcdef1234567890abcdef1234567890abcdef12".to_string(),
+            salt: vec![1, 2, 3],
+            payload: vec![4, 5, 6, 7],
+            memo: "test memo".to_string(),
+        };
+        let packet_data = GmpPacketData::try_from(raw).unwrap();
+
+        let encoded =
+            encode_gmp_packet(packet_data, ICS27_ENCODING_ABI).expect("ABI encoding should work");
+        let raw_decoded =
+            decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).expect("ABI decoding should succeed");
+        let decoded = GmpPacketData::try_from(raw_decoded).unwrap();
+
+        assert_eq!(decoded.sender.as_ref(), "solana_sender_pubkey");
+        assert_eq!(
+            decoded.receiver.as_ref(),
+            "0xabcdef1234567890abcdef1234567890abcdef12"
+        );
+        assert_eq!(&decoded.salt[..], &[1, 2, 3]);
+        assert_eq!(&decoded.payload[..], &[4, 5, 6, 7]);
+        assert_eq!(decoded.memo.as_ref(), "test memo");
     }
 }
 
@@ -674,6 +711,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
+            encoding: crate::constants::ICS27_ENCODING_PROTOBUF.to_string(),
         };
 
         let (router_state, _) = create_router_state_pda();

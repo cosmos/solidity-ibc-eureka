@@ -47,8 +47,8 @@ pub mod test_ibc_app {
     }
 
     /// Handle incoming packet
-    /// Returns acknowledgement data via `set_return_data`
-    pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
+    /// Returns acknowledgement bytes via `Result<Vec<u8>>` so Anchor Borsh-serializes the return value.
+    pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<Vec<u8>> {
         instructions::on_recv_packet(ctx, msg)
     }
 
