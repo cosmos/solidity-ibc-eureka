@@ -24,13 +24,13 @@ struct CallbackConfig {
     name: &'static str,
     /// Expected message type name
     msg_type: &'static str,
-    /// Expected return types (multiple allowed for flexibility)
-    return_types: &'static [ReturnTypeExpectation],
+    /// Expected return type
+    return_type: ReturnTypeExpectation,
     /// Discriminator name (for compile-time checks)
     discriminator_name: &'static str,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 enum ReturnTypeExpectation {
     ResultUnit,
     ResultVecU8,
@@ -40,13 +40,13 @@ impl CallbackConfig {
     const fn new(
         name: &'static str,
         msg_type: &'static str,
-        return_types: &'static [ReturnTypeExpectation],
+        return_type: ReturnTypeExpectation,
         discriminator_name: &'static str,
     ) -> Self {
         Self {
             name,
             msg_type,
-            return_types,
+            return_type,
             discriminator_name,
         }
     }
@@ -57,19 +57,19 @@ const IBC_CALLBACKS: &[CallbackConfig] = &[
     CallbackConfig::new(
         "on_recv_packet",
         "OnRecvPacketMsg",
-        &[ReturnTypeExpectation::ResultVecU8],
+        ReturnTypeExpectation::ResultVecU8,
         "OnRecvPacket",
     ),
     CallbackConfig::new(
         "on_acknowledgement_packet",
         "OnAcknowledgementPacketMsg",
-        &[ReturnTypeExpectation::ResultUnit],
+        ReturnTypeExpectation::ResultUnit,
         "OnAcknowledgementPacket",
     ),
     CallbackConfig::new(
         "on_timeout_packet",
         "OnTimeoutPacketMsg",
-        &[ReturnTypeExpectation::ResultUnit],
+        ReturnTypeExpectation::ResultUnit,
         "OnTimeoutPacket",
     ),
 ];
@@ -289,47 +289,28 @@ impl<'a> SignatureValidator<'a> {
         let sig = &self.item_fn.sig;
         let return_type = &sig.output;
 
-        let is_valid = self
-            .config
-            .return_types
-            .iter()
-            .any(|expected| match expected {
-                ReturnTypeExpectation::ResultUnit => is_result_unit(return_type),
-                ReturnTypeExpectation::ResultVecU8 => is_result_vec_u8(return_type),
-            });
+        let is_valid = match self.config.return_type {
+            ReturnTypeExpectation::ResultUnit => is_result_unit(return_type),
+            ReturnTypeExpectation::ResultVecU8 => is_result_vec_u8(return_type),
+        };
 
         if !is_valid {
-            let expected_types = self.format_expected_return_types();
+            let expected = match self.config.return_type {
+                ReturnTypeExpectation::ResultUnit => "Result<()>",
+                ReturnTypeExpectation::ResultVecU8 => "Result<Vec<u8>>",
+            };
             return Err(syn::Error::new_spanned(
                 return_type,
                 format!(
-                    "Callback '{}' must return {}, found '{}'",
+                    "Callback '{}' must return '{}', found '{}'",
                     self.config.name,
-                    expected_types,
+                    expected,
                     quote::quote!(#return_type)
                 ),
             ));
         }
 
         Ok(())
-    }
-
-    fn format_expected_return_types(&self) -> String {
-        let type_strings: Vec<_> = self
-            .config
-            .return_types
-            .iter()
-            .map(|rt| match rt {
-                ReturnTypeExpectation::ResultUnit => "'Result<()>'",
-                ReturnTypeExpectation::ResultVecU8 => "'Result<Vec<u8>>'",
-            })
-            .collect();
-
-        if type_strings.len() == 1 {
-            type_strings[0].to_string()
-        } else {
-            format!("one of: {}", type_strings.join(", "))
-        }
     }
 
     fn validate_message_parameter(&self) -> syn::Result<()> {
