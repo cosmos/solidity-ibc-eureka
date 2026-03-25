@@ -193,11 +193,17 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
         system_program: ctx.accounts.system_program.to_account_info(),
     };
 
+    let encoding = match &ctx.accounts.ift_bridge.chain_options {
+        ChainOptions::Evm => ics27_gmp::constants::ICS27_ENCODING_ABI,
+        ChainOptions::Cosmos { .. } => ics27_gmp::constants::ICS27_ENCODING_PROTOBUF,
+    };
+
     let gmp_msg = SendGmpCallMsg {
         source_client: msg.client_id.clone(),
         timeout_timestamp: timeout,
         receiver: ctx.accounts.ift_bridge.counterparty_ift_address.clone(),
         payload: mint_call_payload,
+        encoding: encoding.to_string(),
         sequence: msg.sequence,
     };
 
