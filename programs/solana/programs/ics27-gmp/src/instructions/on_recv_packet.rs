@@ -3,7 +3,7 @@ use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, ProstMessage};
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)

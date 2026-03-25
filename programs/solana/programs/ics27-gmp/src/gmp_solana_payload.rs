@@ -17,7 +17,7 @@ pub fn decode(value: &[u8], encoding: &str) -> Result<GmpSolanaPayload> {
                 error!(GMPError::InvalidSolanaPayload)
             })
         }
-        crate::constants::ICS27_ENCODING => GmpSolanaPayload::decode(value).map_err(|e| {
+        crate::constants::ICS27_ENCODING_PROTOBUF => GmpSolanaPayload::decode(value).map_err(|e| {
             msg!("GMP Solana payload validation failed: {}", e);
             error!(GMPError::InvalidSolanaPayload)
         }),
@@ -44,7 +44,7 @@ mod tests {
         };
         let encoded = raw.encode_to_vec();
 
-        let decoded = decode(&encoded, crate::constants::ICS27_ENCODING).unwrap();
+        let decoded = decode(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF).unwrap();
 
         assert_eq!(decoded.accounts.len(), 1);
         assert_eq!(decoded.accounts[0].pubkey, pubkey);
@@ -103,7 +103,7 @@ mod tests {
         };
         let encoded = raw.encode_to_vec();
 
-        let result = decode(&encoded, crate::constants::ICS27_ENCODING);
+        let result = decode(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF);
         assert!(result.is_err());
     }
 }

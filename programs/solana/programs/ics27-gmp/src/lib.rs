@@ -6,7 +6,6 @@ pub mod constants;
 pub mod encoding;
 pub mod errors;
 pub mod events;
-pub mod gmp_packet_data;
 pub mod gmp_solana_payload;
 pub mod instructions;
 pub mod proto;
