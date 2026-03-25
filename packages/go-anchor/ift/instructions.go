@@ -628,9 +628,9 @@ func NewFinalizeTransferInstruction(
 	), nil
 }
 
-// Builds a "set_admin" instruction.
-// Set the admin authority (admin only)
-func NewSetAdminInstruction(
+// Builds a "propose_admin" instruction.
+// Propose a new admin (current admin only). The proposed admin must call // `accept_admin` to finalize the transfer.
+func NewProposeAdminInstruction(
 	// Params:
 	newAdminParam solanago.PublicKey,
 
@@ -643,7 +643,7 @@ func NewSetAdminInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SetAdmin[:], false)
+	err := enc__.WriteBytes(Instruction_ProposeAdmin[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -659,7 +659,81 @@ func NewSetAdminInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// Global IFT app state (mut, admin field will be updated)
+		// Global IFT app state (mut, `pending_admin` field will be updated)
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "admin": Read-only, Signer, Required
+		// Current admin authority, must match `app_state.admin`
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "accept_admin" instruction.
+// Accept a pending admin proposal. Must be signed by the proposed admin.
+func NewAcceptAdminInstruction(
+	appStateAccount solanago.PublicKey,
+	pendingAdminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptAdmin[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// Global IFT app state (mut, `admin` and `pending_admin` will be updated)
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "pending_admin": Read-only, Signer, Required
+		// Pending admin who accepts the role
+		accounts__.Append(solanago.NewAccountMeta(pendingAdminAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cancel_admin_proposal" instruction.
+// Cancel a pending admin proposal. Must be signed by the current admin.
+func NewCancelAdminProposalInstruction(
+	appStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelAdminProposal[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// Global IFT app state (mut, `pending_admin` will be cleared)
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "admin": Read-only, Signer, Required
 		// Current admin authority, must match `app_state.admin`

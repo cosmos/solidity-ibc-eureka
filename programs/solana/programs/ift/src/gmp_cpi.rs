@@ -44,6 +44,7 @@ pub struct SendGmpCallMsg {
     pub timeout_timestamp: u64,
     pub receiver: String,
     pub payload: Vec<u8>,
+    pub encoding: String,
     pub sequence: u64,
 }
 
@@ -56,6 +57,7 @@ impl From<SendGmpCallMsg> for ics27_gmp::state::SendCallMsg {
             salt: vec![], // Empty salt for IFT
             payload: msg.payload,
             memo: String::new(),
+            encoding: msg.encoding,
             sequence: msg.sequence,
         }
     }
