@@ -12,26 +12,19 @@ declare_id!("4Fo5RuY7bEPZNz1FjkM9cUkUVc2BVhdYBjDA8P6Tmox1");
 #[ibc_app]
 pub mod mock_ibc_app {
     use super::*;
-    use anchor_lang::solana_program::program::set_return_data;
 
-    pub fn on_recv_packet(_ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
+    pub fn on_recv_packet(_ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<Vec<u8>> {
         // Check for special test scenarios based on the packet data
         if let Some(data) = msg.payload.value.get(0..16) {
             if data == b"RETURN_ERROR_ACK" {
-                // Return the universal error acknowledgement
-                set_return_data(b"error");
-                return Ok(());
+                return Ok(b"error".to_vec());
             }
-            if data == b"NO_RETURN_DATA" {
-                // Test case: don't call set_return_data at all
-                // This should cause router to return InvalidAppResponse error
-                return Ok(());
+            if data == b"RETURN_EMPTY_ACK" {
+                return Ok(vec![]);
             }
         }
 
-        // Default: Return the expected acknowledgement for tests
-        set_return_data(b"packet received");
-        Ok(())
+        Ok(b"packet received".to_vec())
     }
 
     pub fn on_acknowledgement_packet(
