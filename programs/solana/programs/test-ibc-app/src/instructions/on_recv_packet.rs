@@ -1,6 +1,5 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::program::set_return_data;
 
 const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result": "AQ=="}"#;
 
@@ -30,7 +29,7 @@ pub struct OnRecvPacket<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<()> {
+pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Result<Vec<u8>> {
     // Validate CPI caller using shared validation function
     solana_ibc_types::validate_cpi_caller(
         &ctx.accounts.instruction_sysvar,
@@ -52,15 +51,12 @@ pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Resul
     // This indicates successful packet processing
     let acknowledgement = SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
 
-    // Return acknowledgement data to the router
-    set_return_data(&acknowledgement);
-
     // Emit event
     emit!(PacketReceived {
         source_client: msg.source_client.clone(),
         dest_client: msg.dest_client.clone(),
         sequence: msg.sequence,
-        acknowledgement,
+        acknowledgement: acknowledgement.clone(),
     });
 
     msg!(
@@ -71,5 +67,5 @@ pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Resul
         app_state.packets_received
     );
 
-    Ok(())
+    Ok(acknowledgement)
 }
