@@ -8,7 +8,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use syn::{parse_macro_input, FnArg, ItemFn, ItemMod, LitStr, ReturnType, Type, TypePath};
+use syn::{
+    parse_macro_input, FnArg, GenericArgument, ItemFn, ItemMod, LitStr, PathArguments, ReturnType,
+    Type, TypePath, TypeTuple,
+};
 
 // ============================================================================
 // Constants & Types
@@ -54,10 +57,7 @@ const IBC_CALLBACKS: &[CallbackConfig] = &[
     CallbackConfig::new(
         "on_recv_packet",
         "OnRecvPacketMsg",
-        &[
-            ReturnTypeExpectation::ResultVecU8,
-            ReturnTypeExpectation::ResultUnit,
-        ],
+        &[ReturnTypeExpectation::ResultVecU8],
         "OnRecvPacket",
     ),
     CallbackConfig::new(
@@ -85,11 +85,12 @@ const IBC_CALLBACKS: &[CallbackConfig] = &[
 ///
 /// # Required Callbacks
 ///
-/// Your IBC app MUST implement these three functions:
+/// Your IBC app MUST implement these three functions with the exact
+/// return types shown below:
 ///
-/// 1. `on_recv_packet` - Handle incoming packets from counterparty chain
-/// 2. `on_acknowledgement_packet` - Handle acknowledgements for sent packets (NOT `on_ack_packet`)
-/// 3. `on_timeout_packet` - Handle timeouts for sent packets
+/// 1. `on_recv_packet` → `Result<Vec<u8>>` — Handle incoming packets and return acknowledgement bytes
+/// 2. `on_acknowledgement_packet` → `Result<()>` — Handle acknowledgements for sent packets (NOT `on_ack_packet`)
+/// 3. `on_timeout_packet` → `Result<()>` — Handle timeouts for sent packets
 ///
 /// # Example
 ///
@@ -336,13 +337,14 @@ impl<'a> SignatureValidator<'a> {
 
         if let Some(FnArg::Typed(pat_type)) = sig.inputs.iter().nth(1) {
             if !type_ends_with(&pat_type.ty, self.config.msg_type) {
+                let actual_ty = &pat_type.ty;
                 return Err(syn::Error::new_spanned(
-                    &pat_type.ty,
+                    actual_ty,
                     format!(
                         "Callback '{}' second parameter must be of type '{}', found '{}'",
                         self.config.name,
                         self.config.msg_type,
-                        quote::quote!(#(&pat_type.ty))
+                        quote::quote!(#actual_ty)
                     ),
                 ));
             }
@@ -356,26 +358,60 @@ impl<'a> SignatureValidator<'a> {
 // Type Checking Utilities
 // ============================================================================
 
-/// Check if return type is Result<Vec<u8>>
-fn is_result_vec_u8(return_type: &ReturnType) -> bool {
-    matches_result_type(return_type)
-}
-
-/// Check if return type is Result<()>
-fn is_result_unit(return_type: &ReturnType) -> bool {
-    matches_result_type(return_type)
-}
-
-/// Generic check if return type is a Result
-fn matches_result_type(return_type: &ReturnType) -> bool {
-    if let ReturnType::Type(_, ty) = return_type {
-        if let Type::Path(TypePath { path, .. }) = &**ty {
-            if let Some(segment) = path.segments.last() {
-                return segment.ident == "Result";
-            }
-        }
+/// Extract the first type argument from a `Result<T>` return type.
+fn extract_result_inner_type(return_type: &ReturnType) -> Option<&Type> {
+    let ReturnType::Type(_, ty) = return_type else {
+        return None;
+    };
+    let Type::Path(TypePath { path, .. }) = &**ty else {
+        return None;
+    };
+    let segment = path.segments.last()?;
+    if segment.ident != "Result" {
+        return None;
     }
-    false
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        // Anchor's `Result<T>` is a type alias, so bare `Result` (no angle
+        // brackets) can appear when the user writes e.g. `anchor_lang::Result`.
+        // We can't inspect the inner type without brackets, so reject it.
+        return None;
+    };
+    match args.args.first() {
+        Some(GenericArgument::Type(ty)) => Some(ty),
+        _ => None,
+    }
+}
+
+/// Check if return type is `Result<Vec<u8>>`.
+fn is_result_vec_u8(return_type: &ReturnType) -> bool {
+    let Some(inner) = extract_result_inner_type(return_type) else {
+        return false;
+    };
+    let Type::Path(TypePath { path, .. }) = inner else {
+        return false;
+    };
+    let Some(segment) = path.segments.last() else {
+        return false;
+    };
+    if segment.ident != "Vec" {
+        return false;
+    }
+    let PathArguments::AngleBracketed(args) = &segment.arguments else {
+        return false;
+    };
+    matches!(
+        args.args.first(),
+        Some(GenericArgument::Type(Type::Path(TypePath { path, .. })))
+            if path.segments.last().is_some_and(|s| s.ident == "u8")
+    )
+}
+
+/// Check if return type is `Result<()>`.
+fn is_result_unit(return_type: &ReturnType) -> bool {
+    let Some(inner) = extract_result_inner_type(return_type) else {
+        return false;
+    };
+    matches!(inner, Type::Tuple(TypeTuple { elems, .. }) if elems.is_empty())
 }
 
 /// Check if a type path ends with the expected identifier
@@ -462,4 +498,170 @@ pub fn discriminator(input: TokenStream) -> TokenStream {
     };
 
     output.into()
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use syn::parse_quote;
+
+    fn return_type(ty: Type) -> ReturnType {
+        parse_quote!(-> #ty)
+    }
+
+    // --- is_result_vec_u8 ---
+
+    #[test]
+    fn accepts_result_vec_u8() {
+        let rt = return_type(parse_quote!(Result<Vec<u8>>));
+        assert!(is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn accepts_qualified_result_vec_u8() {
+        let rt = return_type(parse_quote!(anchor_lang::Result<Vec<u8>>));
+        assert!(is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_result_unit_for_vec_u8() {
+        let rt = return_type(parse_quote!(Result<()>));
+        assert!(!is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_result_string_for_vec_u8() {
+        let rt = return_type(parse_quote!(Result<String>));
+        assert!(!is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_result_vec_u16_for_vec_u8() {
+        let rt = return_type(parse_quote!(Result<Vec<u16>>));
+        assert!(!is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_bare_result_for_vec_u8() {
+        let rt = return_type(parse_quote!(Result));
+        assert!(!is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_non_result_for_vec_u8() {
+        let rt = return_type(parse_quote!(Option<Vec<u8>>));
+        assert!(!is_result_vec_u8(&rt));
+    }
+
+    #[test]
+    fn rejects_default_return_for_vec_u8() {
+        assert!(!is_result_vec_u8(&ReturnType::Default));
+    }
+
+    // --- is_result_unit ---
+
+    #[test]
+    fn accepts_result_unit() {
+        let rt = return_type(parse_quote!(Result<()>));
+        assert!(is_result_unit(&rt));
+    }
+
+    #[test]
+    fn accepts_qualified_result_unit() {
+        let rt = return_type(parse_quote!(anchor_lang::Result<()>));
+        assert!(is_result_unit(&rt));
+    }
+
+    #[test]
+    fn rejects_result_vec_u8_for_unit() {
+        let rt = return_type(parse_quote!(Result<Vec<u8>>));
+        assert!(!is_result_unit(&rt));
+    }
+
+    #[test]
+    fn rejects_result_string_for_unit() {
+        let rt = return_type(parse_quote!(Result<String>));
+        assert!(!is_result_unit(&rt));
+    }
+
+    #[test]
+    fn rejects_bare_result_for_unit() {
+        let rt = return_type(parse_quote!(Result));
+        assert!(!is_result_unit(&rt));
+    }
+
+    #[test]
+    fn rejects_default_return_for_unit() {
+        assert!(!is_result_unit(&ReturnType::Default));
+    }
+
+    #[test]
+    fn rejects_non_result_for_unit() {
+        let rt = return_type(parse_quote!(Option<()>));
+        assert!(!is_result_unit(&rt));
+    }
+
+    // --- extract_result_inner_type ---
+
+    #[test]
+    fn extracts_unit_inner_type() {
+        let rt = return_type(parse_quote!(Result<()>));
+        let inner = extract_result_inner_type(&rt).unwrap();
+        assert!(matches!(inner, Type::Tuple(TypeTuple { elems, .. }) if elems.is_empty()));
+    }
+
+    #[test]
+    fn extracts_vec_u8_inner_type() {
+        let rt = return_type(parse_quote!(Result<Vec<u8>>));
+        let inner = extract_result_inner_type(&rt).unwrap();
+        assert!(matches!(inner, Type::Path(TypePath { path, .. })
+            if path.segments.last().is_some_and(|s| s.ident == "Vec")));
+    }
+
+    #[test]
+    fn returns_none_for_bare_result() {
+        let rt = return_type(parse_quote!(Result));
+        assert!(extract_result_inner_type(&rt).is_none());
+    }
+
+    #[test]
+    fn returns_none_for_non_result() {
+        let rt = return_type(parse_quote!(Option<()>));
+        assert!(extract_result_inner_type(&rt).is_none());
+    }
+
+    #[test]
+    fn returns_none_for_default_return() {
+        assert!(extract_result_inner_type(&ReturnType::Default).is_none());
+    }
+
+    // --- type_ends_with ---
+
+    #[test]
+    fn type_ends_with_matches_simple_ident() {
+        let ty: Type = parse_quote!(OnRecvPacketMsg);
+        assert!(type_ends_with(&ty, "OnRecvPacketMsg"));
+    }
+
+    #[test]
+    fn type_ends_with_matches_qualified_path() {
+        let ty: Type = parse_quote!(solana_ibc_types::OnRecvPacketMsg);
+        assert!(type_ends_with(&ty, "OnRecvPacketMsg"));
+    }
+
+    #[test]
+    fn type_ends_with_rejects_wrong_name() {
+        let ty: Type = parse_quote!(OnTimeoutPacketMsg);
+        assert!(!type_ends_with(&ty, "OnRecvPacketMsg"));
+    }
+
+    #[test]
+    fn type_ends_with_rejects_tuple() {
+        let ty: Type = parse_quote!(());
+        assert!(!type_ends_with(&ty, "OnRecvPacketMsg"));
+    }
 }

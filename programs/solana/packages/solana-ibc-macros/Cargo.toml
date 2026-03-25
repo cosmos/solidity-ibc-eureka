@@ -19,5 +19,8 @@ quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
 sha2 = "0.10"
 
+[dev-dependencies]
+trybuild = "1"
+
 [lints]
 workspace = true
