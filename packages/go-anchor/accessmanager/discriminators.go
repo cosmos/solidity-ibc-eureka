@@ -10,18 +10,20 @@ var (
 
 // Event discriminators
 var (
-	Event_AccessManagerEventsProgramUpgradedEvent            = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
-	Event_AccessManagerEventsRoleGrantedEvent                = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
-	Event_AccessManagerEventsRoleRevokedEvent                = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
-	Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent = [8]byte{174, 165, 182, 103, 180, 63, 131, 198}
+	Event_AccessManagerEventsProgramUpgradedEvent             = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
+	Event_AccessManagerEventsRoleGrantedEvent                 = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
+	Event_AccessManagerEventsRoleRevokedEvent                 = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
+	Event_AccessManagerEventsUpgradeAuthorityTransferredEvent = [8]byte{79, 145, 216, 157, 39, 178, 134, 42}
+	Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent  = [8]byte{174, 165, 182, 103, 180, 63, 131, 198}
 )
 
 // Instruction discriminators
 var (
-	Instruction_Initialize             = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_GrantRole              = [8]byte{218, 234, 128, 15, 82, 33, 236, 253}
-	Instruction_RevokeRole             = [8]byte{179, 232, 2, 180, 48, 227, 82, 7}
-	Instruction_RenounceRole           = [8]byte{21, 253, 233, 162, 186, 216, 217, 26}
-	Instruction_UpgradeProgram         = [8]byte{223, 236, 39, 89, 111, 204, 114, 37}
-	Instruction_SetWhitelistedPrograms = [8]byte{215, 39, 132, 81, 64, 65, 123, 123}
+	Instruction_Initialize               = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_GrantRole                = [8]byte{218, 234, 128, 15, 82, 33, 236, 253}
+	Instruction_RevokeRole               = [8]byte{179, 232, 2, 180, 48, 227, 82, 7}
+	Instruction_RenounceRole             = [8]byte{21, 253, 233, 162, 186, 216, 217, 26}
+	Instruction_UpgradeProgram           = [8]byte{223, 236, 39, 89, 111, 204, 114, 37}
+	Instruction_TransferUpgradeAuthority = [8]byte{82, 52, 117, 53, 56, 196, 253, 219}
+	Instruction_SetWhitelistedPrograms   = [8]byte{215, 39, 132, 81, 64, 65, 123, 123}
 )

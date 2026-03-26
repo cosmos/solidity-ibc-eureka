@@ -25,6 +25,8 @@ pub enum AccessManagerError {
     DuplicateWhitelistedProgram,
     #[msg("Only the program's upgrade authority can call initialize")]
     UnauthorizedDeployer,
+    #[msg("New authority account does not match instruction parameter")]
+    AuthorityMismatch,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

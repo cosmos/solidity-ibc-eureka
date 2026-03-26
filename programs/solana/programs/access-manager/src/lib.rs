@@ -50,6 +50,14 @@ pub mod access_manager {
         instructions::upgrade_program(ctx, target_program)
     }
 
+    pub fn transfer_upgrade_authority(
+        ctx: Context<TransferUpgradeAuthority>,
+        target_program: Pubkey,
+        new_authority: Pubkey,
+    ) -> Result<()> {
+        instructions::transfer_upgrade_authority(ctx, target_program, new_authority)
+    }
+
     pub fn set_whitelisted_programs(
         ctx: Context<SetWhitelistedPrograms>,
         whitelisted_programs: Vec<Pubkey>,

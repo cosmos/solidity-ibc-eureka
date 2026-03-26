@@ -31,3 +31,12 @@ pub struct WhitelistedProgramsUpdatedEvent {
     pub new_programs: Vec<Pubkey>,
     pub updated_by: Pubkey,
 }
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct UpgradeAuthorityTransferredEvent {
+    pub program: Pubkey,
+    pub old_authority: Pubkey,
+    pub new_authority: Pubkey,
+    pub transferred_by: Pubkey,
+}

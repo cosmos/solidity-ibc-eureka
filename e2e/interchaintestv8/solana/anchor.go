@@ -3,6 +3,7 @@ package solana
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -259,4 +260,26 @@ func UpgradeProgramDirect(ctx context.Context, programID, bufferAddress solana.P
 	}
 
 	return nil
+}
+
+// WriteKeypairToTempFile writes a wallet's private key to a temporary file in Solana CLI format (JSON byte array).
+// The caller is responsible for removing the file when no longer needed.
+func WriteKeypairToTempFile(wallet *solana.Wallet) (string, error) {
+	jsonBytes, err := json.Marshal([]byte(wallet.PrivateKey))
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal private key: %w", err)
+	}
+
+	tmpFile, err := os.CreateTemp("", "solana-keypair-*.json")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp file: %w", err)
+	}
+	defer tmpFile.Close()
+
+	if _, err := tmpFile.Write(jsonBytes); err != nil {
+		os.Remove(tmpFile.Name())
+		return "", fmt.Errorf("failed to write keypair: %w", err)
+	}
+
+	return tmpFile.Name(), nil
 }
