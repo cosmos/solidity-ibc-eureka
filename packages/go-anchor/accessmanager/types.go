@@ -224,6 +224,77 @@ func UnmarshalAccessManagerEventsRoleRevokedEvent(buf []byte) (*AccessManagerEve
 	return obj, nil
 }
 
+type AccessManagerEventsUpgradeAuthorityClaimedEvent struct {
+	Program             solanago.PublicKey `json:"program"`
+	SourceAccessManager solanago.PublicKey `json:"sourceAccessManager"`
+	NewAuthority        solanago.PublicKey `json:"newAuthority"`
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityClaimedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `SourceAccessManager`:
+	err = encoder.Encode(obj.SourceAccessManager)
+	if err != nil {
+		return errors.NewField("SourceAccessManager", err)
+	}
+	// Serialize `NewAuthority`:
+	err = encoder.Encode(obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityClaimedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsUpgradeAuthorityClaimedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityClaimedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `SourceAccessManager`:
+	err = decoder.Decode(&obj.SourceAccessManager)
+	if err != nil {
+		return errors.NewField("SourceAccessManager", err)
+	}
+	// Deserialize `NewAuthority`:
+	err = decoder.Decode(&obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityClaimedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsUpgradeAuthorityClaimedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsUpgradeAuthorityClaimedEvent(buf []byte) (*AccessManagerEventsUpgradeAuthorityClaimedEvent, error) {
+	obj := new(AccessManagerEventsUpgradeAuthorityClaimedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerEventsUpgradeAuthorityTransferCancelledEvent struct {
 	Program            solanago.PublicKey `json:"program"`
 	CancelledAuthority solanago.PublicKey `json:"cancelledAuthority"`

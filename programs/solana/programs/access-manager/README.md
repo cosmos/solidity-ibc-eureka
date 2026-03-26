@@ -53,6 +53,10 @@ This operation is irreversible from this access manager's perspective -- once ac
 
 Cancels a pending upgrade authority transfer. Requires `ADMIN_ROLE`. Allows whitelisted CPI.
 
+### `claim_upgrade_authority`
+
+Claims upgrade authority from a source access manager that has proposed a transfer to this access manager's upgrade authority PDA. CPIs into the source AM's `accept_upgrade_authority_transfer` with this AM's PDA as signer. No admin authorization required -- PDA signing is the authorization.
+
 ## PDA Derivations
 
 ```
@@ -168,15 +172,14 @@ graph LR
 
 The admin can also call `cancel_upgrade_authority_transfer` to abort a pending proposal before the new authority accepts.
 
-### AM-to-AM Migration (Future Work)
+### AM-to-AM Migration
 
-The current transfer flow supports any signer as the new authority (keypair or multisig). Migrating to a **second Access Manager instance** (AM-B) is a special case that would require a new instruction.
+Migrating upgrade authority from one access manager instance (AM-A) to another (AM-B) uses the two-step propose/accept pattern with `claim_upgrade_authority`:
 
-#### PDA signing gap
+1. AM-A's admin calls `propose_upgrade_authority_transfer` with AM-B's upgrade authority PDA as the new authority
+2. Anyone calls AM-B's `claim_upgrade_authority`, which CPIs into AM-A's `accept_upgrade_authority_transfer` with AM-B's PDA as signer via `invoke_signed`
 
-To transfer authority to AM-B's upgrade authority PDA, that PDA must sign the accept transaction. But PDAs can only sign via `invoke_signed` from the program that owns them. AM-B would need a dedicated `claim_upgrade_authority` instruction that CPIs into AM-A's `accept_upgrade_authority_transfer` and signs with AM-B's own upgrade authority PDA.
-
-The `accept_upgrade_authority_transfer` instruction has no CPI restriction, so AM-B's `claim_upgrade_authority` could call it without being whitelisted. The underlying BPF Loader `SetAuthority` mechanics are identical regardless of whether the new authority is a keypair or a PDA.
+No admin authorization is required on the claim side -- PDA signing is the authorization. Only AM-B's program can `invoke_signed` with its upgrade authority PDA, and AM-A's accept instruction validates the pending transfer matches.
 
 ## Security
 
@@ -225,13 +228,4 @@ Tests are in `e2e/interchaintestv8/solana_upgrade_test.go`:
 - `Test_ProgramUpgrade_Via_AccessManager` -- standard upgrade flow
 - `Test_RevokeAdminRole` -- revoked admin cannot upgrade
 - `Test_TransferUpgradeAuthority` -- two-step propose/accept authority transfer and migration verification
-
-### E2E Limitations
-
-#### No AM-to-AM migration coverage
-
-The authority transfer e2e test validates the propose/accept flow with a keypair as the new authority, which exercises the same BPF Loader `SetAuthority` mechanics that an AM-to-AM migration would use. Testing with a second AM instance is not covered because:
-
-1. Anchor's `declare_id!` bakes the program ID into the `.so` binary at compile time -- deploying two AM instances requires building two separate binaries with different `declare_id!` values
-2. The `claim_upgrade_authority` instruction needed for AM-B to sign the accept transaction does not exist yet (see [AM-to-AM Migration](#am-to-am-migration-future-work))
-3. E2E test infrastructure would need to deploy and initialize both AM instances
+- `Test_AMtoAM_UpgradeAuthorityMigration` -- full AM-to-AM migration via propose + claim

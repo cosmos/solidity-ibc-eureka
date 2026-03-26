@@ -57,3 +57,11 @@ pub struct UpgradeAuthorityTransferCancelledEvent {
     pub cancelled_authority: Pubkey,
     pub cancelled_by: Pubkey,
 }
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct UpgradeAuthorityClaimedEvent {
+    pub program: Pubkey,
+    pub source_access_manager: Pubkey,
+    pub new_authority: Pubkey,
+}

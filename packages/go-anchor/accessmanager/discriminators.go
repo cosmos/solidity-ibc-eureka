@@ -13,6 +13,7 @@ var (
 	Event_AccessManagerEventsProgramUpgradedEvent                   = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
 	Event_AccessManagerEventsRoleGrantedEvent                       = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
 	Event_AccessManagerEventsRoleRevokedEvent                       = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
+	Event_AccessManagerEventsUpgradeAuthorityClaimedEvent           = [8]byte{89, 129, 108, 54, 149, 105, 39, 221}
 	Event_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent = [8]byte{35, 172, 94, 180, 37, 229, 123, 63}
 	Event_AccessManagerEventsUpgradeAuthorityTransferProposedEvent  = [8]byte{63, 200, 21, 91, 27, 82, 52, 61}
 	Event_AccessManagerEventsUpgradeAuthorityTransferredEvent       = [8]byte{79, 145, 216, 157, 39, 178, 134, 42}
@@ -30,4 +31,5 @@ var (
 	Instruction_AcceptUpgradeAuthorityTransfer  = [8]byte{95, 41, 116, 54, 102, 173, 111, 17}
 	Instruction_CancelUpgradeAuthorityTransfer  = [8]byte{114, 97, 59, 64, 250, 180, 192, 135}
 	Instruction_SetWhitelistedPrograms          = [8]byte{215, 39, 132, 81, 64, 65, 123, 123}
+	Instruction_ClaimUpgradeAuthority           = [8]byte{102, 75, 224, 204, 8, 193, 89, 137}
 )

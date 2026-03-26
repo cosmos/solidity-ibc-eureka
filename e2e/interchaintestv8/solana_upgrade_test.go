@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -652,5 +653,300 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_TransferUpgradeAuthority() {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 		s.Require().Error(err, "AM upgrade should fail after authority was transferred away")
+	}))
+}
+
+// withAMProgramID temporarily swaps access_manager.ProgramID to build instructions for a different AM instance.
+func withAMProgramID(programID solanago.PublicKey, fn func() (solanago.Instruction, error)) (solanago.Instruction, error) {
+	saved := access_manager.ProgramID
+	access_manager.ProgramID = programID
+	defer func() { access_manager.ProgramID = saved }()
+	return fn()
+}
+
+// Test_AMtoAM_UpgradeAuthorityMigration demonstrates migrating upgrade authority
+// from one AccessManager instance (AM-A) to another (AM-B) using claim_upgrade_authority.
+//
+// SCENARIO:
+// When replacing an AccessManager deployment (e.g. upgrading AM logic), the old AM
+// must transfer its upgrade authority over managed programs to the new AM. Since the
+// new authority is a PDA (not a keypair), the standard propose/accept flow doesn't
+// work -- PDAs can only sign via invoke_signed from their owning program.
+//
+// claim_upgrade_authority solves this: AM-B CPIs into AM-A's accept_upgrade_authority_transfer
+// with its own PDA as the signer.
+//
+// TEST FLOW:
+// 1. Deploy AM-B (test_access_manager) alongside the already-deployed AM-A
+// 2. Initialize AM-B with deployer as admin
+// 3. Grant ADMIN_ROLE on AM-A to upgrader wallet
+// 4. Transfer target program's upgrade authority to AM-A's PDA
+// 5. AM-A admin proposes transfer to AM-B's upgrade authority PDA
+// 6. Anyone calls AM-B's claim_upgrade_authority (PDA signing = authorization)
+// 7. Verify: target program's authority is now AM-B's PDA
+// 8. Verify: AM-B admin can upgrade the target program
+// 9. Verify: AM-A can no longer upgrade the target program
+func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+
+	// Deploy AM-B (test_access_manager)
+	var amBProgramID solanago.PublicKey
+
+	s.Require().True(s.Run("Deploy AM-B (test_access_manager)", func() {
+		var err error
+		amBKeypairPath := fmt.Sprintf("%s/test_access_manager-keypair.json", keypairDir)
+		amBProgramID, err = s.Solana.Chain.DeploySolanaProgramAsync(ctx, "test_access_manager", amBKeypairPath, deployerPath)
+		s.Require().NoError(err, "failed to deploy test_access_manager")
+		s.T().Logf("AM-B deployed at: %s", amBProgramID)
+	}))
+
+	// Initialize AM-B
+	s.Require().True(s.Run("Initialize AM-B", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+		amBProgramDataPDA, err := solana.GetProgramDataAddress(amBProgramID)
+		s.Require().NoError(err)
+
+		initIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+			return access_manager.NewInitializeInstruction(
+				s.SolanaRelayer.PublicKey(),
+				amBAccessManagerPDA,
+				s.SolanaRelayer.PublicKey(),
+				solanago.SystemProgramID,
+				solanago.SysVarInstructionsPubkey,
+				amBProgramDataPDA,
+				solana.DeployerPubkey,
+			)
+		})
+		s.Require().NoError(err, "failed to build AM-B initialize instruction")
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer, deployerWallet)
+		s.Require().NoError(err, "failed to initialize AM-B")
+		s.T().Log("AM-B initialized")
+	}))
+
+	// Setup upgrader wallet with ADMIN_ROLE on AM-A
+	s.Require().True(s.Run("Setup: Create upgrader wallet and grant ADMIN_ROLE on AM-A", func() {
+		var err error
+		s.UpgraderWallet, err = s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		grantIx, err := access_manager.NewGrantRoleInstruction(
+			ADMIN_ROLE,
+			s.UpgraderWallet.PublicKey(),
+			accessControlAccount,
+			s.SolanaRelayer.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), grantIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err, "failed to grant ADMIN_ROLE on AM-A")
+	}))
+
+	targetProgramID := ics26_router.ProgramID
+
+	var programDataAccount solanago.PublicKey
+	var amAUpgradeAuthorityPDA solanago.PublicKey
+	var amBUpgradeAuthorityPDA solanago.PublicKey
+
+	s.Require().True(s.Run("Derive PDAs", func() {
+		var err error
+
+		programDataAccount, err = solana.GetProgramDataAddress(targetProgramID)
+		s.Require().NoError(err)
+
+		amAUpgradeAuthorityPDA, _ = solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
+			access_manager.ProgramID,
+			targetProgramID.Bytes(),
+		)
+
+		amBUpgradeAuthorityPDA, _ = solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
+			amBProgramID,
+			targetProgramID.Bytes(),
+		)
+
+		s.T().Logf("AM-A upgrade authority PDA: %s", amAUpgradeAuthorityPDA)
+		s.T().Logf("AM-B upgrade authority PDA: %s", amBUpgradeAuthorityPDA)
+	}))
+
+	// Transfer target program's upgrade authority to AM-A's PDA
+	s.Require().True(s.Run("Transfer target program authority to AM-A's PDA", func() {
+		err := solana.SetUpgradeAuthority(
+			ctx,
+			targetProgramID,
+			amAUpgradeAuthorityPDA,
+			deployerPath,
+			s.Solana.Chain.RPCURL,
+		)
+		s.Require().NoError(err, "failed to transfer authority to AM-A")
+	}))
+
+	// AM-A proposes transfer to AM-B's upgrade authority PDA
+	s.Require().True(s.Run("AM-A proposes transfer to AM-B's PDA", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		proposeIx, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
+			targetProgramID,
+			amBUpgradeAuthorityPDA,
+			accessControlAccount,
+			s.UpgraderWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err, "failed to build propose instruction")
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.UpgraderWallet.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		s.Require().NoError(err, "propose transfer to AM-B should succeed")
+	}))
+
+	// AM-B claims upgrade authority via CPI into AM-A's accept.
+	// Use a random wallet (not an admin) to demonstrate the claim is permissionless --
+	// PDA signing is the only authorization required.
+	s.Require().True(s.Run("AM-B claims upgrade authority (permissionless)", func() {
+		randomWallet, err := s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err, "failed to create random wallet")
+
+		amAProgramID := access_manager.ProgramID
+		amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
+
+		claimIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+			return access_manager.NewClaimUpgradeAuthorityInstruction(
+				targetProgramID,
+				amBUpgradeAuthorityPDA,
+				amAAccessManagerPDA,
+				programDataAccount,
+				amAUpgradeAuthorityPDA,
+				amAProgramID,
+				solanago.BPFLoaderUpgradeableProgramID,
+			)
+		})
+		s.Require().NoError(err, "failed to build claim instruction")
+
+		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			randomWallet.PublicKey(),
+			computeBudgetIx,
+			claimIx,
+		)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, randomWallet)
+		s.Require().NoError(err, "claim should succeed when called by a random non-admin wallet")
+	}))
+
+	// Verify: AM-B admin can upgrade the target program
+	s.Require().True(s.Run("Grant ADMIN_ROLE on AM-B and verify upgrade works", func() {
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+
+		// Grant ADMIN_ROLE on AM-B to upgrader wallet
+		grantIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+			return access_manager.NewGrantRoleInstruction(
+				ADMIN_ROLE,
+				s.UpgraderWallet.PublicKey(),
+				amBAccessManagerPDA,
+				s.SolanaRelayer.PublicKey(),
+				solanago.SysVarInstructionsPubkey,
+			)
+		})
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), grantIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err, "failed to grant ADMIN_ROLE on AM-B")
+
+		// Write buffer and transfer authority to AM-B's PDA
+		bufferAccount, err := solana.WriteProgramBuffer(ctx, programSoFile, deployerPath, s.Solana.Chain.RPCURL)
+		s.Require().NoError(err, "failed to write program buffer")
+
+		err = solana.SetBufferAuthority(ctx, bufferAccount, amBUpgradeAuthorityPDA, deployerPath, s.Solana.Chain.RPCURL)
+		s.Require().NoError(err, "failed to set buffer authority to AM-B's PDA")
+
+		// Upgrade via AM-B
+		upgradeIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+			return access_manager.NewUpgradeProgramInstruction(
+				targetProgramID,
+				amBAccessManagerPDA,
+				targetProgramID,
+				programDataAccount,
+				bufferAccount,
+				amBUpgradeAuthorityPDA,
+				s.UpgraderWallet.PublicKey(),
+				s.UpgraderWallet.PublicKey(),
+				solanago.SysVarInstructionsPubkey,
+				solanago.BPFLoaderUpgradeableProgramID,
+				solanago.SysVarRentPubkey,
+				solanago.SysVarClockPubkey,
+			)
+		})
+		s.Require().NoError(err, "failed to build AM-B upgrade instruction")
+
+		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+
+		tx, err = s.Solana.Chain.NewTransactionFromInstructions(
+			s.UpgraderWallet.PublicKey(),
+			computeBudgetIx,
+			upgradeIx,
+		)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		s.Require().NoError(err, "upgrade via AM-B should succeed after claiming authority")
+	}))
+
+	// Verify: AM-A can no longer upgrade
+	s.Require().True(s.Run("AM-A can no longer upgrade the target program", func() {
+		bufferAccount, err := solana.WriteProgramBuffer(ctx, programSoFile, deployerPath, s.Solana.Chain.RPCURL)
+		s.Require().NoError(err)
+
+		err = solana.SetBufferAuthority(ctx, bufferAccount, amAUpgradeAuthorityPDA, deployerPath, s.Solana.Chain.RPCURL)
+		s.Require().NoError(err)
+
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		upgradeIx, err := access_manager.NewUpgradeProgramInstruction(
+			targetProgramID,
+			accessControlAccount,
+			targetProgramID,
+			programDataAccount,
+			bufferAccount,
+			amAUpgradeAuthorityPDA,
+			s.UpgraderWallet.PublicKey(),
+			s.UpgraderWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+			solanago.BPFLoaderUpgradeableProgramID,
+			solanago.SysVarRentPubkey,
+			solanago.SysVarClockPubkey,
+		)
+		s.Require().NoError(err)
+
+		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.UpgraderWallet.PublicKey(),
+			computeBudgetIx,
+			upgradeIx,
+		)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
+		s.Require().Error(err, "AM-A upgrade should fail after authority was migrated to AM-B")
 	}))
 }

@@ -502,3 +502,63 @@ func NewSetWhitelistedProgramsInstruction(
 		buf__.Bytes(),
 	), nil
 }
+
+// Builds a "claim_upgrade_authority" instruction.
+func NewClaimUpgradeAuthorityInstruction(
+	// Params:
+	targetProgramParam solanago.PublicKey,
+
+	// Accounts:
+	ourUpgradeAuthorityAccount solanago.PublicKey,
+	sourceAccessManagerAccount solanago.PublicKey,
+	sourceProgramDataAccount solanago.PublicKey,
+	sourceUpgradeAuthorityAccount solanago.PublicKey,
+	sourceProgramAccount solanago.PublicKey,
+	bpfLoaderUpgradeableAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_ClaimUpgradeAuthority[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `targetProgramParam`:
+		err = enc__.Encode(targetProgramParam)
+		if err != nil {
+			return nil, errors.NewField("targetProgramParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "our_upgrade_authority": Read-only, Non-signer, Required
+		// This access manager's upgrade authority PDA for the target program.
+		// Signs the CPI as the new authority via `invoke_signed`.
+		accounts__.Append(solanago.NewAccountMeta(ourUpgradeAuthorityAccount, false, false))
+		// Account 1 "source_access_manager": Writable, Non-signer, Required
+		// The source access manager's state account (writable for clearing pending).
+		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerAccount, true, false))
+		// Account 2 "source_program_data": Writable, Non-signer, Required
+		// The target program's data account (BPF Loader Upgradeable PDA).
+		accounts__.Append(solanago.NewAccountMeta(sourceProgramDataAccount, true, false))
+		// Account 3 "source_upgrade_authority": Read-only, Non-signer, Required
+		// The source access manager's upgrade authority PDA (current authority).
+		accounts__.Append(solanago.NewAccountMeta(sourceUpgradeAuthorityAccount, false, false))
+		// Account 4 "source_program": Read-only, Non-signer, Required
+		// The source access manager program (CPI target).
+		accounts__.Append(solanago.NewAccountMeta(sourceProgramAccount, false, false))
+		// Account 5 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}

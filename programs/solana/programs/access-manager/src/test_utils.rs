@@ -360,7 +360,7 @@ pub fn setup_program_test_with_whitelist(
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
 
-    let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+    let mut pt = solana_program_test::ProgramTest::new(crate::PROGRAM_BINARY_NAME, crate::ID, None);
     pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
     pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
 
