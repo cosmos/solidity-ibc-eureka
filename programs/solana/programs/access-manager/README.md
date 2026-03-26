@@ -161,15 +161,57 @@ graph LR
 
 The admin can also call `cancel_upgrade_authority_transfer` to abort a pending proposal before the new authority accepts.
 
+### AM-to-AM Migration (Future Work)
+
+The current transfer flow supports any signer as the new authority (keypair or multisig). Migrating to a **second Access Manager instance** (AM-B) is a special case that would require additional work:
+
+#### PDA signing gap
+
+To transfer authority to AM-B's upgrade authority PDA, that PDA must sign the accept transaction. But PDAs can only sign via `invoke_signed` from the program that owns them. AM-B would need a dedicated instruction (e.g. `claim_upgrade_authority`) that CPIs into AM-A's `accept_upgrade_authority_transfer` and signs with AM-B's own upgrade authority PDA.
+
+#### Build constraint
+
+Anchor's `declare_id!` bakes the program ID into the `.so` binary at compile time. Deploying two AM instances requires building two separate binaries with different `declare_id!` values -- the same binary cannot be deployed with a different keypair.
+
+#### Why the current design is sufficient
+
+The `accept_upgrade_authority_transfer` instruction has no CPI restriction, so AM-B's `claim_upgrade_authority` could call it without being whitelisted. The underlying BPF Loader `SetAuthority` mechanics are identical regardless of whether the new authority is a keypair or a PDA. The two-step propose/accept pattern is already validated by the existing e2e test using a keypair as the acceptor.
+
+#### What would be needed
+
+1. A `claim_upgrade_authority` instruction on the AM program that derives its own upgrade authority PDA for the target program and CPIs into the source AM's accept instruction with that PDA as signer
+2. A build step that produces two `.so` binaries with different `declare_id!` values
+3. E2E test infrastructure to deploy and initialize both AM instances
+
 ## Security
 
-- **CPI validation**: `require_admin` checks the instructions sysvar to validate the caller. Direct calls and whitelisted CPI are allowed; unauthorized and nested CPI are rejected.
-- **Sysvar address constraint**: The instructions sysvar account has an `address` constraint preventing fake sysvar attacks (Wormhole-style).
-- **Two-step authority transfer**: Authority transfers require propose + accept, preventing irreversible mistakes from a single admin action.
-- **Zero-address rejection**: `propose_upgrade_authority_transfer` rejects `Pubkey::default()` to prevent irreversible lockout.
-- **Self-transfer rejection**: `propose_upgrade_authority_transfer` rejects transferring to the current upgrade authority PDA.
-- **Last admin protection**: The last admin cannot be removed via `revoke_role`.
-- **Per-program PDA scoping**: Upgrade authority PDAs include the target program ID in their seeds, preventing cross-program authority reuse.
+#### CPI validation
+
+`require_admin` checks the instructions sysvar to validate the caller. Direct calls and whitelisted CPI are allowed; unauthorized and nested CPI are rejected.
+
+#### Sysvar address constraint
+
+The instructions sysvar account has an `address` constraint preventing fake sysvar attacks (Wormhole-style).
+
+#### Two-step authority transfer
+
+Authority transfers require propose + accept, preventing irreversible mistakes from a single admin action.
+
+#### Zero-address rejection
+
+`propose_upgrade_authority_transfer` rejects `Pubkey::default()` to prevent irreversible lockout.
+
+#### Self-transfer rejection
+
+`propose_upgrade_authority_transfer` rejects transferring to the current upgrade authority PDA.
+
+#### Last admin protection
+
+The last admin cannot be removed via `revoke_role`.
+
+#### Per-program PDA scoping
+
+Upgrade authority PDAs include the target program ID in their seeds, preventing cross-program authority reuse.
 
 ## Testing
 
