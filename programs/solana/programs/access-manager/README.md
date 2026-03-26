@@ -174,12 +174,71 @@ The admin can also call `cancel_upgrade_authority_transfer` to abort a pending p
 
 ### AM-to-AM Migration
 
-Migrating upgrade authority from one access manager instance (AM-A) to another (AM-B) uses the two-step propose/accept pattern with `claim_upgrade_authority`:
+Replacing one access manager instance (AM-A) with another (AM-B) requires migrating two independent control planes:
 
-1. AM-A's admin calls `propose_upgrade_authority_transfer` with AM-B's upgrade authority PDA as the new authority
-2. Anyone calls AM-B's `claim_upgrade_authority`, which CPIs into AM-A's `accept_upgrade_authority_transfer` with AM-B's PDA as signer via `invoke_signed`
+| Control plane | What it governs | Where it's stored | How to migrate |
+|---|---|---|---|
+| **Upgrade authority** | Who can replace program bytecode | BPF Loader's `ProgramData.upgrade_authority` | `propose` + `claim_upgrade_authority` (per managed program) |
+| **Runtime roles** | Who can relay, pause, admin-gate operations | Each IBC program's state (e.g. `RouterState.access_manager`) | `set_access_manager` (per IBC program) |
 
-No admin authorization is required on the claim side -- PDA signing is the authorization. Only AM-B's program can `invoke_signed` with its upgrade authority PDA, and AM-A's accept instruction validates the pending transfer matches.
+These are fully independent -- migrating one does not affect the other.
+
+#### Upgrade authority migration
+
+AM-B's upgrade authority PDA must sign the accept transaction, but PDAs can only sign via `invoke_signed` from their owning program. The `claim_upgrade_authority` instruction solves this:
+
+```mermaid
+sequenceDiagram
+    participant Admin as AM-A Admin
+    participant AMA as AM-A
+    participant AMB as AM-B
+    participant BPF as BPF Loader
+    participant Anyone as Anyone (permissionless)
+
+    Admin->>AMA: propose_upgrade_authority_transfer(target, AM-B's PDA)
+    AMA->>AMA: store pending transfer
+
+    Note over Anyone,AMB: No admin role needed -- PDA signing is the authorization
+    Anyone->>AMB: claim_upgrade_authority(target)
+    AMB->>AMA: CPI: accept_upgrade_authority_transfer(target)
+    AMA->>AMA: validate pending matches AM-B's PDA
+    AMA->>BPF: invoke_signed: SetAuthority(old=AM-A PDA, new=AM-B PDA)
+    BPF->>BPF: ProgramData.authority = AM-B's PDA
+    AMA->>AMA: clear pending transfer
+```
+
+Repeat for each managed program (ICS07, ICS26, GMP, etc.).
+
+#### Runtime role migration
+
+Each IBC program (ICS07, ICS26, GMP, attestation) stores a `access_manager: Pubkey` field in its state that points to the access manager it delegates role checks to. Calling `set_access_manager` on each program repoints it from AM-A to AM-B:
+
+```mermaid
+sequenceDiagram
+    participant Admin as AM-B Admin
+    participant ICS26 as ICS26 Router
+    participant AMB as AM-B
+
+    Note over Admin,AMB: Admin must have ADMIN_ROLE on the current AM<br/>(AM-A if not yet migrated, AM-B if already migrated)
+    Admin->>ICS26: set_access_manager(AM-B program ID)
+    ICS26->>ICS26: RouterState.access_manager = AM-B
+    Note over ICS26,AMB: Future role checks (relay, pause, etc.)<br/>now read from AM-B's state
+```
+
+Repeat for each IBC program. IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
+
+#### Full migration checklist
+
+Assuming AM-B is already deployed and initialized with its own admin:
+
+1. **AM-A admin proposes upgrade authority transfers** -- call `propose_upgrade_authority_transfer` on AM-A for each managed program, specifying AM-B's upgrade authority PDA as the new authority
+2. **Anyone claims on AM-B** -- call `claim_upgrade_authority` on AM-B for each program (permissionless, PDA signing is the authorization)
+3. **Verify upgrade authority** -- confirm each program's `ProgramData.upgrade_authority` now points to AM-B's PDA
+4. **Repoint runtime roles** -- call `set_access_manager` on each IBC program (ICS07, ICS26, GMP, attestation) to point at AM-B. This requires `ADMIN_ROLE` on whichever AM currently controls the program
+5. **Verify runtime roles** -- confirm AM-B admin can perform role-gated operations (e.g. grant roles, relay packets)
+6. **Migrate IFT admin** (if applicable) -- use IFT's `propose_admin_transfer` + `accept_admin_transfer`
+
+After migration, AM-A has no remaining authority over any program. AM-B controls both bytecode upgrades and runtime roles.
 
 ## Security
 
