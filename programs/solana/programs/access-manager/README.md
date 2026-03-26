@@ -66,35 +66,42 @@ program_data:      [target_program.as_ref()]                       program: BPF 
 ### Standard Upgrade via Access Manager
 
 ```mermaid
-graph LR
-    subgraph Actors
-        Admin["Admin\n(ADMIN_ROLE)"]:::admin
+graph TD
+    subgraph setup["① Setup (one-time)"]
+        direction LR
         Deployer["Deployer"]:::deployer
+        PD_S["ProgramData\nauthority: deployer"]:::bpf
+        AM_S["AccessManager PDA"]:::am
+
+        Deployer -->|"1. deploy program"| PD_S
+        Deployer -->|"2. initialize AM\ngrant ADMIN_ROLE"| AM_S
+        Deployer -->|"3. set-upgrade-authority\ndeployer → UA PDA"| PD_S
     end
 
-    subgraph AccessManager["Access Manager Program"]
-        AM_State["AccessManager PDA\nroles + whitelist"]:::am
-        UA_PDA["Upgrade Authority PDA\nseeds: upgrade_authority, target"]:::pda
-        UP_IX["upgrade_program()"]:::ix
-    end
-
-    subgraph BPFLoader["BPF Loader Upgradeable"]
-        PD["ProgramData\nupgrade_authority = UA_PDA"]:::bpf
+    subgraph upgrade["② Upgrade"]
+        direction LR
+        Deployer2["Deployer"]:::deployer
+        Admin["Admin\n(ADMIN_ROLE)"]:::admin
         Buffer["Buffer Account\nnew bytecode"]:::bpf
+        UPIX["upgrade_program()"]:::ix
+        AM_U["AccessManager PDA"]:::am
+        UA_U["Upgrade Authority PDA"]:::pda
+        PD_U["ProgramData\nauthority: UA PDA"]:::bpf
+        Target["Target Program"]:::target
+
+        Deployer2 -->|"1. write-buffer +\nset-buffer-authority → UA PDA"| Buffer
+        Admin -->|"2. call upgrade_program()"| UPIX
+        UPIX -->|"3. require_admin check"| AM_U
+        UPIX -->|"4. invoke_signed\n(PDA signs)"| UA_U
+        UA_U -->|"5. BPFLoader::upgrade()"| PD_U
+        Buffer -->|"bytecode source"| PD_U
+        PD_U -->|"6. bytecode replaced"| Target
     end
 
-    subgraph Target["Target Program e.g. ICS26"]
-        Program["Program Account"]:::target
-    end
+    setup ~~~ upgrade
 
-    Deployer -->|"1. set-upgrade-authority\n(one-time setup)"| PD
-    Deployer -->|"2. write-buffer + set-buffer-authority"| Buffer
-    Admin -->|"3. call upgrade_program()"| UP_IX
-    UP_IX -->|"4. require_admin check"| AM_State
-    UP_IX -->|"5. invoke_signed\n(PDA signs)"| UA_PDA
-    UA_PDA -->|"6. BPFLoader::upgrade()"| PD
-    PD -->|"7. bytecode replaced"| Program
-    Buffer -->|"bytecode source"| PD
+    style setup fill:#FFF3E0,stroke:#E65100,color:#000
+    style upgrade fill:#E8F5E9,stroke:#2E7D32,color:#000
 
     classDef admin fill:#4CAF50,stroke:#2E7D32,color:#fff
     classDef deployer fill:#FF9800,stroke:#E65100,color:#fff
@@ -163,25 +170,13 @@ The admin can also call `cancel_upgrade_authority_transfer` to abort a pending p
 
 ### AM-to-AM Migration (Future Work)
 
-The current transfer flow supports any signer as the new authority (keypair or multisig). Migrating to a **second Access Manager instance** (AM-B) is a special case that would require additional work:
+The current transfer flow supports any signer as the new authority (keypair or multisig). Migrating to a **second Access Manager instance** (AM-B) is a special case that would require a new instruction.
 
 #### PDA signing gap
 
-To transfer authority to AM-B's upgrade authority PDA, that PDA must sign the accept transaction. But PDAs can only sign via `invoke_signed` from the program that owns them. AM-B would need a dedicated instruction (e.g. `claim_upgrade_authority`) that CPIs into AM-A's `accept_upgrade_authority_transfer` and signs with AM-B's own upgrade authority PDA.
+To transfer authority to AM-B's upgrade authority PDA, that PDA must sign the accept transaction. But PDAs can only sign via `invoke_signed` from the program that owns them. AM-B would need a dedicated `claim_upgrade_authority` instruction that CPIs into AM-A's `accept_upgrade_authority_transfer` and signs with AM-B's own upgrade authority PDA.
 
-#### Build constraint
-
-Anchor's `declare_id!` bakes the program ID into the `.so` binary at compile time. Deploying two AM instances requires building two separate binaries with different `declare_id!` values -- the same binary cannot be deployed with a different keypair.
-
-#### Why the current design is sufficient
-
-The `accept_upgrade_authority_transfer` instruction has no CPI restriction, so AM-B's `claim_upgrade_authority` could call it without being whitelisted. The underlying BPF Loader `SetAuthority` mechanics are identical regardless of whether the new authority is a keypair or a PDA. The two-step propose/accept pattern is already validated by the existing e2e test using a keypair as the acceptor.
-
-#### What would be needed
-
-1. A `claim_upgrade_authority` instruction on the AM program that derives its own upgrade authority PDA for the target program and CPIs into the source AM's accept instruction with that PDA as signer
-2. A build step that produces two `.so` binaries with different `declare_id!` values
-3. E2E test infrastructure to deploy and initialize both AM instances
+The `accept_upgrade_authority_transfer` instruction has no CPI restriction, so AM-B's `claim_upgrade_authority` could call it without being whitelisted. The underlying BPF Loader `SetAuthority` mechanics are identical regardless of whether the new authority is a keypair or a PDA.
 
 ## Security
 
@@ -215,6 +210,8 @@ Upgrade authority PDAs include the target program ID in their seeds, preventing 
 
 ## Testing
 
+### Unit and Integration Tests
+
 ```bash
 just build-solana access-manager
 cargo test -p access-manager --lib --tests
@@ -222,7 +219,19 @@ cargo test -p access-manager --lib --tests
 
 The test suite includes Mollusk (SBF binary) unit tests and ProgramTest integration tests covering admin authorization, CPI rejection, fake sysvar attacks, wrong PDA derivation and zero-address rejection.
 
-E2E tests are in `e2e/interchaintestv8/solana_upgrade_test.go`:
+### E2E Tests
+
+Tests are in `e2e/interchaintestv8/solana_upgrade_test.go`:
 - `Test_ProgramUpgrade_Via_AccessManager` -- standard upgrade flow
 - `Test_RevokeAdminRole` -- revoked admin cannot upgrade
-- `Test_TransferUpgradeAuthority` -- authority transfer and migration verification
+- `Test_TransferUpgradeAuthority` -- two-step propose/accept authority transfer and migration verification
+
+### E2E Limitations
+
+#### No AM-to-AM migration coverage
+
+The authority transfer e2e test validates the propose/accept flow with a keypair as the new authority, which exercises the same BPF Loader `SetAuthority` mechanics that an AM-to-AM migration would use. Testing with a second AM instance is not covered because:
+
+1. Anchor's `declare_id!` bakes the program ID into the `.so` binary at compile time -- deploying two AM instances requires building two separate binaries with different `declare_id!` values
+2. The `claim_upgrade_authority` instruction needed for AM-B to sign the accept transaction does not exist yet (see [AM-to-AM Migration](#am-to-am-migration-future-work))
+3. E2E test infrastructure would need to deploy and initialize both AM instances
