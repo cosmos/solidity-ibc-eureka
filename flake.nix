@@ -54,7 +54,7 @@
               ++ [
                 node-modules
               ]
-              ++ (with pkgs.sp1."v5.2.4"; [
+              ++ (with pkgs.sp1."v6.0.2"; [
                 cargo-prove
                 sp1-rust-toolchain
               ]);

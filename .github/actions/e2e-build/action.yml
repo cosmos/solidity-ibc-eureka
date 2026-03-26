@@ -35,7 +35,7 @@ runs:
       id: cache-sp1-programs
       uses: actions/cache@v4
       with:
-        path: programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/*
+        path: programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/*
         key: ${{ runner.os }}-sp1-programs-${{ hashFiles('programs/sp1-programs/**', 'Cargo.lock') }}
 
     - name: Install just
@@ -111,7 +111,7 @@ runs:
         mkdir -p e2e-artifacts/solana-programs
         cp ~/.cargo/bin/relayer e2e-artifacts/bin/
         cp ~/.cargo/bin/operator e2e-artifacts/bin/
-        cp -r programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
+        cp -r programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
         cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/
 
     - name: Upload artifacts
