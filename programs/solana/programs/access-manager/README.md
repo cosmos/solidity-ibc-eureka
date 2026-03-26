@@ -70,12 +70,11 @@ program_data:      [target_program.as_ref()]                       program: BPF 
 ### Standard Upgrade via Access Manager
 
 ```mermaid
-graph TD
+graph TB
     subgraph setup["① Setup (one-time)"]
-        direction LR
-        Deployer["Deployer"]:::deployer
-        PD_S["ProgramData\nauthority: deployer"]:::bpf
-        AM_S["AccessManager PDA"]:::am
+        Deployer["Deployer"]
+        PD_S["ProgramData\nauthority: deployer"]
+        AM_S["AccessManager PDA"]
 
         Deployer -->|"1. deploy program"| PD_S
         Deployer -->|"2. initialize AM\ngrant ADMIN_ROLE"| AM_S
@@ -83,20 +82,19 @@ graph TD
     end
 
     subgraph upgrade["② Upgrade"]
-        direction LR
-        Deployer2["Deployer"]:::deployer
-        Admin["Admin\n(ADMIN_ROLE)"]:::admin
-        Buffer["Buffer Account\nnew bytecode"]:::bpf
-        UPIX["upgrade_program()"]:::ix
-        AM_U["AccessManager PDA"]:::am
-        UA_U["Upgrade Authority PDA"]:::pda
-        PD_U["ProgramData\nauthority: UA PDA"]:::bpf
-        Target["Target Program"]:::target
+        Deployer2["Deployer"]
+        Admin["Admin (ADMIN_ROLE)"]
+        Buffer["Buffer Account\nnew bytecode"]
+        UPIX["upgrade_program()"]
+        AM_U["AccessManager PDA"]
+        UA_U["Upgrade Authority PDA"]
+        PD_U["ProgramData\nauthority: UA PDA"]
+        Target["Target Program"]
 
         Deployer2 -->|"1. write-buffer +\nset-buffer-authority → UA PDA"| Buffer
-        Admin -->|"2. call upgrade_program()"| UPIX
-        UPIX -->|"3. require_admin check"| AM_U
-        UPIX -->|"4. invoke_signed\n(PDA signs)"| UA_U
+        Admin -->|"2. call"| UPIX
+        UPIX -->|"3. require_admin"| AM_U
+        UPIX -->|"4. invoke_signed"| UA_U
         UA_U -->|"5. BPFLoader::upgrade()"| PD_U
         Buffer -->|"bytecode source"| PD_U
         PD_U -->|"6. bytecode replaced"| Target
@@ -104,16 +102,22 @@ graph TD
 
     setup ~~~ upgrade
 
-    style setup fill:#FFF3E0,stroke:#E65100,color:#000
-    style upgrade fill:#E8F5E9,stroke:#2E7D32,color:#000
+    style setup fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style upgrade fill:#d1fae5,stroke:#059669,color:#064e3b
 
-    classDef admin fill:#4CAF50,stroke:#2E7D32,color:#fff
-    classDef deployer fill:#FF9800,stroke:#E65100,color:#fff
-    classDef am fill:#2196F3,stroke:#1565C0,color:#fff
-    classDef pda fill:#9C27B0,stroke:#6A1B9A,color:#fff
-    classDef ix fill:#00BCD4,stroke:#00838F,color:#fff
-    classDef bpf fill:#607D8B,stroke:#37474F,color:#fff
-    classDef target fill:#795548,stroke:#4E342E,color:#fff
+    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef am fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
+    classDef pda fill:#fbcfe8,stroke:#db2777,color:#831843
+    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
+    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
+    classDef target fill:#a7f3d0,stroke:#059669,color:#064e3b
+
+    class Deployer,Deployer2,Admin actor
+    class AM_S,AM_U am
+    class UA_U pda
+    class UPIX ix
+    class PD_S,PD_U,Buffer bpf
+    class Target target
 ```
 
 **Setup (one-time):**
@@ -131,43 +135,54 @@ graph TD
 When migrating to a new access manager or transferring upgrade control, the transfer uses a two-step propose/accept pattern to prevent irreversible mistakes:
 
 ```mermaid
-graph LR
-    subgraph Actors
-        Admin["Admin\n(ADMIN_ROLE)"]:::admin
-        NewAuth["New Authority\n(keypair or PDA)"]:::newauth
+graph TB
+    subgraph actors["Actors"]
+        Admin["Admin (ADMIN_ROLE)"]
+        NewAuth["New Authority\n(keypair or PDA)"]
     end
 
-    subgraph AM["Access Manager"]
-        AM_State["AccessManager PDA\npending_authority_transfer"]:::am
-        UA_PDA["Upgrade Authority PDA\ncurrent authority"]:::pda
-        PROPOSE["propose_upgrade_authority_transfer()"]:::ix
-        ACCEPT["accept_upgrade_authority_transfer()"]:::ix
+    subgraph am["Access Manager"]
+        PROPOSE["propose_upgrade_authority_transfer()"]
+        ACCEPT["accept_upgrade_authority_transfer()"]
+        AM_State["AccessManager PDA\npending_authority_transfer"]
+        UA_PDA["Upgrade Authority PDA\ncurrent authority"]
     end
 
-    subgraph BPFLoader["BPF Loader Upgradeable"]
-        PD["ProgramData\nupgrade_authority"]:::bpf
+    subgraph bpfloader["BPF Loader Upgradeable"]
+        PD["ProgramData\nupgrade_authority"]
     end
 
-    subgraph Target["Target Program"]
-        Program["Program Account"]:::target
+    subgraph target["Target Program"]
+        Program["Program Account"]
     end
 
     Admin -->|"1. propose transfer\n(target, new_authority)"| PROPOSE
-    PROPOSE -->|"2. require_admin check"| AM_State
+    PROPOSE -->|"2. require_admin"| AM_State
     PROPOSE -->|"3. set pending"| AM_State
     NewAuth -->|"4. accept transfer\n(signer = new_authority)"| ACCEPT
-    ACCEPT -->|"5. invoke_signed\n(PDA signs)"| UA_PDA
-    UA_PDA -->|"6. BPFLoader::set_authority()\nold -> new"| PD
-    PD -->|"authority now: New Authority"| NewAuth
-    NewAuth -->|"7. can now upgrade\ndirectly or via new AM"| Program
+    ACCEPT -->|"5. invoke_signed"| UA_PDA
+    UA_PDA -->|"6. set_authority()\nold → new"| PD
+    PD -.->|"authority now:\nNew Authority"| NewAuth
+    NewAuth -->|"7. can upgrade"| Program
 
-    classDef admin fill:#4CAF50,stroke:#2E7D32,color:#fff
-    classDef newauth fill:#E91E63,stroke:#AD1457,color:#fff
-    classDef am fill:#2196F3,stroke:#1565C0,color:#fff
-    classDef pda fill:#9C27B0,stroke:#6A1B9A,color:#fff
-    classDef ix fill:#00BCD4,stroke:#00838F,color:#fff
-    classDef bpf fill:#607D8B,stroke:#37474F,color:#fff
-    classDef target fill:#795548,stroke:#4E342E,color:#fff
+    style actors fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style am fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
+    style bpfloader fill:#f1f5f9,stroke:#475569,color:#1e293b
+    style target fill:#d1fae5,stroke:#059669,color:#064e3b
+
+    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef amNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
+    classDef pda fill:#fbcfe8,stroke:#db2777,color:#831843
+    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
+    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
+    classDef targetNode fill:#a7f3d0,stroke:#059669,color:#064e3b
+
+    class Admin,NewAuth actor
+    class AM_State amNode
+    class UA_PDA pda
+    class PROPOSE,ACCEPT ix
+    class PD bpf
+    class Program targetNode
 ```
 
 The admin can also call `cancel_upgrade_authority_transfer` to abort a pending proposal before the new authority accepts.
@@ -188,44 +203,100 @@ These are fully independent -- migrating one does not affect the other.
 AM-B's upgrade authority PDA must sign the accept transaction, but PDAs can only sign via `invoke_signed` from their owning program. The `claim_upgrade_authority` instruction solves this:
 
 ```mermaid
-sequenceDiagram
-    participant Admin as AM-A Admin
-    participant AMA as AM-A
-    participant AMB as AM-B
-    participant BPF as BPF Loader
-    participant Anyone as Anyone (permissionless)
+graph TB
+    subgraph step1["① Propose (AM-A admin)"]
+        Admin["AM-A Admin"]
+        AMA_propose["AM-A:\npropose_upgrade_authority_transfer()"]
+        AMA_state["AM-A State\npending: AM-B's PDA"]
 
-    Admin->>AMA: propose_upgrade_authority_transfer(target, AM-B's PDA)
-    AMA->>AMA: store pending transfer
+        Admin -->|"propose transfer\n(target, AM-B's PDA)"| AMA_propose
+        AMA_propose -->|"require_admin"| AMA_state
+        AMA_propose -->|"set pending"| AMA_state
+    end
 
-    Note over Anyone,AMB: No admin role needed -- PDA signing is the authorization
-    Anyone->>AMB: claim_upgrade_authority(target)
-    AMB->>AMA: CPI: accept_upgrade_authority_transfer(target)
-    AMA->>AMA: validate pending matches AM-B's PDA
-    AMA->>BPF: invoke_signed: SetAuthority(old=AM-A PDA, new=AM-B PDA)
-    BPF->>BPF: ProgramData.authority = AM-B's PDA
-    AMA->>AMA: clear pending transfer
+    subgraph step2["② Claim (permissionless)"]
+        Anyone["Anyone"]
+        AMB_claim["AM-B:\nclaim_upgrade_authority()"]
+        AMA_accept["AM-A:\naccept_upgrade_authority_transfer()"]
+        AMA_clear["AM-A State\npending: None"]
+        BPF["BPF Loader\nset_authority()"]
+        PD["ProgramData\nauthority: AM-B's PDA"]
+
+        Anyone -->|"call claim"| AMB_claim
+        AMB_claim -->|"CPI with\nPDA signer"| AMA_accept
+        AMA_accept -->|"validate pending\nmatches AM-B's PDA"| AMA_clear
+        AMA_accept -->|"invoke_signed"| BPF
+        BPF -->|"authority transferred"| PD
+    end
+
+    step1 ~~~ step2
+
+    style step1 fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style step2 fill:#d1fae5,stroke:#059669,color:#064e3b
+
+    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef amaNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
+    classDef ambNode fill:#fbcfe8,stroke:#db2777,color:#831843
+    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
+    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
+
+    class Admin,Anyone actor
+    class AMA_propose,AMA_accept,AMA_state,AMA_clear amaNode
+    class AMB_claim ambNode
+    class BPF,PD bpf
 ```
 
-Repeat for each managed program (ICS07, ICS26, GMP, etc.).
+Repeat for each managed program (ICS07, ICS26, GMP, etc.). No admin role is required on the claim side -- PDA signing is the authorization.
 
 #### Runtime role migration
 
-Each IBC program (ICS07, ICS26, GMP, attestation) stores a `access_manager: Pubkey` field in its state that points to the access manager it delegates role checks to. Calling `set_access_manager` on each program repoints it from AM-A to AM-B:
+Each IBC program (ICS07, ICS26, GMP, attestation) stores an `access_manager: Pubkey` field in its state that points to the access manager it delegates role checks to. Calling `set_access_manager` on each program repoints it from AM-A to AM-B:
 
 ```mermaid
-sequenceDiagram
-    participant Admin as AM-B Admin
-    participant ICS26 as ICS26 Router
-    participant AMB as AM-B
+graph TB
+    subgraph before["Before: roles delegated to AM-A"]
+        ICS26_old["ICS26 Router\naccess_manager: AM-A"]
+        AMA_roles["AM-A State\nroles, whitelist"]
+        ICS26_old -.->|"role checks"| AMA_roles
+    end
 
-    Note over Admin,AMB: Admin must have ADMIN_ROLE on the current AM<br/>(AM-A if not yet migrated, AM-B if already migrated)
-    Admin->>ICS26: set_access_manager(AM-B program ID)
-    ICS26->>ICS26: RouterState.access_manager = AM-B
-    Note over ICS26,AMB: Future role checks (relay, pause, etc.)<br/>now read from AM-B's state
+    subgraph migrate["set_access_manager (requires ADMIN_ROLE on current AM)"]
+        Admin["Admin"]
+        SetAM["set_access_manager(AM-B)"]
+        Admin -->|"call"| SetAM
+    end
+
+    subgraph after["After: roles delegated to AM-B"]
+        ICS26_new["ICS26 Router\naccess_manager: AM-B"]
+        AMB_roles["AM-B State\nroles, whitelist"]
+        ICS26_new -.->|"role checks"| AMB_roles
+    end
+
+    before ~~~ migrate
+    migrate ~~~ after
+
+    style before fill:#f1f5f9,stroke:#475569,color:#1e293b
+    style migrate fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    style after fill:#d1fae5,stroke:#059669,color:#064e3b
+
+    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
+    classDef oldNode fill:#e2e8f0,stroke:#475569,color:#1e293b
+    classDef amaNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
+    classDef ambNode fill:#fbcfe8,stroke:#db2777,color:#831843
+    classDef newNode fill:#a7f3d0,stroke:#059669,color:#064e3b
+
+    class Admin actor
+    class SetAM ix
+    class ICS26_old oldNode
+    class AMA_roles amaNode
+    class AMB_roles ambNode
+    class ICS26_new newNode
 ```
 
 Repeat for each IBC program. IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
+
+> **Future improvement:** `set_access_manager` is currently a one-step operation. If an admin accidentally points it to a wrong or nonexistent AM address, the program becomes unrecoverable through normal admin operations -- all future admin-gated calls (including another `set_access_manager` to fix the mistake) would fail because `require_admin` reads roles from the now-invalid AM. A two-step propose/accept pattern (similar to upgrade authority transfer) would prevent this: the admin proposes a new AM, and then someone with `ADMIN_ROLE` on the *new* AM accepts, proving it is valid and operational before the switch takes effect.
 
 #### Full migration checklist
 
