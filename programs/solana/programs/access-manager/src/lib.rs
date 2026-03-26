@@ -50,12 +50,26 @@ pub mod access_manager {
         instructions::upgrade_program(ctx, target_program)
     }
 
-    pub fn transfer_upgrade_authority(
-        ctx: Context<TransferUpgradeAuthority>,
+    pub fn propose_upgrade_authority_transfer(
+        ctx: Context<ProposeUpgradeAuthorityTransfer>,
         target_program: Pubkey,
         new_authority: Pubkey,
     ) -> Result<()> {
-        instructions::transfer_upgrade_authority(ctx, target_program, new_authority)
+        instructions::propose_upgrade_authority_transfer(ctx, target_program, new_authority)
+    }
+
+    pub fn accept_upgrade_authority_transfer(
+        ctx: Context<AcceptUpgradeAuthorityTransfer>,
+        target_program: Pubkey,
+    ) -> Result<()> {
+        instructions::accept_upgrade_authority_transfer(ctx, target_program)
+    }
+
+    pub fn cancel_upgrade_authority_transfer(
+        ctx: Context<CancelUpgradeAuthorityTransfer>,
+        target_program: Pubkey,
+    ) -> Result<()> {
+        instructions::cancel_upgrade_authority_transfer(ctx, target_program)
     }
 
     pub fn set_whitelisted_programs(

@@ -634,6 +634,7 @@ mod integration_tests {
                 },
             ],
             whitelisted_programs: vec![],
+            pending_authority_transfer: None,
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();

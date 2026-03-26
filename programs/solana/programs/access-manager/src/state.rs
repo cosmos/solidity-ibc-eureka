@@ -1,4 +1,4 @@
-use crate::types::RoleData;
+use crate::types::{PendingAuthorityTransfer, RoleData};
 use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
 
@@ -18,6 +18,7 @@ pub struct AccessManager {
     pub roles: Vec<RoleData>,
     #[max_len(8)]
     pub whitelisted_programs: Vec<Pubkey>,
+    pub pending_authority_transfer: Option<PendingAuthorityTransfer>,
 }
 
 impl AccessManager {
@@ -100,6 +101,7 @@ mod tests {
         AccessManager {
             roles: vec![],
             whitelisted_programs: vec![],
+            pending_authority_transfer: None,
         }
     }
 
@@ -107,6 +109,7 @@ mod tests {
         AccessManager {
             roles,
             whitelisted_programs: vec![],
+            pending_authority_transfer: None,
         }
     }
 

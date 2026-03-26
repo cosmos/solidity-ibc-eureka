@@ -36,6 +36,20 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsRoleRevokedEvent: %w", err)
 		}
 		return value, nil
+	case Event_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent:
+		value := new(AccessManagerEventsUpgradeAuthorityTransferCancelledEvent)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsUpgradeAuthorityTransferCancelledEvent: %w", err)
+		}
+		return value, nil
+	case Event_AccessManagerEventsUpgradeAuthorityTransferProposedEvent:
+		value := new(AccessManagerEventsUpgradeAuthorityTransferProposedEvent)
+		err := value.UnmarshalWithDecoder(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal event as AccessManagerEventsUpgradeAuthorityTransferProposedEvent: %w", err)
+		}
+		return value, nil
 	case Event_AccessManagerEventsUpgradeAuthorityTransferredEvent:
 		value := new(AccessManagerEventsUpgradeAuthorityTransferredEvent)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -102,6 +116,40 @@ func ParseEvent_AccessManagerEventsRoleRevokedEvent(eventData []byte) (*AccessMa
 	err = event.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsRoleRevokedEvent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent(eventData []byte) (*AccessManagerEventsUpgradeAuthorityTransferCancelledEvent, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(AccessManagerEventsUpgradeAuthorityTransferCancelledEvent)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsUpgradeAuthorityTransferCancelledEvent: %w", err)
+	}
+	return event, nil
+}
+
+func ParseEvent_AccessManagerEventsUpgradeAuthorityTransferProposedEvent(eventData []byte) (*AccessManagerEventsUpgradeAuthorityTransferProposedEvent, error) {
+	decoder := binary.NewBorshDecoder(eventData)
+	discriminator, err := decoder.ReadDiscriminator()
+	if err != nil {
+		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
+	}
+	if discriminator != Event_AccessManagerEventsUpgradeAuthorityTransferProposedEvent {
+		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_AccessManagerEventsUpgradeAuthorityTransferProposedEvent, binary.FormatDiscriminator(discriminator))
+	}
+	event := new(AccessManagerEventsUpgradeAuthorityTransferProposedEvent)
+	err = event.UnmarshalWithDecoder(decoder)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal event of type AccessManagerEventsUpgradeAuthorityTransferProposedEvent: %w", err)
 	}
 	return event, nil
 }

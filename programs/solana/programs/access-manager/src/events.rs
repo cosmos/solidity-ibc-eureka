@@ -34,9 +34,26 @@ pub struct WhitelistedProgramsUpdatedEvent {
 
 #[event]
 #[derive(Debug, Clone)]
+pub struct UpgradeAuthorityTransferProposedEvent {
+    pub program: Pubkey,
+    pub current_authority: Pubkey,
+    pub proposed_authority: Pubkey,
+    pub proposed_by: Pubkey,
+}
+
+#[event]
+#[derive(Debug, Clone)]
 pub struct UpgradeAuthorityTransferredEvent {
     pub program: Pubkey,
     pub old_authority: Pubkey,
     pub new_authority: Pubkey,
-    pub transferred_by: Pubkey,
+    pub accepted_by: Pubkey,
+}
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct UpgradeAuthorityTransferCancelledEvent {
+    pub program: Pubkey,
+    pub cancelled_authority: Pubkey,
+    pub cancelled_by: Pubkey,
 }

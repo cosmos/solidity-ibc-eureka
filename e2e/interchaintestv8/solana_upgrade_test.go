@@ -384,21 +384,24 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 	}))
 }
 
-// Test_TransferUpgradeAuthority demonstrates the complete authority transfer flow for access manager migration.
+// Test_TransferUpgradeAuthority demonstrates the two-step authority transfer flow for access manager migration.
 //
 // SCENARIO:
 // When migrating to a new access manager or transferring upgrade control, the current access manager
-// needs to relinquish its upgrade authority over managed programs. The `transfer_upgrade_authority`
-// instruction enables this by having the AM's PDA sign a BPF Loader `SetAuthority` call.
+// needs to relinquish its upgrade authority over managed programs. This uses a two-step propose/accept
+// pattern to prevent irreversible mistakes:
+//   - Admin proposes the transfer (sets pending state)
+//   - New authority accepts the transfer (executes the BPF Loader SetAuthority CPI)
 //
 // TEST FLOW:
 // 1. Grant ADMIN_ROLE to upgrader wallet
 // 2. Transfer program upgrade authority from deployer to AccessManager's PDA (standard setup)
 // 3. Verify baseline: upgrade via AccessManager works
 // 4. Create a new authority keypair
-// 5. Call transfer_upgrade_authority to move authority from AM's PDA to new keypair
-// 6. Verify new authority can upgrade the program directly
-// 7. Verify AccessManager can no longer upgrade the program (negative test)
+// 5. Propose transfer: admin calls propose_upgrade_authority_transfer
+// 6. Accept transfer: new authority calls accept_upgrade_authority_transfer
+// 7. Verify new authority can upgrade the program directly
+// 8. Verify AccessManager can no longer upgrade the program (negative test)
 func (s *IbcEurekaSolanaUpgradeTestSuite) Test_TransferUpgradeAuthority() {
 	ctx := context.Background()
 
@@ -527,46 +530,67 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_TransferUpgradeAuthority() {
 		}
 	}()
 
-	s.Require().True(s.Run("Transfer upgrade authority from AccessManager to new keypair", func() {
+	s.Require().True(s.Run("Propose upgrade authority transfer", func() {
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 
-		transferIx, err := access_manager.NewTransferUpgradeAuthorityInstruction(
+		proposeIx, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
 			targetProgramID,
 			newAuthorityWallet.PublicKey(),
+			accessControlAccount,
+			s.UpgraderWallet.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err, "failed to build propose upgrade authority transfer instruction")
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.UpgraderWallet.PublicKey(),
+			proposeIx,
+		)
+		s.Require().NoError(err, "failed to create propose transfer transaction")
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		s.Require().NoError(err, "propose upgrade authority transfer should succeed")
+	}))
+
+	s.Require().True(s.Run("Accept upgrade authority transfer", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+		acceptIx, err := access_manager.NewAcceptUpgradeAuthorityTransferInstruction(
+			targetProgramID,
 			accessControlAccount,
 			programDataAccount,
 			upgradeAuthorityPDA,
 			newAuthorityWallet.PublicKey(),
-			s.UpgraderWallet.PublicKey(),
-			solanago.SysVarInstructionsPubkey,
 			solanago.BPFLoaderUpgradeableProgramID,
 		)
-		s.Require().NoError(err, "failed to build transfer upgrade authority instruction")
+		s.Require().NoError(err, "failed to build accept upgrade authority transfer instruction")
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-			s.UpgraderWallet.PublicKey(),
-			transferIx,
+			newAuthorityWallet.PublicKey(),
+			acceptIx,
 		)
-		s.Require().NoError(err, "failed to create transfer authority transaction")
+		s.Require().NoError(err, "failed to create accept transfer transaction")
 
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
-		s.Require().NoError(err, "transfer upgrade authority should succeed")
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, newAuthorityWallet)
+		s.Require().NoError(err, "accept upgrade authority transfer should succeed")
 	}))
 
 	s.Require().True(s.Run("New authority can upgrade program directly", func() {
+		// Use deployer to write the buffer (has more SOL for rent)
 		bufferAccount, err := solana.WriteProgramBuffer(
 			ctx,
 			programSoFile,
-			newAuthorityKeypairPath,
+			deployerPath,
 			s.Solana.Chain.RPCURL,
 		)
-		s.Require().NoError(err, "failed to write program buffer with new authority")
+		s.Require().NoError(err, "failed to write program buffer")
 
+		// Transfer buffer authority to the new authority
 		err = solana.SetBufferAuthority(
 			ctx,
 			bufferAccount,
 			newAuthorityWallet.PublicKey(),
-			newAuthorityKeypairPath,
+			deployerPath,
 			s.Solana.Chain.RPCURL,
 		)
 		s.Require().NoError(err, "failed to set buffer authority to new authority")

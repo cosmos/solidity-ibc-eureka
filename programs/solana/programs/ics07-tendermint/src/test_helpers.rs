@@ -828,6 +828,7 @@ pub fn setup_program_test_with_whitelist(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfer: None,
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
@@ -899,6 +900,7 @@ pub fn setup_program_test_with_relayer(
             },
         ],
         whitelisted_programs: vec![TEST_CPI_TARGET_ID],
+        pending_authority_transfer: None,
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
@@ -1057,6 +1059,7 @@ pub mod access_control {
         let access_manager = access_manager::state::AccessManager {
             roles,
             whitelisted_programs: vec![],
+            pending_authority_transfer: None,
         };
 
         let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();

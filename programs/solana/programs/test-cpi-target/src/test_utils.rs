@@ -194,6 +194,7 @@ pub fn add_access_manager_account(
     let am = AccessManager {
         roles,
         whitelisted_programs,
+        pending_authority_transfer: None,
     };
 
     let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];

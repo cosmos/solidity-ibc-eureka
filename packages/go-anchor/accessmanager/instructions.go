@@ -306,26 +306,22 @@ func NewUpgradeProgramInstruction(
 	), nil
 }
 
-// Builds a "transfer_upgrade_authority" instruction.
-func NewTransferUpgradeAuthorityInstruction(
+// Builds a "propose_upgrade_authority_transfer" instruction.
+func NewProposeUpgradeAuthorityTransferInstruction(
 	// Params:
 	targetProgramParam solanago.PublicKey,
 	newAuthorityParam solanago.PublicKey,
 
 	// Accounts:
 	accessManagerAccount solanago.PublicKey,
-	programDataAccount solanago.PublicKey,
-	upgradeAuthorityAccount solanago.PublicKey,
-	newAuthorityAccountAccount solanago.PublicKey,
 	authorityAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
-	bpfLoaderUpgradeableAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_TransferUpgradeAuthority[:], false)
+	err := enc__.WriteBytes(Instruction_ProposeUpgradeAuthorityTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -345,26 +341,110 @@ func NewTransferUpgradeAuthorityInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "access_manager": Read-only, Non-signer, Required
-		// The access manager PDA for admin authorization.
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 0 "access_manager": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
+		// Account 1 "authority": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "accept_upgrade_authority_transfer" instruction.
+func NewAcceptUpgradeAuthorityTransferInstruction(
+	// Params:
+	targetProgramParam solanago.PublicKey,
+
+	// Accounts:
+	accessManagerAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	upgradeAuthorityAccount solanago.PublicKey,
+	newAuthorityAccountAccount solanago.PublicKey,
+	bpfLoaderUpgradeableAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptUpgradeAuthorityTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `targetProgramParam`:
+		err = enc__.Encode(targetProgramParam)
+		if err != nil {
+			return nil, errors.NewField("targetProgramParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "access_manager": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
 		// Account 1 "program_data": Writable, Non-signer, Required
 		// The target program's data account (BPF Loader Upgradeable PDA).
 		accounts__.Append(solanago.NewAccountMeta(programDataAccount, true, false))
 		// Account 2 "upgrade_authority": Read-only, Non-signer, Required
-		// `AccessManager`'s PDA that acts as the current upgrade authority for the target program.
-		// Not mutable because BPF Loader's `SetAuthority` only reads the signer.
+		// `AccessManager`'s PDA that acts as the current upgrade authority.
 		accounts__.Append(solanago.NewAccountMeta(upgradeAuthorityAccount, false, false))
-		// Account 3 "new_authority_account": Read-only, Non-signer, Required
-		// The new upgrade authority to transfer to.
-		accounts__.Append(solanago.NewAccountMeta(newAuthorityAccountAccount, false, false))
-		// Account 4 "authority": Read-only, Signer, Required
-		// The admin signer authorizing the transfer.
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
-		// Account 5 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
-		// Account 6 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
+		// Account 3 "new_authority_account": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(newAuthorityAccountAccount, false, true))
+		// Account 4 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cancel_upgrade_authority_transfer" instruction.
+func NewCancelUpgradeAuthorityTransferInstruction(
+	// Params:
+	targetProgramParam solanago.PublicKey,
+
+	// Accounts:
+	accessManagerAccount solanago.PublicKey,
+	authorityAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelUpgradeAuthorityTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	{
+		// Serialize `targetProgramParam`:
+		err = enc__.Encode(targetProgramParam)
+		if err != nil {
+			return nil, errors.NewField("targetProgramParam", err)
+		}
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "access_manager": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
+		// Account 1 "authority": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
 	// Create the instruction.

@@ -25,6 +25,7 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
             members: vec![admin],
         }],
         whitelisted_programs: vec![],
+        pending_authority_transfer: None,
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -73,6 +74,7 @@ pub fn create_access_manager_with_role(
     let access_manager = AccessManager {
         roles: roles_vec,
         whitelisted_programs: vec![],
+        pending_authority_transfer: None,
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -371,6 +373,7 @@ pub fn setup_program_test_with_whitelist(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfer: None,
     };
     let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);

@@ -74,6 +74,7 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
     let access_manager = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: vec![],
+        pending_authority_transfer: None,
     };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
@@ -719,6 +720,7 @@ pub fn setup_program_test_with_access_manager(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfer: None,
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
