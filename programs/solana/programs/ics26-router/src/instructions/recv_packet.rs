@@ -14,6 +14,12 @@ use solana_ibc_types::ics24;
 ///
 /// Remaining accounts carry payload chunks, proof chunks and any extra
 /// accounts forwarded to the IBC app.
+///
+/// # CPI failure = entire tx reverts
+///
+/// Solana has no try/catch for CPI. If the app reverts, the whole transaction
+/// rolls back and the packet stays unacknowledged (timeout is the only recovery).
+/// See `docs/adr/solana-ift-architecture.md` limitations section.
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
 pub struct RecvPacket<'info> {
