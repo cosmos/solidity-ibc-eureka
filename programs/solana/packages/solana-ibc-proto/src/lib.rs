@@ -274,4 +274,14 @@ mod tests {
         let encoded = ack.encode_to_vec();
         assert!(!encoded.is_empty(), "proto3 encoding must be non-empty");
     }
+
+    #[test]
+    fn proto3_omits_empty_bytes_field() {
+        let ack = GmpAcknowledgement { result: Vec::new() };
+        let encoded = ack.encode_to_vec();
+        assert!(
+            encoded.is_empty(),
+            "proto3 encodes empty bytes to zero bytes — this is why the sentinel is needed"
+        );
+    }
 }
