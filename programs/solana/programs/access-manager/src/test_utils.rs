@@ -25,6 +25,7 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
             members: vec![admin],
         }],
         whitelisted_programs: vec![],
+        pending_authority_transfer: None,
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -73,6 +74,7 @@ pub fn create_access_manager_with_role(
     let access_manager = AccessManager {
         roles: roles_vec,
         whitelisted_programs: vec![],
+        pending_authority_transfer: None,
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -358,7 +360,7 @@ pub fn setup_program_test_with_whitelist(
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
 
-    let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+    let mut pt = solana_program_test::ProgramTest::new(crate::PROGRAM_BINARY_NAME, crate::ID, None);
     pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
     pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
 
@@ -371,6 +373,7 @@ pub fn setup_program_test_with_whitelist(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfer: None,
     };
     let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);

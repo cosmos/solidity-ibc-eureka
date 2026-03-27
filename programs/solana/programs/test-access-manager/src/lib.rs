@@ -1,3 +1,9 @@
+//! Second access-manager instance for AM-to-AM migration testing.
+//!
+//! Reuses all source files from `access-manager` via symlinks with a different
+//! `declare_id!`. This means `crate::ID` resolves to this program's ID,
+//! giving correct PDA derivation for a second AM instance.
+
 use anchor_lang::prelude::*;
 
 pub mod errors;
@@ -14,22 +20,22 @@ pub use helpers::{require_admin, require_role, require_role_with_whitelist};
 use instructions::*;
 pub use types::RoleData;
 
-declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
+declare_id!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");
 
 #[cfg(test)]
-pub const PROGRAM_BINARY_NAME: &str = "access_manager";
+pub const PROGRAM_BINARY_NAME: &str = "test_access_manager";
 #[cfg(test)]
-pub const OTHER_AM_BINARY_NAME: &str = "test_access_manager";
+pub const OTHER_AM_BINARY_NAME: &str = "access_manager";
 #[cfg(test)]
-pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");
+pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
 
 pub fn get_access_manager_program_path() -> &'static str {
     use std::sync::OnceLock;
     static PATH: OnceLock<String> = OnceLock::new();
 
     PATH.get_or_init(|| {
-        std::env::var("access_manager_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/access_manager".to_string())
+        std::env::var("test_access_manager_PROGRAM_PATH")
+            .unwrap_or_else(|_| "../../target/deploy/test_access_manager".to_string())
     })
 }
 

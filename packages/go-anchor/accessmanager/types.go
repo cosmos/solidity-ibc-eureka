@@ -224,6 +224,312 @@ func UnmarshalAccessManagerEventsRoleRevokedEvent(buf []byte) (*AccessManagerEve
 	return obj, nil
 }
 
+type AccessManagerEventsUpgradeAuthorityClaimedEvent struct {
+	Program             solanago.PublicKey `json:"program"`
+	SourceAccessManager solanago.PublicKey `json:"sourceAccessManager"`
+	NewAuthority        solanago.PublicKey `json:"newAuthority"`
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityClaimedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `SourceAccessManager`:
+	err = encoder.Encode(obj.SourceAccessManager)
+	if err != nil {
+		return errors.NewField("SourceAccessManager", err)
+	}
+	// Serialize `NewAuthority`:
+	err = encoder.Encode(obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityClaimedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsUpgradeAuthorityClaimedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityClaimedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `SourceAccessManager`:
+	err = decoder.Decode(&obj.SourceAccessManager)
+	if err != nil {
+		return errors.NewField("SourceAccessManager", err)
+	}
+	// Deserialize `NewAuthority`:
+	err = decoder.Decode(&obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityClaimedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsUpgradeAuthorityClaimedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsUpgradeAuthorityClaimedEvent(buf []byte) (*AccessManagerEventsUpgradeAuthorityClaimedEvent, error) {
+	obj := new(AccessManagerEventsUpgradeAuthorityClaimedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsUpgradeAuthorityTransferCancelledEvent struct {
+	Program            solanago.PublicKey `json:"program"`
+	CancelledAuthority solanago.PublicKey `json:"cancelledAuthority"`
+	CancelledBy        solanago.PublicKey `json:"cancelledBy"`
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferCancelledEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `CancelledAuthority`:
+	err = encoder.Encode(obj.CancelledAuthority)
+	if err != nil {
+		return errors.NewField("CancelledAuthority", err)
+	}
+	// Serialize `CancelledBy`:
+	err = encoder.Encode(obj.CancelledBy)
+	if err != nil {
+		return errors.NewField("CancelledBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferCancelledEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsUpgradeAuthorityTransferCancelledEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferCancelledEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `CancelledAuthority`:
+	err = decoder.Decode(&obj.CancelledAuthority)
+	if err != nil {
+		return errors.NewField("CancelledAuthority", err)
+	}
+	// Deserialize `CancelledBy`:
+	err = decoder.Decode(&obj.CancelledBy)
+	if err != nil {
+		return errors.NewField("CancelledBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferCancelledEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsUpgradeAuthorityTransferCancelledEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsUpgradeAuthorityTransferCancelledEvent(buf []byte) (*AccessManagerEventsUpgradeAuthorityTransferCancelledEvent, error) {
+	obj := new(AccessManagerEventsUpgradeAuthorityTransferCancelledEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsUpgradeAuthorityTransferProposedEvent struct {
+	Program           solanago.PublicKey `json:"program"`
+	CurrentAuthority  solanago.PublicKey `json:"currentAuthority"`
+	ProposedAuthority solanago.PublicKey `json:"proposedAuthority"`
+	ProposedBy        solanago.PublicKey `json:"proposedBy"`
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferProposedEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `CurrentAuthority`:
+	err = encoder.Encode(obj.CurrentAuthority)
+	if err != nil {
+		return errors.NewField("CurrentAuthority", err)
+	}
+	// Serialize `ProposedAuthority`:
+	err = encoder.Encode(obj.ProposedAuthority)
+	if err != nil {
+		return errors.NewField("ProposedAuthority", err)
+	}
+	// Serialize `ProposedBy`:
+	err = encoder.Encode(obj.ProposedBy)
+	if err != nil {
+		return errors.NewField("ProposedBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferProposedEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsUpgradeAuthorityTransferProposedEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferProposedEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `CurrentAuthority`:
+	err = decoder.Decode(&obj.CurrentAuthority)
+	if err != nil {
+		return errors.NewField("CurrentAuthority", err)
+	}
+	// Deserialize `ProposedAuthority`:
+	err = decoder.Decode(&obj.ProposedAuthority)
+	if err != nil {
+		return errors.NewField("ProposedAuthority", err)
+	}
+	// Deserialize `ProposedBy`:
+	err = decoder.Decode(&obj.ProposedBy)
+	if err != nil {
+		return errors.NewField("ProposedBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferProposedEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsUpgradeAuthorityTransferProposedEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsUpgradeAuthorityTransferProposedEvent(buf []byte) (*AccessManagerEventsUpgradeAuthorityTransferProposedEvent, error) {
+	obj := new(AccessManagerEventsUpgradeAuthorityTransferProposedEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsUpgradeAuthorityTransferredEvent struct {
+	Program      solanago.PublicKey `json:"program"`
+	OldAuthority solanago.PublicKey `json:"oldAuthority"`
+	NewAuthority solanago.PublicKey `json:"newAuthority"`
+	AcceptedBy   solanago.PublicKey `json:"acceptedBy"`
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferredEvent) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `Program`:
+	err = encoder.Encode(obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Serialize `OldAuthority`:
+	err = encoder.Encode(obj.OldAuthority)
+	if err != nil {
+		return errors.NewField("OldAuthority", err)
+	}
+	// Serialize `NewAuthority`:
+	err = encoder.Encode(obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	// Serialize `AcceptedBy`:
+	err = encoder.Encode(obj.AcceptedBy)
+	if err != nil {
+		return errors.NewField("AcceptedBy", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsUpgradeAuthorityTransferredEvent) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsUpgradeAuthorityTransferredEvent: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferredEvent) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `Program`:
+	err = decoder.Decode(&obj.Program)
+	if err != nil {
+		return errors.NewField("Program", err)
+	}
+	// Deserialize `OldAuthority`:
+	err = decoder.Decode(&obj.OldAuthority)
+	if err != nil {
+		return errors.NewField("OldAuthority", err)
+	}
+	// Deserialize `NewAuthority`:
+	err = decoder.Decode(&obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	// Deserialize `AcceptedBy`:
+	err = decoder.Decode(&obj.AcceptedBy)
+	if err != nil {
+		return errors.NewField("AcceptedBy", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsUpgradeAuthorityTransferredEvent) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsUpgradeAuthorityTransferredEvent: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsUpgradeAuthorityTransferredEvent(buf []byte) (*AccessManagerEventsUpgradeAuthorityTransferredEvent, error) {
+	obj := new(AccessManagerEventsUpgradeAuthorityTransferredEvent)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerEventsWhitelistedProgramsUpdatedEvent struct {
 	OldPrograms []solanago.PublicKey `json:"oldPrograms"`
 	NewPrograms []solanago.PublicKey `json:"newPrograms"`
@@ -305,8 +611,9 @@ func UnmarshalAccessManagerEventsWhitelistedProgramsUpdatedEvent(buf []byte) (*A
 // Role IDs are opaque `u64` values — the access manager does not interpret them.
 // Consuming programs define and enforce what each role ID means.
 type AccessManagerStateAccessManager struct {
-	Roles               []AccessManagerTypesRoleData `json:"roles"`
-	WhitelistedPrograms []solanago.PublicKey         `json:"whitelistedPrograms"`
+	Roles                    []AccessManagerTypesRoleData                `json:"roles"`
+	WhitelistedPrograms      []solanago.PublicKey                        `json:"whitelistedPrograms"`
+	PendingAuthorityTransfer *AccessManagerTypesPendingAuthorityTransfer `bin:"optional" json:"pendingAuthorityTransfer,omitempty"`
 }
 
 func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -319,6 +626,24 @@ func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.En
 	err = encoder.Encode(obj.WhitelistedPrograms)
 	if err != nil {
 		return errors.NewField("WhitelistedPrograms", err)
+	}
+	// Serialize `PendingAuthorityTransfer` (optional):
+	{
+		if obj.PendingAuthorityTransfer == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAuthorityTransfer)
+			if err != nil {
+				return errors.NewField("PendingAuthorityTransfer", err)
+			}
+		}
 	}
 	return nil
 }
@@ -344,6 +669,19 @@ func (obj *AccessManagerStateAccessManager) UnmarshalWithDecoder(decoder *binary
 	if err != nil {
 		return errors.NewField("WhitelistedPrograms", err)
 	}
+	// Deserialize `PendingAuthorityTransfer` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAuthorityTransfer)
+			if err != nil {
+				return errors.NewField("PendingAuthorityTransfer", err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -357,6 +695,66 @@ func (obj *AccessManagerStateAccessManager) Unmarshal(buf []byte) error {
 
 func UnmarshalAccessManagerStateAccessManager(buf []byte) (*AccessManagerStateAccessManager, error) {
 	obj := new(AccessManagerStateAccessManager)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerTypesPendingAuthorityTransfer struct {
+	TargetProgram solanago.PublicKey `json:"targetProgram"`
+	NewAuthority  solanago.PublicKey `json:"newAuthority"`
+}
+
+func (obj AccessManagerTypesPendingAuthorityTransfer) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `TargetProgram`:
+	err = encoder.Encode(obj.TargetProgram)
+	if err != nil {
+		return errors.NewField("TargetProgram", err)
+	}
+	// Serialize `NewAuthority`:
+	err = encoder.Encode(obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerTypesPendingAuthorityTransfer) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerTypesPendingAuthorityTransfer: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerTypesPendingAuthorityTransfer) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `TargetProgram`:
+	err = decoder.Decode(&obj.TargetProgram)
+	if err != nil {
+		return errors.NewField("TargetProgram", err)
+	}
+	// Deserialize `NewAuthority`:
+	err = decoder.Decode(&obj.NewAuthority)
+	if err != nil {
+		return errors.NewField("NewAuthority", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerTypesPendingAuthorityTransfer) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerTypesPendingAuthorityTransfer: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerTypesPendingAuthorityTransfer(buf []byte) (*AccessManagerTypesPendingAuthorityTransfer, error) {
+	obj := new(AccessManagerTypesPendingAuthorityTransfer)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
