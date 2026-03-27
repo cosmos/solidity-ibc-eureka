@@ -1308,6 +1308,29 @@ func UnmarshalIcs27GmpStateGmpCallResultAccount(buf []byte) (*Ics27GmpStateGmpCa
 	return obj, nil
 }
 
+// Encoding format for outbound GMP packets.
+//
+// Determines how the `GmpPacketData` is serialized and what encoding string
+// is set in the IBC payload. The sender must use the encoding the destination
+// chain's ICS27 GMP module expects.
+type Ics27GmpStateGmpEncoding binary.BorshEnum
+
+const (
+	Ics27GmpStateGmpEncoding_Protobuf Ics27GmpStateGmpEncoding = iota
+	Ics27GmpStateGmpEncoding_Abi
+)
+
+func (value Ics27GmpStateGmpEncoding) String() string {
+	switch value {
+	case Ics27GmpStateGmpEncoding_Protobuf:
+		return "Protobuf"
+	case Ics27GmpStateGmpEncoding_Abi:
+		return "Abi"
+	default:
+		return ""
+	}
+}
+
 // Send call message (unvalidated input from user)
 type Ics27GmpStateSendCallMsg struct {
 	// Source client identifier

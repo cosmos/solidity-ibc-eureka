@@ -5,5 +5,6 @@
     jq
     parallel
     quicktype
+    foundry-bin
   ];
 }

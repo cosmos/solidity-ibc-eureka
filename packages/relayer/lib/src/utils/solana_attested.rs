@@ -3,14 +3,51 @@
 use crate::aggregator::rpc::{AggregatedAttestation, CommitmentType};
 use crate::aggregator::Aggregator;
 use crate::utils::attestor::get_packet_attestation;
+use crate::utils::solana::TimeoutPacketWithChunks;
 use alloy::sol_types::SolValue;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use borsh::BorshSerialize;
-use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::Packet;
+use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{Packet, Payload};
 use ibc_proto_eureka::ibc::core::{
     channel::v2::{MsgAcknowledgement, MsgRecvPacket},
     client::v1::Height,
 };
+use solana_ibc_constants::CHUNK_DATA_SIZE;
+use solana_sdk::{
+    compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
+};
+
+/// Maximum compute units allowed per Solana transaction.
+const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
+
+/// Priority fee in micro-lamports per compute unit.
+const DEFAULT_PRIORITY_FEE: u64 = 1000;
+
+/// Trait abstracting the Solana tx builder methods needed for attestation
+/// update_client transactions.
+///
+/// Implemented by both eth-to-solana `SolanaTxBuilder` and cosmos-to-solana
+/// `TxBuilder` to allow shared attestation logic.
+pub trait SolanaAttestationTxBuilder {
+    /// Resolves the light client program ID for the given client ID.
+    fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey>;
+    /// Fetches the minimum required signatures from the attestation light client.
+    fn attestation_client_min_sigs(&self, program_id: Pubkey) -> Result<usize>;
+    /// Resolves the access manager program ID from the router state.
+    fn resolve_access_manager_program_id(&self) -> Result<Pubkey>;
+    /// Returns the fee payer public key.
+    fn fee_payer(&self) -> Pubkey;
+    /// Serializes instructions into a versioned transaction.
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>>;
+}
+
+/// Result of building an attestation update_client transaction.
+pub struct AttestationUpdateClientResult {
+    /// Serialized assembly transaction bytes.
+    pub assembly_tx: Vec<u8>,
+    /// The target height for this update.
+    pub target_height: u64,
+}
 
 /// Borsh-serialized membership proof for Solana attestation light client.
 ///
@@ -93,10 +130,40 @@ pub fn collect_ack_packets(ack_msgs: &[MsgAcknowledgement]) -> Vec<Vec<u8>> {
         .collect()
 }
 
+/// Collects ABI-encoded packets from Solana timeout messages.
+#[must_use]
+pub fn collect_timeout_packets_solana(timeout_msgs: &[TimeoutPacketWithChunks]) -> Vec<Vec<u8>> {
+    timeout_msgs
+        .iter()
+        .map(|t| {
+            Packet {
+                sequence: t.msg.packet.sequence,
+                sourceClient: t.msg.packet.source_client.clone(),
+                destClient: t.msg.packet.dest_client.clone(),
+                timeoutTimestamp: u64::try_from(t.msg.packet.timeout_timestamp).unwrap_or(0),
+                payloads: t
+                    .msg
+                    .packet
+                    .payloads
+                    .iter()
+                    .map(|p| Payload {
+                        sourcePort: p.source_port.clone(),
+                        destPort: p.dest_port.clone(),
+                        version: p.version.clone(),
+                        encoding: p.encoding.clone(),
+                        value: p.value.clone().into(),
+                    })
+                    .collect(),
+            }
+            .abi_encode()
+        })
+        .collect()
+}
+
 /// Injects attestation proofs into Solana-bound IBC messages.
 ///
 /// This function:
-/// 1. Collects packets from recv and ack messages
+/// 1. Collects packets from recv, ack and timeout messages
 /// 2. Fetches attestations from the aggregator in parallel
 /// 3. Builds Borsh-encoded proofs
 /// 4. Injects proofs into the messages
@@ -105,6 +172,7 @@ pub fn collect_ack_packets(ack_msgs: &[MsgAcknowledgement]) -> Vec<Vec<u8>> {
 /// * `aggregator` - The aggregator client
 /// * `recv_msgs` - Mutable recv messages to inject proofs into
 /// * `ack_msgs` - Mutable ack messages to inject proofs into
+/// * `timeout_msgs` - Mutable timeout messages to inject proofs into
 /// * `target_height` - Height to fetch attestations at
 /// * `max_signatures` - Maximum signatures to include (Solana tx size limit)
 ///
@@ -114,13 +182,15 @@ pub async fn inject_solana_attestor_proofs(
     aggregator: &Aggregator,
     recv_msgs: &mut [MsgRecvPacket],
     ack_msgs: &mut [MsgAcknowledgement],
+    timeout_msgs: &mut [TimeoutPacketWithChunks],
     target_height: &Height,
     max_signatures: usize,
 ) -> Result<()> {
     let recv_packets = collect_recv_packets(recv_msgs);
     let ack_packets = collect_ack_packets(ack_msgs);
+    let timeout_packets = collect_timeout_packets_solana(timeout_msgs);
 
-    let (recv_attestation, ack_attestation) = tokio::join!(
+    let (recv_attestation, ack_attestation, timeout_attestation) = tokio::join!(
         fetch_packet_attestation(
             aggregator,
             recv_packets,
@@ -132,6 +202,12 @@ pub async fn inject_solana_attestor_proofs(
             ack_packets,
             target_height.revision_height,
             CommitmentType::Ack
+        ),
+        fetch_packet_attestation(
+            aggregator,
+            timeout_packets,
+            target_height.revision_height,
+            CommitmentType::Receipt
         ),
     );
 
@@ -167,5 +243,161 @@ pub async fn inject_solana_attestor_proofs(
         );
     }
 
+    if let Some(attestation) = timeout_attestation? {
+        let proof_bytes = build_solana_membership_proof(
+            attestation.attested_data,
+            attestation.signatures,
+            max_signatures,
+        );
+        for timeout in timeout_msgs.iter_mut() {
+            timeout.proof_chunks.clone_from(&proof_bytes);
+            timeout.msg.proof.height = target_height.revision_height;
+            timeout.msg.proof.total_chunks =
+                u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1)).unwrap_or(u8::MAX);
+        }
+        tracing::info!(
+            "Injected attestation proof into {} timeout messages",
+            timeout_msgs.len()
+        );
+    }
+
     Ok(())
+}
+
+/// Builds an attestation `update_client` transaction for the given height.
+///
+/// Fetches the state attestation from the aggregator, builds a membership
+/// proof and assembles the Solana transaction.
+///
+/// # Errors
+/// Returns an error if fetching the attestation or building the transaction fails.
+pub async fn build_attestation_update_client_tx(
+    aggregator: &Aggregator,
+    tx_builder: &impl SolanaAttestationTxBuilder,
+    dst_client_id: &str,
+    target_height: u64,
+) -> Result<AttestationUpdateClientResult> {
+    tracing::info!(
+        "Building attestation update_client for height {}",
+        target_height
+    );
+
+    let light_client_program_id = tx_builder.resolve_client_program_id(dst_client_id)?;
+    let min_sigs = tx_builder.attestation_client_min_sigs(light_client_program_id)?;
+
+    let state_attestation = aggregator.get_state_attestation(target_height).await?;
+
+    tracing::info!(
+        "Aggregator returned {} signatures, attestation_data size: {} bytes",
+        state_attestation.signatures.len(),
+        state_attestation.attested_data.len()
+    );
+
+    let proof_bytes = build_solana_membership_proof(
+        state_attestation.attested_data,
+        state_attestation.signatures,
+        min_sigs,
+    );
+
+    let assembly_tx = build_update_client_instruction_tx(
+        tx_builder,
+        target_height,
+        proof_bytes,
+        light_client_program_id,
+    )?;
+
+    Ok(AttestationUpdateClientResult {
+        assembly_tx,
+        target_height,
+    })
+}
+
+/// Updates the attestation light client to the aggregator's latest finalized
+/// height.
+///
+/// # Errors
+/// Returns an error if fetching the latest height or building the transaction fails.
+pub async fn update_attestation_client_tx(
+    aggregator: &Aggregator,
+    tx_builder: &impl SolanaAttestationTxBuilder,
+    dst_client_id: &str,
+) -> Result<AttestationUpdateClientResult> {
+    let latest_height = aggregator.get_latest_height().await?;
+    tracing::info!(
+        "Updating attestation client {} to latest height {}",
+        dst_client_id,
+        latest_height
+    );
+    build_attestation_update_client_tx(aggregator, tx_builder, dst_client_id, latest_height).await
+}
+
+/// Builds the raw Solana instruction and transaction bytes for an attestation
+/// `update_client` call.
+fn build_update_client_instruction_tx(
+    tx_builder: &impl SolanaAttestationTxBuilder,
+    new_height: u64,
+    proof: Vec<u8>,
+    light_client_program_id: Pubkey,
+) -> Result<Vec<u8>> {
+    use sha2::{Digest, Sha256};
+    use solana_ibc_types::attestation::{
+        AppState as AttestationAppState, ClientState as AttestationClientState,
+        ConsensusState as AttestationConsensusState,
+    };
+
+    let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
+    let (new_consensus_state_pda, _) =
+        AttestationConsensusState::pda(new_height, light_client_program_id);
+    let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
+
+    let access_manager_program_id = tx_builder.resolve_access_manager_program_id()?;
+    let (access_manager_pda, _) = Pubkey::find_program_address(
+        &[solana_ibc_types::AccessManager::SEED],
+        &access_manager_program_id,
+    );
+
+    let discriminator = {
+        let mut hasher = Sha256::new();
+        hasher.update(b"global:update_client");
+        let result = hasher.finalize();
+        <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
+    };
+
+    #[derive(BorshSerialize)]
+    struct UpdateClientParams {
+        proof: Vec<u8>,
+    }
+
+    let mut data = discriminator.to_vec();
+    BorshSerialize::serialize(&new_height, &mut data).context("Failed to serialize new_height")?;
+    BorshSerialize::serialize(&UpdateClientParams { proof }, &mut data)
+        .context("Failed to serialize UpdateClientParams")?;
+
+    let instruction = Instruction {
+        program_id: light_client_program_id,
+        accounts: vec![
+            solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
+            solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
+            solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
+            solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
+            solana_sdk::instruction::AccountMeta::new_readonly(
+                solana_sdk::sysvar::instructions::ID,
+                false,
+            ),
+            solana_sdk::instruction::AccountMeta::new(tx_builder.fee_payer(), true),
+            solana_sdk::instruction::AccountMeta::new_readonly(
+                solana_sdk::system_program::ID,
+                false,
+            ),
+        ],
+        data,
+    };
+
+    let instructions = vec![
+        ComputeBudgetInstruction::set_compute_unit_limit(MAX_COMPUTE_UNIT_LIMIT),
+        ComputeBudgetInstruction::set_compute_unit_price(DEFAULT_PRIORITY_FEE),
+        instruction,
+    ];
+
+    tx_builder.create_tx_bytes(&instructions)
 }
