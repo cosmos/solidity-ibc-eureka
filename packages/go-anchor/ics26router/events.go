@@ -15,13 +15,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 		return nil, fmt.Errorf("failed to peek event discriminator: %w", err)
 	}
 	switch discriminator {
-	case Event_Ics26RouterEventsAccessManagerUpdated:
-		value := new(Ics26RouterEventsAccessManagerUpdated)
-		err := value.UnmarshalWithDecoder(decoder)
-		if err != nil {
-			return nil, fmt.Errorf("failed to unmarshal event as Ics26RouterEventsAccessManagerUpdated: %w", err)
-		}
-		return value, nil
 	case Event_Ics26RouterEventsAckPacketEvent:
 		value := new(Ics26RouterEventsAckPacketEvent)
 		err := value.UnmarshalWithDecoder(decoder)
@@ -95,23 +88,6 @@ func ParseAnyEvent(eventData []byte) (any, error) {
 	default:
 		return nil, fmt.Errorf("unknown discriminator: %s", binary.FormatDiscriminator(discriminator))
 	}
-}
-
-func ParseEvent_Ics26RouterEventsAccessManagerUpdated(eventData []byte) (*Ics26RouterEventsAccessManagerUpdated, error) {
-	decoder := binary.NewBorshDecoder(eventData)
-	discriminator, err := decoder.ReadDiscriminator()
-	if err != nil {
-		return nil, fmt.Errorf("failed to peek discriminator: %w", err)
-	}
-	if discriminator != Event_Ics26RouterEventsAccessManagerUpdated {
-		return nil, fmt.Errorf("expected discriminator %v, got %s", Event_Ics26RouterEventsAccessManagerUpdated, binary.FormatDiscriminator(discriminator))
-	}
-	event := new(Ics26RouterEventsAccessManagerUpdated)
-	err = event.UnmarshalWithDecoder(decoder)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal event of type Ics26RouterEventsAccessManagerUpdated: %w", err)
-	}
-	return event, nil
 }
 
 func ParseEvent_Ics26RouterEventsAckPacketEvent(eventData []byte) (*Ics26RouterEventsAckPacketEvent, error) {

@@ -87,8 +87,8 @@ func NewInitializeInstruction(
 	), nil
 }
 
-// Builds a "set_access_manager" instruction.
-func NewSetAccessManagerInstruction(
+// Builds a "propose_access_manager_transfer" instruction.
+func NewProposeAccessManagerTransferInstruction(
 	// Params:
 	newAccessManagerParam solanago.PublicKey,
 
@@ -102,7 +102,7 @@ func NewSetAccessManagerInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	err := enc__.WriteBytes(Instruction_ProposeAccessManagerTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -118,16 +118,86 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// PDA holding program-level settings; the `access_manager` field is overwritten on success.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Current access-manager PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Admin signer authorized to change the access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar used by the access manager to inspect the transaction.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "accept_access_manager_transfer" instruction.
+func NewAcceptAccessManagerTransferInstruction(
+	appStateAccount solanago.PublicKey,
+	newAccessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "new_access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(newAccessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cancel_access_manager_transfer" instruction.
+func NewCancelAccessManagerTransferInstruction(
+	appStateAccount solanago.PublicKey,
+	accessManagerAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "access_manager": Read-only, Non-signer, Required
+		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 

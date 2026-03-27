@@ -42,8 +42,8 @@ pub use ics27::{
 };
 
 pub use events::{
-    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
-    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+    AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,
+    TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
 pub use access_manager::{roles, AccessManager};

@@ -23,6 +23,7 @@ fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
         paused,
         bump,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
     let app_state_data = create_account_data(&app_state);

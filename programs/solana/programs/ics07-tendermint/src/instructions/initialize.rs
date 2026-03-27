@@ -101,6 +101,7 @@ pub fn initialize(
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.access_manager = access_manager;
+    app_state.pending_access_manager = None;
     app_state._reserved = [0; 256];
 
     Ok(())

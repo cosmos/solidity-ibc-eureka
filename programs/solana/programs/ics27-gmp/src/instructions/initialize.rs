@@ -54,6 +54,7 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
     app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
     app_state.access_manager = access_manager;
+    app_state.pending_access_manager = None;
     app_state._reserved = [0; 256];
 
     // Emit initialization event

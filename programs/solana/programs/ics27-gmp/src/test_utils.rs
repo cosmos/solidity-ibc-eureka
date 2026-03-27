@@ -2,7 +2,7 @@ use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
 use access_manager::RoleData;
-use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, InstructionData, Space};
 use mollusk_svm::Mollusk;
 use solana_ibc_types::roles;
 use solana_sdk::{
@@ -32,12 +32,12 @@ pub fn create_gmp_app_state_account(
         paused,
         bump,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
 
-    let mut data = Vec::new();
-    data.extend_from_slice(GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     (
         pubkey,
@@ -559,6 +559,7 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         paused: false,
         _reserved: [0; 256],
     };
@@ -693,11 +694,11 @@ pub fn setup_program_test_with_access_manager(
         paused: false,
         bump,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -852,11 +853,11 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         paused: false,
         bump,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,

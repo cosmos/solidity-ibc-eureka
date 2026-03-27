@@ -14,7 +14,6 @@ var (
 
 // Event discriminators
 var (
-	Event_Ics27GmpEventsAccessManagerUpdated  = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
 	Event_Ics27GmpEventsGmpAppInitialized     = [8]byte{212, 236, 132, 161, 142, 153, 248, 176}
 	Event_Ics27GmpEventsGmpAppPaused          = [8]byte{85, 230, 80, 71, 172, 103, 11, 186}
 	Event_Ics27GmpEventsGmpAppUnpaused        = [8]byte{154, 224, 206, 7, 164, 216, 81, 181}
@@ -26,13 +25,15 @@ var (
 
 // Instruction discriminators
 var (
-	Instruction_Initialize              = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_SendCall                = [8]byte{254, 95, 190, 68, 194, 140, 28, 103}
-	Instruction_SendCallCpi             = [8]byte{97, 64, 45, 56, 8, 199, 98, 206}
-	Instruction_OnRecvPacket            = [8]byte{153, 133, 78, 48, 156, 128, 229, 104}
-	Instruction_OnAcknowledgementPacket = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
-	Instruction_OnTimeoutPacket         = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
-	Instruction_PauseApp                = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
-	Instruction_UnpauseApp              = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
-	Instruction_SetAccessManager        = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
+	Instruction_Initialize                   = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_SendCall                     = [8]byte{254, 95, 190, 68, 194, 140, 28, 103}
+	Instruction_SendCallCpi                  = [8]byte{97, 64, 45, 56, 8, 199, 98, 206}
+	Instruction_OnRecvPacket                 = [8]byte{153, 133, 78, 48, 156, 128, 229, 104}
+	Instruction_OnAcknowledgementPacket      = [8]byte{1, 142, 48, 169, 216, 66, 198, 31}
+	Instruction_OnTimeoutPacket              = [8]byte{152, 10, 26, 185, 36, 193, 95, 76}
+	Instruction_PauseApp                     = [8]byte{142, 191, 211, 112, 238, 129, 131, 66}
+	Instruction_UnpauseApp                   = [8]byte{73, 253, 89, 192, 87, 42, 245, 3}
+	Instruction_ProposeAccessManagerTransfer = [8]byte{96, 76, 46, 161, 93, 100, 32, 145}
+	Instruction_AcceptAccessManagerTransfer  = [8]byte{61, 185, 143, 64, 16, 88, 106, 185}
+	Instruction_CancelAccessManagerTransfer  = [8]byte{181, 250, 216, 163, 132, 73, 23, 68}
 )

@@ -11,6 +11,186 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+type AccessManagerEventsAccessManagerTransferAccepted struct {
+	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
+	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
+}
+
+func (obj AccessManagerEventsAccessManagerTransferAccepted) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `OldAccessManager`:
+	err = encoder.Encode(obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Serialize `NewAccessManager`:
+	err = encoder.Encode(obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsAccessManagerTransferAccepted) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsAccessManagerTransferAccepted: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferAccepted) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `OldAccessManager`:
+	err = decoder.Decode(&obj.OldAccessManager)
+	if err != nil {
+		return errors.NewField("OldAccessManager", err)
+	}
+	// Deserialize `NewAccessManager`:
+	err = decoder.Decode(&obj.NewAccessManager)
+	if err != nil {
+		return errors.NewField("NewAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferAccepted) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsAccessManagerTransferAccepted: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsAccessManagerTransferAccepted(buf []byte) (*AccessManagerEventsAccessManagerTransferAccepted, error) {
+	obj := new(AccessManagerEventsAccessManagerTransferAccepted)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsAccessManagerTransferCancelled struct {
+	AccessManager          solanago.PublicKey `json:"accessManager"`
+	CancelledAccessManager solanago.PublicKey `json:"cancelledAccessManager"`
+}
+
+func (obj AccessManagerEventsAccessManagerTransferCancelled) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `CancelledAccessManager`:
+	err = encoder.Encode(obj.CancelledAccessManager)
+	if err != nil {
+		return errors.NewField("CancelledAccessManager", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsAccessManagerTransferCancelled) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsAccessManagerTransferCancelled: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferCancelled) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `CancelledAccessManager`:
+	err = decoder.Decode(&obj.CancelledAccessManager)
+	if err != nil {
+		return errors.NewField("CancelledAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferCancelled) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsAccessManagerTransferCancelled: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsAccessManagerTransferCancelled(buf []byte) (*AccessManagerEventsAccessManagerTransferCancelled, error) {
+	obj := new(AccessManagerEventsAccessManagerTransferCancelled)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
+type AccessManagerEventsAccessManagerTransferProposed struct {
+	CurrentAccessManager  solanago.PublicKey `json:"currentAccessManager"`
+	ProposedAccessManager solanago.PublicKey `json:"proposedAccessManager"`
+}
+
+func (obj AccessManagerEventsAccessManagerTransferProposed) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `CurrentAccessManager`:
+	err = encoder.Encode(obj.CurrentAccessManager)
+	if err != nil {
+		return errors.NewField("CurrentAccessManager", err)
+	}
+	// Serialize `ProposedAccessManager`:
+	err = encoder.Encode(obj.ProposedAccessManager)
+	if err != nil {
+		return errors.NewField("ProposedAccessManager", err)
+	}
+	return nil
+}
+
+func (obj AccessManagerEventsAccessManagerTransferProposed) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerEventsAccessManagerTransferProposed: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferProposed) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `CurrentAccessManager`:
+	err = decoder.Decode(&obj.CurrentAccessManager)
+	if err != nil {
+		return errors.NewField("CurrentAccessManager", err)
+	}
+	// Deserialize `ProposedAccessManager`:
+	err = decoder.Decode(&obj.ProposedAccessManager)
+	if err != nil {
+		return errors.NewField("ProposedAccessManager", err)
+	}
+	return nil
+}
+
+func (obj *AccessManagerEventsAccessManagerTransferProposed) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerEventsAccessManagerTransferProposed: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerEventsAccessManagerTransferProposed(buf []byte) (*AccessManagerEventsAccessManagerTransferProposed, error) {
+	obj := new(AccessManagerEventsAccessManagerTransferProposed)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 type AccessManagerEventsProgramUpgradedEvent struct {
 	Program   solanago.PublicKey `json:"program"`
 	Authority solanago.PublicKey `json:"authority"`
