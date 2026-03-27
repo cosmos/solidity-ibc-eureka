@@ -550,6 +550,7 @@ After executing the target program, GMP wraps the CPI return data in a protobuf 
 - **CPI Depth**: 2 levels for target programs (vs unlimited on Ethereum)
 - **Account Pre-declaration**: All accounts must be known upfront
 - **Transaction Size**: 1232-byte limit constrains complexity
+- **No error ack on CPI failure**: If the target app reverts, the whole tx rolls back - no error ack, packet stuck until timeout. See [IFT ADR](./solana-ift-architecture.md#limitations).
 
 ### Mitigation Strategies
 
