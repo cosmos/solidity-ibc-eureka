@@ -65,251 +65,43 @@ upgrade_authority: ["upgrade_authority", target_program.as_ref()]   program: acc
 program_data:      [target_program.as_ref()]                       program: BPF Loader Upgradeable
 ```
 
-## Program Upgrade Flow
+## Flows
 
-### Standard Upgrade via Access Manager
+### 1. Initial deployment and setup
 
-```mermaid
-graph TB
-    subgraph setup["① Setup (one-time)"]
-        Deployer["Deployer"]
-        PD_S["ProgramData\nauthority: deployer"]
-        AM_S["AccessManager PDA"]
+1. Deployer deploys the Access Manager (AM) program and all IBC programs (ICS07, ICS26, GMP, etc.) -- the deployer's keypair is the upgrade authority for each
+2. Deployer calls `initialize` on AM, setting the initial admin -- only the deployer (upgrade authority holder) can do this
+3. Deployer calls `initialize` on each IBC program, passing the AM's address -- each program stores it for runtime role checks
+4. Deployer uses `solana program set-upgrade-authority` (CLI) to transfer each managed program's upgrade authority from the deployer keypair to AM's per-program PDA (`["upgrade_authority", program_id]`)
+5. Deployer sets the buffer authority to AM's PDA as well
+6. From this point, the deployer keypair is no longer needed -- upgrades go through AM's role-gated `upgrade_program` instruction
 
-        Deployer -->|"1. deploy program"| PD_S
-        Deployer -->|"2. initialize AM\ngrant ADMIN_ROLE"| AM_S
-        Deployer -->|"3. set-upgrade-authority\ndeployer → UA PDA"| PD_S
-    end
+### 2. Upgrading an IBC program
 
-    subgraph upgrade["② Upgrade"]
-        Deployer2["Deployer"]
-        Admin["Admin (ADMIN_ROLE)"]
-        Buffer["Buffer Account\nnew bytecode"]
-        UPIX["upgrade_program()"]
-        AM_U["AccessManager PDA"]
-        UA_U["Upgrade Authority PDA"]
-        PD_U["ProgramData\nauthority: UA PDA"]
-        Target["Target Program"]
+1. Deployer (or anyone) writes the new bytecode to a buffer account and sets the buffer authority to AM's upgrade authority PDA
+2. Admin (holder of `ADMIN_ROLE`) calls `upgrade_program` on AM, passing the target program and buffer
+3. AM verifies the caller has `ADMIN_ROLE`
+4. AM signs the BPF Loader `Upgrade` CPI with its upgrade authority PDA via `invoke_signed`
+5. BPF Loader replaces the target program's bytecode
 
-        Deployer2 -->|"1. write-buffer +\nset-buffer-authority → UA PDA"| Buffer
-        Admin -->|"2. call"| UPIX
-        UPIX -->|"3. require_admin"| AM_U
-        UPIX -->|"4. invoke_signed"| UA_U
-        UA_U -->|"5. BPFLoader::upgrade()"| PD_U
-        Buffer -->|"bytecode source"| PD_U
-        PD_U -->|"6. bytecode replaced"| Target
-    end
+### 3. Migrating to a new Access Manager (AM-A -> AM-B)
 
-    setup ~~~ upgrade
+There are two independent control planes to migrate:
 
-    style setup fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-    style upgrade fill:#d1fae5,stroke:#059669,color:#064e3b
+**Upgrade authority** (who can replace program bytecode):
 
-    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
-    classDef am fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
-    classDef pda fill:#fbcfe8,stroke:#db2777,color:#831843
-    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
-    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
-    classDef target fill:#a7f3d0,stroke:#059669,color:#064e3b
+1. Deploy and initialize AM-B with its own admin
+2. AM-A admin calls `propose_upgrade_authority_transfer` on AM-A for a target program, specifying AM-B's upgrade authority PDA as the new authority
+3. Anyone calls `claim_upgrade_authority` on AM-B -- AM-B CPIs into AM-A's `accept_upgrade_authority_transfer` signing with its own PDA (since only AM-B can `invoke_signed` with AM-B's PDA)
+4. AM-A validates the pending transfer matches, then executes BPF Loader `set_authority` -- authority moves from AM-A's PDA to AM-B's PDA
+5. Repeat steps 2-4 for each managed program
 
-    class Deployer,Deployer2,Admin actor
-    class AM_S,AM_U am
-    class UA_U pda
-    class UPIX ix
-    class PD_S,PD_U,Buffer bpf
-    class Target target
-```
+**Runtime roles** (who can relay, pause, configure):
 
-**Setup (one-time):**
-1. Deploy programs with deployer keypair as upgrade authority
-2. Initialize access manager, grant `ADMIN_ROLE`
-3. Transfer each program's upgrade authority to the access manager's PDA via `solana program set-upgrade-authority`
+6. AM-A admin calls `set_access_manager` on each IBC program (ICS07, ICS26, GMP, attestation) to repoint from AM-A to AM-B
+7. AM-B now controls both bytecode upgrades and runtime roles -- AM-A has no remaining authority
 
-**Upgrade flow:**
-1. Write new bytecode to a buffer account
-2. Set buffer authority to the access manager's upgrade authority PDA
-3. Call `upgrade_program()` with an admin signer -- the PDA signs the BPF Loader CPI
-
-### Authority Transfer (Two-Step Propose/Accept)
-
-When migrating to a new access manager or transferring upgrade control, the transfer uses a two-step propose/accept pattern to prevent irreversible mistakes:
-
-```mermaid
-graph TB
-    subgraph actors["Actors"]
-        Admin["Admin (ADMIN_ROLE)"]
-        NewAuth["New Authority\n(keypair or PDA)"]
-    end
-
-    subgraph am["Access Manager"]
-        PROPOSE["propose_upgrade_authority_transfer()"]
-        ACCEPT["accept_upgrade_authority_transfer()"]
-        AM_State["AccessManager PDA\npending_authority_transfer"]
-        UA_PDA["Upgrade Authority PDA\ncurrent authority"]
-    end
-
-    subgraph bpfloader["BPF Loader Upgradeable"]
-        PD["ProgramData\nupgrade_authority"]
-    end
-
-    subgraph target["Target Program"]
-        Program["Program Account"]
-    end
-
-    Admin -->|"1. propose transfer\n(target, new_authority)"| PROPOSE
-    PROPOSE -->|"2. require_admin"| AM_State
-    PROPOSE -->|"3. set pending"| AM_State
-    NewAuth -->|"4. accept transfer\n(signer = new_authority)"| ACCEPT
-    ACCEPT -->|"5. invoke_signed"| UA_PDA
-    UA_PDA -->|"6. set_authority()\nold → new"| PD
-    PD -.->|"authority now:\nNew Authority"| NewAuth
-    NewAuth -->|"7. can upgrade"| Program
-
-    style actors fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-    style am fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
-    style bpfloader fill:#f1f5f9,stroke:#475569,color:#1e293b
-    style target fill:#d1fae5,stroke:#059669,color:#064e3b
-
-    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
-    classDef amNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
-    classDef pda fill:#fbcfe8,stroke:#db2777,color:#831843
-    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
-    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
-    classDef targetNode fill:#a7f3d0,stroke:#059669,color:#064e3b
-
-    class Admin,NewAuth actor
-    class AM_State amNode
-    class UA_PDA pda
-    class PROPOSE,ACCEPT ix
-    class PD bpf
-    class Program targetNode
-```
-
-The admin can also call `cancel_upgrade_authority_transfer` to abort a pending proposal before the new authority accepts.
-
-### AM-to-AM Migration
-
-Replacing one access manager instance (AM-A) with another (AM-B) requires migrating two independent control planes:
-
-| Control plane | What it governs | Where it's stored | How to migrate |
-|---|---|---|---|
-| **Upgrade authority** | Who can replace program bytecode | BPF Loader's `ProgramData.upgrade_authority` | `propose` + `claim_upgrade_authority` (per managed program) |
-| **Runtime roles** | Who can relay, pause, admin-gate operations | Each IBC program's state (e.g. `RouterState.access_manager`) | `set_access_manager` (per IBC program) |
-
-These are fully independent -- migrating one does not affect the other.
-
-#### Upgrade authority migration
-
-AM-B's upgrade authority PDA must sign the accept transaction, but PDAs can only sign via `invoke_signed` from their owning program. The `claim_upgrade_authority` instruction solves this:
-
-```mermaid
-graph TB
-    subgraph step1["① Propose (AM-A admin)"]
-        Admin["AM-A Admin"]
-        AMA_propose["AM-A:\npropose_upgrade_authority_transfer()"]
-        AMA_state["AM-A State\npending: AM-B's PDA"]
-
-        Admin -->|"propose transfer\n(target, AM-B's PDA)"| AMA_propose
-        AMA_propose -->|"require_admin"| AMA_state
-        AMA_propose -->|"set pending"| AMA_state
-    end
-
-    subgraph step2["② Claim (permissionless)"]
-        Anyone["Anyone"]
-        AMB_claim["AM-B:\nclaim_upgrade_authority()"]
-        AMA_accept["AM-A:\naccept_upgrade_authority_transfer()"]
-        AMA_clear["AM-A State\npending: None"]
-        BPF["BPF Loader\nset_authority()"]
-        PD["ProgramData\nauthority: AM-B's PDA"]
-
-        Anyone -->|"call claim"| AMB_claim
-        AMB_claim -->|"CPI with\nPDA signer"| AMA_accept
-        AMA_accept -->|"validate pending\nmatches AM-B's PDA"| AMA_clear
-        AMA_accept -->|"invoke_signed"| BPF
-        BPF -->|"authority transferred"| PD
-    end
-
-    step1 ~~~ step2
-
-    style step1 fill:#ffedd5,stroke:#ea580c,color:#7c2d12
-    style step2 fill:#d1fae5,stroke:#059669,color:#064e3b
-
-    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
-    classDef amaNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
-    classDef ambNode fill:#fbcfe8,stroke:#db2777,color:#831843
-    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
-    classDef bpf fill:#e2e8f0,stroke:#475569,color:#1e293b
-
-    class Admin,Anyone actor
-    class AMA_propose,AMA_accept,AMA_state,AMA_clear amaNode
-    class AMB_claim ambNode
-    class BPF,PD bpf
-```
-
-Repeat for each managed program (ICS07, ICS26, GMP, etc.). No admin role is required on the claim side -- PDA signing is the authorization.
-
-#### Runtime role migration
-
-Each IBC program (ICS07, ICS26, GMP, attestation) stores an `access_manager: Pubkey` field in its state that points to the access manager it delegates role checks to. Calling `set_access_manager` on each program repoints it from AM-A to AM-B:
-
-```mermaid
-graph TB
-    subgraph before["Before: roles delegated to AM-A"]
-        ICS26_old["ICS26 Router\naccess_manager: AM-A"]
-        AMA_roles["AM-A State\nroles, whitelist"]
-        ICS26_old -.->|"role checks"| AMA_roles
-    end
-
-    subgraph migrate["set_access_manager (requires ADMIN_ROLE on current AM)"]
-        Admin["Admin"]
-        SetAM["set_access_manager(AM-B)"]
-        Admin -->|"call"| SetAM
-    end
-
-    subgraph after["After: roles delegated to AM-B"]
-        ICS26_new["ICS26 Router\naccess_manager: AM-B"]
-        AMB_roles["AM-B State\nroles, whitelist"]
-        ICS26_new -.->|"role checks"| AMB_roles
-    end
-
-    before ~~~ migrate
-    migrate ~~~ after
-
-    style before fill:#f1f5f9,stroke:#475569,color:#1e293b
-    style migrate fill:#fef9c3,stroke:#ca8a04,color:#713f12
-    style after fill:#d1fae5,stroke:#059669,color:#064e3b
-
-    classDef actor fill:#fed7aa,stroke:#ea580c,color:#7c2d12
-    classDef ix fill:#fef08a,stroke:#ca8a04,color:#713f12
-    classDef oldNode fill:#e2e8f0,stroke:#475569,color:#1e293b
-    classDef amaNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
-    classDef ambNode fill:#fbcfe8,stroke:#db2777,color:#831843
-    classDef newNode fill:#a7f3d0,stroke:#059669,color:#064e3b
-
-    class Admin actor
-    class SetAM ix
-    class ICS26_old oldNode
-    class AMA_roles amaNode
-    class AMB_roles ambNode
-    class ICS26_new newNode
-```
-
-Repeat for each IBC program. IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
-
-> **Future improvement:** `set_access_manager` is currently a one-step operation. If an admin accidentally points it to a wrong or nonexistent AM address, the program becomes unrecoverable through normal admin operations -- all future admin-gated calls (including another `set_access_manager` to fix the mistake) would fail because `require_admin` reads roles from the now-invalid AM. A two-step propose/accept pattern (similar to upgrade authority transfer) would prevent this: the admin proposes a new AM, and then someone with `ADMIN_ROLE` on the *new* AM accepts, proving it is valid and operational before the switch takes effect.
-
-#### Full migration checklist
-
-Assuming AM-B is already deployed and initialized with its own admin:
-
-1. **AM-A admin proposes upgrade authority transfers** -- call `propose_upgrade_authority_transfer` on AM-A for each managed program, specifying AM-B's upgrade authority PDA as the new authority
-2. **Anyone claims on AM-B** -- call `claim_upgrade_authority` on AM-B for each program (permissionless, PDA signing is the authorization)
-3. **Verify upgrade authority** -- confirm each program's `ProgramData.upgrade_authority` now points to AM-B's PDA
-4. **Repoint runtime roles** -- call `set_access_manager` on each IBC program (ICS07, ICS26, GMP, attestation) to point at AM-B. This requires `ADMIN_ROLE` on whichever AM currently controls the program
-5. **Verify runtime roles** -- confirm AM-B admin can perform role-gated operations (e.g. grant roles, relay packets)
-6. **Migrate IFT admin** (if applicable) -- use IFT's `propose_admin_transfer` + `accept_admin_transfer`
-
-After migration, AM-A has no remaining authority over any program. AM-B controls both bytecode upgrades and runtime roles.
+> **Note:** IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
 
 ## Security
 
