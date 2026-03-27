@@ -319,7 +319,11 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 	s.Require().NoError(err, "Failed to decode transaction")
 
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentConfirmed, s.SolanaUser)
+	const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err, "Failed to load deployer wallet")
+
+	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, unsignedSolanaTx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err, "Failed to broadcast create client transaction")
 
 	s.T().Logf("Successfully created Tendermint client on Solana")
