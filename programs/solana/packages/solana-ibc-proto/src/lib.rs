@@ -269,19 +269,24 @@ mod tests {
     }
 
     #[test]
-    fn empty_success_ack_encodes_to_non_empty_bytes() {
+    fn gmp_ack_encode_decode_round_trip() {
+        // target returned data
+        let data = 42u64.to_le_bytes().to_vec();
+        let ack = GmpAcknowledgement::success(data.clone());
+        let encoded = ack.encode_to_vec();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, data);
+
+        // target returned nothing (like SPL Token)
         let ack = GmpAcknowledgement::empty_success();
         let encoded = ack.encode_to_vec();
-        assert!(!encoded.is_empty(), "proto3 encoding must be non-empty");
-    }
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, GmpAcknowledgement::EMPTY_SUCCESS_SENTINEL);
 
-    #[test]
-    fn proto3_omits_empty_bytes_field() {
-        let ack = GmpAcknowledgement { result: Vec::new() };
-        let encoded = ack.encode_to_vec();
-        assert!(
-            encoded.is_empty(),
-            "proto3 encodes empty bytes to zero bytes — this is why the sentinel is needed"
-        );
+        // without the sentinel, proto3 drops the field and we get zero bytes
+        let broken = GmpAcknowledgement { result: Vec::new() };
+        assert!(broken.encode_to_vec().is_empty());
     }
 }
