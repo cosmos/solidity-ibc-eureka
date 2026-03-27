@@ -215,9 +215,21 @@ impl TryFrom<RawGmpSolanaPayload> for GmpSolanaPayload {
 impl Protobuf<Self> for GmpAcknowledgement {}
 
 impl GmpAcknowledgement {
-    /// Create new acknowledgement with result data
-    pub const fn new(result: Vec<u8>) -> Self {
+    /// Sentinel byte for successful calls that return no data (e.g. SPL Token).
+    /// Proto3 omits empty bytes fields, so a bare `vec![]` would encode to
+    /// zero bytes and be rejected by the router as an empty acknowledgement.
+    const EMPTY_SUCCESS_SENTINEL: &[u8] = &[0];
+
+    /// Acknowledgement for a call that returned data.
+    pub const fn success(result: Vec<u8>) -> Self {
         Self { result }
+    }
+
+    /// Acknowledgement for a successful call that returned no data.
+    pub fn empty_success() -> Self {
+        Self {
+            result: Self::EMPTY_SUCCESS_SENTINEL.to_vec(),
+        }
     }
 }
 
@@ -254,5 +266,27 @@ mod tests {
             prefund_lamports: 0,
         };
         assert!(GmpSolanaPayload::try_from(raw).is_ok());
+    }
+
+    #[test]
+    fn gmp_ack_encode_decode_round_trip() {
+        // target returned data
+        let data = 42u64.to_le_bytes().to_vec();
+        let ack = GmpAcknowledgement::success(data.clone());
+        let encoded = ack.encode_to_vec();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, data);
+
+        // target returned nothing (like SPL Token)
+        let ack = GmpAcknowledgement::empty_success();
+        let encoded = ack.encode_to_vec();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, GmpAcknowledgement::EMPTY_SUCCESS_SENTINEL);
+
+        // without the sentinel, proto3 drops the field and we get zero bytes
+        let broken = GmpAcknowledgement { result: Vec::new() };
+        assert!(broken.encode_to_vec().is_empty());
     }
 }

@@ -710,7 +710,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			event := events[0]
 			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")
 
-			// SPL Token program doesn't return data, so ack result is empty
+			// SPL Token program doesn't return data, so ack uses empty_success sentinel
 			ackBytes := event.Acknowledgements[0]
 			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
 

@@ -180,18 +180,16 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // TODO: make sure encoding match
-    // Get return data from the target program (if any).
-    // Not an error when absent — GMP targets (e.g. SPL Token) may succeed without
-    // setting return data. Use [0] sentinel so proto3 result field is non-empty.
-    let result = match anchor_lang::solana_program::program::get_return_data() {
-        Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![0],
+    // Wrap the CPI call result in the ICS27 GMP acknowledgement.
+    // Only accept return data from the target program itself, not from nested CPIs.
+    let ack = match anchor_lang::solana_program::program::get_return_data() {
+        Some((return_program_id, data)) if return_program_id == receiver_pubkey => {
+            GmpAcknowledgement::success(data)
+        }
+        _ => GmpAcknowledgement::empty_success(),
     };
 
-    // Create acknowledgement with execution result
-    // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(GmpAcknowledgement::new(result).encode_to_vec())
+    Ok(ack.encode_to_vec())
 }
 
 #[cfg(test)]
