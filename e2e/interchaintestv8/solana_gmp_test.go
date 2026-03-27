@@ -2670,8 +2670,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 			Accounts: []*solanatypes.SolanaAccountMeta{
 				{Pubkey: counterAppState.Bytes(), IsSigner: false, IsWritable: true},
 				{Pubkey: userCounter.Bytes(), IsSigner: false, IsWritable: true},
-				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: false},            // EXPLOIT: unauthorized signer
-				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: true},             // EXPLOIT: unauthorized payer
+				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: false},             // EXPLOIT: unauthorized signer
+				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: true},              // EXPLOIT: unauthorized payer
 				{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false}, // system_program
 			},
 			PrefundLamports: 5_000_000,

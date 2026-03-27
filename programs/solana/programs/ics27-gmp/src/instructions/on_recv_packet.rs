@@ -812,9 +812,8 @@ mod tests {
             &COUNTER_APP_ID,
         );
 
-        let counter_ix_data = anchor_lang::InstructionData::data(
-            &test_gmp_app::instruction::Increment { amount: 1 },
-        );
+        let counter_ix_data =
+            anchor_lang::InstructionData::data(&test_gmp_app::instruction::Increment { amount: 1 });
 
         // EXPLOIT: payload specifies RELAYER as user_authority AND payer
         let solana_payload = RawGmpSolanaPayload {
@@ -883,12 +882,12 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 // remaining_accounts
-                AccountMeta::new(gmp_account_pda, false),       // [0] GMP PDA
+                AccountMeta::new(gmp_account_pda, false), // [0] GMP PDA
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target
-                AccountMeta::new(counter_app_state_pda, false),  // [2] counter state
-                AccountMeta::new(user_counter_pda, false),       // [3] user counter
-                AccountMeta::new(payer, true),                   // [4] user_authority
-                AccountMeta::new(payer, true),                   // [5] payer
+                AccountMeta::new(counter_app_state_pda, false), // [2] counter state
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(payer, true),            // [4] user_authority
+                AccountMeta::new(payer, true),            // [5] payer
                 AccountMeta::new_readonly(system_program::ID, false), // [6] system
             ],
             data: instruction_data.data(),
@@ -1082,9 +1081,7 @@ mod tests {
     #[case::only_relayer(UnauthorizedSignerCase::OnlyRelayer)]
     #[case::multiple_with_gmp_pda(UnauthorizedSignerCase::MultipleWithGmpPda)]
     #[case::multiple_no_gmp_pda(UnauthorizedSignerCase::MultipleNoGmpPda)]
-    fn test_on_recv_packet_unauthorized_signer_variants(
-        #[case] case: UnauthorizedSignerCase,
-    ) {
+    fn test_on_recv_packet_unauthorized_signer_variants(#[case] case: UnauthorizedSignerCase) {
         run_unauthorized_signer_test(case);
     }
 
@@ -1146,9 +1143,7 @@ mod tests {
         instruction
             .accounts
             .push(AccountMeta::new(gmp_account_pda, false));
-        instruction
-            .accounts
-            .push(AccountMeta::new(ctx.payer, true));
+        instruction.accounts.push(AccountMeta::new(ctx.payer, true));
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
@@ -1214,9 +1209,7 @@ mod tests {
         instruction
             .accounts
             .push(AccountMeta::new(gmp_account_pda, false));
-        instruction
-            .accounts
-            .push(AccountMeta::new(ctx.payer, true));
+        instruction.accounts.push(AccountMeta::new(ctx.payer, true));
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
@@ -1229,13 +1222,10 @@ mod tests {
             create_authority_account(ctx.payer),
         ];
 
-        let result = ctx
-            .mollusk
-            .process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error = ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        );
+        let unauthorized_signer_error =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
         assert_ne!(
             result.program_result,
             mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
@@ -1291,13 +1281,10 @@ mod tests {
             create_uninitialized_account_for_pda(some_account),
         ];
 
-        let result = ctx
-            .mollusk
-            .process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error = ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        );
+        let unauthorized_signer_error =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
         assert_ne!(
             result.program_result,
             mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
@@ -1364,13 +1351,10 @@ mod tests {
             create_system_program_account(),
         ];
 
-        let result = ctx
-            .mollusk
-            .process_instruction(&instruction, &accounts);
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error = ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        );
+        let unauthorized_signer_error =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
         assert_ne!(
             result.program_result,
             mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
