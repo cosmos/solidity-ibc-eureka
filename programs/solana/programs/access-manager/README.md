@@ -103,6 +103,8 @@ There are two independent control planes to migrate:
 
 > **Note:** IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
 
+> **TODO:** `set_access_manager` is currently a one-step operation. If an admin accidentally points it to a wrong or nonexistent AM address, the program becomes unrecoverable -- all future admin-gated calls (including another `set_access_manager` to fix the mistake) would fail because `require_admin` reads roles from the now-invalid AM. This should be upgraded to a two-step propose/accept pattern (like upgrade authority transfer) so the new AM must prove it is valid before the switch takes effect.
+
 ## Security
 
 #### CPI validation
