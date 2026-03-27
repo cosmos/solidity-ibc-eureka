@@ -225,9 +225,8 @@ where
     })
 }
 
-// NOTE: an integration test through `check_for_misbehaviour` would be more meaningful
-// but requires constructing full Misbehaviour, ConsensusState, and ClientState fixtures
-// which would make the test disproportionately large for what it verifies.
+// NOTE: Ideally we'd test this through `check_for_misbehaviour` directly, but setting up
+// full Misbehaviour, ConsensusState, and ClientState fixtures isn't worth it here.
 #[cfg(test)]
 mod tests {
     use super::*;
