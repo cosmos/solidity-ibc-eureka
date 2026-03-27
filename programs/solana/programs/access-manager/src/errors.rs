@@ -35,6 +35,14 @@ pub enum AccessManagerError {
     PendingTransferMismatch,
     #[msg("Cannot transfer upgrade authority to the current authority PDA")]
     SelfTransfer,
+    #[msg("No pending access manager transfer to accept or cancel")]
+    NoPendingAccessManagerTransfer,
+    #[msg("A pending access manager transfer already exists")]
+    PendingAccessManagerTransferAlreadyExists,
+    #[msg("Proposed access manager address is invalid")]
+    InvalidProposedAccessManager,
+    #[msg("Cannot transfer access manager to the current access manager")]
+    AccessManagerSelfTransfer,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

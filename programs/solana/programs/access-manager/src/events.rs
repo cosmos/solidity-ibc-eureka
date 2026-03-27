@@ -65,3 +65,24 @@ pub struct UpgradeAuthorityClaimedEvent {
     pub source_access_manager: Pubkey,
     pub new_authority: Pubkey,
 }
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct AccessManagerTransferProposed {
+    pub current_access_manager: Pubkey,
+    pub proposed_access_manager: Pubkey,
+}
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct AccessManagerTransferAccepted {
+    pub old_access_manager: Pubkey,
+    pub new_access_manager: Pubkey,
+}
+
+#[event]
+#[derive(Debug, Clone)]
+pub struct AccessManagerTransferCancelled {
+    pub access_manager: Pubkey,
+    pub cancelled_access_manager: Pubkey,
+}

@@ -242,6 +242,9 @@ type Ics26RouterStateRouterState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Pending access manager for two-step transfer (propose/accept)
+	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+
 	// Whether the router is paused (emergency brake for all IBC traffic)
 	Paused bool `json:"paused"`
 
@@ -259,6 +262,24 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `PendingAccessManager` (optional):
+	{
+		if obj.PendingAccessManager == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Serialize `Paused`:
 	err = encoder.Encode(obj.Paused)
@@ -293,6 +314,19 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `PendingAccessManager` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Deserialize `Paused`:
 	err = decoder.Decode(&obj.Paused)

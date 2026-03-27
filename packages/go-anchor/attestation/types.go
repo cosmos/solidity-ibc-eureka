@@ -11,66 +11,6 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-type AttestationEventsAccessManagerUpdated struct {
-	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
-	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
-}
-
-func (obj AttestationEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `OldAccessManager`:
-	err = encoder.Encode(obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Serialize `NewAccessManager`:
-	err = encoder.Encode(obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj AttestationEventsAccessManagerUpdated) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding AttestationEventsAccessManagerUpdated: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *AttestationEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `OldAccessManager`:
-	err = decoder.Decode(&obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Deserialize `NewAccessManager`:
-	err = decoder.Decode(&obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj *AttestationEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling AttestationEventsAccessManagerUpdated: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalAttestationEventsAccessManagerUpdated(buf []byte) (*AttestationEventsAccessManagerUpdated, error) {
-	obj := new(AttestationEventsAccessManagerUpdated)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // Emitted when conflicting timestamps are submitted for the same height.
 type AttestationEventsMisbehaviourDetected struct {
 	Height               uint64 `json:"height"`
@@ -273,6 +213,9 @@ type AttestationTypesAppState struct {
 	// Program ID of the access manager that controls admin operations.
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Pending access manager for two-step transfer (propose/accept).
+	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+
 	// Reserved for future upgrades without account migration.
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -287,6 +230,24 @@ func (obj AttestationTypesAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `PendingAccessManager` (optional):
+	{
+		if obj.PendingAccessManager == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -316,6 +277,19 @@ func (obj *AttestationTypesAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `PendingAccessManager` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

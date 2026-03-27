@@ -10,6 +10,9 @@ var (
 
 // Event discriminators
 var (
+	Event_AccessManagerEventsAccessManagerTransferAccepted          = [8]byte{244, 139, 47, 82, 213, 147, 38, 88}
+	Event_AccessManagerEventsAccessManagerTransferCancelled         = [8]byte{200, 239, 227, 176, 191, 21, 219, 62}
+	Event_AccessManagerEventsAccessManagerTransferProposed          = [8]byte{114, 132, 13, 147, 11, 198, 82, 88}
 	Event_AccessManagerEventsProgramUpgradedEvent                   = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
 	Event_AccessManagerEventsRoleGrantedEvent                       = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
 	Event_AccessManagerEventsRoleRevokedEvent                       = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}

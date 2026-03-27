@@ -1,6 +1,20 @@
 use crate::errors::AccessManagerError;
+use crate::events::{
+    AccessManagerTransferAccepted, AccessManagerTransferCancelled, AccessManagerTransferProposed,
+};
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
+
+/// Trait for state types that support two-step access manager transfers.
+///
+/// Implemented by each IBC program's state struct (e.g. `RouterState`,
+/// `GMPAppState`) to allow shared propose/accept/cancel handler logic.
+pub trait HasPendingAccessManager {
+    fn access_manager(&self) -> &Pubkey;
+    fn pending_access_manager(&self) -> &Option<Pubkey>;
+    fn set_access_manager(&mut self, am: Pubkey);
+    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>);
+}
 
 /// Verifies the caller has the `ADMIN_ROLE`.
 ///
@@ -93,6 +107,127 @@ fn require_role_with_whitelist_inner(
         access_manager.has_role(role_id, &signer_account.key()),
         AccessManagerError::Unauthorized
     );
+
+    Ok(())
+}
+
+/// Proposes transferring the access manager to a new program.
+///
+/// Validates admin authorization against the current AM, rejects zero addresses
+/// and self-transfers, and ensures no pending transfer already exists.
+pub fn handle_propose_access_manager_transfer<T: HasPendingAccessManager>(
+    state: &mut T,
+    new_access_manager: Pubkey,
+    access_manager_account: &AccountInfo,
+    admin: &AccountInfo,
+    instructions_sysvar: &AccountInfo,
+    program_id: &Pubkey,
+) -> Result<()> {
+    require_admin(
+        access_manager_account,
+        admin,
+        instructions_sysvar,
+        program_id,
+    )?;
+
+    require!(
+        new_access_manager != Pubkey::default(),
+        AccessManagerError::InvalidProposedAccessManager
+    );
+
+    require!(
+        new_access_manager != *state.access_manager(),
+        AccessManagerError::AccessManagerSelfTransfer
+    );
+
+    require!(
+        state.pending_access_manager().is_none(),
+        AccessManagerError::PendingAccessManagerTransferAlreadyExists
+    );
+
+    let current = *state.access_manager();
+    state.set_pending_access_manager(Some(new_access_manager));
+
+    emit!(AccessManagerTransferProposed {
+        current_access_manager: current,
+        proposed_access_manager: new_access_manager,
+    });
+
+    Ok(())
+}
+
+/// Accepts a pending access manager transfer.
+///
+/// Validates that there is a pending transfer, derives the expected PDA from
+/// the pending program ID, verifies the provided account matches, and checks
+/// admin authorization against the **new** AM to prove it is valid.
+pub fn handle_accept_access_manager_transfer<T: HasPendingAccessManager>(
+    state: &mut T,
+    new_access_manager_account: &AccountInfo,
+    admin: &AccountInfo,
+    instructions_sysvar: &AccountInfo,
+    program_id: &Pubkey,
+) -> Result<()> {
+    let pending_am_program = state
+        .pending_access_manager()
+        .ok_or(error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
+
+    let (expected_pda, _) =
+        Pubkey::find_program_address(&[AccessManager::SEED], &pending_am_program);
+
+    require!(
+        new_access_manager_account.key() == expected_pda,
+        AccessManagerError::InvalidProposedAccessManager
+    );
+
+    require_admin(
+        new_access_manager_account,
+        admin,
+        instructions_sysvar,
+        program_id,
+    )?;
+
+    let old = *state.access_manager();
+    state.set_access_manager(pending_am_program);
+    state.set_pending_access_manager(None);
+
+    emit!(AccessManagerTransferAccepted {
+        old_access_manager: old,
+        new_access_manager: pending_am_program,
+    });
+
+    Ok(())
+}
+
+/// Cancels a pending access manager transfer.
+///
+/// Validates admin authorization against the current AM and clears the
+/// pending transfer.
+pub fn handle_cancel_access_manager_transfer<T: HasPendingAccessManager>(
+    state: &mut T,
+    access_manager_account: &AccountInfo,
+    admin: &AccountInfo,
+    instructions_sysvar: &AccountInfo,
+    program_id: &Pubkey,
+) -> Result<()> {
+    require_admin(
+        access_manager_account,
+        admin,
+        instructions_sysvar,
+        program_id,
+    )?;
+
+    let pending = state
+        .pending_access_manager()
+        .ok_or(error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
+
+    let current = *state.access_manager();
+    state.set_pending_access_manager(None);
+
+    emit!(AccessManagerTransferCancelled {
+        access_manager: current,
+        cancelled_access_manager: pending,
+    });
 
     Ok(())
 }

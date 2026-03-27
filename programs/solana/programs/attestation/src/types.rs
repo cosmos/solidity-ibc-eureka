@@ -51,6 +51,8 @@ pub struct AppState {
     pub version: AccountVersion,
     /// Program ID of the access manager that controls admin operations.
     pub access_manager: Pubkey,
+    /// Pending access manager for two-step transfer (propose/accept).
+    pub pending_access_manager: Option<Pubkey>,
     /// Reserved for future upgrades without account migration.
     pub _reserved: [u8; 256],
 }
@@ -60,6 +62,21 @@ impl AppState {
 
     pub fn pda() -> Pubkey {
         Pubkey::find_program_address(&[Self::SEED], &crate::ID).0
+    }
+}
+
+impl access_manager::HasPendingAccessManager for AppState {
+    fn access_manager(&self) -> &Pubkey {
+        &self.access_manager
+    }
+    fn pending_access_manager(&self) -> &Option<Pubkey> {
+        &self.pending_access_manager
+    }
+    fn set_access_manager(&mut self, am: Pubkey) {
+        self.access_manager = am;
+    }
+    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>) {
+        self.pending_access_manager = pending;
     }
 }
 

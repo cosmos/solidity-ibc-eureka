@@ -60,12 +60,29 @@ pub struct ClientState {
 pub struct AppState {
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Pending access manager for two-step transfer (propose/accept)
+    pub pending_access_manager: Option<Pubkey>,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
 
 impl AppState {
     pub const SEED: &'static [u8] = b"app_state";
+}
+
+impl access_manager::HasPendingAccessManager for AppState {
+    fn access_manager(&self) -> &Pubkey {
+        &self.access_manager
+    }
+    fn pending_access_manager(&self) -> &Option<Pubkey> {
+        &self.pending_access_manager
+    }
+    fn set_access_manager(&mut self, am: Pubkey) {
+        self.access_manager = am;
+    }
+    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>) {
+        self.pending_access_manager = pending;
+    }
 }
 
 impl ClientState {
@@ -319,6 +336,7 @@ mod compatibility_tests {
     fn test_app_state_serialization_compatibility() {
         let app_state = AppState {
             access_manager: access_manager::ID,
+            pending_access_manager: None,
             _reserved: [0; 256],
         };
 
@@ -328,6 +346,10 @@ mod compatibility_tests {
             AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
 
         assert_eq!(app_state.access_manager, types_app_state.access_manager);
+        assert_eq!(
+            app_state.pending_access_manager,
+            types_app_state.pending_access_manager
+        );
         assert_eq!(app_state._reserved, types_app_state._reserved);
     }
 

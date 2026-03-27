@@ -1277,6 +1277,176 @@ func convertSolanaPacketToABI(packet solana.SolanaPacket) ics26router.IICS26Rout
 	}
 }
 
+// Test_Attestation_AccessManagerTransfer tests propose/accept/cancel access manager
+// transfer on the attestation light client program.
+func (s *IbcSolanaAttestationTestSuite) Test_Attestation_AccessManagerTransfer() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	const keypairDir = "solana-keypairs/localnet"
+	const deployerPath = keypairDir + "/deployer_wallet.json"
+
+	// --- Deploy and initialize AM-B ---
+
+	var amBProgramID solanago.PublicKey
+
+	s.Require().True(s.Run("Deploy AM-B (test_access_manager)", func() {
+		var err error
+		amBKeypairPath := fmt.Sprintf("%s/test_access_manager-keypair.json", keypairDir)
+		amBProgramID, err = s.Solana.Chain.DeploySolanaProgramAsync(ctx, "test_access_manager", amBKeypairPath, deployerPath)
+		s.Require().NoError(err, "failed to deploy test_access_manager")
+	}))
+
+	s.Require().True(s.Run("Initialize AM-B with user as admin", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+		amBProgramDataPDA, err := solana.GetProgramDataAddress(amBProgramID)
+		s.Require().NoError(err)
+
+		savedProgramID := access_manager.ProgramID
+		access_manager.ProgramID = amBProgramID
+		defer func() { access_manager.ProgramID = savedProgramID }()
+
+		initIx, err := access_manager.NewInitializeInstruction(
+			s.SolanaUser.PublicKey(),
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
+			amBProgramDataPDA,
+			solana.DeployerPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
+		s.Require().NoError(err, "failed to initialize AM-B")
+	}))
+
+	// --- Helper: read attestation app state ---
+
+	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
+
+	readAppState := func() *attestation.AttestationTypesAppState {
+		s.T().Helper()
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+		state, err := attestation.ParseAccount_AttestationTypesAppState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+		return state
+	}
+
+	amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+	// --- Verify initial state ---
+
+	s.Require().True(s.Run("Verify initial state: AM-A is active, no pending", func() {
+		state := readAppState()
+		s.Require().Equal(access_manager.ProgramID, state.AccessManager, "Attestation should point to AM-A")
+		s.Require().Nil(state.PendingAccessManager, "No pending transfer initially")
+	}))
+
+	// --- Propose transfer to AM-B ---
+
+	s.Require().True(s.Run("Propose access manager transfer to AM-B", func() {
+		proposeIx, err := attestation.NewProposeAccessManagerTransferInstruction(
+			amBProgramID,
+			appStatePDA,
+			amAAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "propose should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: pending set, AM unchanged", func() {
+		state := readAppState()
+		s.Require().Equal(access_manager.ProgramID, state.AccessManager, "AM should still be AM-A")
+		s.Require().NotNil(state.PendingAccessManager, "Pending should be set")
+		s.Require().Equal(amBProgramID, *state.PendingAccessManager, "Pending should be AM-B")
+	}))
+
+	// --- Accept transfer ---
+
+	amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+
+	s.Require().True(s.Run("Accept access manager transfer (AM-B admin)", func() {
+		acceptIx, err := attestation.NewAcceptAccessManagerTransferInstruction(
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "accept should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: AM is now AM-B, pending cleared", func() {
+		state := readAppState()
+		s.Require().Equal(amBProgramID, state.AccessManager, "AM should now be AM-B")
+		s.Require().Nil(state.PendingAccessManager, "Pending should be cleared after accept")
+	}))
+
+	// --- Propose back to AM-A and cancel ---
+
+	s.Require().True(s.Run("Propose transfer back to AM-A", func() {
+		proposeIx, err := attestation.NewProposeAccessManagerTransferInstruction(
+			access_manager.ProgramID,
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "propose back to AM-A should succeed")
+	}))
+
+	s.Require().True(s.Run("Cancel pending transfer", func() {
+		cancelIx, err := attestation.NewCancelAccessManagerTransferInstruction(
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), cancelIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "cancel should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: pending cleared, AM still AM-B", func() {
+		state := readAppState()
+		s.Require().Equal(amBProgramID, state.AccessManager, "AM should still be AM-B")
+		s.Require().Nil(state.PendingAccessManager, "Pending should be cleared after cancel")
+	}))
+}
+
 // deriveAttestationConsensusStatePDA fetches the attestation client state to get the latest height,
 // then derives the consensus state PDA.
 func (s *IbcSolanaAttestationTestSuite) deriveAttestationConsensusStatePDA(ctx context.Context, clientStatePDA solanago.PublicKey) solanago.PublicKey {

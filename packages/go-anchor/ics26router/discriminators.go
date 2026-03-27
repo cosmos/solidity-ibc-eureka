@@ -15,7 +15,6 @@ var (
 
 // Event discriminators
 var (
-	Event_Ics26RouterEventsAccessManagerUpdated      = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
 	Event_Ics26RouterEventsAckPacketEvent            = [8]byte{77, 168, 233, 72, 104, 170, 223, 187}
 	Event_Ics26RouterEventsClientAddedEvent          = [8]byte{115, 228, 28, 166, 212, 126, 80, 103}
 	Event_Ics26RouterEventsClientUpdatedEvent        = [8]byte{153, 180, 170, 210, 48, 212, 204, 6}
@@ -30,18 +29,20 @@ var (
 
 // Instruction discriminators
 var (
-	Instruction_Initialize         = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_AddIbcApp          = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
-	Instruction_SendPacket         = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
-	Instruction_RecvPacket         = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
-	Instruction_AckPacket          = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
-	Instruction_TimeoutPacket      = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
-	Instruction_AddClient          = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
-	Instruction_MigrateClient      = [8]byte{95, 190, 13, 80, 51, 174, 34, 252}
-	Instruction_UploadPayloadChunk = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
-	Instruction_UploadProofChunk   = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
-	Instruction_CleanupChunks      = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
-	Instruction_SetAccessManager   = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
-	Instruction_Pause              = [8]byte{211, 22, 221, 251, 74, 121, 193, 47}
-	Instruction_Unpause            = [8]byte{169, 144, 4, 38, 10, 141, 188, 255}
+	Instruction_Initialize                   = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_AddIbcApp                    = [8]byte{233, 201, 201, 149, 2, 13, 134, 27}
+	Instruction_SendPacket                   = [8]byte{242, 7, 23, 143, 124, 157, 42, 102}
+	Instruction_RecvPacket                   = [8]byte{130, 14, 240, 161, 35, 63, 45, 71}
+	Instruction_AckPacket                    = [8]byte{43, 194, 45, 54, 2, 40, 211, 228}
+	Instruction_TimeoutPacket                = [8]byte{224, 56, 82, 83, 77, 13, 120, 103}
+	Instruction_AddClient                    = [8]byte{97, 103, 215, 121, 86, 53, 223, 241}
+	Instruction_MigrateClient                = [8]byte{95, 190, 13, 80, 51, 174, 34, 252}
+	Instruction_UploadPayloadChunk           = [8]byte{191, 138, 167, 248, 208, 192, 24, 82}
+	Instruction_UploadProofChunk             = [8]byte{60, 215, 88, 47, 168, 107, 123, 150}
+	Instruction_CleanupChunks                = [8]byte{161, 232, 178, 127, 188, 117, 9, 18}
+	Instruction_ProposeAccessManagerTransfer = [8]byte{96, 76, 46, 161, 93, 100, 32, 145}
+	Instruction_AcceptAccessManagerTransfer  = [8]byte{61, 185, 143, 64, 16, 88, 106, 185}
+	Instruction_CancelAccessManagerTransfer  = [8]byte{181, 250, 216, 163, 132, 73, 23, 68}
+	Instruction_Pause                        = [8]byte{211, 22, 221, 251, 74, 121, 193, 47}
+	Instruction_Unpause                      = [8]byte{169, 144, 4, 38, 10, 141, 188, 255}
 )

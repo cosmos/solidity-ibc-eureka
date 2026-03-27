@@ -50,6 +50,7 @@ impl ConsensusState {
 pub struct AppState {
     pub version: AccountVersion,
     pub access_manager: Pubkey,
+    pub pending_access_manager: Option<Pubkey>,
     pub _reserved: [u8; 256],
 }
 

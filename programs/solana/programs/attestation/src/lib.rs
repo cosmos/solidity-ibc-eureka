@@ -38,11 +38,19 @@ pub mod attestation {
         )
     }
 
-    pub fn set_access_manager(
-        ctx: Context<SetAccessManager>,
+    pub fn propose_access_manager_transfer(
+        ctx: Context<ProposeAccessManagerTransfer>,
         new_access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::set_access_manager::set_access_manager(ctx, new_access_manager)
+        instructions::set_access_manager::propose_access_manager_transfer(ctx, new_access_manager)
+    }
+
+    pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
+        instructions::set_access_manager::accept_access_manager_transfer(ctx)
+    }
+
+    pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
+        instructions::set_access_manager::cancel_access_manager_transfer(ctx)
     }
 
     pub fn verify_membership(ctx: Context<VerifyMembership>, msg: MembershipMsg) -> Result<()> {
