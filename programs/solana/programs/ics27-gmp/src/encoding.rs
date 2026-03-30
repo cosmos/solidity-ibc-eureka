@@ -30,10 +30,10 @@ impl GmpEncoding {
         }
     }
 
-    pub fn encode_packet(self, data: GmpPacketData) -> Result<Vec<u8>> {
+    pub fn encode_packet(self, data: GmpPacketData) -> Vec<u8> {
         match self {
-            Self::Abi => Ok(GmpPacketDataAbi::from(data).abi_encode()),
-            Self::Protobuf => Ok(data.encode_vec()),
+            Self::Abi => GmpPacketDataAbi::from(data).abi_encode(),
+            Self::Protobuf => data.encode_vec(),
         }
     }
 
@@ -50,19 +50,18 @@ impl GmpEncoding {
         }
     }
 
-    pub fn encode_ack(self, result: Vec<u8>) -> Result<Vec<u8>> {
+    pub fn encode_ack(self, result: &[u8]) -> Vec<u8> {
         match self {
-            Self::Abi => {
-                Ok(GmpAcknowledgementAbi::from(GmpAcknowledgement::success(result)).abi_encode())
-            }
+            Self::Abi => GmpAcknowledgementAbi::from(GmpAcknowledgement::success(result.to_vec()))
+                .abi_encode(),
             Self::Protobuf => {
                 // Proto3 omits empty bytes fields, so use the sentinel for empty results
                 let ack = if result.is_empty() {
                     GmpAcknowledgement::empty_success()
                 } else {
-                    GmpAcknowledgement::success(result)
+                    GmpAcknowledgement::success(result.to_vec())
                 };
-                Ok(ack.encode_to_vec())
+                ack.encode_to_vec()
             }
         }
     }
@@ -164,7 +163,7 @@ mod tests {
     #[test]
     fn abi_round_trip() {
         let original = sample_packet_data();
-        let encoded = GmpEncoding::Abi.encode_packet(original).unwrap();
+        let encoded = GmpEncoding::Abi.encode_packet(original);
         let raw = GmpEncoding::Abi.decode_packet(&encoded).unwrap();
         assert_raw_matches_sample(&raw);
 
@@ -175,7 +174,7 @@ mod tests {
     #[test]
     fn protobuf_round_trip() {
         let original = sample_packet_data();
-        let encoded = GmpEncoding::Protobuf.encode_packet(original).unwrap();
+        let encoded = GmpEncoding::Protobuf.encode_packet(original);
         let raw = GmpEncoding::Protobuf.decode_packet(&encoded).unwrap();
         assert_raw_matches_sample(&raw);
 
@@ -212,7 +211,7 @@ mod tests {
     #[test]
     fn ack_abi_round_trip() {
         let data = vec![1, 2, 3, 4];
-        let encoded = GmpEncoding::Abi.encode_ack(data.clone()).unwrap();
+        let encoded = GmpEncoding::Abi.encode_ack(&data);
         assert!(!encoded.is_empty());
         let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
         assert_eq!(&decoded.result[..], &data);
@@ -221,7 +220,7 @@ mod tests {
     #[test]
     fn ack_abi_empty_result() {
         // ABI always produces non-empty output, no sentinel needed
-        let encoded = GmpEncoding::Abi.encode_ack(Vec::new()).unwrap();
+        let encoded = GmpEncoding::Abi.encode_ack(&[]);
         assert!(!encoded.is_empty());
         let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
         assert!(decoded.result.is_empty());
@@ -230,7 +229,7 @@ mod tests {
     #[test]
     fn ack_protobuf_round_trip() {
         let data = vec![1, 2, 3, 4];
-        let encoded = GmpEncoding::Protobuf.encode_ack(data.clone()).unwrap();
+        let encoded = GmpEncoding::Protobuf.encode_ack(&data);
         assert!(!encoded.is_empty());
         let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
         assert_eq!(decoded.result, data);
@@ -239,7 +238,7 @@ mod tests {
     #[test]
     fn ack_protobuf_empty_result_uses_sentinel() {
         // Proto3 would produce zero bytes for empty result, sentinel keeps it non-empty
-        let encoded = GmpEncoding::Protobuf.encode_ack(Vec::new()).unwrap();
+        let encoded = GmpEncoding::Protobuf.encode_ack(&[]);
         assert!(!encoded.is_empty());
         let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
         assert_eq!(decoded.result, vec![0]);

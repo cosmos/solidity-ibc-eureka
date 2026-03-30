@@ -389,7 +389,7 @@ mod tests {
         match GmpEncoding::try_from(encoding).unwrap() {
             GmpEncoding::Abi => {
                 let validated = GmpPacketData::try_from(raw).unwrap();
-                GmpEncoding::Abi.encode_packet(validated).unwrap()
+                GmpEncoding::Abi.encode_packet(validated)
             }
             GmpEncoding::Protobuf => raw.encode_to_vec(),
         }

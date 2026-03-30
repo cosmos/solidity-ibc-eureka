@@ -163,7 +163,7 @@ pub(crate) fn send_call_inner<'info>(
     })?;
 
     let encoding = crate::encoding::GmpEncoding::try_from(msg.encoding.as_str())?;
-    let packet_data_bytes = encoding.encode_packet(packet_data)?;
+    let packet_data_bytes = encoding.encode_packet(packet_data);
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
@@ -668,7 +668,7 @@ mod tests {
         let packet_data = GmpPacketData::try_from(raw).unwrap();
 
         let encoded =
-            GmpEncoding::Abi.encode_packet(packet_data).expect("ABI encoding should work");
+            GmpEncoding::Abi.encode_packet(packet_data);
         let raw_decoded =
             GmpEncoding::Abi.decode_packet(&encoded).expect("ABI decoding should succeed");
         let decoded = GmpPacketData::try_from(raw_decoded).unwrap();

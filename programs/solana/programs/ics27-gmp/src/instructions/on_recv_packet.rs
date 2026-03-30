@@ -188,7 +188,7 @@ pub fn on_recv_packet<'info>(
     };
 
     // Encode the acknowledgement using the same encoding as the payload
-    encoding.encode_ack(result)
+    Ok(encoding.encode_ack(&result))
 }
 
 #[cfg(test)]
@@ -758,7 +758,7 @@ mod tests {
         match GmpEncoding::try_from(encoding).unwrap() {
             GmpEncoding::Abi => {
                 let validated = GmpPacketData::try_from(raw).unwrap();
-                GmpEncoding::Abi.encode_packet(validated).unwrap()
+                GmpEncoding::Abi.encode_packet(validated)
             }
             GmpEncoding::Protobuf => raw.encode_to_vec(),
         }
