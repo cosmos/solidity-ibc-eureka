@@ -2751,4 +2751,80 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 		randomWallet := solanago.NewWallet()
 		sendExploitPayload(randomWallet.PublicKey(), "Arbitrary account exploit")
 	}))
+
+	// ========================================================================
+	// Test 3: SOL transfer exploit via System Program
+	// A malicious payload targets the System Program directly with a Transfer
+	// instruction, using the relayer as the funding source (signer + writable).
+	// Without the fix, Solana's account merging would make the relayer a valid
+	// signer in the CPI, letting the System Program transfer SOL from the
+	// relayer to an attacker-controlled wallet.
+	// ========================================================================
+	s.Require().True(s.Run("Reject SOL transfer exploit via System Program", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+		cosmosAddress := cosmosUser.FormattedAddress()
+
+		attackerWallet := solanago.NewWallet()
+		relayerPubkey := s.SolanaRelayer.PublicKey()
+
+		stolenLamports := uint64(1_000_000_000) // 1 SOL
+		transferIx := system.NewTransferInstruction(stolenLamports, relayerPubkey, attackerWallet.PublicKey()).Build()
+		transferData, err := transferIx.Data()
+		s.Require().NoError(err)
+
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: transferData,
+			Accounts: []*solanatypes.SolanaAccountMeta{
+				{Pubkey: relayerPubkey.Bytes(), IsSigner: true, IsWritable: true},               // EXPLOIT: relayer as transfer source
+				{Pubkey: attackerWallet.PublicKey().Bytes(), IsSigner: false, IsWritable: true}, // attacker destination
+			},
+			PrefundLamports: 0,
+		}
+
+		payload, err := proto.Marshal(solanaInstruction)
+		s.Require().NoError(err)
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     CosmosClientID,
+			Sender:           cosmosAddress,
+			Receiver:         solanago.SystemProgramID.String(),
+			Salt:             []byte("sol-transfer"),
+			Payload:          payload,
+			TimeoutTimestamp: timeout,
+			Encoding:         testvalues.Ics27ProtobufEncoding,
+		})
+		s.Require().NoError(err)
+
+		cosmosGMPTxHash, err := hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		s.T().Logf("SOL transfer exploit: packet sent from Cosmos: %s", resp.TxHash)
+
+		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err, "Relayer Update Client failed")
+		s.Require().NotEmpty(updateResp.Tx, "Relayer Update Client should return transaction")
+
+		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+
+		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(relayResp.Tx, "Relay should return transaction")
+
+		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
+		s.Require().Error(err, "GMP should reject SOL transfer with unauthorized signer")
+		s.T().Logf("SOL transfer exploit correctly rejected: %v", err)
+
+		// UnauthorizedSigner = ProgramError::Custom(12014)
+		s.Require().Contains(err.Error(), "12014",
+			"Should fail with UnauthorizedSigner error code 12014")
+	}))
 }

@@ -1163,6 +1163,90 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
+    /// Demonstrates the most dangerous exploit variant: a malicious payload
+    /// targeting the System Program's Transfer instruction to drain SOL from
+    /// the relayer to an attacker-controlled wallet.
+    ///
+    /// Without the fix, Solana's account merging would propagate the relayer's
+    /// `is_signer` status into the CPI, and the System Program would execute
+    /// the transfer because the source account (relayer) appears to be a signer.
+    #[test]
+    fn test_signer_exploit_sol_transfer_via_system_program() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+        let attacker = Pubkey::new_unique();
+
+        // Build a real System Program Transfer instruction (relayer → attacker).
+        // The GMP payload embeds this as the CPI the target program will execute.
+        let stolen_lamports: u64 = 1_000_000_000; // 1 SOL
+        let transfer_ix =
+            solana_sdk::system_instruction::transfer(&ctx.payer, &attacker, stolen_lamports);
+
+        // The malicious payload: relayer is marked `is_signer: true`.
+        // Because the relayer signs the outer transaction, Solana's account
+        // merging would propagate signer status into the CPI — letting the
+        // System Program's Transfer succeed with the relayer as source.
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![
+                RawSolanaAccountMeta {
+                    pubkey: ctx.payer.to_bytes().to_vec(),
+                    is_signer: true, // EXPLOIT: relayer as transfer source
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: attacker.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ],
+            data: transfer_ix.data,
+            prefund_lamports: 0,
+        };
+
+        // Receiver = System Program: the GMP program will CPI into it
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &system_program::ID.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // remaining_accounts layout:
+        // [0] GMP PDA        — signs via invoke_signed
+        // [1] System Program  — target program for the CPI
+        // [2] relayer (payer) — exploit: claimed as signer in payload
+        // [3] attacker wallet — SOL destination
+        instruction
+            .accounts
+            .push(AccountMeta::new(gmp_account_pda, false));
+        instruction
+            .accounts
+            .push(AccountMeta::new_readonly(system_program::ID, false));
+        instruction.accounts.push(AccountMeta::new(ctx.payer, true));
+        instruction.accounts.push(AccountMeta::new(attacker, false));
+
+        let accounts = vec![
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(gmp_account_pda),
+            create_system_program_account(), // target = System Program
+            create_authority_account(ctx.payer), // relayer with 1 SOL
+            create_uninitialized_account_for_pda(attacker), // attacker (empty)
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
+        ))];
+        ctx.mollusk
+            .process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
     // ── Positive regression tests ───────────────────────────────────
 
     /// Relayer as writable-but-not-signer must pass signer validation.
