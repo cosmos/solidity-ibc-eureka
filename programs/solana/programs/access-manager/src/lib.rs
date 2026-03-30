@@ -10,7 +10,11 @@ pub mod test_utils;
 pub mod types;
 
 pub use errors::AccessManagerError;
-pub use helpers::{require_admin, require_role, require_role_with_whitelist};
+pub use helpers::{
+    handle_accept_access_manager_transfer, handle_cancel_access_manager_transfer,
+    handle_propose_access_manager_transfer, require_admin, require_role,
+    require_role_with_whitelist, HasPendingAccessManager,
+};
 use instructions::*;
 pub use types::RoleData;
 

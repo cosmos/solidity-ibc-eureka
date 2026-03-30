@@ -1,6 +1,6 @@
 use crate::state::*;
 use access_manager::RoleData;
-use anchor_lang::{AnchorSerialize, Discriminator};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
@@ -56,11 +56,13 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         paused: false,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
@@ -68,11 +70,13 @@ pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         paused: true,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn create_initialized_paused_router_state() -> (Pubkey, solana_sdk::account::Account) {
@@ -969,10 +973,14 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         paused: false,
         _reserved: [0; 256],
     };
-    let router_data = create_account_data(&router_state);
+    let mut router_data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state
+        .try_serialize(&mut &mut router_data[..])
+        .unwrap();
 
     pt.add_account(
         router_state_pda,

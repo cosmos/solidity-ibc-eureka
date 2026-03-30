@@ -11,67 +11,6 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Event emitted when access manager is updated
-type Ics07TendermintEventsAccessManagerUpdated struct {
-	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
-	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
-}
-
-func (obj Ics07TendermintEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `OldAccessManager`:
-	err = encoder.Encode(obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Serialize `NewAccessManager`:
-	err = encoder.Encode(obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj Ics07TendermintEventsAccessManagerUpdated) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics07TendermintEventsAccessManagerUpdated: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics07TendermintEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `OldAccessManager`:
-	err = decoder.Decode(&obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Deserialize `NewAccessManager`:
-	err = decoder.Decode(&obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj *Ics07TendermintEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics07TendermintEventsAccessManagerUpdated: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs07TendermintEventsAccessManagerUpdated(buf []byte) (*Ics07TendermintEventsAccessManagerUpdated, error) {
-	obj := new(Ics07TendermintEventsAccessManagerUpdated)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
 // On-chain PDA storing a Tendermint consensus state for a specific block height.
 //
 // Contains the block timestamp, Merkle root and next-validators hash.
@@ -344,6 +283,9 @@ type Ics07TendermintTypesAppState struct {
 	// Access manager program ID for role-based access control
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
+	// Pending access manager for two-step transfer (propose/accept)
+	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
 }
@@ -353,6 +295,24 @@ func (obj Ics07TendermintTypesAppState) MarshalWithEncoder(encoder *binary.Encod
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `PendingAccessManager` (optional):
+	{
+		if obj.PendingAccessManager == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -377,6 +337,19 @@ func (obj *Ics07TendermintTypesAppState) UnmarshalWithDecoder(decoder *binary.De
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
 		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `PendingAccessManager` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

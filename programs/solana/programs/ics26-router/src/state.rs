@@ -24,10 +24,27 @@ pub struct RouterState {
     pub version: AccountVersion,
     /// Access manager program ID for role-based access control
     pub access_manager: Pubkey,
+    /// Pending access manager for two-step transfer (propose/accept)
+    pub pending_access_manager: Option<Pubkey>,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
+}
+
+impl access_manager::HasPendingAccessManager for RouterState {
+    fn access_manager(&self) -> &Pubkey {
+        &self.access_manager
+    }
+    fn pending_access_manager(&self) -> &Option<Pubkey> {
+        &self.pending_access_manager
+    }
+    fn set_access_manager(&mut self, am: Pubkey) {
+        self.access_manager = am;
+    }
+    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>) {
+        self.pending_access_manager = pending;
+    }
 }
 
 impl RouterState {
@@ -236,6 +253,7 @@ mod compatibility_tests {
         let router_state = RouterState {
             version: AccountVersion::V1,
             access_manager: Pubkey::new_unique(),
+            pending_access_manager: None,
             paused: false,
             _reserved: [0; 256],
         };

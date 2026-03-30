@@ -208,8 +208,7 @@ mod tests {
         );
 
         let app_state_account = result.get_account(&app_state_pda).unwrap();
-        let app_state_data = &app_state_account.data[crate::constants::DISCRIMINATOR_SIZE..];
-        let app_state = GMPAppState::try_from_slice(app_state_data).unwrap();
+        let app_state = GMPAppState::try_deserialize(&mut &app_state_account.data[..]).unwrap();
         assert!(app_state.paused, "App should be paused");
     }
 
@@ -228,6 +227,7 @@ mod tests {
             paused: true,
             bump: app_state_bump,
             access_manager: access_manager::ID,
+            pending_access_manager: None,
             _reserved: [0; 256],
         };
 
@@ -272,8 +272,7 @@ mod tests {
         );
 
         let app_state_account = result.get_account(&app_state_pda).unwrap();
-        let app_state_data = &app_state_account.data[crate::constants::DISCRIMINATOR_SIZE..];
-        let app_state = GMPAppState::try_from_slice(app_state_data).unwrap();
+        let app_state = GMPAppState::try_deserialize(&mut &app_state_account.data[..]).unwrap();
         assert!(!app_state.paused, "App should be unpaused");
     }
 
@@ -597,6 +596,7 @@ mod integration_tests {
             paused: false,
             bump,
             access_manager: access_manager::ID,
+            pending_access_manager: None,
             _reserved: [0; 256],
         };
         let mut data = Vec::new();

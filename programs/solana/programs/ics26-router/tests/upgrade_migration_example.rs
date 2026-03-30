@@ -22,6 +22,7 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let router_state = RouterState {
         version: AccountVersion::V1,
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         paused: false,
         _reserved: [0; 256],
     };
@@ -70,6 +71,8 @@ pub struct RouterStateExample {
     pub version: AccountVersionExample,
     /// Access manager program ID (existing V1 field)
     pub access_manager: Pubkey,
+    /// Pending access manager (existing V1 field)
+    pub pending_access_manager: Option<Pubkey>,
 
     // ========== NEW V2 FIELDS ==========
     /// Fee collector account

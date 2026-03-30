@@ -782,7 +782,7 @@ pub fn setup_program_test_with_whitelist(
     admin: &solana_sdk::pubkey::Pubkey,
     whitelisted_programs: &[solana_sdk::pubkey::Pubkey],
 ) -> solana_program_test::ProgramTest {
-    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator};
+    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(DEPLOY_DIR);
@@ -801,10 +801,11 @@ pub fn setup_program_test_with_whitelist(
     );
     let app_state = crate::types::AppState {
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
-    let mut app_data = Vec::new();
-    app_state.try_serialize(&mut app_data).unwrap();
+    let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -850,7 +851,7 @@ pub fn setup_program_test_with_whitelist(
 pub fn setup_program_test_with_relayer(
     relayer: &solana_sdk::pubkey::Pubkey,
 ) -> solana_program_test::ProgramTest {
-    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator};
+    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(DEPLOY_DIR);
@@ -868,10 +869,11 @@ pub fn setup_program_test_with_relayer(
     );
     let app_state = crate::types::AppState {
         access_manager: access_manager::ID,
+        pending_access_manager: None,
         _reserved: [0; 256],
     };
-    let mut app_data = Vec::new();
-    app_state.try_serialize(&mut app_data).unwrap();
+    let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
