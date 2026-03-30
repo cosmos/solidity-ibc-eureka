@@ -2767,7 +2767,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 		attackerWallet := solanago.NewWallet()
 		relayerPubkey := s.SolanaRelayer.PublicKey()
 
-		stolenLamports := uint64(1_000_000_000) // 1 SOL
+		stolenLamports := uint64(1_000_000) // 0.001 SOL (above rent-exempt minimum)
 		transferIx := system.NewTransferInstruction(stolenLamports, relayerPubkey, attackerWallet.PublicKey()).Build()
 		transferData, err := transferIx.Data()
 		s.Require().NoError(err)
@@ -2778,7 +2778,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 				{Pubkey: relayerPubkey.Bytes(), IsSigner: true, IsWritable: true},               // EXPLOIT: relayer as transfer source
 				{Pubkey: attackerWallet.PublicKey().Bytes(), IsSigner: false, IsWritable: true}, // attacker destination
 			},
-			PrefundLamports: 0,
+			PrefundLamports: 5_000_000, // pre-fund GMP PDA for rent-exemption
 		}
 
 		payload, err := proto.Marshal(solanaInstruction)
