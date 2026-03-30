@@ -1,13 +1,84 @@
-use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
 use crate::errors::GMPError;
+use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData};
+use solana_ibc_proto::{
+    GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData,
+};
 
 mod sol_types {
     alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
 }
 
+pub use sol_types::IICS27GMPMsgs::GMPAcknowledgement as GmpAcknowledgementAbi;
 pub use sol_types::IICS27GMPMsgs::GMPPacketData as GmpPacketDataAbi;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GmpEncoding {
+    Abi,
+    Protobuf,
+}
+
+impl GmpEncoding {
+    /// Wire-format string for the IBC payload encoding field.
+    pub const ABI_STR: &str = "application/x-solidity-abi";
+    pub const PROTOBUF_STR: &str = "application/x-protobuf";
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Abi => Self::ABI_STR,
+            Self::Protobuf => Self::PROTOBUF_STR,
+        }
+    }
+
+    pub fn encode_packet(self, data: GmpPacketData) -> Result<Vec<u8>> {
+        match self {
+            Self::Abi => Ok(GmpPacketDataAbi::from(data).abi_encode()),
+            Self::Protobuf => Ok(data.encode_vec()),
+        }
+    }
+
+    pub fn decode_packet(self, bytes: &[u8]) -> Result<RawGmpPacketData> {
+        match self {
+            Self::Abi => {
+                let abi =
+                    GmpPacketDataAbi::abi_decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
+                Ok(RawGmpPacketData::from(abi))
+            }
+            Self::Protobuf => {
+                RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData.into())
+            }
+        }
+    }
+
+    pub fn encode_ack(self, result: Vec<u8>) -> Result<Vec<u8>> {
+        match self {
+            Self::Abi => {
+                Ok(GmpAcknowledgementAbi::from(GmpAcknowledgement::success(result)).abi_encode())
+            }
+            Self::Protobuf => {
+                // Proto3 omits empty bytes fields, so use the sentinel for empty results
+                let ack = if result.is_empty() {
+                    GmpAcknowledgement::empty_success()
+                } else {
+                    GmpAcknowledgement::success(result)
+                };
+                Ok(ack.encode_to_vec())
+            }
+        }
+    }
+}
+
+impl TryFrom<&str> for GmpEncoding {
+    type Error = anchor_lang::error::Error;
+
+    fn try_from(s: &str) -> Result<Self> {
+        match s {
+            Self::ABI_STR => Ok(Self::Abi),
+            Self::PROTOBUF_STR => Ok(Self::Protobuf),
+            _ => Err(GMPError::InvalidEncoding.into()),
+        }
+    }
+}
 
 impl From<GmpPacketData> for GmpPacketDataAbi {
     fn from(data: GmpPacketData) -> Self {
@@ -21,6 +92,14 @@ impl From<GmpPacketData> for GmpPacketDataAbi {
     }
 }
 
+impl From<GmpAcknowledgement> for GmpAcknowledgementAbi {
+    fn from(ack: GmpAcknowledgement) -> Self {
+        Self {
+            result: ack.result.into(),
+        }
+    }
+}
+
 impl From<GmpPacketDataAbi> for RawGmpPacketData {
     fn from(abi: GmpPacketDataAbi) -> Self {
         Self {
@@ -30,32 +109,6 @@ impl From<GmpPacketDataAbi> for RawGmpPacketData {
             payload: abi.payload.into(),
             memo: abi.memo,
         }
-    }
-}
-
-pub fn encode_gmp_packet(data: GmpPacketData, encoding: &str) -> Result<Vec<u8>> {
-    match encoding {
-        ICS27_ENCODING_ABI => {
-            use alloy_sol_types::SolValue;
-            Ok(GmpPacketDataAbi::from(data).abi_encode())
-        }
-        ICS27_ENCODING_PROTOBUF => Ok(data.encode_vec()),
-        _ => Err(GMPError::InvalidEncoding.into()),
-    }
-}
-
-pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketData> {
-    match encoding {
-        ICS27_ENCODING_ABI => {
-            use alloy_sol_types::SolValue;
-            let abi =
-                GmpPacketDataAbi::abi_decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
-            Ok(RawGmpPacketData::from(abi))
-        }
-        ICS27_ENCODING_PROTOBUF => {
-            RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData.into())
-        }
-        _ => Err(GMPError::InvalidEncoding.into()),
     }
 }
 
@@ -84,10 +137,35 @@ mod tests {
     }
 
     #[test]
+    fn encoding_from_str() {
+        assert_eq!(
+            GmpEncoding::try_from("application/x-solidity-abi").unwrap(),
+            GmpEncoding::Abi
+        );
+        assert_eq!(
+            GmpEncoding::try_from("application/x-protobuf").unwrap(),
+            GmpEncoding::Protobuf
+        );
+        assert!(GmpEncoding::try_from("application/json").is_err());
+    }
+
+    #[test]
+    fn encoding_round_trip_str() {
+        assert_eq!(
+            GmpEncoding::try_from(GmpEncoding::Abi.as_str()).unwrap(),
+            GmpEncoding::Abi
+        );
+        assert_eq!(
+            GmpEncoding::try_from(GmpEncoding::Protobuf.as_str()).unwrap(),
+            GmpEncoding::Protobuf
+        );
+    }
+
+    #[test]
     fn abi_round_trip() {
         let original = sample_packet_data();
-        let encoded = encode_gmp_packet(original, ICS27_ENCODING_ABI).unwrap();
-        let raw = decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).unwrap();
+        let encoded = GmpEncoding::Abi.encode_packet(original).unwrap();
+        let raw = GmpEncoding::Abi.decode_packet(&encoded).unwrap();
         assert_raw_matches_sample(&raw);
 
         let validated = GmpPacketData::try_from(raw).unwrap();
@@ -97,25 +175,12 @@ mod tests {
     #[test]
     fn protobuf_round_trip() {
         let original = sample_packet_data();
-        let encoded = encode_gmp_packet(original, ICS27_ENCODING_PROTOBUF).unwrap();
-        let raw = decode_gmp_packet(&encoded, ICS27_ENCODING_PROTOBUF).unwrap();
+        let encoded = GmpEncoding::Protobuf.encode_packet(original).unwrap();
+        let raw = GmpEncoding::Protobuf.decode_packet(&encoded).unwrap();
         assert_raw_matches_sample(&raw);
 
         let validated = GmpPacketData::try_from(raw).unwrap();
         assert_eq!(validated.sender.as_ref(), "solana_sender_pubkey");
-    }
-
-    #[test]
-    fn invalid_encoding_rejected() {
-        let data = sample_packet_data();
-        let result = encode_gmp_packet(data, "application/json");
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn invalid_encoding_decode_rejected() {
-        let result = decode_gmp_packet(&[0, 1, 2], "application/json");
-        assert!(result.is_err());
     }
 
     #[test]
@@ -142,6 +207,42 @@ mod tests {
         assert_eq!(&abi.salt[..], &[1, 2, 3]);
         assert_eq!(&abi.payload[..], &[4, 5, 6, 7]);
         assert_eq!(abi.memo, "test memo");
+    }
+
+    #[test]
+    fn ack_abi_round_trip() {
+        let data = vec![1, 2, 3, 4];
+        let encoded = GmpEncoding::Abi.encode_ack(data.clone()).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
+        assert_eq!(&decoded.result[..], &data);
+    }
+
+    #[test]
+    fn ack_abi_empty_result() {
+        // ABI always produces non-empty output, no sentinel needed
+        let encoded = GmpEncoding::Abi.encode_ack(Vec::new()).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
+        assert!(decoded.result.is_empty());
+    }
+
+    #[test]
+    fn ack_protobuf_round_trip() {
+        let data = vec![1, 2, 3, 4];
+        let encoded = GmpEncoding::Protobuf.encode_ack(data.clone()).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, data);
+    }
+
+    #[test]
+    fn ack_protobuf_empty_result_uses_sentinel() {
+        // Proto3 would produce zero bytes for empty result, sentinel keeps it non-empty
+        let encoded = GmpEncoding::Protobuf.encode_ack(Vec::new()).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, vec![0]);
     }
 
     #[test]

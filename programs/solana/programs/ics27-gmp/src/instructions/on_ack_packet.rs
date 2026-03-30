@@ -52,8 +52,8 @@ pub fn on_acknowledgement_packet(
     )
     .map_err(GMPError::from)?;
 
-    let raw_packet_data =
-        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let encoding = crate::encoding::GmpEncoding::try_from(msg.payload.encoding.as_str())?;
+    let raw_packet_data = encoding.decode_packet(&msg.payload.value)?;
     let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
         msg!("GMP packet validation failed: {}", e);
         GMPError::InvalidPacketData
@@ -82,9 +82,8 @@ pub fn on_acknowledgement_packet(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{
-        GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION,
-    };
+    use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
+    use crate::encoding::GmpEncoding;
     use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
@@ -116,7 +115,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],
@@ -199,7 +198,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],
@@ -349,7 +348,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
                 value: vec![], // Empty - will fail to decode
             },
             acknowledgement: vec![1, 2, 3],
@@ -386,12 +385,12 @@ mod tests {
     }
 
     fn encode_test_packet(raw: solana_ibc_proto::RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        match encoding {
-            ICS27_ENCODING_ABI => {
+        match GmpEncoding::try_from(encoding).unwrap() {
+            GmpEncoding::Abi => {
                 let validated = GmpPacketData::try_from(raw).unwrap();
-                crate::encoding::encode_gmp_packet(validated, encoding).unwrap()
+                GmpEncoding::Abi.encode_packet(validated).unwrap()
             }
-            _ => raw.encode_to_vec(),
+            GmpEncoding::Protobuf => raw.encode_to_vec(),
         }
     }
 
@@ -477,8 +476,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::protobuf(ICS27_ENCODING_PROTOBUF)]
-    #[case::abi(ICS27_ENCODING_ABI)]
+    #[case::protobuf(GmpEncoding::PROTOBUF_STR)]
+    #[case::abi(GmpEncoding::ABI_STR)]
     fn test_on_ack_packet_success(#[case] encoding: &str) {
         run_ack_success_test(encoding);
     }
@@ -501,7 +500,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
                 value: packet_data.encode_to_vec(),
             },
             acknowledgement: vec![1, 2, 3],
@@ -673,6 +672,7 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use crate::constants::*;
+    use crate::encoding::GmpEncoding;
     use crate::state::{GMPAppState, GMPCallResult};
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -697,7 +697,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
                 value: vec![],
             },
             acknowledgement: vec![1, 2, 3],

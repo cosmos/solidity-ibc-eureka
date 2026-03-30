@@ -162,7 +162,8 @@ pub(crate) fn send_call_inner<'info>(
         GMPError::InvalidPacketData
     })?;
 
-    let packet_data_bytes = crate::encoding::encode_gmp_packet(packet_data, &msg.encoding)?;
+    let encoding = crate::encoding::GmpEncoding::try_from(msg.encoding.as_str())?;
+    let packet_data_bytes = encoding.encode_packet(packet_data)?;
 
     let ibc_payload = Payload {
         source_port: GMP_PORT_ID.to_string(),
@@ -218,7 +219,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
+    use crate::encoding::GmpEncoding;
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -294,7 +295,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600, // 1 hour from epoch (safe for Mollusk default clock=0)
                 memo: String::new(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
+                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
             }
         }
 
@@ -667,9 +668,9 @@ mod tests {
         let packet_data = GmpPacketData::try_from(raw).unwrap();
 
         let encoded =
-            encode_gmp_packet(packet_data, ICS27_ENCODING_ABI).expect("ABI encoding should work");
+            GmpEncoding::Abi.encode_packet(packet_data).expect("ABI encoding should work");
         let raw_decoded =
-            decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).expect("ABI decoding should succeed");
+            GmpEncoding::Abi.decode_packet(&encoded).expect("ABI decoding should succeed");
         let decoded = GmpPacketData::try_from(raw_decoded).unwrap();
 
         assert_eq!(decoded.sender.as_ref(), "solana_sender_pubkey");
@@ -711,7 +712,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
-            encoding: crate::constants::ICS27_ENCODING_PROTOBUF.to_string(),
+            encoding: crate::encoding::GmpEncoding::PROTOBUF_STR.to_string(),
         };
 
         let (router_state, _) = create_router_state_pda();
