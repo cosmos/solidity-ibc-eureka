@@ -1308,12 +1308,19 @@ mod tests {
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error =
+        let unauthorized_signer =
             ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
+        let insufficient_permissions =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
         assert_ne!(
             result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
+            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
             "Relayer as writable-but-not-signer should pass signer validation"
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
+            "Relayer as writable-but-not-signer should pass permission validation"
         );
     }
 
@@ -1367,12 +1374,19 @@ mod tests {
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error =
+        let unauthorized_signer =
             ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
+        let insufficient_permissions =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
         assert_ne!(
             result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
+            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
             "Payload with no signers should pass signer validation"
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
+            "Payload with no signers should pass permission validation"
         );
     }
 
@@ -1437,12 +1451,19 @@ mod tests {
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
 
-        let unauthorized_signer_error =
+        let unauthorized_signer =
             ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
+        let insufficient_permissions =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
         assert_ne!(
             result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer_error),
-            "GMP PDA as signer should pass validation"
+            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
+            "GMP PDA as signer should pass signer validation"
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
+            "GMP PDA as signer should pass permission validation"
         );
     }
 
