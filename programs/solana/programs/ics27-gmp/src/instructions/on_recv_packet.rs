@@ -1055,12 +1055,18 @@ mod tests {
 
     #[derive(Clone)]
     enum UnauthorizedSignerCase {
-        /// A random pubkey (not relayer, not GMP PDA) with `is_signer: true`.
+        /// A random pubkey (not relayer, not GMP PDA) with `is_signer: true, is_writable: false`.
         /// Proves the check is not specific to the relayer's key.
-        ArbitraryAccount,
-        /// Only the relayer's pubkey as signer, GMP PDA absent from signers.
+        ArbitraryReadonly,
+        /// A random pubkey with `is_signer: true, is_writable: true`.
+        /// Proves the writable flag doesn't influence signer rejection.
+        ArbitraryWritable,
+        /// Relayer with `is_signer: true, is_writable: true`.
         /// The most direct exploit vector.
-        OnlyRelayer,
+        RelayerWritable,
+        /// Relayer with `is_signer: true, is_writable: false`.
+        /// Proves the writable flag doesn't influence signer rejection.
+        RelayerReadonly,
         /// GMP PDA as a legitimate signer plus two arbitrary unauthorized
         /// signers. The first unauthorized signer triggers rejection even
         /// though the GMP PDA itself is valid.
@@ -1077,15 +1083,25 @@ mod tests {
 
         // Each variant has at least one non-GMP-PDA account with is_signer: true
         let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
-            UnauthorizedSignerCase::ArbitraryAccount => vec![RawSolanaAccountMeta {
+            UnauthorizedSignerCase::ArbitraryReadonly => vec![RawSolanaAccountMeta {
                 pubkey: arbitrary_a.to_bytes().to_vec(),
                 is_signer: true,
                 is_writable: false,
             }],
-            UnauthorizedSignerCase::OnlyRelayer => vec![RawSolanaAccountMeta {
+            UnauthorizedSignerCase::ArbitraryWritable => vec![RawSolanaAccountMeta {
+                pubkey: arbitrary_a.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: true,
+            }],
+            UnauthorizedSignerCase::RelayerWritable => vec![RawSolanaAccountMeta {
                 pubkey: ctx.payer.to_bytes().to_vec(),
                 is_signer: true,
                 is_writable: true,
+            }],
+            UnauthorizedSignerCase::RelayerReadonly => vec![RawSolanaAccountMeta {
+                pubkey: ctx.payer.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: false,
             }],
             UnauthorizedSignerCase::MultipleWithGmpPda => vec![
                 RawSolanaAccountMeta {
@@ -1185,8 +1201,10 @@ mod tests {
     }
 
     #[rstest]
-    #[case::arbitrary_account(UnauthorizedSignerCase::ArbitraryAccount)]
-    #[case::only_relayer(UnauthorizedSignerCase::OnlyRelayer)]
+    #[case::arbitrary_readonly(UnauthorizedSignerCase::ArbitraryReadonly)]
+    #[case::arbitrary_writable(UnauthorizedSignerCase::ArbitraryWritable)]
+    #[case::relayer_writable(UnauthorizedSignerCase::RelayerWritable)]
+    #[case::relayer_readonly(UnauthorizedSignerCase::RelayerReadonly)]
     #[case::multiple_with_gmp_pda(UnauthorizedSignerCase::MultipleWithGmpPda)]
     #[case::multiple_no_gmp_pda(UnauthorizedSignerCase::MultipleNoGmpPda)]
     fn test_on_recv_packet_unauthorized_signer_variants(#[case] case: UnauthorizedSignerCase) {
@@ -1549,8 +1567,56 @@ mod tests {
         assert_passes_signer_validation(&result);
     }
 
-    /// GMP PDA with `is_signer=false` in the payload should pass trivially
-    /// (`!false` short-circuits the check).
+    /// GMP PDA with `is_signer=true, is_writable=false`. Readonly signer
+    /// is valid — the GMP PDA signs the CPI but the target program only
+    /// reads from it.
+    #[test]
+    fn test_on_recv_packet_allows_gmp_pda_as_readonly_signer() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        // LEGITIMATE: GMP PDA as readonly signer
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![RawSolanaAccountMeta {
+                pubkey: gmp_account_pda.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: false,
+            }],
+            data: vec![0u8],
+            prefund_lamports: 0,
+        };
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            DUMMY_TARGET_PROGRAM,
+            vec![AccountMeta::new_readonly(gmp_account_pda, false)],
+        );
+
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_dummy_target_program_account(),
+            vec![create_uninitialized_account_for_pda(gmp_account_pda)],
+        );
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert_passes_signer_validation(&result);
+    }
+
+    /// GMP PDA with `is_signer=false, is_writable=true` — trivially passes
+    /// (`!false` short-circuits the signer check).
     #[test]
     fn test_on_recv_packet_allows_gmp_pda_as_non_signer() {
         let ctx = create_gmp_test_context();
@@ -1603,6 +1669,53 @@ mod tests {
                 create_uninitialized_account_for_pda(gmp_account_pda),
                 create_system_program_account(),
             ],
+        );
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert_passes_signer_validation(&result);
+    }
+
+    /// GMP PDA with `is_signer=false, is_writable=false` — both checks
+    /// trivially pass (neither signer nor writable is requested).
+    #[test]
+    fn test_on_recv_packet_allows_gmp_pda_as_readonly_non_signer() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        // LEGITIMATE: GMP PDA as readonly non-signer — trivially passes both checks
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![RawSolanaAccountMeta {
+                pubkey: gmp_account_pda.to_bytes().to_vec(),
+                is_signer: false,
+                is_writable: false,
+            }],
+            data: vec![0u8],
+            prefund_lamports: 0,
+        };
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            DUMMY_TARGET_PROGRAM,
+            vec![AccountMeta::new_readonly(gmp_account_pda, false)],
+        );
+
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_dummy_target_program_account(),
+            vec![create_uninitialized_account_for_pda(gmp_account_pda)],
         );
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
