@@ -161,17 +161,37 @@ pub fn on_recv_packet<'info>(
             GMPError::AccountKeyMismatch
         );
 
-        // Allow writable when payload says readonly (Solana account merging)
+        // `account_info.is_writable` must be at least as permissive as `meta.is_writable`.
+        //
+        // We validate `meta` (attacker-controlled payload) against `account_info` (runtime state),
+        // NOT the other way around. Checking `meta == account_info` would be wrong here because
+        // Solana's account merging upgrades readonly to writable when the same pubkey appears
+        // multiple times in a transaction — so `account_info.is_writable` can be true even when
+        // the payload intended readonly. This one-directional check permits that harmless upgrade
+        // while still rejecting payloads that request writable on an account the runtime only
+        // provided as readonly.
         require!(
             account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
         );
 
-        // Only the GMP PDA may be a signer in the target CPI.
-        // A malicious packet could specify the relayer's pubkey with is_signer=true;
-        // since the relayer signed the outer transaction, Solana's account merging
-        // would propagate that signer status into the target CPI, letting an
-        // attacker-controlled program act with the relayer's authority.
+        // Only the GMP PDA may claim `is_signer` in the CPI instruction.
+        //
+        // We validate `meta` (attacker-controlled payload), NOT `account_info` (runtime state),
+        // because they diverge for signers:
+        //
+        //  - GMP PDA: `meta.is_signer=true` but `account_info.is_signer=false`.
+        //    The PDA only becomes a signer during `invoke_signed` (via seeds), not on the
+        //    outer transaction. An exact-match check (`meta == account_info`) would reject
+        //    every legitimate GMP call.
+        //
+        //  - Relayer: `meta.is_signer=true` and `account_info.is_signer=true`.
+        //    The relayer signs the outer transaction as fee payer. Solana's account merging
+        //    propagates that signer status to every `AccountInfo` sharing the same pubkey.
+        //    An exact-match check would ALLOW this — the exact exploit we must block.
+        //
+        // The implication `!meta.is_signer || pubkey == gmp_pda` correctly handles both:
+        // it permits the GMP PDA as signer and rejects everything else.
         require!(
             !meta.is_signer || meta.pubkey == gmp_account.pda,
             GMPError::UnauthorizedSigner
@@ -855,12 +875,19 @@ mod tests {
     //
     // The fix: only the GMP PDA is allowed as a signer in the target CPI.
 
-    /// Full CPI attack simulation: a malicious packet calls the counter
-    /// app's `increment` but injects the relayer as `user_authority` and
-    /// `payer` (both `is_signer=true`). Without the fix, Solana's
-    /// account merging would let the counter app see the relayer as an
-    /// authorized signer, giving the attacker control over the relayer's
-    /// funds. With the fix, validation rejects before CPI.
+    /// Scenario: attacker crafts an IBC packet that calls the counter app's
+    /// `increment` instruction, but substitutes the relayer's pubkey in place
+    /// of the GMP PDA for both `user_authority` and `payer` (both marked
+    /// `is_signer: true`). The `user_counter` PDA is also derived from the
+    /// relayer's key instead of the GMP PDA.
+    ///
+    /// Without the fix, Solana's account merging would propagate the relayer's
+    /// outer-transaction signer status into the CPI, so the counter app would
+    /// see the relayer as an authorized signer. The relayer would unknowingly
+    /// pay rent for a new `UserCounter` account it never requested.
+    ///
+    /// The fix rejects any account in the payload that claims `is_signer: true`
+    /// unless its pubkey matches the GMP PDA. Expects `UnauthorizedSigner`.
     #[test]
     fn test_signer_exploit_relayer_as_counter_payer_rejected() {
         let mollusk = create_counter_cpi_mollusk();
@@ -981,16 +1008,25 @@ mod tests {
     }
 
     // ── Parametrized unauthorized signer edge cases ─────────────────
+    //
+    // Each variant sends a minimal payload (dummy target, no real CPI) with
+    // different combinations of unauthorized signers. All must be rejected
+    // with `UnauthorizedSigner` regardless of which pubkey is used or how
+    // many signers appear.
 
     #[derive(Clone)]
     enum UnauthorizedSignerCase {
-        /// Random pubkey (not relayer, not GMP PDA) claimed as signer
+        /// A random pubkey (not relayer, not GMP PDA) with `is_signer: true`.
+        /// Proves the check is not specific to the relayer's key.
         ArbitraryAccount,
-        /// Only the relayer as signer, GMP PDA not a signer at all
+        /// Only the relayer's pubkey as signer, GMP PDA absent from signers.
+        /// The most direct exploit vector.
         OnlyRelayer,
-        /// GMP PDA present + two arbitrary unauthorized signers
+        /// GMP PDA as a legitimate signer plus two arbitrary unauthorized
+        /// signers. The first unauthorized signer triggers rejection even
+        /// though the GMP PDA itself is valid.
         MultipleWithGmpPda,
-        /// Two arbitrary unauthorized signers, no GMP PDA
+        /// Two arbitrary unauthorized signers with no GMP PDA at all.
         MultipleNoGmpPda,
     }
 
@@ -1113,8 +1149,11 @@ mod tests {
         run_unauthorized_signer_test(case);
     }
 
-    /// Same signer exploit but with ABI-encoded outer `GmpPacketData`.
-    /// Ensures the fix works regardless of the encoding path.
+    /// Scenario: same as the basic signer exploit (GMP PDA + relayer both
+    /// marked `is_signer: true`) but the outer `GmpPacketData` is ABI-encoded
+    /// instead of protobuf. The signer validation happens after decoding, so
+    /// this proves the fix works regardless of the wire encoding path.
+    /// Expects `UnauthorizedSigner`.
     #[test]
     fn test_signer_exploit_with_abi_encoding() {
         let ctx = create_gmp_test_context();
@@ -1190,13 +1229,17 @@ mod tests {
         );
     }
 
-    /// Demonstrates the most dangerous exploit variant: a malicious payload
-    /// targeting the System Program's Transfer instruction to drain SOL from
-    /// the relayer to an attacker-controlled wallet.
+    /// Scenario: the most dangerous exploit variant — direct SOL theft.
+    /// The attacker crafts a payload that targets the System Program's
+    /// `Transfer` instruction, moving 1 SOL from the relayer to an
+    /// attacker-controlled wallet. The relayer's pubkey is marked
+    /// `is_signer: true` as the transfer source.
     ///
-    /// Without the fix, Solana's account merging would propagate the relayer's
-    /// `is_signer` status into the CPI, and the System Program would execute
-    /// the transfer because the source account (relayer) appears to be a signer.
+    /// Without the fix, Solana's account merging would propagate the
+    /// relayer's outer-transaction signer status into the CPI. The System
+    /// Program would see the relayer as an authorized signer and execute
+    /// the transfer. With the fix, validation rejects before any CPI.
+    /// Expects `UnauthorizedSigner`.
     #[test]
     fn test_signer_exploit_sol_transfer_via_system_program() {
         let ctx = create_gmp_test_context();
@@ -1276,8 +1319,15 @@ mod tests {
 
     // ── Positive regression tests ───────────────────────────────────
 
-    /// Relayer as writable-but-not-signer must pass signer validation.
-    /// Proves the fix is surgical and does not over-restrict.
+    /// Scenario: the relayer's pubkey appears in the payload as
+    /// `is_signer: false, is_writable: true`. This is the normal case for
+    /// legitimate payloads that need the relayer as a writable account
+    /// (e.g. to receive refunds) without granting signer authority.
+    ///
+    /// The GMP PDA is the only signer. The signer check must not reject
+    /// non-signer accounts regardless of who they belong to. Verifies the
+    /// fix does not over-restrict by asserting neither `UnauthorizedSigner`
+    /// nor `InsufficientAccountPermissions` is returned.
     #[test]
     fn test_on_recv_packet_relayer_writable_not_signer_passes_validation() {
         let ctx = create_gmp_test_context();
@@ -1337,7 +1387,12 @@ mod tests {
         assert_passes_signer_validation(&result);
     }
 
-    /// Payload with zero signers must pass signer validation.
+    /// Scenario: the payload contains a single account with
+    /// `is_signer: false`. No account claims signer status at all.
+    ///
+    /// The signer check (`!meta.is_signer || pubkey == gmp_pda`) is
+    /// trivially satisfied when `is_signer` is false, so this must pass
+    /// without issues.
     #[test]
     fn test_on_recv_packet_no_signers_passes_validation() {
         let ctx = create_gmp_test_context();
@@ -1389,8 +1444,17 @@ mod tests {
         assert_passes_signer_validation(&result);
     }
 
-    /// GMP PDA as the sole signer passes validation (fails later at
-    /// CPI to dummy target, which is expected).
+    /// Scenario: the GMP PDA is the only account with `is_signer: true`.
+    /// This is the standard legitimate case — the GMP PDA signs the target
+    /// CPI via `invoke_signed`.
+    ///
+    /// Note: `meta.is_signer=true` but `account_info.is_signer=false`
+    /// because the PDA only becomes a signer during `invoke_signed`, not on
+    /// the outer transaction. An exact-match validation (`meta == account_info`)
+    /// would incorrectly reject this. The implication check correctly allows it.
+    ///
+    /// The test may fail later at CPI (dummy target is not a real program),
+    /// but the signer validation itself must pass.
     #[test]
     fn test_on_recv_packet_allows_gmp_pda_as_signer() {
         let ctx = create_gmp_test_context();
