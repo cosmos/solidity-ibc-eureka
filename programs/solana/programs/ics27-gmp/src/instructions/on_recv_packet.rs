@@ -164,12 +164,16 @@ pub fn on_recv_packet<'info>(
         // `account_info.is_writable` must be at least as permissive as `meta.is_writable`.
         //
         // We validate `meta` (attacker-controlled payload) against `account_info` (runtime state),
-        // NOT the other way around. Checking `meta == account_info` would be wrong here because
+        // NOT the other way around. Checking `meta == account_info` would be wrong because
         // Solana's account merging upgrades readonly to writable when the same pubkey appears
-        // multiple times in a transaction — so `account_info.is_writable` can be true even when
-        // the payload intended readonly. This one-directional check permits that harmless upgrade
-        // while still rejecting payloads that request writable on an account the runtime only
-        // provided as readonly.
+        // multiple times in a transaction.
+        //
+        //  meta.is_writable | account_info.is_writable | result
+        //  -----------------+--------------------------+--------
+        //  false            | false                    | OK (both agree readonly)
+        //  false            | true                     | OK (payload says readonly, runtime upgraded — harmless)
+        //  true             | true                     | OK (both agree writable)
+        //  true             | false                    | REJECT (payload demands writable, runtime is readonly)
         require!(
             account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
@@ -177,21 +181,23 @@ pub fn on_recv_packet<'info>(
 
         // Only the GMP PDA may claim `is_signer` in the CPI instruction.
         //
-        // We validate `meta` (attacker-controlled payload), NOT `account_info` (runtime state),
-        // because they diverge for signers:
+        // `meta` (from the IBC payload) and `account_info` (from the Solana runtime)
+        // can disagree on signer status, so an exact-match check would be wrong:
         //
-        //  - GMP PDA: `meta.is_signer=true` but `account_info.is_signer=false`.
-        //    The PDA only becomes a signer during `invoke_signed` (via seeds), not on the
-        //    outer transaction. An exact-match check (`meta == account_info`) would reject
-        //    every legitimate GMP call.
+        //  account | meta.is_signer | acct.is_signer | exact-match  | our check
+        //  --------+----------------+----------------+--------------+----------
+        //  GMP PDA | true           | false          | REJECT (bad) | OK
+        //  relayer | true           | true           | OK (exploit) | REJECT
+        //  other   | false          | any            | OK           | OK
         //
-        //  - Relayer: `meta.is_signer=true` and `account_info.is_signer=true`.
-        //    The relayer signs the outer transaction as fee payer. Solana's account merging
-        //    propagates that signer status to every `AccountInfo` sharing the same pubkey.
-        //    An exact-match check would ALLOW this — the exact exploit we must block.
+        // GMP PDA: not a signer on the outer transaction — it only signs during
+        // `invoke_signed` via seeds. The payload correctly requests `is_signer=true`
+        // for the CPI, but `account_info.is_signer` is false.
         //
-        // The implication `!meta.is_signer || pubkey == gmp_pda` correctly handles both:
-        // it permits the GMP PDA as signer and rejects everything else.
+        // Relayer: signs the outer transaction as fee payer. Solana's account merging
+        // sets `account_info.is_signer=true` for every `AccountInfo` with that pubkey.
+        // A malicious payload requesting the relayer as signer would pass an exact-match
+        // check, letting a target program (e.g. System Transfer) drain the relayer's SOL.
         require!(
             !meta.is_signer || meta.pubkey == gmp_account.pda,
             GMPError::UnauthorizedSigner
