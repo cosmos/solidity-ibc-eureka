@@ -111,6 +111,28 @@ func gmpAccountPDA(programID solanago.PublicKey, clientID string, sender string,
 	return pda, bump
 }
 
+// instructionToGMPPayload converts a solanago.Instruction into a GMPSolanaPayload
+// protobuf message by extracting its data and account metas.
+func instructionToGMPPayload(ix solanago.Instruction, prefundLamports uint64) (*solanatypes.GMPSolanaPayload, error) {
+	data, err := ix.Data()
+	if err != nil {
+		return nil, err
+	}
+	accounts := make([]*solanatypes.SolanaAccountMeta, len(ix.Accounts()))
+	for i, meta := range ix.Accounts() {
+		accounts[i] = &solanatypes.SolanaAccountMeta{
+			Pubkey:     meta.PublicKey.Bytes(),
+			IsSigner:   meta.IsSigner,
+			IsWritable: meta.IsWritable,
+		}
+	}
+	return &solanatypes.GMPSolanaPayload{
+		Data:            data,
+		Accounts:        accounts,
+		PrefundLamports: prefundLamports,
+	}, nil
+}
+
 func (s *IbcEurekaSolanaTestSuite) initializeGMPCounterApp(ctx context.Context) solanago.PublicKey {
 	s.Require().True(s.Run("Initialize GMP Counter App", func() {
 		// Program already deployed, just initialize
@@ -2617,18 +2639,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 	}))
 }
 
-// Test_GMPSignerExploit verifies that the GMP program rejects payloads where
-// non-PDA accounts claim is_signer=true.
-//
-// Attack scenario: a malicious Cosmos user crafts a GmpSolanaPayload that
-// includes the relayer's pubkey with is_signer=true. Because the relayer
-// signs the outer transaction (as fee payer), Solana's account merging would
-// propagate signer status into the target CPI, letting an attacker-controlled
-// program act with the relayer's authority (e.g. drain SOL).
-//
-// The fix in on_recv_packet rejects any account with is_signer=true unless
-// it is the GMP PDA (which signs via invoke_signed).
-func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
+// Test_GMPSignerExploit_RelayerPubkey verifies that the GMP program rejects
+// a counter increment payload where the relayer's pubkey claims is_signer=true.
+// The relayer IS a signer on the outer Solana transaction (fee payer), so
+// without the fix Solana's account merging would propagate signer status into
+// the target CPI.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_RelayerPubkey() {
 	ctx := context.Background()
 
 	s.SetupSuite(ctx)
@@ -2640,74 +2656,57 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 	var gmpCounterProgramID solanago.PublicKey
 	s.Require().True(s.Run("Initialize GMP Counter App", func() {
 		gmpCounterProgramID = s.initializeGMPCounterApp(ctx)
-		s.T().Logf("GMP Counter app initialized at %s", gmpCounterProgramID)
 	}))
 
-	// sendExploitPayload crafts a GMP counter increment payload where the
-	// given pubkey is used as user_authority and payer with is_signer=true
-	// instead of the legitimate GMP PDA.
-	sendExploitPayload := func(exploitPubkey solanago.PublicKey, label string) {
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		cosmosAddress := cosmosUser.FormattedAddress()
-		salt := []byte{}
-
-		// Build increment instruction data
-		incrementData := make([]byte, 0, 16)
-		incrementData = append(incrementData, test_gmp_app.Instruction_Increment[:]...)
-		amountBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(amountBytes, DefaultIncrementAmount)
-		incrementData = append(incrementData, amountBytes...)
-
-		// Derive counter PDAs
+	var cosmosGMPTxHash []byte
+	s.Require().True(s.Run("Send exploit payload from Cosmos", func() {
+		exploitPubkey := s.SolanaRelayer.PublicKey()
 		counterAppState, _ := solana.TestGmpApp.CounterAppStatePDA(gmpCounterProgramID)
-		// User counter PDA derived from exploit pubkey (attacker controls which "user" identity)
 		userCounter, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, exploitPubkey.Bytes())
 
-		// ATTACK: exploit pubkey as user_authority (signer) and payer (signer)
-		// instead of the legitimate GMP PDA
-		solanaInstruction := &solanatypes.GMPSolanaPayload{
-			Data: incrementData,
-			Accounts: []*solanatypes.SolanaAccountMeta{
-				{Pubkey: counterAppState.Bytes(), IsSigner: false, IsWritable: true},
-				{Pubkey: userCounter.Bytes(), IsSigner: false, IsWritable: true},
-				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: false},             // EXPLOIT: unauthorized signer
-				{Pubkey: exploitPubkey.Bytes(), IsSigner: true, IsWritable: true},              // EXPLOIT: unauthorized payer
-				{Pubkey: solanago.SystemProgramID.Bytes(), IsSigner: false, IsWritable: false}, // system_program
-			},
-			PrefundLamports: 5_000_000,
-		}
-
-		payload, err := proto.Marshal(solanaInstruction)
+		// Use auto-generated instruction builder with the relayer pubkey as
+		// user_authority and payer (instead of the legitimate GMP PDA)
+		ix, err := test_gmp_app.NewIncrementInstruction(
+			DefaultIncrementAmount,
+			counterAppState, userCounter,
+			exploitPubkey, // EXPLOIT: unauthorized signer
+			exploitPubkey, // EXPLOIT: unauthorized payer
+			solanago.SystemProgramID,
+		)
 		s.Require().NoError(err)
 
-		// Send from Cosmos
+		gmpPayload, err := instructionToGMPPayload(ix, 5_000_000)
+		s.Require().NoError(err)
+
+		payload, err := proto.Marshal(gmpPayload)
+		s.Require().NoError(err)
+
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
 			SourceClient:     CosmosClientID,
-			Sender:           cosmosAddress,
+			Sender:           cosmosUser.FormattedAddress(),
 			Receiver:         gmpCounterProgramID.String(),
-			Salt:             salt,
 			Payload:          payload,
-			TimeoutTimestamp: timeout,
+			TimeoutTimestamp: uint64(time.Now().Add(30 * time.Minute).Unix()),
 			Encoding:         testvalues.Ics27ProtobufEncoding,
 		})
 		s.Require().NoError(err)
 
-		cosmosGMPTxHash, err := hex.DecodeString(resp.TxHash)
+		cosmosGMPTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
-		s.T().Logf("%s: GMP exploit packet sent from Cosmos: %s", label, resp.TxHash)
+	}))
 
-		// Update client
+	s.Require().True(s.Run("Update Solana client", func() {
 		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			DstClientId: SolanaClientID,
 		})
-		s.Require().NoError(err, "Relayer Update Client failed")
-		s.Require().NotEmpty(updateResp.Tx, "Relayer Update Client should return transaction")
-
+		s.Require().NoError(err)
+		s.Require().NotEmpty(updateResp.Tx)
 		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+	}))
 
-		// Relay packet
+	s.Require().True(s.Run("Relay and expect UnauthorizedSigner", func() {
 		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -2716,99 +2715,149 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 			DstClientId: SolanaClientID,
 		})
 		s.Require().NoError(err)
-		s.Require().NotEmpty(relayResp.Tx, "Relay should return transaction")
+		s.Require().NotEmpty(relayResp.Tx)
 
-		// Execute on Solana — should FAIL with UnauthorizedSigner
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
-		s.Require().Error(err, "%s: GMP should reject payload with unauthorized signer", label)
-		s.T().Logf("%s: Transaction correctly rejected: %v", label, err)
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "12014", "Should fail with UnauthorizedSigner (error code 12014)")
+	}))
+}
 
-		// UnauthorizedSigner = ProgramError::Custom(12014)
-		// (ANCHOR_ERROR_OFFSET 6000 + GMPError::UnauthorizedSigner discriminant 6014)
-		s.Require().Contains(err.Error(), "12014",
-			"%s: Should fail with UnauthorizedSigner error code 12014", label)
+// Test_GMPSignerExploit_ArbitraryAccount verifies that the GMP program rejects
+// a counter increment payload where an arbitrary (non-relayer) pubkey claims
+// is_signer=true. This proves the check blocks ANY non-GMP-PDA signer.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_ArbitraryAccount() {
+	ctx := context.Background()
 
-		s.T().Logf("%s: Signer exploit correctly blocked", label)
-	}
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
 
-	// ========================================================================
-	// Test 1: Relayer pubkey as unauthorized signer (primary attack vector)
-	// The relayer IS a signer on the outer Solana transaction (fee payer).
-	// Without the fix, Solana's account merging would propagate signer status
-	// into the target CPI, letting an attacker-controlled program act with
-	// the relayer's authority.
-	// ========================================================================
-	s.Require().True(s.Run("Reject relayer as unauthorized signer", func() {
-		sendExploitPayload(s.SolanaRelayer.PublicKey(), "Relayer exploit")
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
+
+	var gmpCounterProgramID solanago.PublicKey
+	s.Require().True(s.Run("Initialize GMP Counter App", func() {
+		gmpCounterProgramID = s.initializeGMPCounterApp(ctx)
 	}))
 
-	// ========================================================================
-	// Test 2: Arbitrary account as unauthorized signer
-	// Even if the pubkey is not the relayer, any non-GMP-PDA signer must be
-	// rejected to prevent privilege escalation.
-	// ========================================================================
-	s.Require().True(s.Run("Reject arbitrary account as unauthorized signer", func() {
-		randomWallet := solanago.NewWallet()
-		sendExploitPayload(randomWallet.PublicKey(), "Arbitrary account exploit")
+	var cosmosGMPTxHash []byte
+	s.Require().True(s.Run("Send exploit payload from Cosmos", func() {
+		exploitPubkey := solanago.NewWallet().PublicKey()
+		counterAppState, _ := solana.TestGmpApp.CounterAppStatePDA(gmpCounterProgramID)
+		userCounter, _ := solana.TestGmpApp.UserCounterWithAccountSeedPDA(gmpCounterProgramID, exploitPubkey.Bytes())
+
+		ix, err := test_gmp_app.NewIncrementInstruction(
+			DefaultIncrementAmount,
+			counterAppState, userCounter,
+			exploitPubkey, // EXPLOIT: unauthorized signer
+			exploitPubkey, // EXPLOIT: unauthorized payer
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		gmpPayload, err := instructionToGMPPayload(ix, 5_000_000)
+		s.Require().NoError(err)
+
+		payload, err := proto.Marshal(gmpPayload)
+		s.Require().NoError(err)
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     CosmosClientID,
+			Sender:           cosmosUser.FormattedAddress(),
+			Receiver:         gmpCounterProgramID.String(),
+			Payload:          payload,
+			TimeoutTimestamp: uint64(time.Now().Add(30 * time.Minute).Unix()),
+			Encoding:         testvalues.Ics27ProtobufEncoding,
+		})
+		s.Require().NoError(err)
+
+		cosmosGMPTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
 	}))
 
-	// ========================================================================
-	// Test 3: SOL transfer exploit via System Program
-	// A malicious payload targets the System Program directly with a Transfer
-	// instruction, using the relayer as the funding source (signer + writable).
-	// Without the fix, Solana's account merging would make the relayer a valid
-	// signer in the CPI, letting the System Program transfer SOL from the
-	// relayer to an attacker-controlled wallet.
-	// ========================================================================
-	s.Require().True(s.Run("Reject SOL transfer exploit via System Program", func() {
-		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-		cosmosAddress := cosmosUser.FormattedAddress()
+	s.Require().True(s.Run("Update Solana client", func() {
+		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(updateResp.Tx)
+		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+	}))
 
+	s.Require().True(s.Run("Relay and expect UnauthorizedSigner", func() {
+		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			SourceTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId: CosmosClientID,
+			DstClientId: SolanaClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(relayResp.Tx)
+
+		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "12014", "Should fail with UnauthorizedSigner (error code 12014)")
+	}))
+}
+
+// Test_GMPSignerExploit_SOLTransfer verifies that the GMP program rejects a
+// System Program Transfer payload that uses the relayer as the funding source
+// (signer + writable). Without the fix, Solana's account merging would make
+// the relayer a valid signer in the CPI, letting the System Program transfer
+// SOL from the relayer to an attacker-controlled wallet.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_SOLTransfer() {
+	ctx := context.Background()
+
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
+
+	var cosmosGMPTxHash []byte
+	s.Require().True(s.Run("Send SOL transfer exploit from Cosmos", func() {
 		attackerWallet := solanago.NewWallet()
 		relayerPubkey := s.SolanaRelayer.PublicKey()
 
-		stolenLamports := uint64(1_000_000) // 0.001 SOL (above rent-exempt minimum)
+		stolenLamports := uint64(1_000_000) // 0.001 SOL
 		transferIx := system.NewTransferInstruction(stolenLamports, relayerPubkey, attackerWallet.PublicKey()).Build()
-		transferData, err := transferIx.Data()
+
+		gmpPayload, err := instructionToGMPPayload(transferIx, 5_000_000)
 		s.Require().NoError(err)
 
-		solanaInstruction := &solanatypes.GMPSolanaPayload{
-			Data: transferData,
-			Accounts: []*solanatypes.SolanaAccountMeta{
-				{Pubkey: relayerPubkey.Bytes(), IsSigner: true, IsWritable: true},               // EXPLOIT: relayer as transfer source
-				{Pubkey: attackerWallet.PublicKey().Bytes(), IsSigner: false, IsWritable: true}, // attacker destination
-			},
-			PrefundLamports: 5_000_000, // pre-fund GMP PDA for rent-exemption
-		}
-
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := proto.Marshal(gmpPayload)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
 			SourceClient:     CosmosClientID,
-			Sender:           cosmosAddress,
+			Sender:           cosmosUser.FormattedAddress(),
 			Receiver:         solanago.SystemProgramID.String(),
 			Salt:             []byte("sol-transfer"),
 			Payload:          payload,
-			TimeoutTimestamp: timeout,
+			TimeoutTimestamp: uint64(time.Now().Add(30 * time.Minute).Unix()),
 			Encoding:         testvalues.Ics27ProtobufEncoding,
 		})
 		s.Require().NoError(err)
 
-		cosmosGMPTxHash, err := hex.DecodeString(resp.TxHash)
+		cosmosGMPTxHash, err = hex.DecodeString(resp.TxHash)
 		s.Require().NoError(err)
-		s.T().Logf("SOL transfer exploit: packet sent from Cosmos: %s", resp.TxHash)
+	}))
 
+	s.Require().True(s.Run("Update Solana client", func() {
 		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			DstClientId: SolanaClientID,
 		})
-		s.Require().NoError(err, "Relayer Update Client failed")
-		s.Require().NotEmpty(updateResp.Tx, "Relayer Update Client should return transaction")
-
+		s.Require().NoError(err)
+		s.Require().NotEmpty(updateResp.Tx)
 		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
+	}))
 
+	s.Require().True(s.Run("Relay and expect UnauthorizedSigner", func() {
 		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -2817,14 +2866,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit() {
 			DstClientId: SolanaClientID,
 		})
 		s.Require().NoError(err)
-		s.Require().NotEmpty(relayResp.Tx, "Relay should return transaction")
+		s.Require().NotEmpty(relayResp.Tx)
 
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
-		s.Require().Error(err, "GMP should reject SOL transfer with unauthorized signer")
-		s.T().Logf("SOL transfer exploit correctly rejected: %v", err)
-
-		// UnauthorizedSigner = ProgramError::Custom(12014)
-		s.Require().Contains(err.Error(), "12014",
-			"Should fail with UnauthorizedSigner error code 12014")
+		s.Require().Error(err)
+		s.Require().Contains(err.Error(), "12014", "Should fail with UnauthorizedSigner (error code 12014)")
 	}))
 }

@@ -848,11 +848,7 @@ mod tests {
         )
     }
 
-    fn create_counter_state_account(
-        pda: Pubkey,
-        authority: Pubkey,
-        bump: u8,
-    ) -> (Pubkey, Account) {
+    fn create_counter_state_account(pda: Pubkey, authority: Pubkey, bump: u8) -> (Pubkey, Account) {
         (
             pda,
             Account {
