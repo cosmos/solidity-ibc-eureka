@@ -766,6 +766,85 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
+    // ── Signer exploit test helpers ──────────────────────────────────
+
+    fn check_unauthorized_signer() -> Check<'static> {
+        Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
+        ))
+    }
+
+    fn assert_passes_signer_validation(result: &mollusk_svm::result::InstructionResult) {
+        let unauthorized_signer =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
+        let insufficient_permissions = ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32,
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
+            "Should pass signer validation"
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
+            "Should pass permission validation"
+        );
+    }
+
+    fn create_counter_cpi_mollusk() -> Mollusk {
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        mollusk.add_program(
+            &COUNTER_APP_ID,
+            "../../target/deploy/test_gmp_app",
+            &bpf_loader_upgradeable::ID,
+        );
+        mollusk
+    }
+
+    fn serialize_counter_app_state(authority: Pubkey, bump: u8) -> Vec<u8> {
+        let state = test_gmp_app::state::CounterAppState {
+            authority,
+            total_counters: 0,
+            total_gmp_calls: 0,
+            bump,
+        };
+        let mut data = Vec::new();
+        data.extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
+        state.serialize(&mut data).unwrap();
+        data
+    }
+
+    fn create_counter_program_account() -> (Pubkey, Account) {
+        (
+            COUNTER_APP_ID,
+            Account {
+                lamports: 1_000_000,
+                data: vec![],
+                owner: bpf_loader_upgradeable::ID,
+                executable: true,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    fn create_counter_state_account(
+        pda: Pubkey,
+        authority: Pubkey,
+        bump: u8,
+    ) -> (Pubkey, Account) {
+        (
+            pda,
+            Account {
+                lamports: 1_000_000,
+                data: serialize_counter_app_state(authority, bump),
+                owner: COUNTER_APP_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+    }
+
     // ── Signer exploit tests ───────────────────────────────────────────
     //
     // A malicious source-chain packet could include the relayer's pubkey
@@ -784,12 +863,7 @@ mod tests {
     /// funds. With the fix, validation rejects before CPI.
     #[test]
     fn test_signer_exploit_relayer_as_counter_payer_rejected() {
-        let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
-        mollusk.add_program(
-            &COUNTER_APP_ID,
-            "../../target/deploy/test_gmp_app",
-            &bpf_loader_upgradeable::ID,
-        );
+        let mollusk = create_counter_cpi_mollusk();
 
         let router_program = ics26_router::ID;
         let payer = Pubkey::new_unique(); // the relayer
@@ -813,7 +887,7 @@ mod tests {
         );
 
         let counter_ix_data =
-            anchor_lang::InstructionData::data(&test_gmp_app::instruction::Increment { amount: 1 });
+            InstructionData::data(&test_gmp_app::instruction::Increment { amount: 1 });
 
         // EXPLOIT: payload specifies RELAYER as user_authority AND payer
         let solana_payload = RawGmpSolanaPayload {
@@ -850,28 +924,13 @@ mod tests {
             prefund_lamports: 0,
         };
 
-        let raw_packet = RawGmpPacketData {
-            sender: sender.to_string(),
-            receiver: COUNTER_APP_ID.to_string(),
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &COUNTER_APP_ID.to_string(),
             salt,
-            payload: solana_payload.encode_to_vec(),
-            memo: String::new(),
-        };
-        let packet_data_bytes = raw_packet.encode_to_vec();
-
-        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
-            source_client: "cosmos-1".to_string(),
-            dest_client: client_id.to_string(),
-            sequence: 1,
-            payload: solana_ibc_types::Payload {
-                source_port: GMP_PORT_ID.to_string(),
-                dest_port: GMP_PORT_ID.to_string(),
-                version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
-                value: packet_data_bytes,
-            },
-            relayer: Pubkey::new_unique(),
-        };
+            solana_payload.encode_to_vec(),
+        );
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
 
         let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
         let instruction = SolanaInstructionSDK {
@@ -893,32 +952,10 @@ mod tests {
             data: instruction_data.data(),
         };
 
-        let counter_app_state = test_gmp_app::state::CounterAppState {
-            authority,
-            total_counters: 0,
-            total_gmp_calls: 0,
-            bump: counter_app_state_bump,
-        };
-        let mut counter_app_state_data = Vec::new();
-        counter_app_state_data
-            .extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
-        counter_app_state
-            .serialize(&mut counter_app_state_data)
-            .unwrap();
-
         let accounts = vec![
             create_gmp_app_state_account(app_state_pda, app_state_bump, false),
             create_instructions_sysvar_account_with_caller(router_program),
-            (
-                COUNTER_APP_ID,
-                Account {
-                    lamports: 1_000_000,
-                    data: vec![],
-                    owner: bpf_loader_upgradeable::ID,
-                    executable: true,
-                    rent_epoch: 0,
-                },
-            ),
+            create_counter_program_account(),
             create_authority_account(payer),
             create_system_program_account(),
             (
@@ -931,25 +968,16 @@ mod tests {
                     rent_epoch: 0,
                 },
             ),
-            (
-                counter_app_state_pda,
-                Account {
-                    lamports: 1_000_000,
-                    data: counter_app_state_data,
-                    owner: COUNTER_APP_ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            ),
+            create_counter_state_account(counter_app_state_pda, authority, counter_app_state_bump),
             create_uninitialized_account_for_pda(user_counter_pda),
             create_system_program_account(),
         ];
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unauthorized_signer()],
+        );
     }
 
     // ── Parametrized unauthorized signer edge cases ─────────────────
@@ -1069,11 +1097,11 @@ mod tests {
             }
         }
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        ))];
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unauthorized_signer()],
+        );
     }
 
     #[rstest]
@@ -1109,13 +1137,12 @@ mod tests {
             prefund_lamports: 0,
         };
 
-        let raw_packet = RawGmpPacketData {
-            sender: sender.to_string(),
-            receiver: DUMMY_TARGET_PROGRAM.to_string(),
+        let raw_packet = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
             salt,
-            payload: solana_payload.encode_to_vec(),
-            memo: String::new(),
-        };
+            solana_payload.encode_to_vec(),
+        );
         let packet_data_bytes = encode_test_packet(raw_packet, ICS27_ENCODING_ABI);
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
@@ -1156,11 +1183,11 @@ mod tests {
             create_authority_account(ctx.payer),
         ];
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        ))];
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unauthorized_signer()],
+        );
     }
 
     /// Demonstrates the most dangerous exploit variant: a malicious payload
@@ -1240,11 +1267,11 @@ mod tests {
             create_uninitialized_account_for_pda(attacker), // attacker (empty)
         ];
 
-        let checks = vec![Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
-        ))];
-        ctx.mollusk
-            .process_and_validate_instruction(&instruction, &accounts, &checks);
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unauthorized_signer()],
+        );
     }
 
     // ── Positive regression tests ───────────────────────────────────
@@ -1307,21 +1334,7 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-
-        let unauthorized_signer =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
-        let insufficient_permissions =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
-            "Relayer as writable-but-not-signer should pass signer validation"
-        );
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
-            "Relayer as writable-but-not-signer should pass permission validation"
-        );
+        assert_passes_signer_validation(&result);
     }
 
     /// Payload with zero signers must pass signer validation.
@@ -1373,21 +1386,7 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-
-        let unauthorized_signer =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
-        let insufficient_permissions =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
-            "Payload with no signers should pass signer validation"
-        );
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
-            "Payload with no signers should pass permission validation"
-        );
+        assert_passes_signer_validation(&result);
     }
 
     /// GMP PDA as the sole signer passes validation (fails later at
@@ -1450,21 +1449,7 @@ mod tests {
         ];
 
         let result = ctx.mollusk.process_instruction(&instruction, &accounts);
-
-        let unauthorized_signer =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
-        let insufficient_permissions =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32);
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
-            "GMP PDA as signer should pass signer validation"
-        );
-        assert_ne!(
-            result.program_result,
-            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
-            "GMP PDA as signer should pass permission validation"
-        );
+        assert_passes_signer_validation(&result);
     }
 
     fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
