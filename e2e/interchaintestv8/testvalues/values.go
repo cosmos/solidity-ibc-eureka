@@ -83,6 +83,10 @@ const (
 	EnvValueProofType_Groth16 = "groth16"
 	// EnvValueProofType_Plonk is the proof type for Plonk.
 	EnvValueProofType_Plonk = "plonk"
+	// EnvValueGmpEncoding_Protobuf is the GMP encoding type for protobuf.
+	EnvValueGmpEncoding_Protobuf = "protobuf"
+	// EnvValueGmpEncoding_Abi is the GMP encoding type for ABI.
+	EnvValueGmpEncoding_Abi = "abi"
 	// EnvValueWasmLightClientTag_Local is the value to set to use the local Wasm light client binary.
 	EnvValueWasmLightClientTag_Local = "local"
 
@@ -118,6 +122,9 @@ const (
 	// EnvKeyE2EProofType is the environment variable name to configure the proof type. (groth16|plonk)
 	// A randomly selected proof type is used if not set.
 	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
+	// EnvKeyE2EGmpEncoding is the environment variable name to configure the GMP encoding type. (protobuf|abi)
+	// Defaults to protobuf if not set.
+	EnvKeyE2EGmpEncoding = "E2E_GMP_ENCODING"
 	// EnvKeyE2EWasmLightClientTag is the environment variable name to configure the eth light client version.
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag

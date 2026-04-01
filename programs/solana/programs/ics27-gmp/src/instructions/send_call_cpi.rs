@@ -194,7 +194,7 @@ mod tests {
                 payload: vec![4, 5, 6],
                 timeout_timestamp: 3600,
                 memo: String::new(),
-                encoding: crate::encoding::GmpEncoding::PROTOBUF_STR.to_string(),
+                encoding: crate::constants::ICS27_ENCODING_PROTOBUF.to_string(),
             }
         }
 
@@ -499,7 +499,7 @@ mod integration_tests {
             payload: vec![4, 5, 6],
             timeout_timestamp: 3600,
             memo: String::new(),
-            encoding: crate::encoding::GmpEncoding::PROTOBUF_STR.to_string(),
+            encoding: crate::constants::ICS27_ENCODING_PROTOBUF.to_string(),
         };
 
         let (router_state, _) = create_router_state_pda();

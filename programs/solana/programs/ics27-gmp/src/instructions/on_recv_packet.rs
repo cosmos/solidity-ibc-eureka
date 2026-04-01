@@ -93,8 +93,7 @@ pub fn on_recv_packet<'info>(
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Decode GMP packet data using the payload's declared encoding
-    let encoding = crate::encoding::GmpEncoding::try_from(msg.payload.encoding.as_str())?;
-    let raw_packet_data = encoding.decode_packet(&msg.payload.value)?;
+    let raw_packet_data = crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
     let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
         msg!("GMP packet validation failed: {}", e);
         GMPError::InvalidPacketData
@@ -188,13 +187,14 @@ pub fn on_recv_packet<'info>(
     };
 
     // Encode the acknowledgement using the same encoding as the payload
-    Ok(encoding.encode_ack(&result))
+    crate::encoding::encode_gmp_ack(&result, &msg.payload.encoding)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::encoding::GmpEncoding;
+    use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
+    use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
@@ -402,7 +402,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -594,7 +594,7 @@ mod tests {
                 version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
                 encoding: overrides
                     .encoding
-                    .unwrap_or(GmpEncoding::PROTOBUF_STR)
+                    .unwrap_or(ICS27_ENCODING_PROTOBUF)
                     .to_string(),
                 value: packet_data_bytes,
             },
@@ -755,13 +755,10 @@ mod tests {
     }
 
     fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        match GmpEncoding::try_from(encoding).unwrap() {
-            GmpEncoding::Abi => {
-                let validated = GmpPacketData::try_from(raw).unwrap();
-                GmpEncoding::Abi.encode_packet(validated)
-            }
-            GmpEncoding::Protobuf => raw.encode_to_vec(),
-        }
+        encode_gmp_packet(
+            GmpPacketData::try_from(raw).unwrap(),
+            encoding,
+        ).unwrap()
     }
 
     fn run_recv_success_test(encoding: &str) {
@@ -998,8 +995,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::protobuf(GmpEncoding::PROTOBUF_STR)]
-    #[case::abi(GmpEncoding::ABI_STR)]
+    #[case::protobuf(ICS27_ENCODING_PROTOBUF)]
+    #[case::abi(ICS27_ENCODING_ABI)]
     fn test_on_recv_packet_success_with_cpi(#[case] encoding: &str) {
         run_recv_success_test(encoding);
     }
@@ -1109,7 +1106,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: proto_packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -1325,7 +1322,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1539,7 +1536,6 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use crate::constants::*;
-    use crate::encoding::GmpEncoding;
     use crate::state::GMPAppState;
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
@@ -1560,7 +1556,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: GmpEncoding::PROTOBUF_STR.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![0],
             },
             relayer: Pubkey::new_unique(),

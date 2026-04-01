@@ -1,5 +1,5 @@
 use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
-use crate::encoding::GmpEncoding;
+use crate::constants::ICS27_ENCODING_PROTOBUF;
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
 use access_manager::RoleData;
@@ -366,7 +366,7 @@ pub fn create_recv_packet_msg(
             source_port: GMP_PORT_ID.to_string(),
             dest_port: GMP_PORT_ID.to_string(),
             version: ICS27_VERSION.to_string(),
-            encoding: GmpEncoding::PROTOBUF_STR.to_string(),
+            encoding: ICS27_ENCODING_PROTOBUF.to_string(),
             value: packet_data_bytes,
         },
         relayer: Pubkey::new_unique(),

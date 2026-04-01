@@ -19,5 +19,8 @@ pub const MIN_TIMEOUT_DURATION: u64 = 12;
 /// Universal error acknowledgement bytes
 pub const ACK_ERROR: &[u8] = b"error";
 
+pub const ICS27_ENCODING_PROTOBUF: &str = "application/x-protobuf";
+pub const ICS27_ENCODING_ABI: &str = "application/x-solidity-abi";
+
 /// Anchor discriminator size (8 bytes)
 pub const DISCRIMINATOR_SIZE: usize = 8;
