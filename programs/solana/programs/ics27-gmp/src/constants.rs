@@ -10,6 +10,12 @@ pub const GMP_PORT_ID: &str = "gmpport";
 /// ICS27 version (must match Cosmos GMP module version)
 pub const ICS27_VERSION: &str = "ics27-2";
 
+/// ICS27 protobuf encoding (Cosmos IBC-Go's `EncodingProtobuf` constant)
+pub const ICS27_ENCODING_PROTOBUF: &str = "application/x-protobuf";
+
+/// ICS27 Solidity ABI encoding (EVM `ICS27Lib`'s `ICS27_ENCODING` constant)
+pub const ICS27_ENCODING_ABI: &str = "application/x-solidity-abi";
+
 /// Maximum timeout duration (24 hours in seconds)
 pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
@@ -18,9 +24,6 @@ pub const MIN_TIMEOUT_DURATION: u64 = 12;
 
 /// Universal error acknowledgement bytes
 pub const ACK_ERROR: &[u8] = b"error";
-
-pub const ICS27_ENCODING_PROTOBUF: &str = "application/x-protobuf";
-pub const ICS27_ENCODING_ABI: &str = "application/x-solidity-abi";
 
 /// Anchor discriminator size (8 bytes)
 pub const DISCRIMINATOR_SIZE: usize = 8;

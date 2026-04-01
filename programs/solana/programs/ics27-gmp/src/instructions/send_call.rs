@@ -668,7 +668,7 @@ mod tests {
         let packet_data = GmpPacketData::try_from(raw).unwrap();
 
         let encoded =
-            encode_gmp_packet(packet_data, ICS27_ENCODING_ABI).unwrap();
+            encode_gmp_packet(packet_data, ICS27_ENCODING_ABI).expect("ABI encoding should work");
         let raw_decoded =
             decode_gmp_packet(&encoded, ICS27_ENCODING_ABI).expect("ABI decoding should succeed");
         let decoded = GmpPacketData::try_from(raw_decoded).unwrap();
