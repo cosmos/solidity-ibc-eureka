@@ -89,6 +89,21 @@ pub fn encode_gmp_ack(result: &[u8], encoding: &str) -> Result<Vec<u8>> {
     }
 }
 
+pub fn decode_gmp_ack(bytes: &[u8], encoding: &str) -> Result<GmpAcknowledgement> {
+    match encoding {
+        ICS27_ENCODING_ABI => {
+            use alloy_sol_types::SolValue;
+            let abi =
+                GmpAcknowledgementAbi::abi_decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
+            Ok(GmpAcknowledgement::success(abi.result.into()))
+        }
+        ICS27_ENCODING_PROTOBUF => {
+            GmpAcknowledgement::decode_vec(bytes).map_err(|_| GMPError::InvalidPacketData.into())
+        }
+        _ => Err(GMPError::InvalidEncoding.into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -179,15 +194,15 @@ mod tests {
         let data = vec![1, 2, 3, 4];
         let encoded = encode_gmp_ack(&data, ICS27_ENCODING_ABI).unwrap();
         assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
-        assert_eq!(&decoded.result[..], &data);
+        let decoded = decode_gmp_ack(&encoded, ICS27_ENCODING_ABI).unwrap();
+        assert_eq!(decoded.result, data);
     }
 
     #[test]
     fn ack_abi_empty_result() {
         let encoded = encode_gmp_ack(&[], ICS27_ENCODING_ABI).unwrap();
         assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
+        let decoded = decode_gmp_ack(&encoded, ICS27_ENCODING_ABI).unwrap();
         assert!(decoded.result.is_empty());
     }
 
@@ -196,7 +211,7 @@ mod tests {
         let data = vec![1, 2, 3, 4];
         let encoded = encode_gmp_ack(&data, ICS27_ENCODING_PROTOBUF).unwrap();
         assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        let decoded = decode_gmp_ack(&encoded, ICS27_ENCODING_PROTOBUF).unwrap();
         assert_eq!(decoded.result, data);
     }
 
@@ -204,7 +219,7 @@ mod tests {
     fn ack_protobuf_empty_result_uses_sentinel() {
         let encoded = encode_gmp_ack(&[], ICS27_ENCODING_PROTOBUF).unwrap();
         assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        let decoded = decode_gmp_ack(&encoded, ICS27_ENCODING_PROTOBUF).unwrap();
         assert_eq!(decoded.result, vec![0]);
     }
 

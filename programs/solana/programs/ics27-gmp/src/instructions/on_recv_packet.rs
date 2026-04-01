@@ -968,7 +968,7 @@ mod tests {
             &result.return_data[..]
         };
 
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, encoding).unwrap();
 
         // Following ibc-go convention: non-empty result = success
         assert!(
@@ -1208,7 +1208,7 @@ mod tests {
         } else {
             &result.return_data[..]
         };
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, ICS27_ENCODING_PROTOBUF).unwrap();
 
         assert!(
             !ack.result.is_empty(),
