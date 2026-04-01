@@ -12,7 +12,7 @@ The access manager maintains a central registry of roles and their members. Ever
 AccessManager PDA (seeds: ["access_manager"])
   roles:                       Vec<RoleData>                      -- role ID -> member list
   whitelisted_programs:        Vec<Pubkey>                        -- programs allowed to call admin-gated instructions via CPI (e.g. multisig)
-  pending_authority_transfer:  Option<PendingAuthorityTransfer>   -- pending two-step upgrade authority transfer
+  pending_authority_transfers: Vec<PendingAuthorityTransfer>      -- pending two-step upgrade authority transfers (one per target program, max 8)
 ```
 
 Role IDs are opaque `u64` values defined in `solana-ibc-types::roles`. The access manager does not interpret them -- consuming programs define what each role means.
@@ -41,7 +41,7 @@ Upgrades a target program's bytecode via BPF Loader Upgradeable. The access mana
 
 ### `propose_upgrade_authority_transfer`
 
-Proposes transferring a target program's BPF Loader upgrade authority from this access manager's PDA to a new address. Sets a pending transfer on the `AccessManager` state. Requires `ADMIN_ROLE`. Allows whitelisted CPI. Only one pending transfer at a time.
+Proposes transferring a target program's BPF Loader upgrade authority from this access manager's PDA to a new address. Adds a pending transfer to the `AccessManager` state. Requires `ADMIN_ROLE`. Allows whitelisted CPI. Supports concurrent transfers for different target programs (up to 8).
 
 ### `accept_upgrade_authority_transfer`
 
@@ -91,19 +91,17 @@ There are two independent control planes to migrate:
 **Upgrade authority** (who can replace program bytecode):
 
 1. Deploy and initialize AM-B with its own admin
-2. AM-A admin calls `propose_upgrade_authority_transfer` on AM-A for a target program, specifying AM-B's upgrade authority PDA as the new authority
-3. Anyone calls `claim_upgrade_authority` on AM-B -- AM-B CPIs into AM-A's `accept_upgrade_authority_transfer` signing with its own PDA (since only AM-B can `invoke_signed` with AM-B's PDA)
+2. AM-A admin calls `propose_upgrade_authority_transfer` on AM-A for each target program, specifying AM-B's upgrade authority PDA as the new authority -- proposals for different programs can be batched in a single transaction
+3. Anyone calls `claim_upgrade_authority` on AM-B for each target program -- AM-B CPIs into AM-A's `accept_upgrade_authority_transfer` signing with its own PDA (since only AM-B can `invoke_signed` with AM-B's PDA)
 4. AM-A validates the pending transfer matches, then executes BPF Loader `set_authority` -- authority moves from AM-A's PDA to AM-B's PDA
-5. Repeat steps 2-4 for each managed program
 
 **Runtime roles** (who can relay, pause, configure):
 
-6. AM-A admin calls `set_access_manager` on each IBC program (ICS07, ICS26, GMP, attestation) to repoint from AM-A to AM-B
+5. AM-A admin calls `propose_access_manager_transfer` on each IBC program (ICS07, ICS26, GMP, attestation) to propose repointing from AM-A to AM-B
+6. AM-B admin calls `accept_access_manager_transfer` on each IBC program to finalize the switch
 7. AM-B now controls both bytecode upgrades and runtime roles -- AM-A has no remaining authority
 
-> **Note:** IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use `set_access_manager`.
-
-> **TODO:** `set_access_manager` is currently a one-step operation. If an admin accidentally points it to a wrong or nonexistent AM address, the program becomes unrecoverable -- all future admin-gated calls (including another `set_access_manager` to fix the mistake) would fail because `require_admin` reads roles from the now-invalid AM. This should be upgraded to a two-step propose/accept pattern (like upgrade authority transfer) so the new AM must prove it is valid before the switch takes effect.
+> **Note:** IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use access manager transfer.
 
 ## Security
 
@@ -126,6 +124,10 @@ Authority transfers require propose + accept, preventing irreversible mistakes f
 #### Self-transfer rejection
 
 `propose_upgrade_authority_transfer` rejects transferring to the current upgrade authority PDA.
+
+#### Concurrent transfer limit
+
+The pending transfers vector is capped at 8 entries with a runtime guard, preventing unbounded growth that would corrupt account data.
 
 #### Last admin protection
 
