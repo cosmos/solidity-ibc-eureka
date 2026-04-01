@@ -50,6 +50,7 @@ pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     let access_manager = &mut ctx.accounts.access_manager;
     access_manager.roles = vec![];
     access_manager.whitelisted_programs = vec![];
+    access_manager.pending_authority_transfer = None;
 
     access_manager.grant_role(roles::ADMIN_ROLE, admin)?;
 

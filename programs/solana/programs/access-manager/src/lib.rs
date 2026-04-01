@@ -10,23 +10,12 @@ pub mod test_utils;
 pub mod types;
 
 pub use errors::AccessManagerError;
-pub use helpers::{
-    handle_accept_access_manager_transfer, handle_cancel_access_manager_transfer,
-    handle_propose_access_manager_transfer, require_admin, require_role,
-    require_role_with_whitelist,
-};
+pub use helpers::{require_admin, require_role, require_role_with_whitelist};
 use instructions::*;
 pub use state::AccessManagerTransferState;
 pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
-
-#[cfg(test)]
-pub const PROGRAM_BINARY_NAME: &str = "access_manager";
-#[cfg(test)]
-pub const OTHER_AM_BINARY_NAME: &str = "test_access_manager";
-#[cfg(test)]
-pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");
 
 pub fn get_access_manager_program_path() -> &'static str {
     use std::sync::OnceLock;
@@ -98,3 +87,10 @@ pub mod access_manager {
         instructions::claim_upgrade_authority(ctx, target_program)
     }
 }
+
+#[cfg(test)]
+pub const PROGRAM_BINARY_NAME: &str = "access_manager";
+#[cfg(test)]
+pub const OTHER_AM_BINARY_NAME: &str = "test_access_manager";
+#[cfg(test)]
+pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");

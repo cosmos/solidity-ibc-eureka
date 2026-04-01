@@ -4,9 +4,7 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
 use anchor_lang::solana_program::program::invoke_signed;
-
-/// Anchor discriminator: `sha256("global:accept_upgrade_authority_transfer")[..8]`
-const ACCEPT_DISCRIMINATOR: [u8; 8] = [0x5f, 0x29, 0x74, 0x36, 0x66, 0xad, 0x6f, 0x11];
+use anchor_lang::InstructionData;
 
 /// Claims upgrade authority from a source access manager that has proposed
 /// a transfer to this access manager's upgrade authority PDA.
@@ -16,13 +14,13 @@ const ACCEPT_DISCRIMINATOR: [u8; 8] = [0x5f, 0x29, 0x74, 0x36, 0x66, 0xad, 0x6f,
 /// `accept_upgrade_authority_transfer` with its own PDA as signer.
 ///
 /// No admin authorization required -- PDA signing IS the authorization.
-/// Only this program can `invoke_signed` with its upgrade authority PDA.
+/// Only this program can sign with its upgrade authority PDA.
 /// The source AM's accept instruction validates the pending transfer matches.
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
 pub struct ClaimUpgradeAuthority<'info> {
     /// This access manager's upgrade authority PDA for the target program.
-    /// Signs the CPI as the new authority via `invoke_signed`.
+    /// Signs the CPI as the new authority.
     /// CHECK: Validated via seeds constraint
     #[account(
         seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
@@ -30,18 +28,33 @@ pub struct ClaimUpgradeAuthority<'info> {
     )]
     pub our_upgrade_authority: AccountInfo<'info>,
 
-    /// The source access manager's state account (writable for clearing pending).
-    /// CHECK: Owned and validated by the source AM's accept instruction
-    #[account(mut)]
+    /// The source access manager's state PDA.
+    /// CHECK: Validated via seeds constraint against `source_access_manager_program`
+    #[account(
+        mut,
+        seeds = [AccessManager::SEED],
+        bump,
+        seeds::program = source_access_manager_program.key()
+    )]
     pub source_access_manager_state: AccountInfo<'info>,
 
     /// The target program's data account (BPF Loader Upgradeable PDA).
-    /// CHECK: Validated by the source AM's accept instruction
-    #[account(mut)]
+    /// CHECK: Validated via seeds constraint against BPF Loader Upgradeable
+    #[account(
+        mut,
+        seeds = [target_program.as_ref()],
+        bump,
+        seeds::program = bpf_loader_upgradeable::ID
+    )]
     pub target_program_data: AccountInfo<'info>,
 
-    /// The source access manager's upgrade authority PDA (current authority).
-    /// CHECK: Validated by the source AM's accept instruction
+    /// The source access manager's upgrade authority PDA for the target program.
+    /// CHECK: Validated via seeds constraint against `source_access_manager_program`
+    #[account(
+        seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
+        bump,
+        seeds::program = source_access_manager_program.key()
+    )]
     pub source_upgrade_authority: AccountInfo<'info>,
 
     /// The source access manager program (CPI target).
@@ -54,36 +67,22 @@ pub struct ClaimUpgradeAuthority<'info> {
     pub bpf_loader_upgradeable: AccountInfo<'info>,
 }
 
+/// Uses `invoke_signed` because Anchor's `cpi` feature enables `no-entrypoint`,
+/// preventing a program from using its own CPI module.
 pub fn claim_upgrade_authority(
     ctx: Context<ClaimUpgradeAuthority>,
     target_program: Pubkey,
 ) -> Result<()> {
-    let (our_upgrade_authority_pda, bump) =
-        AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
-
-    // Build CPI instruction data for the source AM's accept_upgrade_authority_transfer.
-    // Both programs share the same Anchor module name ("access_manager"), so the
-    // discriminator is identical.
-    let mut ix_data = Vec::with_capacity(8_usize.saturating_add(32));
-    ix_data.extend_from_slice(&ACCEPT_DISCRIMINATOR);
-    AnchorSerialize::serialize(&target_program, &mut ix_data)?;
-
-    // Account metas matching AcceptUpgradeAuthorityTransfer:
-    //   [0] access_manager       (writable)
-    //   [1] program_data         (writable)
-    //   [2] upgrade_authority    (read-only)
-    //   [3] new_authority_account (signer -- our PDA)
-    //   [4] bpf_loader_upgradeable (read-only)
     let accept_ix = Instruction {
         program_id: ctx.accounts.source_access_manager_program.key(),
         accounts: vec![
             AccountMeta::new(ctx.accounts.source_access_manager_state.key(), false),
             AccountMeta::new(ctx.accounts.target_program_data.key(), false),
             AccountMeta::new_readonly(ctx.accounts.source_upgrade_authority.key(), false),
-            AccountMeta::new_readonly(our_upgrade_authority_pda, true),
-            AccountMeta::new_readonly(ctx.accounts.bpf_loader_upgradeable.key(), false),
+            AccountMeta::new_readonly(ctx.accounts.our_upgrade_authority.key(), true),
+            AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
         ],
-        data: ix_data,
+        data: crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data(),
     };
 
     invoke_signed(
@@ -98,14 +97,14 @@ pub fn claim_upgrade_authority(
         &[&[
             AccessManager::UPGRADE_AUTHORITY_SEED,
             target_program.as_ref(),
-            &[bump],
+            &[ctx.bumps.our_upgrade_authority],
         ]],
     )?;
 
     emit!(UpgradeAuthorityClaimedEvent {
         program: target_program,
         source_access_manager: ctx.accounts.source_access_manager_program.key(),
-        new_authority: our_upgrade_authority_pda,
+        new_authority: ctx.accounts.our_upgrade_authority.key(),
     });
 
     Ok(())

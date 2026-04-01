@@ -25,6 +25,7 @@ pub struct ProposeUpgradeAuthorityTransfer<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// Must hold `ADMIN_ROLE` on the current access manager.
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
@@ -113,6 +114,7 @@ pub struct AcceptUpgradeAuthorityTransfer<'info> {
     )]
     pub upgrade_authority: AccountInfo<'info>,
 
+    /// The proposed new upgrade authority. Must match the pending transfer.
     pub new_authority: Signer<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
@@ -192,6 +194,7 @@ pub struct CancelUpgradeAuthorityTransfer<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
+    /// Must hold `ADMIN_ROLE` on the current access manager.
     pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
