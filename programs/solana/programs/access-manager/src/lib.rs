@@ -82,6 +82,6 @@ pub mod access_manager {
 
 /// Returns the filesystem path to the compiled access-manager `.so` binary.
 /// Used by Mollusk/ProgramTest in this crate and downstream crate tests.
-pub fn get_access_manager_program_path() -> &'static str {
+pub const fn get_access_manager_program_path() -> &'static str {
     "../../target/deploy/access_manager"
 }

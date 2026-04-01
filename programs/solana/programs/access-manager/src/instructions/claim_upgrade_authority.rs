@@ -233,27 +233,6 @@ mod integration_tests {
         }
     }
 
-    async fn get_program_data_authority(
-        banks_client: &solana_program_test::BanksClient,
-        target_program: Pubkey,
-    ) -> Option<Pubkey> {
-        let (program_data_pda, _) =
-            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
-        let account = banks_client
-            .get_account(program_data_pda)
-            .await
-            .unwrap()
-            .unwrap();
-        let state: UpgradeableLoaderState = bincode::deserialize(&account.data).unwrap();
-        match state {
-            UpgradeableLoaderState::ProgramData {
-                upgrade_authority_address,
-                ..
-            } => upgrade_authority_address,
-            _ => panic!("unexpected state"),
-        }
-    }
-
     async fn get_source_pending_transfers(
         banks_client: &solana_program_test::BanksClient,
     ) -> Vec<PendingAuthorityTransfer> {

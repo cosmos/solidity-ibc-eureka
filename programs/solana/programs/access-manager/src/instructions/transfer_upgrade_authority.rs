@@ -257,7 +257,6 @@ mod tests {
     use super::*;
     use crate::test_utils::*;
     use mollusk_svm::result::Check;
-    use solana_ibc_types::roles;
     use solana_sdk::{account::Account, instruction::AccountMeta};
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -276,46 +275,7 @@ mod tests {
         )
     }
 
-    fn create_access_manager_with_transfers(
-        admin: Pubkey,
-        transfers: Vec<PendingAuthorityTransfer>,
-    ) -> (Pubkey, Account) {
-        let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-        let am = AccessManager {
-            roles: vec![crate::types::RoleData {
-                role_id: roles::ADMIN_ROLE,
-                members: vec![admin],
-            }],
-            whitelisted_programs: vec![],
-            pending_authority_transfers: transfers,
-        };
-        let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
-        data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
-        am.serialize(&mut &mut data[8..]).unwrap();
-        (
-            pda,
-            Account {
-                lamports: 1_000_000,
-                data,
-                owner: crate::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        )
-    }
-
-    fn build_propose_account_metas(
-        access_manager_pda: Pubkey,
-        authority: Pubkey,
-    ) -> Vec<AccountMeta> {
-        vec![
-            AccountMeta::new(access_manager_pda, false),
-            AccountMeta::new_readonly(authority, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ]
-    }
-
-    fn build_cancel_account_metas(
+    fn build_admin_account_metas(
         access_manager_pda: Pubkey,
         authority: Pubkey,
     ) -> Vec<AccountMeta> {
@@ -397,7 +357,7 @@ mod tests {
                 target_program,
                 new_authority,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -434,7 +394,7 @@ mod tests {
                 target_program,
                 new_authority,
             },
-            build_propose_account_metas(pda, non_admin),
+            build_admin_account_metas(pda, non_admin),
         );
 
         let accounts = vec![
@@ -466,7 +426,7 @@ mod tests {
                 target_program,
                 new_authority,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let malicious_program = Pubkey::new_unique();
@@ -499,7 +459,7 @@ mod tests {
                 target_program,
                 new_authority: Pubkey::default(),
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -533,7 +493,7 @@ mod tests {
                 target_program,
                 new_authority: upgrade_authority_pda,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -568,7 +528,7 @@ mod tests {
                 target_program,
                 new_authority,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -603,7 +563,7 @@ mod tests {
                 target_program: target_b,
                 new_authority: authority_b,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -652,7 +612,7 @@ mod tests {
                 target_program: Pubkey::new_unique(),
                 new_authority: Pubkey::new_unique(),
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -684,7 +644,7 @@ mod tests {
                 target_program,
                 new_authority,
             },
-            build_propose_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let (instruction, fake_sysvar_account) = setup_fake_sysvar_attack(instruction, crate::ID);
@@ -873,7 +833,7 @@ mod tests {
 
         let instruction = build_instruction(
             crate::instruction::CancelUpgradeAuthorityTransfer { target_program },
-            build_cancel_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -917,7 +877,7 @@ mod tests {
             crate::instruction::CancelUpgradeAuthorityTransfer {
                 target_program: target_a,
             },
-            build_cancel_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -953,7 +913,7 @@ mod tests {
 
         let instruction = build_instruction(
             crate::instruction::CancelUpgradeAuthorityTransfer { target_program },
-            build_cancel_account_metas(pda, non_admin),
+            build_admin_account_metas(pda, non_admin),
         );
 
         let accounts = vec![
@@ -982,7 +942,7 @@ mod tests {
 
         let instruction = build_instruction(
             crate::instruction::CancelUpgradeAuthorityTransfer { target_program },
-            build_cancel_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -1016,7 +976,7 @@ mod tests {
             crate::instruction::CancelUpgradeAuthorityTransfer {
                 target_program: wrong_target,
             },
-            build_cancel_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let accounts = vec![
@@ -1046,7 +1006,7 @@ mod tests {
 
         let instruction = build_instruction(
             crate::instruction::CancelUpgradeAuthorityTransfer { target_program },
-            build_cancel_account_metas(pda, admin),
+            build_admin_account_metas(pda, admin),
         );
 
         let malicious_program = Pubkey::new_unique();
@@ -1069,143 +1029,17 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use crate::state::AccessManager;
     use crate::test_utils::*;
-    use anchor_lang::prelude::bpf_loader_upgradeable;
-    use anchor_lang::InstructionData;
-    use solana_sdk::{
-        account::Account,
-        bpf_loader_upgradeable::UpgradeableLoaderState,
-        instruction::{AccountMeta, Instruction},
-        pubkey::Pubkey,
-        signature::Keypair,
-        signer::Signer,
-    };
+    use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer};
 
     fn setup_program_test(
         admin: &Pubkey,
         whitelisted: &[Pubkey],
     ) -> (solana_program_test::ProgramTest, Pubkey) {
         let mut pt = setup_program_test_with_whitelist(admin, whitelisted);
-
         let target_program = Pubkey::new_unique();
-        let (program_data_pda, _) =
-            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
-        let (upgrade_authority_pda, _) =
-            AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
-
-        let pd_account = Account::new_data_with_space(
-            10_000_000_000,
-            &UpgradeableLoaderState::ProgramData {
-                slot: 0,
-                upgrade_authority_address: Some(upgrade_authority_pda),
-            },
-            UpgradeableLoaderState::size_of_programdata_metadata(),
-            &bpf_loader_upgradeable::ID,
-        )
-        .unwrap();
-        pt.add_account(program_data_pda, pd_account);
-
-        pt.add_account(
-            upgrade_authority_pda,
-            Account {
-                lamports: 1_000_000,
-                owner: solana_sdk::system_program::ID,
-                ..Default::default()
-            },
-        );
-
+        add_target_program_accounts(&mut pt, &target_program);
         (pt, target_program)
-    }
-
-    fn build_propose_ix(
-        authority: Pubkey,
-        target_program: Pubkey,
-        new_authority: Pubkey,
-    ) -> Instruction {
-        let (access_manager_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-
-        Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(access_manager_pda, false),
-                AccountMeta::new_readonly(authority, true),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: crate::instruction::ProposeUpgradeAuthorityTransfer {
-                target_program,
-                new_authority,
-            }
-            .data(),
-        }
-    }
-
-    fn build_accept_ix(target_program: Pubkey, new_authority: Pubkey) -> Instruction {
-        let (access_manager_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-        let (program_data, _) =
-            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
-        let (upgrade_authority_pda, _) =
-            AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
-
-        Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(access_manager_pda, false),
-                AccountMeta::new(program_data, false),
-                AccountMeta::new_readonly(upgrade_authority_pda, false),
-                AccountMeta::new_readonly(new_authority, true),
-                AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
-            ],
-            data: crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data(),
-        }
-    }
-
-    fn build_cancel_ix(authority: Pubkey, target_program: Pubkey) -> Instruction {
-        let (access_manager_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-
-        Instruction {
-            program_id: crate::ID,
-            accounts: vec![
-                AccountMeta::new(access_manager_pda, false),
-                AccountMeta::new_readonly(authority, true),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: crate::instruction::CancelUpgradeAuthorityTransfer { target_program }.data(),
-        }
-    }
-
-    async fn get_program_data_authority(
-        banks_client: &solana_program_test::BanksClient,
-        target_program: Pubkey,
-    ) -> Option<Pubkey> {
-        let (program_data_pda, _) =
-            Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
-        let account = banks_client
-            .get_account(program_data_pda)
-            .await
-            .unwrap()
-            .unwrap();
-        let state: UpgradeableLoaderState = bincode::deserialize(&account.data).unwrap();
-        match state {
-            UpgradeableLoaderState::ProgramData {
-                upgrade_authority_address,
-                ..
-            } => upgrade_authority_address,
-            _ => panic!("unexpected state"),
-        }
-    }
-
-    async fn get_pending_transfers(
-        banks_client: &solana_program_test::BanksClient,
-    ) -> Vec<crate::types::PendingAuthorityTransfer> {
-        let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
-        let account = banks_client.get_account(pda).await.unwrap().unwrap();
-        let am: AccessManager =
-            anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
-        am.pending_authority_transfers
     }
 
     #[tokio::test]
@@ -1447,31 +1281,7 @@ mod integration_tests {
         let mut pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
 
         for target in &target_programs {
-            let (program_data_pda, _) =
-                Pubkey::find_program_address(&[target.as_ref()], &bpf_loader_upgradeable::ID);
-            let (upgrade_authority_pda, _) =
-                AccessManager::upgrade_authority_pda(target, &crate::ID);
-
-            let pd_account = Account::new_data_with_space(
-                10_000_000_000,
-                &UpgradeableLoaderState::ProgramData {
-                    slot: 0,
-                    upgrade_authority_address: Some(upgrade_authority_pda),
-                },
-                UpgradeableLoaderState::size_of_programdata_metadata(),
-                &bpf_loader_upgradeable::ID,
-            )
-            .unwrap();
-            pt.add_account(program_data_pda, pd_account);
-
-            pt.add_account(
-                upgrade_authority_pda,
-                Account {
-                    lamports: 1_000_000,
-                    owner: solana_sdk::system_program::ID,
-                    ..Default::default()
-                },
-            );
+            add_target_program_accounts(&mut pt, target);
         }
 
         let (banks_client, payer, recent_blockhash) = pt.start().await;
@@ -1573,30 +1383,7 @@ mod integration_tests {
 
         let targets: Vec<Pubkey> = (0..2).map(|_| Pubkey::new_unique()).collect();
         for target in &targets {
-            let (program_data_pda, _) =
-                Pubkey::find_program_address(&[target.as_ref()], &bpf_loader_upgradeable::ID);
-            let (upgrade_authority_pda, _) =
-                AccessManager::upgrade_authority_pda(target, &crate::ID);
-
-            let pd_account = Account::new_data_with_space(
-                10_000_000_000,
-                &UpgradeableLoaderState::ProgramData {
-                    slot: 0,
-                    upgrade_authority_address: Some(upgrade_authority_pda),
-                },
-                UpgradeableLoaderState::size_of_programdata_metadata(),
-                &bpf_loader_upgradeable::ID,
-            )
-            .unwrap();
-            pt.add_account(program_data_pda, pd_account);
-            pt.add_account(
-                upgrade_authority_pda,
-                Account {
-                    lamports: 1_000_000,
-                    owner: solana_sdk::system_program::ID,
-                    ..Default::default()
-                },
-            );
+            add_target_program_accounts(&mut pt, target);
         }
 
         let (banks_client, payer, recent_blockhash) = pt.start().await;
