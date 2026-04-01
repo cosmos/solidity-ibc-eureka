@@ -1,12 +1,13 @@
 use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData};
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData};
 
 mod sol_types {
     alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
 }
 
+use sol_types::IICS27GMPMsgs::GMPAcknowledgement as GmpAcknowledgementAbi;
 pub use sol_types::IICS27GMPMsgs::GMPPacketData as GmpPacketDataAbi;
 
 impl From<GmpPacketData> for GmpPacketDataAbi {
@@ -17,6 +18,14 @@ impl From<GmpPacketData> for GmpPacketDataAbi {
             salt: data.salt.into_vec().into(),
             payload: data.payload.into_inner().into(),
             memo: data.memo.into_string(),
+        }
+    }
+}
+
+impl From<GmpAcknowledgement> for GmpAcknowledgementAbi {
+    fn from(ack: GmpAcknowledgement) -> Self {
+        Self {
+            result: ack.result.into(),
         }
     }
 }
@@ -54,6 +63,27 @@ pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketDat
         }
         ICS27_ENCODING_PROTOBUF => {
             RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData.into())
+        }
+        _ => Err(GMPError::InvalidEncoding.into()),
+    }
+}
+
+pub fn encode_gmp_ack(result: &[u8], encoding: &str) -> Result<Vec<u8>> {
+    match encoding {
+        ICS27_ENCODING_ABI => {
+            use alloy_sol_types::SolValue;
+            Ok(
+                GmpAcknowledgementAbi::from(GmpAcknowledgement::success(result.to_vec()))
+                    .abi_encode(),
+            )
+        }
+        ICS27_ENCODING_PROTOBUF => {
+            let ack = if result.is_empty() {
+                GmpAcknowledgement::protobuf_empty_success()
+            } else {
+                GmpAcknowledgement::success(result.to_vec())
+            };
+            Ok(ack.encode_to_vec())
         }
         _ => Err(GMPError::InvalidEncoding.into()),
     }
@@ -142,6 +172,45 @@ mod tests {
         assert_eq!(&abi.salt[..], &[1, 2, 3]);
         assert_eq!(&abi.payload[..], &[4, 5, 6, 7]);
         assert_eq!(abi.memo, "test memo");
+    }
+
+    #[test]
+    fn ack_abi_round_trip() {
+        let data = vec![1, 2, 3, 4];
+        let encoded = encode_gmp_ack(&data, ICS27_ENCODING_ABI).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
+        assert_eq!(&decoded.result[..], &data);
+    }
+
+    #[test]
+    fn ack_abi_empty_result() {
+        let encoded = encode_gmp_ack(&[], ICS27_ENCODING_ABI).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
+        assert!(decoded.result.is_empty());
+    }
+
+    #[test]
+    fn ack_protobuf_round_trip() {
+        let data = vec![1, 2, 3, 4];
+        let encoded = encode_gmp_ack(&data, ICS27_ENCODING_PROTOBUF).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, data);
+    }
+
+    #[test]
+    fn ack_protobuf_empty_result_uses_sentinel() {
+        let encoded = encode_gmp_ack(&[], ICS27_ENCODING_PROTOBUF).unwrap();
+        assert!(!encoded.is_empty());
+        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
+        assert_eq!(decoded.result, vec![0]);
+    }
+
+    #[test]
+    fn invalid_encoding_ack_rejected() {
+        assert!(encode_gmp_ack(&[1], "application/json").is_err());
     }
 
     #[test]

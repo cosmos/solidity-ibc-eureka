@@ -82,7 +82,7 @@ pub fn on_timeout_packet(
 #[cfg(test)]
 mod tests {
     use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
-    use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
+    use crate::encoding::encode_gmp_packet;
     use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,

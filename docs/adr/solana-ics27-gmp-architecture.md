@@ -528,7 +528,7 @@ See [Per-Sender Sequence Counter](solana-storage-architecture.md#per-sender-sequ
 
 ## Acknowledgement Encoding
 
-After executing the target program, GMP wraps the CPI return data in a protobuf `Acknowledgement { bytes result = 1 }`. Proto3 omits empty bytes fields, so an empty result encodes to zero bytes — which the router rejects. When a target returns no data (e.g. SPL Token), GMP uses a `[0]` sentinel via `GmpAcknowledgement::empty_success()` to keep the encoding non-empty. On the Solidity side this isn't an issue because `abi.encode` always produces non-empty output.
+After executing the target program, GMP wraps the CPI return data in an `Acknowledgement { bytes result }` using the same encoding as the inbound packet (`encode_gmp_ack`). For protobuf, proto3 omits empty bytes fields, so an empty result would encode to zero bytes — which the router rejects. When a target returns no data (e.g. SPL Token), GMP uses a `[0]` sentinel via `GmpAcknowledgement::protobuf_empty_success()` to keep the encoding non-empty. ABI encoding doesn't need a sentinel because `abi.encode` always produces non-empty output.
 
 ## Security Model
 
