@@ -161,47 +161,15 @@ pub fn on_recv_packet<'info>(
             GMPError::AccountKeyMismatch
         );
 
-        // `account_info.is_writable` must be at least as permissive as `meta.is_writable`.
-        //
-        // We validate `meta` (attacker-controlled payload) against `account_info` (runtime state),
-        // NOT the other way around. Checking `meta == account_info` would be wrong because
-        // Solana's account merging upgrades readonly to writable when the same pubkey appears
-        // multiple times in a transaction.
-        //
-        //  meta.is_writable | account_info.is_writable | result
-        //  -----------------+--------------------------+--------
-        //  false            | false                    | OK (both agree readonly)
-        //  false            | true                     | OK (payload says readonly, runtime upgraded — harmless)
-        //  true             | true                     | OK (both agree writable)
-        //  true             | false                    | REJECT (payload demands writable, runtime is readonly)
+        // Sanity check that `account_info.is_writable` is at least as permissive as `meta.is_writable`.
         require!(
             account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
         );
 
-        // Only the GMP PDA may claim `is_signer` in the CPI instruction.
-        //
-        // `meta` (from the IBC payload) and `account_info` (from the Solana runtime)
-        // can disagree on signer status, so an exact-match check would be wrong:
-        //
-        //  account | meta.is_signer | acct.is_signer | exact-match  | our check
-        //  --------+----------------+----------------+--------------+----------
-        //  GMP PDA | true           | false          | REJECT (bad) | OK
-        //  relayer | true           | true           | OK (exploit) | REJECT
-        //  other   | false          | any            | OK           | OK
-        //
-        // GMP PDA: not a signer on the outer transaction — it only signs during
-        // `invoke_signed` via seeds. The payload correctly requests `is_signer=true`
-        // for the CPI, but `account_info.is_signer` is false.
-        //
-        // Relayer: signs the outer transaction as fee payer. Solana's account merging
-        // sets `account_info.is_signer=true` for every `AccountInfo` with that pubkey.
-        // A malicious payload requesting the relayer as signer would pass an exact-match
-        // check, letting a target program (e.g. System Transfer) drain the relayer's SOL.
-        require!(
-            !meta.is_signer || meta.pubkey == gmp_account.pda,
-            GMPError::UnauthorizedSigner
-        );
+        // GMP PDA is not a signer at this stage - the program will sign it during CPI.
+        // This check prevents relayer or any higher level signers from being included.
+        require!(!account_info.is_signer, GMPError::UnauthorizedSigner);
     }
 
     let instruction = Instruction {
