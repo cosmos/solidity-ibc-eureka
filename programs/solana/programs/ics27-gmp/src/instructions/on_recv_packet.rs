@@ -1374,17 +1374,17 @@ mod tests {
             gmp_account_pda,
             system_program::ID,
             vec![
-                AccountMeta::new(ctx.payer, true),  // relayer (exploit: signer)
-                AccountMeta::new(attacker, false),  // attacker wallet
+                AccountMeta::new(ctx.payer, true), // relayer (exploit: signer)
+                AccountMeta::new(attacker, false), // attacker wallet
             ],
         );
 
         let accounts = create_recv_mollusk_accounts(
             &ctx,
             gmp_account_pda,
-            create_system_program_account(),          // target = System Program
+            create_system_program_account(), // target = System Program
             vec![
-                create_authority_account(ctx.payer),  // relayer with lamports
+                create_authority_account(ctx.payer), // relayer with lamports
                 create_uninitialized_account_for_pda(attacker), // attacker (empty)
             ],
         );
