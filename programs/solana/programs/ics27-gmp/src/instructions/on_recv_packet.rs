@@ -1060,51 +1060,26 @@ mod tests {
 
     // ── Parametrized unauthorized signer edge cases ─────────────────
     //
-    // Each variant sends a minimal payload (dummy target, no real CPI) with
-    // different combinations of unauthorized signers. All must be rejected
-    // with `UnauthorizedSigner` regardless of which pubkey is used or how
-    // many signers appear.
+    // The `!account_info.is_signer` check catches accounts whose signer
+    // status was propagated from the outer transaction (i.e. the relayer).
+    // Arbitrary pubkeys that aren't outer-tx signers pass this check but
+    // are caught later by Solana's CPI runtime (`PrivilegeEscalation`).
 
     #[derive(Clone)]
     enum UnauthorizedSignerCase {
-        /// A random pubkey (not relayer, not GMP PDA) with `is_signer: true, is_writable: false`.
-        /// Proves the check is not specific to the relayer's key.
-        ArbitraryReadonly,
-        /// A random pubkey with `is_signer: true, is_writable: true`.
-        /// Proves the writable flag doesn't influence signer rejection.
-        ArbitraryWritable,
         /// Relayer with `is_signer: true, is_writable: true`.
         /// The most direct exploit vector.
         RelayerWritable,
         /// Relayer with `is_signer: true, is_writable: false`.
         /// Proves the writable flag doesn't influence signer rejection.
         RelayerReadonly,
-        /// GMP PDA as a legitimate signer plus two arbitrary unauthorized
-        /// signers. The first unauthorized signer triggers rejection even
-        /// though the GMP PDA itself is valid.
-        MultipleWithGmpPda,
-        /// Two arbitrary unauthorized signers with no GMP PDA at all.
-        MultipleNoGmpPda,
     }
 
     fn run_unauthorized_signer_test(case: UnauthorizedSignerCase) {
         let ctx = create_gmp_test_context();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
-        let arbitrary_a = Pubkey::new_unique();
-        let arbitrary_b = Pubkey::new_unique();
 
-        // Each variant has at least one non-GMP-PDA account with is_signer: true
         let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
-            UnauthorizedSignerCase::ArbitraryReadonly => vec![RawSolanaAccountMeta {
-                pubkey: arbitrary_a.to_bytes().to_vec(),
-                is_signer: true,
-                is_writable: false,
-            }],
-            UnauthorizedSignerCase::ArbitraryWritable => vec![RawSolanaAccountMeta {
-                pubkey: arbitrary_a.to_bytes().to_vec(),
-                is_signer: true,
-                is_writable: true,
-            }],
             UnauthorizedSignerCase::RelayerWritable => vec![RawSolanaAccountMeta {
                 pubkey: ctx.payer.to_bytes().to_vec(),
                 is_signer: true,
@@ -1115,35 +1090,6 @@ mod tests {
                 is_signer: true,
                 is_writable: false,
             }],
-            UnauthorizedSignerCase::MultipleWithGmpPda => vec![
-                RawSolanaAccountMeta {
-                    pubkey: gmp_account_pda.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: true,
-                },
-                RawSolanaAccountMeta {
-                    pubkey: arbitrary_a.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: false,
-                },
-                RawSolanaAccountMeta {
-                    pubkey: arbitrary_b.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: false,
-                },
-            ],
-            UnauthorizedSignerCase::MultipleNoGmpPda => vec![
-                RawSolanaAccountMeta {
-                    pubkey: arbitrary_a.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: false,
-                },
-                RawSolanaAccountMeta {
-                    pubkey: arbitrary_b.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: false,
-                },
-            ],
         };
 
         let solana_payload = RawGmpSolanaPayload {
@@ -1188,12 +1134,8 @@ mod tests {
     }
 
     #[rstest]
-    #[case::arbitrary_readonly(UnauthorizedSignerCase::ArbitraryReadonly)]
-    #[case::arbitrary_writable(UnauthorizedSignerCase::ArbitraryWritable)]
     #[case::relayer_writable(UnauthorizedSignerCase::RelayerWritable)]
     #[case::relayer_readonly(UnauthorizedSignerCase::RelayerReadonly)]
-    #[case::multiple_with_gmp_pda(UnauthorizedSignerCase::MultipleWithGmpPda)]
-    #[case::multiple_no_gmp_pda(UnauthorizedSignerCase::MultipleNoGmpPda)]
     fn test_on_recv_packet_unauthorized_signer_variants(#[case] case: UnauthorizedSignerCase) {
         run_unauthorized_signer_test(case);
     }
@@ -1372,9 +1314,6 @@ mod tests {
 
     #[derive(Clone)]
     enum ValidSignerCase {
-        /// GMP PDA (signer, writable) + relayer (non-signer, writable).
-        /// Normal case: relayer is writable (e.g. refund recipient) but not a signer.
-        GmpPdaSignerWithRelayerWritable,
         /// Single arbitrary account (non-signer, readonly).
         /// No account claims signer — trivially passes.
         NoSigners,
@@ -1398,18 +1337,6 @@ mod tests {
         let arbitrary = Pubkey::new_unique();
 
         let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
-            ValidSignerCase::GmpPdaSignerWithRelayerWritable => vec![
-                RawSolanaAccountMeta {
-                    pubkey: gmp_account_pda.to_bytes().to_vec(),
-                    is_signer: true,
-                    is_writable: true,
-                },
-                RawSolanaAccountMeta {
-                    pubkey: ctx.payer.to_bytes().to_vec(),
-                    is_signer: false, // not a signer — safe
-                    is_writable: true,
-                },
-            ],
             ValidSignerCase::NoSigners => vec![RawSolanaAccountMeta {
                 pubkey: arbitrary.to_bytes().to_vec(),
                 is_signer: false,
@@ -1490,7 +1417,6 @@ mod tests {
     }
 
     #[rstest]
-    #[case::gmp_pda_signer_with_relayer_writable(ValidSignerCase::GmpPdaSignerWithRelayerWritable)]
     #[case::no_signers(ValidSignerCase::NoSigners)]
     #[case::gmp_pda_signer_writable(ValidSignerCase::GmpPdaSignerWritable)]
     #[case::gmp_pda_signer_readonly(ValidSignerCase::GmpPdaSignerReadonly)]
@@ -1630,8 +1556,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
-                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new(gmp_account_pda, false), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, false), // [5] payer (gmp_pda, pre-funded)
                 AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
@@ -1873,8 +1799,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false),
                 AccountMeta::new(counter_app_state_pda, false),
                 AccountMeta::new(user_counter_pda, false),
-                AccountMeta::new(gmp_account_pda, true),
-                AccountMeta::new(gmp_account_pda, true),
+                AccountMeta::new(gmp_account_pda, false),
+                AccountMeta::new(gmp_account_pda, false),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
             data: instruction_data.data(),
@@ -2091,8 +2017,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
-                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new(gmp_account_pda, false), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, false), // [5] payer (gmp_pda, pre-funded)
                 AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
