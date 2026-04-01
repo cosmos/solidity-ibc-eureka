@@ -76,10 +76,22 @@ pub async fn fetch_attestations(
     timeout_packets: Vec<Vec<u8>>,
     height: u64,
 ) -> Result<AttestationData> {
+    let send_count = send_packets.len();
+    let ack_count = ack_packets.len();
+    let timeout_count = timeout_packets.len();
+    tracing::warn!(
+        "⏱️   🔵 fetch_attestations: send={send_count} ack={ack_count} timeout={timeout_count} height={height}"
+    );
+
+    let join_start = std::time::Instant::now();
     let (send_result, ack_result, timeout_result) = tokio::join!(
         get_packet_attestation(aggregator, send_packets, height, CommitmentType::Packet),
         get_packet_attestation(aggregator, ack_packets, height, CommitmentType::Ack),
         get_packet_attestation(aggregator, timeout_packets, height, CommitmentType::Receipt)
+    );
+    tracing::warn!(
+        "⏱️   🔵 tokio::join! (3x get_packet_attestation) took {:?}",
+        join_start.elapsed()
     );
     let (send_data, ack_data, timeout_data) = (send_result?, ack_result?, timeout_result?);
 
@@ -91,8 +103,14 @@ pub async fn fetch_attestations(
     {
         r.state.clone()
     } else {
-        tracing::info!("Requesting state attestation at height {}", height);
-        aggregator.get_state_attestation(height).await?
+        let state_start = std::time::Instant::now();
+        tracing::warn!("⏱️   🔵 standalone state attestation at height {height}");
+        let s = aggregator.get_state_attestation(height).await?;
+        tracing::warn!(
+            "⏱️   🔵 standalone state attestation took {:?}",
+            state_start.elapsed()
+        );
+        s
     };
 
     Ok(AttestationData {

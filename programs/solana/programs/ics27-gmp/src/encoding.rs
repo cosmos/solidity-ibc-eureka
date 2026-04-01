@@ -44,6 +44,13 @@ impl From<GmpPacketDataAbi> for RawGmpPacketData {
     }
 }
 
+/// Encodes a validated [`GmpPacketData`] into its wire format.
+///
+/// # Errors
+///
+/// Returns [`GMPError::InvalidEncoding`] if `encoding` is not one of:
+/// - `"application/x-solidity-abi"` — Solidity ABI encoding
+/// - `"application/x-protobuf"` — Protobuf encoding
 pub fn encode_gmp_packet(data: GmpPacketData, encoding: &str) -> Result<Vec<u8>> {
     match encoding {
         ICS27_ENCODING_ABI => {
@@ -55,6 +62,16 @@ pub fn encode_gmp_packet(data: GmpPacketData, encoding: &str) -> Result<Vec<u8>>
     }
 }
 
+/// Decodes raw bytes into a [`RawGmpPacketData`] (unvalidated fields).
+///
+/// Use [`GmpPacketData::try_from`] on the result to validate field contents.
+///
+/// # Errors
+///
+/// - [`GMPError::InvalidEncoding`] if `encoding` is not one of:
+///   - `"application/x-solidity-abi"` — Solidity ABI encoding
+///   - `"application/x-protobuf"` — Protobuf encoding
+/// - [`GMPError::InvalidPacketData`] if `bytes` cannot be decoded in the given format.
 pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketData> {
     match encoding {
         ICS27_ENCODING_ABI => {
@@ -70,6 +87,17 @@ pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketDat
     }
 }
 
+/// Encodes an acknowledgement **result** (not a full ack) into its wire format.
+///
+/// `result` is the raw success payload, not a pre-built [`GmpAcknowledgement`].
+/// For protobuf encoding with an empty `result`, a sentinel byte (`0x00`) is
+/// used to distinguish success-with-no-data from a missing field.
+///
+/// # Errors
+///
+/// Returns [`GMPError::InvalidEncoding`] if `encoding` is not one of:
+/// - `"application/x-solidity-abi"` — Solidity ABI encoding
+/// - `"application/x-protobuf"` — Protobuf encoding
 pub fn encode_gmp_ack(result: &[u8], encoding: &str) -> Result<Vec<u8>> {
     match encoding {
         ICS27_ENCODING_ABI => {
@@ -91,6 +119,14 @@ pub fn encode_gmp_ack(result: &[u8], encoding: &str) -> Result<Vec<u8>> {
     }
 }
 
+/// Decodes raw bytes into a [`GmpAcknowledgement`].
+///
+/// # Errors
+///
+/// - [`GMPError::InvalidEncoding`] if `encoding` is not one of:
+///   - `"application/x-solidity-abi"` — Solidity ABI encoding
+///   - `"application/x-protobuf"` — Protobuf encoding
+/// - [`GMPError::InvalidPacketData`] if `bytes` cannot be decoded in the given format.
 pub fn decode_gmp_ack(bytes: &[u8], encoding: &str) -> Result<GmpAcknowledgement> {
     match encoding {
         ICS27_ENCODING_ABI => {
