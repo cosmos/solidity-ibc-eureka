@@ -38,8 +38,10 @@ pub mod accounts {
 
         let app_state = AppState {
             version: crate::types::AccountVersion::V1,
-            access_manager,
-            pending_access_manager: None,
+            am_transfer: access_manager::AccessManagerTransferState {
+                access_manager,
+                pending_access_manager: None,
+            },
             _reserved: [0; 256],
         };
         let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
@@ -296,8 +298,10 @@ pub fn setup_program_test_with_whitelist(
     let app_state_pda = crate::types::AppState::pda();
     let app_state = crate::types::AppState {
         version: crate::types::AccountVersion::V1,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];

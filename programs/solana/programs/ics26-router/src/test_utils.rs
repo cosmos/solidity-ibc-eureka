@@ -55,8 +55,10 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         paused: false,
         _reserved: [0; 256],
     };
@@ -69,8 +71,10 @@ pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         paused: true,
         _reserved: [0; 256],
     };
@@ -972,8 +976,10 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         paused: false,
         _reserved: [0; 256],
     };

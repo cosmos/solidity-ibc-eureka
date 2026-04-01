@@ -46,7 +46,7 @@ pub use events::{
     TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
-pub use access_manager::{roles, AccessManager};
+pub use access_manager::{roles, AccessManager, AccessManagerTransferState};
 pub use cpi::{
     is_cpi, reject_cpi, reject_direct_calls, reject_nested_cpi,
     require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,

@@ -13,7 +13,7 @@ pub struct ProposeAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_transfer.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -29,7 +29,7 @@ pub fn propose_access_manager_transfer(
     new_access_manager: Pubkey,
 ) -> Result<()> {
     access_manager::handle_propose_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         new_access_manager,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
@@ -57,7 +57,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
     access_manager::handle_accept_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         &ctx.accounts.new_access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -76,7 +76,7 @@ pub struct CancelAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_transfer.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -89,7 +89,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
     access_manager::handle_cancel_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -155,8 +155,10 @@ mod tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            access_manager: access_manager::ID,
-            pending_access_manager: pending,
+            am_transfer: access_manager::AccessManagerTransferState {
+                access_manager: access_manager::ID,
+                pending_access_manager: pending,
+            },
             _reserved: [0; 256],
         };
         let mut data = Vec::new();
@@ -197,8 +199,8 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_app_state_from_result(&result, &app_state_pda);
-        assert_eq!(state.pending_access_manager, Some(new_am));
-        assert_eq!(state.access_manager, access_manager::ID);
+        assert_eq!(state.am_transfer.pending_access_manager, Some(new_am));
+        assert_eq!(state.am_transfer.access_manager, access_manager::ID);
     }
 
     #[test]
@@ -329,7 +331,7 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_app_state_from_result(&result, &app_state_pda);
-        assert_eq!(state.pending_access_manager, None);
+        assert_eq!(state.am_transfer.pending_access_manager, None);
     }
 
     #[test]

@@ -800,8 +800,10 @@ pub fn setup_program_test_with_whitelist(
         &crate::ID,
     );
     let app_state = crate::types::AppState {
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
@@ -868,8 +870,10 @@ pub fn setup_program_test_with_relayer(
         &crate::ID,
     );
     let app_state = crate::types::AppState {
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];

@@ -2,6 +2,16 @@ use crate::types::{PendingAuthorityTransfer, RoleData};
 use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
 
+/// Embedded state for two-step access manager transfers.
+///
+/// Each IBC program that supports access manager migration embeds this struct
+/// in its on-chain state account instead of declaring the fields separately.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Default, Debug)]
+pub struct AccessManagerTransferState {
+    pub access_manager: Pubkey,
+    pub pending_access_manager: Option<Pubkey>,
+}
+
 /// Central role-based access control registry shared across all Solana IBC programs.
 ///
 /// Every program that requires permissioned operations (e.g. relaying, pausing,

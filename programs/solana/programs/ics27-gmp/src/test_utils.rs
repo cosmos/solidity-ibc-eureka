@@ -31,8 +31,10 @@ pub fn create_gmp_app_state_account(
         version: AccountVersion::V1,
         paused,
         bump,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
 
@@ -558,8 +560,10 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
         Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         paused: false,
         _reserved: [0; 256],
     };
@@ -693,8 +697,10 @@ pub fn setup_program_test_with_access_manager(
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
@@ -852,8 +858,10 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];

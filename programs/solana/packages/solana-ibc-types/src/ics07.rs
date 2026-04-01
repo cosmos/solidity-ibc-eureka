@@ -66,8 +66,7 @@ pub struct ClientState {
 /// App state for ICS07 Tendermint
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
-    pub access_manager: Pubkey,
-    pub pending_access_manager: Option<Pubkey>,
+    pub am_transfer: crate::access_manager::AccessManagerTransferState,
     pub _reserved: [u8; 256],
 }
 

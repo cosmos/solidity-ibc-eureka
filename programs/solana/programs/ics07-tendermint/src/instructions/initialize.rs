@@ -100,8 +100,10 @@ pub fn initialize(
     consensus_state_store.consensus_state = consensus_state;
 
     let app_state = &mut ctx.accounts.app_state;
-    app_state.access_manager = access_manager;
-    app_state.pending_access_manager = None;
+    app_state.am_transfer = access_manager::AccessManagerTransferState {
+        access_manager,
+        pending_access_manager: None,
+    };
     app_state._reserved = [0; 256];
 
     Ok(())
@@ -541,7 +543,10 @@ mod tests {
             AppState::try_deserialize(&mut &app_state_account.data[..])
                 .expect("Failed to deserialize app state");
 
-        assert_eq!(deserialized_app_state.access_manager, access_manager::ID);
+        assert_eq!(
+            deserialized_app_state.am_transfer.access_manager,
+            access_manager::ID
+        );
     }
 
     #[test]

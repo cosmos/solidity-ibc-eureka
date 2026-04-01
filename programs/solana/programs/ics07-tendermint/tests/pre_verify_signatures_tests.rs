@@ -32,8 +32,10 @@ fn setup_program_test() -> ProgramTest {
     let (app_state_pda, _) =
         Pubkey::find_program_address(&[ics07_tendermint::AppState::SEED], &ics07_tendermint::ID);
     let app_state = ics07_tendermint::AppState {
-        access_manager: access_manager::ID,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager::ID,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
     let mut app_data = Vec::new();

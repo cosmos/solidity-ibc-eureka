@@ -88,7 +88,7 @@ impl super::TxBuilder {
         let router_state = solana_ibc_types::RouterState::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState account: {e}"))?;
 
-        Ok(router_state.access_manager)
+        Ok(router_state.am_transfer.access_manager)
     }
 
     /// Resolve the IBC app program ID for a given port

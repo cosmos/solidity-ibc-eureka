@@ -117,8 +117,10 @@ fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Accou
     let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
 
     let app_state = AppState {
-        access_manager: access_manager_program_id,
-        pending_access_manager: None,
+        am_transfer: access_manager::AccessManagerTransferState {
+            access_manager: access_manager_program_id,
+            pending_access_manager: None,
+        },
         _reserved: [0; 256],
     };
 

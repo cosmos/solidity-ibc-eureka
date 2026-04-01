@@ -44,7 +44,7 @@ pub struct UploadHeaderChunk<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_transfer.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 

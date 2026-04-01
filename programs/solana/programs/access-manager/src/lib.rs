@@ -13,9 +13,10 @@ pub use errors::AccessManagerError;
 pub use helpers::{
     handle_accept_access_manager_transfer, handle_cancel_access_manager_transfer,
     handle_propose_access_manager_transfer, require_admin, require_role,
-    require_role_with_whitelist, HasPendingAccessManager,
+    require_role_with_whitelist,
 };
 use instructions::*;
+pub use state::AccessManagerTransferState;
 pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");

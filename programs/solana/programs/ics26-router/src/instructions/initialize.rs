@@ -46,7 +46,10 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
 
     let router_state = &mut ctx.accounts.router_state;
     router_state.version = AccountVersion::V1;
-    router_state.access_manager = access_manager;
+    router_state.am_transfer = access_manager::AccessManagerTransferState {
+        access_manager,
+        pending_access_manager: None,
+    };
     router_state.paused = false;
     router_state._reserved = [0u8; 256];
     Ok(())
@@ -179,7 +182,10 @@ mod tests {
                 .expect("Failed to deserialize router state");
 
         assert_eq!(deserialized_router_state.version, AccountVersion::V1);
-        assert_eq!(deserialized_router_state.access_manager, access_manager::ID);
+        assert_eq!(
+            deserialized_router_state.am_transfer.access_manager,
+            access_manager::ID
+        );
     }
 
     #[test]

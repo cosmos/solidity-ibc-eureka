@@ -25,29 +25,11 @@ pub struct GMPAppState {
     /// PDA bump seed
     pub bump: u8,
 
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-
-    /// Pending access manager for two-step transfer (propose/accept)
-    pub pending_access_manager: Option<Pubkey>,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_transfer: access_manager::AccessManagerTransferState,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
-}
-
-impl access_manager::HasPendingAccessManager for GMPAppState {
-    fn access_manager(&self) -> &Pubkey {
-        &self.access_manager
-    }
-    fn pending_access_manager(&self) -> &Option<Pubkey> {
-        &self.pending_access_manager
-    }
-    fn set_access_manager(&mut self, am: Pubkey) {
-        self.access_manager = am;
-    }
-    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>) {
-        self.pending_access_manager = pending;
-    }
 }
 
 impl GMPAppState {

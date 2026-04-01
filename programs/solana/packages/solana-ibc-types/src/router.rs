@@ -241,10 +241,8 @@ impl IBCApp {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-    /// Pending access manager for two-step transfer (propose/accept)
-    pub pending_access_manager: Option<Pubkey>,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_transfer: crate::access_manager::AccessManagerTransferState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields

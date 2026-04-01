@@ -11,6 +11,91 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Embedded state for two-step access manager transfers.
+//
+// Each IBC program that supports access manager migration embeds this struct
+// in its on-chain state account instead of declaring the fields separately.
+type AccessManagerStateAccessManagerTransferState struct {
+	AccessManager        solanago.PublicKey  `json:"accessManager"`
+	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+}
+
+func (obj AccessManagerStateAccessManagerTransferState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `PendingAccessManager` (optional):
+	{
+		if obj.PendingAccessManager == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (obj AccessManagerStateAccessManagerTransferState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerStateAccessManagerTransferState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerStateAccessManagerTransferState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `PendingAccessManager` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (obj *AccessManagerStateAccessManagerTransferState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerStateAccessManagerTransferState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerStateAccessManagerTransferState(buf []byte) (*AccessManagerStateAccessManagerTransferState, error) {
+	obj := new(AccessManagerStateAccessManagerTransferState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Emitted when conflicting timestamps are submitted for the same height.
 type AttestationEventsMisbehaviourDetected struct {
 	Height               uint64 `json:"height"`
@@ -210,11 +295,8 @@ func UnmarshalAttestationStateConsensusStateStore(buf []byte) (*AttestationState
 type AttestationTypesAppState struct {
 	Version SolanaIbcTypesAttestationAccountVersion `json:"version"`
 
-	// Program ID of the access manager that controls admin operations.
-	AccessManager solanago.PublicKey `json:"accessManager"`
-
-	// Pending access manager for two-step transfer (propose/accept).
-	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+	// Access manager transfer state for two-step propose/accept
+	AmTransfer AccessManagerStateAccessManagerTransferState `json:"amTransfer"`
 
 	// Reserved for future upgrades without account migration.
 	Reserved [256]uint8 `json:"reserved"`
@@ -226,28 +308,10 @@ func (obj AttestationTypesAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `AmTransfer`:
+	err = encoder.Encode(obj.AmTransfer)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Serialize `PendingAccessManager` (optional):
-	{
-		if obj.PendingAccessManager == nil {
-			err = encoder.WriteOption(false)
-			if err != nil {
-				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-		} else {
-			err = encoder.WriteOption(true)
-			if err != nil {
-				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-			err = encoder.Encode(obj.PendingAccessManager)
-			if err != nil {
-				return errors.NewField("PendingAccessManager", err)
-			}
-		}
+		return errors.NewField("AmTransfer", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -273,23 +337,10 @@ func (obj *AttestationTypesAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `AmTransfer`:
+	err = decoder.Decode(&obj.AmTransfer)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
-	}
-	// Deserialize `PendingAccessManager` (optional):
-	{
-		ok, err := decoder.ReadOption()
-		if err != nil {
-			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
-		}
-		if ok {
-			err = decoder.Decode(&obj.PendingAccessManager)
-			if err != nil {
-				return errors.NewField("PendingAccessManager", err)
-			}
-		}
+		return errors.NewField("AmTransfer", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)

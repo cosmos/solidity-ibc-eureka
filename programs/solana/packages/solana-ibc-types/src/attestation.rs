@@ -49,8 +49,7 @@ impl ConsensusState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
     pub version: AccountVersion,
-    pub access_manager: Pubkey,
-    pub pending_access_manager: Option<Pubkey>,
+    pub am_transfer: crate::access_manager::AccessManagerTransferState,
     pub _reserved: [u8; 256],
 }
 

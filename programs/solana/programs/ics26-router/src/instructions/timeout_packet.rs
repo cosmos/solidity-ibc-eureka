@@ -33,7 +33,7 @@ pub struct TimeoutPacket<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.access_manager,
+        seeds::program = router_state.am_transfer.access_manager,
     )]
     pub access_manager: AccountInfo<'info>,
 

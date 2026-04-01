@@ -22,29 +22,12 @@ pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
-    /// Pending access manager for two-step transfer (propose/accept)
-    pub pending_access_manager: Option<Pubkey>,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_transfer: access_manager::AccessManagerTransferState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
-}
-
-impl access_manager::HasPendingAccessManager for RouterState {
-    fn access_manager(&self) -> &Pubkey {
-        &self.access_manager
-    }
-    fn pending_access_manager(&self) -> &Option<Pubkey> {
-        &self.pending_access_manager
-    }
-    fn set_access_manager(&mut self, am: Pubkey) {
-        self.access_manager = am;
-    }
-    fn set_pending_access_manager(&mut self, pending: Option<Pubkey>) {
-        self.pending_access_manager = pending;
-    }
 }
 
 impl RouterState {
@@ -252,8 +235,10 @@ mod compatibility_tests {
     fn test_router_state_serialization_compatibility() {
         let router_state = RouterState {
             version: AccountVersion::V1,
-            access_manager: Pubkey::new_unique(),
-            pending_access_manager: None,
+            am_transfer: access_manager::AccessManagerTransferState {
+                access_manager: Pubkey::new_unique(),
+                pending_access_manager: None,
+            },
             paused: false,
             _reserved: [0; 256],
         };
@@ -269,8 +254,12 @@ mod compatibility_tests {
 
         // Verify all fields match
         assert_eq!(
-            router_state.access_manager,
-            types_router_state.access_manager
+            router_state.am_transfer.access_manager,
+            types_router_state.am_transfer.access_manager
+        );
+        assert_eq!(
+            router_state.am_transfer.pending_access_manager,
+            types_router_state.am_transfer.pending_access_manager
         );
         assert_eq!(router_state.paused, types_router_state.paused);
         assert_eq!(router_state._reserved, types_router_state._reserved);

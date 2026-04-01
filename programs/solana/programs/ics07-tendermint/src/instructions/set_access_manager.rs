@@ -13,7 +13,7 @@ pub struct ProposeAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_transfer.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -29,7 +29,7 @@ pub fn propose_access_manager_transfer(
     new_access_manager: Pubkey,
 ) -> Result<()> {
     access_manager::handle_propose_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         new_access_manager,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
@@ -57,7 +57,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
     access_manager::handle_accept_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         &ctx.accounts.new_access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -76,7 +76,7 @@ pub struct CancelAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_transfer.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -89,7 +89,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
     access_manager::handle_cancel_access_manager_transfer(
-        &mut *ctx.accounts.app_state,
+        &mut ctx.accounts.app_state.am_transfer,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -124,8 +124,10 @@ mod tests {
 
     fn create_app_state_account(access_manager: Pubkey, pending: Option<Pubkey>) -> SolanaAccount {
         let app_state = AppState {
-            access_manager,
-            pending_access_manager: pending,
+            am_transfer: access_manager::AccessManagerTransferState {
+                access_manager,
+                pending_access_manager: pending,
+            },
             _reserved: [0; 256],
         };
 
@@ -242,8 +244,11 @@ mod tests {
         let app_state: AppState = AppState::try_deserialize(&mut &app_state_account.data[..])
             .expect("Failed to deserialize app state");
 
-        assert_eq!(app_state.pending_access_manager, Some(new_access_manager));
-        assert_eq!(app_state.access_manager, access_manager::ID);
+        assert_eq!(
+            app_state.am_transfer.pending_access_manager,
+            Some(new_access_manager)
+        );
+        assert_eq!(app_state.am_transfer.access_manager, access_manager::ID);
     }
 
     #[test]
