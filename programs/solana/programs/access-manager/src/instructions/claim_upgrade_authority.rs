@@ -1,10 +1,8 @@
 use crate::events::UpgradeAuthorityClaimedEvent;
+use crate::helpers::cpi;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
-use anchor_lang::solana_program::instruction::{AccountMeta, Instruction};
-use anchor_lang::solana_program::program::invoke_signed;
-use anchor_lang::InstructionData;
 
 /// Claims upgrade authority from a source access manager that has proposed
 /// a transfer to this access manager's upgrade authority PDA.
@@ -67,39 +65,29 @@ pub struct ClaimUpgradeAuthority<'info> {
     pub bpf_loader_upgradeable: AccountInfo<'info>,
 }
 
-/// Uses `invoke_signed` because Anchor's `cpi` feature enables `no-entrypoint`,
-/// preventing a program from using its own CPI module.
 pub fn claim_upgrade_authority(
     ctx: Context<ClaimUpgradeAuthority>,
     target_program: Pubkey,
 ) -> Result<()> {
-    let accept_ix = Instruction {
-        program_id: ctx.accounts.source_access_manager_program.key(),
-        accounts: vec![
-            AccountMeta::new(ctx.accounts.source_access_manager_state.key(), false),
-            AccountMeta::new(ctx.accounts.target_program_data.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.source_upgrade_authority.key(), false),
-            AccountMeta::new_readonly(ctx.accounts.our_upgrade_authority.key(), true),
-            AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
-        ],
-        data: crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data(),
+    let cpi_accounts = cpi::AcceptUpgradeAuthorityTransferCpi {
+        access_manager: ctx.accounts.source_access_manager_state.to_account_info(),
+        program_data: ctx.accounts.target_program_data.to_account_info(),
+        upgrade_authority: ctx.accounts.source_upgrade_authority.to_account_info(),
+        new_authority: ctx.accounts.our_upgrade_authority.to_account_info(),
+        bpf_loader_upgradeable: ctx.accounts.bpf_loader_upgradeable.to_account_info(),
     };
-
-    invoke_signed(
-        &accept_ix,
-        &[
-            ctx.accounts.source_access_manager_state.to_account_info(),
-            ctx.accounts.target_program_data.to_account_info(),
-            ctx.accounts.source_upgrade_authority.to_account_info(),
-            ctx.accounts.our_upgrade_authority.to_account_info(),
-            ctx.accounts.bpf_loader_upgradeable.to_account_info(),
-        ],
-        &[&[
-            AccessManager::UPGRADE_AUTHORITY_SEED,
-            target_program.as_ref(),
-            &[ctx.bumps.our_upgrade_authority],
-        ]],
-    )?;
+    let bump = [ctx.bumps.our_upgrade_authority];
+    let signer_seeds = &[&[
+        AccessManager::UPGRADE_AUTHORITY_SEED,
+        target_program.as_ref(),
+        &bump,
+    ][..]];
+    let cpi_ctx = CpiContext::new_with_signer(
+        ctx.accounts.source_access_manager_program.to_account_info(),
+        cpi_accounts,
+        signer_seeds,
+    );
+    cpi::accept_upgrade_authority_transfer(cpi_ctx, target_program)?;
 
     emit!(UpgradeAuthorityClaimedEvent {
         program: target_program,
