@@ -75,7 +75,7 @@ fn add_access_manager_with_relayer(pt: &mut ProgramTest, relayer: &Pubkey) {
             },
         ],
         whitelisted_programs: vec![],
-        pending_authority_transfer: None,
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();

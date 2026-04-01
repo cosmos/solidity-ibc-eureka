@@ -153,7 +153,7 @@ mod tests {
                 members: vec![admin],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfer: None,
+            pending_authority_transfers: vec![],
         };
 
         let mut data = vec![0u8; 8 + 10000];

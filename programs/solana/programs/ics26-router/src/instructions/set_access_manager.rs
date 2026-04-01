@@ -640,7 +640,7 @@ mod integration_tests {
                 members: vec![admin.pubkey()],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfer: None,
+            pending_authority_transfers: vec![],
         };
         let mut am_data = AccessManager::DISCRIMINATOR.to_vec();
         new_am.serialize(&mut am_data).unwrap();
@@ -751,7 +751,7 @@ mod integration_tests {
                 members: vec![admin.pubkey()],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfer: None,
+            pending_authority_transfers: vec![],
         };
         let mut am_data = AccessManager::DISCRIMINATOR.to_vec();
         wrong_am.serialize(&mut am_data).unwrap();
