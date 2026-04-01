@@ -25,7 +25,7 @@ pub struct ProposeUpgradeAuthorityTransfer<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
-    pub authority: Signer<'info>,
+    pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
@@ -39,7 +39,7 @@ pub fn propose_upgrade_authority_transfer(
 ) -> Result<()> {
     require_admin(
         &ctx.accounts.access_manager.to_account_info(),
-        &ctx.accounts.authority.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
@@ -73,7 +73,7 @@ pub fn propose_upgrade_authority_transfer(
         program: target_program,
         current_authority: upgrade_authority_pda,
         proposed_authority: new_authority,
-        proposed_by: ctx.accounts.authority.key(),
+        proposed_by: ctx.accounts.admin.key(),
     });
 
     Ok(())
@@ -113,7 +113,7 @@ pub struct AcceptUpgradeAuthorityTransfer<'info> {
     )]
     pub upgrade_authority: AccountInfo<'info>,
 
-    pub new_authority_account: Signer<'info>,
+    pub new_authority: Signer<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
@@ -136,7 +136,7 @@ pub fn accept_upgrade_authority_transfer(
         AccessManagerError::PendingTransferMismatch
     );
     require!(
-        pending.new_authority == ctx.accounts.new_authority_account.key(),
+        pending.new_authority == ctx.accounts.new_authority.key(),
         AccessManagerError::AuthorityMismatch
     );
 
@@ -146,7 +146,7 @@ pub fn accept_upgrade_authority_transfer(
     let set_authority_ix = bpf_loader_upgradeable::set_upgrade_authority(
         &target_program,
         &upgrade_authority_pda,
-        Some(&ctx.accounts.new_authority_account.key()),
+        Some(&ctx.accounts.new_authority.key()),
     );
 
     // BPF Loader SetAuthority expects:
@@ -158,7 +158,7 @@ pub fn accept_upgrade_authority_transfer(
         &[
             ctx.accounts.program_data.to_account_info(),
             ctx.accounts.upgrade_authority.to_account_info(),
-            ctx.accounts.new_authority_account.to_account_info(),
+            ctx.accounts.new_authority.to_account_info(),
         ],
         &[&[
             AccessManager::UPGRADE_AUTHORITY_SEED,
@@ -167,7 +167,7 @@ pub fn accept_upgrade_authority_transfer(
         ]],
     )?;
 
-    let new_authority = ctx.accounts.new_authority_account.key();
+    let new_authority = ctx.accounts.new_authority.key();
     ctx.accounts.access_manager.pending_authority_transfer = None;
 
     emit!(UpgradeAuthorityTransferredEvent {
@@ -192,7 +192,7 @@ pub struct CancelUpgradeAuthorityTransfer<'info> {
     )]
     pub access_manager: Account<'info, AccessManager>,
 
-    pub authority: Signer<'info>,
+    pub admin: Signer<'info>,
 
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
@@ -205,7 +205,7 @@ pub fn cancel_upgrade_authority_transfer(
 ) -> Result<()> {
     require_admin(
         &ctx.accounts.access_manager.to_account_info(),
-        &ctx.accounts.authority.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
     )?;
@@ -229,7 +229,7 @@ pub fn cancel_upgrade_authority_transfer(
     emit!(UpgradeAuthorityTransferCancelledEvent {
         program: target_program,
         cancelled_authority,
-        cancelled_by: ctx.accounts.authority.key(),
+        cancelled_by: ctx.accounts.admin.key(),
     });
 
     Ok(())

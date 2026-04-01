@@ -33,12 +33,12 @@ pub struct ClaimUpgradeAuthority<'info> {
     /// The source access manager's state account (writable for clearing pending).
     /// CHECK: Owned and validated by the source AM's accept instruction
     #[account(mut)]
-    pub source_access_manager: AccountInfo<'info>,
+    pub source_access_manager_state: AccountInfo<'info>,
 
     /// The target program's data account (BPF Loader Upgradeable PDA).
     /// CHECK: Validated by the source AM's accept instruction
     #[account(mut)]
-    pub source_program_data: AccountInfo<'info>,
+    pub target_program_data: AccountInfo<'info>,
 
     /// The source access manager's upgrade authority PDA (current authority).
     /// CHECK: Validated by the source AM's accept instruction
@@ -47,7 +47,7 @@ pub struct ClaimUpgradeAuthority<'info> {
     /// The source access manager program (CPI target).
     /// CHECK: Must be executable
     #[account(executable)]
-    pub source_program: AccountInfo<'info>,
+    pub source_access_manager_program: AccountInfo<'info>,
 
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
@@ -75,10 +75,10 @@ pub fn claim_upgrade_authority(
     //   [3] new_authority_account (signer -- our PDA)
     //   [4] bpf_loader_upgradeable (read-only)
     let accept_ix = Instruction {
-        program_id: ctx.accounts.source_program.key(),
+        program_id: ctx.accounts.source_access_manager_program.key(),
         accounts: vec![
-            AccountMeta::new(ctx.accounts.source_access_manager.key(), false),
-            AccountMeta::new(ctx.accounts.source_program_data.key(), false),
+            AccountMeta::new(ctx.accounts.source_access_manager_state.key(), false),
+            AccountMeta::new(ctx.accounts.target_program_data.key(), false),
             AccountMeta::new_readonly(ctx.accounts.source_upgrade_authority.key(), false),
             AccountMeta::new_readonly(our_upgrade_authority_pda, true),
             AccountMeta::new_readonly(ctx.accounts.bpf_loader_upgradeable.key(), false),
@@ -89,8 +89,8 @@ pub fn claim_upgrade_authority(
     invoke_signed(
         &accept_ix,
         &[
-            ctx.accounts.source_access_manager.to_account_info(),
-            ctx.accounts.source_program_data.to_account_info(),
+            ctx.accounts.source_access_manager_state.to_account_info(),
+            ctx.accounts.target_program_data.to_account_info(),
             ctx.accounts.source_upgrade_authority.to_account_info(),
             ctx.accounts.our_upgrade_authority.to_account_info(),
             ctx.accounts.bpf_loader_upgradeable.to_account_info(),
@@ -104,7 +104,7 @@ pub fn claim_upgrade_authority(
 
     emit!(UpgradeAuthorityClaimedEvent {
         program: target_program,
-        source_access_manager: ctx.accounts.source_program.key(),
+        source_access_manager: ctx.accounts.source_access_manager_program.key(),
         new_authority: our_upgrade_authority_pda,
     });
 
