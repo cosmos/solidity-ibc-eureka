@@ -49,8 +49,7 @@ pub fn accept_upgrade_authority_transfer<'info>(
     ctx: CpiContext<'_, '_, '_, 'info, AcceptUpgradeAuthorityTransferCpi<'info>>,
     target_program: Pubkey,
 ) -> Result<()> {
-    let ix_data =
-        crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data();
+    let ix_data = crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data();
 
     let account_metas = ctx.accounts.to_account_metas(None);
     let instruction = anchor_lang::solana_program::instruction::Instruction {

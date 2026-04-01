@@ -6,6 +6,8 @@ pub mod helpers;
 pub mod instructions;
 pub mod state;
 #[cfg(test)]
+pub mod test_config;
+#[cfg(test)]
 pub mod test_utils;
 pub mod types;
 
@@ -16,16 +18,6 @@ pub use state::AccessManagerTransferState;
 pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
-
-pub fn get_access_manager_program_path() -> &'static str {
-    use std::sync::OnceLock;
-    static PATH: OnceLock<String> = OnceLock::new();
-
-    PATH.get_or_init(|| {
-        std::env::var("access_manager_PROGRAM_PATH")
-            .unwrap_or_else(|_| "../../target/deploy/access_manager".to_string())
-    })
-}
 
 #[program]
 pub mod access_manager {
@@ -88,9 +80,8 @@ pub mod access_manager {
     }
 }
 
-#[cfg(test)]
-pub const PROGRAM_BINARY_NAME: &str = "access_manager";
-#[cfg(test)]
-pub const OTHER_AM_BINARY_NAME: &str = "test_access_manager";
-#[cfg(test)]
-pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");
+/// Returns the filesystem path to the compiled access-manager `.so` binary.
+/// Used by Mollusk/ProgramTest in this crate and downstream crate tests.
+pub fn get_access_manager_program_path() -> &'static str {
+    "../../target/deploy/access_manager"
+}

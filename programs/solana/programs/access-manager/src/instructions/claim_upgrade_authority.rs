@@ -117,25 +117,32 @@ mod integration_tests {
     /// Set up `ProgramTest` with both AM binaries loaded.
     ///
     /// - `crate::ID` is the claimer (destination AM)
-    /// - `crate::OTHER_AM_ID` is the source AM
+    /// - `crate::test_config::OTHER_AM_ID` is the source AM
     ///
     /// `target_program` identifies the program whose upgrade authority is being migrated.
-    /// `pending` sets up the source AM's state with a pending transfer (or `None`).
+    /// `pending_transfers` sets up the source AM's state with pending transfers.
     fn setup_claim_test(
         target_program: Pubkey,
-        pending: Option<PendingAuthorityTransfer>,
+        pending_transfers: Vec<PendingAuthorityTransfer>,
     ) -> solana_program_test::ProgramTest {
         if std::env::var("SBF_OUT_DIR").is_err() {
             std::env::set_var("SBF_OUT_DIR", std::path::Path::new("../../target/deploy"));
         }
 
-        let mut pt =
-            solana_program_test::ProgramTest::new(crate::PROGRAM_BINARY_NAME, crate::ID, None);
-        pt.add_program(crate::OTHER_AM_BINARY_NAME, crate::OTHER_AM_ID, None);
+        let mut pt = solana_program_test::ProgramTest::new(
+            crate::test_config::PROGRAM_BINARY_NAME,
+            crate::ID,
+            None,
+        );
+        pt.add_program(
+            crate::test_config::OTHER_AM_BINARY_NAME,
+            crate::test_config::OTHER_AM_ID,
+            None,
+        );
 
         // Source AM's upgrade authority PDA (current authority of target program)
         let (source_upgrade_authority, _) =
-            AccessManager::upgrade_authority_pda(&target_program, &crate::OTHER_AM_ID);
+            AccessManager::upgrade_authority_pda(&target_program, &crate::test_config::OTHER_AM_ID);
 
         // Target program's program_data with source AM as authority
         let (program_data_pda, _) =
@@ -164,14 +171,14 @@ mod integration_tests {
 
         // Source AM's state PDA
         let (source_am_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &crate::OTHER_AM_ID);
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::test_config::OTHER_AM_ID);
         let source_am = AccessManager {
             roles: vec![RoleData {
                 role_id: roles::ADMIN_ROLE,
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfer: pending,
+            pending_authority_transfers: pending_transfers,
         };
         let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
         am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
@@ -181,7 +188,7 @@ mod integration_tests {
             Account {
                 lamports: 10_000_000,
                 data: am_data,
-                owner: crate::OTHER_AM_ID,
+                owner: crate::test_config::OTHER_AM_ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -206,11 +213,11 @@ mod integration_tests {
         let (our_upgrade_authority, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         let (source_am_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &crate::OTHER_AM_ID);
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::test_config::OTHER_AM_ID);
         let (program_data_pda, _) =
             Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
         let (source_upgrade_authority, _) =
-            AccessManager::upgrade_authority_pda(&target_program, &crate::OTHER_AM_ID);
+            AccessManager::upgrade_authority_pda(&target_program, &crate::test_config::OTHER_AM_ID);
 
         Instruction {
             program_id: crate::ID,
@@ -219,7 +226,7 @@ mod integration_tests {
                 AccountMeta::new(source_am_pda, false),
                 AccountMeta::new(program_data_pda, false),
                 AccountMeta::new_readonly(source_upgrade_authority, false),
-                AccountMeta::new_readonly(crate::OTHER_AM_ID, false),
+                AccountMeta::new_readonly(crate::test_config::OTHER_AM_ID, false),
                 AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
             ],
             data: crate::instruction::ClaimUpgradeAuthority { target_program }.data(),
@@ -247,14 +254,15 @@ mod integration_tests {
         }
     }
 
-    async fn get_source_pending_transfer(
+    async fn get_source_pending_transfers(
         banks_client: &solana_program_test::BanksClient,
-    ) -> Option<PendingAuthorityTransfer> {
-        let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::OTHER_AM_ID);
+    ) -> Vec<PendingAuthorityTransfer> {
+        let (pda, _) =
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::test_config::OTHER_AM_ID);
         let account = banks_client.get_account(pda).await.unwrap().unwrap();
         let am: AccessManager =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
-        am.pending_authority_transfer
+        am.pending_authority_transfers
     }
 
     #[tokio::test]
@@ -264,10 +272,10 @@ mod integration_tests {
 
         let pt = setup_claim_test(
             target_program,
-            Some(PendingAuthorityTransfer {
+            vec![PendingAuthorityTransfer {
                 target_program,
                 new_authority: our_pda,
-            }),
+            }],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -290,15 +298,15 @@ mod integration_tests {
             "upgrade authority should transfer to claimer's PDA"
         );
 
-        let pending = get_source_pending_transfer(&banks_client).await;
-        assert_eq!(pending, None, "pending transfer should be cleared");
+        let pending = get_source_pending_transfers(&banks_client).await;
+        assert!(pending.is_empty(), "pending transfers should be cleared");
     }
 
     #[tokio::test]
     async fn test_claim_no_pending_fails() {
         let target_program = Pubkey::new_unique();
 
-        let pt = setup_claim_test(target_program, None);
+        let pt = setup_claim_test(target_program, vec![]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let ix = build_claim_ix(target_program);
@@ -322,10 +330,10 @@ mod integration_tests {
 
         let pt = setup_claim_test(
             target_program,
-            Some(PendingAuthorityTransfer {
+            vec![PendingAuthorityTransfer {
                 target_program,
                 new_authority: wrong_authority,
-            }),
+            }],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 

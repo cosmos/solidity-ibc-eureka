@@ -58,17 +58,21 @@ pub fn propose_upgrade_authority_transfer(
     );
 
     require!(
-        ctx.accounts
+        !ctx.accounts
             .access_manager
-            .pending_authority_transfer
-            .is_none(),
+            .pending_authority_transfers
+            .iter()
+            .any(|p| p.target_program == target_program),
         AccessManagerError::PendingTransferAlreadyExists
     );
 
-    ctx.accounts.access_manager.pending_authority_transfer = Some(PendingAuthorityTransfer {
-        target_program,
-        new_authority,
-    });
+    ctx.accounts
+        .access_manager
+        .pending_authority_transfers
+        .push(PendingAuthorityTransfer {
+            target_program,
+            new_authority,
+        });
 
     emit!(UpgradeAuthorityTransferProposedEvent {
         program: target_program,
@@ -126,19 +130,17 @@ pub fn accept_upgrade_authority_transfer(
     ctx: Context<AcceptUpgradeAuthorityTransfer>,
     target_program: Pubkey,
 ) -> Result<()> {
-    let pending = ctx
+    let idx = ctx
         .accounts
         .access_manager
-        .pending_authority_transfer
-        .as_ref()
+        .pending_authority_transfers
+        .iter()
+        .position(|p| p.target_program == target_program)
         .ok_or_else(|| error!(AccessManagerError::NoPendingTransfer))?;
 
     require!(
-        pending.target_program == target_program,
-        AccessManagerError::PendingTransferMismatch
-    );
-    require!(
-        pending.new_authority == ctx.accounts.new_authority.key(),
+        ctx.accounts.access_manager.pending_authority_transfers[idx].new_authority
+            == ctx.accounts.new_authority.key(),
         AccessManagerError::AuthorityMismatch
     );
 
@@ -170,7 +172,10 @@ pub fn accept_upgrade_authority_transfer(
     )?;
 
     let new_authority = ctx.accounts.new_authority.key();
-    ctx.accounts.access_manager.pending_authority_transfer = None;
+    ctx.accounts
+        .access_manager
+        .pending_authority_transfers
+        .swap_remove(idx);
 
     emit!(UpgradeAuthorityTransferredEvent {
         program: target_program,
@@ -213,21 +218,21 @@ pub fn cancel_upgrade_authority_transfer(
         &crate::ID,
     )?;
 
-    let pending = ctx
+    let idx = ctx
         .accounts
         .access_manager
-        .pending_authority_transfer
-        .as_ref()
+        .pending_authority_transfers
+        .iter()
+        .position(|p| p.target_program == target_program)
         .ok_or_else(|| error!(AccessManagerError::NoPendingTransfer))?;
 
-    require!(
-        pending.target_program == target_program,
-        AccessManagerError::PendingTransferMismatch
-    );
+    let cancelled_authority =
+        ctx.accounts.access_manager.pending_authority_transfers[idx].new_authority;
 
-    let cancelled_authority = pending.new_authority;
-
-    ctx.accounts.access_manager.pending_authority_transfer = None;
+    ctx.accounts
+        .access_manager
+        .pending_authority_transfers
+        .swap_remove(idx);
 
     emit!(UpgradeAuthorityTransferCancelledEvent {
         program: target_program,
@@ -260,10 +265,10 @@ mod tests {
                 members: vec![admin],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfer: Some(PendingAuthorityTransfer {
+            pending_authority_transfers: vec![PendingAuthorityTransfer {
                 target_program,
                 new_authority,
-            }),
+            }],
         };
         let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
         data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
@@ -387,13 +392,12 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let am = get_access_manager_from_result(&result, &pda);
-        assert_eq!(
-            am.pending_authority_transfer,
-            Some(PendingAuthorityTransfer {
+        assert!(am
+            .pending_authority_transfers
+            .contains(&PendingAuthorityTransfer {
                 target_program,
                 new_authority,
-            })
-        );
+            }));
     }
 
     #[test]
@@ -562,6 +566,51 @@ mod tests {
                 ANCHOR_ERROR_OFFSET + AccessManagerError::PendingTransferAlreadyExists as u32,
             ))],
         );
+    }
+
+    #[test]
+    fn test_propose_different_targets_succeeds() {
+        let admin = Pubkey::new_unique();
+        let target_a = Pubkey::new_unique();
+        let target_b = Pubkey::new_unique();
+        let authority_a = Pubkey::new_unique();
+        let authority_b = Pubkey::new_unique();
+
+        let (pda, am_account) = create_access_manager_with_pending(admin, target_a, authority_a);
+        let sysvar_account = create_instructions_sysvar_account();
+
+        let instruction = build_instruction(
+            crate::instruction::ProposeUpgradeAuthorityTransfer {
+                target_program: target_b,
+                new_authority: authority_b,
+            },
+            build_propose_account_metas(pda, admin),
+        );
+
+        let accounts = vec![
+            (pda, am_account),
+            (admin, create_signer_account()),
+            (solana_sdk::sysvar::instructions::ID, sysvar_account),
+        ];
+
+        let mollusk = setup_mollusk();
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let am = get_access_manager_from_result(&result, &pda);
+        assert_eq!(am.pending_authority_transfers.len(), 2);
+        assert!(am
+            .pending_authority_transfers
+            .contains(&PendingAuthorityTransfer {
+                target_program: target_a,
+                new_authority: authority_a,
+            }));
+        assert!(am
+            .pending_authority_transfers
+            .contains(&PendingAuthorityTransfer {
+                target_program: target_b,
+                new_authority: authority_b,
+            }));
     }
 
     #[test]
@@ -747,7 +796,7 @@ mod tests {
             &instruction,
             &accounts,
             &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + AccessManagerError::PendingTransferMismatch as u32,
+                ANCHOR_ERROR_OFFSET + AccessManagerError::NoPendingTransfer as u32,
             ))],
         );
     }
@@ -780,7 +829,7 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let am = get_access_manager_from_result(&result, &pda);
-        assert_eq!(am.pending_authority_transfer, None);
+        assert!(am.pending_authority_transfers.is_empty());
     }
 
     #[test]
@@ -873,7 +922,7 @@ mod tests {
             &instruction,
             &accounts,
             &[Check::err(solana_sdk::program_error::ProgramError::Custom(
-                ANCHOR_ERROR_OFFSET + AccessManagerError::PendingTransferMismatch as u32,
+                ANCHOR_ERROR_OFFSET + AccessManagerError::NoPendingTransfer as u32,
             ))],
         );
     }
@@ -1041,14 +1090,14 @@ mod integration_tests {
         }
     }
 
-    async fn get_pending_transfer(
+    async fn get_pending_transfers(
         banks_client: &solana_program_test::BanksClient,
-    ) -> Option<crate::types::PendingAuthorityTransfer> {
+    ) -> Vec<crate::types::PendingAuthorityTransfer> {
         let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
         let account = banks_client.get_account(pda).await.unwrap().unwrap();
         let am: AccessManager =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
-        am.pending_authority_transfer
+        am.pending_authority_transfers
     }
 
     #[tokio::test]
@@ -1071,14 +1120,11 @@ mod integration_tests {
             .await
             .expect("propose should succeed");
 
-        let pending = get_pending_transfer(&banks_client).await;
-        assert_eq!(
-            pending,
-            Some(crate::types::PendingAuthorityTransfer {
-                target_program,
-                new_authority: new_authority.pubkey(),
-            })
-        );
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.contains(&crate::types::PendingAuthorityTransfer {
+            target_program,
+            new_authority: new_authority.pubkey(),
+        }));
 
         // Accept
         let accept_ix = build_accept_ix(target_program, new_authority.pubkey());
@@ -1100,8 +1146,8 @@ mod integration_tests {
             "upgrade authority should be transferred"
         );
 
-        let pending = get_pending_transfer(&banks_client).await;
-        assert_eq!(pending, None, "pending transfer should be cleared");
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.is_empty(), "pending transfers should be cleared");
     }
 
     #[tokio::test]
@@ -1138,8 +1184,8 @@ mod integration_tests {
             .await
             .expect("cancel should succeed");
 
-        let pending = get_pending_transfer(&banks_client).await;
-        assert_eq!(pending, None, "pending should be cleared after cancel");
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.is_empty(), "pending should be cleared after cancel");
 
         // Re-propose with second authority
         let ix = build_propose_ix(admin.pubkey(), target_program, second_authority.pubkey());
@@ -1250,14 +1296,11 @@ mod integration_tests {
             .await
             .expect("whitelisted CPI propose should succeed");
 
-        let pending = get_pending_transfer(&banks_client).await;
-        assert_eq!(
-            pending,
-            Some(crate::types::PendingAuthorityTransfer {
-                target_program,
-                new_authority: new_authority.pubkey(),
-            })
-        );
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.contains(&crate::types::PendingAuthorityTransfer {
+            target_program,
+            new_authority: new_authority.pubkey(),
+        }));
     }
 
     #[tokio::test]
@@ -1280,6 +1323,96 @@ mod integration_tests {
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
+        );
+    }
+
+    /// Batch-proposes transfers for multiple target programs in a single
+    /// transaction, then accepts each independently — validates the core
+    /// benefit of `Vec<PendingAuthorityTransfer>` over `Option`.
+    #[tokio::test]
+    async fn test_batch_propose_then_accept_each() {
+        let admin = Keypair::new();
+        let new_authority = Keypair::new();
+
+        let target_programs: Vec<Pubkey> = (0..3).map(|_| Pubkey::new_unique()).collect();
+
+        let mut pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+
+        for target in &target_programs {
+            let (program_data_pda, _) =
+                Pubkey::find_program_address(&[target.as_ref()], &bpf_loader_upgradeable::ID);
+            let (upgrade_authority_pda, _) =
+                AccessManager::upgrade_authority_pda(target, &crate::ID);
+
+            let pd_account = Account::new_data_with_space(
+                10_000_000_000,
+                &UpgradeableLoaderState::ProgramData {
+                    slot: 0,
+                    upgrade_authority_address: Some(upgrade_authority_pda),
+                },
+                UpgradeableLoaderState::size_of_programdata_metadata(),
+                &bpf_loader_upgradeable::ID,
+            )
+            .unwrap();
+            pt.add_account(program_data_pda, pd_account);
+
+            pt.add_account(
+                upgrade_authority_pda,
+                Account {
+                    lamports: 1_000_000,
+                    owner: solana_sdk::system_program::ID,
+                    ..Default::default()
+                },
+            );
+        }
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Batch-propose all transfers in a single transaction
+        let propose_ixs: Vec<Instruction> = target_programs
+            .iter()
+            .map(|target| build_propose_ix(admin.pubkey(), *target, new_authority.pubkey()))
+            .collect();
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &propose_ixs,
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("batch propose should succeed");
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert_eq!(pending.len(), target_programs.len());
+        for target in &target_programs {
+            assert!(pending.iter().any(|p| p.target_program == *target));
+        }
+
+        // Accept each transfer independently
+        for target in &target_programs {
+            let accept_ix = build_accept_ix(*target, new_authority.pubkey());
+            let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+                &[accept_ix],
+                Some(&payer.pubkey()),
+                &[&payer, &new_authority],
+                recent_blockhash,
+            );
+            banks_client
+                .process_transaction(tx)
+                .await
+                .unwrap_or_else(|e| panic!("accept for {target} should succeed: {e}"));
+
+            let authority = get_program_data_authority(&banks_client, *target).await;
+            assert_eq!(authority, Some(new_authority.pubkey()));
+        }
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(
+            pending.is_empty(),
+            "all pending transfers should be cleared"
         );
     }
 

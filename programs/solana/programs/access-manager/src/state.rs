@@ -28,7 +28,19 @@ pub struct AccessManager {
     pub roles: Vec<RoleData>,
     #[max_len(8)]
     pub whitelisted_programs: Vec<Pubkey>,
-    pub pending_authority_transfer: Option<PendingAuthorityTransfer>,
+    /// Pending upgrade authority transfers, one per managed program.
+    ///
+    /// Uses a bounded `Vec` rather than a single `Option` to support concurrent
+    /// transfers — with timelocked multisigs, a single `Option` would require
+    /// N sequential propose/accept cycles (N × timelock waits). With a `Vec`,
+    /// all proposes can be batched in one multisig vote.
+    ///
+    /// A shared (program-independent) upgrade authority PDA was also considered
+    /// but rejected: it removes per-program PDA binding (defense-in-depth),
+    /// complicates the accept flow (BPF Loader operates per-program) and
+    /// requires backwards-incompatible PDA migration.
+    #[max_len(8)]
+    pub pending_authority_transfers: Vec<PendingAuthorityTransfer>,
 }
 
 impl AccessManager {
@@ -111,7 +123,7 @@ mod tests {
         AccessManager {
             roles: vec![],
             whitelisted_programs: vec![],
-            pending_authority_transfer: None,
+            pending_authority_transfers: vec![],
         }
     }
 
@@ -119,7 +131,7 @@ mod tests {
         AccessManager {
             roles,
             whitelisted_programs: vec![],
-            pending_authority_transfer: None,
+            pending_authority_transfers: vec![],
         }
     }
 

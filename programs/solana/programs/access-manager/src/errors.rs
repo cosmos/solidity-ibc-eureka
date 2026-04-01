@@ -27,12 +27,10 @@ pub enum AccessManagerError {
     UnauthorizedDeployer,
     #[msg("New authority account does not match instruction parameter")]
     AuthorityMismatch,
-    #[msg("A pending authority transfer already exists")]
+    #[msg("A pending transfer for this target program already exists")]
     PendingTransferAlreadyExists,
-    #[msg("No pending authority transfer to accept or cancel")]
+    #[msg("No pending transfer for this target program")]
     NoPendingTransfer,
-    #[msg("Target program does not match pending transfer")]
-    PendingTransferMismatch,
     #[msg("Cannot transfer upgrade authority to the current authority PDA")]
     SelfTransfer,
     #[msg("No pending access manager transfer to accept or cancel")]
