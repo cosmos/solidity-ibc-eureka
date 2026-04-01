@@ -46,6 +46,8 @@ pub struct AccessManager {
 impl AccessManager {
     pub const SEED: &'static [u8] = b"access_manager";
     pub const UPGRADE_AUTHORITY_SEED: &'static [u8] = b"upgrade_authority";
+    /// Must match the `#[max_len]` annotation on `pending_authority_transfers`.
+    pub const MAX_PENDING_TRANSFERS: usize = 8;
 
     /// Get upgrade authority PDA for a target program
     pub fn upgrade_authority_pda(target_program: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {

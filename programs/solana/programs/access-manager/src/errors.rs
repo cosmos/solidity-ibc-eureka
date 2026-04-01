@@ -33,6 +33,8 @@ pub enum AccessManagerError {
     NoPendingTransfer,
     #[msg("Cannot transfer upgrade authority to the current authority PDA")]
     SelfTransfer,
+    #[msg("Maximum number of concurrent pending transfers reached")]
+    TooManyPendingTransfers,
     #[msg("No pending access manager transfer to accept or cancel")]
     NoPendingAccessManagerTransfer,
     #[msg("A pending access manager transfer already exists")]

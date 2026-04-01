@@ -58,6 +58,15 @@ pub fn propose_upgrade_authority_transfer(
     );
 
     require!(
+        ctx.accounts
+            .access_manager
+            .pending_authority_transfers
+            .len()
+            < AccessManager::MAX_PENDING_TRANSFERS,
+        AccessManagerError::TooManyPendingTransfers
+    );
+
+    require!(
         !ctx.accounts
             .access_manager
             .pending_authority_transfers
@@ -258,6 +267,19 @@ mod tests {
         target_program: Pubkey,
         new_authority: Pubkey,
     ) -> (Pubkey, Account) {
+        create_access_manager_with_transfers(
+            admin,
+            vec![PendingAuthorityTransfer {
+                target_program,
+                new_authority,
+            }],
+        )
+    }
+
+    fn create_access_manager_with_transfers(
+        admin: Pubkey,
+        transfers: Vec<PendingAuthorityTransfer>,
+    ) -> (Pubkey, Account) {
         let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
         let am = AccessManager {
             roles: vec![crate::types::RoleData {
@@ -265,10 +287,7 @@ mod tests {
                 members: vec![admin],
             }],
             whitelisted_programs: vec![],
-            pending_authority_transfers: vec![PendingAuthorityTransfer {
-                target_program,
-                new_authority,
-            }],
+            pending_authority_transfers: transfers,
         };
         let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
         data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
@@ -614,6 +633,45 @@ mod tests {
     }
 
     #[test]
+    fn test_propose_vec_overflow_rejected() {
+        let admin = Pubkey::new_unique();
+
+        let full_transfers: Vec<PendingAuthorityTransfer> = (0
+            ..AccessManager::MAX_PENDING_TRANSFERS)
+            .map(|_| PendingAuthorityTransfer {
+                target_program: Pubkey::new_unique(),
+                new_authority: Pubkey::new_unique(),
+            })
+            .collect();
+
+        let (pda, am_account) = create_access_manager_with_transfers(admin, full_transfers);
+        let sysvar_account = create_instructions_sysvar_account();
+
+        let instruction = build_instruction(
+            crate::instruction::ProposeUpgradeAuthorityTransfer {
+                target_program: Pubkey::new_unique(),
+                new_authority: Pubkey::new_unique(),
+            },
+            build_propose_account_metas(pda, admin),
+        );
+
+        let accounts = vec![
+            (pda, am_account),
+            (admin, create_signer_account()),
+            (solana_sdk::sysvar::instructions::ID, sysvar_account),
+        ];
+
+        let mollusk = setup_mollusk();
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
+                ANCHOR_ERROR_OFFSET + AccessManagerError::TooManyPendingTransfers as u32,
+            ))],
+        );
+    }
+
+    #[test]
     fn test_propose_fake_sysvar_wormhole_attack() {
         let admin = Pubkey::new_unique();
         let target_program = Pubkey::new_unique();
@@ -830,6 +888,56 @@ mod tests {
 
         let am = get_access_manager_from_result(&result, &pda);
         assert!(am.pending_authority_transfers.is_empty());
+    }
+
+    #[test]
+    fn test_cancel_preserves_other_entries() {
+        let admin = Pubkey::new_unique();
+        let target_a = Pubkey::new_unique();
+        let target_b = Pubkey::new_unique();
+        let authority_a = Pubkey::new_unique();
+        let authority_b = Pubkey::new_unique();
+
+        let (pda, am_account) = create_access_manager_with_transfers(
+            admin,
+            vec![
+                PendingAuthorityTransfer {
+                    target_program: target_a,
+                    new_authority: authority_a,
+                },
+                PendingAuthorityTransfer {
+                    target_program: target_b,
+                    new_authority: authority_b,
+                },
+            ],
+        );
+        let sysvar_account = create_instructions_sysvar_account();
+
+        let instruction = build_instruction(
+            crate::instruction::CancelUpgradeAuthorityTransfer {
+                target_program: target_a,
+            },
+            build_cancel_account_metas(pda, admin),
+        );
+
+        let accounts = vec![
+            (pda, am_account),
+            (admin, create_signer_account()),
+            (solana_sdk::sysvar::instructions::ID, sysvar_account),
+        ];
+
+        let mollusk = setup_mollusk();
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
+
+        let am = get_access_manager_from_result(&result, &pda);
+        assert_eq!(am.pending_authority_transfers.len(), 1);
+        assert!(am
+            .pending_authority_transfers
+            .contains(&PendingAuthorityTransfer {
+                target_program: target_b,
+                new_authority: authority_b,
+            }));
     }
 
     #[test]
@@ -1451,5 +1559,95 @@ mod integration_tests {
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
         );
+    }
+
+    /// Propose A and B, cancel A, then accept B — verifies `swap_remove`
+    /// doesn't corrupt remaining entries when operations are interleaved.
+    #[tokio::test]
+    async fn test_cancel_one_then_accept_other() {
+        let admin = Keypair::new();
+        let authority_a = Keypair::new();
+        let authority_b = Keypair::new();
+
+        let mut pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+
+        let targets: Vec<Pubkey> = (0..2).map(|_| Pubkey::new_unique()).collect();
+        for target in &targets {
+            let (program_data_pda, _) =
+                Pubkey::find_program_address(&[target.as_ref()], &bpf_loader_upgradeable::ID);
+            let (upgrade_authority_pda, _) =
+                AccessManager::upgrade_authority_pda(target, &crate::ID);
+
+            let pd_account = Account::new_data_with_space(
+                10_000_000_000,
+                &UpgradeableLoaderState::ProgramData {
+                    slot: 0,
+                    upgrade_authority_address: Some(upgrade_authority_pda),
+                },
+                UpgradeableLoaderState::size_of_programdata_metadata(),
+                &bpf_loader_upgradeable::ID,
+            )
+            .unwrap();
+            pt.add_account(program_data_pda, pd_account);
+            pt.add_account(
+                upgrade_authority_pda,
+                Account {
+                    lamports: 1_000_000,
+                    owner: solana_sdk::system_program::ID,
+                    ..Default::default()
+                },
+            );
+        }
+
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Propose both
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[
+                build_propose_ix(admin.pubkey(), targets[0], authority_a.pubkey()),
+                build_propose_ix(admin.pubkey(), targets[1], authority_b.pubkey()),
+            ],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("batch propose should succeed");
+
+        // Cancel A
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[build_cancel_ix(admin.pubkey(), targets[0])],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("cancel A should succeed");
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0].target_program, targets[1]);
+
+        // Accept B
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[build_accept_ix(targets[1], authority_b.pubkey())],
+            Some(&payer.pubkey()),
+            &[&payer, &authority_b],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("accept B should succeed");
+
+        let authority = get_program_data_authority(&banks_client, targets[1]).await;
+        assert_eq!(authority, Some(authority_b.pubkey()));
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.is_empty());
     }
 }
