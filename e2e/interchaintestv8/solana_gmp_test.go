@@ -479,9 +479,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 				ackBytes := event.Acknowledgements[0]
 
-				// Parse protobuf acknowledgement
+				// Parse acknowledgement based on encoding type
 				var ack gmptypes.Acknowledgement
-				err = proto.Unmarshal(ackBytes, &ack)
+				if encodingType.String() == testvalues.Ics27AbiEncoding {
+					ack, err = gmphelpers.DecodeABIAck(ackBytes)
+				} else {
+					err = proto.Unmarshal(ackBytes, &ack)
+				}
 				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 				// Extract counter value (u64 little-endian)

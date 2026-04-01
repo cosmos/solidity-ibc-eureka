@@ -153,7 +153,6 @@ impl Aggregator {
         sorted_packets.sort();
         let packet_cache_key = Self::make_packet_cache_key(&sorted_packets, height);
 
-        let pkt_start = std::time::Instant::now();
         let packet_attestation = self
             .packet_cache
             .try_get_with(packet_cache_key, async {
@@ -173,12 +172,7 @@ impl Aggregator {
             })
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
-        tracing::warn!(
-            "⏱️       🟣 get_attestations: packet query took {:?}",
-            pkt_start.elapsed()
-        );
 
-        let state_start = std::time::Instant::now();
         let state_attestation = self
             .state_cache
             .try_get_with(packet_attestation.height, async {
@@ -194,10 +188,6 @@ impl Aggregator {
             })
             .await
             .map_err(|e: Arc<Status>| (*e).clone())?;
-        tracing::warn!(
-            "⏱️       🟣 get_attestations: state query took {:?}",
-            state_start.elapsed()
-        );
 
         Ok(AttestationResult {
             state: state_attestation,
@@ -209,22 +199,12 @@ impl Aggregator {
         &self,
         query: AttestationQuery,
     ) -> Result<Vec<Option<Attestation>>, Status> {
-        let query_type = match &query {
-            AttestationQuery::Packet(_, h, ct) => format!("Packet(h={h},ct={ct:?})"),
-            AttestationQuery::State(h) => format!("State(h={h})"),
-        };
-        let qa_start = std::time::Instant::now();
-
         let timeout_duration = self.attestor_timeout_duration;
         let query_futures = self.attestor_clients.iter().map(|(endpoint, client)| {
             let query = query.clone();
-            let endpoint_clone = endpoint.clone();
             async move {
-                let lock_start = std::time::Instant::now();
                 let mut client = client.lock().await;
-                let lock_dur = lock_start.elapsed();
 
-                let rpc_start = std::time::Instant::now();
                 let response = timeout(timeout_duration, async {
                     match query {
                         AttestationQuery::Packet(packets, height, commitment_type) => {
@@ -248,20 +228,17 @@ impl Aggregator {
                     }
                 })
                 .await;
-                let rpc_dur = rpc_start.elapsed();
 
-                tracing::warn!(
-                    "⏱️         🔴 attestor [{endpoint_clone}] lock={lock_dur:?} rpc={rpc_dur:?}"
-                );
-
-                let result = match response {
-                    Ok(Ok(attestation)) => Ok(attestation),
-                    Ok(Err(status)) => Err(status),
-                    Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request timed out after {timeout_duration:?}"
-                    ))),
-                };
-                (endpoint, result)
+                match response {
+                    Ok(Ok(attestation)) => (endpoint, Ok(attestation)),
+                    Ok(Err(status)) => (endpoint, Err(status)),
+                    Err(_) => (
+                        endpoint,
+                        Err(Status::deadline_exceeded(format!(
+                            "Request timed out after {timeout_duration:?}"
+                        ))),
+                    ),
+                }
             }
         });
 
@@ -277,11 +254,6 @@ impl Aggregator {
                 }
             })
             .collect();
-
-        tracing::warn!(
-            "⏱️       🔴 query_attestations({query_type}) total {:?}",
-            qa_start.elapsed()
-        );
 
         Ok(successful_responses)
     }
@@ -300,7 +272,6 @@ impl Aggregator {
     /// # Errors
     /// - Fails if quorum cannot be reached
     pub async fn get_latest_height(&self) -> anyhow::Result<u64> {
-        let start = std::time::Instant::now();
         let query_futures = self
             .attestor_clients
             .iter()
@@ -312,14 +283,8 @@ impl Aggregator {
             .flatten()
             .collect();
 
-        let result = quorum::select_quorum_height(heights.clone(), self.quorum_threshold)
-            .map_err(|e| anyhow::anyhow!("{e}"));
-        tracing::warn!(
-            "⏱️     🟡 get_latest_height took {:?} heights={:?}",
-            start.elapsed(),
-            heights
-        );
-        result
+        quorum::select_quorum_height(heights, self.quorum_threshold)
+            .map_err(|e| anyhow::anyhow!("{e}"))
     }
 
     async fn query_attestor_height(
@@ -327,27 +292,16 @@ impl Aggregator {
         endpoint: Arc<String>,
         client: &Mutex<AttestationServiceClient<Channel>>,
     ) -> Option<u64> {
-        let start = std::time::Instant::now();
         let mut client = client.lock().await;
-        let lock_dur = start.elapsed();
-
-        let rpc_start = std::time::Instant::now();
         let request = Request::new(LatestHeightRequest {});
 
-        let result = match timeout(
+        match timeout(
             self.attestor_timeout_duration,
             client.latest_height(request),
         )
         .await
         {
-            Ok(Ok(response)) => {
-                let h = response.into_inner().height;
-                tracing::warn!(
-                    "⏱️         🟡 attestor_height [{endpoint}] lock={lock_dur:?} rpc={:?} height={h}",
-                    rpc_start.elapsed()
-                );
-                Some(h)
-            }
+            Ok(Ok(response)) => Some(response.into_inner().height),
             Ok(Err(e)) => {
                 tracing_error!("Attestor [{endpoint}] failed to get latest height: {e:?}");
                 None
@@ -359,8 +313,7 @@ impl Aggregator {
                 );
                 None
             }
-        };
-        result
+        }
     }
 }
 

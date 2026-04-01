@@ -330,6 +330,9 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			totalDuration := time.Since(packetStart)
 
 			if err != nil {
+				if sig != (solana.Signature{}) {
+					s.LogTransactionDetails(ctx, t, sig, fmt.Sprintf("FAILED: Packet %d Final Tx", pktIdx+1))
+				}
 				packetResults <- packetResult{
 					packetIdx:      pktIdx,
 					err:            fmt.Errorf("packet %d failed to submit final tx: %w", pktIdx, err),

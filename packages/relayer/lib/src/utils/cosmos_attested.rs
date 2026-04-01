@@ -354,10 +354,6 @@ async fn build_attestor_relay_events_tx_with(
 
     let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
 
-    let total_start = std::time::Instant::now();
-    tracing::warn!("⏱️ ======== RELAY TIMING START ======== relay_height={relay_height}");
-
-    let step_start = std::time::Instant::now();
     wait_for_condition(
         Duration::from_secs(25 * 60),
         Duration::from_secs(1),
@@ -367,12 +363,7 @@ async fn build_attestor_relay_events_tx_with(
         },
     )
     .await?;
-    tracing::warn!(
-        "⏱️ 🟡 wait_for_condition took {:?} (relay_height={relay_height})",
-        step_start.elapsed()
-    );
 
-    let step_start = std::time::Instant::now();
     let attestations = fetch_attestations(
         aggregator,
         send_packets,
@@ -381,12 +372,6 @@ async fn build_attestor_relay_events_tx_with(
         relay_height,
     )
     .await?;
-    tracing::warn!("⏱️ 🔵 fetch_attestations took {:?}", step_start.elapsed());
-
-    tracing::warn!(
-        "⏱️ ======== RELAY TIMING TOTAL: {:?} ========",
-        total_start.elapsed()
-    );
 
     let state = attestations.state;
     let proof_height = state.height;
