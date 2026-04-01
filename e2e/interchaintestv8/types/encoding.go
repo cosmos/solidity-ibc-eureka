@@ -25,9 +25,9 @@ func (et SupportedEncodingType) String() string {
 func GetEnvEncodingType() SupportedEncodingType {
 	envEncoding := os.Getenv(testvalues.EnvKeyE2EGmpEncoding)
 	switch envEncoding {
-	case "", testvalues.EnvValueGmpEncoding_Protobuf:
+	case "", testvalues.Ics27ProtobufEncoding:
 		return EncodingTypeProtobuf
-	case testvalues.EnvValueGmpEncoding_Abi:
+	case testvalues.Ics27AbiEncoding:
 		return EncodingTypeAbi
 	default:
 		panic(fmt.Errorf("unsupported GMP encoding type in env: %s", envEncoding))
