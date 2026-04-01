@@ -1,7 +1,9 @@
 use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData};
+use solana_ibc_proto::{
+    GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData,
+};
 
 mod sol_types {
     alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
@@ -93,8 +95,8 @@ pub fn decode_gmp_ack(bytes: &[u8], encoding: &str) -> Result<GmpAcknowledgement
     match encoding {
         ICS27_ENCODING_ABI => {
             use alloy_sol_types::SolValue;
-            let abi =
-                GmpAcknowledgementAbi::abi_decode(bytes).map_err(|_| GMPError::InvalidPacketData)?;
+            let abi = GmpAcknowledgementAbi::abi_decode(bytes)
+                .map_err(|_| GMPError::InvalidPacketData)?;
             Ok(GmpAcknowledgement::success(abi.result.into()))
         }
         ICS27_ENCODING_PROTOBUF => {

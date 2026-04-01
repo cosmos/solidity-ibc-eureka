@@ -93,7 +93,8 @@ pub fn on_recv_packet<'info>(
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
     // Decode GMP packet data using the payload's declared encoding
-    let raw_packet_data = crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let raw_packet_data =
+        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
     let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
         msg!("GMP packet validation failed: {}", e);
         GMPError::InvalidPacketData
@@ -754,10 +755,7 @@ mod tests {
     }
 
     fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        encode_gmp_packet(
-            GmpPacketData::try_from(raw).unwrap(),
-            encoding,
-        ).unwrap()
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
     fn run_recv_success_test(encoding: &str) {

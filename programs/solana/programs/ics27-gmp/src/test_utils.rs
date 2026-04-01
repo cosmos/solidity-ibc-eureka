@@ -1,5 +1,5 @@
-use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
 use crate::constants::ICS27_ENCODING_PROTOBUF;
+use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
 use access_manager::RoleData;

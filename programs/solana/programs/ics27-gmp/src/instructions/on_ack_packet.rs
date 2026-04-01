@@ -52,7 +52,8 @@ pub fn on_acknowledgement_packet(
     )
     .map_err(GMPError::from)?;
 
-    let raw_packet_data = crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let raw_packet_data =
+        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
     let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
         msg!("GMP packet validation failed: {}", e);
         GMPError::InvalidPacketData
@@ -81,7 +82,9 @@ pub fn on_acknowledgement_packet(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
+    use crate::constants::{
+        GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION,
+    };
     use crate::encoding::encode_gmp_packet;
     use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
     use crate::test_utils::{
@@ -384,10 +387,7 @@ mod tests {
     }
 
     fn encode_test_packet(raw: solana_ibc_proto::RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        encode_gmp_packet(
-            GmpPacketData::try_from(raw).unwrap(),
-            encoding,
-        ).unwrap()
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
     fn run_ack_success_test(encoding: &str) {
