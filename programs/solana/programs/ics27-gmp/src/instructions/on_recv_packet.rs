@@ -4,7 +4,7 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpPacketData, Protobuf};
+use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -181,13 +181,14 @@ pub fn on_recv_packet<'info>(
 
     // Wrap the CPI call result in the ICS27 GMP acknowledgement.
     // Only accept return data from the target program itself, not from nested CPIs.
-    let result = match anchor_lang::solana_program::program::get_return_data() {
-        Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => Vec::new(),
+    let ack = match anchor_lang::solana_program::program::get_return_data() {
+        Some((return_program_id, data)) if return_program_id == receiver_pubkey => {
+            GmpAcknowledgement::success(data)
+        }
+        _ => GmpAcknowledgement::empty_success(),
     };
 
-    // Encode the acknowledgement using the same encoding as the payload
-    crate::encoding::encode_gmp_ack(&result, &msg.payload.encoding)
+    Ok(ack.encode_to_vec())
 }
 
 #[cfg(test)]

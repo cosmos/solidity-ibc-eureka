@@ -1,15 +1,12 @@
 use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
 use crate::errors::GMPError;
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{
-    GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData,
-};
+use solana_ibc_proto::{GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData};
 
 mod sol_types {
     alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
 }
 
-use sol_types::IICS27GMPMsgs::GMPAcknowledgement as GmpAcknowledgementAbi;
 pub use sol_types::IICS27GMPMsgs::GMPPacketData as GmpPacketDataAbi;
 
 impl From<GmpPacketData> for GmpPacketDataAbi {
@@ -20,14 +17,6 @@ impl From<GmpPacketData> for GmpPacketDataAbi {
             salt: data.salt.into_vec().into(),
             payload: data.payload.into_inner().into(),
             memo: data.memo.into_string(),
-        }
-    }
-}
-
-impl From<GmpAcknowledgement> for GmpAcknowledgementAbi {
-    fn from(ack: GmpAcknowledgement) -> Self {
-        Self {
-            result: ack.result.into(),
         }
     }
 }
@@ -65,31 +54,6 @@ pub fn decode_gmp_packet(bytes: &[u8], encoding: &str) -> Result<RawGmpPacketDat
         }
         ICS27_ENCODING_PROTOBUF => {
             RawGmpPacketData::decode(bytes).map_err(|_| GMPError::InvalidPacketData.into())
-        }
-        _ => Err(GMPError::InvalidEncoding.into()),
-    }
-}
-
-/// Encode a GMP acknowledgement from raw result bytes.
-///
-/// For protobuf: uses `empty_success()` sentinel when `result` is empty.
-/// For ABI: straight encode (always produces non-empty output).
-pub fn encode_gmp_ack(result: &[u8], encoding: &str) -> Result<Vec<u8>> {
-    match encoding {
-        ICS27_ENCODING_ABI => {
-            use alloy_sol_types::SolValue;
-            Ok(
-                GmpAcknowledgementAbi::from(GmpAcknowledgement::success(result.to_vec()))
-                    .abi_encode(),
-            )
-        }
-        ICS27_ENCODING_PROTOBUF => {
-            let ack = if result.is_empty() {
-                GmpAcknowledgement::empty_success()
-            } else {
-                GmpAcknowledgement::success(result.to_vec())
-            };
-            Ok(ack.encode_to_vec())
         }
         _ => Err(GMPError::InvalidEncoding.into()),
     }
@@ -144,17 +108,14 @@ mod tests {
     #[test]
     fn invalid_encoding_rejected() {
         let data = sample_packet_data();
-        assert!(encode_gmp_packet(data, "application/json").is_err());
+        let result = encode_gmp_packet(data, "application/json");
+        assert!(result.is_err());
     }
 
     #[test]
     fn invalid_encoding_decode_rejected() {
-        assert!(decode_gmp_packet(&[0, 1, 2], "application/json").is_err());
-    }
-
-    #[test]
-    fn invalid_encoding_ack_rejected() {
-        assert!(encode_gmp_ack(&[1], "application/json").is_err());
+        let result = decode_gmp_packet(&[0, 1, 2], "application/json");
+        assert!(result.is_err());
     }
 
     #[test]
@@ -167,6 +128,7 @@ mod tests {
             memo: String::new(),
         };
         let encoded = abi.abi_encode();
+        // First 32 bytes should be offset pointer 0x20 for the dynamic struct
         assert_eq!(encoded[31], 0x20);
     }
 
@@ -183,43 +145,9 @@ mod tests {
     }
 
     #[test]
-    fn ack_abi_round_trip() {
-        let data = vec![1, 2, 3, 4];
-        let encoded = encode_gmp_ack(&data, ICS27_ENCODING_ABI).unwrap();
-        assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
-        assert_eq!(&decoded.result[..], &data);
-    }
-
-    #[test]
-    fn ack_abi_empty_result() {
-        let encoded = encode_gmp_ack(&[], ICS27_ENCODING_ABI).unwrap();
-        assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgementAbi::abi_decode(&encoded).unwrap();
-        assert!(decoded.result.is_empty());
-    }
-
-    #[test]
-    fn ack_protobuf_round_trip() {
-        let data = vec![1, 2, 3, 4];
-        let encoded = encode_gmp_ack(&data, ICS27_ENCODING_PROTOBUF).unwrap();
-        assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
-        assert_eq!(decoded.result, data);
-    }
-
-    #[test]
-    fn ack_protobuf_empty_result_uses_sentinel() {
-        let encoded = encode_gmp_ack(&[], ICS27_ENCODING_PROTOBUF).unwrap();
-        assert!(!encoded.is_empty());
-        let decoded = GmpAcknowledgement::decode_vec(&encoded).unwrap();
-        assert_eq!(decoded.result, vec![0]);
-    }
-
-    #[test]
     fn abi_to_raw_then_validation_catches_invalid() {
         let abi = GmpPacketDataAbi {
-            sender: String::new(),
+            sender: String::new(), // Empty sender should fail validation
             receiver: "test".to_string(),
             salt: vec![].into(),
             payload: vec![1].into(),
