@@ -1706,15 +1706,16 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 		s.Require().NoError(err, "batch propose should succeed — all 3 transfers in one transaction")
 	}))
 
-	// --- Claim each via AM-B independently ---
+	// --- Batch claim all via AM-B in a single transaction ---
 
-	amAProgramID := access_manager.ProgramID
+	s.Require().True(s.Run("AM-B batch claims upgrade authority for all programs", func() {
+		amAProgramID := access_manager.ProgramID
+		amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
 
-	for i, p := range programs {
-		s.Require().True(s.Run(fmt.Sprintf("AM-B claims upgrade authority for program %d", i), func() {
-			amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
-
-			claimIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+		claimIxs := make([]solanago.Instruction, len(programs))
+		for i, p := range programs {
+			var err error
+			claimIxs[i], err = withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
 				return access_manager.NewClaimUpgradeAuthorityInstruction(
 					p.programID,
 					p.amBUpgradeAuthPDA,
@@ -1726,20 +1727,20 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 				)
 			})
 			s.Require().NoError(err, "failed to build claim instruction for program %d", i)
+		}
 
-			computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+		computeBudgetIx := solana.NewComputeBudgetInstruction(800_000)
 
-			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-				s.UpgraderWallet.PublicKey(),
-				computeBudgetIx,
-				claimIx,
-			)
-			s.Require().NoError(err)
+		txIxs := append([]solanago.Instruction{computeBudgetIx}, claimIxs...)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.UpgraderWallet.PublicKey(),
+			txIxs...,
+		)
+		s.Require().NoError(err)
 
-			_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
-			s.Require().NoError(err, "claim should succeed for program %d", i)
-		}))
-	}
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		s.Require().NoError(err, "batch claim should succeed for all programs")
+	}))
 
 	// --- Verify: AM-B admin can upgrade all programs ---
 
