@@ -1605,45 +1605,50 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 
 	// --- Target programs ---
 
-	targetPrograms := []solanago.PublicKey{
-		ics26_router.ProgramID,
-		ics07_tendermint.ProgramID,
-		ics27_gmp.ProgramID,
-	}
-
 	type programInfo struct {
 		programID          solanago.PublicKey
 		programDataAccount solanago.PublicKey
 		amAUpgradeAuthPDA  solanago.PublicKey
 		amBUpgradeAuthPDA  solanago.PublicKey
+		soFile             string
+	}
+
+	targetPrograms := []struct {
+		id     solanago.PublicKey
+		soFile string
+	}{
+		{ics26_router.ProgramID, "programs/solana/target/deploy/ics26_router.so"},
+		{ics07_tendermint.ProgramID, "programs/solana/target/deploy/ics07_tendermint.so"},
+		{ics27_gmp.ProgramID, "programs/solana/target/deploy/ics27_gmp.so"},
 	}
 
 	programs := make([]programInfo, len(targetPrograms))
 
 	s.Require().True(s.Run("Derive PDAs for all target programs", func() {
-		for i, pid := range targetPrograms {
-			programDataAccount, err := solana.GetProgramDataAddress(pid)
+		for i, tp := range targetPrograms {
+			programDataAccount, err := solana.GetProgramDataAddress(tp.id)
 			s.Require().NoError(err)
 
 			amAPDA, _ := solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
 				access_manager.ProgramID,
-				pid.Bytes(),
+				tp.id.Bytes(),
 			)
 
 			amBPDA, _ := solana.AccessManager.UpgradeAuthorityWithArgSeedPDA(
 				amBProgramID,
-				pid.Bytes(),
+				tp.id.Bytes(),
 			)
 
 			programs[i] = programInfo{
-				programID:          pid,
+				programID:          tp.id,
 				programDataAccount: programDataAccount,
 				amAUpgradeAuthPDA:  amAPDA,
 				amBUpgradeAuthPDA:  amBPDA,
+				soFile:             tp.soFile,
 			}
 
 			s.T().Logf("Program %d (%s): AM-A PDA=%s, AM-B PDA=%s",
-				i, pid, amAPDA, amBPDA)
+				i, tp.id, amAPDA, amBPDA)
 		}
 	}))
 
@@ -1708,8 +1713,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 
 	// --- Batch claim all via AM-B in a single transaction ---
 
+	amAProgramID := access_manager.ProgramID
+
 	s.Require().True(s.Run("AM-B batch claims upgrade authority for all programs", func() {
-		amAProgramID := access_manager.ProgramID
 		amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
 
 		claimIxs := make([]solanago.Instruction, len(programs))
@@ -1765,24 +1771,67 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 		s.Require().NoError(err, "failed to grant ADMIN_ROLE on AM-B")
 	}))
 
-	s.Require().True(s.Run("Verify: AM-B can upgrade ICS26", func() {
-		p := programs[0]
-		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+	for i, p := range programs {
+		s.Require().True(s.Run(fmt.Sprintf("Verify: AM-B can upgrade program %d", i), func() {
+			amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
 
-		bufferAccount, err := solana.WriteProgramBuffer(ctx, programSoFile, deployerPath, s.Solana.Chain.RPCURL)
-		s.Require().NoError(err)
+			bufferAccount, err := solana.WriteProgramBuffer(ctx, p.soFile, deployerPath, s.Solana.Chain.RPCURL)
+			s.Require().NoError(err)
 
-		err = solana.SetBufferAuthority(ctx, bufferAccount, p.amBUpgradeAuthPDA, deployerPath, s.Solana.Chain.RPCURL)
-		s.Require().NoError(err)
+			err = solana.SetBufferAuthority(ctx, bufferAccount, p.amBUpgradeAuthPDA, deployerPath, s.Solana.Chain.RPCURL)
+			s.Require().NoError(err)
 
-		upgradeIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
-			return access_manager.NewUpgradeProgramInstruction(
+			upgradeIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+				return access_manager.NewUpgradeProgramInstruction(
+					p.programID,
+					amBAccessManagerPDA,
+					p.programID,
+					p.programDataAccount,
+					bufferAccount,
+					p.amBUpgradeAuthPDA,
+					s.UpgraderWallet.PublicKey(),
+					s.UpgraderWallet.PublicKey(),
+					solanago.SysVarInstructionsPubkey,
+					solanago.BPFLoaderUpgradeableProgramID,
+					solanago.SysVarRentPubkey,
+					solanago.SysVarClockPubkey,
+				)
+			})
+			s.Require().NoError(err)
+
+			computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+				s.UpgraderWallet.PublicKey(),
+				computeBudgetIx,
+				upgradeIx,
+			)
+			s.Require().NoError(err)
+
+			_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+			s.Require().NoError(err, "AM-B should be able to upgrade program %d after claiming authority", i)
+		}))
+	}
+
+	// --- Verify: AM-A can no longer upgrade any program ---
+
+	for i, p := range programs {
+		s.Require().True(s.Run(fmt.Sprintf("Verify: AM-A can no longer upgrade program %d", i), func() {
+			accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
+
+			bufferAccount, err := solana.WriteProgramBuffer(ctx, p.soFile, deployerPath, s.Solana.Chain.RPCURL)
+			s.Require().NoError(err)
+
+			err = solana.SetBufferAuthority(ctx, bufferAccount, p.amAUpgradeAuthPDA, deployerPath, s.Solana.Chain.RPCURL)
+			s.Require().NoError(err)
+
+			upgradeIx, err := access_manager.NewUpgradeProgramInstruction(
 				p.programID,
-				amBAccessManagerPDA,
+				accessControlAccount,
 				p.programID,
 				p.programDataAccount,
 				bufferAccount,
-				p.amBUpgradeAuthPDA,
+				p.amAUpgradeAuthPDA,
 				s.UpgraderWallet.PublicKey(),
 				s.UpgraderWallet.PublicKey(),
 				solanago.SysVarInstructionsPubkey,
@@ -1790,60 +1839,19 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 				solanago.SysVarRentPubkey,
 				solanago.SysVarClockPubkey,
 			)
-		})
-		s.Require().NoError(err)
+			s.Require().NoError(err)
 
-		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
+			computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
-		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-			s.UpgraderWallet.PublicKey(),
-			computeBudgetIx,
-			upgradeIx,
-		)
-		s.Require().NoError(err)
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+				s.UpgraderWallet.PublicKey(),
+				computeBudgetIx,
+				upgradeIx,
+			)
+			s.Require().NoError(err)
 
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
-		s.Require().NoError(err, "AM-B should be able to upgrade ICS26 after claiming authority")
-	}))
-
-	// --- Verify: AM-A can no longer upgrade any program ---
-
-	s.Require().True(s.Run("Verify: AM-A can no longer upgrade ICS26", func() {
-		p := programs[0]
-		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-
-		bufferAccount, err := solana.WriteProgramBuffer(ctx, programSoFile, deployerPath, s.Solana.Chain.RPCURL)
-		s.Require().NoError(err)
-
-		err = solana.SetBufferAuthority(ctx, bufferAccount, p.amAUpgradeAuthPDA, deployerPath, s.Solana.Chain.RPCURL)
-		s.Require().NoError(err)
-
-		upgradeIx, err := access_manager.NewUpgradeProgramInstruction(
-			p.programID,
-			accessControlAccount,
-			p.programID,
-			p.programDataAccount,
-			bufferAccount,
-			p.amAUpgradeAuthPDA,
-			s.UpgraderWallet.PublicKey(),
-			s.UpgraderWallet.PublicKey(),
-			solanago.SysVarInstructionsPubkey,
-			solanago.BPFLoaderUpgradeableProgramID,
-			solanago.SysVarRentPubkey,
-			solanago.SysVarClockPubkey,
-		)
-		s.Require().NoError(err)
-
-		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
-
-		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-			s.UpgraderWallet.PublicKey(),
-			computeBudgetIx,
-			upgradeIx,
-		)
-		s.Require().NoError(err)
-
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
-		s.Require().Error(err, "AM-A upgrade should fail after authority was migrated to AM-B")
-	}))
+			_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
+			s.Require().Error(err, "AM-A upgrade should fail for program %d after authority was migrated to AM-B", i)
+		}))
+	}
 }
