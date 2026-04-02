@@ -118,6 +118,7 @@ func NewProposeAccessManagerTransferInstruction(
 		// Account 1 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// Must hold `ADMIN_ROLE` on the current access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
@@ -155,6 +156,7 @@ func NewAcceptAccessManagerTransferInstruction(
 		// Account 1 "new_access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(newAccessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// Must hold `ADMIN_ROLE` on the **new** access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
@@ -192,6 +194,7 @@ func NewCancelAccessManagerTransferInstruction(
 		// Account 1 "access_manager": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
+		// Must hold `ADMIN_ROLE` on the current access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))

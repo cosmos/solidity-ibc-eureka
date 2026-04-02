@@ -314,7 +314,7 @@ func NewProposeUpgradeAuthorityTransferInstruction(
 
 	// Accounts:
 	accessManagerAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -343,8 +343,9 @@ func NewProposeUpgradeAuthorityTransferInstruction(
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
-		// Account 1 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 1 "admin": Read-only, Signer, Required
+		// Must hold `ADMIN_ROLE` on the current access manager.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
@@ -366,7 +367,7 @@ func NewAcceptUpgradeAuthorityTransferInstruction(
 	accessManagerAccount solanago.PublicKey,
 	programDataAccount solanago.PublicKey,
 	upgradeAuthorityAccount solanago.PublicKey,
-	newAuthorityAccountAccount solanago.PublicKey,
+	newAuthorityAccount solanago.PublicKey,
 	bpfLoaderUpgradeableAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -396,8 +397,9 @@ func NewAcceptUpgradeAuthorityTransferInstruction(
 		// Account 2 "upgrade_authority": Read-only, Non-signer, Required
 		// `AccessManager`'s PDA that acts as the current upgrade authority.
 		accounts__.Append(solanago.NewAccountMeta(upgradeAuthorityAccount, false, false))
-		// Account 3 "new_authority_account": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(newAuthorityAccountAccount, false, true))
+		// Account 3 "new_authority": Read-only, Signer, Required
+		// The proposed new upgrade authority. Must match the pending transfer.
+		accounts__.Append(solanago.NewAccountMeta(newAuthorityAccount, false, true))
 		// Account 4 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
 	}
@@ -417,7 +419,7 @@ func NewCancelUpgradeAuthorityTransferInstruction(
 
 	// Accounts:
 	accessManagerAccount solanago.PublicKey,
-	authorityAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -441,8 +443,9 @@ func NewCancelUpgradeAuthorityTransferInstruction(
 	{
 		// Account 0 "access_manager": Writable, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, true, false))
-		// Account 1 "authority": Read-only, Signer, Required
-		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
+		// Account 1 "admin": Read-only, Signer, Required
+		// Must hold `ADMIN_ROLE` on the current access manager.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 2 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
@@ -510,10 +513,10 @@ func NewClaimUpgradeAuthorityInstruction(
 
 	// Accounts:
 	ourUpgradeAuthorityAccount solanago.PublicKey,
-	sourceAccessManagerAccount solanago.PublicKey,
-	sourceProgramDataAccount solanago.PublicKey,
+	sourceAccessManagerStateAccount solanago.PublicKey,
+	targetProgramDataAccount solanago.PublicKey,
 	sourceUpgradeAuthorityAccount solanago.PublicKey,
-	sourceProgramAccount solanago.PublicKey,
+	sourceAccessManagerProgramAccount solanago.PublicKey,
 	bpfLoaderUpgradeableAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
@@ -537,20 +540,20 @@ func NewClaimUpgradeAuthorityInstruction(
 	{
 		// Account 0 "our_upgrade_authority": Read-only, Non-signer, Required
 		// This access manager's upgrade authority PDA for the target program.
-		// Signs the CPI as the new authority via `invoke_signed`.
+		// Signs the CPI as the new authority.
 		accounts__.Append(solanago.NewAccountMeta(ourUpgradeAuthorityAccount, false, false))
-		// Account 1 "source_access_manager": Writable, Non-signer, Required
-		// The source access manager's state account (writable for clearing pending).
-		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerAccount, true, false))
-		// Account 2 "source_program_data": Writable, Non-signer, Required
+		// Account 1 "source_access_manager_state": Writable, Non-signer, Required
+		// The source access manager's state PDA.
+		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerStateAccount, true, false))
+		// Account 2 "target_program_data": Writable, Non-signer, Required
 		// The target program's data account (BPF Loader Upgradeable PDA).
-		accounts__.Append(solanago.NewAccountMeta(sourceProgramDataAccount, true, false))
+		accounts__.Append(solanago.NewAccountMeta(targetProgramDataAccount, true, false))
 		// Account 3 "source_upgrade_authority": Read-only, Non-signer, Required
-		// The source access manager's upgrade authority PDA (current authority).
+		// The source access manager's upgrade authority PDA for the target program.
 		accounts__.Append(solanago.NewAccountMeta(sourceUpgradeAuthorityAccount, false, false))
-		// Account 4 "source_program": Read-only, Non-signer, Required
+		// Account 4 "source_access_manager_program": Read-only, Non-signer, Required
 		// The source access manager program (CPI target).
-		accounts__.Append(solanago.NewAccountMeta(sourceProgramAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerProgramAccount, false, false))
 		// Account 5 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
 	}

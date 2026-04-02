@@ -791,9 +791,21 @@ func UnmarshalAccessManagerEventsWhitelistedProgramsUpdatedEvent(buf []byte) (*A
 // Role IDs are opaque `u64` values — the access manager does not interpret them.
 // Consuming programs define and enforce what each role ID means.
 type AccessManagerStateAccessManager struct {
-	Roles                    []AccessManagerTypesRoleData                `json:"roles"`
-	WhitelistedPrograms      []solanago.PublicKey                        `json:"whitelistedPrograms"`
-	PendingAuthorityTransfer *AccessManagerTypesPendingAuthorityTransfer `bin:"optional" json:"pendingAuthorityTransfer,omitempty"`
+	Roles               []AccessManagerTypesRoleData `json:"roles"`
+	WhitelistedPrograms []solanago.PublicKey         `json:"whitelistedPrograms"`
+
+	// Pending upgrade authority transfers, one per managed program.
+	//
+	// Uses a bounded `Vec` rather than a single `Option` to support concurrent
+	// transfers — with timelocked multisigs, a single `Option` would require
+	// N sequential propose/accept cycles (N × timelock waits). With a `Vec`,
+	// all proposes can be batched in one multisig vote.
+	//
+	// A shared (program-independent) upgrade authority PDA was also considered
+	// but rejected: it removes per-program PDA binding (defense-in-depth),
+	// complicates the accept flow (BPF Loader operates per-program) and
+	// requires backwards-incompatible PDA migration.
+	PendingAuthorityTransfers []AccessManagerTypesPendingAuthorityTransfer `json:"pendingAuthorityTransfers"`
 }
 
 func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -807,23 +819,10 @@ func (obj AccessManagerStateAccessManager) MarshalWithEncoder(encoder *binary.En
 	if err != nil {
 		return errors.NewField("WhitelistedPrograms", err)
 	}
-	// Serialize `PendingAuthorityTransfer` (optional):
-	{
-		if obj.PendingAuthorityTransfer == nil {
-			err = encoder.WriteOption(false)
-			if err != nil {
-				return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-		} else {
-			err = encoder.WriteOption(true)
-			if err != nil {
-				return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while encoding optionality: %w", err))
-			}
-			err = encoder.Encode(obj.PendingAuthorityTransfer)
-			if err != nil {
-				return errors.NewField("PendingAuthorityTransfer", err)
-			}
-		}
+	// Serialize `PendingAuthorityTransfers`:
+	err = encoder.Encode(obj.PendingAuthorityTransfers)
+	if err != nil {
+		return errors.NewField("PendingAuthorityTransfers", err)
 	}
 	return nil
 }
@@ -849,18 +848,10 @@ func (obj *AccessManagerStateAccessManager) UnmarshalWithDecoder(decoder *binary
 	if err != nil {
 		return errors.NewField("WhitelistedPrograms", err)
 	}
-	// Deserialize `PendingAuthorityTransfer` (optional):
-	{
-		ok, err := decoder.ReadOption()
-		if err != nil {
-			return errors.NewOption("PendingAuthorityTransfer", fmt.Errorf("error while reading optionality: %w", err))
-		}
-		if ok {
-			err = decoder.Decode(&obj.PendingAuthorityTransfer)
-			if err != nil {
-				return errors.NewField("PendingAuthorityTransfer", err)
-			}
-		}
+	// Deserialize `PendingAuthorityTransfers`:
+	err = decoder.Decode(&obj.PendingAuthorityTransfers)
+	if err != nil {
+		return errors.NewField("PendingAuthorityTransfers", err)
 	}
 	return nil
 }

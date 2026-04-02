@@ -623,8 +623,7 @@ pub fn build_propose_ix(
 ) -> Instruction {
     use anchor_lang::InstructionData;
 
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
 
     Instruction {
         program_id: crate::ID,
@@ -645,8 +644,7 @@ pub fn build_accept_ix(target_program: Pubkey, new_authority: Pubkey) -> Instruc
     use anchor_lang::InstructionData;
     use solana_sdk::bpf_loader_upgradeable;
 
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
     let (program_data, _) =
         Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
     let (upgrade_authority_pda, _) =
@@ -668,8 +666,7 @@ pub fn build_accept_ix(target_program: Pubkey, new_authority: Pubkey) -> Instruc
 pub fn build_cancel_ix(admin: Pubkey, target_program: Pubkey) -> Instruction {
     use anchor_lang::InstructionData;
 
-    let (access_manager_pda, _) =
-        Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
 
     Instruction {
         program_id: crate::ID,

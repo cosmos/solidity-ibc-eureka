@@ -1030,7 +1030,9 @@ mod tests {
 #[cfg(test)]
 mod integration_tests {
     use crate::test_utils::*;
-    use solana_sdk::{instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer};
+    use solana_sdk::{
+        instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    };
 
     fn setup_program_test(
         admin: &Pubkey,
