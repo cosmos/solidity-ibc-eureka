@@ -506,7 +506,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			}))
 
 			s.Require().True(s.Run(fmt.Sprintf("Broadcast %s ack to Cosmos", label), func() {
-				relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
+				relayTxResult := s.MustBroadcastSdkTxBodyNoWait(ctx, simd, s.Cosmos.Users[0], CosmosDefaultGasLimit, ackRelayTxBodyBz)
 				s.Require().Equal(uint32(0), relayTxResult.Code, "Ack relay tx should succeed")
 				s.T().Logf("%s ack relayed to Cosmos: %s (code: %d, gas: %d)",
 					label, relayTxResult.TxHash, relayTxResult.Code, relayTxResult.GasUsed)
@@ -517,14 +517,16 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 			}))
 		}
 
+		start := time.Now()
 		// User0 first increment: 0 + 5 = 5
 		verifyAndRelayAck(solanaRelayTxSigUser0, "User0 first", initialCounterUser0+DefaultIncrementAmount)
 		// User0 second increment: 5 + 7 = 12
 		verifyAndRelayAck(solanaRelayTxSigUser0Second, "User0 second", initialCounterUser0+DefaultIncrementAmount+7)
 		// User1 first increment: 0 + 3 = 3
 		verifyAndRelayAck(solanaRelayTxSigUser1, "User1", initialCounterUser1+3)
-
-		s.T().Logf("All GMP acknowledgments verified and relayed successfully")
+		elapsed := time.Since(start)
+		s.T().Logf("All ack relays completed in %s", elapsed)
+		s.Require().Less(elapsed, 30*time.Second, "ack relay should complete without unnecessary block waits")
 	}))
 }
 
