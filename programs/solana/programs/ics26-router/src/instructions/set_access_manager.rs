@@ -42,10 +42,21 @@ pub fn propose_access_manager_transfer(
 /// Requires `ADMIN_ROLE` on the **new** access manager.
 #[derive(Accounts)]
 pub struct AcceptAccessManagerTransfer<'info> {
-    #[account(mut, seeds = [RouterState::SEED], bump)]
+    #[account(
+        mut,
+        seeds = [RouterState::SEED],
+        bump,
+        constraint = router_state.am_transfer.pending_access_manager.is_some()
+            @ access_manager::AccessManagerError::NoPendingAccessManagerTransfer
+    )]
     pub router_state: Account<'info, RouterState>,
 
-    /// CHECK: Validated in handler via PDA derivation against `pending_access_manager`
+    /// CHECK: Validated via seeds constraint against `pending_access_manager`
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = router_state.am_transfer.pending_access_manager.unwrap()
+    )]
     pub new_access_manager: AccountInfo<'info>,
 
     /// Must hold `ADMIN_ROLE` on the **new** access manager.
@@ -778,10 +789,7 @@ mod integration_tests {
         let err = banks_client.process_transaction(tx).await.unwrap_err();
         assert_eq!(
             pt_extract_custom_error(&err),
-            Some(
-                ANCHOR_ERROR_OFFSET
-                    + access_manager::AccessManagerError::InvalidProposedAccessManager as u32
-            ),
+            Some(anchor_lang::error::ErrorCode::ConstraintSeeds as u32),
         );
     }
 

@@ -42,10 +42,21 @@ pub fn propose_access_manager_transfer(
 /// Requires `ADMIN_ROLE` on the **new** access manager.
 #[derive(Accounts)]
 pub struct AcceptAccessManagerTransfer<'info> {
-    #[account(mut, seeds = [AppState::SEED], bump)]
+    #[account(
+        mut,
+        seeds = [AppState::SEED],
+        bump,
+        constraint = app_state.am_transfer.pending_access_manager.is_some()
+            @ access_manager::AccessManagerError::NoPendingAccessManagerTransfer
+    )]
     pub app_state: Account<'info, AppState>,
 
-    /// CHECK: Validated in handler via PDA derivation against `pending_access_manager`
+    /// CHECK: Validated via seeds constraint against `pending_access_manager`
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.am_transfer.pending_access_manager.unwrap()
+    )]
     pub new_access_manager: AccountInfo<'info>,
 
     /// Must hold `ADMIN_ROLE` on the **new** access manager.

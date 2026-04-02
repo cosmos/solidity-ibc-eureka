@@ -3,7 +3,7 @@ use crate::events::{
     AccessManagerTransferAccepted, AccessManagerTransferCancelled, AccessManagerTransferProposed,
 };
 use crate::helpers::role_checks::require_admin;
-use crate::state::{AccessManager, AccessManagerTransferState};
+use crate::state::AccessManagerTransferState;
 use anchor_lang::prelude::*;
 
 impl AccessManagerTransferState {
@@ -55,10 +55,10 @@ impl AccessManagerTransferState {
 
     /// Accepts a pending access manager transfer.
     ///
-    /// Validates that there is a pending transfer, derives the expected PDA
-    /// from the pending program ID, verifies the provided account matches,
-    /// and checks admin authorization against the **new** AM to prove it is
-    /// valid.
+    /// Anchor constraints on the consumer program must verify that a pending
+    /// transfer exists and that `new_access_manager_account` matches the
+    /// expected PDA before calling this method.
+    /// Checks admin authorization against the **new** AM and updates state.
     pub fn accept_transfer(
         &mut self,
         new_access_manager_account: &AccountInfo,
@@ -66,18 +66,6 @@ impl AccessManagerTransferState {
         instructions_sysvar: &AccountInfo,
         program_id: &Pubkey,
     ) -> Result<()> {
-        let pending_am_program = self
-            .pending_access_manager
-            .ok_or_else(|| error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
-
-        let (expected_pda, _) =
-            Pubkey::find_program_address(&[AccessManager::SEED], &pending_am_program);
-
-        require!(
-            new_access_manager_account.key() == expected_pda,
-            AccessManagerError::InvalidProposedAccessManager
-        );
-
         require_admin(
             new_access_manager_account,
             admin,
@@ -85,9 +73,14 @@ impl AccessManagerTransferState {
             program_id,
         )?;
 
+        // Safe to unwrap: Anchor constraint guarantees `is_some()`
+        let pending_am_program = self
+            .pending_access_manager
+            .take()
+            .ok_or_else(|| error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
+
         let old = self.access_manager;
         self.access_manager = pending_am_program;
-        self.pending_access_manager = None;
 
         emit!(AccessManagerTransferAccepted {
             old_access_manager: old,
