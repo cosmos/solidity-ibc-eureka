@@ -266,7 +266,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_ProgramUpgrade_Via_AccessManager(
 		)
 		// The direct upgrade should fail because the program's upgrade authority is now the AccessManager PDA
 		s.Require().Error(err, "direct upgrade should fail - authority is now AccessManager PDA")
-		s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
+		s.Require().Contains(err.Error(), "IncorrectAuthority", "should fail with authority mismatch")
 	}))
 }
 
@@ -656,7 +656,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_TransferUpgradeAuthority() {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 		s.Require().Error(err, "AM upgrade should fail after authority was transferred away")
-		s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
+		s.Require().Contains(err.Error(), "IncorrectAuthority", "should fail with authority mismatch")
 	}))
 }
 
@@ -952,7 +952,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration(
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 		s.Require().Error(err, "AM-A upgrade should fail after authority was migrated to AM-B")
-		s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
+		s.Require().Contains(err.Error(), "IncorrectAuthority", "should fail with authority mismatch")
 	}))
 }
 
@@ -1856,7 +1856,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 
 			_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 			s.Require().Error(err, "AM-A upgrade should fail for program %d after authority was migrated to AM-B", i)
-			s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
+			s.Require().Contains(err.Error(), "IncorrectAuthority", "should fail with authority mismatch")
 		}))
 	}
 }
