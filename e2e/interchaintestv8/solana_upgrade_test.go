@@ -381,9 +381,10 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_RevokeAdminRole() {
 		)
 		s.Require().NoError(err)
 
-		// Should fail after role revocation
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, secondAdmin)
+		// Use SignAndBroadcastTxWithOpts for immediate failure without retry (this is a negative test)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, secondAdmin)
 		s.Require().Error(err, "upgrade should fail after ADMIN_ROLE revocation")
+		s.Require().Contains(err.Error(), "Custom", "should be a program error")
 	}))
 }
 
@@ -655,6 +656,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_TransferUpgradeAuthority() {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 		s.Require().Error(err, "AM upgrade should fail after authority was transferred away")
+		s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
 	}))
 }
 
@@ -950,6 +952,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration(
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 		s.Require().Error(err, "AM-A upgrade should fail after authority was migrated to AM-B")
+		s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
 	}))
 }
 
@@ -1086,6 +1089,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, unauthorizedWallet)
 		s.Require().Error(err, "non-admin propose should fail")
+		s.Require().Contains(err.Error(), "Custom", "should be a program error")
 	}))
 
 	// --- Re-propose and accept ---
@@ -1852,6 +1856,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 
 			_, err = s.Solana.Chain.SignAndBroadcastTxWithOpts(ctx, tx, rpc.ConfirmationStatusConfirmed, s.UpgraderWallet)
 			s.Require().Error(err, "AM-A upgrade should fail for program %d after authority was migrated to AM-B", i)
+			s.Require().Contains(err.Error(), "does not match authority", "should fail with authority mismatch")
 		}))
 	}
 }

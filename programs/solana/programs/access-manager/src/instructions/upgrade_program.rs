@@ -85,8 +85,8 @@ pub fn upgrade_program(ctx: Context<UpgradeProgram>, target_program: Pubkey) -> 
         &crate::ID,
     )?;
 
-    let (upgrade_authority_pda, bump) =
-        AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
+    let upgrade_authority_pda = ctx.accounts.upgrade_authority.key();
+    let bump = ctx.bumps.upgrade_authority;
 
     let upgrade_ix = bpf_loader_upgradeable::upgrade(
         &ctx.accounts.program.key(),

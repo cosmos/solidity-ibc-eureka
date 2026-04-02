@@ -153,8 +153,8 @@ pub fn accept_upgrade_authority_transfer(
         AccessManagerError::AuthorityMismatch
     );
 
-    let (upgrade_authority_pda, bump) =
-        AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
+    let upgrade_authority_pda = ctx.accounts.upgrade_authority.key();
+    let bump = ctx.bumps.upgrade_authority;
 
     let set_authority_ix = bpf_loader_upgradeable::set_upgrade_authority(
         &target_program,
