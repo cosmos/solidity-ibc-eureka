@@ -169,7 +169,7 @@ pub fn on_recv_packet<'info>(
 
         // GMP PDA is not a signer at this stage - the program will sign it during CPI.
         // This check prevents relayer or any higher level signers from being included.
-        require!(!account_info.is_signer, GMPError::UnauthorizedSigner);
+        require!(!account_info.is_signer, GMPError::UnexpectedSigner);
     }
 
     let instruction = Instruction {
@@ -762,15 +762,15 @@ mod tests {
 
     // ── Signer exploit test helpers ──────────────────────────────────
 
-    fn check_unauthorized_signer() -> Check<'static> {
+    fn check_unexpected_signer() -> Check<'static> {
         Check::err(ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32,
+            ANCHOR_ERROR_OFFSET + GMPError::UnexpectedSigner as u32,
         ))
     }
 
     fn assert_passes_signer_validation(result: &mollusk_svm::result::InstructionResult) {
         let unauthorized_signer =
-            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnauthorizedSigner as u32);
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnexpectedSigner as u32);
         let insufficient_permissions = ProgramError::Custom(
             ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32,
         );
@@ -938,7 +938,7 @@ mod tests {
     /// pay rent for a new `UserCounter` account it never requested.
     ///
     /// The fix rejects any account in the payload that claims `is_signer: true`
-    /// unless its pubkey matches the GMP PDA. Expects `UnauthorizedSigner`.
+    /// unless its pubkey matches the GMP PDA. Expects `UnexpectedSigner`.
     #[test]
     fn test_signer_exploit_relayer_as_counter_payer_rejected() {
         let mollusk = create_counter_cpi_mollusk();
@@ -1054,11 +1054,11 @@ mod tests {
         mollusk.process_and_validate_instruction(
             &instruction,
             &accounts,
-            &[check_unauthorized_signer()],
+            &[check_unexpected_signer()],
         );
     }
 
-    // ── Parametrized unauthorized signer edge cases ─────────────────
+    // ── Parametrized unexpected signer edge cases ──────────────────
     //
     // The `!account_info.is_signer` check catches accounts whose signer
     // status was propagated from the outer transaction (i.e. the relayer).
@@ -1066,7 +1066,7 @@ mod tests {
     // are caught later by Solana's CPI runtime (`PrivilegeEscalation`).
 
     #[derive(Clone)]
-    enum UnauthorizedSignerCase {
+    enum UnexpectedSignerCase {
         /// Relayer with `is_signer: true, is_writable: true`.
         /// The most direct exploit vector.
         RelayerWritable,
@@ -1075,17 +1075,17 @@ mod tests {
         RelayerReadonly,
     }
 
-    fn run_unauthorized_signer_test(case: UnauthorizedSignerCase) {
+    fn run_unexpected_signer_test(case: UnexpectedSignerCase) {
         let ctx = create_gmp_test_context();
         let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
 
         let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
-            UnauthorizedSignerCase::RelayerWritable => vec![RawSolanaAccountMeta {
+            UnexpectedSignerCase::RelayerWritable => vec![RawSolanaAccountMeta {
                 pubkey: ctx.payer.to_bytes().to_vec(),
                 is_signer: true,
                 is_writable: true,
             }],
-            UnauthorizedSignerCase::RelayerReadonly => vec![RawSolanaAccountMeta {
+            UnexpectedSignerCase::RelayerReadonly => vec![RawSolanaAccountMeta {
                 pubkey: ctx.payer.to_bytes().to_vec(),
                 is_signer: true,
                 is_writable: false,
@@ -1129,22 +1129,22 @@ mod tests {
         ctx.mollusk.process_and_validate_instruction(
             &instruction,
             &accounts,
-            &[check_unauthorized_signer()],
+            &[check_unexpected_signer()],
         );
     }
 
     #[rstest]
-    #[case::relayer_writable(UnauthorizedSignerCase::RelayerWritable)]
-    #[case::relayer_readonly(UnauthorizedSignerCase::RelayerReadonly)]
-    fn test_on_recv_packet_unauthorized_signer_variants(#[case] case: UnauthorizedSignerCase) {
-        run_unauthorized_signer_test(case);
+    #[case::relayer_writable(UnexpectedSignerCase::RelayerWritable)]
+    #[case::relayer_readonly(UnexpectedSignerCase::RelayerReadonly)]
+    fn test_on_recv_packet_unexpected_signer_variants(#[case] case: UnexpectedSignerCase) {
+        run_unexpected_signer_test(case);
     }
 
     /// Scenario: same as the basic signer exploit (GMP PDA + relayer both
     /// marked `is_signer: true`) but the outer `GmpPacketData` is ABI-encoded
     /// instead of protobuf. The signer validation happens after decoding, so
     /// this proves the fix works regardless of the wire encoding path.
-    /// Expects `UnauthorizedSigner`.
+    /// Expects `UnexpectedSigner`.
     #[test]
     fn test_signer_exploit_with_abi_encoding() {
         let ctx = create_gmp_test_context();
@@ -1218,7 +1218,7 @@ mod tests {
         ctx.mollusk.process_and_validate_instruction(
             &instruction,
             &accounts,
-            &[check_unauthorized_signer()],
+            &[check_unexpected_signer()],
         );
     }
 
@@ -1232,7 +1232,7 @@ mod tests {
     /// relayer's outer-transaction signer status into the CPI. The System
     /// Program would see the relayer as an authorized signer and execute
     /// the transfer. With the fix, validation rejects before any CPI.
-    /// Expects `UnauthorizedSigner`.
+    /// Expects `UnexpectedSigner`.
     #[test]
     fn test_signer_exploit_sol_transfer_via_system_program() {
         let ctx = create_gmp_test_context();
@@ -1302,7 +1302,7 @@ mod tests {
         ctx.mollusk.process_and_validate_instruction(
             &instruction,
             &accounts,
-            &[check_unauthorized_signer()],
+            &[check_unexpected_signer()],
         );
     }
 

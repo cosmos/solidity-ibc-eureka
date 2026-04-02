@@ -2706,7 +2706,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_RelayerPubkey() {
 		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 	}))
 
-	s.Require().True(s.Run("Relay and expect UnauthorizedSigner", func() {
+	s.Require().True(s.Run("Relay and expect UnexpectedSigner", func() {
 		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -2719,7 +2719,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_RelayerPubkey() {
 
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
 		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "12014", "Should fail with UnauthorizedSigner (error code 12014)")
+		s.Require().Contains(err.Error(), "12014", "Should fail with UnexpectedSigner (error code 12014)")
 	}))
 }
 
@@ -2777,7 +2777,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_SOLTransfer() {
 		s.Solana.Chain.SubmitChunkedUpdateClient(ctx, s.T(), s.Require(), updateResp, s.SolanaRelayer)
 	}))
 
-	s.Require().True(s.Run("Relay and expect UnauthorizedSigner", func() {
+	s.Require().True(s.Run("Relay and expect UnexpectedSigner", func() {
 		relayResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
@@ -2790,6 +2790,6 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_SOLTransfer() {
 
 		_, err = s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), relayResp, s.SolanaRelayer)
 		s.Require().Error(err)
-		s.Require().Contains(err.Error(), "12014", "Should fail with UnauthorizedSigner (error code 12014)")
+		s.Require().Contains(err.Error(), "12014", "Should fail with UnexpectedSigner (error code 12014)")
 	}))
 }
