@@ -1524,17 +1524,16 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_GMP() {
 // benefit of using Vec<PendingAuthorityTransfer> instead of Option.
 //
 // With a timelocked multisig, a single Option would require N sequential
-// propose/accept cycles (N x timelock waits). With Vec, all proposes can be
-// batched in one multisig vote, then each claimed independently.
+// propose/accept cycles (N x timelock waits). With Vec, all proposes and
+// claims can be batched in one transaction.
 //
 // TEST FLOW:
 // 1. Deploy and initialize AM-B
 // 2. Grant ADMIN_ROLE on AM-A, initialize ICS27 GMP
 // 3. Transfer upgrade authority for ICS26, ICS07 and GMP from deployer to AM-A's PDAs
-// 4. Batch propose upgrade authority transfers for all 3 programs in a single transaction
-// 5. Claim each independently via AM-B's claim_upgrade_authority
-// 6. Verify AM-B holds upgrade authority for all 3 programs
-// 7. Verify AM-A can no longer upgrade any of the programs
+// 4. Batch all 3 proposes + all 3 claims in a single transaction
+// 5. Verify AM-B holds upgrade authority for all 3 programs
+// 6. Verify AM-A can no longer upgrade any of the programs
 func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() {
 	ctx := context.Background()
 
@@ -1671,61 +1670,32 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 		}
 	}))
 
-	// --- Batch propose: all 3 transfers in a single transaction ---
-
-	s.Require().True(s.Run("Batch propose upgrade authority transfers for all programs", func() {
-		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
-
-		proposeIx0, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
-			programs[0].programID,
-			programs[0].amBUpgradeAuthPDA,
-			accessControlAccount,
-			s.UpgraderWallet.PublicKey(),
-			solanago.SysVarInstructionsPubkey,
-		)
-		s.Require().NoError(err, "failed to build propose instruction for program 0")
-
-		proposeIx1, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
-			programs[1].programID,
-			programs[1].amBUpgradeAuthPDA,
-			accessControlAccount,
-			s.UpgraderWallet.PublicKey(),
-			solanago.SysVarInstructionsPubkey,
-		)
-		s.Require().NoError(err, "failed to build propose instruction for program 1")
-
-		proposeIx2, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
-			programs[2].programID,
-			programs[2].amBUpgradeAuthPDA,
-			accessControlAccount,
-			s.UpgraderWallet.PublicKey(),
-			solanago.SysVarInstructionsPubkey,
-		)
-		s.Require().NoError(err, "failed to build propose instruction for program 2")
-
-		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-			s.UpgraderWallet.PublicKey(),
-			proposeIx0,
-			proposeIx1,
-			proposeIx2,
-		)
-		s.Require().NoError(err, "failed to create batch propose transaction")
-
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
-		s.Require().NoError(err, "batch propose should succeed — all 3 transfers in one transaction")
-	}))
-
-	// --- Batch claim all via AM-B in a single transaction ---
+	// --- Batch propose + claim all in a single transaction ---
 
 	amAProgramID := access_manager.ProgramID
 
-	s.Require().True(s.Run("AM-B batch claims upgrade authority for all programs", func() {
-		amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
+	s.Require().True(s.Run("Batch propose and claim for all programs in one transaction", func() {
+		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
+		amAAccessManagerPDA := accessControlAccount
 
-		claimIxs := make([]solanago.Instruction, len(programs))
+		var ixs []solanago.Instruction
+
+		// Build propose instructions for all 3 programs
 		for i, p := range programs {
-			var err error
-			claimIxs[i], err = withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
+			proposeIx, err := access_manager.NewProposeUpgradeAuthorityTransferInstruction(
+				p.programID,
+				p.amBUpgradeAuthPDA,
+				accessControlAccount,
+				s.UpgraderWallet.PublicKey(),
+				solanago.SysVarInstructionsPubkey,
+			)
+			s.Require().NoError(err, "failed to build propose instruction for program %d", i)
+			ixs = append(ixs, proposeIx)
+		}
+
+		// Build claim instructions for all 3 programs
+		for i, p := range programs {
+			claimIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
 				return access_manager.NewClaimUpgradeAuthorityInstruction(
 					p.programID,
 					p.amBUpgradeAuthPDA,
@@ -1737,19 +1707,20 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 				)
 			})
 			s.Require().NoError(err, "failed to build claim instruction for program %d", i)
+			ixs = append(ixs, claimIx)
 		}
 
 		computeBudgetIx := solana.NewComputeBudgetInstruction(800_000)
+		txIxs := append([]solanago.Instruction{computeBudgetIx}, ixs...)
 
-		txIxs := append([]solanago.Instruction{computeBudgetIx}, claimIxs...)
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
 			s.UpgraderWallet.PublicKey(),
 			txIxs...,
 		)
-		s.Require().NoError(err)
+		s.Require().NoError(err, "failed to create batch transaction")
 
 		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
-		s.Require().NoError(err, "batch claim should succeed for all programs")
+		s.Require().NoError(err, "batch propose + claim should succeed for all programs in one transaction")
 	}))
 
 	// --- Verify: AM-B admin can upgrade all programs ---
