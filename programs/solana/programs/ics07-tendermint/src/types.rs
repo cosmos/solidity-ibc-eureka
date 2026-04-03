@@ -54,7 +54,7 @@ pub struct ClientState {
 /// Global ICS07 Tendermint program configuration.
 ///
 /// Singleton PDA that links the light client program to its access manager
-/// for admin-gated operations (e.g. `set_access_manager`) and stores the
+/// for admin-gated operations (e.g. `access_manager_transfer`) and stores the
 /// chain ID for introspection by off-chain tooling.
 #[account]
 #[derive(InitSpace)]

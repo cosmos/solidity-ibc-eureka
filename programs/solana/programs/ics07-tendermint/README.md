@@ -54,7 +54,7 @@ Initializes a new Tendermint light client instance for a specific chain. Multipl
 
 **Multi-Chain Support**: Each chain_id creates a separate client instance with its own state. This allows Solana to maintain IBC connections with multiple Tendermint chains concurrently.
 
-#### `set_access_manager`
+#### `access_manager_transfer`
 
 Updates the access manager program ID. Only callable by admin via the current access manager.
 
