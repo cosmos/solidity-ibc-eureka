@@ -479,13 +479,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 				ackBytes := event.Acknowledgements[0]
 
-				// Parse acknowledgement based on encoding type
-				var ack gmptypes.Acknowledgement
-				if encodingType.String() == testvalues.Ics27AbiEncoding {
-					ack, err = gmphelpers.DecodeABIAck(ackBytes)
-				} else {
-					err = proto.Unmarshal(ackBytes, &ack)
-				}
+				ack, err := gmphelpers.UnmarshalAck(ackBytes, encodingType.String())
 				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 				// Extract counter value (u64 little-endian)
@@ -721,9 +715,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			ackBytes := event.Acknowledgements[0]
 			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
 
-			// Parse protobuf acknowledgement
-			var ack gmptypes.Acknowledgement
-			err = proto.Unmarshal(ackBytes, &ack)
+			ack, err := gmphelpers.UnmarshalAck(ackBytes, encodingType.String())
 			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 			// SPL Token program returns no data; GMP uses [0] sentinel for success with no return data
@@ -2619,8 +2611,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 		event := events[0]
 		s.Require().Len(event.Acknowledgements, 1)
 
-		var ack gmptypes.Acknowledgement
-		err = proto.Unmarshal(event.Acknowledgements[0], &ack)
+		ack, err := gmphelpers.UnmarshalAck(event.Acknowledgements[0], encodingType.String())
 		s.Require().NoError(err)
 
 		s.Require().Len(ack.Result, 8)
