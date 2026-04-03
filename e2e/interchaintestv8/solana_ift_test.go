@@ -227,6 +227,15 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_SolanaToCosmosRound
 	}))
 
 	s.Require().True(s.Run("Cosmos → Solana", func() {
+		// Use a separate receiver wallet so the receiver pubkey differs from
+		// the relayer/fee-payer. This avoids Solana's CPI account deduplication
+		// merging signer flags, which would cause the GMP signer check to reject
+		// the transaction.
+		receiverWallet, err := s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+		receiverATA, err := solana.AssociatedTokenAccountAddress(receiverWallet.PublicKey(), mint)
+		s.Require().NoError(err)
+
 		var cosmosToSolanaTxHash string
 		s.Require().True(s.Run("Cosmos → Solana: Execute transfer", func() {
 			timeout := uint64(time.Now().Add(15 * time.Minute).Unix())
@@ -235,7 +244,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_SolanaToCosmosRound
 				Signer:           s.CosmosUser.FormattedAddress(),
 				Denom:            cosmosDenom,
 				ClientId:         testvalues.FirstAttestationsClientID,
-				Receiver:         s.SolanaRelayer.PublicKey().String(),
+				Receiver:         receiverWallet.PublicKey().String(),
 				Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 				TimeoutTimestamp: timeout,
 			})
@@ -269,10 +278,10 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_SolanaToCosmosRound
 			s.T().Logf("Solana recv tx: %s", solanaRecvTxSig)
 		}))
 
-		s.Require().True(s.Run("Cosmos → Solana: Verify tokens restored on Solana", func() {
-			balance, err := s.Solana.Chain.GetTokenBalance(ctx, s.SenderTokenAccount)
+		s.Require().True(s.Run("Cosmos → Solana: Verify tokens received on Solana", func() {
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverATA)
 			s.Require().NoError(err)
-			s.Require().Equal(IFTMintAmount, balance, "Balance should be restored after roundtrip")
+			s.Require().Equal(IFTTransferAmount, balance)
 		}))
 
 		s.Require().True(s.Run("Cosmos → Solana: Relay ack to Cosmos", func() {
@@ -304,17 +313,23 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 		s.Require().Equal(sdkmath.NewInt(int64(IFTMintAmount)), balance)
 	}))
 
+	// Use a separate receiver wallet so the receiver pubkey differs from
+	// the relayer/fee-payer. This avoids Solana's CPI account deduplication
+	// merging signer flags, which would cause the GMP signer check to reject
+	// the transaction.
+	receiverWallet, err := s.Solana.Chain.CreateAndFundWallet()
+	s.Require().NoError(err)
+
 	var mint solanago.PublicKey
-	var solanaTokenAccount solanago.PublicKey
+	var receiverTokenAccount solanago.PublicKey
 	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint = s.IFTMintWallet.PublicKey()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		ata, err := solana.AssociatedTokenAccountAddress(receiverWallet.PublicKey(), mint)
 		s.Require().NoError(err)
-		solanaTokenAccount = tokenAccount
-		s.SenderTokenAccount = tokenAccount
+		receiverTokenAccount = ata
 	}))
 
 	s.Require().True(s.Run("Register IFT Bridges", func() {
@@ -332,7 +347,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 				Signer:           s.CosmosUser.FormattedAddress(),
 				Denom:            cosmosDenom,
 				ClientId:         testvalues.FirstAttestationsClientID,
-				Receiver:         s.SolanaRelayer.PublicKey().String(),
+				Receiver:         receiverWallet.PublicKey().String(),
 				Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 				TimeoutTimestamp: timeout,
 			})
@@ -368,7 +383,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 		}))
 
 		s.Require().True(s.Run("Cosmos → Solana: Verify tokens minted on Solana", func() {
-			balance, err := s.Solana.Chain.GetTokenBalance(ctx, solanaTokenAccount)
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(IFTTransferAmount, balance)
 		}))
@@ -410,8 +425,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 
 			consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 			transferIx, err := ift.NewIftTransferInstruction(
-				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, solanaTokenAccount,
-				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, receiverTokenAccount,
+				receiverWallet.PublicKey(), s.SolanaRelayer.PublicKey(),
 				token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 				ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 				s.GMPIBCAppPDA, s.IBCClientPDA,
@@ -423,13 +438,13 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_NewToken_CosmosToSolanaRoundtrip(
 			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 			s.Require().NoError(err)
 
-			solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, receiverWallet)
 			s.Require().NoError(err)
 			s.T().Logf("Solana → Cosmos transfer tx: %s", solanaTransferTxSig)
 		}))
 
 		s.Require().True(s.Run("Solana → Cosmos: Verify tokens burned on Solana", func() {
-			balance, err := s.Solana.Chain.GetTokenBalance(ctx, solanaTokenAccount)
+			balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverTokenAccount)
 			s.Require().NoError(err)
 			s.Require().Equal(uint64(0), balance)
 		}))
@@ -788,17 +803,22 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 		s.Require().Equal(sdkmath.NewInt(int64(IFTMintAmount)), balance)
 	}))
 
-	// Create IFT SPL token on Solana (empty - will receive via IFT)
-	var solanaTokenAccount solanago.PublicKey
+	// Use a separate receiver wallet so the receiver pubkey differs from
+	// the relayer/fee-payer. This avoids Solana's CPI account deduplication
+	// merging signer flags, which would cause the GMP signer check to reject
+	// the transaction.
+	receiverWallet, err := s.Solana.Chain.CreateAndFundWallet()
+	s.Require().NoError(err)
+
+	var receiverTokenAccount solanago.PublicKey
 	s.Require().True(s.Run("Create IFT SPL token", func() {
 		s.IFTMintWallet = solanago.NewWallet()
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMintWallet.PublicKey()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		ata, err := solana.AssociatedTokenAccountAddress(receiverWallet.PublicKey(), mint)
 		s.Require().NoError(err)
-		solanaTokenAccount = tokenAccount
-		s.SenderTokenAccount = tokenAccount
+		receiverTokenAccount = ata
 	}))
 
 	mint := s.IFTMintWallet.PublicKey()
@@ -817,7 +837,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 			Signer:           s.CosmosUser.FormattedAddress(),
 			Denom:            cosmosDenom,
 			ClientId:         testvalues.FirstAttestationsClientID,
-			Receiver:         s.SolanaRelayer.PublicKey().String(),
+			Receiver:         receiverWallet.PublicKey().String(),
 			Amount:           sdkmath.NewInt(int64(IFTTransferAmount)),
 			TimeoutTimestamp: timeout,
 		})
@@ -853,7 +873,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 	}))
 
 	s.Require().True(s.Run("Verify tokens minted on Solana", func() {
-		balance, err := s.Solana.Chain.GetTokenBalance(ctx, solanaTokenAccount)
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(IFTTransferAmount, balance)
 	}))
@@ -894,8 +914,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 
 		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, s.LightClientStatePDA)
 		transferIx, err := ift.NewIftTransferInstruction(
-			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, solanaTokenAccount,
-			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, mint, receiverTokenAccount,
+			receiverWallet.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 			s.GMPIBCAppPDA, s.IBCClientPDA,
@@ -907,13 +927,13 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_CosmosToSolanaRoundtrip() {
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 		s.Require().NoError(err)
 
-		solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, receiverWallet)
 		s.Require().NoError(err)
 		s.T().Logf("Solana → Cosmos transfer tx: %s", solanaTransferTxSig)
 	}))
 
 	s.Require().True(s.Run("Verify tokens burned on Solana", func() {
-		balance, err := s.Solana.Chain.GetTokenBalance(ctx, solanaTokenAccount)
+		balance, err := s.Solana.Chain.GetTokenBalance(ctx, receiverTokenAccount)
 		s.Require().NoError(err)
 		s.Require().Equal(uint64(0), balance)
 	}))
