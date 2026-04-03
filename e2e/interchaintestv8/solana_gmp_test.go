@@ -41,6 +41,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
@@ -225,6 +226,7 @@ func (s *IbcEurekaSolanaTestSuite) initializeICS27GMP(ctx context.Context) solan
 // Test_GMPCounterFromCosmos tests sending a counter increment call from Cosmos to Solana
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -342,7 +344,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 				Payload:          payload,
 				TimeoutTimestamp: timeout,
 				Memo:             "increment counter via GMP",
-				Encoding:         testvalues.Ics27ProtobufEncoding,
+				Encoding:         encodingType.String(),
 			})
 			if err != nil {
 				return nil
@@ -499,9 +501,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 				ackBytes := event.Acknowledgements[0]
 
-				// Parse protobuf acknowledgement
-				var ack gmptypes.Acknowledgement
-				err = proto.Unmarshal(ackBytes, &ack)
+				ack, err := gmphelpers.UnmarshalAck(ackBytes, encodingType.String())
 				s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
 				// Extract counter value (u64 little-endian)
@@ -557,6 +557,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 // 3. Through GMP, the Cosmos user sends cross-chain calls to transfer tokens
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -657,7 +658,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			Payload:          payload,
 			TimeoutTimestamp: timeout,
 			Memo:             fmt.Sprintf("SPL token transfer: %d tokens", transferAmount),
-			Encoding:         testvalues.Ics27ProtobufEncoding,
+			Encoding:         encodingType.String(),
 		})
 		s.Require().NoError(err)
 
@@ -732,18 +733,20 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			event := events[0]
 			s.Require().Len(event.Acknowledgements, 1, "Should have exactly one ack")
 
-			// SPL Token program doesn't return data, so ack result is empty
+			// SPL Token program doesn't return data, so ack uses empty_success sentinel
 			ackBytes := event.Acknowledgements[0]
 			s.T().Logf("SPL transfer ack bytes: %v (len=%d)", ackBytes, len(ackBytes))
 
-			// Parse protobuf acknowledgement
-			var ack gmptypes.Acknowledgement
-			err = proto.Unmarshal(ackBytes, &ack)
+			ack, err := gmphelpers.UnmarshalAck(ackBytes, encodingType.String())
 			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
-			// SPL Token program returns no data; GMP uses [0] sentinel for success with no return data
-			s.Require().Equal([]byte{0}, ack.Result, "SPL transfer ack result should be success sentinel")
-			s.T().Logf("SPL transfer ack verified on Solana: success sentinel (no return data)")
+			// SPL Token program returns no data; GMP uses [0] sentinel for protobuf, empty bytes for ABI
+			if encodingType.String() == testvalues.Ics27AbiEncoding {
+				s.Require().Empty(ack.Result, "SPL transfer ack result should be empty for ABI encoding")
+			} else {
+				s.Require().Equal([]byte{0}, ack.Result, "SPL transfer ack result should be success sentinel")
+			}
+			s.T().Logf("SPL transfer ack verified on Solana: success (no return data)")
 		}))
 
 		var ackRelayTxBodyBz []byte
@@ -779,6 +782,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -878,7 +882,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "send from Solana to Cosmos",
-					Encoding:         testvalues.Ics27ProtobufEncoding,
+					Encoding:         encodingType.String(),
 				},
 				gmpAppStatePDA,
 				s.SolanaRelayer.PublicKey(),
@@ -1097,6 +1101,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 //   - Transaction should fail on Cosmos (packet already timed out)
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1190,7 +1195,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "timeout test from Solana",
-					Encoding:         testvalues.Ics27ProtobufEncoding,
+					Encoding:         encodingType.String(),
 				},
 				gmpAppStatePDA,
 				s.SolanaRelayer.PublicKey(),
@@ -1387,6 +1392,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 //   - Transactions should fail on Solana (packet already timed out)
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1474,7 +1480,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			Payload:          payload,
 			TimeoutTimestamp: timeout,
 			Memo:             "timeout test from Cosmos",
-			Encoding:         testvalues.Ics27ProtobufEncoding,
+			Encoding:         encodingType.String(),
 		})
 		s.Require().NoError(err)
 
@@ -1615,6 +1621,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 // This is fundamentally different from EVM's try/catch mechanism or Cosmos SDK's error returns.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1734,7 +1741,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			Payload:          payload,
 			TimeoutTimestamp: timeout,
 			Memo:             "SPL transfer that will fail (insufficient balance)",
-			Encoding:         testvalues.Ics27ProtobufEncoding,
+			Encoding:         encodingType.String(),
 		})
 		s.Require().NoError(err)
 
@@ -1793,6 +1800,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 // through the runtime and abort the entire transaction before any acknowledgment can be written.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -1887,7 +1895,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 					Salt:             []byte{},
 					Payload:          payload,
 					Memo:             "send from Solana to Cosmos (will fail on execution)",
-					Encoding:         testvalues.Ics27ProtobufEncoding,
+					Encoding:         encodingType.String(),
 				},
 				gmpAppStatePDA,
 				s.SolanaRelayer.PublicKey(),
@@ -2010,6 +2018,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromSolana() {
 // 2. The calling instruction's program_id via instructions sysvar (CPI validation)
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -2075,7 +2084,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Relayer: s.SolanaRelayer.PublicKey(),
@@ -2148,7 +2157,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Relayer: s.SolanaRelayer.PublicKey(),
@@ -2224,7 +2233,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Acknowledgement: []byte("test ack"),
@@ -2289,7 +2298,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Acknowledgement: []byte("test ack"),
@@ -2358,7 +2367,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Relayer: s.SolanaRelayer.PublicKey(),
@@ -2422,7 +2431,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 				SourcePort: GMPPortID,
 				DestPort:   GMPPortID,
 				Version:    testvalues.Ics27Version,
-				Encoding:   testvalues.Ics27ProtobufEncoding,
+				Encoding:   encodingType.String(),
 				Value:      packetDataBytes,
 			},
 			Relayer: s.SolanaRelayer.PublicKey(),
@@ -2473,6 +2482,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCPISecurity() {
 // GMP uses invoke_signed (signing only), not create_account.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
 
 	s.SetupSuite(ctx)
 	s.initializeICS27GMP(ctx)
@@ -2562,7 +2572,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 			Payload:          payload,
 			TimeoutTimestamp: timeout,
 			Memo:             "increment counter via GMP (pre-funded PDA test)",
-			Encoding:         testvalues.Ics27ProtobufEncoding,
+			Encoding:         encodingType.String(),
 		})
 		s.Require().NoError(err)
 
@@ -2627,8 +2637,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 		event := events[0]
 		s.Require().Len(event.Acknowledgements, 1)
 
-		var ack gmptypes.Acknowledgement
-		err = proto.Unmarshal(event.Acknowledgements[0], &ack)
+		ack, err := gmphelpers.UnmarshalAck(event.Acknowledgements[0], encodingType.String())
 		s.Require().NoError(err)
 
 		s.Require().Len(ack.Result, 8)

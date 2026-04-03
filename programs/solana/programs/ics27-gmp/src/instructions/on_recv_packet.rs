@@ -4,7 +4,7 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpPacketData, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -184,23 +184,21 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // TODO: make sure encoding match
-    // Get return data from the target program (if any).
-    // Not an error when absent — GMP targets (e.g. SPL Token) may succeed without
-    // setting return data. Use [0] sentinel so proto3 result field is non-empty.
+    // Wrap the CPI call result in the ICS27 GMP acknowledgement.
+    // Only accept return data from the target program itself, not from nested CPIs.
     let result = match anchor_lang::solana_program::program::get_return_data() {
         Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![0],
+        _ => Vec::new(),
     };
 
-    // Create acknowledgement with execution result
-    // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(GmpAcknowledgement::new(result).encode_to_vec())
+    crate::encoding::encode_gmp_ack(&result, &msg.payload.encoding)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
+    use crate::encoding::encode_gmp_packet;
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
@@ -1427,13 +1425,7 @@ mod tests {
     }
 
     fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        match encoding {
-            ICS27_ENCODING_ABI => {
-                let validated = GmpPacketData::try_from(raw).unwrap();
-                crate::encoding::encode_gmp_packet(validated, encoding).unwrap()
-            }
-            _ => raw.encode_to_vec(),
-        }
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
     fn run_recv_success_test(encoding: &str) {
@@ -1644,7 +1636,7 @@ mod tests {
             &result.return_data[..]
         };
 
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, encoding).unwrap();
 
         // Following ibc-go convention: non-empty result = success
         assert!(
@@ -1884,7 +1876,7 @@ mod tests {
         } else {
             &result.return_data[..]
         };
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, ICS27_ENCODING_PROTOBUF).unwrap();
 
         assert!(
             !ack.result.is_empty(),
