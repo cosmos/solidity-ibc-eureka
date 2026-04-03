@@ -218,6 +218,7 @@ pub(crate) fn send_call_inner<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
     use crate::encoding::{decode_gmp_packet, encode_gmp_packet};
     use crate::state::GMPAppState;
     use crate::test_utils::*;

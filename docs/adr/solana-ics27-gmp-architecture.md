@@ -526,6 +526,10 @@ See [Per-Sender Sequence Counter](solana-storage-architecture.md#per-sender-sequ
 **Relayer Integration**: The relayer computes and returns `gmp_result_pda` in `SolanaPacketTxs` for each ack/timeout packet, allowing callers to query results after relay.
 
 
+## Acknowledgement Encoding
+
+After executing the target program, GMP wraps the CPI return data in an `Acknowledgement { bytes result }` using the same encoding as the inbound packet (`encode_gmp_ack`). For protobuf, proto3 omits empty bytes fields, so an empty result would encode to zero bytes — which the router rejects. When a target returns no data (e.g. SPL Token), GMP uses a `[0]` sentinel via `GmpAcknowledgement::protobuf_empty_success()` to keep the encoding non-empty. ABI encoding doesn't need a sentinel because `abi.encode` always produces non-empty output.
+
 ## Security Model
 
 - **Account Control**: Only GMP program can sign via `invoke_signed` - users cannot directly control PDAs

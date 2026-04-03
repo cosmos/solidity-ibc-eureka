@@ -85,6 +85,7 @@ mod tests {
     use crate::constants::{
         GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION,
     };
+    use crate::encoding::encode_gmp_packet;
     use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
@@ -386,13 +387,7 @@ mod tests {
     }
 
     fn encode_test_packet(raw: solana_ibc_proto::RawGmpPacketData, encoding: &str) -> Vec<u8> {
-        match encoding {
-            ICS27_ENCODING_ABI => {
-                let validated = GmpPacketData::try_from(raw).unwrap();
-                crate::encoding::encode_gmp_packet(validated, encoding).unwrap()
-            }
-            _ => raw.encode_to_vec(),
-        }
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
     fn run_ack_success_test(encoding: &str) {
