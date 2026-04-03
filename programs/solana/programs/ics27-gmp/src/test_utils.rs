@@ -31,9 +31,10 @@ pub fn create_gmp_app_state_account(
         version: AccountVersion::V1,
         paused,
         bump,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         _reserved: [0; 256],
     };
@@ -560,9 +561,10 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
         Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         paused: false,
         _reserved: [0; 256],
@@ -697,9 +699,10 @@ pub fn setup_program_test_with_access_manager(
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         _reserved: [0; 256],
     };
@@ -858,9 +861,10 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         _reserved: [0; 256],
     };

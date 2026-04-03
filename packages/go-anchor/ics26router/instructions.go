@@ -820,13 +820,16 @@ func NewProposeAccessManagerTransferInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
+		// PDA holding router-level settings including the current `access_manager`.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Current access-manager state PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Must hold `ADMIN_ROLE` on the current access manager.
+		// Admin signer authorized to propose the transfer.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -858,13 +861,16 @@ func NewAcceptAccessManagerTransferInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
+		// PDA holding router-level settings; the `access_manager` field is updated on success.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "new_access_manager": Read-only, Non-signer, Required
+		// Proposed access-manager state PDA derived from the pending program ID.
 		accounts__.Append(solanago.NewAccountMeta(newAccessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Must hold `ADMIN_ROLE` on the **new** access manager.
+		// Admin signer authorized on the **new** access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 
@@ -896,13 +902,16 @@ func NewCancelAccessManagerTransferInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
+		// PDA holding router-level settings; the pending transfer is cleared on success.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Current access-manager state PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Must hold `ADMIN_ROLE` on the current access manager.
+		// Admin signer authorized to cancel the transfer.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 

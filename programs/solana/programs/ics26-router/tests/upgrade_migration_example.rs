@@ -21,9 +21,10 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         paused: false,
         _reserved: [0; 256],

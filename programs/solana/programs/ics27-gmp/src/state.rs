@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, MAX_CLIENT_ID_LENGTH};
 
@@ -26,7 +27,7 @@ pub struct GMPAppState {
     pub bump: u8,
 
     /// Access manager transfer state for two-step propose/accept
-    pub am_transfer: access_manager::AccessManagerTransferState,
+    pub am_state: AccessManagerState,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 256],

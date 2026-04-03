@@ -18,7 +18,7 @@ pub struct PauseApp<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.am_transfer.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -71,7 +71,7 @@ pub struct UnpauseApp<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.am_transfer.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -226,9 +226,10 @@ mod tests {
             version: AccountVersion::V1,
             paused: true,
             bump: app_state_bump,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: None,
+                _reserved: [0; 256],
             },
             _reserved: [0; 256],
         };
@@ -597,9 +598,10 @@ mod integration_tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: None,
+                _reserved: [0; 256],
             },
             _reserved: [0; 256],
         };

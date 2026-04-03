@@ -19,13 +19,19 @@ pub mod roles {
     // pub const ERC20_CUSTOMIZER_ROLE: u64 = 7;
 }
 
-/// Embedded state for two-step access manager transfers.
+/// Embedded access manager state for IBC programs.
 ///
-/// Mirrors the on-chain struct in the access-manager program.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug, Default)]
-pub struct AccessManagerTransferState {
+/// Mirrors the on-chain struct in the access-manager program. Tracks which
+/// access manager governs permissioned instructions and supports two-step
+/// access manager migration (propose/accept).
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
     pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
     pub pending_access_manager: Option<Pubkey>,
+    /// Reserved for future fields without breaking deserialization.
+    pub _reserved: [u8; 256],
 }
 
 /// Backwards-compatible helper struct for getting access manager PDA

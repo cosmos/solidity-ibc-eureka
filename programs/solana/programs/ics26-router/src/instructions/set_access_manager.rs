@@ -15,7 +15,7 @@ pub struct ProposeAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.am_transfer.access_manager
+        seeds::program = router_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -32,7 +32,7 @@ pub fn propose_access_manager_transfer(
     ctx: Context<ProposeAccessManagerTransfer>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    ctx.accounts.router_state.am_transfer.propose_transfer(
+    ctx.accounts.router_state.am_state.propose_transfer(
         new_access_manager,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
@@ -50,7 +50,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
         mut,
         seeds = [RouterState::SEED],
         bump,
-        constraint = router_state.am_transfer.pending_access_manager.is_some()
+        constraint = router_state.am_state.pending_access_manager.is_some()
             @ access_manager::AccessManagerError::NoPendingAccessManagerTransfer
     )]
     pub router_state: Account<'info, RouterState>,
@@ -60,7 +60,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.am_transfer.pending_access_manager.unwrap()
+        seeds::program = router_state.am_state.pending_access_manager.unwrap()
     )]
     pub new_access_manager: AccountInfo<'info>,
 
@@ -74,7 +74,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 }
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
-    ctx.accounts.router_state.am_transfer.accept_transfer(
+    ctx.accounts.router_state.am_state.accept_transfer(
         &ctx.accounts.new_access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -95,7 +95,7 @@ pub struct CancelAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.am_transfer.access_manager
+        seeds::program = router_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -109,7 +109,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 }
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
-    ctx.accounts.router_state.am_transfer.cancel_transfer(
+    ctx.accounts.router_state.am_state.cancel_transfer(
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -173,9 +173,10 @@ mod tests {
         let (pda, _) = Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: pending,
+                _reserved: [0; 256],
             },
             paused: false,
             _reserved: [0; 256],
@@ -216,8 +217,8 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_router_state_from_result(&result, &router_state_pda);
-        assert_eq!(state.am_transfer.pending_access_manager, Some(new_am));
-        assert_eq!(state.am_transfer.access_manager, access_manager::ID);
+        assert_eq!(state.am_state.pending_access_manager, Some(new_am));
+        assert_eq!(state.am_state.access_manager, access_manager::ID);
     }
 
     #[test]
@@ -404,7 +405,7 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_router_state_from_result(&result, &router_state_pda);
-        assert_eq!(state.am_transfer.pending_access_manager, None);
+        assert_eq!(state.am_state.pending_access_manager, None);
     }
 
     #[test]
@@ -634,9 +635,10 @@ mod integration_tests {
             Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let router_state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: Some(new_am_program_id),
+                _reserved: [0; 256],
             },
             paused: false,
             _reserved: [0; 256],
@@ -697,8 +699,8 @@ mod integration_tests {
             .unwrap();
         let state: crate::state::RouterState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
-        assert_eq!(state.am_transfer.access_manager, new_am_program_id);
-        assert_eq!(state.am_transfer.pending_access_manager, None);
+        assert_eq!(state.am_state.access_manager, new_am_program_id);
+        assert_eq!(state.am_state.pending_access_manager, None);
     }
 
     #[tokio::test]
@@ -745,9 +747,10 @@ mod integration_tests {
             Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let router_state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: Some(new_am_program_id),
+                _reserved: [0; 256],
             },
             paused: false,
             _reserved: [0; 256],
@@ -848,6 +851,6 @@ mod integration_tests {
             .unwrap();
         let state: crate::state::RouterState =
             anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
-        assert_eq!(state.am_transfer.pending_access_manager, None);
+        assert_eq!(state.am_state.pending_access_manager, None);
     }
 }

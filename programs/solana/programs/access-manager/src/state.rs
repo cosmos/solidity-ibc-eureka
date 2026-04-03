@@ -2,14 +2,39 @@ use crate::types::{PendingAuthorityTransfer, RoleData};
 use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
 
-/// Embedded state for two-step access manager transfers.
+/// Embedded access manager state for IBC programs.
 ///
-/// Each IBC program that supports access manager migration embeds this struct
-/// in its on-chain state account instead of declaring the fields separately.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Default, Debug)]
-pub struct AccessManagerTransferState {
+/// Each IBC program embeds this struct in its on-chain state account to track
+/// which access manager program governs its permissioned instructions and to
+/// support two-step access manager migration (propose/accept).
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
     pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
     pub pending_access_manager: Option<Pubkey>,
+    /// Reserved for future fields without breaking deserialization.
+    pub _reserved: [u8; 256],
+}
+
+impl Default for AccessManagerState {
+    fn default() -> Self {
+        Self {
+            access_manager: Pubkey::default(),
+            pending_access_manager: None,
+            _reserved: [0; 256],
+        }
+    }
+}
+
+impl AccessManagerState {
+    pub const fn new(access_manager: Pubkey) -> Self {
+        Self {
+            access_manager,
+            pending_access_manager: None,
+            _reserved: [0; 256],
+        }
+    }
 }
 
 /// Central role-based access control registry shared across all Solana IBC programs.
@@ -40,7 +65,7 @@ pub struct AccessManager {
     /// per program regardless, so a shared PDA saves no transactions, while
     /// per-program PDAs limit the blast radius of bugs and let Anchor's seeds
     /// constraint tie each signer to exactly one target program.
-    #[max_len(8)]
+    #[max_len(16)]
     pub pending_authority_transfers: Vec<PendingAuthorityTransfer>,
 }
 
@@ -48,7 +73,7 @@ impl AccessManager {
     pub const SEED: &'static [u8] = b"access_manager";
     pub const UPGRADE_AUTHORITY_SEED: &'static [u8] = b"upgrade_authority";
     /// Must match the `#[max_len]` annotation on `pending_authority_transfers`.
-    pub const MAX_PENDING_TRANSFERS: usize = 8;
+    pub const MAX_PENDING_TRANSFERS: usize = 16;
 
     /// Get upgrade authority PDA for a target program
     pub fn upgrade_authority_pda(target_program: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {

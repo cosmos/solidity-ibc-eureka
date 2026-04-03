@@ -1024,8 +1024,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 	s.Require().True(s.Run("Verify initial state: AM-A is active, no pending", func() {
 		state := readRouterState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "ICS26 should point to AM-A")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "No pending transfer initially")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "ICS26 should point to AM-A")
+		s.Require().Nil(state.AmState.PendingAccessManager, "No pending transfer initially")
 	}))
 
 	// --- Propose transfer to AM-B ---
@@ -1049,9 +1049,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 	s.Require().True(s.Run("Verify: pending set, AM unchanged", func() {
 		state := readRouterState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "AM should still be AM-A")
-		s.Require().NotNil(state.AmTransfer.PendingAccessManager, "Pending should be set")
-		s.Require().Equal(amBProgramID, *state.AmTransfer.PendingAccessManager, "Pending should be AM-B")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "AM should still be AM-A")
+		s.Require().NotNil(state.AmState.PendingAccessManager, "Pending should be set")
+		s.Require().Equal(amBProgramID, *state.AmState.PendingAccessManager, "Pending should be AM-B")
 	}))
 
 	// --- Negative test: non-admin cannot propose ---
@@ -1132,8 +1132,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 	s.Require().True(s.Run("Verify: AM is now AM-B, pending cleared", func() {
 		state := readRouterState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should now be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after accept")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should now be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after accept")
 	}))
 
 	// --- Test cancel flow: propose back to AM-A then cancel ---
@@ -1158,9 +1158,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 	s.Require().True(s.Run("Verify: pending set to AM-A", func() {
 		state := readRouterState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should still be AM-B")
-		s.Require().NotNil(state.AmTransfer.PendingAccessManager)
-		s.Require().Equal(access_manager.ProgramID, *state.AmTransfer.PendingAccessManager, "Pending should be AM-A")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should still be AM-B")
+		s.Require().NotNil(state.AmState.PendingAccessManager)
+		s.Require().Equal(access_manager.ProgramID, *state.AmState.PendingAccessManager, "Pending should be AM-A")
 	}))
 
 	s.Require().True(s.Run("Cancel pending transfer", func() {
@@ -1182,8 +1182,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer() {
 
 	s.Require().True(s.Run("Verify: pending cleared, AM still AM-B", func() {
 		state := readRouterState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should still be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after cancel")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should still be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after cancel")
 	}))
 }
 
@@ -1255,8 +1255,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_ICS07() {
 
 	s.Require().True(s.Run("Verify initial state: AM-A is active, no pending", func() {
 		state := readAppState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "ICS07 should point to AM-A")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "No pending transfer initially")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "ICS07 should point to AM-A")
+		s.Require().Nil(state.AmState.PendingAccessManager, "No pending transfer initially")
 	}))
 
 	// --- Propose transfer to AM-B ---
@@ -1280,9 +1280,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_ICS07() {
 
 	s.Require().True(s.Run("Verify: pending set, AM unchanged", func() {
 		state := readAppState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "AM should still be AM-A")
-		s.Require().NotNil(state.AmTransfer.PendingAccessManager, "Pending should be set")
-		s.Require().Equal(amBProgramID, *state.AmTransfer.PendingAccessManager, "Pending should be AM-B")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "AM should still be AM-A")
+		s.Require().NotNil(state.AmState.PendingAccessManager, "Pending should be set")
+		s.Require().Equal(amBProgramID, *state.AmState.PendingAccessManager, "Pending should be AM-B")
 	}))
 
 	// --- Accept transfer ---
@@ -1307,8 +1307,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_ICS07() {
 
 	s.Require().True(s.Run("Verify: AM is now AM-B, pending cleared", func() {
 		state := readAppState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should now be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after accept")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should now be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after accept")
 	}))
 
 	// --- Propose back to AM-A and cancel ---
@@ -1348,8 +1348,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_ICS07() {
 
 	s.Require().True(s.Run("Verify: pending cleared, AM still AM-B", func() {
 		state := readAppState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should still be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after cancel")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should still be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after cancel")
 	}))
 }
 
@@ -1422,8 +1422,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_GMP() {
 
 	s.Require().True(s.Run("Verify initial state: AM-A is active, no pending", func() {
 		state := readAppState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "GMP should point to AM-A")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "No pending transfer initially")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "GMP should point to AM-A")
+		s.Require().Nil(state.AmState.PendingAccessManager, "No pending transfer initially")
 	}))
 
 	// --- Propose transfer to AM-B ---
@@ -1447,9 +1447,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_GMP() {
 
 	s.Require().True(s.Run("Verify: pending set, AM unchanged", func() {
 		state := readAppState()
-		s.Require().Equal(access_manager.ProgramID, state.AmTransfer.AccessManager, "AM should still be AM-A")
-		s.Require().NotNil(state.AmTransfer.PendingAccessManager, "Pending should be set")
-		s.Require().Equal(amBProgramID, *state.AmTransfer.PendingAccessManager, "Pending should be AM-B")
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "AM should still be AM-A")
+		s.Require().NotNil(state.AmState.PendingAccessManager, "Pending should be set")
+		s.Require().Equal(amBProgramID, *state.AmState.PendingAccessManager, "Pending should be AM-B")
 	}))
 
 	// --- Accept transfer ---
@@ -1474,8 +1474,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_GMP() {
 
 	s.Require().True(s.Run("Verify: AM is now AM-B, pending cleared", func() {
 		state := readAppState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should now be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after accept")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should now be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after accept")
 	}))
 
 	// --- Propose back to AM-A and cancel ---
@@ -1515,8 +1515,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AccessManagerTransfer_GMP() {
 
 	s.Require().True(s.Run("Verify: pending cleared, AM still AM-B", func() {
 		state := readAppState()
-		s.Require().Equal(amBProgramID, state.AmTransfer.AccessManager, "AM should still be AM-B")
-		s.Require().Nil(state.AmTransfer.PendingAccessManager, "Pending should be cleared after cancel")
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should still be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after cancel")
 	}))
 }
 

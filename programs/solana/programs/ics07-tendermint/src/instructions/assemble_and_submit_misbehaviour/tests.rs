@@ -121,9 +121,10 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
 
     // Add app_state account
     let app_state = AppState {
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         _reserved: [0; 256],
     };

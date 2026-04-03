@@ -2,6 +2,7 @@
 //!
 //! These types define the state for the attestation light client.
 
+use crate::access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 
 /// Account schema version for upgrades
@@ -49,7 +50,7 @@ impl ConsensusState {
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
     pub version: AccountVersion,
-    pub am_transfer: crate::access_manager::AccessManagerTransferState,
+    pub am_state: AccessManagerState,
     pub _reserved: [u8; 256],
 }
 

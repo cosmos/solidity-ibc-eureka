@@ -2,6 +2,7 @@
 //!
 //! These types define the messages and state for the ICS07 Tendermint light client.
 
+use crate::access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 
 pub use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
@@ -63,10 +64,12 @@ pub struct ClientState {
     pub latest_height: IbcHeight,
 }
 
-/// App state for ICS07 Tendermint
+/// App state for the ICS07 Tendermint light client.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
-    pub am_transfer: crate::access_manager::AccessManagerTransferState,
+    /// Embedded access manager state for role checks and two-step migration.
+    pub am_state: AccessManagerState,
+    /// Reserved space for future fields.
     pub _reserved: [u8; 256],
 }
 

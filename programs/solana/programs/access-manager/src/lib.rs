@@ -14,7 +14,7 @@ pub mod types;
 pub use errors::AccessManagerError;
 pub use helpers::{require_admin, require_role, require_role_with_whitelist};
 use instructions::*;
-pub use state::AccessManagerTransferState;
+pub use state::AccessManagerState;
 pub use types::RoleData;
 
 declare_id!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");

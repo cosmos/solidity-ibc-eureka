@@ -22,9 +22,10 @@ fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
         version: AccountVersion::V1,
         paused,
         bump,
-        am_transfer: access_manager::AccessManagerTransferState {
+        am_state: access_manager::AccessManagerState {
             access_manager: access_manager::ID,
             pending_access_manager: None,
+            _reserved: [0; 256],
         },
         _reserved: [0; 256],
     };

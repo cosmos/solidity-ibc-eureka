@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 pub use solana_ibc_types::attestation::AccountVersion;
 
@@ -50,7 +51,7 @@ impl ClientState {
 pub struct AppState {
     pub version: AccountVersion,
     /// Access manager transfer state for two-step propose/accept
-    pub am_transfer: access_manager::AccessManagerTransferState,
+    pub am_state: AccessManagerState,
     /// Reserved for future upgrades without account migration.
     pub _reserved: [u8; 256],
 }

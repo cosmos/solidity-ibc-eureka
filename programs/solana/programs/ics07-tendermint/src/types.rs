@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
@@ -59,7 +60,7 @@ pub struct ClientState {
 #[derive(InitSpace)]
 pub struct AppState {
     /// Access manager transfer state for two-step propose/accept
-    pub am_transfer: access_manager::AccessManagerTransferState,
+    pub am_state: AccessManagerState,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -318,9 +319,10 @@ mod compatibility_tests {
     #[test]
     fn test_app_state_serialization_compatibility() {
         let app_state = AppState {
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: None,
+                _reserved: [0; 256],
             },
             _reserved: [0; 256],
         };
@@ -331,12 +333,12 @@ mod compatibility_tests {
             AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
 
         assert_eq!(
-            app_state.am_transfer.access_manager,
-            types_app_state.am_transfer.access_manager
+            app_state.am_state.access_manager,
+            types_app_state.am_state.access_manager
         );
         assert_eq!(
-            app_state.am_transfer.pending_access_manager,
-            types_app_state.am_transfer.pending_access_manager
+            app_state.am_state.pending_access_manager,
+            types_app_state.am_state.pending_access_manager
         );
         assert_eq!(app_state._reserved, types_app_state._reserved);
     }

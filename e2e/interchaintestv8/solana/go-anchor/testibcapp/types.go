@@ -11,16 +11,23 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
-// Embedded state for two-step access manager transfers.
+// Embedded access manager state for IBC programs.
 //
-// Each IBC program that supports access manager migration embeds this struct
-// in its on-chain state account instead of declaring the fields separately.
-type AccessManagerStateAccessManagerTransferState struct {
-	AccessManager        solanago.PublicKey  `json:"accessManager"`
+// Each IBC program embeds this struct in its on-chain state account to track
+// which access manager program governs its permissioned instructions and to
+// support two-step access manager migration (propose/accept).
+type AccessManagerStateAccessManagerState struct {
+	// Program ID of the access manager that governs this program's roles.
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Proposed replacement access manager, set during a pending transfer.
 	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+
+	// Reserved for future fields without breaking deserialization.
+	Reserved [256]uint8 `json:"reserved"`
 }
 
-func (obj AccessManagerStateAccessManagerTransferState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+func (obj AccessManagerStateAccessManagerState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
 	// Serialize `AccessManager`:
 	err = encoder.Encode(obj.AccessManager)
 	if err != nil {
@@ -44,20 +51,25 @@ func (obj AccessManagerStateAccessManagerTransferState) MarshalWithEncoder(encod
 			}
 		}
 	}
+	// Serialize `Reserved`:
+	err = encoder.Encode(obj.Reserved)
+	if err != nil {
+		return errors.NewField("Reserved", err)
+	}
 	return nil
 }
 
-func (obj AccessManagerStateAccessManagerTransferState) Marshal() ([]byte, error) {
+func (obj AccessManagerStateAccessManagerState) Marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	encoder := binary.NewBorshEncoder(buf)
 	err := obj.MarshalWithEncoder(encoder)
 	if err != nil {
-		return nil, fmt.Errorf("error while encoding AccessManagerStateAccessManagerTransferState: %w", err)
+		return nil, fmt.Errorf("error while encoding AccessManagerStateAccessManagerState: %w", err)
 	}
 	return buf.Bytes(), nil
 }
 
-func (obj *AccessManagerStateAccessManagerTransferState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+func (obj *AccessManagerStateAccessManagerState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
 	// Deserialize `AccessManager`:
 	err = decoder.Decode(&obj.AccessManager)
 	if err != nil {
@@ -76,19 +88,24 @@ func (obj *AccessManagerStateAccessManagerTransferState) UnmarshalWithDecoder(de
 			}
 		}
 	}
-	return nil
-}
-
-func (obj *AccessManagerStateAccessManagerTransferState) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	// Deserialize `Reserved`:
+	err = decoder.Decode(&obj.Reserved)
 	if err != nil {
-		return fmt.Errorf("error while unmarshaling AccessManagerStateAccessManagerTransferState: %w", err)
+		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
 
-func UnmarshalAccessManagerStateAccessManagerTransferState(buf []byte) (*AccessManagerStateAccessManagerTransferState, error) {
-	obj := new(AccessManagerStateAccessManagerTransferState)
+func (obj *AccessManagerStateAccessManagerState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerStateAccessManagerState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerStateAccessManagerState(buf []byte) (*AccessManagerStateAccessManagerState, error) {
+	obj := new(AccessManagerStateAccessManagerState)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -325,7 +342,7 @@ type Ics26RouterStateRouterState struct {
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
 
 	// Access manager transfer state for two-step propose/accept
-	AmTransfer AccessManagerStateAccessManagerTransferState `json:"amTransfer"`
+	AmState AccessManagerStateAccessManagerState `json:"amState"`
 
 	// Whether the router is paused (emergency brake for all IBC traffic)
 	Paused bool `json:"paused"`
@@ -340,10 +357,10 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Serialize `AmTransfer`:
-	err = encoder.Encode(obj.AmTransfer)
+	// Serialize `AmState`:
+	err = encoder.Encode(obj.AmState)
 	if err != nil {
-		return errors.NewField("AmTransfer", err)
+		return errors.NewField("AmState", err)
 	}
 	// Serialize `Paused`:
 	err = encoder.Encode(obj.Paused)
@@ -374,10 +391,10 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `AmTransfer`:
-	err = decoder.Decode(&obj.AmTransfer)
+	// Deserialize `AmState`:
+	err = decoder.Decode(&obj.AmState)
 	if err != nil {
-		return errors.NewField("AmTransfer", err)
+		return errors.NewField("AmState", err)
 	}
 	// Deserialize `Paused`:
 	err = decoder.Decode(&obj.Paused)

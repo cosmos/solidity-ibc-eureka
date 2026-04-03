@@ -3,10 +3,10 @@ use crate::events::{
     AccessManagerTransferAccepted, AccessManagerTransferCancelled, AccessManagerTransferProposed,
 };
 use crate::helpers::role_checks::require_admin;
-use crate::state::AccessManagerTransferState;
+use crate::state::AccessManagerState;
 use anchor_lang::prelude::*;
 
-impl AccessManagerTransferState {
+impl AccessManagerState {
     /// Proposes transferring the access manager to a new program.
     ///
     /// Validates admin authorization against the current AM, rejects zero
@@ -73,11 +73,10 @@ impl AccessManagerTransferState {
             program_id,
         )?;
 
-        // Safe to unwrap: Anchor constraint guarantees `is_some()`
         let pending_am_program = self
             .pending_access_manager
-            .take()
             .ok_or_else(|| error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
+        self.pending_access_manager = None;
 
         let old = self.access_manager;
         self.access_manager = pending_am_program;

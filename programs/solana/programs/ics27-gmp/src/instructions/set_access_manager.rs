@@ -15,7 +15,7 @@ pub struct ProposeAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.am_transfer.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -32,7 +32,7 @@ pub fn propose_access_manager_transfer(
     ctx: Context<ProposeAccessManagerTransfer>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    ctx.accounts.app_state.am_transfer.propose_transfer(
+    ctx.accounts.app_state.am_state.propose_transfer(
         new_access_manager,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
@@ -50,7 +50,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
         mut,
         seeds = [GMPAppState::SEED],
         bump = app_state.bump,
-        constraint = app_state.am_transfer.pending_access_manager.is_some()
+        constraint = app_state.am_state.pending_access_manager.is_some()
             @ access_manager::AccessManagerError::NoPendingAccessManagerTransfer
     )]
     pub app_state: Account<'info, GMPAppState>,
@@ -60,7 +60,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.am_transfer.pending_access_manager.unwrap()
+        seeds::program = app_state.am_state.pending_access_manager.unwrap()
     )]
     pub new_access_manager: AccountInfo<'info>,
 
@@ -74,7 +74,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 }
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
-    ctx.accounts.app_state.am_transfer.accept_transfer(
+    ctx.accounts.app_state.am_state.accept_transfer(
         &ctx.accounts.new_access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -95,7 +95,7 @@ pub struct CancelAccessManagerTransfer<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.am_transfer.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -109,7 +109,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 }
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
-    ctx.accounts.app_state.am_transfer.cancel_transfer(
+    ctx.accounts.app_state.am_state.cancel_transfer(
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
@@ -175,9 +175,10 @@ mod tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            am_transfer: access_manager::AccessManagerTransferState {
+            am_state: access_manager::AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: pending,
+                _reserved: [0; 256],
             },
             _reserved: [0; 256],
         };
@@ -219,8 +220,8 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_app_state_from_result(&result, &app_state_pda);
-        assert_eq!(state.am_transfer.pending_access_manager, Some(new_am));
-        assert_eq!(state.am_transfer.access_manager, access_manager::ID);
+        assert_eq!(state.am_state.pending_access_manager, Some(new_am));
+        assert_eq!(state.am_state.access_manager, access_manager::ID);
     }
 
     #[test]
@@ -351,7 +352,7 @@ mod tests {
             mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let state = get_app_state_from_result(&result, &app_state_pda);
-        assert_eq!(state.am_transfer.pending_access_manager, None);
+        assert_eq!(state.am_state.pending_access_manager, None);
     }
 
     #[test]
