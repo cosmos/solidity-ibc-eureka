@@ -35,10 +35,11 @@ pub struct AccessManager {
     /// N sequential propose/accept cycles (N × timelock waits). With a `Vec`,
     /// all proposes can be batched in one multisig vote.
     ///
-    /// A shared (program-independent) upgrade authority PDA was also considered
-    /// but rejected: it removes per-program PDA binding (defense-in-depth),
-    /// complicates the accept flow (BPF Loader operates per-program) and
-    /// requires backwards-incompatible PDA migration.
+    /// A single shared upgrade authority PDA (without `target_program` in the
+    /// seed) was considered but rejected: `SetAuthority` must be called once
+    /// per program regardless, so a shared PDA saves no transactions, while
+    /// per-program PDAs limit the blast radius of bugs and let Anchor's seeds
+    /// constraint tie each signer to exactly one target program.
     #[max_len(8)]
     pub pending_authority_transfers: Vec<PendingAuthorityTransfer>,
 }
