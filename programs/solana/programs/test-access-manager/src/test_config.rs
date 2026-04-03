@@ -15,4 +15,4 @@ pub const PROGRAM_BINARY_NAME: &str = "test_access_manager";
 pub const OTHER_AM_BINARY_NAME: &str = "access_manager";
 
 /// Program ID of the other access-manager instance (AM-to-AM migration tests).
-pub const OTHER_AM_ID: Pubkey = solana_sdk::pubkey!("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1");
+pub const OTHER_AM_ID: Pubkey = access_manager::ID;
