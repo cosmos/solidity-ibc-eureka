@@ -6,9 +6,11 @@ use anchor_lang::prelude::*;
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
 pub struct ProposeAccessManagerTransfer<'info> {
+    /// PDA holding router-level settings including the current `access_manager`.
     #[account(mut, seeds = [RouterState::SEED], bump)]
     pub router_state: Account<'info, RouterState>,
 
+    /// Current access-manager state PDA used to verify the caller holds the admin role.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -17,9 +19,10 @@ pub struct ProposeAccessManagerTransfer<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// Must hold `ADMIN_ROLE` on the current access manager.
+    /// Admin signer authorized to propose the transfer.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
@@ -42,6 +45,7 @@ pub fn propose_access_manager_transfer(
 /// Requires `ADMIN_ROLE` on the **new** access manager.
 #[derive(Accounts)]
 pub struct AcceptAccessManagerTransfer<'info> {
+    /// PDA holding router-level settings; the `access_manager` field is updated on success.
     #[account(
         mut,
         seeds = [RouterState::SEED],
@@ -51,6 +55,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
     )]
     pub router_state: Account<'info, RouterState>,
 
+    /// Proposed access-manager state PDA derived from the pending program ID.
     /// CHECK: Validated via seeds constraint against `pending_access_manager`
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -59,9 +64,10 @@ pub struct AcceptAccessManagerTransfer<'info> {
     )]
     pub new_access_manager: AccountInfo<'info>,
 
-    /// Must hold `ADMIN_ROLE` on the **new** access manager.
+    /// Admin signer authorized on the **new** access manager.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
@@ -80,9 +86,11 @@ pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>)
 /// Requires `ADMIN_ROLE` on the current access manager.
 #[derive(Accounts)]
 pub struct CancelAccessManagerTransfer<'info> {
+    /// PDA holding router-level settings; the pending transfer is cleared on success.
     #[account(mut, seeds = [RouterState::SEED], bump)]
     pub router_state: Account<'info, RouterState>,
 
+    /// Current access-manager state PDA used to verify the caller holds the admin role.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
@@ -91,9 +99,10 @@ pub struct CancelAccessManagerTransfer<'info> {
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// Must hold `ADMIN_ROLE` on the current access manager.
+    /// Admin signer authorized to cancel the transfer.
     pub admin: Signer<'info>,
 
+    /// Instructions sysvar used by the access manager to inspect the transaction.
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
