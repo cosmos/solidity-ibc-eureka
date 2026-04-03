@@ -1,5 +1,6 @@
 use crate::errors::RouterError;
 use crate::state::{AccountVersion, RouterState};
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
@@ -46,7 +47,7 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
 
     let router_state = &mut ctx.accounts.router_state;
     router_state.version = AccountVersion::V1;
-    router_state.am_state = access_manager::AccessManagerState::new(access_manager);
+    router_state.am_state = AccessManagerState::new(access_manager);
     router_state.paused = false;
     router_state._reserved = [0u8; 256];
     Ok(())

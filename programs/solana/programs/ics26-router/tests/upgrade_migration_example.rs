@@ -3,6 +3,7 @@
 /// the existing account structs. The existing data would then be loaded into
 /// those structs.
 ///
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics26_router::state::{AccountVersion, Client, CounterpartyInfo, RouterState};
@@ -21,11 +22,7 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };

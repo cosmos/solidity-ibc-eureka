@@ -1,5 +1,5 @@
 use crate::state::*;
-use access_manager::RoleData;
+use access_manager::{AccessManagerState, RoleData};
 use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
@@ -55,11 +55,7 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
@@ -72,11 +68,7 @@ pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: true,
         _reserved: [0; 256],
     };
@@ -978,11 +970,7 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };

@@ -236,11 +236,7 @@ mod compatibility_tests {
     fn test_router_state_serialization_compatibility() {
         let router_state = RouterState {
             version: AccountVersion::V1,
-            am_state: AccessManagerState {
-                access_manager: Pubkey::new_unique(),
-                pending_access_manager: None,
-                _reserved: [0; 256],
-            },
+            am_state: AccessManagerState::new(Pubkey::new_unique()),
             paused: false,
             _reserved: [0; 256],
         };

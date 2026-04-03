@@ -62,7 +62,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
         bump,
         seeds::program = router_state.am_state.pending_access_manager.unwrap()
     )]
-    pub new_access_manager: AccountInfo<'info>,
+    pub new_am_state: AccountInfo<'info>,
 
     /// Admin signer authorized on the **new** access manager.
     pub admin: Signer<'info>,
@@ -75,7 +75,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
     ctx.accounts.router_state.am_state.accept_transfer(
-        &ctx.accounts.new_access_manager,
+        &ctx.accounts.new_am_state,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -97,7 +97,7 @@ pub struct CancelAccessManagerTransfer<'info> {
         bump,
         seeds::program = router_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub am_state: AccountInfo<'info>,
 
     /// Admin signer authorized to cancel the transfer.
     pub admin: Signer<'info>,
@@ -110,7 +110,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
     ctx.accounts.router_state.am_state.cancel_transfer(
-        &ctx.accounts.access_manager,
+        &ctx.accounts.am_state,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -120,7 +120,7 @@ pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>)
 #[cfg(test)]
 mod tests {
     use crate::test_utils::*;
-    use access_manager::AccessManagerError;
+    use access_manager::{AccessManagerError, AccessManagerState};
     use mollusk_svm::result::Check;
     use solana_ibc_types::roles;
     use solana_sdk::instruction::AccountMeta;
@@ -173,10 +173,13 @@ mod tests {
         let (pda, _) = Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_state: access_manager::AccessManagerState {
-                access_manager: access_manager::ID,
-                pending_access_manager: pending,
-                _reserved: [0; 256],
+            am_state: if let Some(pending) = pending {
+                AccessManagerState {
+                    access_manager: access_manager::ID,
+                    pending_access_manager: Some(pending),
+                }
+            } else {
+                AccessManagerState::new(access_manager::ID)
             },
             paused: false,
             _reserved: [0; 256],
@@ -635,10 +638,9 @@ mod integration_tests {
             Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let router_state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_state: access_manager::AccessManagerState {
+            am_state: AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: Some(new_am_program_id),
-                _reserved: [0; 256],
             },
             paused: false,
             _reserved: [0; 256],
@@ -747,10 +749,9 @@ mod integration_tests {
             Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let router_state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_state: access_manager::AccessManagerState {
+            am_state: AccessManagerState {
                 access_manager: access_manager::ID,
                 pending_access_manager: Some(new_am_program_id),
-                _reserved: [0; 256],
             },
             paused: false,
             _reserved: [0; 256],

@@ -1,6 +1,7 @@
 use crate::error::ErrorCode;
 use crate::types::{AccountVersion, AppState, ClientState};
 use crate::ETH_ADDRESS_LEN;
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
@@ -82,7 +83,7 @@ pub fn initialize(
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
-    app_state.am_state = access_manager::AccessManagerState::new(access_manager);
+    app_state.am_state = AccessManagerState::new(access_manager);
     app_state._reserved = [0; 256];
 
     Ok(())

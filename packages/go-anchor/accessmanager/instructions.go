@@ -518,7 +518,7 @@ func NewClaimUpgradeAuthorityInstruction(
 	sourceUpgradeAuthorityAccount solanago.PublicKey,
 	sourceAccessManagerProgramAccount solanago.PublicKey,
 	bpfLoaderUpgradeableAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
+	amStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -559,9 +559,9 @@ func NewClaimUpgradeAuthorityInstruction(
 		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerProgramAccount, false, false))
 		// Account 5 "bpf_loader_upgradeable": Read-only, Non-signer, Required, Address: BPFLoaderUpgradeab1e11111111111111111111111
 		accounts__.Append(solanago.NewAccountMeta(bpfLoaderUpgradeableAccount, false, false))
-		// Account 6 "access_manager": Read-only, Non-signer, Required
+		// Account 6 "am_state": Read-only, Non-signer, Required
 		// Access manager state PDA used to verify the caller holds the admin role.
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(amStateAccount, false, false))
 		// Account 7 "admin": Read-only, Signer, Required
 		// Must hold `ADMIN_ROLE` on the current access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))

@@ -1,8 +1,11 @@
+use access_manager::AccessManagerState;
+
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/attestation";
 
 pub mod accounts {
     use crate::state::ConsensusStateStore;
     use crate::types::{AppState, ClientState};
+    use access_manager::AccessManagerState;
     use anchor_lang::AccountSerialize;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
@@ -38,11 +41,7 @@ pub mod accounts {
 
         let app_state = AppState {
             version: crate::types::AccountVersion::V1,
-            am_state: access_manager::AccessManagerState {
-                access_manager,
-                pending_access_manager: None,
-                _reserved: [0; 256],
-            },
+            am_state: AccessManagerState::new(access_manager),
             _reserved: [0; 256],
         };
         let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
@@ -299,11 +298,7 @@ pub fn setup_program_test_with_whitelist(
     let app_state_pda = crate::types::AppState::pda();
     let app_state = crate::types::AppState {
         version: crate::types::AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];

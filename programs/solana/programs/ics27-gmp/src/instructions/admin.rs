@@ -116,6 +116,7 @@ mod tests {
     use super::*;
     use crate::state::{AccountVersion, GMPAppState};
     use crate::test_utils::*;
+    use access_manager::AccessManagerState;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -226,11 +227,7 @@ mod tests {
             version: AccountVersion::V1,
             paused: true,
             bump: app_state_bump,
-            am_state: access_manager::AccessManagerState {
-                access_manager: access_manager::ID,
-                pending_access_manager: None,
-                _reserved: [0; 256],
-            },
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
 
@@ -598,11 +595,7 @@ mod integration_tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            am_state: access_manager::AccessManagerState {
-                access_manager: access_manager::ID,
-                pending_access_manager: None,
-                _reserved: [0; 256],
-            },
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
         let mut data = Vec::new();

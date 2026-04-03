@@ -2,6 +2,7 @@ use crate::constants::*;
 use crate::errors::GMPError;
 use crate::events::GMPAppInitialized;
 use crate::state::{AccountVersion, GMPAppState};
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
@@ -53,7 +54,7 @@ pub fn initialize(ctx: Context<Initialize>, access_manager: Pubkey) -> Result<()
     app_state.version = AccountVersion::V1;
     app_state.paused = false;
     app_state.bump = ctx.bumps.app_state;
-    app_state.am_state = access_manager::AccessManagerState::new(access_manager);
+    app_state.am_state = AccessManagerState::new(access_manager);
     app_state._reserved = [0; 256];
 
     // Emit initialization event

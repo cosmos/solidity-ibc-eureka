@@ -62,7 +62,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
         bump,
         seeds::program = app_state.am_state.pending_access_manager.unwrap()
     )]
-    pub new_access_manager: AccountInfo<'info>,
+    pub new_am_state: AccountInfo<'info>,
 
     /// Admin signer authorized on the **new** access manager.
     pub admin: Signer<'info>,
@@ -75,7 +75,7 @@ pub struct AcceptAccessManagerTransfer<'info> {
 
 pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
     ctx.accounts.app_state.am_state.accept_transfer(
-        &ctx.accounts.new_access_manager,
+        &ctx.accounts.new_am_state,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -97,7 +97,7 @@ pub struct CancelAccessManagerTransfer<'info> {
         bump,
         seeds::program = app_state.am_state.access_manager
     )]
-    pub access_manager: AccountInfo<'info>,
+    pub am_state: AccountInfo<'info>,
 
     /// Admin signer authorized to cancel the transfer.
     pub admin: Signer<'info>,
@@ -110,7 +110,7 @@ pub struct CancelAccessManagerTransfer<'info> {
 
 pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
     ctx.accounts.app_state.am_state.cancel_transfer(
-        &ctx.accounts.access_manager,
+        &ctx.accounts.am_state,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
@@ -121,7 +121,7 @@ pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>)
 mod tests {
     use crate::state::GMPAppState;
     use crate::test_utils::*;
-    use access_manager::AccessManagerError;
+    use access_manager::{AccessManagerError, AccessManagerState};
     use anchor_lang::{AnchorSerialize, Discriminator};
     use mollusk_svm::result::Check;
     use solana_ibc_types::roles;
@@ -175,10 +175,13 @@ mod tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            am_state: access_manager::AccessManagerState {
-                access_manager: access_manager::ID,
-                pending_access_manager: pending,
-                _reserved: [0; 256],
+            am_state: if let Some(pending) = pending {
+                AccessManagerState {
+                    access_manager: access_manager::ID,
+                    pending_access_manager: Some(pending),
+                }
+            } else {
+                AccessManagerState::new(access_manager::ID)
             },
             _reserved: [0; 256],
         };

@@ -67,7 +67,7 @@ pub struct ClaimUpgradeAuthority<'info> {
 
     /// Access manager state PDA used to verify the caller holds the admin role.
     #[account(seeds = [AccessManager::SEED], bump)]
-    pub access_manager: Account<'info, AccessManager>,
+    pub am_state: Account<'info, AccessManager>,
 
     /// Must hold `ADMIN_ROLE` on the current access manager.
     pub admin: Signer<'info>,
@@ -82,7 +82,7 @@ pub fn claim_upgrade_authority(
     target_program: Pubkey,
 ) -> Result<()> {
     require_admin(
-        &ctx.accounts.access_manager.to_account_info(),
+        &ctx.accounts.am_state.to_account_info(),
         &ctx.accounts.admin.to_account_info(),
         &ctx.accounts.instructions_sysvar,
         &crate::ID,

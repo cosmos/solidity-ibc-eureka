@@ -42,11 +42,10 @@ impl AccessManagerState {
             AccessManagerError::PendingAccessManagerTransferAlreadyExists
         );
 
-        let current = self.access_manager;
         self.pending_access_manager = Some(new_access_manager);
 
         emit!(AccessManagerTransferProposed {
-            current_access_manager: current,
+            current_access_manager: self.access_manager,
             proposed_access_manager: new_access_manager,
         });
 
@@ -110,12 +109,10 @@ impl AccessManagerState {
         let pending = self
             .pending_access_manager
             .ok_or_else(|| error!(AccessManagerError::NoPendingAccessManagerTransfer))?;
-
-        let current = self.access_manager;
         self.pending_access_manager = None;
 
         emit!(AccessManagerTransferCancelled {
-            access_manager: current,
+            access_manager: self.access_manager,
             cancelled_access_manager: pending,
         });
 

@@ -138,7 +138,7 @@ func NewProposeAccessManagerTransferInstruction(
 // Builds a "accept_access_manager_transfer" instruction.
 func NewAcceptAccessManagerTransferInstruction(
 	appStateAccount solanago.PublicKey,
-	newAccessManagerAccount solanago.PublicKey,
+	newAmStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -157,9 +157,9 @@ func NewAcceptAccessManagerTransferInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// PDA holding program-level settings; the `access_manager` field is updated on success.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "new_access_manager": Read-only, Non-signer, Required
+		// Account 1 "new_am_state": Read-only, Non-signer, Required
 		// Proposed access-manager state PDA derived from the pending program ID.
-		accounts__.Append(solanago.NewAccountMeta(newAccessManagerAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(newAmStateAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
 		// Admin signer authorized on the **new** access manager.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
@@ -179,7 +179,7 @@ func NewAcceptAccessManagerTransferInstruction(
 // Builds a "cancel_access_manager_transfer" instruction.
 func NewCancelAccessManagerTransferInstruction(
 	appStateAccount solanago.PublicKey,
-	accessManagerAccount solanago.PublicKey,
+	amStateAccount solanago.PublicKey,
 	adminAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -198,9 +198,9 @@ func NewCancelAccessManagerTransferInstruction(
 		// Account 0 "app_state": Writable, Non-signer, Required
 		// PDA holding program-level settings; the pending transfer is cleared on success.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
-		// Account 1 "access_manager": Read-only, Non-signer, Required
+		// Account 1 "am_state": Read-only, Non-signer, Required
 		// Current access-manager state PDA used to verify the caller holds the admin role.
-		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(amStateAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
 		// Admin signer authorized to cancel the transfer.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))

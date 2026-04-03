@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use access_manager::AccessManagerState;
 use mollusk_svm::result::Check;
 
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/ics07_tendermint";
@@ -800,11 +801,7 @@ pub fn setup_program_test_with_whitelist(
         &crate::ID,
     );
     let app_state = crate::types::AppState {
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
@@ -871,11 +868,7 @@ pub fn setup_program_test_with_relayer(
         &crate::ID,
     );
     let app_state = crate::types::AppState {
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];

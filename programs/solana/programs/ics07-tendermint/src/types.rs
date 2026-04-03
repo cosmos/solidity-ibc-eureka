@@ -319,11 +319,7 @@ mod compatibility_tests {
     #[test]
     fn test_app_state_serialization_compatibility() {
         let app_state = AppState {
-            am_state: AccessManagerState {
-                access_manager: access_manager::ID,
-                pending_access_manager: None,
-                _reserved: [0; 256],
-            },
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
 

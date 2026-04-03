@@ -16,15 +16,15 @@ import (
 // Each IBC program embeds this struct in its on-chain state account to track
 // which access manager program governs its permissioned instructions and to
 // support two-step access manager migration (propose/accept).
+//
+// Does not carry its own `_reserved` field — future fields can eat into the
+// `_reserved` space of the higher-level state that embeds this struct.
 type AccessManagerStateAccessManagerState struct {
 	// Program ID of the access manager that governs this program's roles.
 	AccessManager solanago.PublicKey `json:"accessManager"`
 
 	// Proposed replacement access manager, set during a pending transfer.
 	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
-
-	// Reserved for future fields without breaking deserialization.
-	Reserved [256]uint8 `json:"reserved"`
 }
 
 func (obj AccessManagerStateAccessManagerState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -50,11 +50,6 @@ func (obj AccessManagerStateAccessManagerState) MarshalWithEncoder(encoder *bina
 				return errors.NewField("PendingAccessManager", err)
 			}
 		}
-	}
-	// Serialize `Reserved`:
-	err = encoder.Encode(obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
 	}
 	return nil
 }
@@ -87,11 +82,6 @@ func (obj *AccessManagerStateAccessManagerState) UnmarshalWithDecoder(decoder *b
 				return errors.NewField("PendingAccessManager", err)
 			}
 		}
-	}
-	// Deserialize `Reserved`:
-	err = decoder.Decode(&obj.Reserved)
-	if err != nil {
-		return errors.NewField("Reserved", err)
 	}
 	return nil
 }

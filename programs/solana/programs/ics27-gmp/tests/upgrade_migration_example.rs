@@ -3,6 +3,7 @@
 /// This example demonstrates how to migrate `GMPAppState` from V1 to a hypothetical V2
 /// with additional fields. This pattern shows how the `version` field and `_reserved`
 /// space enable seamless upgrades without breaking existing deployments.
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics27_gmp::state::{AccountVersion, GMPAppState};
@@ -22,11 +23,7 @@ fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
         version: AccountVersion::V1,
         paused,
         bump,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let app_state_data = create_account_data(&app_state);

@@ -24,14 +24,15 @@ pub mod roles {
 /// Mirrors the on-chain struct in the access-manager program. Tracks which
 /// access manager governs permissioned instructions and supports two-step
 /// access manager migration (propose/accept).
+///
+/// Does not carry its own `_reserved` field — future fields can eat into the
+/// `_reserved` space of the higher-level state that embeds this struct.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AccessManagerState {
     /// Program ID of the access manager that governs this program's roles.
     pub access_manager: Pubkey,
     /// Proposed replacement access manager, set during a pending transfer.
     pub pending_access_manager: Option<Pubkey>,
-    /// Reserved for future fields without breaking deserialization.
-    pub _reserved: [u8; 256],
 }
 
 /// Backwards-compatible helper struct for getting access manager PDA

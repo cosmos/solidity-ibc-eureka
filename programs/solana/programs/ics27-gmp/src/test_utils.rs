@@ -1,7 +1,7 @@
 use crate::constants::{GMP_PORT_ID, ICS27_ENCODING_PROTOBUF, ICS27_VERSION};
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
-use access_manager::RoleData;
+use access_manager::{AccessManagerState, RoleData};
 use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, InstructionData, Space};
 use mollusk_svm::Mollusk;
 use solana_ibc_types::roles;
@@ -31,11 +31,7 @@ pub fn create_gmp_app_state_account(
         version: AccountVersion::V1,
         paused,
         bump,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
 
@@ -561,11 +557,7 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
         Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
@@ -699,11 +691,7 @@ pub fn setup_program_test_with_access_manager(
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
@@ -861,11 +849,7 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        am_state: access_manager::AccessManagerState {
-            access_manager: access_manager::ID,
-            pending_access_manager: None,
-            _reserved: [0; 256],
-        },
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];

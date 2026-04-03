@@ -12,10 +12,10 @@ The access manager maintains a central registry of roles and their members. Ever
 AccessManager PDA (seeds: ["access_manager"])
   roles:                       Vec<RoleData>                      -- role ID -> member list
   whitelisted_programs:        Vec<Pubkey>                        -- programs allowed to call admin-gated instructions via CPI (e.g. multisig)
-  pending_authority_transfers: Vec<PendingAuthorityTransfer>      -- pending two-step upgrade authority transfers (one per target program, max 8)
+  pending_authority_transfers: Vec<PendingAuthorityTransfer>      -- pending two-step upgrade authority transfers (one per target program, max 16)
 ```
 
-Role IDs are opaque `u64` values defined in `solana-ibc-types::roles`. The access manager does not interpret them -- consuming programs define what each role means.
+Role IDs are opaque `u64` values defined in [`solana-ibc-types::roles`](../../packages/solana-ibc-types/src/access_manager.rs). The access manager does not interpret them -- consuming programs define what each role means.
 
 ## Instructions
 
@@ -33,7 +33,7 @@ Allows an account to remove itself from a role. Does not require admin authoriza
 
 ### `set_whitelisted_programs`
 
-Replaces the list of programs allowed to invoke admin-gated instructions via CPI. Requires `ADMIN_ROLE`.
+Replaces the list of programs allowed to invoke admin-gated instructions via CPI. Requires `ADMIN_ROLE`. This is needed for multisig programs that call admin-gated instructions on behalf of the admin.
 
 ### `upgrade_program`
 
@@ -41,7 +41,7 @@ Upgrades a target program's bytecode via BPF Loader Upgradeable. The access mana
 
 ### `propose_upgrade_authority_transfer`
 
-Proposes transferring a target program's BPF Loader upgrade authority from this access manager's PDA to a new address. Adds a pending transfer to the `AccessManager` state. Requires `ADMIN_ROLE`. Allows whitelisted CPI. Supports concurrent transfers for different target programs (up to 8).
+Proposes transferring a target program's BPF Loader upgrade authority from this access manager's PDA to a new address. Adds a pending transfer to the `AccessManager` state. Requires `ADMIN_ROLE`. Allows whitelisted CPI. Supports concurrent transfers for different target programs (up to 16).
 
 ### `accept_upgrade_authority_transfer`
 
@@ -55,7 +55,7 @@ Cancels a pending upgrade authority transfer. Requires `ADMIN_ROLE`. Allows whit
 
 ### `claim_upgrade_authority`
 
-Claims upgrade authority from a source access manager that has proposed a transfer to this access manager's upgrade authority PDA. CPIs into the source AM's `accept_upgrade_authority_transfer` with this AM's PDA as signer. No admin authorization required -- PDA signing is the authorization.
+Claims upgrade authority from a source access manager that has proposed a transfer to this access manager's upgrade authority PDA. CPIs into the source AM's `accept_upgrade_authority_transfer` with this AM's PDA as signer. Requires `ADMIN_ROLE` because the CPI propagates PDA signer privileges to the source program.
 
 ## PDA Derivations
 
@@ -76,13 +76,16 @@ program_data:      [target_program.as_ref()]                       program: BPF 
 5. Deployer sets the buffer authority to AM's PDA as well
 6. From this point, the deployer keypair is no longer needed -- upgrades go through AM's role-gated `upgrade_program` instruction
 
+See [`Test_ProgramUpgrade_Via_AccessManager`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L69) (steps 1-5 of setup).
+
 ### 2. Upgrading an IBC program
 
 1. Deployer (or anyone) writes the new bytecode to a buffer account and sets the buffer authority to AM's upgrade authority PDA
 2. Admin (holder of `ADMIN_ROLE`) calls `upgrade_program` on AM, passing the target program and buffer
-3. AM verifies the caller has `ADMIN_ROLE`
-4. AM signs the BPF Loader `Upgrade` CPI with its upgrade authority PDA via `invoke_signed`
-5. BPF Loader replaces the target program's bytecode
+
+AM verifies the caller has `ADMIN_ROLE`, signs the BPF Loader `Upgrade` CPI with its upgrade authority PDA via `invoke_signed` and BPF Loader replaces the target program's bytecode.
+
+See [`Test_ProgramUpgrade_Via_AccessManager`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L69) (upgrade step) and [`Test_RevokeAdminRole`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L274) (revoked admin cannot upgrade).
 
 ### 3. Migrating to a new Access Manager (AM-A -> AM-B)
 
@@ -92,14 +95,16 @@ There are two independent control planes to migrate:
 
 1. Deploy and initialize AM-B with its own admin
 2. AM-A admin calls `propose_upgrade_authority_transfer` on AM-A for each target program, specifying AM-B's upgrade authority PDA as the new authority -- proposals for different programs can be batched in a single transaction
-3. Anyone calls `claim_upgrade_authority` on AM-B for each target program -- AM-B CPIs into AM-A's `accept_upgrade_authority_transfer` signing with its own PDA (since only AM-B can `invoke_signed` with AM-B's PDA)
-4. AM-A validates the pending transfer matches, then executes BPF Loader `set_authority` -- authority moves from AM-A's PDA to AM-B's PDA
+3. AM-B admin calls `claim_upgrade_authority` on AM-B for each target program -- AM-B CPIs into AM-A's `accept_upgrade_authority_transfer` signing with its own PDA (since only AM-B can `invoke_signed` with AM-B's PDA)
+
+AM-A validates the pending transfer matches, then executes BPF Loader `set_authority` -- authority moves from AM-A's PDA to AM-B's PDA. See [`Test_AMtoAM_UpgradeAuthorityMigration`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L693) and [`Test_BatchUpgradeAuthorityMigration`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L1538).
 
 **Runtime roles** (who can relay, pause, configure):
 
-5. AM-A admin calls `propose_access_manager_transfer` on each IBC program (ICS07, ICS26, GMP, attestation) to propose repointing from AM-A to AM-B
-6. AM-B admin calls `accept_access_manager_transfer` on each IBC program to finalize the switch
-7. AM-B now controls both bytecode upgrades and runtime roles -- AM-A has no remaining authority
+1. AM-A admin calls `propose_access_manager_transfer` on each IBC program (ICS07, ICS26, GMP, attestation) to propose repointing from AM-A to AM-B
+2. AM-B admin calls `accept_access_manager_transfer` on each IBC program to finalize the switch
+
+AM-B now controls both bytecode upgrades and runtime roles -- AM-A has no remaining authority. See [`Test_AccessManagerTransfer`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L960).
 
 > **Note:** IFT uses a different pattern (`admin: Pubkey` with two-step propose/accept transfer) and does not use access manager transfer.
 
@@ -127,7 +132,7 @@ Authority transfers require propose + accept, preventing irreversible mistakes f
 
 #### Concurrent transfer limit
 
-The pending transfers vector is capped at 8 entries with a runtime guard, preventing unbounded growth that would corrupt account data.
+The pending transfers vector is capped at 16 entries with a runtime guard, preventing unbounded growth that would corrupt account data.
 
 #### Last admin protection
 
@@ -150,8 +155,9 @@ The test suite includes Mollusk (SBF binary) unit tests and ProgramTest integrat
 
 ### E2E Tests
 
-Tests are in `e2e/interchaintestv8/solana_upgrade_test.go`:
-- `Test_ProgramUpgrade_Via_AccessManager` -- standard upgrade flow
-- `Test_RevokeAdminRole` -- revoked admin cannot upgrade
-- `Test_TransferUpgradeAuthority` -- two-step propose/accept authority transfer and migration verification
-- `Test_AMtoAM_UpgradeAuthorityMigration` -- full AM-to-AM migration via propose + claim
+Tests are in [`solana_upgrade_test.go`](../../../../e2e/interchaintestv8/solana_upgrade_test.go):
+- [`Test_ProgramUpgrade_Via_AccessManager`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L69) -- standard upgrade flow
+- [`Test_RevokeAdminRole`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L274) -- revoked admin cannot upgrade
+- [`Test_TransferUpgradeAuthority`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L409) -- two-step propose/accept authority transfer and migration verification
+- [`Test_AMtoAM_UpgradeAuthorityMigration`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L693) -- full AM-to-AM migration via propose + claim
+- [`Test_BatchUpgradeAuthorityMigration`](../../../../e2e/interchaintestv8/solana_upgrade_test.go#L1538) -- batch propose + claim for multiple programs
