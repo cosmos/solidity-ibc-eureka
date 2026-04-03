@@ -512,7 +512,7 @@ func NewClaimUpgradeAuthorityInstruction(
 	targetProgramParam solanago.PublicKey,
 
 	// Accounts:
-	ourUpgradeAuthorityAccount solanago.PublicKey,
+	newUpgradeAuthorityAccount solanago.PublicKey,
 	sourceAccessManagerStateAccount solanago.PublicKey,
 	targetProgramDataAccount solanago.PublicKey,
 	sourceUpgradeAuthorityAccount solanago.PublicKey,
@@ -541,10 +541,10 @@ func NewClaimUpgradeAuthorityInstruction(
 
 	// Add the accounts to the instruction.
 	{
-		// Account 0 "our_upgrade_authority": Read-only, Non-signer, Required
+		// Account 0 "new_upgrade_authority": Read-only, Non-signer, Required
 		// This access manager's upgrade authority PDA for the target program.
 		// Signs the CPI as the new authority.
-		accounts__.Append(solanago.NewAccountMeta(ourUpgradeAuthorityAccount, false, false))
+		accounts__.Append(solanago.NewAccountMeta(newUpgradeAuthorityAccount, false, false))
 		// Account 1 "source_access_manager_state": Writable, Non-signer, Required
 		// The source access manager's state PDA.
 		accounts__.Append(solanago.NewAccountMeta(sourceAccessManagerStateAccount, true, false))

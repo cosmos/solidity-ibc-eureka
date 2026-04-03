@@ -25,7 +25,7 @@ pub struct ClaimUpgradeAuthority<'info> {
         seeds = [AccessManager::UPGRADE_AUTHORITY_SEED, target_program.as_ref()],
         bump
     )]
-    pub our_upgrade_authority: AccountInfo<'info>,
+    pub new_upgrade_authority: AccountInfo<'info>,
 
     /// The source access manager's state PDA.
     /// CHECK: Validated via seeds constraint against `source_access_manager_program`
@@ -92,10 +92,10 @@ pub fn claim_upgrade_authority(
         access_manager: ctx.accounts.source_access_manager_state.to_account_info(),
         program_data: ctx.accounts.target_program_data.to_account_info(),
         upgrade_authority: ctx.accounts.source_upgrade_authority.to_account_info(),
-        new_authority: ctx.accounts.our_upgrade_authority.to_account_info(),
+        new_authority: ctx.accounts.new_upgrade_authority.to_account_info(),
         bpf_loader_upgradeable: ctx.accounts.bpf_loader_upgradeable.to_account_info(),
     };
-    let bump = [ctx.bumps.our_upgrade_authority];
+    let bump = [ctx.bumps.new_upgrade_authority];
     let signer_seeds = &[&[
         AccessManager::UPGRADE_AUTHORITY_SEED,
         target_program.as_ref(),
@@ -111,7 +111,7 @@ pub fn claim_upgrade_authority(
     emit!(UpgradeAuthorityClaimedEvent {
         program: target_program,
         source_access_manager: ctx.accounts.source_access_manager_program.key(),
-        new_authority: ctx.accounts.our_upgrade_authority.key(),
+        new_authority: ctx.accounts.new_upgrade_authority.key(),
     });
 
     Ok(())
@@ -241,10 +241,10 @@ mod integration_tests {
         );
 
         // Our (claimer's) upgrade authority PDA account
-        let (our_upgrade_authority, _) =
+        let (new_upgrade_authority, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         pt.add_account(
-            our_upgrade_authority,
+            new_upgrade_authority,
             Account {
                 lamports: 1_000_000,
                 owner: solana_sdk::system_program::ID,
@@ -256,7 +256,7 @@ mod integration_tests {
     }
 
     fn build_claim_ix(target_program: Pubkey, admin: Pubkey) -> Instruction {
-        let (our_upgrade_authority, _) =
+        let (new_upgrade_authority, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         let (source_am_pda, _) =
             Pubkey::find_program_address(&[AccessManager::SEED], &crate::test_config::OTHER_AM_ID);
@@ -269,7 +269,7 @@ mod integration_tests {
         Instruction {
             program_id: crate::ID,
             accounts: vec![
-                AccountMeta::new_readonly(our_upgrade_authority, false),
+                AccountMeta::new_readonly(new_upgrade_authority, false),
                 AccountMeta::new(source_am_pda, false),
                 AccountMeta::new(program_data_pda, false),
                 AccountMeta::new_readonly(source_upgrade_authority, false),
