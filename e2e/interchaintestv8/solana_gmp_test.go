@@ -718,9 +718,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			ack, err := gmphelpers.UnmarshalAck(ackBytes, encodingType.String())
 			s.Require().NoError(err, "Failed to unmarshal GMP acknowledgement")
 
-			// SPL Token program returns no data; GMP uses [0] sentinel for success with no return data
-			s.Require().Equal([]byte{0}, ack.Result, "SPL transfer ack result should be success sentinel")
-			s.T().Logf("SPL transfer ack verified on Solana: success sentinel (no return data)")
+			// SPL Token program returns no data; GMP uses [0] sentinel for protobuf, empty bytes for ABI
+			if encodingType.String() == testvalues.Ics27AbiEncoding {
+				s.Require().Empty(ack.Result, "SPL transfer ack result should be empty for ABI encoding")
+			} else {
+				s.Require().Equal([]byte{0}, ack.Result, "SPL transfer ack result should be success sentinel")
+			}
+			s.T().Logf("SPL transfer ack verified on Solana: success (no return data)")
 		}))
 
 		var ackRelayTxBodyBz []byte
