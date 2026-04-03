@@ -1,5 +1,5 @@
 use crate::events::UpgradeAuthorityClaimedEvent;
-use crate::helpers::cpi;
+use crate::helpers::{cpi, require_admin};
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
@@ -11,9 +11,10 @@ use anchor_lang::solana_program::bpf_loader_upgradeable;
 /// destination AM claims by calling (via CPI) the source's
 /// `accept_upgrade_authority_transfer` with its own PDA as signer.
 ///
-/// No admin authorization required -- PDA signing IS the authorization.
-/// Only this program can sign with its upgrade authority PDA.
-/// The source AM's accept instruction validates the pending transfer matches.
+/// Requires `ADMIN_ROLE` because the CPI propagates PDA signer privileges
+/// to the source program. Without admin gating, a malicious program passed
+/// as `source_access_manager_program` could misuse the signed PDA to steal
+/// upgrade authority from programs this access manager already controls.
 #[derive(Accounts)]
 #[instruction(target_program: Pubkey)]
 pub struct ClaimUpgradeAuthority<'info> {
@@ -63,12 +64,30 @@ pub struct ClaimUpgradeAuthority<'info> {
     /// CHECK: Must be BPF Loader Upgradeable program ID
     #[account(address = bpf_loader_upgradeable::ID)]
     pub bpf_loader_upgradeable: AccountInfo<'info>,
+
+    /// Access manager state PDA used to verify the caller holds the admin role.
+    #[account(seeds = [AccessManager::SEED], bump)]
+    pub access_manager: Account<'info, AccessManager>,
+
+    /// Must hold `ADMIN_ROLE` on the current access manager.
+    pub admin: Signer<'info>,
+
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
 }
 
 pub fn claim_upgrade_authority(
     ctx: Context<ClaimUpgradeAuthority>,
     target_program: Pubkey,
 ) -> Result<()> {
+    require_admin(
+        &ctx.accounts.access_manager.to_account_info(),
+        &ctx.accounts.admin.to_account_info(),
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )?;
+
     let cpi_accounts = cpi::AcceptUpgradeAuthorityTransferCpi {
         access_manager: ctx.accounts.source_access_manager_state.to_account_info(),
         program_data: ctx.accounts.target_program_data.to_account_info(),
@@ -111,6 +130,7 @@ mod integration_tests {
         bpf_loader_upgradeable::UpgradeableLoaderState,
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
+        signature::Keypair,
         signer::Signer,
     };
 
@@ -119,9 +139,11 @@ mod integration_tests {
     /// - `crate::ID` is the claimer (destination AM)
     /// - `crate::test_config::OTHER_AM_ID` is the source AM
     ///
+    /// `admin` is the admin on the claimer AM (required for the admin gate).
     /// `target_program` identifies the program whose upgrade authority is being migrated.
     /// `pending_transfers` sets up the source AM's state with pending transfers.
     fn setup_claim_test(
+        admin: &Pubkey,
         target_program: Pubkey,
         pending_transfers: Vec<PendingAuthorityTransfer>,
     ) -> solana_program_test::ProgramTest {
@@ -138,6 +160,30 @@ mod integration_tests {
             crate::test_config::OTHER_AM_BINARY_NAME,
             crate::test_config::OTHER_AM_ID,
             None,
+        );
+
+        // Our (claimer's) access manager state PDA with admin role
+        let (our_am_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let our_am = AccessManager {
+            roles: vec![RoleData {
+                role_id: roles::ADMIN_ROLE,
+                members: vec![*admin],
+            }],
+            whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
+        };
+        let mut our_am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
+        our_am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
+        our_am.serialize(&mut &mut our_am_data[8..]).unwrap();
+        pt.add_account(
+            our_am_pda,
+            Account {
+                lamports: 10_000_000,
+                data: our_am_data,
+                owner: crate::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
         );
 
         // Source AM's upgrade authority PDA (current authority of target program)
@@ -209,7 +255,7 @@ mod integration_tests {
         pt
     }
 
-    fn build_claim_ix(target_program: Pubkey) -> Instruction {
+    fn build_claim_ix(target_program: Pubkey, admin: Pubkey) -> Instruction {
         let (our_upgrade_authority, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
         let (source_am_pda, _) =
@@ -218,6 +264,7 @@ mod integration_tests {
             Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
         let (source_upgrade_authority, _) =
             AccessManager::upgrade_authority_pda(&target_program, &crate::test_config::OTHER_AM_ID);
+        let (our_am_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
 
         Instruction {
             program_id: crate::ID,
@@ -228,6 +275,9 @@ mod integration_tests {
                 AccountMeta::new_readonly(source_upgrade_authority, false),
                 AccountMeta::new_readonly(crate::test_config::OTHER_AM_ID, false),
                 AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
+                AccountMeta::new_readonly(our_am_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
             data: crate::instruction::ClaimUpgradeAuthority { target_program }.data(),
         }
@@ -246,10 +296,12 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_claim_succeeds() {
+        let admin = Keypair::new();
         let target_program = Pubkey::new_unique();
         let (our_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 
         let pt = setup_claim_test(
+            &admin.pubkey(),
             target_program,
             vec![PendingAuthorityTransfer {
                 target_program,
@@ -258,11 +310,11 @@ mod integration_tests {
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_claim_ix(target_program);
+        let ix = build_claim_ix(target_program, admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &admin],
             recent_blockhash,
         );
         banks_client
@@ -282,17 +334,49 @@ mod integration_tests {
     }
 
     #[tokio::test]
-    async fn test_claim_no_pending_fails() {
+    async fn test_claim_non_admin_rejected() {
+        let admin = Keypair::new();
+        let non_admin = Keypair::new();
         let target_program = Pubkey::new_unique();
+        let (our_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 
-        let pt = setup_claim_test(target_program, vec![]);
+        let pt = setup_claim_test(
+            &admin.pubkey(),
+            target_program,
+            vec![PendingAuthorityTransfer {
+                target_program,
+                new_authority: our_pda,
+            }],
+        );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_claim_ix(target_program);
+        let ix = build_claim_ix(target_program, non_admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &non_admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_claim_no_pending_fails() {
+        let admin = Keypair::new();
+        let target_program = Pubkey::new_unique();
+
+        let pt = setup_claim_test(&admin.pubkey(), target_program, vec![]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let ix = build_claim_ix(target_program, admin.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
             recent_blockhash,
         );
         let err = banks_client.process_transaction(tx).await.unwrap_err();
@@ -304,10 +388,12 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_claim_authority_mismatch_fails() {
+        let admin = Keypair::new();
         let target_program = Pubkey::new_unique();
         let wrong_authority = Pubkey::new_unique();
 
         let pt = setup_claim_test(
+            &admin.pubkey(),
             target_program,
             vec![PendingAuthorityTransfer {
                 target_program,
@@ -316,11 +402,11 @@ mod integration_tests {
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_claim_ix(target_program);
+        let ix = build_claim_ix(target_program, admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &admin],
             recent_blockhash,
         );
         let err = banks_client.process_transaction(tx).await.unwrap_err();

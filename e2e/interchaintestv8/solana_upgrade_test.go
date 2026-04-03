@@ -819,14 +819,12 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration(
 	}))
 
 	// AM-B claims upgrade authority via CPI into AM-A's accept.
-	// Use a random wallet (not an admin) to demonstrate the claim is permissionless --
-	// PDA signing is the only authorization required.
-	s.Require().True(s.Run("AM-B claims upgrade authority (permissionless)", func() {
-		randomWallet, err := s.Solana.Chain.CreateAndFundWallet()
-		s.Require().NoError(err, "failed to create random wallet")
-
+	// Requires ADMIN_ROLE on AM-B to prevent malicious source programs from
+	// exploiting the PDA signer propagation to steal upgrade authority.
+	s.Require().True(s.Run("AM-B claims upgrade authority (admin-gated)", func() {
 		amAProgramID := access_manager.ProgramID
 		amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amAProgramID)
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
 
 		claimIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
 			return access_manager.NewClaimUpgradeAuthorityInstruction(
@@ -837,6 +835,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration(
 				amAUpgradeAuthorityPDA,
 				amAProgramID,
 				solanago.BPFLoaderUpgradeableProgramID,
+				amBAccessManagerPDA,
+				s.SolanaRelayer.PublicKey(),
+				solanago.SysVarInstructionsPubkey,
 			)
 		})
 		s.Require().NoError(err, "failed to build claim instruction")
@@ -844,14 +845,14 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_AMtoAM_UpgradeAuthorityMigration(
 		computeBudgetIx := solana.NewComputeBudgetInstruction(400_000)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
-			randomWallet.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
 			computeBudgetIx,
 			claimIx,
 		)
 		s.Require().NoError(err)
 
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, randomWallet)
-		s.Require().NoError(err, "claim should succeed when called by a random non-admin wallet")
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err, "claim should succeed when called by AM-B admin")
 	}))
 
 	// Verify: AM-B admin can upgrade the target program
@@ -1693,7 +1694,8 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 			ixs = append(ixs, proposeIx)
 		}
 
-		// Build claim instructions for all 3 programs
+		// Build claim instructions for all 3 programs (requires AM-B admin)
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
 		for i, p := range programs {
 			claimIx, err := withAMProgramID(amBProgramID, func() (solanago.Instruction, error) {
 				return access_manager.NewClaimUpgradeAuthorityInstruction(
@@ -1704,6 +1706,9 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 					p.amAUpgradeAuthPDA,
 					amAProgramID,
 					solanago.BPFLoaderUpgradeableProgramID,
+					amBAccessManagerPDA,
+					s.SolanaRelayer.PublicKey(),
+					solanago.SysVarInstructionsPubkey,
 				)
 			})
 			s.Require().NoError(err, "failed to build claim instruction for program %d", i)
@@ -1719,7 +1724,7 @@ func (s *IbcEurekaSolanaUpgradeTestSuite) Test_BatchUpgradeAuthorityMigration() 
 		)
 		s.Require().NoError(err, "failed to create batch transaction")
 
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.UpgraderWallet, s.SolanaRelayer)
 		s.Require().NoError(err, "batch propose + claim should succeed for all programs in one transaction")
 	}))
 
