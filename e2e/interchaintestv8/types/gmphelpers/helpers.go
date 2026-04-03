@@ -3,10 +3,14 @@ package gmphelpers
 import (
 	"fmt"
 
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/gogoproto/proto"
-	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+
+	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 )
 
