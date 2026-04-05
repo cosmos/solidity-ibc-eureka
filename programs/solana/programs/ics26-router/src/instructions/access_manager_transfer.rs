@@ -466,6 +466,7 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
+    use access_manager::AccessManagerState;
     use crate::test_utils::*;
     use anchor_lang::{Discriminator, InstructionData};
     use solana_sdk::{
