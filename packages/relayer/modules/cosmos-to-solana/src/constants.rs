@@ -9,6 +9,9 @@ pub const GMP_PORT_ID: &str = "gmpport";
 /// Protobuf encoding type for GMP packets
 pub const PROTOBUF_ENCODING: &str = "application/x-protobuf";
 
+/// ABI encoding type for GMP packets
+pub const ABI_ENCODING: &str = "application/x-solidity-abi";
+
 /// JSON encoding type for IBC packets
 pub const JSON_ENCODING: &str = "application/json";
 

@@ -91,7 +91,6 @@ pub async fn fetch_attestations(
     {
         r.state.clone()
     } else {
-        tracing::info!("Requesting state attestation at height {}", height);
         aggregator.get_state_attestation(height).await?
     };
 
