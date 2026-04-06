@@ -1132,7 +1132,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket(
 		s.Require().NoError(s.Solana.Chain.WaitForTxStatus(solanaPacketTxSig, rpc.ConfirmationStatusFinalized))
 	}))
 
-	s.Require().True(s.Run("Relay packet and assert latency < 11s", func() {
+	s.Require().True(s.Run("Relay packet and assert latency", func() {
 		start := time.Now()
 
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
@@ -1145,12 +1145,12 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket(
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
+		relayElapsed := time.Since(start)
+		s.T().Logf("RelayByTx completed in %s", relayElapsed)
+		s.Require().Less(relayElapsed, 5*time.Second, "RelayByTx should be fast once Solana finality is achieved")
+
 		receipt := s.MustBroadcastSdkTxBodyNoWait(ctx, simd, s.Cosmos.Users[0], 2_000_000, resp.Tx)
 		s.Require().Equal(uint32(0), receipt.Code)
-
-		elapsed := time.Since(start)
-		s.T().Logf("Relay completed in %s", elapsed)
-		s.Require().Less(elapsed, 11*time.Second, "Relay should complete in <11s once Solana finality is achieved")
 	}))
 }
 
@@ -1247,7 +1247,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 	// timeout is 35s, so 40s guarantees expiry
 	time.Sleep(40 * time.Second)
 
-	s.Require().True(s.Run("Relay timeout and assert latency < 11s", func() {
+	s.Require().True(s.Run("Relay timeout and assert latency", func() {
 		start := time.Now()
 
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
@@ -1260,13 +1260,13 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
+		relayElapsed := time.Since(start)
+		s.T().Logf("RelayByTx completed in %s", relayElapsed)
+		s.Require().Less(relayElapsed, 5*time.Second, "RelayByTx should be fast once timeout has expired")
+
 		txResp, err := s.BroadcastSdkTxBodyNoWait(ctx, simd, cosmosUser, 500_000, resp.Tx)
 		s.Require().NoError(err)
 		s.Require().Equal(uint32(0), txResp.Code)
-
-		elapsed := time.Since(start)
-		s.T().Logf("Timeout relay completed in %s", elapsed)
-		s.Require().Less(elapsed, 11*time.Second, "Timeout relay should complete in <11s once timeout has expired")
 	}))
 }
 
