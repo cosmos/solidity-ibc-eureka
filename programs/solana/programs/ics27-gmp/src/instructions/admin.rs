@@ -528,9 +528,9 @@ mod tests {
 
 #[cfg(test)]
 mod integration_tests {
-    use access_manager::AccessManagerState;
     use crate::state::GMPAppState;
     use crate::test_utils::*;
+    use access_manager::AccessManagerState;
     use anchor_lang::InstructionData;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
