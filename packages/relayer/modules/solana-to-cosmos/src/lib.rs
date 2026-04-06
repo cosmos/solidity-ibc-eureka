@@ -169,10 +169,9 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // For timeouts in attested mode, get the current slot from the source chain (Solana)
-        // where non-membership is proven
+        // Use finalized slot so we don't wait for finalization inside relay_events.
         let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
+            Some(self.src_listener.get_finalized_slot().map_err(to_tonic_status)?)
         } else {
             None
         };

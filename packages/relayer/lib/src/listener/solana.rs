@@ -53,7 +53,7 @@ impl ChainListener {
         &self.ics26_program_id
     }
 
-    /// Get the current slot number.
+    /// Get the current slot number using the client's default commitment.
     ///
     /// # Errors
     /// Returns an error if the slot cannot be fetched.
@@ -61,6 +61,16 @@ impl ChainListener {
         self.rpc_client
             .get_slot()
             .context("Failed to get current Solana slot")
+    }
+
+    /// Get the latest finalized slot number.
+    ///
+    /// # Errors
+    /// Returns an error if the slot cannot be fetched.
+    pub fn get_finalized_slot(&self) -> Result<u64> {
+        self.rpc_client
+            .get_slot_with_commitment(CommitmentConfig::finalized())
+            .context("Failed to get finalized Solana slot")
     }
 
     /// Parse IBC events from Solana transaction logs.
