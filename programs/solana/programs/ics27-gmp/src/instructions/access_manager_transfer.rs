@@ -175,14 +175,13 @@ mod tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            am_state: if let Some(pending) = pending {
-                AccessManagerState {
+            am_state: pending.map_or_else(
+                || AccessManagerState::new(access_manager::ID),
+                |pending| AccessManagerState {
                     access_manager: access_manager::ID,
                     pending_access_manager: Some(pending),
-                }
-            } else {
-                AccessManagerState::new(access_manager::ID)
-            },
+                },
+            ),
             _reserved: [0; 256],
         };
         let mut data = Vec::new();

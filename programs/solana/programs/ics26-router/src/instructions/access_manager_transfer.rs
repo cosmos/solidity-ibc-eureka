@@ -173,14 +173,13 @@ mod tests {
         let (pda, _) = Pubkey::find_program_address(&[crate::state::RouterState::SEED], &crate::ID);
         let state = crate::state::RouterState {
             version: crate::state::AccountVersion::V1,
-            am_state: if let Some(pending) = pending {
-                AccessManagerState {
+            am_state: pending.map_or_else(
+                || AccessManagerState::new(access_manager::ID),
+                |pending| AccessManagerState {
                     access_manager: access_manager::ID,
                     pending_access_manager: Some(pending),
-                }
-            } else {
-                AccessManagerState::new(access_manager::ID)
-            },
+                },
+            ),
             paused: false,
             _reserved: [0; 256],
         };

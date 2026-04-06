@@ -144,14 +144,13 @@ mod tests {
 
     fn create_app_state_account(access_manager: Pubkey, pending: Option<Pubkey>) -> SolanaAccount {
         let app_state = AppState {
-            am_state: if let Some(pending) = pending {
-                AccessManagerState {
+            am_state: pending.map_or_else(
+                || AccessManagerState::new(access_manager),
+                |pending| AccessManagerState {
                     access_manager,
                     pending_access_manager: Some(pending),
-                }
-            } else {
-                AccessManagerState::new(access_manager)
-            },
+                },
+            ),
             _reserved: [0; 256],
         };
 
