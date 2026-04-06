@@ -69,10 +69,8 @@ pub enum AccountVersionExample {
 pub struct RouterStateExample {
     /// Schema version for upgrades
     pub version: AccountVersionExample,
-    /// Access manager program ID (existing V1 field)
-    pub access_manager: Pubkey,
-    /// Pending access manager (existing V1 field)
-    pub pending_access_manager: Option<Pubkey>,
+    /// Access manager transfer state (existing V1 field)
+    pub am_state: AccessManagerState,
 
     // ========== NEW V2 FIELDS ==========
     /// Fee collector account
