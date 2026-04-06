@@ -171,7 +171,11 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         // Use finalized slot so we don't wait for finalization inside relay_events.
         let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-            Some(self.src_listener.get_finalized_slot().map_err(to_tonic_status)?)
+            Some(
+                self.src_listener
+                    .get_finalized_slot()
+                    .map_err(to_tonic_status)?,
+            )
         } else {
             None
         };
