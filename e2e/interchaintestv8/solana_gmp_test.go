@@ -1030,6 +1030,246 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 }
 
+// Sends a packet Solana toCosmos waits for finality without touching the relayer,
+// then asserts the actual relay + broadcast finishes in under 10s.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket() {
+	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
+
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	simd := s.Cosmos.Chains[0]
+
+	testAmount := sdk.NewCoins(sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(CosmosTestAmount)))
+	testCosmosUser := s.CreateAndFundCosmosUserWithBalance(ctx, simd, testAmount[0].Amount.Int64())
+
+	var computedAddress sdk.AccAddress
+	s.Require().True(s.Run("Fund pre-computed ICS27 address on Cosmos", func() {
+		solanaUserAddress := s.SolanaRelayer.PublicKey().String()
+
+		res, err := e2esuite.GRPCQuery[gmptypes.QueryAccountAddressResponse](ctx, simd, &gmptypes.QueryAccountAddressRequest{
+			ClientId: CosmosClientID,
+			Sender:   solanaUserAddress,
+			Salt:     "",
+		})
+		s.Require().NoError(err)
+
+		computedAddress, err = sdk.AccAddressFromBech32(res.AccountAddress)
+		s.Require().NoError(err)
+
+		_, err = s.BroadcastMessages(ctx, simd, testCosmosUser, CosmosDefaultGasLimit, &banktypes.MsgSend{
+			FromAddress: testCosmosUser.FormattedAddress(),
+			ToAddress:   computedAddress.String(),
+			Amount:      testAmount,
+		})
+		s.Require().NoError(err)
+	}))
+
+	var solanaPacketTxSig solanago.Signature
+	s.Require().True(s.Run("Send call from Solana", func() {
+		timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
+
+		msgSend := &banktypes.MsgSend{
+			FromAddress: computedAddress.String(),
+			ToAddress:   testCosmosUser.FormattedAddress(),
+			Amount:      testAmount,
+		}
+		payload, err := gmphelpers.NewPayload_FromProto([]proto.Message{msgSend})
+		s.Require().NoError(err)
+
+		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
+		routerStatePDA, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		clientPDA, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID))
+		ibcAppPDA, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(GMPPortID))
+		lightClientStatePDA, _ := solana.Ics07Tendermint.ClientPDA(ics07_tendermint.ProgramID)
+		consensusStatePDA := s.deriveIcs07ConsensusStatePDA(ctx, lightClientStatePDA)
+
+		sequence := uint64(1)
+		sequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(SolanaClientID), sequenceBytes)
+
+		sendCallInstruction, err := ics27_gmp.NewSendCallInstruction(
+			ics27_gmp.Ics27GmpStateSendCallMsg{
+				SourceClient:     SolanaClientID,
+				Sequence:         sequence,
+				TimeoutTimestamp: timeout,
+				Receiver:         "",
+				Salt:             []byte{},
+				Payload:          payload,
+				Memo:             "relay latency test",
+				Encoding:         encodingType.String(),
+			},
+			gmpAppStatePDA,
+			s.SolanaRelayer.PublicKey(),
+			s.SolanaRelayer.PublicKey(),
+			ics26_router.ProgramID,
+			routerStatePDA,
+			packetCommitmentPDA,
+			ibcAppPDA,
+			clientPDA,
+			ics07_tendermint.ProgramID,
+			lightClientStatePDA,
+			solanago.SysVarInstructionsPubkey,
+			consensusStatePDA,
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.SolanaRelayer.PublicKey(),
+			sendCallInstruction,
+		)
+		s.Require().NoError(err)
+
+		solanaPacketTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		s.Require().NoError(err)
+		s.T().Logf("Packet sent from Solana: %s", solanaPacketTxSig)
+	}))
+
+	s.Require().True(s.Run("Wait for Solana finality", func() {
+		s.Require().NoError(s.Solana.Chain.WaitForTxStatus(solanaPacketTxSig, rpc.ConfirmationStatusFinalized))
+	}))
+
+	s.Require().True(s.Run("Relay packet and assert latency < 11s", func() {
+		start := time.Now()
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:    testvalues.SolanaChainID,
+			DstChain:    simd.Config().ChainID,
+			SourceTxIds: [][]byte{[]byte(solanaPacketTxSig.String())},
+			SrcClientId: SolanaClientID,
+			DstClientId: CosmosClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		receipt := s.MustBroadcastSdkTxBodyNoWait(ctx, simd, s.Cosmos.Users[0], 2_000_000, resp.Tx)
+		s.Require().Equal(uint32(0), receipt.Code)
+
+		elapsed := time.Since(start)
+		s.T().Logf("Relay completed in %s", elapsed)
+		s.Require().Less(elapsed, 11*time.Second, "Relay should complete in <11s once Solana finality is achieved")
+	}))
+}
+
+// Sends a packet Cosmos to Solana with a short timeout, lets it expire without
+// touching the relayer, then asserts the timeout relay finishes in under 10s.
+func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout() {
+	ctx := context.Background()
+	encodingType := types.GetEnvEncodingType()
+
+	s.SetupSuite(ctx)
+	s.initializeICS27GMP(ctx)
+
+	simd := s.Cosmos.Chains[0]
+	cosmosUser := s.Cosmos.Users[0]
+
+	var tokenMint solanago.PublicKey
+	var ics27AccountPDA solanago.PublicKey
+	var sourceTokenAccount solanago.PublicKey
+
+	const tokenAmount = uint64(1_000_000)
+
+	s.Require().True(s.Run("Setup SPL Token Infrastructure", func() {
+		s.Require().True(s.Run("Create Test SPL Token Mint", func() {
+			var err error
+			tokenMint, err = s.Solana.Chain.CreateSPLTokenMint(ctx, s.SolanaRelayer, SPLTokenDecimals)
+			s.Require().NoError(err)
+		}))
+
+		s.Require().True(s.Run("Derive ICS27 Account PDA", func() {
+			ics27AccountPDA, _ = gmpAccountPDA(ics27_gmp.ProgramID, SolanaClientID, cosmosUser.FormattedAddress(), []byte{})
+		}))
+
+		s.Require().True(s.Run("Create and Fund Token Account", func() {
+			var err error
+			sourceTokenAccount, err = s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, ics27AccountPDA)
+			s.Require().NoError(err)
+			err = s.Solana.Chain.MintTokensTo(ctx, s.SolanaRelayer, tokenMint, sourceTokenAccount, tokenAmount)
+			s.Require().NoError(err)
+		}))
+	}))
+
+	var cosmosGMPTxHash []byte
+
+	s.Require().True(s.Run("Send GMP call from Cosmos with short timeout", func() {
+		timeout := uint64(time.Now().Add(35 * time.Second).Unix())
+
+		recipientWallet, err := s.Solana.Chain.CreateAndFundWallet()
+		s.Require().NoError(err)
+
+		destTokenAccount, err := s.Solana.Chain.CreateTokenAccount(ctx, s.SolanaRelayer, tokenMint, recipientWallet.PublicKey())
+		s.Require().NoError(err)
+
+		splTransferInstruction := token.NewTransferInstruction(
+			tokenAmount,
+			sourceTokenAccount,
+			destTokenAccount,
+			ics27AccountPDA,
+			[]solanago.PublicKey{},
+		).Build()
+
+		instructionData, err := splTransferInstruction.Data()
+		s.Require().NoError(err)
+
+		solanaInstruction := &solanatypes.GMPSolanaPayload{
+			Data: instructionData,
+			Accounts: []*solanatypes.SolanaAccountMeta{
+				{Pubkey: sourceTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
+				{Pubkey: destTokenAccount.Bytes(), IsSigner: false, IsWritable: true},
+				{Pubkey: ics27AccountPDA.Bytes(), IsSigner: true, IsWritable: false},
+			},
+		}
+
+		payload, err := proto.Marshal(solanaInstruction)
+		s.Require().NoError(err)
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
+			SourceClient:     CosmosClientID,
+			Sender:           cosmosUser.FormattedAddress(),
+			Receiver:         token.ProgramID.String(),
+			Salt:             []byte{},
+			Payload:          payload,
+			TimeoutTimestamp: timeout,
+			Memo:             "timeout latency test from Cosmos",
+			Encoding:         encodingType.String(),
+		})
+		s.Require().NoError(err)
+
+		cosmosGMPTxHashBytes, err := hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		cosmosGMPTxHash = cosmosGMPTxHashBytes
+		s.T().Logf("Cosmos packet sent: %s", resp.TxHash)
+	}))
+
+	// timeout is 35s, so 40s guarantees expiry
+	time.Sleep(40 * time.Second)
+
+	s.Require().True(s.Run("Relay timeout and assert latency < 11s", func() {
+		start := time.Now()
+
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:     testvalues.SolanaChainID,
+			DstChain:     simd.Config().ChainID,
+			TimeoutTxIds: [][]byte{cosmosGMPTxHash},
+			SrcClientId:  SolanaClientID,
+			DstClientId:  CosmosClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		txResp, err := s.BroadcastSdkTxBodyNoWait(ctx, simd, cosmosUser, 500_000, resp.Tx)
+		s.Require().NoError(err)
+		s.Require().Equal(uint32(0), txResp.Code)
+
+		elapsed := time.Since(start)
+		s.T().Logf("Timeout relay completed in %s", elapsed)
+		s.Require().Less(elapsed, 11*time.Second, "Timeout relay should complete in <11s once timeout has expired")
+	}))
+}
+
 // Test_GMPTimeoutFromSolana tests GMP packet timeout when sent from Solana to Cosmos
 //
 // HIGH-LEVEL FLOW:
