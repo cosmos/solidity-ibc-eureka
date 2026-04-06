@@ -31,6 +31,7 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 
 	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v10/testutil"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
@@ -481,6 +482,22 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 
 		s.T().Logf("Final counter states - User0: %d (expected: %d, incremented twice), User1: %d (expected: %d)",
 			finalCounterUser0, expectedFinalUser0, finalCounterUser1, expectedFinalUser1)
+	}))
+
+	// Let finality catch up so the timed ack relay section below isn't delayed by it.
+	s.Require().True(s.Run("Wait for Solana finality to advance past current slot", func() {
+		slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentProcessed)
+		s.Require().NoError(err)
+		s.T().Logf("Current slot: %d, waiting for finalized to reach it", slot)
+
+		err = testutil.WaitForCondition(60*time.Second, time.Second, func() (bool, error) {
+			finalized, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+			if err != nil {
+				return false, nil
+			}
+			return finalized >= slot, nil
+		})
+		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Verify acknowledgments on Solana and relay to Cosmos", func() {
@@ -1030,8 +1047,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSendCallFromSolana() {
 	}))
 }
 
-// Sends a packet Solana toCosmos waits for finality without touching the relayer,
-// then asserts the actual relay + broadcast finishes in under 10s.
+// Test_GMPRelayLatency_SolanaToCosmosPacket sends a Solana-to-Cosmos packet,
+// waits for finality, then checks the relay completes quickly.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket() {
 	ctx := context.Background()
 	encodingType := types.GetEnvEncodingType()
@@ -1154,8 +1171,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket(
 	}))
 }
 
-// Sends a packet Cosmos to Solana with a short timeout, lets it expire without
-// touching the relayer, then asserts the timeout relay finishes in under 10s.
+// Test_GMPRelayLatency_CosmosToSolanaTimeout sends a Cosmos-to-Solana packet
+// with a short timeout, lets it expire, then checks the timeout relay is fast.
 func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout() {
 	ctx := context.Background()
 	encodingType := types.GetEnvEncodingType()
@@ -1244,8 +1261,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 		s.T().Logf("Cosmos packet sent: %s", resp.TxHash)
 	}))
 
-	// timeout is 35s, so 40s guarantees expiry
-	time.Sleep(40 * time.Second)
+	time.Sleep(40 * time.Second) // wait past the 35s timeout
 
 	s.Require().True(s.Run("Relay timeout and assert latency", func() {
 		start := time.Now()
