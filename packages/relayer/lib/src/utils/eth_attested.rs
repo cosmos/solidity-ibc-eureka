@@ -277,6 +277,7 @@ pub async fn build_eth_attestor_relay_events_tx(
         &params.src_client_id,
         &params.dst_client_id,
         &params.dst_packet_seqs,
+        params.timeout_cutoff_timestamp,
     );
 
     if timeout_packets.is_empty() {

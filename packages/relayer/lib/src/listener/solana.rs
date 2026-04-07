@@ -73,6 +73,20 @@ impl ChainListener {
             .context("Failed to get finalized Solana slot")
     }
 
+    /// Get the latest finalized slot and its block time.
+    ///
+    /// # Errors
+    /// Returns an error if the slot or block time cannot be fetched.
+    pub fn get_finalized_slot_with_time(&self) -> Result<(u64, u64)> {
+        let slot = self.get_finalized_slot()?;
+        let block_time = self
+            .rpc_client
+            .get_block_time(slot)
+            .context("Failed to get block time for finalized slot")?;
+        let block_time = u64::try_from(block_time).context("Finalized block time is negative")?;
+        Ok((slot, block_time))
+    }
+
     /// Parse IBC events from Solana transaction logs.
     fn parse_events_from_logs(
         meta: &solana_transaction_status::UiTransactionStatusMeta,

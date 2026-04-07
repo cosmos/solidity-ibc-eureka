@@ -169,16 +169,18 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // Use finalized slot so we don't wait for finalization inside relay_events.
-        let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-            Some(
-                self.src_listener
-                    .get_finalized_slot()
-                    .map_err(to_tonic_status)?,
-            )
-        } else {
-            None
-        };
+        // Align timeout detection with the proof height: use the finalized slot's
+        // block time as cutoff so we skip the finalization wait inside relay_events.
+        let (timeout_relay_height, timeout_cutoff_timestamp) =
+            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+                let (slot, block_time) = self
+                    .src_listener
+                    .get_finalized_slot_with_time()
+                    .map_err(to_tonic_status)?;
+                (Some(slot), Some(block_time))
+            } else {
+                (None, None)
+            };
 
         let tx = self
             .tx_builder
@@ -186,6 +188,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 solana_events,
                 timeout_events,
                 timeout_relay_height,
+                timeout_cutoff_timestamp,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -262,6 +265,7 @@ impl SolanaToCosmosTxBuilder {
         solana_src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
         timeout_relay_height: Option<u64>,
+        timeout_cutoff_timestamp: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -288,6 +292,7 @@ impl SolanaToCosmosTxBuilder {
                     src_events,
                     target_events,
                     timeout_relay_height,
+                    timeout_cutoff_timestamp,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,

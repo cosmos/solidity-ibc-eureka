@@ -217,6 +217,7 @@ impl RelayerService for EthToEthRelayerModuleService {
                 src_events,
                 target_events: timeout_txs,
                 timeout_relay_height,
+                timeout_cutoff_timestamp: None,
                 src_client_id: inner_req.src_client_id,
                 dst_client_id: inner_req.dst_client_id,
                 src_packet_seqs: inner_req.src_packet_sequences,
