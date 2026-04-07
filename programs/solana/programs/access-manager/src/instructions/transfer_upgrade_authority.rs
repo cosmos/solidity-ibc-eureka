@@ -1439,4 +1439,46 @@ mod integration_tests {
         let pending = get_pending_transfers(&banks_client).await;
         assert!(pending.is_empty());
     }
+
+    #[tokio::test]
+    async fn test_cancel_whitelisted_cpi_succeeds() {
+        let admin = Keypair::new();
+        let new_authority = Keypair::new();
+        let (pt, target_program) = setup_program_test(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        // Propose directly first
+        let ix = build_propose_ix(admin.pubkey(), target_program, new_authority.pubkey());
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("propose should succeed");
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert_eq!(pending.len(), 1);
+
+        // Cancel via whitelisted CPI proxy
+        let inner_ix = build_cancel_ix(admin.pubkey(), target_program);
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("whitelisted CPI cancel should succeed");
+
+        let pending = get_pending_transfers(&banks_client).await;
+        assert!(pending.is_empty(), "pending transfers should be cleared");
+    }
 }

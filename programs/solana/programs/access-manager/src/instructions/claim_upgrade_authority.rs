@@ -146,6 +146,7 @@ mod integration_tests {
         admin: &Pubkey,
         target_program: Pubkey,
         pending_transfers: Vec<PendingAuthorityTransfer>,
+        whitelisted_programs: &[Pubkey],
     ) -> solana_program_test::ProgramTest {
         if std::env::var("SBF_OUT_DIR").is_err() {
             std::env::set_var("SBF_OUT_DIR", std::path::Path::new("../../target/deploy"));
@@ -161,6 +162,10 @@ mod integration_tests {
             crate::test_config::OTHER_AM_ID,
             None,
         );
+        if !whitelisted_programs.is_empty() {
+            pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
+            pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+        }
 
         // Our (claimer's) access manager state PDA with admin role
         let (our_am_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
@@ -169,7 +174,7 @@ mod integration_tests {
                 role_id: roles::ADMIN_ROLE,
                 members: vec![*admin],
             }],
-            whitelisted_programs: vec![],
+            whitelisted_programs: whitelisted_programs.to_vec(),
             pending_authority_transfers: vec![],
         };
         let mut our_am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
@@ -294,8 +299,16 @@ mod integration_tests {
         am.pending_authority_transfers
     }
 
-    #[tokio::test]
-    async fn test_claim_succeeds() {
+    struct ValidClaimSetup {
+        admin: Keypair,
+        target_program: Pubkey,
+        our_pda: Pubkey,
+    }
+
+    /// Sets up a claim test with a valid pending transfer pointing to our PDA.
+    fn setup_valid_claim(
+        whitelisted_programs: &[Pubkey],
+    ) -> (ValidClaimSetup, solana_program_test::ProgramTest) {
         let admin = Keypair::new();
         let target_program = Pubkey::new_unique();
         let (our_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
@@ -307,14 +320,45 @@ mod integration_tests {
                 target_program,
                 new_authority: our_pda,
             }],
+            whitelisted_programs,
         );
+
+        (
+            ValidClaimSetup {
+                admin,
+                target_program,
+                our_pda,
+            },
+            pt,
+        )
+    }
+
+    async fn assert_claim_completed(
+        banks_client: &solana_program_test::BanksClient,
+        target_program: Pubkey,
+        expected_authority: Pubkey,
+    ) {
+        let authority = get_program_data_authority(banks_client, target_program).await;
+        assert_eq!(
+            authority,
+            Some(expected_authority),
+            "upgrade authority should transfer to claimer's PDA"
+        );
+
+        let pending = get_source_pending_transfers(banks_client).await;
+        assert!(pending.is_empty(), "pending transfers should be cleared");
+    }
+
+    #[tokio::test]
+    async fn test_claim_succeeds() {
+        let (ctx, pt) = setup_valid_claim(&[]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_claim_ix(target_program, admin.pubkey());
+        let ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
-            &[&payer, &admin],
+            &[&payer, &ctx.admin],
             recent_blockhash,
         );
         banks_client
@@ -322,35 +366,16 @@ mod integration_tests {
             .await
             .expect("claim should succeed");
 
-        let authority = get_program_data_authority(&banks_client, target_program).await;
-        assert_eq!(
-            authority,
-            Some(our_pda),
-            "upgrade authority should transfer to claimer's PDA"
-        );
-
-        let pending = get_source_pending_transfers(&banks_client).await;
-        assert!(pending.is_empty(), "pending transfers should be cleared");
+        assert_claim_completed(&banks_client, ctx.target_program, ctx.our_pda).await;
     }
 
     #[tokio::test]
     async fn test_claim_non_admin_rejected() {
-        let admin = Keypair::new();
+        let (ctx, pt) = setup_valid_claim(&[]);
         let non_admin = Keypair::new();
-        let target_program = Pubkey::new_unique();
-        let (our_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
-
-        let pt = setup_claim_test(
-            &admin.pubkey(),
-            target_program,
-            vec![PendingAuthorityTransfer {
-                target_program,
-                new_authority: our_pda,
-            }],
-        );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_claim_ix(target_program, non_admin.pubkey());
+        let ix = build_claim_ix(ctx.target_program, non_admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
@@ -369,7 +394,7 @@ mod integration_tests {
         let admin = Keypair::new();
         let target_program = Pubkey::new_unique();
 
-        let pt = setup_claim_test(&admin.pubkey(), target_program, vec![]);
+        let pt = setup_claim_test(&admin.pubkey(), target_program, vec![], &[]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let ix = build_claim_ix(target_program, admin.pubkey());
@@ -399,6 +424,7 @@ mod integration_tests {
                 target_program,
                 new_authority: wrong_authority,
             }],
+            &[],
         );
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
@@ -413,6 +439,52 @@ mod integration_tests {
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::AuthorityMismatch as u32),
+        );
+    }
+
+    /// Proves `claim_upgrade_authority` works at CPI depth 4 via a whitelisted
+    /// proxy — the deepest chain in a multisig scenario:
+    /// multisig (1) → AM-B claim (2) → AM-A accept (3) → BPF Loader `set_authority` (4)
+    #[tokio::test]
+    async fn test_claim_whitelisted_cpi_succeeds() {
+        let (ctx, pt) = setup_valid_claim(&[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
+        let wrapped_ix = wrap_in_test_cpi_target_proxy(ctx.admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &ctx.admin],
+            recent_blockhash,
+        );
+        banks_client
+            .process_transaction(tx)
+            .await
+            .expect("whitelisted CPI claim should succeed");
+
+        assert_claim_completed(&banks_client, ctx.target_program, ctx.our_pda).await;
+    }
+
+    #[tokio::test]
+    async fn test_claim_unauthorized_cpi_rejected() {
+        let (ctx, pt) = setup_valid_claim(&[TEST_CPI_TARGET_ID]);
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
+        let wrapped_ix = wrap_in_test_cpi_proxy(ctx.admin.pubkey(), &inner_ix);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[wrapped_ix],
+            Some(&payer.pubkey()),
+            &[&payer, &ctx.admin],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
         );
     }
 }
