@@ -117,7 +117,6 @@ build-solana program="":
 
   if [ -z "{{program}}" ]; then
     echo "Building all programs..."
-    echo "🦀 Using anchor"
     (cd programs/solana && anchor build)
     echo "✅ Build complete"
   else
@@ -130,8 +129,6 @@ build-solana program="":
       ls -1 programs/solana/programs/ | grep -v "^\." || true
       exit 1
     fi
-
-    echo "🦀 Using anchor"
 
     # Build specific program and generate its IDL
     (cd programs/solana && anchor build -- -p "{{program}}")
