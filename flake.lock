@@ -1,6 +1,6 @@
 {
   "nodes": {
-    "anchor": {
+    "anchor-overlay": {
       "inputs": {
         "crane": "crane",
         "flake-compat": "flake-compat",
@@ -11,11 +11,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1775564235,
-        "narHash": "sha256-QDACcaq+hC7bTdAszQjTU5HAvQgsRj1GZBmOLYmp7U0=",
+        "lastModified": 1775579084,
+        "narHash": "sha256-r+6PEjsHQSl3Zt2sIipN1veuK9TmYlFrGXs9LXc7VgE=",
         "owner": "vaporif",
         "repo": "anchor-overlay",
-        "rev": "165ee6c5993d69f95ccd0fa631e6e4da696257e0",
+        "rev": "f6ff7765f47a201ac230bf1c029ae23950030eef",
         "type": "github"
       },
       "original": {
@@ -243,7 +243,7 @@
     },
     "root": {
       "inputs": {
-        "anchor": "anchor",
+        "anchor-overlay": "anchor-overlay",
         "flake-utils": "flake-utils",
         "foundry": "foundry",
         "natlint": "natlint",
@@ -256,7 +256,7 @@
     "rust-overlay": {
       "inputs": {
         "nixpkgs": [
-          "anchor",
+          "anchor-overlay",
           "nixpkgs"
         ]
       },

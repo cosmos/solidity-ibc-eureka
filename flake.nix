@@ -15,7 +15,7 @@
       url = "github:vaporif/sp1-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    anchor = {
+    anchor-overlay = {
       url = "github:vaporif/anchor-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
@@ -33,7 +33,7 @@
             inputs.foundry.overlay
             inputs.solc.overlay
             inputs.sp1.overlays.default
-            inputs.anchor.overlays.default
+            inputs.anchor-overlay.overlays.default
           ];
         };
 
