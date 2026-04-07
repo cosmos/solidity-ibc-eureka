@@ -13,6 +13,7 @@ members = [
   "programs/test-access-manager",
   "programs/test-cpi-proxy",
   "programs/test-cpi-target",
+  "integration-tests",
   "packages/solana-ibc-types",
   "packages/solana-ibc-proto",
   "packages/ics25-handler",

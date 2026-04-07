@@ -20,15 +20,6 @@ pub struct OnTimeoutPacket<'info> {
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
 
-    /// Escrow account that holds SOL (funds remain in escrow on timeout)
-    /// CHECK: PDA derived from `source_client`
-    #[account(
-        mut,
-        seeds = [TestIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
-        bump
-    )]
-    pub escrow_account: Option<AccountInfo<'info>>,
-
     /// Payer for account creation if needed
     #[account(mut)]
     pub payer: Signer<'info>,
