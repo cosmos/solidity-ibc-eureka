@@ -89,11 +89,10 @@ type EthereumSolanaIFTTestSuite struct {
 	IFTBridge          solanago.PublicKey
 	SenderTokenAccount solanago.PublicKey
 
-	GMPAppStatePDA    solanago.PublicKey
-	RouterStatePDA    solanago.PublicKey
-	IBCClientPDA      solanago.PublicKey
-	GMPIBCAppPDA      solanago.PublicKey
-	ClientSequencePDA solanago.PublicKey
+	GMPAppStatePDA solanago.PublicKey
+	RouterStatePDA solanago.PublicKey
+	IBCClientPDA   solanago.PublicKey
+	GMPIBCAppPDA   solanago.PublicKey
 }
 
 func (s *EthereumSolanaIFTTestSuite) IFTMint() solanago.PublicKey {
@@ -287,20 +286,28 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		}))
 	}))
 
+	const deployerKeypairPath = "solana-keypairs/localnet/deployer_wallet.json"
+
 	s.Require().True(s.Run("Initialize Access Control", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerKeypairPath)
+		s.Require().NoError(err)
+
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+		amProgramDataPDA, _ := solana.AccessManager.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 		initInstruction, err := access_manager.NewInitializeInstruction(
 			s.SolanaRelayer.PublicKey(),
 			accessControlAccount,
 			s.SolanaRelayer.PublicKey(),
 			solanago.SystemProgramID,
 			solanago.SysVarInstructionsPubkey,
+			amProgramDataPDA,
+			solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer, deployerWallet)
 		s.Require().NoError(err)
 	}))
 
@@ -328,30 +335,40 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerKeypairPath)
+		s.Require().NoError(err)
+
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+		routerProgramDataPDA, _ := solana.Ics26Router.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 		initInstruction, err := ics26_router.NewInitializeInstruction(
 			access_manager.ProgramID, routerStateAccount,
 			s.SolanaRelayer.PublicKey(), solanago.SystemProgramID,
+			routerProgramDataPDA, solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer, deployerWallet)
 		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Initialize ICS27 GMP", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerKeypairPath)
+		s.Require().NoError(err)
+
 		gmpAppStatePDA, _ := solana.Ics27Gmp.AppStatePDA(ics27_gmp.ProgramID)
+		gmpProgramDataPDA, _ := solana.Ics27Gmp.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 		initInstruction, err := ics27_gmp.NewInitializeInstruction(
 			access_manager.ProgramID, gmpAppStatePDA,
 			s.SolanaRelayer.PublicKey(), solanago.SystemProgramID,
+			gmpProgramDataPDA, solana.DeployerPubkey,
 		)
 		s.Require().NoError(err)
 
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 		s.Require().NoError(err)
-		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, deployerWallet)
 		s.Require().NoError(err)
 	}))
 
@@ -378,7 +395,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.RouterStatePDA, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	s.IBCClientPDA, _ = solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 	s.GMPIBCAppPDA, _ = solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(ethSolGMPPortID))
-	s.ClientSequencePDA, _ = solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 
 	s.Require().True(s.Run("Generate Eth attestor keys", func() {
 		var err error
@@ -552,7 +568,6 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 		clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
-		clientSequenceAccount, _ := solana.Ics26Router.ClientSequenceWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana))
 
 		counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
 			ClientId:     SolanaClientIDOnEth,
@@ -562,7 +577,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		addClientInstruction, err := ics26_router.NewAddClientInstruction(
 			EthClientIDOnSolana, counterpartyInfo,
 			s.SolanaRelayer.PublicKey(), routerStateAccount, accessControlAccount,
-			clientAccount, clientSequenceAccount,
+			clientAccount,
 			attestation.ProgramID, solanago.SystemProgramID, solanago.SysVarInstructionsPubkey,
 		)
 		s.Require().NoError(err)
@@ -595,19 +610,25 @@ func (s *EthereumSolanaIFTTestSuite) initializeAttestationLightClientOnSolana(ct
 
 	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
+	attestationProgramDataPDA, _ := solana.Attestation.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 
 	initInstruction, err := attestation.NewInitializeInstruction(
 		attestorAddresses, minRequiredSigs,
 		access_manager.ProgramID,
 		clientStatePDA, appStatePDA,
 		s.SolanaRelayer.PublicKey(), solanago.SystemProgramID,
+		attestationProgramDataPDA, solana.DeployerPubkey,
 	)
+	s.Require().NoError(err)
+
+	const deployerKeypairPath = "solana-keypairs/localnet/deployer_wallet.json"
+	deployerWallet, err := solana.LoadDeployerWallet(deployerKeypairPath)
 	s.Require().NoError(err)
 
 	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer)
+	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaRelayer, deployerWallet)
 	s.Require().NoError(err)
 	s.T().Logf("Attestation Light Client initialized on Solana - tx: %s", sig)
 }
@@ -623,18 +644,23 @@ func (s *EthereumSolanaIFTTestSuite) createIFTSplToken(ctx context.Context, mint
 	s.IFTMintAuthority = mintAuthorityPDA
 
 	// Initialize global app state (idempotent - will fail silently if already initialized)
+	iftProgramDataPDA, _ := solana.Ift.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
+	deployerWallet, err := solana.LoadDeployerWallet("solana-keypairs/localnet/deployer_wallet.json")
+	s.Require().NoError(err)
+
 	globalInitIx, err := ift.NewInitializeInstruction(
 		s.SolanaRelayer.PublicKey(), // admin
 		appStatePDA,
 		s.SolanaRelayer.PublicKey(),
 		solanago.SystemProgramID,
+		iftProgramDataPDA, solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	globalInitTx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), globalInitIx)
 	s.Require().NoError(err)
 	// Ignore error - may already be initialized
-	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+	_, _ = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, globalInitTx, rpc.CommitmentConfirmed, s.SolanaRelayer, deployerWallet)
 
 	createTokenParams := &ift.IftStateCreateTokenParams_SplToken{
 		Decimals: EthSolanaIFTTokenDecimals,
@@ -931,16 +957,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	}))
 
 	var solanaToEthSequence uint64
-	var solanaBaseSeq uint64
 	s.Require().True(s.Run("Transfer: Solana -> Ethereum", func() {
 		var solanaTransferTxSig solanago.Signature
 
 		s.Require().True(s.Run("Execute IFT transfer", func() {
-			baseSeq, err := s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
-			s.Require().NoError(err)
-
-			solanaToEthSequence = solana.CalculateNamespacedSequence(baseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
-			solanaBaseSeq = baseSeq
+			solanaToEthSequence = 1
 			seqBytes := make([]byte, 8)
 			binary.LittleEndian.PutUint64(seqBytes, solanaToEthSequence)
 
@@ -955,6 +976,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 				Receiver:         ethUserAddr.Hex(),
 				Amount:           EthSolanaIFTTransferAmount,
 				TimeoutTimestamp: uint64(solanaClockTime) + 900,
+				Sequence:         solanaToEthSequence,
 			}
 
 			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -964,7 +986,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
 				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 				token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
-				ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+				ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 				s.GMPIBCAppPDA, s.IBCClientPDA,
 				attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
 			)
@@ -1041,7 +1063,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 
 		s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
 			s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(),
-				EthClientIDOnSolana, solanaBaseSeq, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+				EthClientIDOnSolana, solanaToEthSequence)
 		}))
 	}))
 
@@ -1557,16 +1579,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 
 	var solanaPacketTxHash []byte
-	var baseSequence uint64
-	var namespacedSequence uint64
+	var timeoutSequence uint64
 	s.Require().True(s.Run("Execute transfer with short timeout", func() {
-		var err error
-		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
-		s.Require().NoError(err)
-
-		namespacedSequence = solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		timeoutSequence = 1
 		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
+		binary.LittleEndian.PutUint64(seqBytes, timeoutSequence)
 
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
@@ -1579,6 +1596,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
 			TimeoutTimestamp: uint64(solanaClockTime) + 45,
+			Sequence:         timeoutSequence,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1588,7 +1606,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
-			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+			ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 			s.GMPIBCAppPDA, s.IBCClientPDA,
 			attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
 		)
@@ -1613,7 +1631,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 
 	s.Require().True(s.Run("Verify pending transfer exists on Solana", func() {
 		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, timeoutSequence)
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
@@ -1645,12 +1663,12 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 
 	s.Require().True(s.Run("Verify pending transfer closed on Solana", func() {
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, timeoutSequence)
 	}))
 
 	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
 		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(),
-			EthClientIDOnSolana, baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+			EthClientIDOnSolana, timeoutSequence)
 	}))
 
 	s.Require().True(s.Run("Verify no balance on Ethereum", func() {
@@ -1702,16 +1720,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 
 	var solanaTransferTxSig solanago.Signature
-	var baseSequence uint64
-	var namespacedSequence uint64
+	var failedRecvSequence uint64
 	s.Require().True(s.Run("Execute transfer from Solana to Ethereum", func() {
-		var err error
-		baseSequence, err = s.Solana.Chain.GetNextSequenceNumber(ctx, s.ClientSequencePDA)
-		s.Require().NoError(err)
-
-		namespacedSequence = solana.CalculateNamespacedSequence(baseSequence, ics27_gmp.ProgramID, s.SolanaRelayer.PublicKey())
+		failedRecvSequence = 1
 		seqBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(seqBytes, namespacedSequence)
+		binary.LittleEndian.PutUint64(seqBytes, failedRecvSequence)
 
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
@@ -1724,6 +1737,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
 			TimeoutTimestamp: uint64(solanaClockTime) + 900,
+			Sequence:         failedRecvSequence,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1733,7 +1747,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
 			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
-			ics26_router.ProgramID, s.RouterStatePDA, s.ClientSequencePDA, packetCommitmentPDA,
+			ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 			s.GMPIBCAppPDA, s.IBCClientPDA,
 			attestation.ProgramID, attestationClientStatePDA, solanago.SysVarInstructionsPubkey, consensusStatePDA, pendingTransferPDA,
 		)
@@ -1756,7 +1770,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 
 	s.Require().True(s.Run("Verify pending transfer exists on Solana", func() {
 		s.Solana.Chain.VerifyPendingTransferExists(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, failedRecvSequence)
 	}))
 
 	var ethRecvTxHash []byte
@@ -1810,7 +1824,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 
 	s.Require().True(s.Run("Verify pending transfer closed on Solana", func() {
 		s.Solana.Chain.VerifyPendingTransferClosed(ctx, s.T(), s.Require(),
-			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, namespacedSequence)
+			ift.ProgramID, s.IFTMint(), EthClientIDOnSolana, failedRecvSequence)
 	}))
 }
 

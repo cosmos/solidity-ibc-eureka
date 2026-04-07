@@ -3,7 +3,7 @@ use crate::errors::GMPError;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpPacketData, ProstMessage};
+use solana_ibc_proto::GmpPacketData;
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -1165,7 +1165,7 @@ mod tests {
             sender,
             &DUMMY_TARGET_PROGRAM.to_string(),
             salt,
-            solana_payload.encode_to_vec(),
+            encode_test_solana_payload(&solana_payload, ICS27_ENCODING_ABI),
         );
         // ABI-encode the outer packet (signer check must work for both encodings)
         let packet_data_bytes = encode_test_packet(raw_packet, ICS27_ENCODING_ABI);
@@ -1423,6 +1423,29 @@ mod tests {
         encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
+    /// Encode a `RawGmpSolanaPayload` using the same encoding as the outer packet.
+    /// ABI packets expect the inner payload to be ABI-encoded too.
+    fn encode_test_solana_payload(raw: &RawGmpSolanaPayload, encoding: &str) -> Vec<u8> {
+        match encoding {
+            ICS27_ENCODING_ABI => {
+                use alloy_sol_types::SolValue;
+                let mut packed = Vec::new();
+                for account in &raw.accounts {
+                    packed.extend_from_slice(&account.pubkey);
+                    packed.push(u8::from(account.is_signer));
+                    packed.push(u8::from(account.is_writable));
+                }
+                crate::abi::AbiGmpSolanaPayload {
+                    packedAccounts: packed.into(),
+                    instructionData: raw.data.clone().into(),
+                    payerPosition: raw.prefund_lamports as u32,
+                }
+                .abi_encode_params()
+            }
+            _ => raw.encode_to_vec(),
+        }
+    }
+
     fn run_recv_success_test(encoding: &str) {
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -1502,7 +1525,7 @@ mod tests {
             prefund_lamports: 5_000_000,
         };
 
-        let solana_payload_bytes = solana_payload.encode_to_vec();
+        let solana_payload_bytes = encode_test_solana_payload(&solana_payload, encoding);
 
         let raw_packet = RawGmpPacketData {
             sender: sender.to_string(),

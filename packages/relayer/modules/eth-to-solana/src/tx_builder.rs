@@ -105,7 +105,7 @@ impl SolanaTxBuilder {
         let router_state = solana_ibc_types::RouterState::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState: {e}"))?;
 
-        Ok(router_state.access_manager)
+        Ok(router_state.am_state.access_manager)
     }
 
     /// Resolve the IBC app program ID for a given port.

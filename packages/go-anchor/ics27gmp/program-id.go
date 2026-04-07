@@ -5,4 +5,4 @@ package ics27_gmp
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("7THEgE82XGSQGX2seUGC8rDzGZoUNh9Aa2iKJfuy3mY8")
+var ProgramID = solanago.MustPublicKeyFromBase58("3W3h4WSE8J9vFzVN8TGFGc9Uchbry3M4MBz4icdSWcFi")

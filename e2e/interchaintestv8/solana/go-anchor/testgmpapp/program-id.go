@@ -5,4 +5,4 @@ package test_gmp_app
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("D3u8FeZLkiCpoxMRbvnBF2nHD4VNpLKVZ59fvFWyz79p")
+var ProgramID = solanago.MustPublicKeyFromBase58("GdEUjpVtKvHKStM3Hph6PnLSUMsJXvcVqugubhtQ5QUD")

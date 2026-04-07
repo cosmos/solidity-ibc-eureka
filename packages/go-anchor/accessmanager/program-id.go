@@ -5,4 +5,4 @@ package access_manager
 
 import solanago "github.com/gagliardetto/solana-go"
 
-var ProgramID = solanago.MustPublicKeyFromBase58("EPn9bcoRzF2BPiuiJQuZaS9ARhnvq6B1J7CZXoQzaB9u")
+var ProgramID = solanago.MustPublicKeyFromBase58("4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1")

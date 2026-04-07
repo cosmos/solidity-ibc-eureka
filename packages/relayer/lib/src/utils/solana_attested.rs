@@ -146,12 +146,18 @@ pub fn collect_timeout_packets_solana(timeout_msgs: &[TimeoutPacketWithChunks]) 
                     .packet
                     .payloads
                     .iter()
-                    .map(|p| Payload {
-                        sourcePort: p.source_port.clone(),
-                        destPort: p.dest_port.clone(),
-                        version: p.version.clone(),
-                        encoding: p.encoding.clone(),
-                        value: p.value.clone().into(),
+                    .map(|p| {
+                        let value = match &p.data {
+                            solana_ibc_types::Delivery::Inline { data } => data.clone(),
+                            solana_ibc_types::Delivery::Chunked { .. } => vec![],
+                        };
+                        Payload {
+                            sourcePort: p.source_port.clone(),
+                            destPort: p.dest_port.clone(),
+                            version: p.version.clone(),
+                            encoding: p.encoding.clone(),
+                            value: value.into(),
+                        }
                     })
                     .collect(),
             }
@@ -252,8 +258,10 @@ pub async fn inject_solana_attestor_proofs(
         for timeout in timeout_msgs.iter_mut() {
             timeout.proof_chunks.clone_from(&proof_bytes);
             timeout.msg.proof.height = target_height.revision_height;
-            timeout.msg.proof.total_chunks =
-                u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1)).unwrap_or(u8::MAX);
+            timeout.msg.proof.data = solana_ibc_types::Delivery::Chunked {
+                total_chunks: u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1))
+                    .unwrap_or(u8::MAX),
+            };
         }
         tracing::info!(
             "Injected attestation proof into {} timeout messages",
