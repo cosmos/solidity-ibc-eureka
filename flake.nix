@@ -15,6 +15,10 @@
       url = "github:vaporif/sp1-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    anchor = {
+      url = "github:vaporif/anchor-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = inputs:
@@ -29,6 +33,7 @@
             inputs.foundry.overlay
             inputs.solc.overlay
             inputs.sp1.overlays.default
+            inputs.anchor.overlays.default
           ];
         };
 
@@ -37,11 +42,8 @@
         common = import ./nix/common.nix {inherit pkgs;};
         solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
         node-modules = import ./nix/node-modules.nix {inherit pkgs;};
-        anchor = pkgs.callPackage ./nix/anchor.nix {};
-        solana-agave = pkgs.callPackage ./nix/agave.nix {
-          inherit (pkgs) rust-bin;
-          inherit anchor;
-        };
+        anchor-pkgs = pkgs.anchor."0.32.1";
+        solana-agave = pkgs.callPackage ./nix/agave.nix {};
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in {
         devShells = {
@@ -77,7 +79,7 @@
               rust.packages
               ++ go.packages
               ++ common.packages
-              ++ [solana-agave anchor-go node-modules];
+              ++ [solana-agave anchor-pkgs.anchor-cli anchor-go node-modules];
             inherit (rust.env) RUST_SRC_PATH;
             shellHook =
               rust.shellHook
@@ -89,7 +91,7 @@
                 fi
 
                 export PATH="${solana-agave}/bin:$PATH"
-                echo "Solana shell: solana, anchor-nix (build|test|unit-test|keys|deploy)"
+                echo "Solana shell: solana, anchor"
               '';
           };
         };

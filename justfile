@@ -1,8 +1,5 @@
 set dotenv-load
 
-# Detect which anchor command is available
-anchor_cmd := `command -v anchor-nix >/dev/null 2>&1 && echo "anchor-nix" || echo "anchor"`
-
 # Helper function to run solana-ibc CLI tool
 solana_ibc := '''
   (cd tools/solana-ibc && go run . "$@")
@@ -105,8 +102,7 @@ sync-solana-keys cluster="localnet": (_validate-cluster cluster)
   cp -f solana-keypairs/{{cluster}}/*-keypair.json programs/solana/target/deploy/ 2>/dev/null || true
 
   # Sync declare_id! macros
-  echo "🦀 Using {{anchor_cmd}}"
-  (cd programs/solana && {{anchor_cmd}} keys sync --provider.cluster {{cluster}})
+  (cd programs/solana && anchor keys sync --provider.cluster {{cluster}})
 
   echo "✅ Keys synced for cluster: {{cluster}}"
 
@@ -121,8 +117,8 @@ build-solana program="":
 
   if [ -z "{{program}}" ]; then
     echo "Building all programs..."
-    echo "🦀 Using {{anchor_cmd}}"
-    (cd programs/solana && {{anchor_cmd}} build)
+    echo "🦀 Using anchor"
+    (cd programs/solana && anchor build)
     echo "✅ Build complete"
   else
     echo "Building program: {{program}}"
@@ -135,10 +131,10 @@ build-solana program="":
       exit 1
     fi
 
-    echo "🦀 Using {{anchor_cmd}}"
+    echo "🦀 Using anchor"
 
     # Build specific program and generate its IDL
-    (cd programs/solana && {{anchor_cmd}} build -- -p "{{program}}")
+    (cd programs/solana && anchor build -- -p "{{program}}")
 
     echo "✅ Build complete for {{program}}"
   fi
@@ -154,7 +150,7 @@ deploy-solana cluster="localnet" max_len_multiplier="2":
   set -euo pipefail
 
   echo "Deploying programs to {{cluster}}..."
-  echo "🚀 Using {{anchor_cmd}}"
+  echo "🚀 Using anchor"
   echo "📏 Max length multiplier: {{max_len_multiplier}}x"
 
   # Get deployer wallet for localnet
@@ -174,7 +170,7 @@ deploy-solana cluster="localnet" max_len_multiplier="2":
       MAX_LEN=$((PROGRAM_SIZE * {{max_len_multiplier}}))
 
       echo "📦 Deploying $PROGRAM_NAME (size: $PROGRAM_SIZE bytes, max-len: $MAX_LEN bytes)"
-      {{anchor_cmd}} deploy --provider.cluster {{cluster}} $WALLET_ARG -p "$PROGRAM_NAME" -- --max-len $MAX_LEN
+      anchor deploy --provider.cluster {{cluster}} $WALLET_ARG -p "$PROGRAM_NAME" -- --max-len $MAX_LEN
     fi
   done
   cd ../..
@@ -1045,27 +1041,16 @@ test-e2e-solana-attestation testname:
 # Run the Solana Anchor tests
 [group('test')]
 test-anchor-solana *ARGS:
-	@echo "Running Solana Client Anchor tests (anchor-nix preferred) ..."
-	@if command -v anchor-nix >/dev/null 2>&1; then \
-		echo "🦀 Using anchor-nix"; \
-		(cd programs/solana && anchor-nix test {{ARGS}}); \
-	else \
-		echo "🦀 Using anchor"; \
-		(cd programs/solana && anchor test {{ARGS}}); \
-	fi
+	@echo "Running Solana Client Anchor tests..."
+	@(cd programs/solana && anchor test {{ARGS}})
 
 # Run Solana unit tests (mollusk + litesvm)
 [group('test')]
 test-solana *ARGS:
 	@echo "Building and running Solana unit tests..."
-	@echo "🦀 Using {{anchor_cmd}}"
-	@if [ "{{anchor_cmd}}" = "anchor-nix" ]; then \
-		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
-	else \
-		(cd programs/solana && anchor build) && \
+	@(cd programs/solana && anchor build) && \
 		echo "✅ Build successful, running cargo tests" && \
-		(cd programs/solana && cargo test {{ARGS}}); \
-	fi
+		(cd programs/solana && cargo test {{ARGS}})
 
 # Clean up the foundry cache and out directories
 [group('clean')]
