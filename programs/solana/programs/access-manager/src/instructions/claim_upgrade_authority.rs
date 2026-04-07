@@ -299,38 +299,41 @@ mod integration_tests {
         am.pending_authority_transfers
     }
 
-    struct ValidClaimSetup {
+    struct ClaimTestContext {
         admin: Keypair,
         target_program: Pubkey,
-        our_pda: Pubkey,
+        claimer_pda: Pubkey,
+        banks_client: solana_program_test::BanksClient,
+        payer: Keypair,
+        recent_blockhash: solana_sdk::hash::Hash,
     }
 
-    /// Sets up a claim test with a valid pending transfer pointing to our PDA.
-    fn setup_valid_claim(
-        whitelisted_programs: &[Pubkey],
-    ) -> (ValidClaimSetup, solana_program_test::ProgramTest) {
+    /// Sets up a claim test with a valid pending transfer pointing to the
+    /// claimer's upgrade authority PDA.
+    async fn setup_valid_claim_test(whitelisted_programs: &[Pubkey]) -> ClaimTestContext {
         let admin = Keypair::new();
         let target_program = Pubkey::new_unique();
-        let (our_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
+        let (claimer_pda, _) = AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
 
         let pt = setup_claim_test(
             &admin.pubkey(),
             target_program,
             vec![PendingAuthorityTransfer {
                 target_program,
-                new_authority: our_pda,
+                new_authority: claimer_pda,
             }],
             whitelisted_programs,
         );
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        (
-            ValidClaimSetup {
-                admin,
-                target_program,
-                our_pda,
-            },
-            pt,
-        )
+        ClaimTestContext {
+            admin,
+            target_program,
+            claimer_pda,
+            banks_client,
+            payer,
+            recent_blockhash,
+        }
     }
 
     async fn assert_claim_completed(
@@ -351,38 +354,36 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_claim_succeeds() {
-        let (ctx, pt) = setup_valid_claim(&[]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
+        let ctx = setup_valid_claim_test(&[]).await;
 
         let ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
-            Some(&payer.pubkey()),
-            &[&payer, &ctx.admin],
-            recent_blockhash,
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &ctx.admin],
+            ctx.recent_blockhash,
         );
-        banks_client
+        ctx.banks_client
             .process_transaction(tx)
             .await
             .expect("claim should succeed");
 
-        assert_claim_completed(&banks_client, ctx.target_program, ctx.our_pda).await;
+        assert_claim_completed(&ctx.banks_client, ctx.target_program, ctx.claimer_pda).await;
     }
 
     #[tokio::test]
     async fn test_claim_non_admin_rejected() {
-        let (ctx, pt) = setup_valid_claim(&[]);
+        let ctx = setup_valid_claim_test(&[]).await;
         let non_admin = Keypair::new();
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let ix = build_claim_ix(ctx.target_program, non_admin.pubkey());
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
-            Some(&payer.pubkey()),
-            &[&payer, &non_admin],
-            recent_blockhash,
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &non_admin],
+            ctx.recent_blockhash,
         );
-        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::Unauthorized as u32),
@@ -447,41 +448,39 @@ mod integration_tests {
     /// multisig (1) → AM-B claim (2) → AM-A accept (3) → BPF Loader `set_authority` (4)
     #[tokio::test]
     async fn test_claim_whitelisted_cpi_succeeds() {
-        let (ctx, pt) = setup_valid_claim(&[TEST_CPI_TARGET_ID]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
+        let ctx = setup_valid_claim_test(&[TEST_CPI_TARGET_ID]).await;
 
         let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let wrapped_ix = wrap_in_test_cpi_target_proxy(ctx.admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
-            Some(&payer.pubkey()),
-            &[&payer, &ctx.admin],
-            recent_blockhash,
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &ctx.admin],
+            ctx.recent_blockhash,
         );
-        banks_client
+        ctx.banks_client
             .process_transaction(tx)
             .await
             .expect("whitelisted CPI claim should succeed");
 
-        assert_claim_completed(&banks_client, ctx.target_program, ctx.our_pda).await;
+        assert_claim_completed(&ctx.banks_client, ctx.target_program, ctx.claimer_pda).await;
     }
 
     #[tokio::test]
     async fn test_claim_unauthorized_cpi_rejected() {
-        let (ctx, pt) = setup_valid_claim(&[TEST_CPI_TARGET_ID]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
+        let ctx = setup_valid_claim_test(&[TEST_CPI_TARGET_ID]).await;
 
         let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let wrapped_ix = wrap_in_test_cpi_proxy(ctx.admin.pubkey(), &inner_ix);
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
-            Some(&payer.pubkey()),
-            &[&payer, &ctx.admin],
-            recent_blockhash,
+            Some(&ctx.payer.pubkey()),
+            &[&ctx.payer, &ctx.admin],
+            ctx.recent_blockhash,
         );
-        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
