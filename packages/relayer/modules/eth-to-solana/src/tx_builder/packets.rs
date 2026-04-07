@@ -460,7 +460,8 @@ impl super::SolanaTxBuilder {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].data.total_chunks() > 0 {
+            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].data.total_chunks() > 0
+            {
                 let chunks = Self::split_into_chunks(data);
                 for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                     let chunk_index = u8::try_from(chunk_idx)
@@ -513,7 +514,8 @@ impl super::SolanaTxBuilder {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].data.total_chunks() > 0 {
+            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].data.total_chunks() > 0
+            {
                 for chunk_idx in 0..msg_payloads[payload_idx].data.total_chunks() {
                     let (chunk_pda, _) = PayloadChunk::pda(
                         self.fee_payer,
