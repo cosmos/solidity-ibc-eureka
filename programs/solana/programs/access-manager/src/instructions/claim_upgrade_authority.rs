@@ -308,6 +308,24 @@ mod integration_tests {
         recent_blockhash: solana_sdk::hash::Hash,
     }
 
+    impl ClaimTestContext {
+        async fn execute(
+            &self,
+            ixs: &[Instruction],
+            signers: &[&Keypair],
+        ) -> Result<(), solana_program_test::BanksClientError> {
+            let mut all_signers = vec![&self.payer];
+            all_signers.extend(signers);
+            let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+                ixs,
+                Some(&self.payer.pubkey()),
+                &all_signers,
+                self.recent_blockhash,
+            );
+            self.banks_client.process_transaction(tx).await
+        }
+    }
+
     /// Sets up a claim test with a valid pending transfer pointing to the
     /// claimer's upgrade authority PDA.
     async fn setup_valid_claim_test(whitelisted_programs: &[Pubkey]) -> ClaimTestContext {
@@ -355,16 +373,9 @@ mod integration_tests {
     #[tokio::test]
     async fn test_claim_succeeds() {
         let ctx = setup_valid_claim_test(&[]).await;
-
         let ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+
+        ctx.execute(&[ix], &[&ctx.admin])
             .await
             .expect("claim should succeed");
 
@@ -377,13 +388,7 @@ mod integration_tests {
         let non_admin = Keypair::new();
 
         let ix = build_claim_ix(ctx.target_program, non_admin.pubkey());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &non_admin],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[ix], &[&non_admin]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::Unauthorized as u32),
@@ -453,14 +458,7 @@ mod integration_tests {
         let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let wrapped_ix = wrap_in_test_cpi_target_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[wrapped_ix], &[&ctx.admin])
             .await
             .expect("whitelisted CPI claim should succeed");
 
@@ -474,13 +472,7 @@ mod integration_tests {
         let inner_ix = build_claim_ix(ctx.target_program, ctx.admin.pubkey());
         let wrapped_ix = wrap_in_test_cpi_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[wrapped_ix], &[&ctx.admin]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),

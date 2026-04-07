@@ -1043,17 +1043,26 @@ mod integration_tests {
     }
 
     impl TransferTestContext {
+        async fn execute(
+            &self,
+            ixs: &[Instruction],
+            signers: &[&Keypair],
+        ) -> Result<(), solana_program_test::BanksClientError> {
+            let mut all_signers = vec![&self.payer];
+            all_signers.extend(signers);
+            let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+                ixs,
+                Some(&self.payer.pubkey()),
+                &all_signers,
+                self.recent_blockhash,
+            );
+            self.banks_client.process_transaction(tx).await
+        }
+
         /// Sends a propose transaction signed by admin and asserts success.
         async fn propose(&self, new_authority: Pubkey) {
             let ix = build_propose_ix(self.admin.pubkey(), self.target_program, new_authority);
-            let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-                &[ix],
-                Some(&self.payer.pubkey()),
-                &[&self.payer, &self.admin],
-                self.recent_blockhash,
-            );
-            self.banks_client
-                .process_transaction(tx)
+            self.execute(&[ix], &[&self.admin])
                 .await
                 .expect("propose should succeed");
         }
@@ -1089,14 +1098,7 @@ mod integration_tests {
 
         // Accept
         let accept_ix = build_accept_ix(ctx.target_program, new_authority.pubkey());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[accept_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &new_authority],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[accept_ix], &[&new_authority])
             .await
             .expect("accept should succeed");
 
@@ -1121,14 +1123,7 @@ mod integration_tests {
 
         // Cancel
         let ix = build_cancel_ix(ctx.admin.pubkey(), ctx.target_program);
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[ix], &[&ctx.admin])
             .await
             .expect("cancel should succeed");
 
@@ -1140,14 +1135,7 @@ mod integration_tests {
 
         // Accept with second authority
         let ix = build_accept_ix(ctx.target_program, second_authority.pubkey());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &second_authority],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[ix], &[&second_authority])
             .await
             .expect("accept should succeed");
 
@@ -1161,13 +1149,7 @@ mod integration_tests {
         let non_admin = Keypair::new();
 
         let ix = build_propose_ix(non_admin.pubkey(), ctx.target_program, Pubkey::new_unique());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &non_admin],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[ix], &[&non_admin]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::Unauthorized as u32),
@@ -1182,13 +1164,7 @@ mod integration_tests {
         ctx.propose(Pubkey::new_unique()).await;
 
         let ix = build_accept_ix(ctx.target_program, wrong_signer.pubkey());
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &wrong_signer],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[ix], &[&wrong_signer]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::AuthorityMismatch as u32),
@@ -1207,14 +1183,7 @@ mod integration_tests {
         );
         let wrapped_ix = wrap_in_test_cpi_target_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[wrapped_ix], &[&ctx.admin])
             .await
             .expect("whitelisted CPI propose should succeed");
 
@@ -1233,13 +1202,7 @@ mod integration_tests {
             build_propose_ix(ctx.admin.pubkey(), ctx.target_program, Pubkey::new_unique());
         let wrapped_ix = wrap_in_test_cpi_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[wrapped_ix], &[&ctx.admin]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
@@ -1322,13 +1285,7 @@ mod integration_tests {
         let inner_ix = build_cancel_ix(ctx.admin.pubkey(), ctx.target_program);
         let wrapped_ix = wrap_in_test_cpi_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        let err = ctx.banks_client.process_transaction(tx).await.unwrap_err();
+        let err = ctx.execute(&[wrapped_ix], &[&ctx.admin]).await.unwrap_err();
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + crate::AccessManagerError::CpiNotAllowed as u32),
@@ -1416,14 +1373,7 @@ mod integration_tests {
         let inner_ix = build_cancel_ix(ctx.admin.pubkey(), ctx.target_program);
         let wrapped_ix = wrap_in_test_cpi_target_proxy(ctx.admin.pubkey(), &inner_ix);
 
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&ctx.payer.pubkey()),
-            &[&ctx.payer, &ctx.admin],
-            ctx.recent_blockhash,
-        );
-        ctx.banks_client
-            .process_transaction(tx)
+        ctx.execute(&[wrapped_ix], &[&ctx.admin])
             .await
             .expect("whitelisted CPI cancel should succeed");
 
