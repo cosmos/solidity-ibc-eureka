@@ -102,7 +102,7 @@ Requires `ADMIN_ROLE` on the current access manager.
 - `admin` (signer): Admin on the current access manager
 - `instructions_sysvar`: Instructions sysvar for CPI validation
 
-For AM-A -> AM-B migration context shared across IBC programs, see [AccessManager](programs/solana/programs/access-manager/README.md).
+For AM-A -> AM-B migration context shared across IBC programs, see [AccessManager](../access-manager/README.md).
 
 ### Chunked Upload Instructions
 
