@@ -1,0 +1,37 @@
+[package]
+name = "test-access-manager"
+version.workspace = true
+description = "Second access-manager instance for AM-to-AM migration testing"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+readme = "README.md"
+keywords = ["cosmos", "ibc", "solana", "test", "access-manager"]
+categories = ["development-tools::testing"]
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "test_access_manager"
+
+[features]
+default = []
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang.workspace = true
+solana-ibc-types.workspace = true
+
+[dev-dependencies]
+bincode.workspace = true
+mollusk-svm.workspace = true
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test.workspace = true
+tokio = { version = "1", features = ["full"] }
+access-manager = { workspace = true, features = ["no-entrypoint"] }
+
+[lints]
+workspace = true

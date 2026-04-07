@@ -497,9 +497,9 @@ func NewUnpauseAppInstruction(
 	), nil
 }
 
-// Builds a "set_access_manager" instruction.
-// Set the access manager program (admin only)
-func NewSetAccessManagerInstruction(
+// Builds a "propose_access_manager_transfer" instruction.
+// Propose transferring the access manager to a new program (admin only)
+func NewProposeAccessManagerTransferInstruction(
 	// Params:
 	newAccessManagerParam solanago.PublicKey,
 
@@ -513,7 +513,7 @@ func NewSetAccessManagerInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	err := enc__.WriteBytes(Instruction_ProposeAccessManagerTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -529,16 +529,100 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "app_state": Writable, Non-signer, Required
-		// GMP program's global configuration PDA whose `access_manager` field will be updated.
+		// PDA holding GMP app settings including the current `access_manager`.
 		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Current access manager account used to verify admin privileges.
+		// Current access-manager state PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Signer whose admin membership is verified by the current access manager.
+		// Admin signer authorized to propose the transfer.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar used to detect and reject unauthorized CPI callers.
+		// Instructions sysvar used by the access manager to inspect the transaction.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "accept_access_manager_transfer" instruction.
+// Accept a pending access manager transfer (new AM admin only)
+func NewAcceptAccessManagerTransferInstruction(
+	appStateAccount solanago.PublicKey,
+	newAmStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// PDA holding GMP app settings; the `access_manager` field is updated on success.
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "new_am_state": Read-only, Non-signer, Required
+		// Proposed access-manager state PDA derived from the pending program ID.
+		accounts__.Append(solanago.NewAccountMeta(newAmStateAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized on the **new** access manager.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cancel_access_manager_transfer" instruction.
+// Cancel a pending access manager transfer (current AM admin only)
+func NewCancelAccessManagerTransferInstruction(
+	appStateAccount solanago.PublicKey,
+	amStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "app_state": Writable, Non-signer, Required
+		// PDA holding GMP app settings; the pending transfer is cleared on success.
+		accounts__.Append(solanago.NewAccountMeta(appStateAccount, true, false))
+		// Account 1 "am_state": Read-only, Non-signer, Required
+		// Current access-manager state PDA used to verify the caller holds the admin role.
+		accounts__.Append(solanago.NewAccountMeta(amStateAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized to cancel the transfer.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 

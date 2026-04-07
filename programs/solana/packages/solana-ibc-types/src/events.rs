@@ -78,14 +78,6 @@ pub struct IBCAppAdded {
 #[derive(Debug, Clone)]
 pub struct NoopEvent {}
 
-/// Event emitted when access manager is updated
-#[event]
-#[derive(Debug, Clone)]
-pub struct AccessManagerUpdated {
-    pub old_access_manager: Pubkey,
-    pub new_access_manager: Pubkey,
-}
-
 /// Event emitted when the router is paused
 #[event]
 #[derive(Debug, Clone)]

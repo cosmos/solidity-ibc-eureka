@@ -3,6 +3,7 @@
 /// the existing account structs. The existing data would then be loaded into
 /// those structs.
 ///
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics26_router::state::{AccountVersion, Client, CounterpartyInfo, RouterState};
@@ -21,7 +22,7 @@ fn setup_router_state() -> (Pubkey, Vec<u8>) {
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
@@ -68,8 +69,8 @@ pub enum AccountVersionExample {
 pub struct RouterStateExample {
     /// Schema version for upgrades
     pub version: AccountVersionExample,
-    /// Access manager program ID (existing V1 field)
-    pub access_manager: Pubkey,
+    /// Access manager transfer state (existing V1 field)
+    pub am_state: AccessManagerState,
 
     // ========== NEW V2 FIELDS ==========
     /// Fee collector account

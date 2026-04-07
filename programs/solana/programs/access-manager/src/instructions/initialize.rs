@@ -50,6 +50,7 @@ pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     let access_manager = &mut ctx.accounts.access_manager;
     access_manager.roles = vec![];
     access_manager.whitelisted_programs = vec![];
+    access_manager.pending_authority_transfers = vec![];
 
     access_manager.grant_role(roles::ADMIN_ROLE, admin)?;
 
@@ -689,7 +690,11 @@ mod integration_tests {
             std::env::set_var("SBF_OUT_DIR", deploy_dir);
         }
 
-        let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+        let mut pt = solana_program_test::ProgramTest::new(
+            crate::test_config::PROGRAM_BINARY_NAME,
+            crate::ID,
+            None,
+        );
         pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
         pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
 

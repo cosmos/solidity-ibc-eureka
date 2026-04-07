@@ -45,8 +45,8 @@ pub enum GMPError {
     #[msg("Insufficient account permissions")]
     InsufficientAccountPermissions,
 
-    #[msg("Unauthorized signer")]
-    UnauthorizedSigner,
+    #[msg("Account must not be a signer")]
+    UnexpectedSigner,
 
     #[msg("Execution too expensive")]
     ExecutionTooExpensive,

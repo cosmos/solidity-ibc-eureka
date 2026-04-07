@@ -1,6 +1,6 @@
 use crate::state::*;
-use access_manager::RoleData;
-use anchor_lang::{AnchorSerialize, Discriminator};
+use access_manager::{AccessManagerState, RoleData};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
@@ -55,24 +55,26 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: true,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn create_initialized_paused_router_state() -> (Pubkey, solana_sdk::account::Account) {
@@ -154,6 +156,7 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, V
     let access_manager = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
@@ -967,11 +970,14 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
-    let router_data = create_account_data(&router_state);
+    let mut router_data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state
+        .try_serialize(&mut &mut router_data[..])
+        .unwrap();
 
     pt.add_account(
         router_state_pda,
@@ -999,6 +1005,7 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let am = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
