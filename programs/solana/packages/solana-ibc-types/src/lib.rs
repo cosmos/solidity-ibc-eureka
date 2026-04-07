@@ -42,11 +42,11 @@ pub use ics27::{
 };
 
 pub use events::{
-    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
-    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+    AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,
+    TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
-pub use access_manager::{roles, AccessManager};
+pub use access_manager::{roles, AccessManager, AccessManagerState};
 pub use cpi::{
     is_cpi, reject_cpi, reject_direct_calls, reject_nested_cpi,
     require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,

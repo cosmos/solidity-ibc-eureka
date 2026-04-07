@@ -30,6 +30,7 @@ access-manager = { workspace = true, features = ["cpi"] }
 solana-sha256-hasher.workspace = true
 
 [dev-dependencies]
+access-manager = { workspace = true, features = ["test-utils"] }
 mollusk-svm.workspace = true
 mollusk-svm-bencher.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }

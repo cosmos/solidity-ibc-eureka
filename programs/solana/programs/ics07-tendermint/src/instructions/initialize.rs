@@ -1,6 +1,7 @@
 use crate::error::ErrorCode;
 use crate::state::ConsensusStateStore;
 use crate::types::{AppState, ClientState, ConsensusState};
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::bpf_loader_upgradeable;
 
@@ -100,7 +101,7 @@ pub fn initialize(
     consensus_state_store.consensus_state = consensus_state;
 
     let app_state = &mut ctx.accounts.app_state;
-    app_state.access_manager = access_manager;
+    app_state.am_state = AccessManagerState::new(access_manager);
     app_state._reserved = [0; 256];
 
     Ok(())
@@ -540,7 +541,10 @@ mod tests {
             AppState::try_deserialize(&mut &app_state_account.data[..])
                 .expect("Failed to deserialize app state");
 
-        assert_eq!(deserialized_app_state.access_manager, access_manager::ID);
+        assert_eq!(
+            deserialized_app_state.am_state.access_manager,
+            access_manager::ID
+        );
     }
 
     #[test]

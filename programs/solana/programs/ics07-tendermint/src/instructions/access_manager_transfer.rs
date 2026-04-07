@@ -1,29 +1,25 @@
-use crate::events::AccessManagerUpdated;
 use crate::types::AppState;
 use anchor_lang::prelude::*;
 
-/// Updates the `access_manager` program ID stored in `AppState`. Only callable by an admin.
+/// Proposes transferring the access manager to a new program.
+/// Requires `ADMIN_ROLE` on the current access manager.
 #[derive(Accounts)]
 #[instruction(new_access_manager: Pubkey)]
-pub struct SetAccessManager<'info> {
-    /// PDA holding program-level settings; the `access_manager` field is overwritten on success.
-    #[account(
-        mut,
-        seeds = [AppState::SEED],
-        bump
-    )]
+pub struct ProposeAccessManagerTransfer<'info> {
+    /// PDA holding program-level settings including the current `access_manager`.
+    #[account(mut, seeds = [AppState::SEED], bump)]
     pub app_state: Account<'info, AppState>,
 
-    /// Current access-manager PDA used to verify the caller holds the admin role.
+    /// Current access-manager state PDA used to verify the caller holds the admin role.
     /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
-    /// Admin signer authorized to change the access manager.
+    /// Admin signer authorized to propose the transfer.
     pub admin: Signer<'info>,
 
     /// Instructions sysvar used by the access manager to inspect the transaction.
@@ -32,42 +28,101 @@ pub struct SetAccessManager<'info> {
     pub instructions_sysvar: AccountInfo<'info>,
 }
 
-pub fn set_access_manager(
-    ctx: Context<SetAccessManager>,
+pub fn propose_access_manager_transfer(
+    ctx: Context<ProposeAccessManagerTransfer>,
     new_access_manager: Pubkey,
 ) -> Result<()> {
-    access_manager::require_admin(
+    ctx.accounts.app_state.am_state.propose_transfer(
+        new_access_manager,
         &ctx.accounts.access_manager,
         &ctx.accounts.admin,
         &ctx.accounts.instructions_sysvar,
         &crate::ID,
-    )?;
+    )
+}
 
-    let old_access_manager = ctx.accounts.app_state.access_manager;
+/// Accepts a pending access manager transfer.
+/// Requires `ADMIN_ROLE` on the **new** access manager.
+#[derive(Accounts)]
+pub struct AcceptAccessManagerTransfer<'info> {
+    /// PDA holding program-level settings; the `access_manager` field is updated on success.
+    #[account(
+        mut,
+        seeds = [AppState::SEED],
+        bump,
+        constraint = app_state.am_state.pending_access_manager.is_some()
+            @ access_manager::AccessManagerError::NoPendingAccessManagerTransfer
+    )]
+    pub app_state: Account<'info, AppState>,
 
-    ctx.accounts.app_state.access_manager = new_access_manager;
+    /// Proposed access-manager state PDA derived from the pending program ID.
+    /// CHECK: Validated via seeds constraint against `pending_access_manager`
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.am_state.pending_access_manager.unwrap()
+    )]
+    pub new_am_state: AccountInfo<'info>,
 
-    emit!(AccessManagerUpdated {
-        old_access_manager,
-        new_access_manager,
-    });
+    /// Admin signer authorized on the **new** access manager.
+    pub admin: Signer<'info>,
 
-    msg!(
-        "Access manager updated from {} to {}",
-        old_access_manager,
-        new_access_manager
-    );
+    /// Instructions sysvar used by the access manager to inspect the transaction.
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+}
 
-    Ok(())
+pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
+    ctx.accounts.app_state.am_state.accept_transfer(
+        &ctx.accounts.new_am_state,
+        &ctx.accounts.admin,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )
+}
+
+/// Cancels a pending access manager transfer.
+/// Requires `ADMIN_ROLE` on the current access manager.
+#[derive(Accounts)]
+pub struct CancelAccessManagerTransfer<'info> {
+    /// PDA holding program-level settings; the pending transfer is cleared on success.
+    #[account(mut, seeds = [AppState::SEED], bump)]
+    pub app_state: Account<'info, AppState>,
+
+    /// Current access-manager state PDA used to verify the caller holds the admin role.
+    /// CHECK: Validated via seeds constraint using the stored `access_manager` program ID
+    #[account(
+        seeds = [access_manager::state::AccessManager::SEED],
+        bump,
+        seeds::program = app_state.am_state.access_manager
+    )]
+    pub am_state: AccountInfo<'info>,
+
+    /// Admin signer authorized to cancel the transfer.
+    pub admin: Signer<'info>,
+
+    /// Instructions sysvar used by the access manager to inspect the transaction.
+    /// CHECK: Address constraint verifies this is the instructions sysvar
+    #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
+    pub instructions_sysvar: AccountInfo<'info>,
+}
+
+pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
+    ctx.accounts.app_state.am_state.cancel_transfer(
+        &ctx.accounts.am_state,
+        &ctx.accounts.admin,
+        &ctx.accounts.instructions_sysvar,
+        &crate::ID,
+    )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::AppState;
-    use access_manager::AccessManagerError;
-    use anchor_lang::InstructionData;
+    use access_manager::{AccessManagerError, AccessManagerState};
+    use anchor_lang::{AccountDeserialize, AccountSerialize, InstructionData, Space};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
     use solana_ibc_types::roles;
@@ -87,11 +142,15 @@ mod tests {
         }
     }
 
-    fn create_app_state_account(access_manager: Pubkey) -> SolanaAccount {
-        use anchor_lang::AccountSerialize;
-
+    fn create_app_state_account(access_manager: Pubkey, pending: Option<Pubkey>) -> SolanaAccount {
         let app_state = AppState {
-            access_manager,
+            am_state: pending.map_or_else(
+                || AccessManagerState::new(access_manager),
+                |pending| AccessManagerState {
+                    access_manager,
+                    pending_access_manager: Some(pending),
+                },
+            ),
             _reserved: [0; 256],
         };
 
@@ -110,7 +169,6 @@ mod tests {
     fn create_access_manager_account(admin: Pubkey, role: u64) -> SolanaAccount {
         use access_manager::state::AccessManager;
         use access_manager::types::RoleData;
-        use anchor_lang::AccountSerialize;
 
         let access_manager = AccessManager {
             roles: vec![RoleData {
@@ -118,9 +176,10 @@ mod tests {
                 members: vec![admin],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
 
-        let mut data = vec![0u8; 8 + 10000]; // Enough space
+        let mut data = vec![0u8; 8 + 10000];
         access_manager.try_serialize(&mut &mut data[..]).unwrap();
 
         SolanaAccount {
@@ -164,7 +223,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_access_manager_success() {
+    fn test_propose_succeeds() {
         let admin = Pubkey::new_unique();
         let new_access_manager = Pubkey::new_unique();
 
@@ -175,8 +234,6 @@ mod tests {
             &access_manager::ID,
         );
 
-        let instruction_data = crate::instruction::SetAccessManager { new_access_manager };
-
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
@@ -185,10 +242,10 @@ mod tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
-            data: instruction_data.data(),
+            data: crate::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
         };
 
-        let app_state_account = create_app_state_account(access_manager::ID);
+        let app_state_account = create_app_state_account(access_manager::ID, None);
         let access_manager_account = create_access_manager_account(admin, roles::ADMIN_ROLE);
         let (instructions_sysvar_pubkey, instructions_sysvar_account) =
             create_instructions_sysvar_account();
@@ -201,8 +258,8 @@ mod tests {
         ];
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::success()];
-        let result = mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        let result =
+            mollusk.process_and_validate_instruction(&instruction, &accounts, &[Check::success()]);
 
         let app_state_account = result
             .get_account(&app_state_pda)
@@ -210,11 +267,15 @@ mod tests {
         let app_state: AppState = AppState::try_deserialize(&mut &app_state_account.data[..])
             .expect("Failed to deserialize app state");
 
-        assert_eq!(app_state.access_manager, new_access_manager);
+        assert_eq!(
+            app_state.am_state.pending_access_manager,
+            Some(new_access_manager)
+        );
+        assert_eq!(app_state.am_state.access_manager, access_manager::ID);
     }
 
     #[test]
-    fn test_set_access_manager_not_admin_fails() {
+    fn test_propose_not_admin_fails() {
         let admin = Pubkey::new_unique();
         let non_admin = Pubkey::new_unique();
         let new_access_manager = Pubkey::new_unique();
@@ -226,8 +287,6 @@ mod tests {
             &access_manager::ID,
         );
 
-        let instruction_data = crate::instruction::SetAccessManager { new_access_manager };
-
         let instruction = Instruction {
             program_id: crate::ID,
             accounts: vec![
@@ -236,10 +295,10 @@ mod tests {
                 AccountMeta::new_readonly(non_admin, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
-            data: instruction_data.data(),
+            data: crate::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
         };
 
-        let app_state_account = create_app_state_account(access_manager::ID);
+        let app_state_account = create_app_state_account(access_manager::ID, None);
         let access_manager_account = create_access_manager_account(admin, roles::ADMIN_ROLE);
         let (instructions_sysvar_pubkey, instructions_sysvar_account) =
             create_instructions_sysvar_account();
@@ -252,11 +311,13 @@ mod tests {
         ];
 
         let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
-        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
-            ANCHOR_ERROR_OFFSET + AccessManagerError::Unauthorized as u32,
-        ))];
-
-        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
+                ANCHOR_ERROR_OFFSET + AccessManagerError::Unauthorized as u32,
+            ))],
+        );
     }
 }
 
@@ -271,7 +332,7 @@ mod integration_tests {
         signer::Signer,
     };
 
-    fn build_set_access_manager_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
+    fn build_propose_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
         let (app_state_pda, _) =
             Pubkey::find_program_address(&[crate::types::AppState::SEED], &crate::ID);
         let (access_manager_pda, _) = Pubkey::find_program_address(
@@ -287,17 +348,17 @@ mod integration_tests {
                 AccountMeta::new_readonly(admin, true),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
             ],
-            data: crate::instruction::SetAccessManager { new_access_manager }.data(),
+            data: crate::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
         }
     }
 
     #[tokio::test]
-    async fn test_direct_call_by_admin_succeeds() {
+    async fn test_propose_direct_call_succeeds() {
         let admin = Keypair::new();
         let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
-        let ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
+        let ix = build_propose_ix(admin.pubkey(), Pubkey::new_unique());
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
@@ -306,96 +367,6 @@ mod integration_tests {
             recent_blockhash,
         );
         let result = banks_client.process_transaction(tx).await;
-        assert!(result.is_ok(), "Direct call by admin should succeed");
-    }
-
-    #[tokio::test]
-    async fn test_direct_call_by_non_admin_rejected() {
-        let admin = Keypair::new();
-        let non_admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let ix = build_set_access_manager_ix(non_admin.pubkey(), Pubkey::new_unique());
-
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&payer.pubkey()),
-            &[&payer, &non_admin],
-            recent_blockhash,
-        );
-        let err = banks_client.process_transaction(tx).await.unwrap_err();
-        assert_eq!(
-            extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
-        );
-    }
-
-    #[tokio::test]
-    async fn test_whitelisted_cpi_succeeds() {
-        let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
-        let wrapped_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
-
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&payer.pubkey()),
-            &[&payer, &admin],
-            recent_blockhash,
-        );
-        let result = banks_client.process_transaction(tx).await;
-        assert!(
-            result.is_ok(),
-            "Whitelisted CPI should succeed: {:?}",
-            result.err()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_unauthorized_cpi_rejected() {
-        let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
-        let wrapped_ix = wrap_in_test_cpi_proxy(admin.pubkey(), &inner_ix);
-
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[wrapped_ix],
-            Some(&payer.pubkey()),
-            &[&payer, &admin],
-            recent_blockhash,
-        );
-        let err = banks_client.process_transaction(tx).await.unwrap_err();
-        assert_eq!(
-            extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
-        );
-    }
-
-    #[tokio::test]
-    async fn test_nested_cpi_rejected() {
-        let admin = Keypair::new();
-        let pt = setup_program_test_with_whitelist(&admin.pubkey(), &[TEST_CPI_TARGET_ID]);
-        let (banks_client, payer, recent_blockhash) = pt.start().await;
-
-        let inner_ix = build_set_access_manager_ix(admin.pubkey(), Pubkey::new_unique());
-        let cpi_target_ix = wrap_in_test_cpi_target_proxy(admin.pubkey(), &inner_ix);
-        let nested_ix = wrap_in_test_cpi_proxy(admin.pubkey(), &cpi_target_ix);
-
-        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
-            &[nested_ix],
-            Some(&payer.pubkey()),
-            &[&payer, &admin],
-            recent_blockhash,
-        );
-        let err = banks_client.process_transaction(tx).await.unwrap_err();
-        assert_eq!(
-            extract_custom_error(&err),
-            Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::CpiNotAllowed as u32),
-        );
+        assert!(result.is_ok(), "Direct propose by admin should succeed");
     }
 }

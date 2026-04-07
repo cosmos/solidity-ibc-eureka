@@ -10,18 +10,29 @@ var (
 
 // Event discriminators
 var (
-	Event_AccessManagerEventsProgramUpgradedEvent            = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
-	Event_AccessManagerEventsRoleGrantedEvent                = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
-	Event_AccessManagerEventsRoleRevokedEvent                = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
-	Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent = [8]byte{174, 165, 182, 103, 180, 63, 131, 198}
+	Event_AccessManagerEventsAccessManagerTransferAccepted          = [8]byte{244, 139, 47, 82, 213, 147, 38, 88}
+	Event_AccessManagerEventsAccessManagerTransferCancelled         = [8]byte{200, 239, 227, 176, 191, 21, 219, 62}
+	Event_AccessManagerEventsAccessManagerTransferProposed          = [8]byte{114, 132, 13, 147, 11, 198, 82, 88}
+	Event_AccessManagerEventsProgramUpgradedEvent                   = [8]byte{187, 15, 83, 36, 251, 96, 19, 210}
+	Event_AccessManagerEventsRoleGrantedEvent                       = [8]byte{221, 21, 92, 108, 136, 12, 105, 112}
+	Event_AccessManagerEventsRoleRevokedEvent                       = [8]byte{104, 105, 52, 114, 39, 94, 217, 251}
+	Event_AccessManagerEventsUpgradeAuthorityClaimedEvent           = [8]byte{89, 129, 108, 54, 149, 105, 39, 221}
+	Event_AccessManagerEventsUpgradeAuthorityTransferCancelledEvent = [8]byte{35, 172, 94, 180, 37, 229, 123, 63}
+	Event_AccessManagerEventsUpgradeAuthorityTransferProposedEvent  = [8]byte{63, 200, 21, 91, 27, 82, 52, 61}
+	Event_AccessManagerEventsUpgradeAuthorityTransferredEvent       = [8]byte{79, 145, 216, 157, 39, 178, 134, 42}
+	Event_AccessManagerEventsWhitelistedProgramsUpdatedEvent        = [8]byte{174, 165, 182, 103, 180, 63, 131, 198}
 )
 
 // Instruction discriminators
 var (
-	Instruction_Initialize             = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_GrantRole              = [8]byte{218, 234, 128, 15, 82, 33, 236, 253}
-	Instruction_RevokeRole             = [8]byte{179, 232, 2, 180, 48, 227, 82, 7}
-	Instruction_RenounceRole           = [8]byte{21, 253, 233, 162, 186, 216, 217, 26}
-	Instruction_UpgradeProgram         = [8]byte{223, 236, 39, 89, 111, 204, 114, 37}
-	Instruction_SetWhitelistedPrograms = [8]byte{215, 39, 132, 81, 64, 65, 123, 123}
+	Instruction_Initialize                      = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_GrantRole                       = [8]byte{218, 234, 128, 15, 82, 33, 236, 253}
+	Instruction_RevokeRole                      = [8]byte{179, 232, 2, 180, 48, 227, 82, 7}
+	Instruction_RenounceRole                    = [8]byte{21, 253, 233, 162, 186, 216, 217, 26}
+	Instruction_UpgradeProgram                  = [8]byte{223, 236, 39, 89, 111, 204, 114, 37}
+	Instruction_ProposeUpgradeAuthorityTransfer = [8]byte{235, 222, 36, 145, 215, 244, 214, 152}
+	Instruction_AcceptUpgradeAuthorityTransfer  = [8]byte{95, 41, 116, 54, 102, 173, 111, 17}
+	Instruction_CancelUpgradeAuthorityTransfer  = [8]byte{114, 97, 59, 64, 250, 180, 192, 135}
+	Instruction_SetWhitelistedPrograms          = [8]byte{215, 39, 132, 81, 64, 65, 123, 123}
+	Instruction_ClaimUpgradeAuthority           = [8]byte{102, 75, 224, 204, 8, 193, 89, 137}
 )
