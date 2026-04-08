@@ -19,8 +19,6 @@ pub struct RelayEventsParams {
     /// Required when processing timeouts. The caller should provide the current height
     /// from the source chain (where non-membership needs to be proven).
     pub timeout_relay_height: Option<u64>,
-    /// Optional unix-seconds cutoff for timeout detection. Defaults to `now()` when `None`.
-    pub timeout_cutoff_timestamp: Option<u64>,
     /// The client ID on the source chain.
     pub src_client_id: String,
     /// The client ID on the destination chain.

@@ -172,31 +172,27 @@ pub fn collect_send_and_ack_packets_with_height(
 ///
 /// Timeout packets are send packet events where the packet direction is reversed
 /// (dest client -> src client) indicating the original packet was sent from destination.
-/// Only packets with `timeoutTimestamp <= cutoff` are included; defaults to `now()` when
-/// `cutoff_timestamp` is `None`.
+/// Additionally, the packet's timeout timestamp must have elapsed.
 ///
 /// # Panics
-/// Panics if `cutoff_timestamp` is `None` and the system clock is unavailable.
+/// Panics if the current system time cannot be determined.
 #[must_use]
 pub fn collect_timeout_packets(
     events: &[EurekaEventWithHeight],
     src_client_id: &str,
     dst_client_id: &str,
     dst_packet_seqs: &[u64],
-    cutoff_timestamp: Option<u64>,
 ) -> Vec<Vec<u8>> {
-    let cutoff = cutoff_timestamp.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs()
-    });
+    let now_since_unix = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     events
         .iter()
         .filter_map(|event| match &event.event {
             EurekaEvent::SendPacket(packet)
                 if packet_matches(packet, dst_client_id, src_client_id, dst_packet_seqs)
-                    && packet.timeoutTimestamp <= cutoff =>
+                    && packet.timeoutTimestamp <= now_since_unix =>
             {
                 Some(packet.abi_encode())
             }

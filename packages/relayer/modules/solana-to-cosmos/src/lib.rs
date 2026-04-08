@@ -169,17 +169,38 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // Align timeout detection with the proof height: use the finalized slot's
-        // block time as cutoff so we skip the finalization wait inside relay_events.
-        let (timeout_relay_height, timeout_cutoff_timestamp) =
+        // In attested mode, wait until the finalized slot's block time >= now().
+        // This guarantees every packet with timeoutTimestamp <= now() is provably
+        // timed out at the proof height.
+        let timeout_relay_height =
             if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-                let (slot, block_time) = self
-                    .src_listener
-                    .get_finalized_slot_with_time()
-                    .map_err(to_tonic_status)?;
-                (Some(slot), Some(block_time))
+                let start = std::time::Instant::now();
+                let deadline = std::time::Duration::from_secs(25 * 60);
+                let poll_interval = std::time::Duration::from_secs(1);
+                loop {
+                    let (slot, block_time) = self
+                        .src_listener
+                        .get_finalized_slot_with_time()
+                        .map_err(to_tonic_status)?;
+                    let now = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+                    if block_time >= now {
+                        break Some(slot);
+                    }
+                    if start.elapsed() >= deadline {
+                        return Err(tonic::Status::deadline_exceeded(
+                            "timed out waiting for finalized slot to reach current time",
+                        ));
+                    }
+                    tracing::debug!(
+                        "Finalized block time ({block_time}) < now ({now}), waiting for finalization"
+                    );
+                    tokio::time::sleep(poll_interval).await;
+                }
             } else {
-                (None, None)
+                None
             };
 
         let tx = self
@@ -188,7 +209,6 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 solana_events,
                 timeout_events,
                 timeout_relay_height,
-                timeout_cutoff_timestamp,
                 inner_req.src_client_id,
                 inner_req.dst_client_id,
                 inner_req.src_packet_sequences,
@@ -265,7 +285,6 @@ impl SolanaToCosmosTxBuilder {
         solana_src_events: Vec<SolanaEurekaEventWithHeight>,
         target_events: Vec<EurekaEventWithHeight>,
         timeout_relay_height: Option<u64>,
-        timeout_cutoff_timestamp: Option<u64>,
         src_client_id: String,
         dst_client_id: String,
         src_packet_seqs: Vec<u64>,
@@ -292,7 +311,6 @@ impl SolanaToCosmosTxBuilder {
                     src_events,
                     target_events,
                     timeout_relay_height,
-                    timeout_cutoff_timestamp,
                     src_client_id,
                     dst_client_id,
                     src_packet_seqs,
