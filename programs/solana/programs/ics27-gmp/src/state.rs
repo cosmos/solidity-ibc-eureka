@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, MAX_CLIENT_ID_LENGTH};
 
@@ -25,8 +26,8 @@ pub struct GMPAppState {
     /// PDA bump seed
     pub bump: u8,
 
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 256],

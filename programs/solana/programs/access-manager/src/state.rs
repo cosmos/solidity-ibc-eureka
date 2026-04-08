@@ -1,6 +1,33 @@
-use crate::types::RoleData;
+use crate::types::{PendingAuthorityTransfer, RoleData};
 use anchor_lang::prelude::*;
 use solana_ibc_types::roles;
+
+const MAX_PENDING_TRANSFERS: usize = 16;
+
+/// Embedded access manager state for IBC programs.
+///
+/// Each IBC program embeds this struct in its on-chain state account to track
+/// which access manager program governs its permissioned instructions and to
+/// support two-step access manager migration (propose/accept).
+///
+/// Does not carry its own `_reserved` field — future fields can eat into the
+/// `_reserved` space of the higher-level state that embeds this struct.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
+    pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
+    pub pending_access_manager: Option<Pubkey>,
+}
+
+impl AccessManagerState {
+    pub const fn new(access_manager: Pubkey) -> Self {
+        Self {
+            access_manager,
+            pending_access_manager: None,
+        }
+    }
+}
 
 /// Central role-based access control registry shared across all Solana IBC programs.
 ///
@@ -18,11 +45,26 @@ pub struct AccessManager {
     pub roles: Vec<RoleData>,
     #[max_len(8)]
     pub whitelisted_programs: Vec<Pubkey>,
+    /// Pending upgrade authority transfers, one per managed program.
+    ///
+    /// Uses a bounded `Vec` rather than a single `Option` to support concurrent
+    /// transfers — with timelocked multisigs, a single `Option` would require
+    /// N sequential propose/accept cycles (N × timelock waits). With a `Vec`,
+    /// all proposes can be batched in one multisig vote.
+    ///
+    /// A single shared upgrade authority PDA (without `target_program` in the
+    /// seed) was considered but rejected: `SetAuthority` must be called once
+    /// per program regardless, so a shared PDA saves no transactions, while
+    /// per-program PDAs limit the blast radius of bugs and let Anchor's seeds
+    /// constraint tie each signer to exactly one target program.
+    #[max_len(MAX_PENDING_TRANSFERS)]
+    pub pending_authority_transfers: Vec<PendingAuthorityTransfer>,
 }
 
 impl AccessManager {
     pub const SEED: &'static [u8] = b"access_manager";
     pub const UPGRADE_AUTHORITY_SEED: &'static [u8] = b"upgrade_authority";
+    pub const MAX_PENDING_TRANSFERS: usize = MAX_PENDING_TRANSFERS;
 
     /// Get upgrade authority PDA for a target program
     pub fn upgrade_authority_pda(target_program: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
@@ -100,6 +142,7 @@ mod tests {
         AccessManager {
             roles: vec![],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         }
     }
 
@@ -107,6 +150,7 @@ mod tests {
         AccessManager {
             roles,
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         }
     }
 

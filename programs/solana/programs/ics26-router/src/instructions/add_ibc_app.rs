@@ -20,7 +20,7 @@ pub struct AddIbcApp<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.access_manager
+        seeds::program = router_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 

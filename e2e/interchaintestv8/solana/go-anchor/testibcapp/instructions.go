@@ -222,7 +222,7 @@ func NewSendPacketInstruction(
 }
 
 // Builds a "on_recv_packet" instruction.
-// Handle incoming packet // Returns acknowledgement data via `set_return_data`
+// Handle incoming packet // Returns acknowledgement bytes via `Result<Vec<u8>>` so Anchor Borsh-serializes the return value.
 func NewOnRecvPacketInstruction(
 	// Params:
 	msgParam SolanaIbcTypesAppMsgsOnRecvPacketMsg,
