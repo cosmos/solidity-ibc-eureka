@@ -6,3 +6,9 @@ pub struct RoleData {
     #[max_len(16)]
     pub members: Vec<Pubkey>,
 }
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, InitSpace, Debug, PartialEq, Eq)]
+pub struct PendingAuthorityTransfer {
+    pub target_program: Pubkey,
+    pub new_authority: Pubkey,
+}

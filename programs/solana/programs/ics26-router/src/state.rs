@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 
 // Re-export types from solana_ibc_types for use in instructions
@@ -22,8 +23,8 @@ pub const MAX_PORT_ID_LENGTH: usize = 128;
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields
@@ -235,7 +236,7 @@ mod compatibility_tests {
     fn test_router_state_serialization_compatibility() {
         let router_state = RouterState {
             version: AccountVersion::V1,
-            access_manager: Pubkey::new_unique(),
+            am_state: AccessManagerState::new(Pubkey::new_unique()),
             paused: false,
             _reserved: [0; 256],
         };
@@ -251,8 +252,12 @@ mod compatibility_tests {
 
         // Verify all fields match
         assert_eq!(
-            router_state.access_manager,
-            types_router_state.access_manager
+            router_state.am_state.access_manager,
+            types_router_state.am_state.access_manager
+        );
+        assert_eq!(
+            router_state.am_state.pending_access_manager,
+            types_router_state.am_state.pending_access_manager
         );
         assert_eq!(router_state.paused, types_router_state.paused);
         assert_eq!(router_state._reserved, types_router_state._reserved);

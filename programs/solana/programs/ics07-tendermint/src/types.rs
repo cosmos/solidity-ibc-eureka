@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
 use ibc_core_client_types::Height;
@@ -53,13 +54,13 @@ pub struct ClientState {
 /// Global ICS07 Tendermint program configuration.
 ///
 /// Singleton PDA that links the light client program to its access manager
-/// for admin-gated operations (e.g. `set_access_manager`) and stores the
+/// for admin-gated operations (e.g. `access_manager_transfer`) and stores the
 /// chain ID for introspection by off-chain tooling.
 #[account]
 #[derive(InitSpace)]
 pub struct AppState {
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -318,7 +319,7 @@ mod compatibility_tests {
     #[test]
     fn test_app_state_serialization_compatibility() {
         let app_state = AppState {
-            access_manager: access_manager::ID,
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
 
@@ -327,7 +328,14 @@ mod compatibility_tests {
         let types_app_state: solana_ibc_types::ics07::AppState =
             AnchorDeserialize::deserialize(&mut &serialized[..]).unwrap();
 
-        assert_eq!(app_state.access_manager, types_app_state.access_manager);
+        assert_eq!(
+            app_state.am_state.access_manager,
+            types_app_state.am_state.access_manager
+        );
+        assert_eq!(
+            app_state.am_state.pending_access_manager,
+            types_app_state.am_state.pending_access_manager
+        );
         assert_eq!(app_state._reserved, types_app_state._reserved);
     }
 

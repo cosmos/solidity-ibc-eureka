@@ -2,6 +2,7 @@ use crate::error::ErrorCode;
 use crate::state::{ConsensusStateStore, MisbehaviourChunk};
 use crate::test_helpers::PROGRAM_BINARY_PATH;
 use crate::types::{AppState, ClientState, ConsensusState, IbcHeight};
+use access_manager::AccessManagerState;
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -121,7 +122,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
 
     // Add app_state account
     let app_state = AppState {
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut app_state_data = vec![];
