@@ -11,6 +11,98 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 )
 
+// Embedded access manager state for IBC programs.
+//
+// Each IBC program embeds this struct in its on-chain state account to track
+// which access manager program governs its permissioned instructions and to
+// support two-step access manager migration (propose/accept).
+//
+// Does not carry its own `_reserved` field — future fields can eat into the
+// `_reserved` space of the higher-level state that embeds this struct.
+type AccessManagerStateAccessManagerState struct {
+	// Program ID of the access manager that governs this program's roles.
+	AccessManager solanago.PublicKey `json:"accessManager"`
+
+	// Proposed replacement access manager, set during a pending transfer.
+	PendingAccessManager *solanago.PublicKey `bin:"optional" json:"pendingAccessManager,omitempty"`
+}
+
+func (obj AccessManagerStateAccessManagerState) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
+	// Serialize `AccessManager`:
+	err = encoder.Encode(obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Serialize `PendingAccessManager` (optional):
+	{
+		if obj.PendingAccessManager == nil {
+			err = encoder.WriteOption(false)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+		} else {
+			err = encoder.WriteOption(true)
+			if err != nil {
+				return errors.NewOption("PendingAccessManager", fmt.Errorf("error while encoding optionality: %w", err))
+			}
+			err = encoder.Encode(obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (obj AccessManagerStateAccessManagerState) Marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	encoder := binary.NewBorshEncoder(buf)
+	err := obj.MarshalWithEncoder(encoder)
+	if err != nil {
+		return nil, fmt.Errorf("error while encoding AccessManagerStateAccessManagerState: %w", err)
+	}
+	return buf.Bytes(), nil
+}
+
+func (obj *AccessManagerStateAccessManagerState) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
+	// Deserialize `AccessManager`:
+	err = decoder.Decode(&obj.AccessManager)
+	if err != nil {
+		return errors.NewField("AccessManager", err)
+	}
+	// Deserialize `PendingAccessManager` (optional):
+	{
+		ok, err := decoder.ReadOption()
+		if err != nil {
+			return errors.NewOption("PendingAccessManager", fmt.Errorf("error while reading optionality: %w", err))
+		}
+		if ok {
+			err = decoder.Decode(&obj.PendingAccessManager)
+			if err != nil {
+				return errors.NewField("PendingAccessManager", err)
+			}
+		}
+	}
+	return nil
+}
+
+func (obj *AccessManagerStateAccessManagerState) Unmarshal(buf []byte) error {
+	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling AccessManagerStateAccessManagerState: %w", err)
+	}
+	return nil
+}
+
+func UnmarshalAccessManagerStateAccessManagerState(buf []byte) (*AccessManagerStateAccessManagerState, error) {
+	obj := new(AccessManagerStateAccessManagerState)
+	err := obj.Unmarshal(buf)
+	if err != nil {
+		return nil, err
+	}
+	return obj, nil
+}
+
 // Client-ID-to-light-client mapping with counterparty chain metadata.
 //
 // Created when an admin registers a new IBC client (e.g. an ICS07
@@ -239,8 +331,8 @@ type Ics26RouterStateRouterState struct {
 	// Schema version for upgrades
 	Version SolanaIbcTypesRouterAccountVersion `json:"version"`
 
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	// Access manager transfer state for two-step propose/accept
+	AmState AccessManagerStateAccessManagerState `json:"amState"`
 
 	// Whether the router is paused (emergency brake for all IBC traffic)
 	Paused bool `json:"paused"`
@@ -255,10 +347,10 @@ func (obj Ics26RouterStateRouterState) MarshalWithEncoder(encoder *binary.Encode
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `AmState`:
+	err = encoder.Encode(obj.AmState)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("AmState", err)
 	}
 	// Serialize `Paused`:
 	err = encoder.Encode(obj.Paused)
@@ -289,10 +381,10 @@ func (obj *Ics26RouterStateRouterState) UnmarshalWithDecoder(decoder *binary.Dec
 	if err != nil {
 		return errors.NewField("Version", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `AmState`:
+	err = decoder.Decode(&obj.AmState)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("AmState", err)
 	}
 	// Deserialize `Paused`:
 	err = decoder.Decode(&obj.Paused)
@@ -317,67 +409,6 @@ func (obj *Ics26RouterStateRouterState) Unmarshal(buf []byte) error {
 
 func UnmarshalIcs26RouterStateRouterState(buf []byte) (*Ics26RouterStateRouterState, error) {
 	obj := new(Ics26RouterStateRouterState)
-	err := obj.Unmarshal(buf)
-	if err != nil {
-		return nil, err
-	}
-	return obj, nil
-}
-
-// Event emitted when access manager is updated
-type Ics27GmpEventsAccessManagerUpdated struct {
-	OldAccessManager solanago.PublicKey `json:"oldAccessManager"`
-	NewAccessManager solanago.PublicKey `json:"newAccessManager"`
-}
-
-func (obj Ics27GmpEventsAccessManagerUpdated) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
-	// Serialize `OldAccessManager`:
-	err = encoder.Encode(obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Serialize `NewAccessManager`:
-	err = encoder.Encode(obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj Ics27GmpEventsAccessManagerUpdated) Marshal() ([]byte, error) {
-	buf := bytes.NewBuffer(nil)
-	encoder := binary.NewBorshEncoder(buf)
-	err := obj.MarshalWithEncoder(encoder)
-	if err != nil {
-		return nil, fmt.Errorf("error while encoding Ics27GmpEventsAccessManagerUpdated: %w", err)
-	}
-	return buf.Bytes(), nil
-}
-
-func (obj *Ics27GmpEventsAccessManagerUpdated) UnmarshalWithDecoder(decoder *binary.Decoder) (err error) {
-	// Deserialize `OldAccessManager`:
-	err = decoder.Decode(&obj.OldAccessManager)
-	if err != nil {
-		return errors.NewField("OldAccessManager", err)
-	}
-	// Deserialize `NewAccessManager`:
-	err = decoder.Decode(&obj.NewAccessManager)
-	if err != nil {
-		return errors.NewField("NewAccessManager", err)
-	}
-	return nil
-}
-
-func (obj *Ics27GmpEventsAccessManagerUpdated) Unmarshal(buf []byte) error {
-	err := obj.UnmarshalWithDecoder(binary.NewBorshDecoder(buf))
-	if err != nil {
-		return fmt.Errorf("error while unmarshaling Ics27GmpEventsAccessManagerUpdated: %w", err)
-	}
-	return nil
-}
-
-func UnmarshalIcs27GmpEventsAccessManagerUpdated(buf []byte) (*Ics27GmpEventsAccessManagerUpdated, error) {
-	obj := new(Ics27GmpEventsAccessManagerUpdated)
 	err := obj.Unmarshal(buf)
 	if err != nil {
 		return nil, err
@@ -1060,8 +1091,8 @@ type Ics27GmpStateGmpAppState struct {
 	// PDA bump seed
 	Bump uint8 `json:"bump"`
 
-	// Access manager program ID for role-based access control
-	AccessManager solanago.PublicKey `json:"accessManager"`
+	// Access manager transfer state for two-step propose/accept
+	AmState AccessManagerStateAccessManagerState `json:"amState"`
 
 	// Reserved space for future fields
 	Reserved [256]uint8 `json:"reserved"`
@@ -1083,10 +1114,10 @@ func (obj Ics27GmpStateGmpAppState) MarshalWithEncoder(encoder *binary.Encoder) 
 	if err != nil {
 		return errors.NewField("Bump", err)
 	}
-	// Serialize `AccessManager`:
-	err = encoder.Encode(obj.AccessManager)
+	// Serialize `AmState`:
+	err = encoder.Encode(obj.AmState)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("AmState", err)
 	}
 	// Serialize `Reserved`:
 	err = encoder.Encode(obj.Reserved)
@@ -1122,10 +1153,10 @@ func (obj *Ics27GmpStateGmpAppState) UnmarshalWithDecoder(decoder *binary.Decode
 	if err != nil {
 		return errors.NewField("Bump", err)
 	}
-	// Deserialize `AccessManager`:
-	err = decoder.Decode(&obj.AccessManager)
+	// Deserialize `AmState`:
+	err = decoder.Decode(&obj.AmState)
 	if err != nil {
-		return errors.NewField("AccessManager", err)
+		return errors.NewField("AmState", err)
 	}
 	// Deserialize `Reserved`:
 	err = decoder.Decode(&obj.Reserved)
@@ -1330,6 +1361,9 @@ type Ics27GmpStateSendCallMsg struct {
 
 	// Optional memo
 	Memo string `json:"memo"`
+
+	// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+	Encoding string `json:"encoding"`
 }
 
 func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -1367,6 +1401,11 @@ func (obj Ics27GmpStateSendCallMsg) MarshalWithEncoder(encoder *binary.Encoder) 
 	err = encoder.Encode(obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Serialize `Encoding`:
+	err = encoder.Encode(obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }
@@ -1416,6 +1455,11 @@ func (obj *Ics27GmpStateSendCallMsg) UnmarshalWithDecoder(decoder *binary.Decode
 	err = decoder.Decode(&obj.Memo)
 	if err != nil {
 		return errors.NewField("Memo", err)
+	}
+	// Deserialize `Encoding`:
+	err = decoder.Decode(&obj.Encoding)
+	if err != nil {
+		return errors.NewField("Encoding", err)
 	}
 	return nil
 }

@@ -1,5 +1,8 @@
 {pkgs}: let
-  toolchain = pkgs.rust-bin.stable.latest.default.override {
+  # toolchain > 1.92 breaks on transitive dep alloy-signer-aws-1.5.2
+  # queries overflow the depth limit!
+  # TODO: remove post alloy bump
+  toolchain = pkgs.rust-bin.stable."1.92.0".default.override {
     extensions = ["rust-src" "rust-analyzer" "clippy" "rustfmt"];
   };
 in {

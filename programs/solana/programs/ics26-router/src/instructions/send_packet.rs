@@ -200,6 +200,7 @@ mod tests {
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();
@@ -849,6 +850,7 @@ mod tests {
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();
@@ -1178,6 +1180,7 @@ mod tests {
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();
@@ -1568,6 +1571,7 @@ mod tests {
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();
@@ -1733,6 +1737,7 @@ mod tests {
                 members: vec![Pubkey::new_unique()],
             }],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();

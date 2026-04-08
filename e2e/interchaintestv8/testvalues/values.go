@@ -118,6 +118,9 @@ const (
 	// EnvKeyE2EProofType is the environment variable name to configure the proof type. (groth16|plonk)
 	// A randomly selected proof type is used if not set.
 	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
+	// EnvKeyE2EGmpEncoding is the environment variable name to configure the GMP encoding type.
+	// Accepted values: "application/x-protobuf" | "application/x-solidity-abi". Defaults to protobuf if not set.
+	EnvKeyE2EGmpEncoding = "E2E_GMP_ENCODING"
 	// EnvKeyE2EWasmLightClientTag is the environment variable name to configure the eth light client version.
 	// Either an empty string, or 'local', means it will use the local binary in the repo, unless running in mock mode
 	// otherwise, it will download the version from the github release with the given tag

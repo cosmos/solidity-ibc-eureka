@@ -2,6 +2,7 @@
 //!
 //! These types define the messages for packet handling in the ICS26 router.
 
+use crate::access_manager::AccessManagerState;
 use crate::Payload;
 use anchor_lang::prelude::*;
 
@@ -241,8 +242,8 @@ impl IBCApp {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Embedded access manager state for role checks and two-step migration
+    pub am_state: AccessManagerState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields

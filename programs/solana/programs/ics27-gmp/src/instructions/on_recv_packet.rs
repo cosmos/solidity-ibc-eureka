@@ -4,7 +4,7 @@ use crate::proto::GmpSolanaPayload;
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf};
+use solana_ibc_proto::{GmpPacketData, Protobuf};
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -82,11 +82,6 @@ pub fn on_recv_packet<'info>(
         GMPError::InvalidPort
     );
 
-    require!(
-        msg.payload.encoding == ICS27_ENCODING,
-        GMPError::InvalidEncoding
-    );
-
     require!(msg.payload.dest_port == GMP_PORT_ID, GMPError::InvalidPort);
 
     // Extract target_program from `remaining_accounts`
@@ -97,9 +92,10 @@ pub fn on_recv_packet<'info>(
 
     require!(target_program.executable, GMPError::TargetNotExecutable);
 
-    // Decode and validate GMP packet data from protobuf payload
-    // Uses Protobuf::decode which internally validates all constraints
-    let packet_data = GmpPacketData::decode(msg.payload.value.as_slice()).map_err(|e| {
+    // Decode GMP packet data using the payload's declared encoding
+    let raw_packet_data =
+        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
         msg!("GMP packet validation failed: {}", e);
         GMPError::InvalidPacketData
     })?;
@@ -165,11 +161,15 @@ pub fn on_recv_packet<'info>(
             GMPError::AccountKeyMismatch
         );
 
-        // Allow writable when payload says readonly (Solana account merging)
+        // Sanity check that `account_info.is_writable` is at least as permissive as `meta.is_writable`.
         require!(
             account_info.is_writable || !meta.is_writable,
             GMPError::InsufficientAccountPermissions
         );
+
+        // GMP PDA is not a signer at this stage - the program will sign it during CPI.
+        // This check prevents relayer or any higher level signers from being included.
+        require!(!account_info.is_signer, GMPError::UnexpectedSigner);
     }
 
     let instruction = Instruction {
@@ -184,21 +184,21 @@ pub fn on_recv_packet<'info>(
     // propagate any error and abort the entire transaction.
     gmp_account.invoke_signed(&instruction, remaining_accounts_for_execution)?;
 
-    // Get return data from the target program (if any)
-    // Only accept return data from the target program itself, not from nested CPIs
+    // Wrap the CPI call result in the ICS27 GMP acknowledgement.
+    // Only accept return data from the target program itself, not from nested CPIs.
     let result = match anchor_lang::solana_program::program::get_return_data() {
         Some((return_program_id, data)) if return_program_id == receiver_pubkey => data,
-        _ => vec![], // No return data or came from nested CPI
+        _ => Vec::new(),
     };
 
-    // Create acknowledgement with execution result
-    // Matches ibc-go's Acknowledgement format (just the result bytes)
-    Ok(GmpAcknowledgement::new(result).encode_to_vec())
+    crate::encoding::encode_gmp_ack(&result, &msg.payload.encoding)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
+    use crate::encoding::encode_gmp_packet;
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
     use crate::state::GMPAppState;
     use crate::test_utils::*;
@@ -207,7 +207,7 @@ mod tests {
     use mollusk_svm::Mollusk;
     use rstest::rstest;
     use solana_ibc_proto::ProstMessage;
-    use solana_ibc_types::GMPAccount;
+    use solana_ibc_types::{GMPAccount, GmpPacketData};
     use solana_sdk::account::Account;
     use solana_sdk::bpf_loader_upgradeable;
     use solana_sdk::program_error::ProgramError;
@@ -406,7 +406,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -596,13 +596,26 @@ mod tests {
                 source_port: overrides.source_port.unwrap_or(GMP_PORT_ID).to_string(),
                 dest_port: overrides.dest_port.unwrap_or(GMP_PORT_ID).to_string(),
                 version: overrides.version.unwrap_or(ICS27_VERSION).to_string(),
-                encoding: overrides.encoding.unwrap_or(ICS27_ENCODING).to_string(),
+                encoding: overrides
+                    .encoding
+                    .unwrap_or(ICS27_ENCODING_PROTOBUF)
+                    .to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
         };
 
-        let instruction = create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // Push remaining accounts so the program reaches payload/encoding validation
+        instruction
+            .accounts
+            .push(AccountMeta::new(gmp_account_pda, false));
+        instruction.accounts.push(AccountMeta::new_readonly(
+            crate::test_utils::DUMMY_TARGET_PROGRAM,
+            false,
+        ));
 
         let accounts = vec![
             create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
@@ -745,8 +758,677 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
+    // ── Signer exploit test helpers ──────────────────────────────────
+
+    fn check_unexpected_signer() -> Check<'static> {
+        Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::UnexpectedSigner as u32,
+        ))
+    }
+
+    fn assert_passes_signer_validation(result: &mollusk_svm::result::InstructionResult) {
+        let unauthorized_signer =
+            ProgramError::Custom(ANCHOR_ERROR_OFFSET + GMPError::UnexpectedSigner as u32);
+        let insufficient_permissions = ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + GMPError::InsufficientAccountPermissions as u32,
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(unauthorized_signer),
+            "Should pass signer validation"
+        );
+        assert_ne!(
+            result.program_result,
+            mollusk_svm::result::ProgramResult::Failure(insufficient_permissions),
+            "Should pass permission validation"
+        );
+    }
+
+    /// Appends the standard remaining accounts to an `on_recv_packet` instruction:
+    /// GMP PDA, target program, then the per-payload execution accounts.
+    fn append_remaining_accounts(
+        instruction: &mut Instruction,
+        gmp_account_pda: Pubkey,
+        target_program: Pubkey,
+        execution_metas: Vec<AccountMeta>,
+    ) {
+        instruction
+            .accounts
+            .push(AccountMeta::new(gmp_account_pda, false));
+        instruction
+            .accounts
+            .push(AccountMeta::new_readonly(target_program, false));
+        instruction.accounts.extend(execution_metas);
+    }
+
+    /// Creates the Mollusk account list: base Anchor accounts, GMP PDA,
+    /// target program account, then per-payload execution accounts.
+    fn create_recv_mollusk_accounts(
+        ctx: &GmpTestContext,
+        gmp_account_pda: Pubkey,
+        target_program_account: (Pubkey, Account),
+        execution_accounts: Vec<(Pubkey, Account)>,
+    ) -> Vec<(Pubkey, Account)> {
+        let mut accounts = vec![
+            create_gmp_app_state_account(ctx.app_state_pda, ctx.app_state_bump, false),
+            create_instructions_sysvar_account_with_caller(ctx.router_program),
+            create_authority_account(ctx.payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(gmp_account_pda),
+            target_program_account,
+        ];
+        accounts.extend(execution_accounts);
+        accounts
+    }
+
+    /// Converts `RawSolanaAccountMeta` (payload) to `AccountMeta` (outer tx).
+    /// Preserves writable flag but sets `is_signer=false` — on the outer
+    /// transaction these accounts are not signers; the exploit relies on
+    /// Solana's runtime account merging to propagate signer status.
+    fn payload_to_execution_metas(payload_accounts: &[RawSolanaAccountMeta]) -> Vec<AccountMeta> {
+        payload_accounts
+            .iter()
+            .map(|meta| {
+                let pk = Pubkey::try_from(meta.pubkey.as_slice()).unwrap();
+                if meta.is_writable {
+                    AccountMeta::new(pk, false)
+                } else {
+                    AccountMeta::new_readonly(pk, false)
+                }
+            })
+            .collect()
+    }
+
+    /// Creates Mollusk `Account` entries for each payload account.
+    /// Maps well-known pubkeys to appropriate account types:
+    /// system program → executable, GMP PDA → uninitialized PDA,
+    /// payer → funded authority, other → uninitialized PDA.
+    fn payload_to_mollusk_accounts(
+        payload_accounts: &[RawSolanaAccountMeta],
+        gmp_account_pda: Pubkey,
+        payer: Pubkey,
+    ) -> Vec<(Pubkey, Account)> {
+        payload_accounts
+            .iter()
+            .map(|meta| {
+                let pk = Pubkey::try_from(meta.pubkey.as_slice()).unwrap();
+                if pk == system_program::ID {
+                    create_system_program_account()
+                } else if pk == gmp_account_pda {
+                    create_uninitialized_account_for_pda(gmp_account_pda)
+                } else if pk == payer {
+                    create_authority_account(payer)
+                } else {
+                    create_uninitialized_account_for_pda(pk)
+                }
+            })
+            .collect()
+    }
+
+    fn create_counter_cpi_mollusk() -> Mollusk {
+        let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+        mollusk.add_program(
+            &COUNTER_APP_ID,
+            "../../target/deploy/test_gmp_app",
+            &bpf_loader_upgradeable::ID,
+        );
+        mollusk
+    }
+
+    fn serialize_counter_app_state(authority: Pubkey, bump: u8) -> Vec<u8> {
+        let state = test_gmp_app::state::CounterAppState {
+            authority,
+            total_counters: 0,
+            total_gmp_calls: 0,
+            bump,
+        };
+        let mut data = Vec::new();
+        data.extend_from_slice(test_gmp_app::state::CounterAppState::DISCRIMINATOR);
+        state.serialize(&mut data).unwrap();
+        data
+    }
+
+    fn create_counter_program_account() -> (Pubkey, Account) {
+        (
+            COUNTER_APP_ID,
+            Account {
+                lamports: 1_000_000,
+                data: vec![],
+                owner: bpf_loader_upgradeable::ID,
+                executable: true,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    fn create_counter_state_account(pda: Pubkey, authority: Pubkey, bump: u8) -> (Pubkey, Account) {
+        (
+            pda,
+            Account {
+                lamports: 1_000_000,
+                data: serialize_counter_app_state(authority, bump),
+                owner: COUNTER_APP_ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    // ── Signer exploit tests ───────────────────────────────────────────
+    //
+    // A malicious source-chain packet could include the relayer's pubkey
+    // with `is_signer=true` in the GMP Solana payload. Because the
+    // relayer signed the outer transaction, Solana's account-merging
+    // would propagate that signer status into the target CPI, letting an
+    // attacker-controlled program act with the relayer's authority.
+    //
+    // The fix: only the GMP PDA is allowed as a signer in the target CPI.
+
+    /// Scenario: attacker crafts an IBC packet that calls the counter app's
+    /// `increment` instruction, but substitutes the relayer's pubkey in place
+    /// of the GMP PDA for both `user_authority` and `payer` (both marked
+    /// `is_signer: true`). The `user_counter` PDA is also derived from the
+    /// relayer's key instead of the GMP PDA.
+    ///
+    /// Without the fix, Solana's account merging would propagate the relayer's
+    /// outer-transaction signer status into the CPI, so the counter app would
+    /// see the relayer as an authorized signer. The relayer would unknowingly
+    /// pay rent for a new `UserCounter` account it never requested.
+    ///
+    /// The fix rejects any account in the payload that claims `is_signer: true`
+    /// unless its pubkey matches the GMP PDA. Expects `UnexpectedSigner`.
     #[test]
-    fn test_on_recv_packet_success_with_cpi() {
+    fn test_signer_exploit_relayer_as_counter_payer_rejected() {
+        let mollusk = create_counter_cpi_mollusk();
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique(); // the relayer
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+
+        let authority = Pubkey::new_unique();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        let (counter_app_state_pda, counter_app_state_bump) = Pubkey::find_program_address(
+            &[test_gmp_app::state::CounterAppState::SEED],
+            &COUNTER_APP_ID,
+        );
+
+        // Derive user_counter from the RELAYER's key (not GMP PDA) —
+        // this is the attacker's goal: create a counter under the
+        // relayer's authority so the payer (relayer) funds rent.
+        let (user_counter_pda, _) = Pubkey::find_program_address(
+            &[test_gmp_app::state::UserCounter::SEED, payer.as_ref()],
+            &COUNTER_APP_ID,
+        );
+
+        let counter_ix_data =
+            InstructionData::data(&test_gmp_app::instruction::Increment { amount: 1 });
+
+        // EXPLOIT: payload specifies RELAYER as user_authority AND payer
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![
+                RawSolanaAccountMeta {
+                    pubkey: counter_app_state_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: user_counter_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                // user_authority = RELAYER (exploit!)
+                RawSolanaAccountMeta {
+                    pubkey: payer.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: false,
+                },
+                // payer = RELAYER (exploit!)
+                RawSolanaAccountMeta {
+                    pubkey: payer.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: system_program::ID.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+            ],
+            data: counter_ix_data,
+            prefund_lamports: 0,
+        };
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &COUNTER_APP_ID.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+
+        let instruction_data = crate::instruction::OnRecvPacket { msg: recv_msg };
+        let instruction = SolanaInstructionSDK {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                // remaining_accounts
+                AccountMeta::new(gmp_account_pda, false), // [0] GMP PDA
+                AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target
+                AccountMeta::new(counter_app_state_pda, false), // [2] counter state
+                AccountMeta::new(user_counter_pda, false), // [3] user counter
+                AccountMeta::new(payer, true),            // [4] user_authority
+                AccountMeta::new(payer, true),            // [5] payer
+                AccountMeta::new_readonly(system_program::ID, false), // [6] system
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_instructions_sysvar_account_with_caller(router_program),
+            create_counter_program_account(),
+            create_authority_account(payer),
+            create_system_program_account(),
+            (
+                gmp_account_pda,
+                Account {
+                    lamports: 10_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            create_counter_state_account(counter_app_state_pda, authority, counter_app_state_bump),
+            create_uninitialized_account_for_pda(user_counter_pda),
+            create_system_program_account(),
+        ];
+
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unexpected_signer()],
+        );
+    }
+
+    // ── Parametrized unexpected signer edge cases ──────────────────
+    //
+    // The `!account_info.is_signer` check catches accounts whose signer
+    // status was propagated from the outer transaction (i.e. the relayer).
+    // Arbitrary pubkeys that aren't outer-tx signers pass this check but
+    // are caught later by Solana's CPI runtime (`PrivilegeEscalation`).
+
+    #[derive(Clone)]
+    enum UnexpectedSignerCase {
+        /// Relayer with `is_signer: true, is_writable: true`.
+        /// The most direct exploit vector.
+        RelayerWritable,
+        /// Relayer with `is_signer: true, is_writable: false`.
+        /// Proves the writable flag doesn't influence signer rejection.
+        RelayerReadonly,
+    }
+
+    fn run_unexpected_signer_test(case: UnexpectedSignerCase) {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
+            UnexpectedSignerCase::RelayerWritable => vec![RawSolanaAccountMeta {
+                pubkey: ctx.payer.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: true,
+            }],
+            UnexpectedSignerCase::RelayerReadonly => vec![RawSolanaAccountMeta {
+                pubkey: ctx.payer.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: false,
+            }],
+        };
+
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: payload_accounts.clone(),
+            data: vec![0u8],
+            prefund_lamports: 0,
+        };
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        let execution_metas = payload_to_execution_metas(&payload_accounts);
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            DUMMY_TARGET_PROGRAM,
+            execution_metas,
+        );
+
+        let execution_accounts =
+            payload_to_mollusk_accounts(&payload_accounts, gmp_account_pda, ctx.payer);
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_dummy_target_program_account(),
+            execution_accounts,
+        );
+
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unexpected_signer()],
+        );
+    }
+
+    #[rstest]
+    #[case::relayer_writable(UnexpectedSignerCase::RelayerWritable)]
+    #[case::relayer_readonly(UnexpectedSignerCase::RelayerReadonly)]
+    fn test_on_recv_packet_unexpected_signer_variants(#[case] case: UnexpectedSignerCase) {
+        run_unexpected_signer_test(case);
+    }
+
+    /// Scenario: same as the basic signer exploit (GMP PDA + relayer both
+    /// marked `is_signer: true`) but the outer `GmpPacketData` is ABI-encoded
+    /// instead of protobuf. The signer validation happens after decoding, so
+    /// this proves the fix works regardless of the wire encoding path.
+    /// Expects `UnexpectedSigner`.
+    #[test]
+    fn test_signer_exploit_with_abi_encoding() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+
+        // EXPLOIT: same signer attack as protobuf tests, but ABI-encoded
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: ctx.payer.to_bytes().to_vec(),
+                    is_signer: true, // relayer as unauthorized signer
+                    is_writable: true,
+                },
+            ],
+            data: vec![0u8],
+            prefund_lamports: 0,
+        };
+
+        let raw_packet = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+        // ABI-encode the outer packet (signer check must work for both encodings)
+        let packet_data_bytes = encode_test_packet(raw_packet, ICS27_ENCODING_ABI);
+
+        let recv_msg = solana_ibc_types::OnRecvPacketMsg {
+            source_client: "cosmos-1".to_string(),
+            dest_client: client_id.to_string(),
+            sequence: 1,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: ICS27_ENCODING_ABI.to_string(),
+                value: packet_data_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // EXPLOIT accounts: GMP PDA + relayer, both claiming signer
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            DUMMY_TARGET_PROGRAM,
+            vec![
+                AccountMeta::new(gmp_account_pda, false),
+                AccountMeta::new(ctx.payer, true),
+            ],
+        );
+
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_dummy_target_program_account(),
+            vec![
+                create_uninitialized_account_for_pda(gmp_account_pda),
+                create_authority_account(ctx.payer),
+            ],
+        );
+
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unexpected_signer()],
+        );
+    }
+
+    /// Scenario: the most dangerous exploit variant — direct SOL theft.
+    /// The attacker crafts a payload that targets the System Program's
+    /// `Transfer` instruction, moving 1 SOL from the relayer to an
+    /// attacker-controlled wallet. The relayer's pubkey is marked
+    /// `is_signer: true` as the transfer source.
+    ///
+    /// Without the fix, Solana's account merging would propagate the
+    /// relayer's outer-transaction signer status into the CPI. The System
+    /// Program would see the relayer as an authorized signer and execute
+    /// the transfer. With the fix, validation rejects before any CPI.
+    /// Expects `UnexpectedSigner`.
+    #[test]
+    fn test_signer_exploit_sol_transfer_via_system_program() {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+        let attacker = Pubkey::new_unique();
+
+        // Build a real System Program Transfer instruction (relayer → attacker).
+        // The GMP payload embeds this as the CPI the target program will execute.
+        let stolen_lamports: u64 = 1_000_000_000; // 1 SOL
+        let transfer_ix =
+            solana_sdk::system_instruction::transfer(&ctx.payer, &attacker, stolen_lamports);
+
+        // The malicious payload: relayer is marked `is_signer: true`.
+        // Because the relayer signs the outer transaction, Solana's account
+        // merging would propagate signer status into the CPI — letting the
+        // System Program's Transfer succeed with the relayer as source.
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: vec![
+                RawSolanaAccountMeta {
+                    pubkey: ctx.payer.to_bytes().to_vec(),
+                    is_signer: true, // EXPLOIT: relayer as transfer source
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: attacker.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+            ],
+            data: transfer_ix.data,
+            prefund_lamports: 0,
+        };
+
+        // Receiver = System Program: the GMP program will CPI into it
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &system_program::ID.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        // EXPLOIT accounts: relayer as transfer source (signer), attacker as destination
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            system_program::ID,
+            vec![
+                AccountMeta::new(ctx.payer, true), // relayer (exploit: signer)
+                AccountMeta::new(attacker, false), // attacker wallet
+            ],
+        );
+
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_system_program_account(), // target = System Program
+            vec![
+                create_authority_account(ctx.payer), // relayer with lamports
+                create_uninitialized_account_for_pda(attacker), // attacker (empty)
+            ],
+        );
+
+        ctx.mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[check_unexpected_signer()],
+        );
+    }
+
+    // ── Positive regression tests ───────────────────────────────────
+    //
+    // Each variant sends a legitimate payload (no unauthorized signers)
+    // and asserts that signer validation passes. These tests ensure the
+    // fix does not over-restrict by rejecting valid payloads.
+
+    #[derive(Clone)]
+    enum ValidSignerCase {
+        /// Single arbitrary account (non-signer, readonly).
+        /// No account claims signer — trivially passes.
+        NoSigners,
+        /// GMP PDA (signer, writable) + system program (non-signer, readonly).
+        /// Standard legitimate case — GMP PDA signs the CPI via `invoke_signed`.
+        GmpPdaSignerWritable,
+        /// GMP PDA (signer, readonly).
+        /// Valid: GMP PDA signs the CPI but target only reads from it.
+        GmpPdaSignerReadonly,
+        /// GMP PDA (non-signer, writable) + system program (non-signer, readonly).
+        /// `is_signer=false` short-circuits the check.
+        GmpPdaNonSignerWritable,
+        /// GMP PDA (non-signer, readonly).
+        /// Both checks trivially pass — neither signer nor writable requested.
+        GmpPdaNonSignerReadonly,
+    }
+
+    fn run_valid_signer_test(case: ValidSignerCase) {
+        let ctx = create_gmp_test_context();
+        let (client_id, sender, salt, gmp_account_pda) = create_test_account_data();
+        let arbitrary = Pubkey::new_unique();
+
+        let payload_accounts: Vec<RawSolanaAccountMeta> = match case {
+            ValidSignerCase::NoSigners => vec![RawSolanaAccountMeta {
+                pubkey: arbitrary.to_bytes().to_vec(),
+                is_signer: false,
+                is_writable: false,
+            }],
+            ValidSignerCase::GmpPdaSignerWritable => vec![
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: true,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: system_program::ID.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+            ],
+            ValidSignerCase::GmpPdaSignerReadonly => vec![RawSolanaAccountMeta {
+                pubkey: gmp_account_pda.to_bytes().to_vec(),
+                is_signer: true,
+                is_writable: false,
+            }],
+            ValidSignerCase::GmpPdaNonSignerWritable => vec![
+                RawSolanaAccountMeta {
+                    pubkey: gmp_account_pda.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: true,
+                },
+                RawSolanaAccountMeta {
+                    pubkey: system_program::ID.to_bytes().to_vec(),
+                    is_signer: false,
+                    is_writable: false,
+                },
+            ],
+            ValidSignerCase::GmpPdaNonSignerReadonly => vec![RawSolanaAccountMeta {
+                pubkey: gmp_account_pda.to_bytes().to_vec(),
+                is_signer: false,
+                is_writable: false,
+            }],
+        };
+
+        let solana_payload = RawGmpSolanaPayload {
+            accounts: payload_accounts.clone(),
+            data: vec![0u8],
+            prefund_lamports: 0,
+        };
+
+        let packet_data = create_gmp_packet_data(
+            sender,
+            &DUMMY_TARGET_PROGRAM.to_string(),
+            salt,
+            solana_payload.encode_to_vec(),
+        );
+
+        let recv_msg = create_recv_packet_msg(client_id, packet_data.encode_to_vec(), 1);
+        let mut instruction =
+            create_recv_packet_instruction(ctx.app_state_pda, ctx.payer, recv_msg);
+
+        let execution_metas = payload_to_execution_metas(&payload_accounts);
+        append_remaining_accounts(
+            &mut instruction,
+            gmp_account_pda,
+            DUMMY_TARGET_PROGRAM,
+            execution_metas,
+        );
+
+        let execution_accounts =
+            payload_to_mollusk_accounts(&payload_accounts, gmp_account_pda, ctx.payer);
+        let accounts = create_recv_mollusk_accounts(
+            &ctx,
+            gmp_account_pda,
+            create_dummy_target_program_account(),
+            execution_accounts,
+        );
+
+        let result = ctx.mollusk.process_instruction(&instruction, &accounts);
+        assert_passes_signer_validation(&result);
+    }
+
+    #[rstest]
+    #[case::no_signers(ValidSignerCase::NoSigners)]
+    #[case::gmp_pda_signer_writable(ValidSignerCase::GmpPdaSignerWritable)]
+    #[case::gmp_pda_signer_readonly(ValidSignerCase::GmpPdaSignerReadonly)]
+    #[case::gmp_pda_non_signer_writable(ValidSignerCase::GmpPdaNonSignerWritable)]
+    #[case::gmp_pda_non_signer_readonly(ValidSignerCase::GmpPdaNonSignerReadonly)]
+    fn test_on_recv_packet_valid_signer_variants(#[case] case: ValidSignerCase) {
+        run_valid_signer_test(case);
+    }
+
+    fn encode_test_packet(raw: RawGmpPacketData, encoding: &str) -> Vec<u8> {
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
+    }
+
+    fn run_recv_success_test(encoding: &str) {
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
@@ -827,8 +1509,7 @@ mod tests {
 
         let solana_payload_bytes = solana_payload.encode_to_vec();
 
-        // Create GMPPacketData with the counter instruction as payload using protobuf
-        let proto_packet_data = RawGmpPacketData {
+        let raw_packet = RawGmpPacketData {
             sender: sender.to_string(),
             receiver: COUNTER_APP_ID.to_string(),
             salt,
@@ -836,7 +1517,8 @@ mod tests {
             memo: String::new(),
         };
 
-        let packet_data_bytes = proto_packet_data.encode_to_vec();
+        // Encode GMPPacketData using the test's encoding (protobuf or ABI)
+        let packet_data_bytes = encode_test_packet(raw_packet, encoding);
 
         let recv_msg = solana_ibc_types::OnRecvPacketMsg {
             source_client: "cosmos-1".to_string(),
@@ -846,7 +1528,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: encoding.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -866,8 +1548,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
-                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new(gmp_account_pda, false), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, false), // [5] payer (gmp_pda, pre-funded)
                 AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
@@ -934,12 +1616,9 @@ mod tests {
 
         let result = mollusk.process_instruction(&instruction, &accounts);
 
-        // OnRecvPacket should succeed even if CPI fails (returns error ack instead)
-        // This is the correct behavior - OnRecvPacket never fails the transaction,
-        // it returns success/error acks
         assert!(
             !result.program_result.is_err(),
-            "OnRecvPacket instruction should succeed (returns ack even on CPI failure): {:?}",
+            "OnRecvPacket should succeed with {encoding} encoding: {:?}",
             result.program_result
         );
 
@@ -949,18 +1628,15 @@ mod tests {
             "Should return acknowledgement"
         );
 
-        // Parse the acknowledgement and verify CPI succeeded
-        // The ack is protobuf-encoded
-        // The return data in Mollusk is just the raw bytes, but OnRecvPacket uses
-        // anchor's return mechanism which prefixes with length
-        // Skip the first 4 bytes (u32 length prefix) that Anchor adds
+        // Parse the acknowledgement and verify CPI succeeded.
+        // Skip the 4-byte u32 length prefix that Anchor adds.
         let ack_bytes = if result.return_data.len() > 4 {
             &result.return_data[4..]
         } else {
             &result.return_data[..]
         };
 
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, encoding).unwrap();
 
         // Following ibc-go convention: non-empty result = success
         assert!(
@@ -968,7 +1644,6 @@ mod tests {
             "CPI execution should succeed (non-empty result)"
         );
 
-        // Verify the acknowledgement contains the correct counter value
         // Counter app returns u64 in little-endian (8 bytes)
         assert_eq!(
             ack.result.len(),
@@ -982,8 +1657,15 @@ mod tests {
             "Acknowledgement should contain counter value 5, got {returned_counter}"
         );
 
-        // With stateless approach, no account state is created
-        // The GMP account PDA is used as a signer without storing state
+        // With stateless approach, no account state is created.
+        // The GMP account PDA is used as a signer without storing state.
+    }
+
+    #[rstest]
+    #[case::protobuf(ICS27_ENCODING_PROTOBUF)]
+    #[case::abi(ICS27_ENCODING_ABI)]
+    fn test_on_recv_packet_success_with_cpi(#[case] encoding: &str) {
+        run_recv_success_test(encoding);
     }
 
     /// Proves GMP PDAs are immune to the pre-funding DoS attack that affects
@@ -1091,7 +1773,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: proto_packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -1109,8 +1791,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false),
                 AccountMeta::new(counter_app_state_pda, false),
                 AccountMeta::new(user_counter_pda, false),
-                AccountMeta::new(gmp_account_pda, true),
-                AccountMeta::new(gmp_account_pda, true),
+                AccountMeta::new(gmp_account_pda, false),
+                AccountMeta::new(gmp_account_pda, false),
                 AccountMeta::new_readonly(system_program::ID, false),
             ],
             data: instruction_data.data(),
@@ -1194,7 +1876,7 @@ mod tests {
         } else {
             &result.return_data[..]
         };
-        let ack = solana_ibc_proto::GmpAcknowledgement::decode_vec(ack_bytes).unwrap();
+        let ack = crate::encoding::decode_gmp_ack(ack_bytes, ICS27_ENCODING_PROTOBUF).unwrap();
 
         assert!(
             !ack.result.is_empty(),
@@ -1307,7 +1989,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -1327,8 +2009,8 @@ mod tests {
                 AccountMeta::new_readonly(COUNTER_APP_ID, false), // [1] target_program
                 AccountMeta::new(counter_app_state_pda, false), // [2] counter app state
                 AccountMeta::new(user_counter_pda, false), // [3] user counter
-                AccountMeta::new(gmp_account_pda, true), // [4] user_authority (gmp_pda signs via invoke_signed)
-                AccountMeta::new(gmp_account_pda, true), // [5] payer (gmp_pda, pre-funded)
+                AccountMeta::new(gmp_account_pda, false), // [4] user_authority (gmp_pda signs via invoke_signed)
+                AccountMeta::new(gmp_account_pda, false), // [5] payer (gmp_pda, pre-funded)
                 AccountMeta::new_readonly(system_program::ID, false), // [6] system program
             ],
             data: instruction_data.data(),
@@ -1453,10 +2135,6 @@ mod tests {
             .process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    // NOTE: integration_tests module below covers the same CPI validation
-    // scenarios using a real BPF runtime (ProgramTest) where `get_stack_height()`
-    // works correctly. The Mollusk tests above use fake sysvar data instead.
-
     #[test]
     fn test_invalid_solana_payload_returns_error() {
         let ctx = create_gmp_test_context();
@@ -1545,7 +2223,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![0],
             },
             relayer: Pubkey::new_unique(),

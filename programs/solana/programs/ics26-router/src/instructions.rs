@@ -1,3 +1,4 @@
+pub mod access_manager_transfer;
 pub mod ack_packet;
 pub mod add_ibc_app;
 pub mod cleanup_chunks;
@@ -6,12 +7,12 @@ pub mod initialize;
 pub mod pause;
 pub mod recv_packet;
 pub mod send_packet;
-pub mod set_access_manager;
 pub mod timeout_packet;
 pub mod unpause;
 pub mod upload_payload_chunk;
 pub mod upload_proof_chunk;
 
+pub use access_manager_transfer::*;
 pub use ack_packet::*;
 pub use add_ibc_app::*;
 pub use cleanup_chunks::*;
@@ -20,7 +21,6 @@ pub use initialize::*;
 pub use pause::*;
 pub use recv_packet::*;
 pub use send_packet::*;
-pub use set_access_manager::*;
 pub use timeout_packet::*;
 pub use unpause::*;
 pub use upload_payload_chunk::*;

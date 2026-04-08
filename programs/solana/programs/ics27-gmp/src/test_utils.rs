@@ -1,8 +1,9 @@
-use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
+use crate::constants::ICS27_ENCODING_PROTOBUF;
+use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
-use access_manager::RoleData;
-use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+use access_manager::{AccessManagerState, RoleData};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, InstructionData, Space};
 use mollusk_svm::Mollusk;
 use solana_ibc_types::roles;
 use solana_sdk::{
@@ -31,13 +32,12 @@ pub fn create_gmp_app_state_account(
         version: AccountVersion::V1,
         paused,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
 
-    let mut data = Vec::new();
-    data.extend_from_slice(GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     (
         pubkey,
@@ -74,6 +74,7 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
     let access_manager = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
@@ -365,7 +366,7 @@ pub fn create_recv_packet_msg(
             source_port: GMP_PORT_ID.to_string(),
             dest_port: GMP_PORT_ID.to_string(),
             version: ICS27_VERSION.to_string(),
-            encoding: ICS27_ENCODING.to_string(),
+            encoding: ICS27_ENCODING_PROTOBUF.to_string(),
             value: packet_data_bytes,
         },
         relayer: Pubkey::new_unique(),
@@ -557,7 +558,7 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
         Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
@@ -691,12 +692,11 @@ pub fn setup_program_test_with_access_manager(
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -719,6 +719,7 @@ pub fn setup_program_test_with_access_manager(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
@@ -849,12 +850,11 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,

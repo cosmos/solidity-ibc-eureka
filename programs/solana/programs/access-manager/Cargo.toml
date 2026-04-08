@@ -19,6 +19,7 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+test-utils = []
 idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
