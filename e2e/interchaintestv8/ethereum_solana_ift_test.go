@@ -1606,7 +1606,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: uint64(solanaClockTime) + 45,
+			TimeoutTimestamp: uint64(solanaClockTime) + 90,
 			Sequence:         timeoutSequence,
 		}
 
@@ -1646,8 +1646,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 60 seconds for timeout...")
-		time.Sleep(60 * time.Second)
+		s.T().Log("Waiting 90 seconds for timeout...")
+		time.Sleep(90 * time.Second)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
