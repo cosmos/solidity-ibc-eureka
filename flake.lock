@@ -11,11 +11,11 @@
         "systems": "systems"
       },
       "locked": {
-        "lastModified": 1775579084,
-        "narHash": "sha256-r+6PEjsHQSl3Zt2sIipN1veuK9TmYlFrGXs9LXc7VgE=",
+        "lastModified": 1775597823,
+        "narHash": "sha256-U/46EJgy9vQDIfCpS2+PTrKQOCwbESM1hD2+qS68ssw=",
         "owner": "vaporif",
         "repo": "anchor-overlay",
-        "rev": "f6ff7765f47a201ac230bf1c029ae23950030eef",
+        "rev": "4fcb198f87a3e01615cfd540ffcedd38ef3c7162",
         "type": "github"
       },
       "original": {

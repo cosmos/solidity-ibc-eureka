@@ -42,7 +42,11 @@
         common = import ./nix/common.nix {inherit pkgs;};
         solidity = import ./nix/solidity.nix {inherit pkgs inputs system;};
         node-modules = import ./nix/node-modules.nix {inherit pkgs;};
-        anchor-pkgs = pkgs.anchor."0.32.1".withPlatformTools."v1.48";
+        anchor-pkgs =
+          (pkgs.anchor."0.32.1".withAgave {
+            agaveVersion = "2.3.13";
+            sbfSdkHash = "sha256-zdGtFHxj/I4ID3RN3BNx27LakxzhwOuvSZpVb3M93YM=";
+          }).withPlatformTools."v1.48";
         solana-agave = pkgs.callPackage ./nix/agave.nix {};
         anchor-go = pkgs.callPackage ./nix/anchor-go.nix {};
       in {
