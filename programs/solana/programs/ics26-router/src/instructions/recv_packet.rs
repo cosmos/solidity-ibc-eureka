@@ -14,6 +14,12 @@ use solana_ibc_types::ics24;
 ///
 /// Remaining accounts carry payload chunks, proof chunks and any extra
 /// accounts forwarded to the IBC app.
+///
+/// # CPI failure = entire tx reverts
+///
+/// Solana has no try/catch for CPI. If the app reverts, the whole transaction
+/// rolls back and the packet stays unacknowledged (timeout is the only recovery).
+/// See `docs/adr/solana-ift-architecture.md` limitations section.
 #[derive(Accounts)]
 #[instruction(msg: MsgRecvPacket)]
 pub struct RecvPacket<'info> {
@@ -30,7 +36,7 @@ pub struct RecvPacket<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = router_state.access_manager,
+        seeds::program = router_state.am_state.access_manager,
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -630,12 +636,17 @@ mod tests {
             .expect("packet receipt account not found");
         assert_eq!(receipt_data[..32], receipt_commitment);
 
-        // Check acknowledgement - mock app returns "packet received"
-        // Just verify that an acknowledgement was written (non-zero)
+        // Verify ack commitment matches the raw ack bytes (Borsh prefix stripped by router).
+        let raw_ack = b"packet received";
+        let expected_ack_commitment =
+            ics24::packet_acknowledgement_commitment_bytes32(&[raw_ack.to_vec()]).unwrap();
         let ack_data = get_account_data_from_mollusk(&result, &ctx.packet_ack_pubkey)
             .expect("packet ack account not found");
-        // Verify the acknowledgement commitment is not empty (all zeros)
-        assert_ne!(ack_data[..32], [0u8; 32], "acknowledgement should be set");
+        assert_eq!(
+            ack_data[..32],
+            expected_ack_commitment,
+            "ack commitment must match raw ack bytes (Borsh prefix must be stripped)"
+        );
     }
 
     #[test]

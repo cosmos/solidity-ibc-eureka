@@ -12,16 +12,17 @@ var (
 
 // Event discriminators
 var (
-	Event_AttestationEventsAccessManagerUpdated = [8]byte{115, 113, 220, 181, 221, 128, 58, 186}
 	Event_AttestationEventsMisbehaviourDetected = [8]byte{212, 208, 39, 191, 184, 6, 42, 147}
 )
 
 // Instruction discriminators
 var (
-	Instruction_Initialize          = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
-	Instruction_SetAccessManager    = [8]byte{95, 209, 134, 89, 195, 69, 35, 122}
-	Instruction_VerifyMembership    = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
-	Instruction_VerifyNonMembership = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
-	Instruction_UpdateClient        = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
-	Instruction_ClientStatus        = [8]byte{75, 93, 126, 21, 10, 112, 109, 139}
+	Instruction_Initialize                   = [8]byte{175, 175, 109, 31, 13, 152, 155, 237}
+	Instruction_ProposeAccessManagerTransfer = [8]byte{96, 76, 46, 161, 93, 100, 32, 145}
+	Instruction_AcceptAccessManagerTransfer  = [8]byte{61, 185, 143, 64, 16, 88, 106, 185}
+	Instruction_CancelAccessManagerTransfer  = [8]byte{181, 250, 216, 163, 132, 73, 23, 68}
+	Instruction_VerifyMembership             = [8]byte{101, 53, 78, 0, 103, 151, 236, 209}
+	Instruction_VerifyNonMembership          = [8]byte{231, 161, 86, 239, 111, 236, 14, 74}
+	Instruction_UpdateClient                 = [8]byte{184, 89, 17, 76, 97, 57, 165, 10}
+	Instruction_ClientStatus                 = [8]byte{75, 93, 126, 21, 10, 112, 109, 139}
 )

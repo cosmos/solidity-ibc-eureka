@@ -9,6 +9,7 @@ use crate::test_helpers::{
     PROGRAM_BINARY_PATH, TEST_COMPUTE_UNIT_LIMIT, TEST_HEAP_SIZE,
 };
 use crate::types::AppState;
+use access_manager::AccessManagerState;
 use anchor_lang::{AccountDeserialize, AccountSerialize, AnchorDeserialize, InstructionData};
 use mollusk_svm::{program::keyed_account_for_system_program, result::Check, Mollusk};
 use solana_sdk::account::Account;
@@ -117,7 +118,7 @@ fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Accou
     let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
 
     let app_state = AppState {
-        access_manager: access_manager_program_id,
+        am_state: AccessManagerState::new(access_manager_program_id),
         _reserved: [0; 256],
     };
 
