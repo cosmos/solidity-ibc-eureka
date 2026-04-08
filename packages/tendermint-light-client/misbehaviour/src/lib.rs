@@ -19,17 +19,6 @@ use tendermint_light_client_verifier::{
     options::Options, types::TrustThreshold as TmTrustThreshold,
 };
 
-const MINIMAL_CLOCK_MAX_DRIFT_SECONDS: u64 = 15;
-
-const fn clock_drift_duration_with_minimal(max_clock_drift_seconds: u64) -> Duration {
-    let secs = if max_clock_drift_seconds < MINIMAL_CLOCK_MAX_DRIFT_SECONDS {
-        MINIMAL_CLOCK_MAX_DRIFT_SECONDS
-    } else {
-        max_clock_drift_seconds
-    };
-    Duration::from_secs(secs)
-}
-
 #[cfg(not(feature = "solana"))]
 use tendermint_light_client_verifier::ProdVerifier;
 
@@ -189,7 +178,7 @@ where
     let options = Options {
         trust_threshold,
         trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
-        clock_drift: clock_drift_duration_with_minimal(client_state.max_clock_drift_seconds),
+        clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
     };
 
     // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states
@@ -223,44 +212,4 @@ where
         trusted_consensus_state_2,
         time,
     })
-}
-
-// NOTE: Ideally we'd test this through `check_for_misbehaviour` directly, but setting up
-// full Misbehaviour, ConsensusState, and ClientState fixtures isn't worth it here.
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn clock_drift_uses_minimal_when_below_threshold() {
-        let duration = clock_drift_duration_with_minimal(5);
-        assert_eq!(
-            duration,
-            Duration::from_secs(MINIMAL_CLOCK_MAX_DRIFT_SECONDS)
-        );
-    }
-
-    #[test]
-    fn clock_drift_uses_minimal_when_zero() {
-        let duration = clock_drift_duration_with_minimal(0);
-        assert_eq!(
-            duration,
-            Duration::from_secs(MINIMAL_CLOCK_MAX_DRIFT_SECONDS)
-        );
-    }
-
-    #[test]
-    fn clock_drift_uses_provided_when_above_threshold() {
-        let duration = clock_drift_duration_with_minimal(30);
-        assert_eq!(duration, Duration::from_secs(30));
-    }
-
-    #[test]
-    fn clock_drift_uses_minimal_when_equal_to_threshold() {
-        let duration = clock_drift_duration_with_minimal(MINIMAL_CLOCK_MAX_DRIFT_SECONDS);
-        assert_eq!(
-            duration,
-            Duration::from_secs(MINIMAL_CLOCK_MAX_DRIFT_SECONDS)
-        );
-    }
 }
