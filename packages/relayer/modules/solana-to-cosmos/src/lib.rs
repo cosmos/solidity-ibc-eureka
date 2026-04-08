@@ -169,39 +169,37 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // In attested mode, wait until the finalized slot's block time >= now().
-        // This guarantees every packet with timeoutTimestamp <= now() is provably
-        // timed out at the proof height.
-        let timeout_relay_height =
-            if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-                let start = std::time::Instant::now();
-                let deadline = std::time::Duration::from_secs(25 * 60);
-                let poll_interval = std::time::Duration::from_secs(1);
-                loop {
-                    let (slot, block_time) = self
-                        .src_listener
-                        .get_finalized_slot_with_time()
-                        .map_err(to_tonic_status)?;
-                    let now = std::time::SystemTime::now()
-                        .duration_since(std::time::UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs();
-                    if block_time >= now {
-                        break Some(slot);
-                    }
-                    if start.elapsed() >= deadline {
-                        return Err(tonic::Status::deadline_exceeded(
-                            "timed out waiting for finalized slot to reach current time",
-                        ));
-                    }
-                    tracing::debug!(
-                        "Finalized block time ({block_time}) < now ({now}), waiting for finalization"
-                    );
-                    tokio::time::sleep(poll_interval).await;
+        // Wait for Solana finalization to catch up before relaying timeouts.
+        // We pin the cutoff once so it doesn't drift while we poll.
+        let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
+            let cutoff = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            let start = std::time::Instant::now();
+            let deadline = std::time::Duration::from_secs(25 * 60);
+            let poll_interval = std::time::Duration::from_secs(1);
+            loop {
+                let (slot, block_time) = self
+                    .src_listener
+                    .get_finalized_slot_with_time()
+                    .map_err(to_tonic_status)?;
+                if block_time >= cutoff {
+                    break Some(slot);
                 }
-            } else {
-                None
-            };
+                if start.elapsed() >= deadline {
+                    return Err(tonic::Status::deadline_exceeded(
+                        "timed out waiting for finalized slot to reach current time",
+                    ));
+                }
+                tracing::debug!(
+                        "Finalized block time ({block_time}) < cutoff ({cutoff}), waiting for finalization"
+                    );
+                tokio::time::sleep(poll_interval).await;
+            }
+        } else {
+            None
+        };
 
         let tx = self
             .tx_builder
