@@ -3697,6 +3697,7 @@ dependencies = [
  "borsh 0.10.4",
  "ics26-router",
  "ics27-gmp",
+ "mock-ibc-app",
  "mock-light-client",
  "prost",
  "sha2 0.10.9",

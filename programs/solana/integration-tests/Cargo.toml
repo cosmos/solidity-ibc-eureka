@@ -22,6 +22,7 @@ ics27-gmp = { workspace = true, features = ["cpi"] }
 access-manager = { workspace = true, features = ["test-utils"] }
 test-ibc-app = { path = "../programs/test-ibc-app" }
 test-gmp-app = { path = "../programs/test-gmp-app" }
+mock-ibc-app = { path = "../programs/mock-ibc-app" }
 mock-light-client = { path = "../programs/mock-light-client" }
 solana-ibc-types = { workspace = true }
 solana-ibc-proto = { workspace = true }

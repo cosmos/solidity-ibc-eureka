@@ -1,15 +1,25 @@
-use crate::accounts::*;
+use crate::accounts::account_owned_by;
 use crate::relayer::Relayer;
 use crate::Actor;
+use anchor_lang::InstructionData;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
-    account::Account, hash::Hash, pubkey::Pubkey, signature::Keypair, system_program,
+    account::Account,
+    bpf_loader_upgradeable::{self, UpgradeableLoaderState},
+    hash::Hash,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
+    system_program,
     sysvar::Sysvar as _,
+    transaction::Transaction,
 };
 
 const DEPLOY_DIR: &str = "../target/deploy";
 pub const TEST_CLOCK_TIME: i64 = 1_700_000_000;
 const DEFAULT_PREFUND_LAMPORTS: u64 = 10_000_000_000;
+const MOCK_LC_LATEST_HEIGHT: u64 = 1;
 
 // ── Account metadata ────────────────────────────────────────────────────
 
@@ -22,12 +32,24 @@ pub struct ChainAccounts {
     pub counter_app_state_pda: Option<Pubkey>,
 }
 
+/// Which IBC application to register on the `"transfer"` port.
+#[derive(Clone, Copy)]
+pub enum IbcApp {
+    /// Stateful `test_ibc_app` that counts packets sent/received/acked/timed-out.
+    TestIbcApp,
+    /// Stateless `mock_ibc_app` with magic-string ack control
+    /// (`RETURN_ERROR_ACK` / `RETURN_EMPTY_ACK`).
+    MockIbcApp,
+    /// GMP stack: `ics27_gmp` on the GMP port + `test_gmp_app`.
+    Gmp,
+}
+
 pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
     pub relayer: &'a Relayer,
     pub clock_time: i64,
-    pub include_gmp: bool,
+    pub ibc_app: IbcApp,
 }
 
 // ── Chain (setup + runtime) ─────────────────────────────────────────────
@@ -37,6 +59,9 @@ pub struct Chain {
     client_id: String,
     counterparty_client_id: String,
     clock_time: i64,
+    ibc_app: IbcApp,
+    relayer_pubkey: Pubkey,
+    authority: Keypair,
     banks: Option<BanksClient>,
     payer: Option<Keypair>,
     blockhash: Hash,
@@ -45,12 +70,18 @@ pub struct Chain {
 
 impl Chain {
     pub fn new(config: ChainConfig<'_>) -> Self {
-        let (pt, accounts) = build_program_test(&config);
+        let authority = Keypair::new();
+        let accounts = derive_chain_accounts(config.client_id, config.ibc_app);
+        let pt = build_program_test(&config, &authority, &accounts);
+
         Self {
             pt: Some(pt),
             client_id: config.client_id.to_string(),
             counterparty_client_id: config.counterparty_client_id.to_string(),
             clock_time: config.clock_time,
+            ibc_app: config.ibc_app,
+            relayer_pubkey: config.relayer.pubkey(),
+            authority,
             banks: None,
             payer: None,
             blockhash: Hash::default(),
@@ -67,22 +98,33 @@ impl Chain {
 
     /// Pre-fund an account with a specific lamport amount.
     pub fn prefund_lamports(&mut self, pubkey: Pubkey, lamports: u64) {
-        self.pt().add_account(
-            pubkey,
-            Account {
-                lamports,
-                data: vec![],
-                owner: system_program::ID,
-                executable: false,
-                rent_epoch: 0,
-            },
-        );
+        self.pt().add_account(pubkey, system_account(lamports));
     }
 
-    /// Start the chain runtime.
+    /// Start the chain runtime, executing all initialization transactions.
     pub async fn start(&mut self) {
         let pt = self.pt.take().expect("chain already started");
-        let (banks, payer, blockhash) = pt.start().await;
+        let (banks, payer, mut blockhash) = pt.start().await;
+
+        let steps = build_init_steps(
+            payer.pubkey(),
+            &self.authority,
+            self.relayer_pubkey,
+            &self.client_id,
+            &self.counterparty_client_id,
+            self.ibc_app,
+        );
+
+        let authority_ref = &self.authority;
+        for (ixs, needs_authority) in &steps {
+            let extra: &[&Keypair] = if *needs_authority {
+                std::slice::from_ref(&authority_ref)
+            } else {
+                &[]
+            };
+            blockhash = send_init_tx(&banks, &payer, blockhash, ixs, extra).await;
+        }
+
         self.banks = Some(banks);
         self.payer = Some(payer);
         self.blockhash = blockhash;
@@ -113,7 +155,7 @@ impl Chain {
     /// Submit a transaction and auto-refresh the blockhash.
     pub async fn process_transaction(
         &mut self,
-        tx: solana_sdk::transaction::Transaction,
+        tx: Transaction,
     ) -> Result<(), BanksClientError> {
         let banks = self.banks.as_mut().expect("chain not started yet");
         banks.process_transaction(tx).await?;
@@ -138,6 +180,202 @@ impl Chain {
     }
 }
 
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+const fn system_account(lamports: u64) -> Account {
+    Account {
+        lamports,
+        data: vec![],
+        owner: system_program::ID,
+        executable: false,
+        rent_epoch: 0,
+    }
+}
+
+// ── PDA derivation ──────────────────────────────────────────────────────
+
+fn derive_access_manager_pda() -> Pubkey {
+    let (pda, _) = solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    pda
+}
+
+fn derive_router_state_pda() -> Pubkey {
+    let (pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::RouterState::SEED],
+        &ics26_router::ID,
+    );
+    pda
+}
+
+fn derive_chain_accounts(client_id: &str, ibc_app: IbcApp) -> ChainAccounts {
+    let (mock_client_state, _) = Pubkey::find_program_address(
+        &[b"client", client_id.as_bytes()],
+        &mock_light_client::ID,
+    );
+    let (mock_consensus_state, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            mock_client_state.as_ref(),
+            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
+        ],
+        &mock_light_client::ID,
+    );
+
+    let (app_state_pda, gmp_app_state_pda, counter_app_state_pda) = match ibc_app {
+        IbcApp::TestIbcApp => {
+            let (pda, _) = Pubkey::find_program_address(
+                &[solana_ibc_types::IBCAppState::SEED],
+                &test_ibc_app::ID,
+            );
+            (pda, None, None)
+        }
+        IbcApp::MockIbcApp => {
+            // mock_ibc_app has no initialize — use a unique address for the dummy account
+            (Pubkey::new_unique(), None, None)
+        }
+        IbcApp::Gmp => {
+            let (gmp_pda, _) = Pubkey::find_program_address(
+                &[ics27_gmp::state::GMPAppState::SEED],
+                &ics27_gmp::ID,
+            );
+            let (counter_pda, _) = Pubkey::find_program_address(
+                &[test_gmp_app::state::CounterAppState::SEED],
+                &test_gmp_app::ID,
+            );
+            (gmp_pda, Some(gmp_pda), Some(counter_pda))
+        }
+    };
+
+    ChainAccounts {
+        mock_client_state,
+        mock_consensus_state,
+        app_state_pda,
+        gmp_app_state_pda,
+        counter_app_state_pda,
+    }
+}
+
+// ── Transaction helper ──────────────────────────────────────────────────
+
+async fn send_init_tx(
+    banks: &BanksClient,
+    payer: &Keypair,
+    blockhash: Hash,
+    ixs: &[Instruction],
+    extra_signers: &[&Keypair],
+) -> Hash {
+    let mut signers: Vec<&Keypair> = vec![payer];
+    signers.extend(extra_signers);
+    let tx = Transaction::new_signed_with_payer(ixs, Some(&payer.pubkey()), &signers, blockhash);
+    banks
+        .process_transaction(tx)
+        .await
+        .expect("init tx failed");
+    banks.get_latest_blockhash().await.unwrap()
+}
+
+// ── Init step builder ────────────────────────────────────────────────────
+
+/// Build all initialization instructions grouped by transaction.
+///
+/// Returns `(instructions, needs_authority_signer)` tuples that must be
+/// executed sequentially.
+fn build_init_steps(
+    payer: Pubkey,
+    authority: &Keypair,
+    relayer_pubkey: Pubkey,
+    client_id: &str,
+    counterparty_client_id: &str,
+    ibc_app: IbcApp,
+) -> Vec<(Vec<Instruction>, bool)> {
+    let am_pda = derive_access_manager_pda();
+    let router_state_pda = derive_router_state_pda();
+
+    let (port_id, app_program_id) = match ibc_app {
+        IbcApp::TestIbcApp => (crate::router::PORT_ID, test_ibc_app::ID),
+        IbcApp::MockIbcApp => (crate::router::PORT_ID, mock_ibc_app::ID),
+        IbcApp::Gmp => (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
+    };
+
+    let mut steps = vec![
+        // TX1: access_manager::initialize
+        (vec![build_am_initialize_ix(payer, authority, am_pda)], true),
+        // TX2: grant RELAYER_ROLE and ID_CUSTOMIZER_ROLE
+        (
+            vec![
+                build_am_grant_role_ix(
+                    am_pda,
+                    authority.pubkey(),
+                    solana_ibc_types::roles::RELAYER_ROLE,
+                    relayer_pubkey,
+                ),
+                build_am_grant_role_ix(
+                    am_pda,
+                    authority.pubkey(),
+                    solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                    authority.pubkey(),
+                ),
+            ],
+            true,
+        ),
+        // TX3: ics26_router::initialize
+        (
+            vec![build_router_initialize_ix(
+                payer,
+                authority,
+                router_state_pda,
+                access_manager::ID,
+            )],
+            true,
+        ),
+        // TX4: mock_light_client::initialize
+        (vec![build_mock_lc_initialize_ix(payer, client_id)], false),
+        // TX5: add_client + add_ibc_app
+        (
+            vec![
+                build_add_client_ix(
+                    authority,
+                    router_state_pda,
+                    am_pda,
+                    client_id,
+                    counterparty_client_id,
+                ),
+                build_add_ibc_app_ix(
+                    payer,
+                    authority,
+                    router_state_pda,
+                    am_pda,
+                    port_id,
+                    app_program_id,
+                ),
+            ],
+            true,
+        ),
+    ];
+
+    // TX6: app-specific initialization
+    match ibc_app {
+        IbcApp::TestIbcApp => {
+            steps.push((
+                vec![build_test_ibc_app_initialize_ix(payer, authority.pubkey())],
+                false,
+            ));
+        }
+        IbcApp::MockIbcApp => {}
+        IbcApp::Gmp => {
+            steps.push((
+                vec![
+                    build_gmp_initialize_ix(payer, authority, access_manager::ID),
+                    build_test_gmp_app_initialize_ix(payer, authority.pubkey()),
+                ],
+                true,
+            ));
+        }
+    }
+
+    steps
+}
+
 // ── Internal ProgramTest builder ────────────────────────────────────────
 
 fn ensure_sbf_out_dir() {
@@ -146,56 +384,64 @@ fn ensure_sbf_out_dir() {
     }
 }
 
-fn build_program_test(config: &ChainConfig<'_>) -> (ProgramTest, ChainAccounts) {
+fn add_program_data(pt: &mut ProgramTest, program_id: Pubkey, authority_pubkey: Pubkey) {
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: Some(authority_pubkey),
+    };
+    pt.add_account(
+        program_data_pda,
+        Account {
+            lamports: 1_000_000,
+            data: bincode::serialize(&state).unwrap(),
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    );
+}
+
+fn build_program_test(
+    config: &ChainConfig<'_>,
+    authority: &Keypair,
+    accounts: &ChainAccounts,
+) -> ProgramTest {
     ensure_sbf_out_dir();
 
     let mut pt = ProgramTest::new("ics26_router", ics26_router::ID, None);
     pt.add_program("mock_light_client", mock_light_client::ID, None);
     pt.add_program("access_manager", access_manager::ID, None);
 
-    // RouterState
-    let (pda, data) = setup_router_state();
-    pt.add_account(pda, account_owned_by(data, ics26_router::ID));
+    // ProgramData accounts for programs that verify upgrade authority
+    add_program_data(&mut pt, access_manager::ID, authority.pubkey());
+    add_program_data(&mut pt, ics26_router::ID, authority.pubkey());
 
-    // AccessManager with RELAYER_ROLE
-    let (pda, data) = setup_access_manager_with_roles(&[(
-        solana_ibc_types::roles::RELAYER_ROLE,
-        &[config.relayer.pubkey()],
-    )]);
-    pt.add_account(pda, account_owned_by(data, access_manager::ID));
+    // App-specific programs
+    match config.ibc_app {
+        IbcApp::TestIbcApp => {
+            pt.add_program("test_ibc_app", test_ibc_app::ID, None);
+        }
+        IbcApp::MockIbcApp => {
+            pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
+            // mock_ibc_app has no initialize — pre-create a dummy account
+            pt.add_account(
+                accounts.app_state_pda,
+                account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
+            );
+        }
+        IbcApp::Gmp => {
+            pt.add_program("ics27_gmp", ics27_gmp::ID, None);
+            pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+            add_program_data(&mut pt, ics27_gmp::ID, authority.pubkey());
+        }
+    }
 
-    // Client
-    let (pda, data) = setup_client(
-        config.client_id,
-        mock_light_client::ID,
-        config.counterparty_client_id,
-        true,
-    );
-    pt.add_account(pda, account_owned_by(data, ics26_router::ID));
-
-    // Mock light client state
-    let mock_client_state = Pubkey::new_unique();
-    pt.add_account(
-        mock_client_state,
-        account_owned_by(vec![0u8; 64], mock_light_client::ID),
-    );
-    let mock_consensus_state = Pubkey::new_unique();
-    pt.add_account(
-        mock_consensus_state,
-        account_owned_by(vec![0u8; 64], mock_light_client::ID),
-    );
-
-    // Pre-fund relayer
-    pt.add_account(
-        config.relayer.pubkey(),
-        Account {
-            lamports: DEFAULT_PREFUND_LAMPORTS,
-            data: vec![],
-            owner: system_program::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    );
+    // Pre-fund relayer and authority
+    for pubkey in [config.relayer.pubkey(), authority.pubkey()] {
+        pt.add_account(pubkey, system_account(DEFAULT_PREFUND_LAMPORTS));
+    }
 
     // Deterministic clock
     let clock = solana_sdk::clock::Clock {
@@ -218,74 +464,230 @@ fn build_program_test(config: &ChainConfig<'_>) -> (ProgramTest, ChainAccounts) 
         },
     );
 
-    let (app_state_pda, gmp_app_state_pda, counter_app_state_pda) = if config.include_gmp {
-        setup_gmp_chain(&mut pt)
-    } else {
-        setup_router_only_chain(&mut pt)
-    };
-
-    (
-        pt,
-        ChainAccounts {
-            mock_client_state,
-            mock_consensus_state,
-            app_state_pda,
-            gmp_app_state_pda,
-            counter_app_state_pda,
-        },
-    )
+    pt
 }
 
-fn setup_router_only_chain(pt: &mut ProgramTest) -> (Pubkey, Option<Pubkey>, Option<Pubkey>) {
-    use crate::router::PORT_ID;
+// ── Instruction builders for initialization ─────────────────────────────
 
-    pt.add_program("test_ibc_app", test_ibc_app::ID, None);
+fn build_am_initialize_ix(payer: Pubkey, authority: &Keypair, am_pda: Pubkey) -> Instruction {
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[access_manager::ID.as_ref()], &bpf_loader_upgradeable::ID);
 
-    let (pda, data) = setup_ibc_app(PORT_ID, test_ibc_app::ID);
-    pt.add_account(pda, account_owned_by(data, ics26_router::ID));
+    Instruction {
+        program_id: access_manager::ID,
+        accounts: vec![
+            AccountMeta::new(am_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+        ],
+        data: access_manager::instruction::Initialize {
+            admin: authority.pubkey(),
+        }
+        .data(),
+    }
+}
 
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
-    let app_state = test_ibc_app::state::TestIbcAppState {
-        authority: Pubkey::new_unique(),
-        packets_received: 0,
-        packets_acknowledged: 0,
-        packets_timed_out: 0,
-        packets_sent: 0,
-    };
-    pt.add_account(
-        app_state_pda,
-        account_owned_by(create_account_data(&app_state), test_ibc_app::ID),
+fn build_am_grant_role_ix(
+    am_pda: Pubkey,
+    admin: Pubkey,
+    role_id: u64,
+    account: Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: access_manager::ID,
+        accounts: vec![
+            AccountMeta::new(am_pda, false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: access_manager::instruction::GrantRole { role_id, account }.data(),
+    }
+}
+
+fn build_router_initialize_ix(
+    payer: Pubkey,
+    authority: &Keypair,
+    router_state_pda: Pubkey,
+    access_manager_program: Pubkey,
+) -> Instruction {
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[ics26_router::ID.as_ref()], &bpf_loader_upgradeable::ID);
+
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new(router_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+        ],
+        data: ics26_router::instruction::Initialize {
+            access_manager: access_manager_program,
+        }
+        .data(),
+    }
+}
+
+fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Instruction {
+    let (client_state_pda, _) = Pubkey::find_program_address(
+        &[b"client", chain_id.as_bytes()],
+        &mock_light_client::ID,
+    );
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state_pda.as_ref(),
+            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
+        ],
+        &mock_light_client::ID,
     );
 
-    (app_state_pda, None, None)
+    Instruction {
+        program_id: mock_light_client::ID,
+        accounts: vec![
+            AccountMeta::new(client_state_pda, false),
+            AccountMeta::new(consensus_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: mock_light_client::instruction::Initialize {
+            _chain_id: chain_id.to_string(),
+            _latest_height: MOCK_LC_LATEST_HEIGHT,
+            _client_state: vec![],
+            _consensus_state: vec![],
+        }
+        .data(),
+    }
 }
 
-fn setup_gmp_chain(pt: &mut ProgramTest) -> (Pubkey, Option<Pubkey>, Option<Pubkey>) {
-    pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-    pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+fn build_add_client_ix(
+    authority: &Keypair,
+    router_state_pda: Pubkey,
+    am_pda: Pubkey,
+    client_id: &str,
+    counterparty_client_id: &str,
+) -> Instruction {
+    let (client_pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::Client::SEED, client_id.as_bytes()],
+        &ics26_router::ID,
+    );
 
-    let (pda, data) = setup_ibc_app(crate::gmp::GMP_PORT_ID, ics27_gmp::ID);
-    pt.add_account(pda, account_owned_by(data, ics26_router::ID));
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new(authority.pubkey(), true),
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(am_pda, false),
+            AccountMeta::new(client_pda, false),
+            AccountMeta::new_readonly(mock_light_client::ID, false),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics26_router::instruction::AddClient {
+            client_id: client_id.to_string(),
+            counterparty_info: ics26_router::state::CounterpartyInfo {
+                client_id: counterparty_client_id.to_string(),
+                merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
+            },
+        }
+        .data(),
+    }
+}
 
-    let (gmp_app_state_pda, gmp_bump) =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
-    let (_, gmp_data) = setup_gmp_app_state(gmp_bump, false);
-    pt.add_account(gmp_app_state_pda, account_owned_by(gmp_data, ics27_gmp::ID));
+fn build_add_ibc_app_ix(
+    payer: Pubkey,
+    authority: &Keypair,
+    router_state_pda: Pubkey,
+    am_pda: Pubkey,
+    port_id: &str,
+    app_program_id: Pubkey,
+) -> Instruction {
+    let (ibc_app_pda, _) = Pubkey::find_program_address(
+        &[ics26_router::state::IBCApp::SEED, port_id.as_bytes()],
+        &ics26_router::ID,
+    );
 
-    let (counter_pda, counter_bump) = Pubkey::find_program_address(
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(am_pda, false),
+            AccountMeta::new(ibc_app_pda, false),
+            AccountMeta::new_readonly(app_program_id, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics26_router::instruction::AddIbcApp {
+            port_id: port_id.to_string(),
+        }
+        .data(),
+    }
+}
+
+fn build_test_ibc_app_initialize_ix(payer: Pubkey, authority: Pubkey) -> Instruction {
+    let (app_state_pda, _) = Pubkey::find_program_address(
+        &[solana_ibc_types::IBCAppState::SEED],
+        &test_ibc_app::ID,
+    );
+
+    Instruction {
+        program_id: test_ibc_app::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: test_ibc_app::instruction::Initialize { authority }.data(),
+    }
+}
+
+fn build_gmp_initialize_ix(
+    payer: Pubkey,
+    authority: &Keypair,
+    access_manager_program: Pubkey,
+) -> Instruction {
+    let (app_state_pda, _) = Pubkey::find_program_address(
+        &[ics27_gmp::state::GMPAppState::SEED],
+        &ics27_gmp::ID,
+    );
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
+
+    Instruction {
+        program_id: ics27_gmp::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+        ],
+        data: ics27_gmp::instruction::Initialize {
+            access_manager: access_manager_program,
+        }
+        .data(),
+    }
+}
+
+fn build_test_gmp_app_initialize_ix(payer: Pubkey, authority: Pubkey) -> Instruction {
+    let (app_state_pda, _) = Pubkey::find_program_address(
         &[test_gmp_app::state::CounterAppState::SEED],
         &test_gmp_app::ID,
     );
-    let (_, counter_data) = setup_counter_app_state(counter_bump, Pubkey::new_unique());
-    pt.add_account(
-        counter_pda,
-        account_owned_by(counter_data, test_gmp_app::ID),
-    );
 
-    (
-        gmp_app_state_pda,
-        Some(gmp_app_state_pda),
-        Some(counter_pda),
-    )
+    Instruction {
+        program_id: test_gmp_app::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+        ],
+        data: test_gmp_app::instruction::Initialize { authority }.data(),
+    }
 }

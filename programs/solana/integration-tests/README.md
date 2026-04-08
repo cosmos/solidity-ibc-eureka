@@ -16,14 +16,14 @@ graph LR
         RA["ics26_router"]
         MCA["mock_light_client"]
         AMA["access_manager"]
-        AppA["test_ibc_app / ics27_gmp"]
+        AppA["test_ibc_app / mock_ibc_app / ics27_gmp"]
     end
 
     subgraph "Chain B (ProgramTest)"
         RB["ics26_router"]
         MCB["mock_light_client"]
         AMB["access_manager"]
-        AppB["test_ibc_app / ics27_gmp"]
+        AppB["test_ibc_app / mock_ibc_app / ics27_gmp"]
     end
 
     Test --> User
@@ -62,16 +62,35 @@ flowchart LR
     Setup --> Runtime
 ```
 
-**Setup phase** — `ProgramTest` is configured with programs, pre-funded accounts and on-chain state (router, client, access manager). Nothing is running yet.
+**Setup phase** — `ProgramTest` is configured with program binaries, `ProgramData` accounts (for upgrade authority verification) and pre-funded actors. No on-chain state exists yet.
 
-**Runtime phase** — `start()` consumes the `ProgramTest` and produces a `BanksClient`. Actors submit transactions and read account state.
+**Runtime phase** — `start()` consumes the `ProgramTest`, produces a `BanksClient` and executes a sequence of real initialization transactions:
+
+1. `access_manager::initialize` — creates the access manager account
+2. `access_manager::grant_role` — grants `RELAYER_ROLE` and `ID_CUSTOMIZER_ROLE`
+3. `ics26_router::initialize` — creates the router state
+4. `mock_light_client::initialize` — creates client and consensus state accounts
+5. `add_client` + `add_ibc_app` — registers the light client and IBC application
+6. App-specific initialization (`test_ibc_app::initialize`, `ics27_gmp::initialize` + `test_gmp_app::initialize`, or nothing for `mock_ibc_app`)
+
+After initialization, actors submit transactions and read account state.
+
+## IBC Application Variants
+
+The `IbcApp` enum selects which application is registered on the chain:
+
+| Variant      | Programs loaded                    | Behavior                                                            |
+| ------------ | ---------------------------------- | ------------------------------------------------------------------- |
+| `TestIbcApp` | `test_ibc_app`                     | Stateful app that counts packets sent/received/acked/timed-out      |
+| `MockIbcApp` | `mock_ibc_app`                     | Stateless app with magic-string ack control (`RETURN_ERROR_ACK` etc.) |
+| `Gmp`        | `ics27_gmp` + `test_gmp_app`      | GMP stack with a counter app for cross-chain calls                  |
 
 ## Module Overview
 
 | Module     | Purpose                                                                                              |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`                          |
-| `accounts` | Anchor serialization helpers, state setup (router, client, access manager)                           |
+| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `IbcApp` enum, real initialization sequence |
+| `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads |
 | `gmp`      | Instruction builders for GMP `send_call`, `recv_packet`, `ack_packet`, `timeout_packet`              |
 | `user`     | `User` actor — sends packets and GMP calls                                                           |
@@ -148,6 +167,10 @@ graph LR
 | `test_double_timeout_fails`        | `router_lifecycle.rs` | timeout same packet twice — second fails           |
 | `test_timeout_after_ack_fails`     | `router_lifecycle.rs` | ack then timeout on same packet — timeout fails    |
 | `test_ack_after_timeout_fails`     | `router_lifecycle.rs` | timeout then ack on same packet — ack fails        |
+| `test_error_ack_lifecycle`         | `router_lifecycle.rs` | send → recv (error ack via `MockIbcApp`) → ack     |
+| `test_empty_ack_rejected`          | `router_lifecycle.rs` | recv with empty ack — rejected by router           |
+| `test_multi_chunk_proof_lifecycle` | `router_lifecycle.rs` | send → recv → ack with proof split across chunks   |
+| `test_proof_verification_failure`  | `router_lifecycle.rs` | recv with tampered proof — rejected by light client |
 | `test_gmp_full_lifecycle`          | `gmp_lifecycle.rs`    | GMP send_call → recv (CPI into test_gmp_app) → ack |
 | `test_gmp_timeout`                 | `gmp_lifecycle.rs`    | GMP send_call → timeout                            |
 

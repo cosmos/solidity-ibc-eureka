@@ -10,7 +10,7 @@
 
 use anchor_lang::AccountDeserialize;
 use integration_tests::{
-    chain::{Chain, ChainConfig, TEST_CLOCK_TIME},
+    chain::{Chain, ChainConfig, IbcApp, TEST_CLOCK_TIME},
     gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpSendCallParams},
     relayer::Relayer,
     user::User,
@@ -41,7 +41,7 @@ async fn test_gmp_full_lifecycle() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: true,
+        ibc_app: IbcApp::Gmp,
     });
     chain_a.prefund(&user);
 
@@ -51,7 +51,7 @@ async fn test_gmp_full_lifecycle() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: true,
+        ibc_app: IbcApp::Gmp,
     });
 
     // Derive GMP account PDA on Chain B and pre-fund it
@@ -235,7 +235,7 @@ async fn test_gmp_timeout() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: true,
+        ibc_app: IbcApp::Gmp,
     });
     chain_a.prefund(&user);
 

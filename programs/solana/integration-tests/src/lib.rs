@@ -15,6 +15,7 @@ pub trait Actor {
 
 // Anchor custom error codes for `RouterError` variants (offset 6000 + variant index).
 pub const PACKET_COMMITMENT_MISMATCH: u32 = 6006;
+pub const ASYNC_ACK_NOT_SUPPORTED: u32 = 6009;
 
 /// Extract the custom error code from a `BanksClientError`, panicking if the
 /// error is not an `InstructionError::Custom`.

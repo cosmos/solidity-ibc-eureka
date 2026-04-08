@@ -10,12 +10,12 @@
 
 use anchor_lang::AccountDeserialize;
 use integration_tests::{
-    chain::{Chain, ChainConfig, TEST_CLOCK_TIME},
+    chain::{Chain, ChainConfig, IbcApp, TEST_CLOCK_TIME},
     extract_custom_error,
     relayer::Relayer,
     router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},
     user::User,
-    PACKET_COMMITMENT_MISMATCH,
+    ASYNC_ACK_NOT_SUPPORTED, PACKET_COMMITMENT_MISMATCH,
 };
 use solana_ibc_types::ics24;
 use solana_sdk::pubkey::Pubkey;
@@ -48,7 +48,7 @@ async fn test_full_packet_lifecycle() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -57,7 +57,7 @@ async fn test_full_packet_lifecycle() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
 
     // ── Start both chains ──
@@ -187,7 +187,7 @@ async fn test_bidirectional_packets() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user_a);
 
@@ -196,7 +196,7 @@ async fn test_bidirectional_packets() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_b.prefund(&user_b);
 
@@ -346,7 +346,7 @@ async fn test_multiple_sequential_packets() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -355,7 +355,7 @@ async fn test_multiple_sequential_packets() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
 
     // ── Start both chains ──
@@ -465,7 +465,7 @@ async fn test_timeout_packet() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -552,7 +552,7 @@ async fn test_recv_packet_replay_is_noop() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -561,7 +561,7 @@ async fn test_recv_packet_replay_is_noop() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
 
     chain_a.start().await;
@@ -656,7 +656,7 @@ async fn test_double_ack_fails() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -665,7 +665,7 @@ async fn test_double_ack_fails() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
 
     chain_a.start().await;
@@ -771,7 +771,7 @@ async fn test_double_timeout_fails() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -854,7 +854,7 @@ async fn test_timeout_after_ack_fails() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -863,7 +863,7 @@ async fn test_timeout_after_ack_fails() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
 
     chain_a.start().await;
@@ -969,7 +969,7 @@ async fn test_ack_after_timeout_fails() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        include_gmp: false,
+        ibc_app: IbcApp::TestIbcApp,
     });
     chain_a.prefund(&user);
 
@@ -1037,4 +1037,415 @@ async fn test_ack_after_timeout_fails() {
         .expect_err("ack after timeout should fail");
 
     assert_eq!(extract_custom_error(&err), PACKET_COMMITMENT_MISMATCH);
+}
+
+// ── Mock IBC app tests ──────────────────────────────────────────────────
+
+/// Error ack lifecycle: `mock_ibc_app` returns `b"error"` when payload starts
+/// with `RETURN_ERROR_ACK`. The router stores the error ack commitment and the
+/// full send -> recv -> ack flow completes successfully.
+#[tokio::test]
+async fn test_error_ack_lifecycle() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let proof_data = vec![0u8; 32];
+    let sequence = 1u64;
+    // Payload prefix triggers error ack in mock_ibc_app (first 16 bytes checked)
+    let packet_data = b"RETURN_ERROR_ACKextra";
+    let error_ack = b"error".to_vec();
+
+    // Chain A: test_ibc_app (sender)
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+    chain_a.prefund(&user);
+
+    // Chain B: mock_ibc_app (receiver with magic-string ack control)
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "chain-b-client",
+        counterparty_client_id: "chain-a-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::MockIbcApp,
+    });
+
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // User sends on A
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send_packet failed");
+
+    // Relayer delivers to B — mock_ibc_app returns b"error"
+    let (b_payload, b_proof) = relayer
+        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .await
+        .expect("upload recv chunks failed");
+    let recv = relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: b_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: mock_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect("recv_packet with error ack failed");
+
+    // Verify ack was stored on B (non-zero commitment)
+    let ack = chain_b
+        .get_account(recv.ack_pda)
+        .await
+        .expect("ack should exist on B");
+    assert_ne!(
+        &ack.data[8..40],
+        &[0u8; 32],
+        "ack commitment should be non-zero"
+    );
+
+    // Verify the ack commitment matches hash of the error ack
+    let expected_ack_commitment =
+        ics24::packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&error_ack))
+            .expect("failed to compute ack commitment");
+    assert_eq!(
+        &ack.data[8..40],
+        &expected_ack_commitment,
+        "ack commitment should match hash of b\"error\""
+    );
+
+    // Relayer delivers ack back to A with the raw error ack bytes
+    let (a_payload, a_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .await
+        .expect("upload ack chunks failed");
+    let commitment_pda = relayer
+        .ack_packet(
+            &mut chain_a,
+            AckPacketParams {
+                sequence,
+                acknowledgement: error_ack,
+                payload_chunk_pda: a_payload,
+                proof_chunk_pda: a_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect("ack_packet with error ack failed");
+
+    // Verify commitment zeroed on A
+    let commitment = chain_a
+        .get_account(commitment_pda)
+        .await
+        .expect("commitment should exist");
+    assert_eq!(
+        &commitment.data[8..40],
+        &[0u8; 32],
+        "commitment should be zeroed after error ack"
+    );
+}
+
+/// Empty ack rejection: `mock_ibc_app` returns `vec![]` when payload starts
+/// with `RETURN_EMPTY_ACK`. The router rejects empty acks with
+/// `AsyncAcknowledgementNotSupported`.
+#[tokio::test]
+async fn test_empty_ack_rejected() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let proof_data = vec![0u8; 32];
+    let sequence = 1u64;
+    // Payload prefix triggers empty ack in mock_ibc_app
+    let packet_data = b"RETURN_EMPTY_ACKextra";
+
+    // Chain A: test_ibc_app (sender)
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+    chain_a.prefund(&user);
+
+    // Chain B: mock_ibc_app (receiver)
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "chain-b-client",
+        counterparty_client_id: "chain-a-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::MockIbcApp,
+    });
+
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // User sends on A
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send_packet failed");
+
+    // Relayer delivers to B — mock_ibc_app returns empty ack, router rejects
+    let (b_payload, b_proof) = relayer
+        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .await
+        .expect("upload recv chunks failed");
+    let err = relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: b_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: mock_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect_err("recv_packet with empty ack should fail");
+
+    assert_eq!(
+        extract_custom_error(&err),
+        ASYNC_ACK_NOT_SUPPORTED,
+        "should fail with AsyncAcknowledgementNotSupported"
+    );
+}
+
+// ── Multi-chunk proof test ──────────────────────────────────────────────
+
+/// Full lifecycle with a 2-chunk proof: the proof exceeds `CHUNK_DATA_SIZE`
+/// (900 bytes) and is split across two chunk accounts.
+#[tokio::test]
+async fn test_multi_chunk_proof_lifecycle() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let packet_data = b"multi-chunk proof test";
+    let sequence = 1u64;
+    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+
+    // Proof > 900 bytes: needs 2 chunks (900 + 300)
+    let proof_data = vec![0xAB; 1200];
+    let proof_chunk_0 = proof_data[..900].to_vec();
+    let proof_chunk_1 = proof_data[900..].to_vec();
+
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+    chain_a.prefund(&user);
+
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "chain-b-client",
+        counterparty_client_id: "chain-a-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // User sends on A
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send_packet failed");
+
+    // Relayer uploads 1 payload chunk + 2 proof chunks to B
+    let (b_payload, b_proof_pdas) = relayer
+        .upload_chunks_with_multi_proof(
+            &mut chain_b,
+            sequence,
+            packet_data,
+            &[proof_chunk_0.clone(), proof_chunk_1.clone()],
+        )
+        .await
+        .expect("upload multi-chunk proof failed on B");
+
+    // Relayer delivers recv_packet with 2 proof chunks
+    let recv = relayer
+        .recv_packet_multi_proof(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: Pubkey::default(), // unused — PDAs passed separately
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+            &b_proof_pdas,
+        )
+        .await
+        .expect("recv_packet with multi-chunk proof failed");
+
+    // Verify receipt and ack on B
+    let receipt = chain_b
+        .get_account(recv.receipt_pda)
+        .await
+        .expect("receipt should exist");
+    assert_ne!(&receipt.data[8..40], &[0u8; 32]);
+
+    let ack = chain_b
+        .get_account(recv.ack_pda)
+        .await
+        .expect("ack should exist");
+    assert_ne!(&ack.data[8..40], &[0u8; 32]);
+
+    // Relayer uploads 1 payload chunk + 2 proof chunks to A for ack
+    let (a_payload, a_proof_pdas) = relayer
+        .upload_chunks_with_multi_proof(
+            &mut chain_a,
+            sequence,
+            packet_data,
+            &[proof_chunk_0, proof_chunk_1],
+        )
+        .await
+        .expect("upload multi-chunk proof failed on A");
+
+    // Relayer delivers ack_packet with 2 proof chunks
+    let commitment_pda = relayer
+        .ack_packet_multi_proof(
+            &mut chain_a,
+            AckPacketParams {
+                sequence,
+                acknowledgement: successful_ack,
+                payload_chunk_pda: a_payload,
+                proof_chunk_pda: Pubkey::default(), // unused
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+            &a_proof_pdas,
+        )
+        .await
+        .expect("ack_packet with multi-chunk proof failed");
+
+    // Verify commitment zeroed on A
+    let commitment = chain_a
+        .get_account(commitment_pda)
+        .await
+        .expect("commitment should exist");
+    assert_eq!(
+        &commitment.data[8..40],
+        &[0u8; 32],
+        "commitment should be zeroed after ack"
+    );
+}
+
+// ── Proof verification failure test ─────────────────────────────────────
+
+/// Light client rejects proof: `mock_light_client` returns an error when the
+/// proof starts with `REJECT_PROOF`, causing the entire `recv_packet`
+/// transaction to revert.
+#[tokio::test]
+async fn test_proof_verification_failure() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let packet_data = b"proof will be rejected";
+    // Magic bytes that trigger mock_light_client rejection
+    let bad_proof = b"REJECT_PROOF_bad_data".to_vec();
+    let sequence = 1u64;
+
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+    chain_a.prefund(&user);
+
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "chain-b-client",
+        counterparty_client_id: "chain-a-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // User sends on A
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send_packet failed");
+
+    // Relayer uploads chunks with the "bad" proof that mock_light_client rejects
+    let (b_payload, b_proof) = relayer
+        .upload_chunks(&mut chain_b, sequence, packet_data, &bad_proof)
+        .await
+        .expect("upload chunks failed");
+
+    // recv_packet should fail — light client CPI error aborts the transaction
+    let err = relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: b_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect_err("recv_packet with rejected proof should fail");
+
+    // Verify it's a custom error (CPI failure propagates as custom error)
+    let code = extract_custom_error(&err);
+    assert_ne!(
+        code, 0,
+        "should have a non-zero error code from CPI failure"
+    );
 }

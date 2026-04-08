@@ -64,6 +64,46 @@ impl Relayer {
         Ok((payload_pda, proof_pda))
     }
 
+    /// Upload 1 payload chunk and N proof chunks for multi-chunk proof delivery.
+    pub async fn upload_chunks_with_multi_proof(
+        &self,
+        chain: &mut Chain,
+        sequence: u64,
+        payload: &[u8],
+        proof_chunks: &[Vec<u8>],
+    ) -> Result<(Pubkey, Vec<Pubkey>), BanksClientError> {
+        let (payload_ix, payload_pda) = router::build_upload_payload_chunk_ix(
+            self.pubkey(),
+            chain.client_id(),
+            sequence,
+            payload.to_vec(),
+        );
+
+        let mut ixs = vec![payload_ix];
+        let mut proof_pdas = Vec::with_capacity(proof_chunks.len());
+
+        for (i, chunk_data) in proof_chunks.iter().enumerate() {
+            let (ix, pda) = router::build_upload_proof_chunk_ix_at(
+                self.pubkey(),
+                chain.client_id(),
+                sequence,
+                i as u8,
+                chunk_data.clone(),
+            );
+            ixs.push(ix);
+            proof_pdas.push(pda);
+        }
+
+        let tx = Transaction::new_signed_with_payer(
+            &ixs,
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok((payload_pda, proof_pdas))
+    }
+
     /// Reclaim rent from consumed chunk accounts, closing them so they can
     /// be re-created if needed.
     pub async fn cleanup_chunks(
@@ -152,6 +192,58 @@ impl Relayer {
             chain.counterparty_client_id(),
             chain.clock_time(),
             params,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(commitment_pda)
+    }
+
+    /// Deliver a `recv_packet` with multiple proof chunks.
+    pub async fn recv_packet_multi_proof(
+        &self,
+        chain: &mut Chain,
+        params: RecvPacketParams<'_>,
+        proof_chunk_pdas: &[Pubkey],
+    ) -> Result<RecvResult, BanksClientError> {
+        let result = router::build_recv_packet_ix_multi_proof(
+            self.pubkey(),
+            &chain.accounts,
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            params,
+            proof_chunk_pdas,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            std::slice::from_ref(&result.ix),
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(result)
+    }
+
+    /// Deliver an `ack_packet` with multiple proof chunks.
+    pub async fn ack_packet_multi_proof(
+        &self,
+        chain: &mut Chain,
+        params: AckPacketParams<'_>,
+        proof_chunk_pdas: &[Pubkey],
+    ) -> Result<Pubkey, BanksClientError> {
+        let (ix, commitment_pda) = router::build_ack_packet_ix_multi_proof(
+            self.pubkey(),
+            &chain.accounts,
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            params,
+            proof_chunk_pdas,
         );
         let tx = Transaction::new_signed_with_payer(
             &[ix],

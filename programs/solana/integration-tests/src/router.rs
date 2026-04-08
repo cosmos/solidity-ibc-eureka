@@ -125,6 +125,7 @@ pub struct RecvPacketParams<'a> {
     pub extra_remaining_accounts: Vec<AccountMeta>,
 }
 
+#[derive(Debug)]
 pub struct RecvResult {
     pub ix: Instruction,
     pub receipt_pda: Pubkey,
@@ -221,6 +222,103 @@ pub fn build_recv_packet_ix(
     }
 }
 
+/// Build a `recv_packet` instruction with multiple proof chunks.
+pub fn build_recv_packet_ix_multi_proof(
+    relayer: Pubkey,
+    accounts: &ChainAccounts,
+    dest_client: &str,
+    source_client: &str,
+    clock_time: i64,
+    params: RecvPacketParams<'_>,
+    proof_chunk_pdas: &[Pubkey],
+) -> RecvResult {
+    let total_proof_chunks = proof_chunk_pdas.len() as u8;
+    let timeout = test_timeout(clock_time);
+
+    let (router_state_pda, _) =
+        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (ibc_app_pda, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, params.port_id.as_bytes()],
+        &ics26_router::ID,
+    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, dest_client.as_bytes()], &ics26_router::ID);
+    let (receipt_pda, _) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_RECEIPT_SEED,
+            dest_client.as_bytes(),
+            &params.sequence.to_le_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+    let (ack_pda, _) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_ACK_SEED,
+            dest_client.as_bytes(),
+            &params.sequence.to_le_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+
+    let msg = MsgRecvPacket {
+        packet: MsgPacket {
+            sequence: params.sequence,
+            source_client: source_client.to_string(),
+            dest_client: dest_client.to_string(),
+            timeout_timestamp: timeout,
+            payloads: vec![MsgPayload {
+                source_port: params.port_id.to_string(),
+                dest_port: params.port_id.to_string(),
+                version: params.version.to_string(),
+                encoding: params.encoding.to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            }],
+        },
+        proof: MsgProof {
+            height: PROOF_HEIGHT,
+            data: Delivery::Chunked {
+                total_chunks: total_proof_chunks,
+            },
+        },
+    };
+
+    let mut account_metas = vec![
+        AccountMeta::new_readonly(router_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(ibc_app_pda, false),
+        AccountMeta::new(receipt_pda, false),
+        AccountMeta::new(ack_pda, false),
+        AccountMeta::new_readonly(params.app_program, false),
+        AccountMeta::new(accounts.app_state_pda, false),
+        AccountMeta::new(relayer, true),
+        AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        AccountMeta::new_readonly(client_pda, false),
+        AccountMeta::new_readonly(mock_light_client::ID, false),
+        AccountMeta::new_readonly(accounts.mock_client_state, false),
+        AccountMeta::new_readonly(accounts.mock_consensus_state, false),
+        AccountMeta::new(params.payload_chunk_pda, false),
+    ];
+    for pda in proof_chunk_pdas {
+        account_metas.push(AccountMeta::new(*pda, false));
+    }
+    account_metas.extend(params.extra_remaining_accounts);
+
+    let ix = Instruction {
+        program_id: ics26_router::ID,
+        accounts: account_metas,
+        data: ics26_router::instruction::RecvPacket { msg }.data(),
+    };
+
+    RecvResult {
+        ix,
+        receipt_pda,
+        ack_pda,
+    }
+}
+
 // ── Ack ─────────────────────────────────────────────────────────────────
 
 pub struct AckPacketParams<'a> {
@@ -302,6 +400,91 @@ pub fn build_ack_packet_ix(
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
+    account_metas.extend(params.extra_remaining_accounts);
+
+    let ix = Instruction {
+        program_id: ics26_router::ID,
+        accounts: account_metas,
+        data: ics26_router::instruction::AckPacket { msg }.data(),
+    };
+
+    (ix, commitment_pda)
+}
+
+/// Build an `ack_packet` instruction with multiple proof chunks.
+pub fn build_ack_packet_ix_multi_proof(
+    relayer: Pubkey,
+    accounts: &ChainAccounts,
+    source_client: &str,
+    dest_client: &str,
+    clock_time: i64,
+    params: AckPacketParams<'_>,
+    proof_chunk_pdas: &[Pubkey],
+) -> (Instruction, Pubkey) {
+    let total_proof_chunks = proof_chunk_pdas.len() as u8;
+    let timeout = test_timeout(clock_time);
+
+    let (router_state_pda, _) =
+        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let (ibc_app_pda, _) = Pubkey::find_program_address(
+        &[IBCApp::SEED, params.port_id.as_bytes()],
+        &ics26_router::ID,
+    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
+    let (commitment_pda, _) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_COMMITMENT_SEED,
+            source_client.as_bytes(),
+            &params.sequence.to_le_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+
+    let msg = MsgAckPacket {
+        packet: MsgPacket {
+            sequence: params.sequence,
+            source_client: source_client.to_string(),
+            dest_client: dest_client.to_string(),
+            timeout_timestamp: timeout,
+            payloads: vec![MsgPayload {
+                source_port: params.port_id.to_string(),
+                dest_port: params.port_id.to_string(),
+                version: params.version.to_string(),
+                encoding: params.encoding.to_string(),
+                data: Delivery::Chunked { total_chunks: 1 },
+            }],
+        },
+        acknowledgement: params.acknowledgement,
+        proof: MsgProof {
+            height: PROOF_HEIGHT,
+            data: Delivery::Chunked {
+                total_chunks: total_proof_chunks,
+            },
+        },
+    };
+
+    let mut account_metas = vec![
+        AccountMeta::new_readonly(router_state_pda, false),
+        AccountMeta::new_readonly(access_manager_pda, false),
+        AccountMeta::new_readonly(ibc_app_pda, false),
+        AccountMeta::new(commitment_pda, false),
+        AccountMeta::new_readonly(params.app_program, false),
+        AccountMeta::new(accounts.app_state_pda, false),
+        AccountMeta::new(relayer, true),
+        AccountMeta::new_readonly(system_program::ID, false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        AccountMeta::new_readonly(client_pda, false),
+        AccountMeta::new_readonly(mock_light_client::ID, false),
+        AccountMeta::new_readonly(accounts.mock_client_state, false),
+        AccountMeta::new_readonly(accounts.mock_consensus_state, false),
+        AccountMeta::new(params.payload_chunk_pda, false),
+    ];
+    for pda in proof_chunk_pdas {
+        account_metas.push(AccountMeta::new(*pda, false));
+    }
     account_metas.extend(params.extra_remaining_accounts);
 
     let ix = Instruction {
@@ -457,6 +640,16 @@ pub fn build_upload_proof_chunk_ix(
     sequence: u64,
     proof_data: Vec<u8>,
 ) -> (Instruction, Pubkey) {
+    build_upload_proof_chunk_ix_at(relayer, client_id, sequence, 0, proof_data)
+}
+
+pub fn build_upload_proof_chunk_ix_at(
+    relayer: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    chunk_index: u8,
+    proof_data: Vec<u8>,
+) -> (Instruction, Pubkey) {
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let (access_manager_pda, _) =
@@ -467,7 +660,7 @@ pub fn build_upload_proof_chunk_ix(
             relayer.as_ref(),
             client_id.as_bytes(),
             &sequence.to_le_bytes(),
-            &[0], // chunk_index
+            &[chunk_index],
         ],
         &ics26_router::ID,
     );
@@ -476,7 +669,7 @@ pub fn build_upload_proof_chunk_ix(
         client_id: client_id.to_string(),
         sequence,
         payload_index: 0,
-        chunk_index: 0,
+        chunk_index,
         chunk_data: proof_data,
     };
 
