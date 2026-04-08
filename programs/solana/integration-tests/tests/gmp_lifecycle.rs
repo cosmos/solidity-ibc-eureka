@@ -167,10 +167,9 @@ async fn test_gmp_full_lifecycle() {
         .get_account(counter_app_state)
         .await
         .expect("CounterAppState should exist");
-    let counter_state = test_gmp_app::state::CounterAppState::try_deserialize(
-        &mut &counter_state_account.data[..],
-    )
-    .expect("failed to deserialize CounterAppState");
+    let counter_state =
+        test_gmp_app::state::CounterAppState::try_deserialize(&mut &counter_state_account.data[..])
+            .expect("failed to deserialize CounterAppState");
     assert_eq!(counter_state.total_counters, 1);
 
     // ──────────────────────────────────────────────────────────────────────
@@ -322,10 +321,9 @@ async fn test_gmp_timeout() {
         .expect("GMPCallResultAccount should exist");
     assert_eq!(result_account.owner, ics27_gmp::ID);
 
-    let result_state = ics27_gmp::state::GMPCallResultAccount::try_deserialize(
-        &mut &result_account.data[..],
-    )
-    .expect("failed to deserialize GMPCallResultAccount");
+    let result_state =
+        ics27_gmp::state::GMPCallResultAccount::try_deserialize(&mut &result_account.data[..])
+            .expect("failed to deserialize GMPCallResultAccount");
     assert_eq!(
         result_state.status,
         solana_ibc_types::CallResultStatus::Timeout

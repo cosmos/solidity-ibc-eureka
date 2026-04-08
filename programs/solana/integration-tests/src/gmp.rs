@@ -46,10 +46,8 @@ pub fn build_gmp_send_call_ix(
     );
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, GMP_PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[Client::SEED, client_id.as_bytes()],
-        &ics26_router::ID,
-    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
 
     let msg = ics27_gmp::state::SendCallMsg {
         source_client: client_id.to_string(),

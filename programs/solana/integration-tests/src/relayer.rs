@@ -3,9 +3,7 @@ use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacket
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
 use crate::Actor;
 use solana_program_test::BanksClientError;
-use solana_sdk::{
-    pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction,
-};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 
 pub struct Relayer {
     keypair: Keypair,
@@ -64,6 +62,31 @@ impl Relayer {
         );
         chain.process_transaction(tx).await?;
         Ok((payload_pda, proof_pda))
+    }
+
+    /// Reclaim rent from consumed chunk accounts, closing them so they can
+    /// be re-created if needed.
+    pub async fn cleanup_chunks(
+        &self,
+        chain: &mut Chain,
+        sequence: u64,
+        payload_chunk_pda: Pubkey,
+        proof_chunk_pda: Pubkey,
+    ) -> Result<(), BanksClientError> {
+        let ix = router::build_cleanup_chunks_ix(
+            self.pubkey(),
+            chain.client_id(),
+            sequence,
+            payload_chunk_pda,
+            proof_chunk_pda,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await
     }
 
     // ── Router operations ───────────────────────────────────────────────

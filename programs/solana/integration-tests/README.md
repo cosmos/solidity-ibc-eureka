@@ -143,6 +143,11 @@ graph LR
 | `test_bidirectional_packets`       | `router_lifecycle.rs` | A→B and B→A with different sequences               |
 | `test_multiple_sequential_packets` | `router_lifecycle.rs` | 3 packets: send all → recv all → ack all           |
 | `test_timeout_packet`              | `router_lifecycle.rs` | send → timeout                                     |
+| `test_recv_packet_replay_is_noop`  | `router_lifecycle.rs` | recv same packet twice — second is noop            |
+| `test_double_ack_fails`            | `router_lifecycle.rs` | ack same packet twice — second fails               |
+| `test_double_timeout_fails`        | `router_lifecycle.rs` | timeout same packet twice — second fails           |
+| `test_timeout_after_ack_fails`     | `router_lifecycle.rs` | ack then timeout on same packet — timeout fails    |
+| `test_ack_after_timeout_fails`     | `router_lifecycle.rs` | timeout then ack on same packet — ack fails        |
 | `test_gmp_full_lifecycle`          | `gmp_lifecycle.rs`    | GMP send_call → recv (CPI into test_gmp_app) → ack |
 | `test_gmp_timeout`                 | `gmp_lifecycle.rs`    | GMP send_call → timeout                            |
 

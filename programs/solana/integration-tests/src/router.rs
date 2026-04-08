@@ -3,8 +3,8 @@ use crate::chain::ChainAccounts;
 use anchor_lang::{AnchorSerialize, InstructionData};
 use ics26_router::state::*;
 use solana_ibc_types::{
-    Delivery, MsgAckPacket, MsgPacket, MsgPayload, MsgProof, MsgTimeoutPacket, MsgUploadChunk,
-    Payload,
+    Delivery, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof, MsgTimeoutPacket,
+    MsgUploadChunk, Payload,
 };
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -49,10 +49,8 @@ pub fn build_send_packet_ix(
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[Client::SEED, client_id.as_bytes()],
-        &ics26_router::ID,
-    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
     let (commitment_pda, _) = Pubkey::find_program_address(
         &[
             Commitment::PACKET_COMMITMENT_SEED,
@@ -151,10 +149,8 @@ pub fn build_recv_packet_ix(
         &[IBCApp::SEED, params.port_id.as_bytes()],
         &ics26_router::ID,
     );
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[Client::SEED, dest_client.as_bytes()],
-        &ics26_router::ID,
-    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, dest_client.as_bytes()], &ics26_router::ID);
     let (receipt_pda, _) = Pubkey::find_program_address(
         &[
             Commitment::PACKET_RECEIPT_SEED,
@@ -257,10 +253,8 @@ pub fn build_ack_packet_ix(
         &[IBCApp::SEED, params.port_id.as_bytes()],
         &ics26_router::ID,
     );
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[Client::SEED, source_client.as_bytes()],
-        &ics26_router::ID,
-    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
     let (commitment_pda, _) = Pubkey::find_program_address(
         &[
             Commitment::PACKET_COMMITMENT_SEED,
@@ -350,10 +344,8 @@ pub fn build_timeout_packet_ix(
         &[IBCApp::SEED, params.port_id.as_bytes()],
         &ics26_router::ID,
     );
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[Client::SEED, source_client.as_bytes()],
-        &ics26_router::ID,
-    );
+    let (client_pda, _) =
+        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
     let (commitment_pda, _) = Pubkey::find_program_address(
         &[
             Commitment::PACKET_COMMITMENT_SEED,
@@ -502,4 +494,39 @@ pub fn build_upload_proof_chunk_ix(
     };
 
     (ix, chunk_pda)
+}
+
+// ── Cleanup Chunks ───────────────────────────────────────────────────
+
+pub fn build_cleanup_chunks_ix(
+    relayer: Pubkey,
+    client_id: &str,
+    sequence: u64,
+    payload_chunk_pda: Pubkey,
+    proof_chunk_pda: Pubkey,
+) -> Instruction {
+    let (router_state_pda, _) =
+        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
+    let (access_manager_pda, _) =
+        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+
+    let msg = MsgCleanupChunks {
+        client_id: client_id.to_string(),
+        sequence,
+        payload_chunks: vec![1],
+        total_proof_chunks: 1,
+    };
+
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new_readonly(router_state_pda, false),
+            AccountMeta::new_readonly(access_manager_pda, false),
+            AccountMeta::new(relayer, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            AccountMeta::new(payload_chunk_pda, false),
+            AccountMeta::new(proof_chunk_pda, false),
+        ],
+        data: ics26_router::instruction::CleanupChunks { msg }.data(),
+    }
 }

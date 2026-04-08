@@ -3,11 +3,7 @@ use crate::relayer::Relayer;
 use crate::Actor;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
-    account::Account,
-    hash::Hash,
-    pubkey::Pubkey,
-    signature::Keypair,
-    system_program,
+    account::Account, hash::Hash, pubkey::Pubkey, signature::Keypair, system_program,
     sysvar::Sysvar as _,
 };
 
@@ -275,10 +271,7 @@ fn setup_gmp_chain(pt: &mut ProgramTest) -> (Pubkey, Option<Pubkey>, Option<Pubk
     let (gmp_app_state_pda, gmp_bump) =
         Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
     let (_, gmp_data) = setup_gmp_app_state(gmp_bump, false);
-    pt.add_account(
-        gmp_app_state_pda,
-        account_owned_by(gmp_data, ics27_gmp::ID),
-    );
+    pt.add_account(gmp_app_state_pda, account_owned_by(gmp_data, ics27_gmp::ID));
 
     let (counter_pda, counter_bump) = Pubkey::find_program_address(
         &[test_gmp_app::state::CounterAppState::SEED],
