@@ -153,10 +153,7 @@ impl Chain {
     }
 
     /// Submit a transaction and auto-refresh the blockhash.
-    pub async fn process_transaction(
-        &mut self,
-        tx: Transaction,
-    ) -> Result<(), BanksClientError> {
+    pub async fn process_transaction(&mut self, tx: Transaction) -> Result<(), BanksClientError> {
         let banks = self.banks.as_mut().expect("chain not started yet");
         banks.process_transaction(tx).await?;
         self.blockhash = banks.get_latest_blockhash().await.unwrap();
@@ -200,18 +197,14 @@ fn derive_access_manager_pda() -> Pubkey {
 }
 
 fn derive_router_state_pda() -> Pubkey {
-    let (pda, _) = Pubkey::find_program_address(
-        &[ics26_router::state::RouterState::SEED],
-        &ics26_router::ID,
-    );
+    let (pda, _) =
+        Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     pda
 }
 
 fn derive_chain_accounts(client_id: &str, ibc_app: IbcApp) -> ChainAccounts {
-    let (mock_client_state, _) = Pubkey::find_program_address(
-        &[b"client", client_id.as_bytes()],
-        &mock_light_client::ID,
-    );
+    let (mock_client_state, _) =
+        Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
     let (mock_consensus_state, _) = Pubkey::find_program_address(
         &[
             b"consensus_state",
@@ -267,10 +260,7 @@ async fn send_init_tx(
     let mut signers: Vec<&Keypair> = vec![payer];
     signers.extend(extra_signers);
     let tx = Transaction::new_signed_with_payer(ixs, Some(&payer.pubkey()), &signers, blockhash);
-    banks
-        .process_transaction(tx)
-        .await
-        .expect("init tx failed");
+    banks.process_transaction(tx).await.expect("init tx failed");
     banks.get_latest_blockhash().await.unwrap()
 }
 
@@ -533,10 +523,8 @@ fn build_router_initialize_ix(
 }
 
 fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Instruction {
-    let (client_state_pda, _) = Pubkey::find_program_address(
-        &[b"client", chain_id.as_bytes()],
-        &mock_light_client::ID,
-    );
+    let (client_state_pda, _) =
+        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &mock_light_client::ID);
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[
             b"consensus_state",
@@ -631,10 +619,8 @@ fn build_add_ibc_app_ix(
 }
 
 fn build_test_ibc_app_initialize_ix(payer: Pubkey, authority: Pubkey) -> Instruction {
-    let (app_state_pda, _) = Pubkey::find_program_address(
-        &[solana_ibc_types::IBCAppState::SEED],
-        &test_ibc_app::ID,
-    );
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
 
     Instruction {
         program_id: test_ibc_app::ID,
@@ -652,10 +638,8 @@ fn build_gmp_initialize_ix(
     authority: &Keypair,
     access_manager_program: Pubkey,
 ) -> Instruction {
-    let (app_state_pda, _) = Pubkey::find_program_address(
-        &[ics27_gmp::state::GMPAppState::SEED],
-        &ics27_gmp::ID,
-    );
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
 
