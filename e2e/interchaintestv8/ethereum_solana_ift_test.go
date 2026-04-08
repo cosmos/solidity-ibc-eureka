@@ -67,6 +67,7 @@ type EthereumSolanaIFTTestSuite struct {
 	e2esuite.TestSuite
 
 	SolanaRelayer *solanago.Wallet
+	SolanaUser    *solanago.Wallet
 
 	ethDeployer *ecdsa.PrivateKey
 	ethUser     *ecdsa.PrivateKey
@@ -225,14 +226,23 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Deploy Solana programs", func() {
+		solanaRelayer := solanago.NewWallet()
 		solanaUser := solanago.NewWallet()
-		s.T().Logf("Created SolanaRelayer wallet: %s", solanaUser.PublicKey())
+		s.T().Logf("Created SolanaRelayer wallet: %s", solanaRelayer.PublicKey())
+		s.T().Logf("Created SolanaUser wallet: %s", solanaUser.PublicKey())
 
 		s.Require().True(s.Run("Fund wallets", func() {
 			const deployerFunding = 100 * testvalues.InitialSolBalance
 			err := e2esuite.RunParallelTasks(
 				e2esuite.ParallelTask{
 					Name: "Fund SolanaRelayer",
+					Run: func() error {
+						_, err := s.Solana.Chain.FundUserWithRetry(ctx, solanaRelayer.PublicKey(), testvalues.InitialSolBalance, 5)
+						return err
+					},
+				},
+				e2esuite.ParallelTask{
+					Name: "Fund SolanaUser",
 					Run: func() error {
 						_, err := s.Solana.Chain.FundUserWithRetry(ctx, solanaUser.PublicKey(), testvalues.InitialSolBalance, 5)
 						return err
@@ -247,7 +257,8 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 				},
 			)
 			s.Require().NoError(err)
-			s.SolanaRelayer = solanaUser
+			s.SolanaRelayer = solanaRelayer
+			s.SolanaUser = solanaUser
 		}))
 
 		s.Require().True(s.Run("Deploy programs", func() {
@@ -816,7 +827,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
 		s.Require().NoError(err)
 		s.SenderTokenAccount = tokenAccount
 		s.T().Logf("SPL token mint: %s, token account: %s", mint, tokenAccount)
@@ -873,7 +884,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 			s.Require().NoError(err)
 
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
-			wallet := s.SolanaRelayer.PublicKey()
+			wallet := s.SolanaUser.PublicKey()
 			ata, ataErr := solana.AssociatedTokenAccountAddress(wallet, s.IFTMint())
 			s.Require().NoError(ataErr)
 			solanaReceiverHex := "0x" + hex.EncodeToString(wallet.Bytes()) + hex.EncodeToString(ata.Bytes())
@@ -984,7 +995,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 
 			transferIx, err := ift.NewIftTransferInstruction(
 				transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
-				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+				s.SolanaUser.PublicKey(), s.SolanaRelayer.PublicKey(),
 				token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 				ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 				s.GMPIBCAppPDA, s.IBCClientPDA,
@@ -996,7 +1007,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 			s.Require().NoError(err)
 
-			solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+			solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, s.SolanaUser)
 			s.Require().NoError(err)
 			s.T().Logf("Solana -> Ethereum transfer tx: %s", solanaTransferTxSig)
 		}))
@@ -1097,7 +1108,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 	ethIFTAddrA := ethcommon.HexToAddress(s.contractAddresses.Ift)
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
-	wallet := s.SolanaRelayer.PublicKey()
+	wallet := s.SolanaUser.PublicKey()
 
 	// Token A: use the pre-generated mint from SetupSuite
 	mintWalletA := s.IFTMintWallet
@@ -1168,12 +1179,12 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 					ChainOptions:           &evmOpt,
 				},
 				appState, appMintState, bridgePDA,
-				wallet, wallet,
+				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 				solanago.SystemProgramID, solanago.SysVarInstructionsPubkey,
 			)
 			s.Require().NoError(err)
 
-			tx, err := s.Solana.Chain.NewTransactionFromInstructions(wallet, ix)
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), ix)
 			s.Require().NoError(err)
 			_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
@@ -1191,12 +1202,12 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 					ChainOptions:           &evmOpt,
 				},
 				appState, appMintState, bridgePDA,
-				wallet, wallet,
+				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
 				solanago.SystemProgramID, solanago.SysVarInstructionsPubkey,
 			)
 			s.Require().NoError(err)
 
-			tx, err := s.Solana.Chain.NewTransactionFromInstructions(wallet, ix)
+			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), ix)
 			s.Require().NoError(err)
 			_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 			s.Require().NoError(err)
@@ -1405,7 +1416,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
 		s.Require().NoError(err)
 		s.SenderTokenAccount = tokenAccount
 	}))
@@ -1458,7 +1469,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 		s.Require().NoError(err)
 
 		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
-		wallet := s.SolanaRelayer.PublicKey()
+		wallet := s.SolanaUser.PublicKey()
 		ata, ataErr := solana.AssociatedTokenAccountAddress(wallet, s.IFTMint())
 		s.Require().NoError(ataErr)
 		solanaReceiverHex := "0x" + hex.EncodeToString(wallet.Bytes()) + hex.EncodeToString(ata.Bytes())
@@ -1546,7 +1557,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
 		s.Require().NoError(err)
 		s.SenderTokenAccount = tokenAccount
 	}))
@@ -1569,7 +1580,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 	}))
 
 	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
-		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
+		s.adminMintIFTTokens(ctx, s.SolanaUser.PublicKey(), EthSolanaIFTMintAmount)
 	}))
 
 	s.Require().True(s.Run("Update attestation client on Solana", func() {
@@ -1604,7 +1615,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
-			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+			s.SolanaUser.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 			s.GMPIBCAppPDA, s.IBCClientPDA,
@@ -1616,7 +1627,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 		s.Require().NoError(err)
 
-		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, s.SolanaUser)
 		s.Require().NoError(err)
 
 		solanaPacketTxHash = []byte(sig.String())
@@ -1698,7 +1709,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 		s.createIFTSplToken(ctx, s.IFTMintWallet)
 
 		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaRelayer.PublicKey())
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
 		s.Require().NoError(err)
 		s.SenderTokenAccount = tokenAccount
 	}))
@@ -1710,7 +1721,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 	}))
 
 	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
-		s.adminMintIFTTokens(ctx, s.SolanaRelayer.PublicKey(), EthSolanaIFTMintAmount)
+		s.adminMintIFTTokens(ctx, s.SolanaUser.PublicKey(), EthSolanaIFTMintAmount)
 	}))
 
 	s.Require().True(s.Run("Update attestation client on Solana", func() {
@@ -1745,7 +1756,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 
 		transferIx, err := ift.NewIftTransferInstruction(
 			transferMsg, s.IFTAppState, s.IFTAppMintState, s.IFTBridge, s.IFTMint(), s.SenderTokenAccount,
-			s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
+			s.SolanaUser.PublicKey(), s.SolanaRelayer.PublicKey(),
 			token.ProgramID, solanago.SystemProgramID, ics27_gmp.ProgramID, s.GMPAppStatePDA,
 			ics26_router.ProgramID, s.RouterStatePDA, packetCommitmentPDA,
 			s.GMPIBCAppPDA, s.IBCClientPDA,
@@ -1757,7 +1768,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), computeBudgetIx, transferIx)
 		s.Require().NoError(err)
 
-		solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
+		solanaTransferTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer, s.SolanaUser)
 		s.Require().NoError(err)
 		s.T().Logf("Solana -> Ethereum transfer tx: %s", solanaTransferTxSig)
 	}))
