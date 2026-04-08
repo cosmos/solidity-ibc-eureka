@@ -2,6 +2,7 @@ package gmphelpers
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/cosmos/gogoproto/proto"
 
@@ -12,7 +13,59 @@ import (
 	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
+	solanatypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/solana"
 )
+
+// packedAccountSize is the size of a single packed account entry: pubkey(32) + is_signer(1) + is_writable(1).
+const packedAccountSize = 34
+
+// MarshalGMPSolanaPayload encodes a GMPSolanaPayload using the specified encoding.
+//
+// For protobuf: standard proto.Marshal.
+// For ABI: packs accounts as 34-byte entries and produces abi.encode(bytes, bytes, uint32)
+// matching the Solidity SolanaIFTSendCallConstructor format.
+func MarshalGMPSolanaPayload(payload *solanatypes.GMPSolanaPayload, encoding string) ([]byte, error) {
+	if encoding == testvalues.Ics27AbiEncoding {
+		return marshalGMPSolanaPayloadABI(payload)
+	}
+	return proto.Marshal(payload)
+}
+
+func marshalGMPSolanaPayloadABI(payload *solanatypes.GMPSolanaPayload) ([]byte, error) {
+	packed := make([]byte, len(payload.Accounts)*packedAccountSize)
+	for i, acct := range payload.Accounts {
+		off := i * packedAccountSize
+		copy(packed[off:off+32], acct.Pubkey)
+		if acct.IsSigner {
+			packed[off+32] = 1
+		}
+		if acct.IsWritable {
+			packed[off+33] = 1
+		}
+	}
+
+	if payload.PrefundLamports > math.MaxUint32 {
+		return nil, fmt.Errorf("prefund_lamports %d exceeds uint32 max", payload.PrefundLamports)
+	}
+	prefund := uint32(payload.PrefundLamports) //nolint:gosec // checked above
+
+	bytesType, _ := abi.NewType("bytes", "", nil)
+	uint32Type, _ := abi.NewType("uint32", "", nil)
+
+	// abi.encode(bytes packedAccounts, bytes instructionData, uint32 prefundLamports)
+	args := abi.Arguments{
+		{Type: bytesType},
+		{Type: bytesType},
+		{Type: uint32Type},
+	}
+
+	encoded, err := args.Pack(packed, payload.Data, prefund)
+	if err != nil {
+		return nil, fmt.Errorf("ABI encoding GMPSolanaPayload: %w", err)
+	}
+
+	return encoded, nil
+}
 
 // NewPayload_FromProto creates a new payload to be submitted to cosmos through gmp.
 func NewPayload_FromProto(msgs []proto.Message) ([]byte, error) {
