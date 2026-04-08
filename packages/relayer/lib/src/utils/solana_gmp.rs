@@ -45,7 +45,7 @@ alloy::sol! {
     struct AbiGmpSolanaPayload {
         bytes packedAccounts;
         bytes instructionData;
-        uint32 payerPosition;
+        uint32 prefundLamports;
     }
 }
 
@@ -257,7 +257,7 @@ fn decode_abi_gmp_payload(payload_value: &[u8]) -> Result<Option<DecodedGmpPaylo
         sender,
         receiver: abi_gmp.receiver,
         salt,
-        prefund_lamports: u64::from(abi_solana.payerPosition),
+        prefund_lamports: u64::from(abi_solana.prefundLamports),
         execution_accounts,
     }))
 }

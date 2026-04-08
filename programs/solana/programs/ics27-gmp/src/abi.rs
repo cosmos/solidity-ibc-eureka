@@ -19,7 +19,7 @@ alloy_sol_types::sol! {
     struct AbiGmpSolanaPayload {
         bytes packedAccounts;
         bytes instructionData;
-        uint32 payerPosition;
+        uint32 prefundLamports;
     }
 }
 
@@ -44,7 +44,7 @@ impl TryFrom<AbiGmpSolanaPayload> for solana_ibc_proto::RawGmpSolanaPayload {
         Ok(Self {
             accounts,
             data: abi.instructionData.into(),
-            prefund_lamports: u64::from(abi.payerPosition),
+            prefund_lamports: u64::from(abi.prefundLamports),
         })
     }
 }
@@ -115,7 +115,7 @@ mod tests {
         let encoded = AbiGmpSolanaPayload {
             packedAccounts: packed.into(),
             instructionData: instr_data.clone().into(),
-            payerPosition: 8,
+            prefundLamports: 8,
         }
         .abi_encode_params();
 
@@ -138,7 +138,7 @@ mod tests {
         let encoded = AbiGmpSolanaPayload {
             packedAccounts: Vec::new().into(),
             instructionData: instr_data.clone().into(),
-            payerPosition: 0,
+            prefundLamports: 0,
         }
         .abi_encode_params();
 
@@ -161,7 +161,7 @@ mod tests {
         let encoded = AbiGmpSolanaPayload {
             packedAccounts: bad_packed.into(),
             instructionData: vec![1].into(),
-            payerPosition: 0,
+            prefundLamports: 0,
         }
         .abi_encode_params();
 
@@ -236,7 +236,7 @@ mod tests {
         let encoded = AbiGmpSolanaPayload {
             packedAccounts: Vec::new().into(),
             instructionData: Vec::new().into(),
-            payerPosition: 0,
+            prefundLamports: 0,
         }
         .abi_encode_params();
 

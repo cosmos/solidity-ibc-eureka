@@ -1438,7 +1438,7 @@ mod tests {
                 crate::abi::AbiGmpSolanaPayload {
                     packedAccounts: packed.into(),
                     instructionData: raw.data.clone().into(),
-                    payerPosition: raw.prefund_lamports as u32,
+                    prefundLamports: raw.prefund_lamports as u32,
                 }
                 .abi_encode_params()
             }

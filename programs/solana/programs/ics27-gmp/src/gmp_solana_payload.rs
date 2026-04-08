@@ -68,7 +68,7 @@ mod tests {
         let encoded = AbiGmpSolanaPayload {
             packedAccounts: packed.into(),
             instructionData: vec![0xCC, 0xDD].into(),
-            payerPosition: 0,
+            prefundLamports: 0,
         }
         .abi_encode_params();
 
