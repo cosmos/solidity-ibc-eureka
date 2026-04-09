@@ -22,7 +22,7 @@ const packedAccountSize = 34
 // MarshalGMPSolanaPayload encodes a GMPSolanaPayload using the specified encoding.
 //
 // For protobuf: standard proto.Marshal.
-// For ABI: packs accounts as 34-byte entries and produces abi.encode(bytes, bytes, uint32)
+// For ABI: packs accounts as 34-byte entries and produces abi.encode(GMPSolanaPayload)
 // matching the Solidity SolanaIFTSendCallConstructor format.
 func MarshalGMPSolanaPayload(payload *solanatypes.GMPSolanaPayload, encoding string) ([]byte, error) {
 	if encoding == testvalues.Ics27AbiEncoding {

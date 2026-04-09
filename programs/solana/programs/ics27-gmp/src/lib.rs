@@ -10,6 +10,7 @@ pub mod gmp_solana_payload;
 pub mod instructions;
 pub mod proto;
 pub mod router_cpi;
+mod sol_types;
 pub mod state;
 
 #[cfg(test)]

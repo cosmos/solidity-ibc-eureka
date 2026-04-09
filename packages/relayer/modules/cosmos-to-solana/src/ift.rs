@@ -16,7 +16,8 @@ use solana_sdk::{
 };
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
-use crate::constants::{ABI_ENCODING, ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
+use crate::gmp::{ABI_ENCODING, GMP_PORT_ID, PROTOBUF_ENCODING};
 
 /// IFT PDA seeds (must match ift program)
 const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
@@ -81,11 +82,7 @@ pub fn build_finalize_transfer_instruction(
         return None;
     }
 
-    let gmp_packet = match crate::gmp::decode_gmp_packet(
-        params.payload_value,
-        params.encoding,
-        params.source_port,
-    ) {
+    let gmp_packet = match crate::gmp::decode_gmp_packet(params.payload_value, params.encoding) {
         Some(packet) => packet,
         None => return None,
     };

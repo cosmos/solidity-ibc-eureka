@@ -11,12 +11,11 @@ use crate::proto::GmpSolanaPayload;
 /// Used by `on_recv_packet` to extract the target program accounts and instruction data.
 pub fn decode(value: &[u8], encoding: &str) -> Result<GmpSolanaPayload> {
     match encoding {
-        crate::constants::ABI_ENCODING => {
-            crate::abi::decode_abi_gmp_solana_payload(value).map_err(|e| {
+        crate::constants::ICS27_ENCODING_ABI => crate::abi::decode_abi_gmp_solana_payload(value)
+            .map_err(|e| {
                 msg!("GMP ABI Solana payload decode failed: {}", e);
                 error!(GMPError::InvalidSolanaPayload)
-            })
-        }
+            }),
         crate::constants::ICS27_ENCODING_PROTOBUF => GmpSolanaPayload::decode(value).map_err(|e| {
             msg!("GMP Solana payload validation failed: {}", e);
             error!(GMPError::InvalidSolanaPayload)
@@ -72,7 +71,7 @@ mod tests {
         }
         .abi_encode();
 
-        let decoded = decode(&encoded, crate::constants::ABI_ENCODING).unwrap();
+        let decoded = decode(&encoded, crate::constants::ICS27_ENCODING_ABI).unwrap();
 
         assert_eq!(decoded.accounts.len(), 1);
         assert_eq!(decoded.accounts[0].pubkey, pubkey);
@@ -90,7 +89,7 @@ mod tests {
 
     #[test]
     fn test_decode_abi_invalid_bytes() {
-        let result = decode(&[0xFF; 10], crate::constants::ABI_ENCODING);
+        let result = decode(&[0xFF; 10], crate::constants::ICS27_ENCODING_ABI);
         assert!(result.is_err());
     }
 

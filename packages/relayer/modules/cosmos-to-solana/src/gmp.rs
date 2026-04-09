@@ -1,34 +1,18 @@
 //! GMP account extraction - delegates to shared `ibc_eureka_relayer_lib::utils::solana_gmp`.
 
 pub use ibc_eureka_relayer_lib::utils::solana_gmp::{
-    extract_gmp_accounts, extract_gmp_prefund_lamports, find_gmp_result_pda, GMP_PORT_ID,
-    MAX_PREFUND_LAMPORTS, PROTOBUF_ENCODING,
+    extract_gmp_accounts, extract_gmp_prefund_lamports, find_gmp_result_pda, AbiGmpPacketData,
+    ABI_ENCODING, GMP_PORT_ID, MAX_PREFUND_LAMPORTS, PROTOBUF_ENCODING,
 };
 
-use crate::constants::ABI_ENCODING;
+use alloy::sol_types::SolValue;
 use solana_ibc_proto::{GmpPacketData, Protobuf, RawGmpPacketData};
-
-alloy::sol! {
-    struct AbiGmpPacketData {
-        string sender;
-        string receiver;
-        bytes salt;
-        bytes payload;
-        string memo;
-    }
-}
 
 /// Decode a GMP packet from either protobuf or ABI encoding.
 ///
 /// Returns `None` when decoding fails (treated as a non-GMP packet).
-pub(crate) fn decode_gmp_packet(
-    payload_value: &[u8],
-    encoding: &str,
-    _dest_port: &str,
-) -> Option<GmpPacketData> {
+pub(crate) fn decode_gmp_packet(payload_value: &[u8], encoding: &str) -> Option<GmpPacketData> {
     if encoding == ABI_ENCODING {
-        use alloy::sol_types::SolValue;
-
         let abi = AbiGmpPacketData::abi_decode(payload_value).ok()?;
         let raw = RawGmpPacketData {
             sender: abi.sender,

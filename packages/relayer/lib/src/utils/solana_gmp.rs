@@ -39,8 +39,7 @@ alloy::sol! {
     }
 }
 
-// ABI type matching the inner GmpSolanaPayload encoding:
-// `abi.encode(bytes packedAccounts, bytes instructionData, uint32 prefundLamports)`
+// ABI type matching `IICS27GMPMsgs.GMPSolanaPayload` struct encoding.
 alloy::sol! {
     struct AbiGmpSolanaPayload {
         bytes packedAccounts;
@@ -214,10 +213,7 @@ fn decode_abi_gmp_payload(payload_value: &[u8]) -> Result<Option<DecodedGmpPaylo
     let abi_gmp: AbiGmpPacketData = SolValue::abi_decode(payload_value)
         .map_err(|e| anyhow::anyhow!("Failed to ABI decode GMPPacketData: {e}"))?;
 
-    // Use abi_decode_params (not abi_decode) because constructMintCall returns
-    // abi.encode(bytes, bytes, uint32) — three separate params without an outer
-    // tuple offset.
-    let abi_solana: AbiGmpSolanaPayload = SolValue::abi_decode_params(&abi_gmp.payload)
+    let abi_solana: AbiGmpSolanaPayload = SolValue::abi_decode(&abi_gmp.payload)
         .map_err(|e| anyhow::anyhow!("Failed to ABI decode GmpSolanaPayload: {e}"))?;
 
     let packed = &abi_solana.packedAccounts;
