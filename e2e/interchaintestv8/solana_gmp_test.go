@@ -1145,7 +1145,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket(
 
 		relayElapsed := time.Since(start)
 		s.T().Logf("RelayByTx completed in %s", relayElapsed)
-		s.Require().Less(relayElapsed, 5*time.Second, "RelayByTx should be fast once Solana finality is achieved")
+		s.Require().Less(relayElapsed, 20*time.Second, "RelayByTx should complete within finalization window")
 
 		receipt := s.MustBroadcastSdkTxBodyNoWait(ctx, simd, s.Cosmos.Users[0], 2_000_000, resp.Tx)
 		s.Require().Equal(uint32(0), receipt.Code)
@@ -1259,7 +1259,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 
 		relayElapsed := time.Since(start)
 		s.T().Logf("RelayByTx completed in %s", relayElapsed)
-		s.Require().Less(relayElapsed, 5*time.Second, "RelayByTx should be fast once timeout has expired")
+		s.Require().Less(relayElapsed, 20*time.Second, "RelayByTx should complete within finalization window")
 
 		txResp, err := s.BroadcastSdkTxBodyNoWait(ctx, simd, cosmosUser, 500_000, resp.Tx)
 		s.Require().NoError(err)

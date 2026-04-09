@@ -16,7 +16,7 @@ use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
-use ibc_eureka_relayer_lib::utils::RelayEventsParams;
+use ibc_eureka_relayer_lib::utils::{wait_for_condition, RelayEventsParams};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -169,34 +169,36 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // Wait for Solana finalization to catch up before relaying timeouts.
-        // We pin the cutoff once so it doesn't drift while we poll.
+        // Solana finalization lags ~12s behind tip. We need a finalized slot
+        // whose block time is past now so the non-membership proof is valid.
         let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
             let cutoff = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
-            let start = std::time::Instant::now();
-            let deadline = std::time::Duration::from_secs(25 * 60);
-            let poll_interval = std::time::Duration::from_secs(1);
-            loop {
-                let (slot, block_time) = self
-                    .src_listener
-                    .get_finalized_slot_with_time()
-                    .map_err(to_tonic_status)?;
-                if block_time >= cutoff {
-                    break Some(slot);
-                }
-                if start.elapsed() >= deadline {
-                    return Err(tonic::Status::deadline_exceeded(
-                        "timed out waiting for finalized slot to reach current time",
-                    ));
-                }
-                tracing::debug!(
-                        "Finalized block time ({block_time}) < cutoff ({cutoff}), waiting for finalization"
-                    );
-                tokio::time::sleep(poll_interval).await;
-            }
+            let src_listener = &self.src_listener;
+            wait_for_condition(
+                std::time::Duration::from_secs(25 * 60),
+                std::time::Duration::from_secs(1),
+                || async {
+                    let (_, block_time) = src_listener.get_finalized_slot_with_time()?;
+                    if block_time >= cutoff {
+                        Ok(true)
+                    } else {
+                        tracing::debug!(
+                            "Finalized block time ({block_time}) < cutoff ({cutoff}), waiting"
+                        );
+                        Ok(false)
+                    }
+                },
+            )
+            .await
+            .map_err(to_tonic_status)?;
+            let (slot, _) = self
+                .src_listener
+                .get_finalized_slot_with_time()
+                .map_err(to_tonic_status)?;
+            Some(slot)
         } else {
             None
         };
