@@ -16,24 +16,25 @@ async fn test_full_packet_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
+    chain_b.prefund(&[&admin, &relayer]);
 
     // ── Start both chains ──
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
 
     // ── User sends on Chain A ──
     let send = user

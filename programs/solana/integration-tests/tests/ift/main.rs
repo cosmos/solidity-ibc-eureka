@@ -49,10 +49,11 @@ const TRANSFER_AMOUNT: u64 = 100_000;
 /// Returns `(mint_pubkey, user_ata)`.
 async fn setup_ift_chain(
     chain: &mut Chain,
+    admin: &Admin,
     mint_keypair: &Keypair,
     user_pubkey: Pubkey,
 ) -> (Pubkey, Pubkey) {
-    setup_ift_chain_with_token(chain, mint_keypair, user_pubkey, TokenKind::Spl).await
+    setup_ift_chain_with_token(chain, admin, mint_keypair, user_pubkey, TokenKind::Spl).await
 }
 
 /// Set up a chain with IFT + GMP, create a token (SPL or Token 2022), register
@@ -61,12 +62,13 @@ async fn setup_ift_chain(
 /// Returns `(mint_pubkey, user_ata)`.
 async fn setup_ift_chain_with_token(
     chain: &mut Chain,
+    admin: &Admin,
     mint_keypair: &Keypair,
     user_pubkey: Pubkey,
     token_kind: TokenKind,
 ) -> (Pubkey, Pubkey) {
     let mint = mint_keypair.pubkey();
-    let authority_pubkey = chain.admin_keypair().pubkey();
+    let authority_pubkey = admin.pubkey();
     let payer_pubkey = chain.payer().pubkey();
 
     // 1. Create token
@@ -87,7 +89,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[create_token_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.admin_keypair(), mint_keypair],
+        &[chain.payer(), admin.keypair(), mint_keypair],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("create token");
@@ -103,7 +105,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[register_bridge_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.admin_keypair()],
+        &[chain.payer(), admin.keypair()],
         chain.blockhash(),
     );
     chain
@@ -123,7 +125,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[admin_mint_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.admin_keypair()],
+        &[chain.payer(), admin.keypair()],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("admin mint");

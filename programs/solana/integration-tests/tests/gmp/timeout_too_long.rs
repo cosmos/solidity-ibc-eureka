@@ -11,11 +11,9 @@ async fn test_send_call_timeout_too_long() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     // Build a minimal GMP payload (content doesn't matter — send will fail)
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
@@ -25,6 +23,8 @@ async fn test_send_call_timeout_too_long() {
         gmp::encode_increment_payload(counter_app_state, user_counter_pda, gmp_account_pda, 1);
 
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
 
     // ── Timeout at the exact boundary: rejected ──
     // GMP checks `timeout < current_time + MAX_TIMEOUT_DURATION` (strict <)

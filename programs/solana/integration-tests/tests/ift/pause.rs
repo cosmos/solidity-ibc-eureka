@@ -17,16 +17,16 @@ async fn test_ift_pause() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::Ift],
     });
-    chain.prefund(&user);
+    chain.prefund(&[&admin, &relayer, &user]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
-    let (mint, user_ata) = setup_ift_chain(&mut chain, &mint_keypair, user.pubkey()).await;
+    let (mint, user_ata) = setup_ift_chain(&mut chain, &admin, &mint_keypair, user.pubkey()).await;
 
-    let ift_admin = IftAdmin::from_keypair(chain.admin_keypair().insecure_clone());
+    let ift_admin = IftAdmin::from_keypair(admin.keypair().insecure_clone());
 
     // ── Pause the app ──
     ift_admin.set_paused(&mut chain, true).await.expect("pause");

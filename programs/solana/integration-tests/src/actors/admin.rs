@@ -34,14 +34,6 @@ impl Admin {
         }
     }
 
-    pub(crate) const fn from_keypair(keypair: Keypair) -> Self {
-        Self { keypair }
-    }
-
-    pub(crate) fn insecure_clone(&self) -> Self {
-        Self::from_keypair(self.keypair.insecure_clone())
-    }
-
     pub const fn keypair(&self) -> &Keypair {
         &self.keypair
     }

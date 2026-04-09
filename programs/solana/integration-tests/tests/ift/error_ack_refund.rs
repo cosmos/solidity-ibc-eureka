@@ -19,14 +19,14 @@ async fn test_ift_error_ack_refund() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::Ift],
     });
-    chain.prefund(&user);
+    chain.prefund(&[&admin, &relayer, &user]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
-    let (mint, user_ata) = setup_ift_chain(&mut chain, &mint_keypair, user.pubkey()).await;
+    let (mint, user_ata) = setup_ift_chain(&mut chain, &admin, &mint_keypair, user.pubkey()).await;
 
     // Build expected GMP packet bytes for ack delivery
     let mint_call_payload = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);

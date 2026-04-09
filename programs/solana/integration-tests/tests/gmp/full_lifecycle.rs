@@ -15,21 +15,18 @@ async fn test_gmp_full_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Build Chain B (receiver chain, with GMP + test_gmp_app) ──
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
+    chain_b.prefund(&[&admin, &relayer]);
 
     // Derive GMP account PDA on Chain B and pre-fund it
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
@@ -51,7 +48,11 @@ async fn test_gmp_full_lifecycle() {
 
     // ── Start both chains ──
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
 
     // ──────────────────────────────────────────────────────────────────────
     // User sends GMP call on Chain A

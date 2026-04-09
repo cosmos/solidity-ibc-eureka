@@ -20,11 +20,9 @@ async fn test_gmp_timeout() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     // Build a GMP payload (same encoding as the full lifecycle test)
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
@@ -42,6 +40,8 @@ async fn test_gmp_timeout() {
 
     // ── Start chain ──
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
 
     // ── User sends GMP call on Chain A ──
     let commitment_pda = user

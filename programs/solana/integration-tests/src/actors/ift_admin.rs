@@ -11,7 +11,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 /// match `app_state.admin`.
 ///
 /// In tests, typically constructed via
-/// `IftAdmin::from_keypair(chain.admin_keypair().insecure_clone())`
+/// `IftAdmin::from_keypair(admin.keypair().insecure_clone())`
 /// since the AM admin's pubkey is set as the initial IFT admin during init.
 pub struct IftAdmin {
     keypair: Keypair,

@@ -18,20 +18,17 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
+    chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     // Pre-fund with significantly more lamports than the default
@@ -50,7 +47,11 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &solana_payload);
 
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
 
     // ── Send ──
     user.send_call(

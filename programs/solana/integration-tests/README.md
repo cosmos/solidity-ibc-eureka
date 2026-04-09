@@ -29,11 +29,13 @@ graph LR
         AppB["test_ibc_app / mock_ibc_app / ics27_gmp"]
     end
 
+    Test --> Deployer
     Test --> Admin
     Test --> IftAdmin
     Test --> User
     Test --> Relayer
     User -->|send_packet / send_call| RA
+    Admin -->|AM transfer| RA
     Relayer -->|upload_chunks + recv_packet| RB
     Relayer -->|upload_chunks + ack_packet| RA
     Relayer -->|upload_chunks + timeout_packet| RA
@@ -45,40 +47,47 @@ graph LR
     RB -->|CPI| AppB
 ```
 
-## Two-Phase Chain Lifecycle
+## Three-Phase Chain Lifecycle
 
-Each `Chain` follows a setup-then-runtime lifecycle:
+Each `Chain` follows a setup → init → runtime lifecycle:
 
 ```mermaid
 flowchart LR
-    subgraph Setup["Setup Phase (before start)"]
+    subgraph Setup["Setup Phase"]
         direction TB
         New["Chain::new(config)"] --> Prefund["prefund(actor)"]
-        Prefund --> Start["chain.start().await"]
     end
 
-    subgraph Runtime["Runtime Phase (after start)"]
+    subgraph Init["Init Phase"]
+        direction TB
+        Start["chain.start().await"] --> InitProg["deployer.init_programs()"]
+        InitProg --> XferAuth["deployer.transfer_upgrade_authority()"]
+    end
+
+    subgraph Runtime["Runtime Phase"]
         direction TB
         Send["User: send_packet / send_call"] --> Upload["Relayer: upload_chunks"]
         Upload --> Deliver["Relayer: recv_packet / ack_packet / timeout_packet"]
         Deliver --> Verify["get_account + assertions"]
     end
 
-    Setup --> Runtime
+    Setup --> Init --> Runtime
 ```
 
 **Setup phase** — `ProgramTest` is configured with program binaries, `ProgramData` accounts (for upgrade authority verification) and pre-funded actors. No on-chain state exists yet.
 
-**Runtime phase** — `start()` consumes the `ProgramTest`, produces a `BanksClient` and executes a sequence of real initialization transactions:
+**Init phase** — `start()` consumes the `ProgramTest` and produces a `BanksClient`. Then `deployer.init_programs()` executes a sequence of real initialization transactions. The deployer signs upgrade-authority-gated steps; the admin signs AM-role-gated steps:
 
-1. `access_manager::initialize` — creates the access manager account
-2. `access_manager::grant_role` — grants `RELAYER_ROLE` and `ID_CUSTOMIZER_ROLE`
-3. `ics26_router::initialize` — creates the router state
+1. `access_manager::initialize` — creates the AM account with admin's pubkey as `ADMIN_ROLE` holder *(deployer signs)*
+2. `access_manager::grant_role` — grants `RELAYER_ROLE` to relayer and `ID_CUSTOMIZER_ROLE` to admin *(admin signs)*
+3. `ics26_router::initialize` — creates the router state *(deployer signs)*
 4. `mock_light_client::initialize` — creates client and consensus state accounts
-5. `add_client` + `add_ibc_app` — registers the light client and IBC application
-6. App-specific initialization (`test_ibc_app::initialize`, `ics27_gmp::initialize` + `test_gmp_app::initialize`, or nothing for `mock_ibc_app`)
+5. `add_client` + `add_ibc_app` — registers the light client and IBC application *(admin signs)*
+6. App-specific initialization (`test_ibc_app::initialize`, `ics27_gmp::initialize` + `test_gmp_app::initialize`, `ift::initialize`, or nothing for `mock_ibc_app`) *(deployer signs)*
 
-After initialization, actors submit transactions and read account state.
+Finally, `deployer.transfer_upgrade_authority()` transfers upgrade authority of all programs to the access manager PDA so governance controls upgrades *(deployer signs)*.
+
+**Runtime phase** — actors submit transactions and read account state.
 
 ## Program Variants
 
@@ -98,7 +107,7 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 
 | Module     | Purpose                                                                                              |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `Program` enum, `add_counterparty` for multi-hop and `derive_mock_lc_pdas` |
+| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `Program` enum and `derive_mock_lc_pdas`. Init logic lives in `actors::deployer` |
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `actors`   | `Actor` trait and actor modules (`deployer`, `admin`, `ift_admin`, `user`, `relayer`)                 |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads, AM transfer (propose/accept/cancel) and `read_router_state` |
@@ -110,7 +119,7 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 ```mermaid
 graph TB
     Actor["trait Actor\npubkey()"]
-    Deployer["Deployer\n- upgrade authority holder\n- program initialization"]
+    Deployer["Deployer\n- upgrade authority holder\n- init_programs\n- transfer_upgrade_authority\n- add_counterparty"]
     Admin["Admin\n- ics26_propose/accept/cancel_am_transfer\n- gmp_propose/accept/cancel_am_transfer"]
     IftAdmin["IftAdmin\n- set_paused\n- propose/accept/cancel_admin\n- admin_mint"]
     User["User\n- send_packet\n- send_call\n- ift_transfer"]
@@ -123,7 +132,7 @@ graph TB
     Actor --> Relayer
 ```
 
-All actors wrap a `Keypair`. `Deployer` holds the upgrade authority and initializes programs during `Chain::start()`; after initialization it transfers upgrade authority to the access manager PDA. `Admin` is an independent keypair whose pubkey is passed to the AM `initialize` instruction as the admin — it manages AM operations (role grants, AM transfers for ICS26 Router and GMP). `IftAdmin` manages IFT-specific admin operations (pause, admin transfer, minting) — a separate concern from the AM admin. `User` initiates IBC sends; `Relayer` bridges packets between chains and holds the `RELAYER_ROLE` in the access manager.
+All actors wrap a `Keypair`. `Deployer` holds the upgrade authority and orchestrates program initialization via `init_programs()`, then transfers upgrade authority to the access manager PDA via `transfer_upgrade_authority()`. For multi-hop tests, `add_counterparty()` registers additional client/counterparty pairs. `Admin` is an independent keypair whose pubkey is passed to the AM `initialize` instruction as the admin — it manages AM operations (role grants, AM transfers for ICS26 Router and GMP). `IftAdmin` manages IFT-specific admin operations (pause, admin transfer, minting) — a separate concern from the AM admin. `User` initiates IBC sends; `Relayer` bridges packets between chains and holds the `RELAYER_ROLE` in the access manager.
 
 ## Packet Flow
 
@@ -224,24 +233,25 @@ async fn test_my_scenario() {
         client_id: "a-client",
         counterparty_client_id: "b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
-    chain_a.prefund(&user); // user needs SOL to submit transactions
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "b-client",
         counterparty_client_id: "a-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
+    chain_b.prefund(&[&admin, &relayer]);
 
-    // 3. Start chains — runs all initialization transactions
+    // 3. Start chains and initialize programs
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
 
     // 4. User sends a packet on Chain A
     let send = user
@@ -307,7 +317,8 @@ async fn test_my_scenario() {
 
 Key patterns:
 
-- **Setup before start** — `prefund`, program selection and `add_counterparty` (for multi-hop) must happen before `chain.start().await`.
+- **Setup before start** — `prefund` and program selection must happen before `chain.start().await`.
+- **Three-step init** — after `start()`, call `deployer.init_programs()` then `deployer.transfer_upgrade_authority()`. For multi-hop, call `deployer.add_counterparty()` between the two.
 - **Chunks before delivery** — every `recv_packet`, `ack_packet` and `timeout_packet` requires a preceding `upload_chunks` call.
 - **`Default::default()`** — param structs implement `Default` for fields like `timeout_timestamp` and `proof_height`, so you only need to set what matters for your test.
 - **Error assertions** — use `extract_custom_error` to match specific Anchor error codes instead of just checking that a transaction failed.

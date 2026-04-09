@@ -1,7 +1,5 @@
 use crate::accounts::account_owned_by;
-use crate::actors::deployer::{self, Deployer, ExtraSigners};
-use crate::admin::Admin;
-use crate::relayer::Relayer;
+use crate::actors::deployer::Deployer;
 use crate::Actor;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
@@ -10,7 +8,6 @@ use solana_sdk::{
     hash::Hash,
     pubkey::Pubkey,
     signature::Keypair,
-    signer::Signer,
     system_program,
     sysvar::Sysvar as _,
     transaction::Transaction,
@@ -76,8 +73,6 @@ pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
     pub deployer: &'a Deployer,
-    pub admin: &'a Admin,
-    pub relayer: &'a Relayer,
     pub programs: &'a [Program],
 }
 
@@ -89,25 +84,16 @@ pub struct Chain {
     counterparty_client_id: String,
     clock_time: i64,
     programs: Vec<Program>,
-    relayer_pubkey: Pubkey,
-    deployer: Deployer,
-    admin: Admin,
     banks: Option<BanksClient>,
     payer: Option<Keypair>,
     blockhash: Hash,
     pub accounts: ChainAccounts,
-    additional_counterparties: Vec<(String, String)>,
 }
 
 impl Chain {
     pub fn new(config: ChainConfig<'_>) -> Self {
-        // Keypair doesn't implement Clone; insecure_clone duplicates the private
-        // key bytes. Named "insecure" by the Solana SDK as a lint for production
-        // code — safe here because these are ephemeral test keypairs.
-        let deployer = config.deployer.insecure_clone();
-        let admin = config.admin.insecure_clone();
         let accounts = derive_chain_accounts(config.client_id, config.programs);
-        let pt = build_program_test(&config, deployer.keypair(), admin.keypair(), &accounts);
+        let pt = build_program_test(&config, &accounts);
 
         Self {
             pt: Some(pt),
@@ -115,22 +101,20 @@ impl Chain {
             counterparty_client_id: config.counterparty_client_id.to_string(),
             clock_time: TEST_CLOCK_TIME,
             programs: config.programs.to_vec(),
-            relayer_pubkey: config.relayer.pubkey(),
-            deployer,
-            admin,
             banks: None,
             payer: None,
             blockhash: Hash::default(),
             accounts,
-            additional_counterparties: Vec::new(),
         }
     }
 
     // ── Setup phase (before start) ──────────────────────────────────────
 
-    /// Pre-fund an actor's account with the default amount (10 SOL).
-    pub fn prefund(&mut self, actor: &impl Actor) {
-        self.prefund_lamports(actor.pubkey(), DEFAULT_PREFUND_LAMPORTS);
+    /// Pre-fund actor accounts with the default amount (10 SOL each).
+    pub fn prefund(&mut self, actors: &[&dyn Actor]) {
+        for actor in actors {
+            self.prefund_lamports(actor.pubkey(), DEFAULT_PREFUND_LAMPORTS);
+        }
     }
 
     /// Pre-fund an account with a specific lamport amount.
@@ -138,65 +122,13 @@ impl Chain {
         self.pt().add_account(pubkey, system_account(lamports));
     }
 
-    /// Register an additional client/counterparty pair on this chain.
+    /// Start the `ProgramTest` runtime, producing a `BanksClient`.
     ///
-    /// The mock light client and router `add_client` instructions are executed
-    /// during `start()`, after the primary client is initialized.
-    pub fn add_counterparty(&mut self, client_id: &str, counterparty_client_id: &str) {
-        self.additional_counterparties
-            .push((client_id.to_string(), counterparty_client_id.to_string()));
-    }
-
-    /// Start the chain runtime, executing all initialization transactions.
+    /// After calling `start()`, use `Deployer::init_programs` and
+    /// `Deployer::transfer_upgrade_authority` to initialize on-chain state.
     pub async fn start(&mut self) {
         let pt = self.pt.take().expect("chain already started");
-        let (banks, payer, mut blockhash) = pt.start().await;
-
-        let steps = deployer::build_init_steps(
-            payer.pubkey(),
-            self.deployer.keypair(),
-            self.admin.pubkey(),
-            self.relayer_pubkey,
-            &self.client_id,
-            &self.counterparty_client_id,
-            &self.programs,
-        );
-
-        let deployer_kp = self.deployer.keypair();
-        let admin_kp = self.admin.keypair();
-        for (ixs, signers) in &steps {
-            let extra: &[&Keypair] = match signers {
-                ExtraSigners::None => &[],
-                ExtraSigners::Deployer => std::slice::from_ref(&deployer_kp),
-                ExtraSigners::Admin => std::slice::from_ref(&admin_kp),
-            };
-            blockhash = deployer::send_init_tx(&banks, &payer, blockhash, ixs, extra).await;
-        }
-
-        // Initialize additional counterparties (for multi-hop tests)
-        let am_pda = deployer::derive_access_manager_pda();
-        let router_state_pda = deployer::derive_router_state_pda();
-        for (extra_client_id, extra_counterparty_id) in &self.additional_counterparties {
-            let lc_ix = deployer::build_mock_lc_initialize_ix(payer.pubkey(), extra_client_id);
-            blockhash = deployer::send_init_tx(&banks, &payer, blockhash, &[lc_ix], &[]).await;
-
-            let add_ix = deployer::build_add_client_ix(
-                self.admin.pubkey(),
-                router_state_pda,
-                am_pda,
-                extra_client_id,
-                extra_counterparty_id,
-            );
-            blockhash = deployer::send_init_tx(
-                &banks,
-                &payer,
-                blockhash,
-                &[add_ix],
-                &[self.admin.keypair()],
-            )
-            .await;
-        }
-
+        let (banks, payer, blockhash) = pt.start().await;
         self.banks = Some(banks);
         self.payer = Some(payer);
         self.blockhash = blockhash;
@@ -210,6 +142,10 @@ impl Chain {
 
     pub fn counterparty_client_id(&self) -> &str {
         &self.counterparty_client_id
+    }
+
+    pub fn programs(&self) -> &[Program] {
+        &self.programs
     }
 
     pub const fn clock_time(&self) -> i64 {
@@ -226,14 +162,6 @@ impl Chain {
         self.accounts
             .ift_app_state_pda
             .expect("chain should have ift_app_state PDA")
-    }
-
-    pub const fn deployer_keypair(&self) -> &Keypair {
-        self.deployer.keypair()
-    }
-
-    pub const fn admin_keypair(&self) -> &Keypair {
-        self.admin.keypair()
     }
 
     pub const fn payer(&self) -> &Keypair {
@@ -371,21 +299,18 @@ fn add_program_data(pt: &mut ProgramTest, program_id: Pubkey, deployer_pubkey: P
     );
 }
 
-fn build_program_test(
-    config: &ChainConfig<'_>,
-    deployer: &Keypair,
-    admin: &Keypair,
-    accounts: &ChainAccounts,
-) -> ProgramTest {
+fn build_program_test(config: &ChainConfig<'_>, accounts: &ChainAccounts) -> ProgramTest {
     ensure_sbf_out_dir();
+
+    let deployer_pubkey = config.deployer.pubkey();
 
     let mut pt = ProgramTest::new("ics26_router", ics26_router::ID, None);
     pt.add_program("mock_light_client", mock_light_client::ID, None);
     pt.add_program("access_manager", access_manager::ID, None);
 
     // ProgramData accounts for programs that verify upgrade authority
-    add_program_data(&mut pt, access_manager::ID, deployer.pubkey());
-    add_program_data(&mut pt, ics26_router::ID, deployer.pubkey());
+    add_program_data(&mut pt, access_manager::ID, deployer_pubkey);
+    add_program_data(&mut pt, ics26_router::ID, deployer_pubkey);
 
     // App-specific programs
     for program in config.programs {
@@ -403,7 +328,7 @@ fn build_program_test(
             }
             Program::Ics27Gmp => {
                 pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-                add_program_data(&mut pt, ics27_gmp::ID, deployer.pubkey());
+                add_program_data(&mut pt, ics27_gmp::ID, deployer_pubkey);
             }
             Program::TestGmpApp => {
                 pt.add_program("test_gmp_app", test_gmp_app::ID, None);
@@ -413,19 +338,17 @@ fn build_program_test(
             }
             Program::Ift => {
                 pt.add_program("ift", ift::ID, None);
-                add_program_data(&mut pt, ift::ID, deployer.pubkey());
+                add_program_data(&mut pt, ift::ID, deployer_pubkey);
             }
             Program::TestAccessManager => {
                 pt.add_program("test_access_manager", test_access_manager::ID, None);
-                add_program_data(&mut pt, test_access_manager::ID, deployer.pubkey());
+                add_program_data(&mut pt, test_access_manager::ID, deployer_pubkey);
             }
         }
     }
 
-    // Pre-fund relayer, deployer and admin
-    for pubkey in [config.relayer.pubkey(), deployer.pubkey(), admin.pubkey()] {
-        pt.add_account(pubkey, system_account(DEFAULT_PREFUND_LAMPORTS));
-    }
+    // Pre-fund deployer (admin and relayer are prefunded via chain.prefund())
+    pt.add_account(deployer_pubkey, system_account(DEFAULT_PREFUND_LAMPORTS));
 
     // Deterministic clock
     let clock = solana_sdk::clock::Clock {

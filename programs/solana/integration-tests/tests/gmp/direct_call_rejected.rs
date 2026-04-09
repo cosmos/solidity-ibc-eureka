@@ -16,10 +16,9 @@ async fn test_gmp_direct_call_rejected() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
+    chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
@@ -43,6 +42,8 @@ async fn test_gmp_direct_call_rejected() {
     );
 
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
 
     // Build a raw on_recv_packet instruction targeting ics27_gmp directly
     let ix = gmp::build_raw_gmp_on_recv_packet_ix(

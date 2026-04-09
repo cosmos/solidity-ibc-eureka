@@ -16,11 +16,12 @@ async fn test_gmp_am_transfer_propose_accept() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],
     });
+    chain.prefund(&[&admin, &relayer]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
     // Verify initial state
     let state = gmp::read_gmp_app_state(&chain).await;
@@ -62,11 +63,12 @@ async fn test_gmp_am_transfer_propose_cancel() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],
     });
+    chain.prefund(&[&admin, &relayer]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
     admin
         .gmp_propose_am_transfer(&mut chain, test_access_manager::ID)
@@ -100,14 +102,15 @@ async fn test_gmp_am_transfer_unauthorized_propose() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],
     });
+    chain.prefund(&[&admin, &relayer]);
 
     let non_admin = Admin::new();
-    chain.prefund(&non_admin);
+    chain.prefund(&[&non_admin]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
     let err = non_admin
         .gmp_propose_am_transfer(&mut chain, test_access_manager::ID)

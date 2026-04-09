@@ -20,15 +20,16 @@ async fn test_ift_token_2022_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::Ift],
     });
-    chain.prefund(&user);
+    chain.prefund(&[&admin, &relayer, &user]);
     chain.start().await;
+    deployer.init_programs(&mut chain, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain).await;
 
     let (mint, user_ata) =
-        setup_ift_chain_with_token(&mut chain, &mint_keypair, user.pubkey(), token_kind).await;
+        setup_ift_chain_with_token(&mut chain, &admin, &mint_keypair, user.pubkey(), token_kind)
+            .await;
 
     // Verify initial balance (Token 2022 account)
     let balance = token_kind.read_balance(&chain, user_ata).await;

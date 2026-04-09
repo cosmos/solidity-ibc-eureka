@@ -21,33 +21,27 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_a.prefund(&user);
+    chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Chain B (dual client) ──
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
-    chain_b.prefund(&user);
-    chain_b.add_counterparty("b-to-c", "c-to-b");
+    chain_b.prefund(&[&admin, &relayer, &user]);
 
     // ── Chain C ──
     let mut chain_c = Chain::new(ChainConfig {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
-        admin: &admin,
-        relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
+    chain_c.prefund(&[&admin, &relayer]);
 
     // Derive GMP PDAs for each hop
     // Leg 1: A→B — GMP account on Chain B derived from b-to-a client + user
@@ -75,8 +69,17 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // ── Start all chains ──
     chain_a.start().await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_a).await;
     chain_b.start().await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer
+        .add_counterparty(&mut chain_b, &admin, "b-to-c", "c-to-b")
+        .await;
+    deployer.transfer_upgrade_authority(&mut chain_b).await;
     chain_c.start().await;
+    deployer.init_programs(&mut chain_c, &admin, &relayer).await;
+    deployer.transfer_upgrade_authority(&mut chain_c).await;
 
     // ══════════════════════════════════════════════════════════════════════
     // Leg 1: A → B (sequence=1, amount=42)

@@ -1,10 +1,10 @@
 use super::Actor;
-use crate::chain::{Program, MOCK_LC_LATEST_HEIGHT};
+use crate::admin::Admin;
+use crate::chain::{Chain, Program, MOCK_LC_LATEST_HEIGHT};
+use crate::relayer::Relayer;
 use anchor_lang::InstructionData;
-use solana_program_test::BanksClient;
 use solana_sdk::{
     bpf_loader_upgradeable,
-    hash::Hash,
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
     signature::Keypair,
@@ -15,17 +15,17 @@ use solana_sdk::{
 
 /// Which extra signers a particular init step requires.
 #[derive(Clone, Copy)]
-pub(crate) enum ExtraSigners {
+enum ExtraSigners {
     None,
     Deployer,
     Admin,
 }
 
 /// Deployer for the chain — holds the upgrade authority keypair and
-/// orchestrates all program initialization during `Chain::start()`.
+/// orchestrates program initialization via `init_programs()`.
 ///
-/// After deployment, upgrade authority for all programs is transferred
-/// to the access manager PDA so governance controls upgrades.
+/// After initialization, `transfer_upgrade_authority()` transfers
+/// upgrade authority of all programs to the access manager PDA.
 pub struct Deployer {
     keypair: Keypair,
 }
@@ -49,47 +49,102 @@ impl Deployer {
         }
     }
 
-    pub const fn from_keypair(keypair: Keypair) -> Self {
-        Self { keypair }
-    }
-
-    pub(crate) fn insecure_clone(&self) -> Self {
-        Self::from_keypair(self.keypair.insecure_clone())
-    }
-
     pub const fn keypair(&self) -> &Keypair {
         &self.keypair
     }
+
+    // ── Public init methods ──────────────────────────────────────────────
+
+    /// Initialize all programs on the chain.
+    ///
+    /// Must be called after `chain.start()`. Executes AM, router, light
+    /// client, IBC app and program-specific initialization transactions.
+    pub async fn init_programs(&self, chain: &mut Chain, admin: &Admin, relayer: &Relayer) {
+        let steps = build_init_steps(
+            chain.payer().pubkey(),
+            self.keypair(),
+            admin.pubkey(),
+            relayer.pubkey(),
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.programs(),
+        );
+
+        let deployer_kp = self.keypair();
+        let admin_kp = admin.keypair();
+        for (ixs, signers) in &steps {
+            let extra: &[&Keypair] = match signers {
+                ExtraSigners::None => &[],
+                ExtraSigners::Deployer => std::slice::from_ref(&deployer_kp),
+                ExtraSigners::Admin => std::slice::from_ref(&admin_kp),
+            };
+            submit_tx(chain, ixs, extra).await;
+        }
+    }
+
+    /// Transfer upgrade authority of all deployed programs to the access
+    /// manager PDA, reflecting a production deployment where governance
+    /// controls upgrades.
+    pub async fn transfer_upgrade_authority(&self, chain: &mut Chain) {
+        let am_pda = derive_access_manager_pda();
+        let ixs =
+            build_transfer_upgrade_authority_ixs(self.keypair().pubkey(), am_pda, chain.programs());
+        if !ixs.is_empty() {
+            submit_tx(chain, &ixs, &[self.keypair()]).await;
+        }
+    }
+
+    /// Register an additional client/counterparty pair on the chain.
+    ///
+    /// Initializes the mock light client and calls `add_client` on the
+    /// router. Used for multi-hop tests (e.g. three-chain roundtrip).
+    pub async fn add_counterparty(
+        &self,
+        chain: &mut Chain,
+        admin: &Admin,
+        client_id: &str,
+        counterparty_client_id: &str,
+    ) {
+        let lc_ix = build_mock_lc_initialize_ix(chain.payer().pubkey(), client_id);
+        submit_tx(chain, &[lc_ix], &[]).await;
+
+        let add_ix = build_add_client_ix(
+            admin.pubkey(),
+            derive_router_state_pda(),
+            derive_access_manager_pda(),
+            client_id,
+            counterparty_client_id,
+        );
+        submit_tx(chain, &[add_ix], &[admin.keypair()]).await;
+    }
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────
+
+async fn submit_tx(chain: &mut Chain, ixs: &[Instruction], extra_signers: &[&Keypair]) {
+    let mut signers: Vec<&Keypair> = vec![chain.payer()];
+    signers.extend(extra_signers);
+    let tx = Transaction::new_signed_with_payer(
+        ixs,
+        Some(&chain.payer().pubkey()),
+        &signers,
+        chain.blockhash(),
+    );
+    chain.process_transaction(tx).await.expect("init tx failed");
 }
 
 // ── PDA derivation ──────────────────────────────────────────────────────
 
-pub(crate) fn derive_access_manager_pda() -> Pubkey {
+fn derive_access_manager_pda() -> Pubkey {
     solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID).0
 }
 
-pub(crate) fn derive_router_state_pda() -> Pubkey {
+fn derive_router_state_pda() -> Pubkey {
     Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID).0
 }
 
 fn derive_test_access_manager_pda() -> Pubkey {
     solana_ibc_types::access_manager::AccessManager::pda(test_access_manager::ID).0
-}
-
-// ── Transaction helper ──────────────────────────────────────────────────
-
-pub(crate) async fn send_init_tx(
-    banks: &BanksClient,
-    payer: &Keypair,
-    blockhash: Hash,
-    ixs: &[Instruction],
-    extra_signers: &[&Keypair],
-) -> Hash {
-    let mut signers: Vec<&Keypair> = vec![payer];
-    signers.extend(extra_signers);
-    let tx = Transaction::new_signed_with_payer(ixs, Some(&payer.pubkey()), &signers, blockhash);
-    banks.process_transaction(tx).await.expect("init tx failed");
-    banks.get_latest_blockhash().await.unwrap()
 }
 
 // ── Init step builder ───────────────────────────────────────────────────
@@ -115,7 +170,7 @@ fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
 /// Returns `(instructions, extra_signers)` tuples that must be executed
 /// sequentially. `admin_pubkey` is installed as the AM admin and IFT
 /// admin; the deployer only signs for upgrade-authority-gated instructions.
-pub(crate) fn build_init_steps(
+fn build_init_steps(
     payer: Pubkey,
     deployer: &Keypair,
     admin_pubkey: Pubkey,
@@ -246,13 +301,6 @@ pub(crate) fn build_init_steps(
             }
             Program::MockIbcApp | Program::TestCpiProxy => {}
         }
-    }
-
-    // Final step: transfer upgrade authority to access manager PDA
-    let authority_transfer_ixs =
-        build_transfer_upgrade_authority_ixs(deployer.pubkey(), am_pda, programs);
-    if !authority_transfer_ixs.is_empty() {
-        steps.push((authority_transfer_ixs, ExtraSigners::Deployer));
     }
 
     steps
@@ -411,7 +459,7 @@ fn build_router_initialize_ix(
     }
 }
 
-pub(crate) fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Instruction {
+fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Instruction {
     let (client_state_pda, _) =
         Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &mock_light_client::ID);
     let (consensus_state_pda, _) = Pubkey::find_program_address(
@@ -441,7 +489,7 @@ pub(crate) fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Inst
     }
 }
 
-pub(crate) fn build_add_client_ix(
+fn build_add_client_ix(
     admin: Pubkey,
     router_state_pda: Pubkey,
     am_pda: Pubkey,
