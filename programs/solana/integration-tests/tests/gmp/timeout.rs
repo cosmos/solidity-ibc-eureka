@@ -11,6 +11,7 @@ async fn test_gmp_timeout() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
@@ -20,7 +21,7 @@ async fn test_gmp_timeout() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -40,8 +41,12 @@ async fn test_gmp_timeout() {
 
     // ── Start chain ──
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
 
     // ── User sends GMP call on Chain A ──
     let commitment_pda = user

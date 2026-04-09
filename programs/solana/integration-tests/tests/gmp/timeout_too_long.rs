@@ -6,12 +6,13 @@ async fn test_send_call_timeout_too_long() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
 
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -23,8 +24,12 @@ async fn test_send_call_timeout_too_long() {
         gmp::encode_increment_payload(counter_app_state, user_counter_pda, gmp_account_pda, 1);
 
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
 
     // ── Timeout at the exact boundary: rejected ──
     // GMP checks `timeout < current_time + MAX_TIMEOUT_DURATION` (strict <)

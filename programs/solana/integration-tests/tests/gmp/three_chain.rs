@@ -13,6 +13,7 @@ async fn test_gmp_three_chain_roundtrip() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
 
     // ── Chain A ──
@@ -20,7 +21,7 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -29,7 +30,7 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -38,7 +39,7 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_c.prefund(&[&admin, &relayer]);
 
@@ -68,17 +69,29 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // ── Start all chains ──
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
+    deployer
+        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .await;
     deployer
         .add_counterparty(&mut chain_b, &admin, "b-to-c", "c-to-b")
         .await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_b, programs)
+        .await;
     chain_c.start().await;
-    deployer.init_programs(&mut chain_c, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_c).await;
+    deployer
+        .init_programs(&mut chain_c, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_c, programs)
+        .await;
 
     // ══════════════════════════════════════════════════════════════════════
     // Leg 1: A → B (sequence=1, amount=42)

@@ -16,11 +16,13 @@ async fn test_error_ack_lifecycle() {
     // Chain A: test_ibc_app (sender)
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let programs_b: &[&dyn ChainProgram] = &[&MockIbcApp];
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::TestIbcApp],
+        programs: programs_a,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -29,16 +31,24 @@ async fn test_error_ack_lifecycle() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        programs: &[Program::MockIbcApp],
+        programs: programs_b,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs_a)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs_a)
+        .await;
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer
+        .init_programs(&mut chain_b, &admin, &relayer, programs_b)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_b, programs_b)
+        .await;
 
     // User sends on A
     user.send_packet(

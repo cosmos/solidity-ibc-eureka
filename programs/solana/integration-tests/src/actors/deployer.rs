@@ -1,6 +1,6 @@
 use super::Actor;
 use crate::admin::Admin;
-use crate::chain::{Chain, Program, MOCK_LC_LATEST_HEIGHT};
+use crate::chain::{Chain, ChainProgram, InitStepSigner, MOCK_LC_LATEST_HEIGHT};
 use crate::relayer::Relayer;
 use anchor_lang::InstructionData;
 use solana_sdk::{
@@ -12,16 +12,6 @@ use solana_sdk::{
     system_program,
     transaction::Transaction,
 };
-
-/// Which signers a particular init step requires.
-///
-/// The deployer always pays transaction fees and signs as the fee payer.
-/// `WithAdmin` adds the admin keypair as a co-signer for AM-role-gated steps.
-#[derive(Clone, Copy)]
-enum InitStepSigner {
-    DeployerOnly,
-    WithAdmin,
-}
 
 /// Deployer for the chain — holds the upgrade authority keypair and
 /// orchestrates program initialization via `init_programs()`.
@@ -61,14 +51,20 @@ impl Deployer {
     ///
     /// Must be called after `chain.start()`. Executes AM, router, light
     /// client, IBC app and program-specific initialization transactions.
-    pub async fn init_programs(&self, chain: &mut Chain, admin: &Admin, relayer: &Relayer) {
+    pub async fn init_programs(
+        &self,
+        chain: &mut Chain,
+        admin: &Admin,
+        relayer: &Relayer,
+        programs: &[&dyn ChainProgram],
+    ) {
         let steps = build_init_steps(
             self.keypair(),
             admin.pubkey(),
             relayer.pubkey(),
             chain.client_id(),
             chain.counterparty_client_id(),
-            chain.programs(),
+            programs,
         );
 
         let admin_kp = admin.keypair();
@@ -84,10 +80,13 @@ impl Deployer {
     /// Transfer upgrade authority of all deployed programs to the access
     /// manager PDA, reflecting a production deployment where governance
     /// controls upgrades.
-    pub async fn transfer_upgrade_authority(&self, chain: &mut Chain) {
+    pub async fn transfer_upgrade_authority(
+        &self,
+        chain: &mut Chain,
+        programs: &[&dyn ChainProgram],
+    ) {
         let am_pda = derive_access_manager_pda();
-        let ixs =
-            build_transfer_upgrade_authority_ixs(self.keypair().pubkey(), am_pda, chain.programs());
+        let ixs = build_transfer_upgrade_authority_ixs(self.keypair().pubkey(), am_pda, programs);
         if !ixs.is_empty() {
             submit_tx(chain, &ixs, &[self.keypair()]).await;
         }
@@ -140,23 +139,13 @@ fn derive_router_state_pda() -> Pubkey {
     Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID).0
 }
 
-fn derive_test_access_manager_pda() -> Pubkey {
-    solana_ibc_types::access_manager::AccessManager::pda(test_access_manager::ID).0
-}
-
 // ── Init step builder ───────────────────────────────────────────────────
 
 /// Return the (`port_id`, `program_id`) for the first IBC application in the list.
-fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
+fn get_port_and_app<'a>(programs: &'a [&'a dyn ChainProgram]) -> (&'a str, Pubkey) {
     for p in programs {
-        match p {
-            Program::TestIbcApp => return (crate::router::PORT_ID, test_ibc_app::ID),
-            Program::MockIbcApp => return (crate::router::PORT_ID, mock_ibc_app::ID),
-            Program::Ics27Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
-            Program::TestGmpApp
-            | Program::TestCpiProxy
-            | Program::Ift
-            | Program::TestAccessManager => {}
+        if let Some(port_and_id) = p.ibc_port_and_id() {
+            return port_and_id;
         }
     }
     panic!("no IBC application in programs list");
@@ -173,7 +162,7 @@ fn build_init_steps(
     relayer_pubkey: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
-    programs: &[Program],
+    programs: &[&dyn ChainProgram],
 ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
     let deployer_pubkey = deployer.pubkey();
     let am_pda = derive_access_manager_pda();
@@ -247,71 +236,9 @@ fn build_init_steps(
         ),
     ];
 
-    // App-specific initialization
+    // App-specific initialization (each program provides its own steps)
     for p in programs {
-        match p {
-            Program::TestIbcApp => {
-                steps.push((
-                    vec![build_test_ibc_app_initialize_ix(
-                        deployer_pubkey,
-                        deployer_pubkey,
-                    )],
-                    InitStepSigner::DeployerOnly,
-                ));
-            }
-            Program::Ics27Gmp => {
-                steps.push((
-                    vec![build_gmp_initialize_ix(
-                        deployer_pubkey,
-                        deployer,
-                        access_manager::ID,
-                    )],
-                    InitStepSigner::DeployerOnly,
-                ));
-            }
-            Program::TestGmpApp => {
-                steps.push((
-                    vec![build_test_gmp_app_initialize_ix(
-                        deployer_pubkey,
-                        deployer_pubkey,
-                    )],
-                    InitStepSigner::DeployerOnly,
-                ));
-            }
-            Program::Ift => {
-                steps.push((
-                    vec![build_ift_initialize_ix(
-                        deployer_pubkey,
-                        deployer,
-                        admin_pubkey,
-                    )],
-                    InitStepSigner::DeployerOnly,
-                ));
-            }
-            Program::TestAccessManager => {
-                let test_am_pda = derive_test_access_manager_pda();
-                steps.push((
-                    vec![build_test_am_initialize_ix(
-                        deployer_pubkey,
-                        deployer,
-                        test_am_pda,
-                        admin_pubkey,
-                    )],
-                    InitStepSigner::DeployerOnly,
-                ));
-                steps.push((
-                    vec![build_am_grant_role_ix_for_program(
-                        test_am_pda,
-                        admin_pubkey,
-                        solana_ibc_types::roles::ADMIN_ROLE,
-                        admin_pubkey,
-                        test_access_manager::ID,
-                    )],
-                    InitStepSigner::WithAdmin,
-                ));
-            }
-            Program::MockIbcApp | Program::TestCpiProxy => {}
-        }
+        steps.extend(p.init_steps(deployer, admin_pubkey));
     }
 
     steps
@@ -319,13 +246,10 @@ fn build_init_steps(
 
 // ── Upgrade authority transfer ──────────────────────────────────────────
 
-/// Build instructions to transfer upgrade authority of all deployed programs
-/// to the access manager PDA, reflecting a production deployment where
-/// governance controls upgrades.
 fn build_transfer_upgrade_authority_ixs(
     deployer: Pubkey,
     am_pda: Pubkey,
-    programs: &[Program],
+    programs: &[&dyn ChainProgram],
 ) -> Vec<Instruction> {
     let mut ixs = vec![
         bpf_loader_upgradeable::set_upgrade_authority(
@@ -337,29 +261,12 @@ fn build_transfer_upgrade_authority_ixs(
     ];
 
     for p in programs {
-        match p {
-            Program::Ics27Gmp => {
-                ixs.push(bpf_loader_upgradeable::set_upgrade_authority(
-                    &ics27_gmp::ID,
-                    &deployer,
-                    Some(&am_pda),
-                ));
-            }
-            Program::Ift => {
-                ixs.push(bpf_loader_upgradeable::set_upgrade_authority(
-                    &ift::ID,
-                    &deployer,
-                    Some(&am_pda),
-                ));
-            }
-            Program::TestAccessManager => {
-                ixs.push(bpf_loader_upgradeable::set_upgrade_authority(
-                    &test_access_manager::ID,
-                    &deployer,
-                    Some(&am_pda),
-                ));
-            }
-            _ => {}
+        if let Some(program_id) = p.upgrade_authority_program_id() {
+            ixs.push(bpf_loader_upgradeable::set_upgrade_authority(
+                &program_id,
+                &deployer,
+                Some(&am_pda),
+            ));
         }
     }
 
@@ -397,51 +304,14 @@ fn build_am_grant_role_ix(
     role_id: u64,
     account: Pubkey,
 ) -> Instruction {
-    build_am_grant_role_ix_for_program(am_pda, admin, role_id, account, access_manager::ID)
-}
-
-fn build_am_grant_role_ix_for_program(
-    am_pda: Pubkey,
-    admin: Pubkey,
-    role_id: u64,
-    account: Pubkey,
-    am_program_id: Pubkey,
-) -> Instruction {
-    // Instruction discriminator is identical for access_manager and test_access_manager
-    // (symlinked source), so we can reuse access_manager::instruction::GrantRole.
     Instruction {
-        program_id: am_program_id,
+        program_id: access_manager::ID,
         accounts: vec![
             AccountMeta::new(am_pda, false),
             AccountMeta::new_readonly(admin, true),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         ],
         data: access_manager::instruction::GrantRole { role_id, account }.data(),
-    }
-}
-
-fn build_test_am_initialize_ix(
-    payer: Pubkey,
-    deployer: &Keypair,
-    am_pda: Pubkey,
-    admin: Pubkey,
-) -> Instruction {
-    let (program_data_pda, _) = Pubkey::find_program_address(
-        &[test_access_manager::ID.as_ref()],
-        &bpf_loader_upgradeable::ID,
-    );
-
-    Instruction {
-        program_id: test_access_manager::ID,
-        accounts: vec![
-            AccountMeta::new(am_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(program_data_pda, false),
-            AccountMeta::new_readonly(deployer.pubkey(), true),
-        ],
-        data: access_manager::instruction::Initialize { admin }.data(),
     }
 }
 
@@ -563,82 +433,5 @@ fn build_add_ibc_app_ix(
             port_id: port_id.to_string(),
         }
         .data(),
-    }
-}
-
-fn build_test_ibc_app_initialize_ix(payer: Pubkey, authority: Pubkey) -> Instruction {
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
-
-    Instruction {
-        program_id: test_ibc_app::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: test_ibc_app::instruction::Initialize { authority }.data(),
-    }
-}
-
-fn build_gmp_initialize_ix(
-    payer: Pubkey,
-    deployer: &Keypair,
-    access_manager_program: Pubkey,
-) -> Instruction {
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
-    Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(program_data_pda, false),
-            AccountMeta::new_readonly(deployer.pubkey(), true),
-        ],
-        data: ics27_gmp::instruction::Initialize {
-            access_manager: access_manager_program,
-        }
-        .data(),
-    }
-}
-
-fn build_ift_initialize_ix(payer: Pubkey, deployer: &Keypair, admin: Pubkey) -> Instruction {
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[ift::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(program_data_pda, false),
-            AccountMeta::new_readonly(deployer.pubkey(), true),
-        ],
-        data: ift::instruction::Initialize { admin }.data(),
-    }
-}
-
-fn build_test_gmp_app_initialize_ix(payer: Pubkey, authority: Pubkey) -> Instruction {
-    let (app_state_pda, _) = Pubkey::find_program_address(
-        &[test_gmp_app::state::CounterAppState::SEED],
-        &test_gmp_app::ID,
-    );
-
-    Instruction {
-        program_id: test_gmp_app::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: test_gmp_app::instruction::Initialize { authority }.data(),
     }
 }

@@ -14,16 +14,21 @@ async fn test_ift_batch_transfers() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::Ift],
+        programs,
     });
     chain.prefund(&[&admin, &relayer, &user]);
     chain.start().await;
-    deployer.init_programs(&mut chain, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain).await;
+    deployer
+        .init_programs(&mut chain, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, programs)
+        .await;
 
     let (mint, user_ata) = setup_ift_chain(&mut chain, &admin, &mint_keypair, user.pubkey()).await;
 

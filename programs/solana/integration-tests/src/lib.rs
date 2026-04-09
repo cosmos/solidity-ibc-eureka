@@ -7,6 +7,7 @@ pub mod actors;
 pub mod chain;
 pub mod gmp;
 pub mod ift;
+pub mod programs;
 pub mod router;
 
 pub use actors::{admin, deployer, ift_admin, relayer, user, Actor};

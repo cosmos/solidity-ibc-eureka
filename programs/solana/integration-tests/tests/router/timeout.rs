@@ -12,18 +12,23 @@ async fn test_timeout_packet() {
     // ── Build Chain A (only chain needed — timeout is delivered to source) ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::TestIbcApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Start chain ──
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
 
     // ── User sends packet on Chain A ──
     let send = user

@@ -13,10 +13,11 @@ use ics27_gmp::errors::GMPError;
 use integration_tests::{
     admin::Admin,
     anchor_error_code, assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{Chain, ChainConfig, Program, TEST_CLOCK_TIME},
+    chain::{Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
     extract_ack_data, extract_custom_error, gmp,
     gmp::{GmpAckPacketParams, GmpRecvPacketParams, GmpSendCallParams},
+    programs::{Ics27Gmp, TestCpiProxy, TestGmpApp},
     relayer::Relayer,
     user::User,
     Actor,

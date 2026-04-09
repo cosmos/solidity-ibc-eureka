@@ -1,4 +1,3 @@
-use crate::accounts::account_owned_by;
 use crate::actors::deployer::Deployer;
 use crate::Actor;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
@@ -6,7 +5,9 @@ use solana_sdk::{
     account::Account,
     bpf_loader_upgradeable::{self, UpgradeableLoaderState},
     hash::Hash,
+    instruction::Instruction,
     pubkey::Pubkey,
+    signature::Keypair,
     system_program,
     sysvar::Sysvar as _,
     transaction::Transaction,
@@ -42,81 +43,63 @@ pub fn mock_ibc_app_state_pda() -> Pubkey {
     Pubkey::find_program_address(&[b"state"], &mock_ibc_app::ID).0
 }
 
-/// Programs that can be loaded onto a chain.
+// ── ChainProgram trait ──────────────────────────────────────────────────
+
+/// Which signers a particular init step requires.
 ///
-/// IBC application variants (`TestIbcApp`, `MockIbcApp`, `Ics27Gmp`) register
-/// on a port and run initialization logic. Other variants only load the program
-/// binary — no port registration or init.
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub enum Program {
-    /// Stateful `test_ibc_app` that counts packets sent/received/acked/timed-out.
-    TestIbcApp,
-    /// Stateless `mock_ibc_app` with magic-string ack control
-    /// (`RETURN_ERROR_ACK` / `RETURN_EMPTY_ACK`).
-    MockIbcApp,
-    /// `ics27_gmp` — GMP IBC application registered on the GMP port.
-    Ics27Gmp,
-    /// `test_gmp_app` — counter app invoked by GMP via CPI.
-    TestGmpApp,
-    /// `test_cpi_proxy` — generic CPI proxy for security tests.
-    TestCpiProxy,
-    /// `ift` — inter-chain fungible token transfers (uses GMP's port).
-    Ift,
-    /// `test_access_manager` — second AM instance for AM migration tests.
-    TestAccessManager,
+/// The deployer always pays transaction fees and signs as the fee payer.
+/// `WithAdmin` adds the admin keypair as a co-signer for AM-role-gated steps.
+#[derive(Clone, Copy)]
+pub enum InitStepSigner {
+    DeployerOnly,
+    WithAdmin,
 }
 
-impl Program {
+/// A program that can be loaded onto a test chain.
+///
+/// Each implementor knows how to register itself on `ProgramTest`, provide
+/// IBC port info and build its own initialization / upgrade-authority steps.
+pub trait ChainProgram: Sync {
     /// Register this program on a `ProgramTest` instance.
-    fn register(self, pt: &mut ProgramTest, deployer_pubkey: Pubkey) {
-        match self {
-            Self::TestIbcApp => {
-                pt.add_program("test_ibc_app", test_ibc_app::ID, None);
-            }
-            Self::MockIbcApp => {
-                pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
-                pt.add_account(
-                    mock_ibc_app_state_pda(),
-                    account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
-                );
-            }
-            Self::Ics27Gmp => {
-                pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-                add_program_data(pt, ics27_gmp::ID, deployer_pubkey);
-            }
-            Self::TestGmpApp => {
-                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
-            }
-            Self::TestCpiProxy => {
-                pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
-            }
-            Self::Ift => {
-                pt.add_program("ift", ift::ID, None);
-                add_program_data(pt, ift::ID, deployer_pubkey);
-            }
-            Self::TestAccessManager => {
-                pt.add_program("test_access_manager", test_access_manager::ID, None);
-                add_program_data(pt, test_access_manager::ID, deployer_pubkey);
-            }
-        }
+    fn register(&self, pt: &mut ProgramTest, deployer: Pubkey);
+
+    /// Return `(port_id, program_id)` if this program is an IBC application
+    /// that should be registered on the router via `add_ibc_app`.
+    fn ibc_port_and_id(&self) -> Option<(&str, Pubkey)> {
+        None
+    }
+
+    /// Return program-specific initialization steps (run after the common
+    /// AM + router + light-client + `add_client` + `add_ibc_app` transactions).
+    fn init_steps(
+        &self,
+        _deployer: &Keypair,
+        _admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        vec![]
+    }
+
+    /// Return the program ID whose upgrade authority should be transferred
+    /// to the access manager PDA after initialization.
+    fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
+        None
     }
 }
+
+// ── Chain config & runtime ──────────────────────────────────────────────
 
 pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
     pub deployer: &'a Deployer,
-    pub programs: &'a [Program],
+    pub programs: &'a [&'a dyn ChainProgram],
 }
-
-// ── Chain (setup + runtime) ─────────────────────────────────────────────
 
 pub struct Chain {
     pt: Option<ProgramTest>,
     client_id: String,
     counterparty_client_id: String,
     clock_time: i64,
-    programs: Vec<Program>,
     banks: Option<BanksClient>,
     blockhash: Hash,
 }
@@ -130,7 +113,6 @@ impl Chain {
             client_id: config.client_id.to_string(),
             counterparty_client_id: config.counterparty_client_id.to_string(),
             clock_time: TEST_CLOCK_TIME,
-            programs: config.programs.to_vec(),
             banks: None,
             blockhash: Hash::default(),
         }
@@ -169,10 +151,6 @@ impl Chain {
 
     pub fn counterparty_client_id(&self) -> &str {
         &self.counterparty_client_id
-    }
-
-    pub fn programs(&self) -> &[Program] {
-        &self.programs
     }
 
     pub const fn clock_time(&self) -> i64 {
@@ -240,7 +218,7 @@ fn ensure_sbf_out_dir() {
     }
 }
 
-fn add_program_data(pt: &mut ProgramTest, program_id: Pubkey, deployer_pubkey: Pubkey) {
+pub(crate) fn add_program_data(pt: &mut ProgramTest, program_id: Pubkey, deployer_pubkey: Pubkey) {
     let (program_data_pda, _) =
         Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
     let state = UpgradeableLoaderState::ProgramData {
@@ -272,7 +250,7 @@ fn build_program_test(config: &ChainConfig<'_>) -> ProgramTest {
     add_program_data(&mut pt, access_manager::ID, deployer_pubkey);
     add_program_data(&mut pt, ics26_router::ID, deployer_pubkey);
 
-    for &program in config.programs {
+    for program in config.programs {
         program.register(&mut pt, deployer_pubkey);
     }
 

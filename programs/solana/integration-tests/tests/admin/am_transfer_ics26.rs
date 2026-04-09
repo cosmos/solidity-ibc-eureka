@@ -10,18 +10,23 @@ use super::*;
 async fn test_ics26_am_transfer_propose_accept() {
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestAccessManager],
+        programs,
     });
     chain.prefund(&[&admin, &relayer]);
     chain.start().await;
-    deployer.init_programs(&mut chain, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain).await;
+    deployer
+        .init_programs(&mut chain, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, programs)
+        .await;
 
     // Verify initial state
     let state = router::read_router_state(&chain).await;
@@ -57,18 +62,23 @@ async fn test_ics26_am_transfer_propose_accept() {
 async fn test_ics26_am_transfer_propose_cancel() {
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestAccessManager],
+        programs,
     });
     chain.prefund(&[&admin, &relayer]);
     chain.start().await;
-    deployer.init_programs(&mut chain, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain).await;
+    deployer
+        .init_programs(&mut chain, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, programs)
+        .await;
 
     admin
         .ics26_propose_am_transfer(&mut chain, test_access_manager::ID)
@@ -96,21 +106,26 @@ async fn test_ics26_am_transfer_propose_cancel() {
 async fn test_ics26_am_transfer_unauthorized_propose() {
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestAccessManager],
+        programs,
     });
     chain.prefund(&[&admin, &relayer]);
 
     let non_admin = Admin::new();
     chain.prefund(&[&non_admin]);
     chain.start().await;
-    deployer.init_programs(&mut chain, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain).await;
+    deployer
+        .init_programs(&mut chain, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, programs)
+        .await;
 
     let err = non_admin
         .ics26_propose_am_transfer(&mut chain, test_access_manager::ID)

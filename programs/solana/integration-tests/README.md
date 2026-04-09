@@ -95,7 +95,7 @@ Finally, `deployer.transfer_upgrade_authority()` transfers upgrade authority of 
 
 ## Program Variants
 
-The `Program` enum lists programs to load onto a chain. IBC application variants register on a port and run initialization; auxiliary variants only load the binary.
+Each struct in `programs.rs` implements the `ChainProgram` trait. IBC application variants register on a port and run initialization; auxiliary variants only load the binary.
 
 | Variant        | Program loaded   | Port registration | Behavior                                                          |
 | -------------- | ---------------- | ----------------- | ----------------------------------------------------------------- |
@@ -111,7 +111,8 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 
 | Module     | Purpose                                                                                              |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `Program` enum and PDA derivation helpers. Init logic lives in `actors::deployer` |
+| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainProgram` trait and PDA derivation helpers |
+| `programs` | `ChainProgram` implementations: `TestIbcApp`, `MockIbcApp`, `Ics27Gmp`, `TestGmpApp`, `TestCpiProxy`, `Ift`, `TestAccessManager` |
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `actors`   | `Actor` trait and actor modules (`deployer`, `admin`, `ift_admin`, `user`, `relayer`)                 |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads, AM transfer (propose/accept/cancel) and `read_router_state` |
@@ -233,11 +234,12 @@ async fn test_my_scenario() {
     let relayer = Relayer::new();
 
     // 2. Configure chains with the programs they need
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-client",
         counterparty_client_id: "b-client",
         deployer: &deployer,
-        programs: &[Program::TestIbcApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -245,17 +247,17 @@ async fn test_my_scenario() {
         client_id: "b-client",
         counterparty_client_id: "a-client",
         deployer: &deployer,
-        programs: &[Program::TestIbcApp],
+        programs,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
     // 3. Start chains and initialize programs
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer.init_programs(&mut chain_a, &admin, &relayer, programs).await;
+    deployer.transfer_upgrade_authority(&mut chain_a, programs).await;
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer.init_programs(&mut chain_b, &admin, &relayer, programs).await;
+    deployer.transfer_upgrade_authority(&mut chain_b, programs).await;
 
     // 4. User sends a packet on Chain A
     let send = user
@@ -322,7 +324,7 @@ async fn test_my_scenario() {
 Key patterns:
 
 - **Setup before start** — `prefund` and program selection must happen before `chain.start().await`.
-- **Three-step init** — after `start()`, call `deployer.init_programs()` then `deployer.transfer_upgrade_authority()`. For multi-hop, call `deployer.add_counterparty()` between the two.
+- **Three-step init** — after `start()`, call `deployer.init_programs(chain, admin, relayer, programs)` then `deployer.transfer_upgrade_authority(chain, programs)`. For multi-hop, call `deployer.add_counterparty()` between the two.
 - **Chunks before delivery** — every `recv_packet`, `ack_packet` and `timeout_packet` requires a preceding `upload_chunks` call.
 - **`Default::default()`** — param structs implement `Default` for fields like `timeout_timestamp` and `proof_height`, so you only need to set what matters for your test.
 - **Error assertions** — use `extract_custom_error` to match specific Anchor error codes instead of just checking that a transaction failed.

@@ -8,6 +8,7 @@ async fn test_gmp_bidirectional() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let amount_a_to_b = 10u64;
@@ -17,7 +18,7 @@ async fn test_gmp_bidirectional() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -25,7 +26,7 @@ async fn test_gmp_bidirectional() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -51,11 +52,19 @@ async fn test_gmp_bidirectional() {
     let packet_b_to_a = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_b_to_a);
 
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer
+        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_b, programs)
+        .await;
 
     // ── Send on both chains ──
     user.send_call(

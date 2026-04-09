@@ -10,6 +10,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &TestCpiProxy];
     let sequence = 1u64;
     let increment_amount = 10u64;
 
@@ -17,11 +18,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        programs: &[
-            Program::Ics27Gmp,
-            Program::TestGmpApp,
-            Program::TestCpiProxy,
-        ],
+        programs,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -47,8 +44,12 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     );
 
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer
+        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_b, programs)
+        .await;
 
     // Build the raw GMP on_recv_packet instruction
     let raw_ix = gmp::build_raw_gmp_on_recv_packet_ix(

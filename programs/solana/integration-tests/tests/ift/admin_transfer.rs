@@ -13,17 +13,22 @@ async fn test_ift_admin_transfer() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::Ift],
+        programs,
     });
     chain.prefund(&[&admin, &relayer]);
     chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
     chain.start().await;
-    deployer.init_programs(&mut chain, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain).await;
+    deployer
+        .init_programs(&mut chain, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, programs)
+        .await;
 
     let ift_admin = IftAdmin::from_keypair(admin.keypair().insecure_clone());
 

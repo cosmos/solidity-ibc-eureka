@@ -99,13 +99,14 @@ async fn test_gmp_multi_user_isolation() {
     let relayer = Relayer::new();
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
 
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_a.prefund(&[&admin, &relayer, &user_a, &user_b]);
 
@@ -113,7 +114,7 @@ async fn test_gmp_multi_user_isolation() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
-        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
+        programs,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -138,11 +139,19 @@ async fn test_gmp_multi_user_isolation() {
     };
 
     chain_a.start().await;
-    deployer.init_programs(&mut chain_a, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_a).await;
+    deployer
+        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_a, programs)
+        .await;
     chain_b.start().await;
-    deployer.init_programs(&mut chain_b, &admin, &relayer).await;
-    deployer.transfer_upgrade_authority(&mut chain_b).await;
+    deployer
+        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain_b, programs)
+        .await;
 
     // ── user_a: seq=1, amount=5 ──
     lifecycle(
