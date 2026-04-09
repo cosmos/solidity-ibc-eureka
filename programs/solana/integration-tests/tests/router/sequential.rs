@@ -11,10 +11,12 @@ async fn test_multiple_sequential_packets() {
     let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
 
     // ── Build chains ──
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
@@ -24,6 +26,7 @@ async fn test_multiple_sequential_packets() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],

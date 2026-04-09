@@ -14,10 +14,12 @@ async fn test_error_ack_lifecycle() {
     let error_ack = b"error".to_vec();
 
     // Chain A: test_ibc_app (sender)
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
@@ -28,6 +30,7 @@ async fn test_error_ack_lifecycle() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::MockIbcApp],

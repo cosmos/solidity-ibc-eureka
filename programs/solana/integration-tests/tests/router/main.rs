@@ -13,6 +13,7 @@ use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
     chain::{Chain, ChainConfig, Program},
+    deployer::Deployer,
     extract_ack_data, extract_custom_error,
     relayer::Relayer,
     router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},

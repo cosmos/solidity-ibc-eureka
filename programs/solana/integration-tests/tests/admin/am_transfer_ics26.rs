@@ -8,12 +8,14 @@ use super::*;
 /// accepted. Verifies `RouterState.am_state` at each step.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_accept() {
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],
@@ -52,12 +54,14 @@ async fn test_ics26_am_transfer_propose_accept() {
 /// Propose then cancel AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_cancel() {
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],
@@ -88,12 +92,14 @@ async fn test_ics26_am_transfer_propose_cancel() {
 /// Non-admin cannot propose AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_unauthorized_propose() {
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
 
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestAccessManager],

@@ -14,10 +14,12 @@ async fn test_ift_token_2022_lifecycle() {
     let sequence = 1u64;
     let token_kind = TokenKind::Token2022;
 
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::Ift],

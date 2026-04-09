@@ -12,7 +12,7 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 ///
 /// In tests, typically constructed via
 /// `IftAdmin::from_keypair(chain.admin_keypair().insecure_clone())`
-/// since the chain authority is both the AM admin and the initial IFT admin.
+/// since the AM admin's pubkey is set as the initial IFT admin during init.
 pub struct IftAdmin {
     keypair: Keypair,
 }

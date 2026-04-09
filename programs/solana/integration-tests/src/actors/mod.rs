@@ -6,11 +6,12 @@ use solana_sdk::{
 };
 
 pub mod admin;
+pub mod deployer;
 pub mod ift_admin;
 pub mod relayer;
 pub mod user;
 
-/// Shared interface for test actors (`User`, `Relayer`, `Admin`, `IftAdmin`).
+/// Shared interface for test actors (`Deployer`, `Admin`, `IftAdmin`, `User`, `Relayer`).
 pub trait Actor {
     fn pubkey(&self) -> Pubkey;
 }

@@ -15,10 +15,12 @@ async fn test_multi_chunk_proof_lifecycle() {
     let proof_chunk_0 = proof_data[..900].to_vec();
     let proof_chunk_1 = proof_data[900..].to_vec();
 
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
@@ -28,6 +30,7 @@ async fn test_multi_chunk_proof_lifecycle() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],

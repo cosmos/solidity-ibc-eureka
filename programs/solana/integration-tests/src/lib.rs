@@ -9,7 +9,7 @@ pub mod gmp;
 pub mod ift;
 pub mod router;
 
-pub use actors::{admin, ift_admin, relayer, user, Actor};
+pub use actors::{admin, deployer, ift_admin, relayer, user, Actor};
 
 /// Anchor adds 6000 to the enum discriminant to produce the on-chain error code.
 const ANCHOR_ERROR_OFFSET: u32 = 6000;

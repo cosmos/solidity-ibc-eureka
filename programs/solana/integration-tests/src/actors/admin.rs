@@ -9,7 +9,8 @@ use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
 /// program. Operations like propose/accept/cancel AM transfer require the
 /// signer to hold `ADMIN_ROLE` on the relevant AM instance.
 ///
-/// Created before the chain and passed into `ChainConfig`.
+/// The admin is an independent keypair whose pubkey is passed to the AM
+/// `initialize` instruction by the `Deployer`.
 pub struct Admin {
     keypair: Keypair,
 }
@@ -31,6 +32,14 @@ impl Admin {
         Self {
             keypair: Keypair::new(),
         }
+    }
+
+    pub(crate) const fn from_keypair(keypair: Keypair) -> Self {
+        Self { keypair }
+    }
+
+    pub(crate) fn insecure_clone(&self) -> Self {
+        Self::from_keypair(self.keypair.insecure_clone())
     }
 
     pub const fn keypair(&self) -> &Keypair {

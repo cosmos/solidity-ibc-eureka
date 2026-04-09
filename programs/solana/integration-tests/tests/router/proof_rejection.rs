@@ -12,10 +12,12 @@ async fn test_proof_verification_failure() {
     let bad_proof = b"REJECT_PROOF_bad_data".to_vec();
     let sequence = 1u64;
 
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
@@ -25,6 +27,7 @@ async fn test_proof_verification_failure() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],

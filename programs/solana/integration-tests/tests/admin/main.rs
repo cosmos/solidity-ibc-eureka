@@ -16,6 +16,7 @@ use integration_tests::{
     admin::Admin,
     anchor_error_code,
     chain::{Chain, ChainConfig, Program},
+    deployer::Deployer,
     extract_custom_error, gmp,
     relayer::Relayer,
     router,

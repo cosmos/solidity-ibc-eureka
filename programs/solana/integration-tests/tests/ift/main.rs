@@ -20,6 +20,7 @@ use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed,
     chain::{Chain, ChainConfig, Program, TEST_CLOCK_TIME},
+    deployer::Deployer,
     ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, IftTransferParams, TokenKind},
     relayer::Relayer,
     user::User,

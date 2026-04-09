@@ -10,10 +10,12 @@ async fn test_timeout_packet() {
     let sequence = 1u64;
 
     // ── Build Chain A (only chain needed — timeout is delivered to source) ──
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],

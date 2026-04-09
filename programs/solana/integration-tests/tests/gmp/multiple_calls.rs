@@ -6,12 +6,14 @@ use super::*;
 async fn test_multiple_gmp_calls() {
     let user = User::new();
     let relayer = Relayer::new();
+    let deployer = Deployer::new();
     let admin = Admin::new();
     let proof_data = vec![0u8; 32];
 
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
@@ -21,6 +23,7 @@ async fn test_multiple_gmp_calls() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        deployer: &deployer,
         admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
