@@ -1,6 +1,8 @@
 # Solana IBC Integration Tests
 
-Solana-to-Solana IBC integration tests using `ProgramTest` (BanksClient). Two independent chains run as separate `ProgramTest` instances with a mock light client that always accepts proofs, exercising the full IBC lifecycle without real proof verification.
+Solana-to-Solana IBC integration tests using `ProgramTest` (BanksClient).
+
+Each chain is an isolated Solana runtime (`ProgramTest` → `BanksClient`) with the same programs deployed independently under identical program IDs. There is no real network between them — the relayer bridges state in-process by reading commitments from one `BanksClient` and submitting delivery transactions to the other. A mock light client accepts any proof, so tests focus on IBC state machine correctness rather than proof verification.
 
 ## Architecture
 
