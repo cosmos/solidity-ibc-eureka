@@ -10,7 +10,7 @@ async fn test_send_call_timeout_too_long() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::Gmp,
+        programs: &[Program::Gmp],
     });
     chain_a.prefund(&user);
 

@@ -19,7 +19,7 @@ async fn test_error_ack_lifecycle() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::TestIbcApp,
+        programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
 
@@ -29,7 +29,7 @@ async fn test_error_ack_lifecycle() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::MockIbcApp,
+        programs: &[Program::MockIbcApp],
     });
 
     chain_a.start().await;

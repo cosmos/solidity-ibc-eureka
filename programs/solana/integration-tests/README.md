@@ -75,21 +75,22 @@ flowchart LR
 
 After initialization, actors submit transactions and read account state.
 
-## IBC Application Variants
+## Program Variants
 
-The `IbcApp` enum selects which application is registered on the chain:
+The `Program` enum lists programs to load onto a chain. IBC application variants register on a port and run initialization; auxiliary variants only load the binary.
 
-| Variant      | Programs loaded                    | Behavior                                                            |
-| ------------ | ---------------------------------- | ------------------------------------------------------------------- |
-| `TestIbcApp` | `test_ibc_app`                     | Stateful app that counts packets sent/received/acked/timed-out      |
-| `MockIbcApp` | `mock_ibc_app`                     | Stateless app with magic-string ack control (`RETURN_ERROR_ACK` etc.) |
-| `Gmp`        | `ics27_gmp` + `test_gmp_app` + `test_cpi_proxy` | GMP stack with a counter app for cross-chain calls and a CPI proxy for security tests |
+| Variant        | Programs loaded              | Behavior                                                            |
+| -------------- | ---------------------------- | ------------------------------------------------------------------- |
+| `TestIbcApp`   | `test_ibc_app`               | Stateful app that counts packets sent/received/acked/timed-out      |
+| `MockIbcApp`   | `mock_ibc_app`               | Stateless app with magic-string ack control (`RETURN_ERROR_ACK` etc.) |
+| `Gmp`          | `ics27_gmp` + `test_gmp_app` | GMP stack with a counter app for cross-chain calls                  |
+| `TestCpiProxy` | `test_cpi_proxy`             | Generic CPI proxy for security tests (no port registration)         |
 
 ## Module Overview
 
 | Module     | Purpose                                                                                              |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `IbcApp` enum, real initialization sequence, `add_counterparty` for multi-hop and `derive_mock_lc_pdas` |
+| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `Program` enum, `add_counterparty` for multi-hop and `derive_mock_lc_pdas` |
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads |
 | `gmp`      | Instruction builders for GMP `send_call`, `recv_packet`, `ack_packet`, `timeout_packet` and raw `on_recv_packet` for security tests |

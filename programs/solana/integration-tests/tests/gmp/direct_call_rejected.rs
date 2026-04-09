@@ -15,7 +15,7 @@ async fn test_gmp_direct_call_rejected() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::Gmp,
+        programs: &[Program::Gmp],
     });
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());

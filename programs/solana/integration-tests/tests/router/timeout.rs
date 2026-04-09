@@ -15,7 +15,7 @@ async fn test_timeout_packet() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::TestIbcApp,
+        programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
 

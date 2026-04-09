@@ -20,7 +20,7 @@ async fn test_bidirectional_packets() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::TestIbcApp,
+        programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user_a);
 
@@ -29,7 +29,7 @@ async fn test_bidirectional_packets() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        ibc_app: IbcApp::TestIbcApp,
+        programs: &[Program::TestIbcApp],
     });
     chain_b.prefund(&user_b);
 

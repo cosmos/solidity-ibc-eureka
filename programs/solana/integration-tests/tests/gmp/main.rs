@@ -12,7 +12,7 @@ use anchor_lang::AccountDeserialize;
 use ics27_gmp::errors::GMPError;
 use integration_tests::{
     anchor_error_code,
-    chain::{Chain, ChainConfig, IbcApp, TEST_CLOCK_TIME},
+    chain::{Chain, ChainConfig, Program, TEST_CLOCK_TIME},
     extract_custom_error, gmp,
     gmp::{GmpAckPacketParams, GmpRecvPacketParams, GmpSendCallParams},
     relayer::Relayer,

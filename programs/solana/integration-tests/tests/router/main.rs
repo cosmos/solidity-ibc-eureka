@@ -10,7 +10,7 @@
 
 use anchor_lang::AccountDeserialize;
 use integration_tests::{
-    chain::{Chain, ChainConfig, IbcApp, TEST_CLOCK_TIME},
+    chain::{Chain, ChainConfig, Program, TEST_CLOCK_TIME},
     extract_custom_error,
     relayer::Relayer,
     router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},

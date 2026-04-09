@@ -47,9 +47,13 @@ pub fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
     (client_state, consensus_state)
 }
 
-/// Which IBC application to register on the `"transfer"` port.
-#[derive(Clone, Copy)]
-pub enum IbcApp {
+/// Programs that can be loaded onto a chain.
+///
+/// IBC application variants (`TestIbcApp`, `MockIbcApp`, `Gmp`) register on a
+/// port and run initialization logic. Auxiliary variants (`TestCpiProxy`) only
+/// load the program binary — no port registration or init.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Program {
     /// Stateful `test_ibc_app` that counts packets sent/received/acked/timed-out.
     TestIbcApp,
     /// Stateless `mock_ibc_app` with magic-string ack control
@@ -57,6 +61,8 @@ pub enum IbcApp {
     MockIbcApp,
     /// GMP stack: `ics27_gmp` on the GMP port + `test_gmp_app`.
     Gmp,
+    /// Generic CPI proxy for security tests (no port registration).
+    TestCpiProxy,
 }
 
 pub struct ChainConfig<'a> {
@@ -64,7 +70,7 @@ pub struct ChainConfig<'a> {
     pub counterparty_client_id: &'a str,
     pub relayer: &'a Relayer,
     pub clock_time: i64,
-    pub ibc_app: IbcApp,
+    pub programs: &'a [Program],
 }
 
 // ── Chain (setup + runtime) ─────────────────────────────────────────────
@@ -74,7 +80,7 @@ pub struct Chain {
     client_id: String,
     counterparty_client_id: String,
     clock_time: i64,
-    ibc_app: IbcApp,
+    programs: Vec<Program>,
     relayer_pubkey: Pubkey,
     authority: Keypair,
     banks: Option<BanksClient>,
@@ -87,7 +93,7 @@ pub struct Chain {
 impl Chain {
     pub fn new(config: ChainConfig<'_>) -> Self {
         let authority = Keypair::new();
-        let accounts = derive_chain_accounts(config.client_id, config.ibc_app);
+        let accounts = derive_chain_accounts(config.client_id, config.programs);
         let pt = build_program_test(&config, &authority, &accounts);
 
         Self {
@@ -95,7 +101,7 @@ impl Chain {
             client_id: config.client_id.to_string(),
             counterparty_client_id: config.counterparty_client_id.to_string(),
             clock_time: config.clock_time,
-            ibc_app: config.ibc_app,
+            programs: config.programs.to_vec(),
             relayer_pubkey: config.relayer.pubkey(),
             authority,
             banks: None,
@@ -138,7 +144,7 @@ impl Chain {
             self.relayer_pubkey,
             &self.client_id,
             &self.counterparty_client_id,
-            self.ibc_app,
+            &self.programs,
         );
 
         let authority_ref = &self.authority;
@@ -246,7 +252,7 @@ fn derive_router_state_pda() -> Pubkey {
     pda
 }
 
-fn derive_chain_accounts(client_id: &str, ibc_app: IbcApp) -> ChainAccounts {
+fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts {
     let (mock_client_state, _) =
         Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
     let (mock_consensus_state, _) = Pubkey::find_program_address(
@@ -258,38 +264,45 @@ fn derive_chain_accounts(client_id: &str, ibc_app: IbcApp) -> ChainAccounts {
         &mock_light_client::ID,
     );
 
-    let (app_state_pda, gmp_app_state_pda, counter_app_state_pda) = match ibc_app {
-        IbcApp::TestIbcApp => {
-            let (pda, _) = Pubkey::find_program_address(
-                &[solana_ibc_types::IBCAppState::SEED],
-                &test_ibc_app::ID,
-            );
-            (pda, None, None)
-        }
-        IbcApp::MockIbcApp => {
-            // mock_ibc_app has no initialize — use a unique address for the dummy account
-            (Pubkey::new_unique(), None, None)
-        }
-        IbcApp::Gmp => {
-            let (gmp_pda, _) = Pubkey::find_program_address(
-                &[ics27_gmp::state::GMPAppState::SEED],
-                &ics27_gmp::ID,
-            );
-            let (counter_pda, _) = Pubkey::find_program_address(
-                &[test_gmp_app::state::CounterAppState::SEED],
-                &test_gmp_app::ID,
-            );
-            (gmp_pda, Some(gmp_pda), Some(counter_pda))
-        }
-    };
-
-    ChainAccounts {
+    let mut accounts = ChainAccounts {
         mock_client_state,
         mock_consensus_state,
-        app_state_pda,
-        gmp_app_state_pda,
-        counter_app_state_pda,
+        app_state_pda: Pubkey::default(),
+        gmp_app_state_pda: None,
+        counter_app_state_pda: None,
+    };
+
+    for program in programs {
+        match program {
+            Program::TestIbcApp => {
+                let (pda, _) = Pubkey::find_program_address(
+                    &[solana_ibc_types::IBCAppState::SEED],
+                    &test_ibc_app::ID,
+                );
+                accounts.app_state_pda = pda;
+            }
+            Program::MockIbcApp => {
+                // mock_ibc_app has no initialize — use a unique address for the dummy account
+                accounts.app_state_pda = Pubkey::new_unique();
+            }
+            Program::Gmp => {
+                let (gmp_pda, _) = Pubkey::find_program_address(
+                    &[ics27_gmp::state::GMPAppState::SEED],
+                    &ics27_gmp::ID,
+                );
+                let (counter_pda, _) = Pubkey::find_program_address(
+                    &[test_gmp_app::state::CounterAppState::SEED],
+                    &test_gmp_app::ID,
+                );
+                accounts.app_state_pda = gmp_pda;
+                accounts.gmp_app_state_pda = Some(gmp_pda);
+                accounts.counter_app_state_pda = Some(counter_pda);
+            }
+            Program::TestCpiProxy => {}
+        }
     }
+
+    accounts
 }
 
 // ── Transaction helper ──────────────────────────────────────────────────
@@ -314,22 +327,30 @@ async fn send_init_tx(
 ///
 /// Returns `(instructions, needs_authority_signer)` tuples that must be
 /// executed sequentially.
+/// Return the (`port_id`, `program_id`) for the first IBC application in the list.
+fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
+    for p in programs {
+        match p {
+            Program::TestIbcApp => return (crate::router::PORT_ID, test_ibc_app::ID),
+            Program::MockIbcApp => return (crate::router::PORT_ID, mock_ibc_app::ID),
+            Program::Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
+            Program::TestCpiProxy => {}
+        }
+    }
+    panic!("no IBC application in programs list");
+}
+
 fn build_init_steps(
     payer: Pubkey,
     authority: &Keypair,
     relayer_pubkey: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
-    ibc_app: IbcApp,
+    programs: &[Program],
 ) -> Vec<(Vec<Instruction>, bool)> {
     let am_pda = derive_access_manager_pda();
     let router_state_pda = derive_router_state_pda();
-
-    let (port_id, app_program_id) = match ibc_app {
-        IbcApp::TestIbcApp => (crate::router::PORT_ID, test_ibc_app::ID),
-        IbcApp::MockIbcApp => (crate::router::PORT_ID, mock_ibc_app::ID),
-        IbcApp::Gmp => (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
-    };
+    let (port_id, app_program_id) = get_port_and_app(programs);
 
     let mut steps = vec![
         // TX1: access_manager::initialize
@@ -387,23 +408,25 @@ fn build_init_steps(
         ),
     ];
 
-    // TX6: app-specific initialization
-    match ibc_app {
-        IbcApp::TestIbcApp => {
-            steps.push((
-                vec![build_test_ibc_app_initialize_ix(payer, authority.pubkey())],
-                false,
-            ));
-        }
-        IbcApp::MockIbcApp => {}
-        IbcApp::Gmp => {
-            steps.push((
-                vec![
-                    build_gmp_initialize_ix(payer, authority, access_manager::ID),
-                    build_test_gmp_app_initialize_ix(payer, authority.pubkey()),
-                ],
-                true,
-            ));
+    // App-specific initialization
+    for p in programs {
+        match p {
+            Program::TestIbcApp => {
+                steps.push((
+                    vec![build_test_ibc_app_initialize_ix(payer, authority.pubkey())],
+                    false,
+                ));
+            }
+            Program::Gmp => {
+                steps.push((
+                    vec![
+                        build_gmp_initialize_ix(payer, authority, access_manager::ID),
+                        build_test_gmp_app_initialize_ix(payer, authority.pubkey()),
+                    ],
+                    true,
+                ));
+            }
+            Program::MockIbcApp | Program::TestCpiProxy => {}
         }
     }
 
@@ -453,23 +476,27 @@ fn build_program_test(
     add_program_data(&mut pt, ics26_router::ID, authority.pubkey());
 
     // App-specific programs
-    match config.ibc_app {
-        IbcApp::TestIbcApp => {
-            pt.add_program("test_ibc_app", test_ibc_app::ID, None);
-        }
-        IbcApp::MockIbcApp => {
-            pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
-            // mock_ibc_app has no initialize — pre-create a dummy account
-            pt.add_account(
-                accounts.app_state_pda,
-                account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
-            );
-        }
-        IbcApp::Gmp => {
-            pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-            pt.add_program("test_gmp_app", test_gmp_app::ID, None);
-            pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
-            add_program_data(&mut pt, ics27_gmp::ID, authority.pubkey());
+    for program in config.programs {
+        match program {
+            Program::TestIbcApp => {
+                pt.add_program("test_ibc_app", test_ibc_app::ID, None);
+            }
+            Program::MockIbcApp => {
+                pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
+                // mock_ibc_app has no initialize — pre-create a dummy account
+                pt.add_account(
+                    accounts.app_state_pda,
+                    account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
+                );
+            }
+            Program::Gmp => {
+                pt.add_program("ics27_gmp", ics27_gmp::ID, None);
+                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+                add_program_data(&mut pt, ics27_gmp::ID, authority.pubkey());
+            }
+            Program::TestCpiProxy => {
+                pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
+            }
         }
     }
 
