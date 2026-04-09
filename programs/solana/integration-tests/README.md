@@ -156,6 +156,121 @@ graph LR
     R -->|"upload_chunks + gmp_timeout_packet"| A2["Chain A\n(commitment zeroed\n+ GMPCallResult timeout)"]
 ```
 
+## Writing a New Test
+
+A minimal router test that sends a packet from Chain A, delivers it to Chain B and acknowledges it back:
+
+```rust
+use super::*;
+
+#[tokio::test]
+async fn test_my_scenario() {
+    // 1. Create actors
+    let user = User::new();
+    let relayer = Relayer::new();
+
+    // 2. Configure chains with the programs they need
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "a-client",
+        counterparty_client_id: "b-client",
+        relayer: &relayer,
+        programs: &[Program::TestIbcApp],
+    });
+    chain_a.prefund(&user); // user needs SOL to submit transactions
+
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "b-client",
+        counterparty_client_id: "a-client",
+        relayer: &relayer,
+        programs: &[Program::TestIbcApp],
+    });
+
+    // 3. Start chains — runs all initialization transactions
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // 4. User sends a packet on Chain A
+    let send = user
+        .send_packet(
+            &mut chain_a,
+            SendPacketParams {
+                sequence: 1,
+                packet_data: b"hello",
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("send failed");
+
+    assert_commitment_set(&chain_a, send.commitment_pda).await;
+
+    // 5. Relayer uploads chunks and delivers to Chain B
+    let (payload_pda, proof_pda) = relayer
+        .upload_chunks(&mut chain_b, 1, b"hello", &[0u8; 32])
+        .await
+        .expect("upload failed");
+
+    let recv = relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence: 1,
+                payload_chunk_pda: payload_pda,
+                proof_chunk_pda: proof_pda,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("recv failed");
+
+    assert_receipt_created(&chain_b, recv.receipt_pda).await;
+
+    // 6. Relayer delivers ack back to Chain A
+    let (ack_payload, ack_proof) = relayer
+        .upload_chunks(&mut chain_a, 1, b"hello", &[0u8; 32])
+        .await
+        .expect("upload failed");
+
+    let commitment_pda = relayer
+        .ack_packet(
+            &mut chain_a,
+            AckPacketParams {
+                sequence: 1,
+                acknowledgement: br#"{"result": "AQ=="}"#.to_vec(),
+                payload_chunk_pda: ack_payload,
+                proof_chunk_pda: ack_proof,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("ack failed");
+
+    assert_commitment_zeroed(&chain_a, commitment_pda).await;
+}
+```
+
+Key patterns:
+
+- **Setup before start** — `prefund`, program selection and `add_counterparty` (for multi-hop) must happen before `chain.start().await`.
+- **Chunks before delivery** — every `recv_packet`, `ack_packet` and `timeout_packet` requires a preceding `upload_chunks` call.
+- **`Default::default()`** — param structs implement `Default` for fields like `timeout_timestamp` and `proof_height`, so you only need to set what matters for your test.
+- **Error assertions** — use `extract_custom_error` to match specific Anchor error codes instead of just checking that a transaction failed.
+
+## Helper Functions
+
+| Function | What it does | When to use |
+| --- | --- | --- |
+| `assert_commitment_set(chain, pda)` | Checks the commitment PDA has non-zero data | After `send_packet` to verify the commitment was stored |
+| `assert_commitment_zeroed(chain, pda)` | Checks the commitment PDA was zeroed out | After `ack_packet` or `timeout_packet` to confirm consumption |
+| `assert_receipt_created(chain, pda)` | Checks the receipt PDA exists and is owned by the router | After `recv_packet` to verify replay protection |
+| `extract_ack_data(chain, pda)` | Reads the 32-byte ack commitment from a PDA | When you need to inspect the acknowledgement content |
+| `extract_custom_error(err)` | Extracts the `u32` error code from a `BanksClientError` | When asserting a transaction failed with a specific Anchor error |
+| `anchor_error_code(discriminant)` | Computes `6000 + discriminant` for an Anchor error variant | When constructing expected error codes from enum variants |
+
+Pre-computed error constants are also available: `PACKET_COMMITMENT_MISMATCH`, `ASYNC_ACK_NOT_SUPPORTED`.
+
 ## Running
 
 ```bash
