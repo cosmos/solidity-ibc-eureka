@@ -17,7 +17,7 @@ async fn test_gmp_failed_execution_aborts() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
 
@@ -26,7 +26,7 @@ async fn test_gmp_failed_execution_aborts() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());

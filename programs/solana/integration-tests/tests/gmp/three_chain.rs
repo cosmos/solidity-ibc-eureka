@@ -20,7 +20,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "b-to-a",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
 
@@ -30,7 +30,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "a-to-b",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_b.prefund(&user);
     chain_b.add_counterparty("b-to-c", "c-to-b");
@@ -41,7 +41,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "b-to-c",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
     // Derive GMP PDAs for each hop

@@ -16,7 +16,11 @@ async fn test_gmp_unauthorized_cpi_rejected() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp, Program::TestCpiProxy],
+        programs: &[
+            Program::Ics27Gmp,
+            Program::TestGmpApp,
+            Program::TestCpiProxy,
+        ],
     });
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());

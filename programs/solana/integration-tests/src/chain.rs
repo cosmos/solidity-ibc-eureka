@@ -49,9 +49,9 @@ pub fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
 
 /// Programs that can be loaded onto a chain.
 ///
-/// IBC application variants (`TestIbcApp`, `MockIbcApp`, `Gmp`) register on a
-/// port and run initialization logic. Auxiliary variants (`TestCpiProxy`) only
-/// load the program binary — no port registration or init.
+/// IBC application variants (`TestIbcApp`, `MockIbcApp`, `Ics27Gmp`) register
+/// on a port and run initialization logic. Other variants only load the program
+/// binary — no port registration or init.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Program {
     /// Stateful `test_ibc_app` that counts packets sent/received/acked/timed-out.
@@ -59,9 +59,11 @@ pub enum Program {
     /// Stateless `mock_ibc_app` with magic-string ack control
     /// (`RETURN_ERROR_ACK` / `RETURN_EMPTY_ACK`).
     MockIbcApp,
-    /// GMP stack: `ics27_gmp` on the GMP port + `test_gmp_app`.
-    Gmp,
-    /// Generic CPI proxy for security tests (no port registration).
+    /// `ics27_gmp` — GMP IBC application registered on the GMP port.
+    Ics27Gmp,
+    /// `test_gmp_app` — counter app invoked by GMP via CPI.
+    TestGmpApp,
+    /// `test_cpi_proxy` — generic CPI proxy for security tests.
     TestCpiProxy,
 }
 
@@ -285,17 +287,19 @@ fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts
                 // mock_ibc_app has no initialize — use a unique address for the dummy account
                 accounts.app_state_pda = Pubkey::new_unique();
             }
-            Program::Gmp => {
+            Program::Ics27Gmp => {
                 let (gmp_pda, _) = Pubkey::find_program_address(
                     &[ics27_gmp::state::GMPAppState::SEED],
                     &ics27_gmp::ID,
                 );
+                accounts.app_state_pda = gmp_pda;
+                accounts.gmp_app_state_pda = Some(gmp_pda);
+            }
+            Program::TestGmpApp => {
                 let (counter_pda, _) = Pubkey::find_program_address(
                     &[test_gmp_app::state::CounterAppState::SEED],
                     &test_gmp_app::ID,
                 );
-                accounts.app_state_pda = gmp_pda;
-                accounts.gmp_app_state_pda = Some(gmp_pda);
                 accounts.counter_app_state_pda = Some(counter_pda);
             }
             Program::TestCpiProxy => {}
@@ -333,8 +337,8 @@ fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
         match p {
             Program::TestIbcApp => return (crate::router::PORT_ID, test_ibc_app::ID),
             Program::MockIbcApp => return (crate::router::PORT_ID, mock_ibc_app::ID),
-            Program::Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
-            Program::TestCpiProxy => {}
+            Program::Ics27Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
+            Program::TestGmpApp | Program::TestCpiProxy => {}
         }
     }
     panic!("no IBC application in programs list");
@@ -417,13 +421,20 @@ fn build_init_steps(
                     false,
                 ));
             }
-            Program::Gmp => {
+            Program::Ics27Gmp => {
                 steps.push((
-                    vec![
-                        build_gmp_initialize_ix(payer, authority, access_manager::ID),
-                        build_test_gmp_app_initialize_ix(payer, authority.pubkey()),
-                    ],
+                    vec![build_gmp_initialize_ix(
+                        payer,
+                        authority,
+                        access_manager::ID,
+                    )],
                     true,
+                ));
+            }
+            Program::TestGmpApp => {
+                steps.push((
+                    vec![build_test_gmp_app_initialize_ix(payer, authority.pubkey())],
+                    false,
                 ));
             }
             Program::MockIbcApp | Program::TestCpiProxy => {}
@@ -489,10 +500,12 @@ fn build_program_test(
                     account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
                 );
             }
-            Program::Gmp => {
+            Program::Ics27Gmp => {
                 pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
                 add_program_data(&mut pt, ics27_gmp::ID, authority.pubkey());
+            }
+            Program::TestGmpApp => {
+                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
             }
             Program::TestCpiProxy => {
                 pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);

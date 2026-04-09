@@ -16,7 +16,7 @@ async fn test_gmp_bidirectional() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
 
@@ -25,7 +25,7 @@ async fn test_gmp_bidirectional() {
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_b.prefund(&user);
 

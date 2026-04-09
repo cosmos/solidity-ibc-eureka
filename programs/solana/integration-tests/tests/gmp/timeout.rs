@@ -19,7 +19,7 @@ async fn test_gmp_timeout() {
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
         clock_time: TEST_CLOCK_TIME,
-        programs: &[Program::Gmp],
+        programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
 

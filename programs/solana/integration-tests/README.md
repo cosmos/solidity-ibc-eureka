@@ -79,12 +79,13 @@ After initialization, actors submit transactions and read account state.
 
 The `Program` enum lists programs to load onto a chain. IBC application variants register on a port and run initialization; auxiliary variants only load the binary.
 
-| Variant        | Programs loaded              | Behavior                                                            |
-| -------------- | ---------------------------- | ------------------------------------------------------------------- |
-| `TestIbcApp`   | `test_ibc_app`               | Stateful app that counts packets sent/received/acked/timed-out      |
-| `MockIbcApp`   | `mock_ibc_app`               | Stateless app with magic-string ack control (`RETURN_ERROR_ACK` etc.) |
-| `Gmp`          | `ics27_gmp` + `test_gmp_app` | GMP stack with a counter app for cross-chain calls                  |
-| `TestCpiProxy` | `test_cpi_proxy`             | Generic CPI proxy for security tests (no port registration)         |
+| Variant        | Program loaded   | Port registration | Behavior                                                          |
+| -------------- | ---------------- | ----------------- | ----------------------------------------------------------------- |
+| `TestIbcApp`   | `test_ibc_app`   | Yes               | Stateful app that counts packets sent/received/acked/timed-out    |
+| `MockIbcApp`   | `mock_ibc_app`   | Yes               | Stateless app with magic-string ack control (`RETURN_ERROR_ACK` etc.) |
+| `Ics27Gmp`     | `ics27_gmp`      | Yes               | GMP IBC application on the GMP port                               |
+| `TestGmpApp`   | `test_gmp_app`   | No                | Counter app invoked by GMP via CPI                                |
+| `TestCpiProxy` | `test_cpi_proxy` | No                | Generic CPI proxy for security tests                              |
 
 ## Module Overview
 
