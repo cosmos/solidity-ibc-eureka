@@ -57,7 +57,7 @@ async fn test_full_packet_lifecycle() {
     let expected_commitment = ics24::packet_commitment_bytes32(&send.packet);
     assert_eq!(&commitment_account.data[8..40], &expected_commitment);
 
-    let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_state = read_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 1);
 
     // ── Relayer uploads chunks and delivers to Chain B ──
@@ -82,7 +82,7 @@ async fn test_full_packet_lifecycle() {
     assert_receipt_created(&chain_b, recv.receipt_pda).await;
     assert_commitment_set(&chain_b, recv.ack_pda).await;
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(b_state.packets_received, 1);
 
     // ── Relayer uploads chunks and delivers ack back to Chain A ──
@@ -107,7 +107,7 @@ async fn test_full_packet_lifecycle() {
 
     assert_commitment_zeroed(&chain_a, commitment_pda).await;
 
-    let a_final = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_final = read_app_state(&chain_a).await;
     assert_eq!(a_final.packets_sent, 1);
     assert_eq!(a_final.packets_acknowledged, 1);
 }

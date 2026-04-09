@@ -66,7 +66,7 @@ async fn test_recv_packet_replay_is_noop() {
         .await
         .expect("first recv_packet failed");
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(b_state.packets_received, 1);
 
     // Cleanup consumed chunks (relayer reclaims rent, accounts fully closed)
@@ -96,7 +96,7 @@ async fn test_recv_packet_replay_is_noop() {
         .await
         .expect("second recv_packet should succeed (noop)");
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(
         b_state.packets_received, 1,
         "packets_received should not increment on replay"

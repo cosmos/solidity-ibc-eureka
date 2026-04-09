@@ -1,5 +1,4 @@
 use super::*;
-use integration_tests::chain::{derive_mock_lc_pdas, ChainAccounts};
 use solana_sdk::transaction::Transaction;
 
 /// Three-chain roundtrip: A→B then B→C, with independent GMP lifecycles on
@@ -144,18 +143,9 @@ async fn test_gmp_three_chain_roundtrip() {
     // ══════════════════════════════════════════════════════════════════════
 
     // Build send_call using the b-to-c client on Chain B.
-    // Need custom ChainAccounts with b-to-c mock LC PDAs.
-    let (btc_client_state, btc_consensus_state) = derive_mock_lc_pdas("b-to-c");
-    let btc_accounts = ChainAccounts {
-        mock_client_state: btc_client_state,
-        mock_consensus_state: btc_consensus_state,
-        ..chain_b.accounts
-    };
-
     let (send_bc_ix, commitment_b) = gmp::build_gmp_send_call_ix(
         user.pubkey(),
         user.pubkey(),
-        &btc_accounts,
         "b-to-c",
         GmpSendCallParams {
             sequence: 1,
@@ -204,10 +194,9 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("upload B→C ack chunks failed");
 
-    // Build ack with the b-to-c accounts
+    // Build ack with the b-to-c client
     let (ack_bc_ix, _ack_commitment_b) = gmp::build_gmp_ack_packet_ix(
         relayer.pubkey(),
-        &btc_accounts,
         "b-to-c",
         "c-to-b",
         chain_b.clock_time(),

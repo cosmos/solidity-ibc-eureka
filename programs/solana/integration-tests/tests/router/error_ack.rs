@@ -64,6 +64,7 @@ async fn test_error_ack_lifecycle() {
                 payload_chunk_pda: b_payload,
                 proof_chunk_pda: b_proof,
                 app_program: mock_ibc_app::ID,
+                app_state_pda: mock_ibc_app_state_pda(),
                 ..Default::default()
             },
         )

@@ -17,20 +17,9 @@ pub const TEST_CLOCK_TIME: i64 = 1_700_000_000;
 const DEFAULT_PREFUND_LAMPORTS: u64 = 10_000_000_000;
 pub(crate) const MOCK_LC_LATEST_HEIGHT: u64 = 1;
 
-// ── Account metadata ────────────────────────────────────────────────────
-
-#[derive(Clone, Copy)]
-pub struct ChainAccounts {
-    pub mock_client_state: Pubkey,
-    pub mock_consensus_state: Pubkey,
-    pub app_state_pda: Pubkey,
-    pub gmp_app_state_pda: Option<Pubkey>,
-    pub counter_app_state_pda: Option<Pubkey>,
-    pub ift_app_state_pda: Option<Pubkey>,
-}
-
-/// Derive mock light client PDAs for any `client_id`.
-pub fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
+/// Derive mock light client PDAs (`client_state`, `consensus_state`) for a
+/// given `client_id`.
+pub(crate) fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
     let (client_state, _) =
         Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
     let (consensus_state, _) = Pubkey::find_program_address(
@@ -42,6 +31,15 @@ pub fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
         &mock_light_client::ID,
     );
     (client_state, consensus_state)
+}
+
+/// Deterministic PDA for `mock_ibc_app`'s dummy state account.
+///
+/// `mock_ibc_app` has no `initialize` instruction, so we pre-create a dummy
+/// account at this address during `ProgramTest` setup. The same PDA must be
+/// used everywhere the router needs the app's state account.
+pub fn mock_ibc_app_state_pda() -> Pubkey {
+    Pubkey::find_program_address(&[b"state"], &mock_ibc_app::ID).0
 }
 
 /// Programs that can be loaded onto a chain.
@@ -68,6 +66,42 @@ pub enum Program {
     TestAccessManager,
 }
 
+impl Program {
+    /// Register this program on a `ProgramTest` instance.
+    fn register(self, pt: &mut ProgramTest, deployer_pubkey: Pubkey) {
+        match self {
+            Self::TestIbcApp => {
+                pt.add_program("test_ibc_app", test_ibc_app::ID, None);
+            }
+            Self::MockIbcApp => {
+                pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
+                pt.add_account(
+                    mock_ibc_app_state_pda(),
+                    account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
+                );
+            }
+            Self::Ics27Gmp => {
+                pt.add_program("ics27_gmp", ics27_gmp::ID, None);
+                add_program_data(pt, ics27_gmp::ID, deployer_pubkey);
+            }
+            Self::TestGmpApp => {
+                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+            }
+            Self::TestCpiProxy => {
+                pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
+            }
+            Self::Ift => {
+                pt.add_program("ift", ift::ID, None);
+                add_program_data(pt, ift::ID, deployer_pubkey);
+            }
+            Self::TestAccessManager => {
+                pt.add_program("test_access_manager", test_access_manager::ID, None);
+                add_program_data(pt, test_access_manager::ID, deployer_pubkey);
+            }
+        }
+    }
+}
+
 pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
@@ -85,13 +119,11 @@ pub struct Chain {
     programs: Vec<Program>,
     banks: Option<BanksClient>,
     blockhash: Hash,
-    pub accounts: ChainAccounts,
 }
 
 impl Chain {
     pub fn new(config: ChainConfig<'_>) -> Self {
-        let accounts = derive_chain_accounts(config.client_id, config.programs);
-        let pt = build_program_test(&config, &accounts);
+        let pt = build_program_test(&config);
 
         Self {
             pt: Some(pt),
@@ -101,7 +133,6 @@ impl Chain {
             programs: config.programs.to_vec(),
             banks: None,
             blockhash: Hash::default(),
-            accounts,
         }
     }
 
@@ -148,16 +179,16 @@ impl Chain {
         self.clock_time
     }
 
-    pub const fn counter_app_state_pda(&self) -> Pubkey {
-        self.accounts
-            .counter_app_state_pda
-            .expect("chain should have counter_app_state PDA")
+    pub fn counter_app_state_pda(&self) -> Pubkey {
+        Pubkey::find_program_address(
+            &[test_gmp_app::state::CounterAppState::SEED],
+            &test_gmp_app::ID,
+        )
+        .0
     }
 
-    pub const fn ift_app_state_pda(&self) -> Pubkey {
-        self.accounts
-            .ift_app_state_pda
-            .expect("chain should have ift_app_state PDA")
+    pub fn ift_app_state_pda(&self) -> Pubkey {
+        Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID).0
     }
 
     pub const fn blockhash(&self) -> Hash {
@@ -201,69 +232,6 @@ const fn system_account(lamports: u64) -> Account {
     }
 }
 
-// ── PDA derivation ──────────────────────────────────────────────────────
-
-fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts {
-    let (mock_client_state, _) =
-        Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
-    let (mock_consensus_state, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            mock_client_state.as_ref(),
-            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
-        ],
-        &mock_light_client::ID,
-    );
-
-    let mut accounts = ChainAccounts {
-        mock_client_state,
-        mock_consensus_state,
-        app_state_pda: Pubkey::default(),
-        gmp_app_state_pda: None,
-        counter_app_state_pda: None,
-        ift_app_state_pda: None,
-    };
-
-    for program in programs {
-        match program {
-            Program::TestIbcApp => {
-                let (pda, _) = Pubkey::find_program_address(
-                    &[solana_ibc_types::IBCAppState::SEED],
-                    &test_ibc_app::ID,
-                );
-                accounts.app_state_pda = pda;
-            }
-            Program::MockIbcApp => {
-                // mock_ibc_app has no initialize — use a unique address for the dummy account
-                accounts.app_state_pda = Pubkey::new_unique();
-            }
-            Program::Ics27Gmp => {
-                let (gmp_pda, _) = Pubkey::find_program_address(
-                    &[ics27_gmp::state::GMPAppState::SEED],
-                    &ics27_gmp::ID,
-                );
-                accounts.app_state_pda = gmp_pda;
-                accounts.gmp_app_state_pda = Some(gmp_pda);
-            }
-            Program::TestGmpApp => {
-                let (counter_pda, _) = Pubkey::find_program_address(
-                    &[test_gmp_app::state::CounterAppState::SEED],
-                    &test_gmp_app::ID,
-                );
-                accounts.counter_app_state_pda = Some(counter_pda);
-            }
-            Program::TestCpiProxy | Program::TestAccessManager => {}
-            Program::Ift => {
-                let (ift_pda, _) =
-                    Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
-                accounts.ift_app_state_pda = Some(ift_pda);
-            }
-        }
-    }
-
-    accounts
-}
-
 // ── Internal ProgramTest builder ────────────────────────────────────────
 
 fn ensure_sbf_out_dir() {
@@ -291,7 +259,7 @@ fn add_program_data(pt: &mut ProgramTest, program_id: Pubkey, deployer_pubkey: P
     );
 }
 
-fn build_program_test(config: &ChainConfig<'_>, accounts: &ChainAccounts) -> ProgramTest {
+fn build_program_test(config: &ChainConfig<'_>) -> ProgramTest {
     ensure_sbf_out_dir();
 
     let deployer_pubkey = config.deployer.pubkey();
@@ -304,39 +272,8 @@ fn build_program_test(config: &ChainConfig<'_>, accounts: &ChainAccounts) -> Pro
     add_program_data(&mut pt, access_manager::ID, deployer_pubkey);
     add_program_data(&mut pt, ics26_router::ID, deployer_pubkey);
 
-    // App-specific programs
-    for program in config.programs {
-        match program {
-            Program::TestIbcApp => {
-                pt.add_program("test_ibc_app", test_ibc_app::ID, None);
-            }
-            Program::MockIbcApp => {
-                pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
-                // mock_ibc_app has no initialize — pre-create a dummy account
-                pt.add_account(
-                    accounts.app_state_pda,
-                    account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
-                );
-            }
-            Program::Ics27Gmp => {
-                pt.add_program("ics27_gmp", ics27_gmp::ID, None);
-                add_program_data(&mut pt, ics27_gmp::ID, deployer_pubkey);
-            }
-            Program::TestGmpApp => {
-                pt.add_program("test_gmp_app", test_gmp_app::ID, None);
-            }
-            Program::TestCpiProxy => {
-                pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
-            }
-            Program::Ift => {
-                pt.add_program("ift", ift::ID, None);
-                add_program_data(&mut pt, ift::ID, deployer_pubkey);
-            }
-            Program::TestAccessManager => {
-                pt.add_program("test_access_manager", test_access_manager::ID, None);
-                add_program_data(&mut pt, test_access_manager::ID, deployer_pubkey);
-            }
-        }
+    for &program in config.programs {
+        program.register(&mut pt, deployer_pubkey);
     }
 
     // Pre-fund deployer (admin and relayer are prefunded via chain.prefund())

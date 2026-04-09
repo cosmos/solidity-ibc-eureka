@@ -1,4 +1,4 @@
-use crate::chain::{Chain, ChainAccounts};
+use crate::chain::{derive_mock_lc_pdas, Chain};
 use crate::gmp::{GMP_PORT_ID, ICS27_VERSION};
 use anchor_lang::InstructionData;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
@@ -261,12 +261,12 @@ pub struct IftTransferResult {
 pub fn build_ift_transfer_ix(
     sender: Pubkey,
     payer: Pubkey,
-    accounts: &ChainAccounts,
     client_id: &str,
     mint: Pubkey,
     token_kind: TokenKind,
     params: IftTransferParams,
 ) -> IftTransferResult {
+    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(client_id);
     let app_state_pda = derive_app_state_pda();
     let app_mint_state_pda = derive_app_mint_state_pda(&mint);
     let bridge_pda = derive_bridge_pda(&mint, client_id);
@@ -318,9 +318,9 @@ pub fn build_ift_transfer_ix(
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new_readonly(client_pda, false),
             AccountMeta::new_readonly(mock_light_client::ID, false),
-            AccountMeta::new_readonly(accounts.mock_client_state, false),
+            AccountMeta::new_readonly(mock_client_state, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(accounts.mock_consensus_state, false),
+            AccountMeta::new_readonly(mock_consensus_state, false),
             AccountMeta::new(pending_transfer_pda, false),
         ],
         data: ift::instruction::IftTransfer { msg }.data(),
@@ -394,27 +394,18 @@ pub struct IftGmpTimeoutPacketParams {
 
 pub fn build_ift_gmp_ack_packet_ix(
     relayer: Pubkey,
-    accounts: &ChainAccounts,
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
     params: IftGmpAckPacketParams,
 ) -> (Instruction, Pubkey) {
-    let gmp_app_state_pda = accounts
-        .gmp_app_state_pda
-        .expect("GMP chain required for ift_gmp_ack_packet");
-
+    let gmp_app_state_pda =
+        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0;
     let (result_pda, _) =
         solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
 
-    let gmp_accounts = ChainAccounts {
-        app_state_pda: gmp_app_state_pda,
-        ..*accounts
-    };
-
     crate::router::build_ack_packet_ix(
         relayer,
-        &gmp_accounts,
         source_client,
         dest_client,
         clock_time,
@@ -427,6 +418,7 @@ pub fn build_ift_gmp_ack_packet_ix(
             version: ICS27_VERSION,
             encoding: ICS27_ENCODING_ABI,
             app_program: ics27_gmp::ID,
+            app_state_pda: gmp_app_state_pda,
             extra_remaining_accounts: vec![AccountMeta::new(result_pda, false)],
         },
     )
@@ -434,27 +426,18 @@ pub fn build_ift_gmp_ack_packet_ix(
 
 pub fn build_ift_gmp_timeout_packet_ix(
     relayer: Pubkey,
-    accounts: &ChainAccounts,
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
     params: IftGmpTimeoutPacketParams,
 ) -> (Instruction, Pubkey) {
-    let gmp_app_state_pda = accounts
-        .gmp_app_state_pda
-        .expect("GMP chain required for ift_gmp_timeout_packet");
-
+    let gmp_app_state_pda =
+        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0;
     let (result_pda, _) =
         solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
 
-    let gmp_accounts = ChainAccounts {
-        app_state_pda: gmp_app_state_pda,
-        ..*accounts
-    };
-
     crate::router::build_timeout_packet_ix(
         relayer,
-        &gmp_accounts,
         source_client,
         dest_client,
         clock_time,
@@ -466,6 +449,7 @@ pub fn build_ift_gmp_timeout_packet_ix(
             version: ICS27_VERSION,
             encoding: ICS27_ENCODING_ABI,
             app_program: ics27_gmp::ID,
+            app_state_pda: gmp_app_state_pda,
             extra_remaining_accounts: vec![AccountMeta::new(result_pda, false)],
         },
     )

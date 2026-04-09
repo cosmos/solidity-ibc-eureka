@@ -144,12 +144,12 @@ async fn test_bidirectional_packets() {
         .expect("B->A ack on B failed");
 
     // ── Verify final counters ──
-    let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_state = read_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 1);
     assert_eq!(a_state.packets_received, 1);
     assert_eq!(a_state.packets_acknowledged, 1);
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(b_state.packets_sent, 1);
     assert_eq!(b_state.packets_received, 1);
     assert_eq!(b_state.packets_acknowledged, 1);

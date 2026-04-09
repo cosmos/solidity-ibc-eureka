@@ -41,7 +41,6 @@ impl User {
     ) -> Result<SendResult, BanksClientError> {
         let result = router::build_send_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -63,13 +62,8 @@ impl User {
         chain: &mut Chain,
         params: GmpSendCallParams<'_>,
     ) -> Result<Pubkey, BanksClientError> {
-        let (ix, commitment_pda) = gmp::build_gmp_send_call_ix(
-            self.pubkey(),
-            self.pubkey(),
-            &chain.accounts,
-            chain.client_id(),
-            params,
-        );
+        let (ix, commitment_pda) =
+            gmp::build_gmp_send_call_ix(self.pubkey(), self.pubkey(), chain.client_id(), params);
         let tx = Transaction::new_signed_with_payer(
             &[ix],
             Some(&self.pubkey()),
@@ -91,7 +85,6 @@ impl User {
         let result = ift::build_ift_transfer_ix(
             self.pubkey(),
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             mint,
             token_kind,

@@ -153,7 +153,6 @@ impl Relayer {
     ) -> Result<RecvResult, BanksClientError> {
         let result = router::build_recv_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -177,7 +176,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = router::build_ack_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -201,7 +199,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = router::build_timeout_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -226,7 +223,6 @@ impl Relayer {
     ) -> Result<RecvResult, BanksClientError> {
         let result = router::build_recv_packet_ix_multi_proof(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -252,7 +248,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = router::build_ack_packet_ix_multi_proof(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -279,7 +274,6 @@ impl Relayer {
     ) -> Result<RecvResult, BanksClientError> {
         let result = gmp::build_gmp_recv_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -303,7 +297,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = gmp::build_gmp_timeout_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -327,7 +320,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = gmp::build_gmp_ack_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -353,7 +345,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = ift::build_ift_gmp_ack_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
@@ -377,7 +368,6 @@ impl Relayer {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) = ift::build_ift_gmp_timeout_packet_ix(
             self.pubkey(),
-            &chain.accounts,
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),

@@ -111,7 +111,7 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 
 | Module     | Purpose                                                                                              |
 | ---------- | ---------------------------------------------------------------------------------------------------- |
-| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `Program` enum and `derive_mock_lc_pdas`. Init logic lives in `actors::deployer` |
+| `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `Program` enum and PDA derivation helpers. Init logic lives in `actors::deployer` |
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `actors`   | `Actor` trait and actor modules (`deployer`, `admin`, `ift_admin`, `user`, `relayer`)                 |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads, AM transfer (propose/accept/cancel) and `read_router_state` |

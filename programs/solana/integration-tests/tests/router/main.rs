@@ -12,7 +12,7 @@ use anchor_lang::AccountDeserialize;
 use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{Chain, ChainConfig, Program},
+    chain::{mock_ibc_app_state_pda, Chain, ChainConfig, Program},
     deployer::Deployer,
     extract_ack_data, extract_custom_error,
     relayer::Relayer,
@@ -21,7 +21,6 @@ use integration_tests::{
     ASYNC_ACK_NOT_SUPPORTED, PACKET_COMMITMENT_MISMATCH,
 };
 use solana_ibc_types::ics24;
-use solana_sdk::pubkey::Pubkey;
 
 mod ack_after_timeout;
 mod bidirectional;
@@ -39,12 +38,10 @@ mod timeout;
 mod timeout_after_ack;
 mod unauthorized_relayer;
 
-async fn read_app_state(
-    chain: &Chain,
-    app_state_pda: Pubkey,
-) -> test_ibc_app::state::TestIbcAppState {
+async fn read_app_state(chain: &Chain) -> test_ibc_app::state::TestIbcAppState {
+    let pda = router::test_ibc_app_state_pda();
     let account = chain
-        .get_account(app_state_pda)
+        .get_account(pda)
         .await
         .expect("app state should exist");
     test_ibc_app::state::TestIbcAppState::try_deserialize(&mut &account.data[..])

@@ -50,7 +50,7 @@ async fn test_multiple_sequential_packets() {
         .unwrap_or_else(|e| panic!("send seq={seq} failed: {e:?}"));
     }
 
-    let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_state = read_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 3);
 
     // ── Relayer uploads chunks and delivers all 3 packets to B ──
@@ -74,7 +74,7 @@ async fn test_multiple_sequential_packets() {
             .unwrap_or_else(|e| panic!("recv seq={seq} failed: {e:?}"));
     }
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(b_state.packets_received, 3);
 
     // ── Relayer uploads chunks and delivers all 3 acks back to A ──
@@ -102,10 +102,10 @@ async fn test_multiple_sequential_packets() {
     }
 
     // ── Verify final counters ──
-    let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_state = read_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 3);
     assert_eq!(a_state.packets_acknowledged, 3);
 
-    let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
+    let b_state = read_app_state(&chain_b).await;
     assert_eq!(b_state.packets_received, 3);
 }

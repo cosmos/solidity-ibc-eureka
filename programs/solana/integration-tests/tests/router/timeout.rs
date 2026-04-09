@@ -61,7 +61,7 @@ async fn test_timeout_packet() {
     assert_commitment_zeroed(&chain_a, commitment_pda).await;
 
     // Verify app state reflects the timeout
-    let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
+    let a_state = read_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 1);
     assert_eq!(a_state.packets_timed_out, 1);
     assert_eq!(a_state.packets_acknowledged, 0);
