@@ -34,6 +34,8 @@ graph LR
     Test --> IftAdmin
     Test --> User
     Test --> Relayer
+    Deployer -->|init_programs + transfer_upgrade_authority| RA
+    Deployer -->|init_programs + transfer_upgrade_authority| RB
     User -->|send_packet / send_call| RA
     Admin -->|AM transfer| RA
     Relayer -->|upload_chunks + recv_packet| RB
@@ -55,7 +57,7 @@ Each `Chain` follows a setup → init → runtime lifecycle:
 flowchart LR
     subgraph Setup["Setup Phase"]
         direction TB
-        New["Chain::new(config)"] --> Prefund["prefund(actor)"]
+        New["Chain::new(config)"] --> Prefund["prefund(&[actors])"]
     end
 
     subgraph Init["Init Phase"]
@@ -74,7 +76,7 @@ flowchart LR
     Setup --> Init --> Runtime
 ```
 
-**Setup phase** — `ProgramTest` is configured with program binaries, `ProgramData` accounts (for upgrade authority verification) and pre-funded actors. No on-chain state exists yet.
+**Setup phase** — `Chain::new(config)` configures `ProgramTest` with program binaries and `ProgramData` accounts (for upgrade authority verification). Only the deployer is pre-funded automatically; other actors must be pre-funded explicitly via `chain.prefund(&[&admin, &relayer, &user])`. No on-chain state exists yet.
 
 **Init phase** — `start()` consumes the `ProgramTest` and produces a `BanksClient`. Then `deployer.init_programs()` executes a sequence of real initialization transactions. The deployer signs upgrade-authority-gated steps; the admin signs AM-role-gated steps:
 
