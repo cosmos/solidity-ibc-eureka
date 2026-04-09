@@ -114,6 +114,12 @@ async fn test_recv_after_source_timeout() {
     assert_ne!(&ack.data[8..40], &[0u8; 32]);
 
     // ── Step 4: Relayer attempts ack on A — fails (commitment already zeroed) ──
+    // Cleanup timeout chunks first so the same PDAs can be re-created for ack
+    relayer
+        .cleanup_chunks(&mut chain_a, sequence, a_to_payload, a_to_proof)
+        .await
+        .expect("cleanup timeout chunks failed");
+
     let (a_ack_payload, a_ack_proof) = relayer
         .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
         .await

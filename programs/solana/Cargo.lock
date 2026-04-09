@@ -3705,6 +3705,7 @@ dependencies = [
  "solana-ibc-types",
  "solana-program-test",
  "solana-sdk",
+ "test-cpi-proxy",
  "test-gmp-app",
  "test-ibc-app",
  "tokio",

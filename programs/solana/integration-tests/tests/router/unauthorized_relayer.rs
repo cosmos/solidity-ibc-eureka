@@ -1,8 +1,7 @@
 use super::*;
 
-/// A relayer without `RELAYER_ROLE` can upload chunks (no role check) but
-/// `recv_packet` is rejected by the access manager CPI during the router's
-/// `require_role` check.
+/// `recv_packet` by a relayer without `RELAYER_ROLE` is rejected by the
+/// access manager CPI during the router's `require_role` check.
 #[tokio::test]
 async fn test_unauthorized_relayer_rejected() {
     let user = User::new();
@@ -44,11 +43,11 @@ async fn test_unauthorized_relayer_rejected() {
     .await
     .expect("send_packet failed");
 
-    // Unauthorized relayer uploads chunks on B (no role check — succeeds)
-    let (payload_pda, proof_pda) = unauthorized
+    // Authorized relayer uploads chunks on B (upload requires RELAYER_ROLE)
+    let (payload_pda, proof_pda) = relayer
         .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
         .await
-        .expect("upload_chunks should succeed without RELAYER_ROLE");
+        .expect("authorized relayer upload_chunks should succeed");
 
     // Unauthorized relayer attempts recv_packet — access manager rejects
     let err = unauthorized

@@ -335,6 +335,45 @@ pub fn derive_user_counter_pda(user: &Pubkey) -> Pubkey {
     pda
 }
 
+/// Build a raw `on_recv_packet` instruction targeting `ics27_gmp` directly.
+///
+/// Used by security tests that bypass the router: either as a top-level
+/// instruction (direct-call test) or wrapped in `test_cpi_proxy::proxy_cpi`
+/// (unauthorized-CPI test).
+pub fn build_raw_gmp_on_recv_packet_ix(
+    relayer: Pubkey,
+    dest_client: &str,
+    source_client: &str,
+    sequence: u64,
+    packet_bytes: &[u8],
+    remaining_accounts: Vec<AccountMeta>,
+) -> Instruction {
+    let (gmp_app_state_pda, _) =
+        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
+
+    let msg = solana_ibc_types::OnRecvPacketMsg {
+        source_client: source_client.to_string(),
+        dest_client: dest_client.to_string(),
+        sequence,
+        payload: build_gmp_ibc_payload(packet_bytes),
+        relayer,
+    };
+
+    let mut account_metas = vec![
+        AccountMeta::new(gmp_app_state_pda, false),
+        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        AccountMeta::new(relayer, true),
+        AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+    ];
+    account_metas.extend(remaining_accounts);
+
+    Instruction {
+        program_id: ics27_gmp::ID,
+        accounts: account_metas,
+        data: ics27_gmp::instruction::OnRecvPacket { msg }.data(),
+    }
+}
+
 /// Build IBC payload for GMP (used in `MsgPayload`).
 pub fn build_gmp_ibc_payload(packet_bytes: &[u8]) -> Payload {
     Payload {

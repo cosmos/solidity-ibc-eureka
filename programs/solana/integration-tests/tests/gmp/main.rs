@@ -22,10 +22,17 @@ use integration_tests::{
 use prost::Message as ProstMessage;
 
 mod bidirectional;
+mod direct_call_rejected;
+mod failed_execution;
 mod full_lifecycle;
+mod multi_user;
 mod multiple_calls;
+mod prefunded_pda;
+mod signer_exploit;
+mod three_chain;
 mod timeout;
 mod timeout_too_long;
+mod unauthorized_cpi;
 
 /// GMP timeout must match `router::test_timeout(TEST_CLOCK_TIME)` so that
 /// the commitment computed by `send_call` agrees with the ack/recv packet builders.

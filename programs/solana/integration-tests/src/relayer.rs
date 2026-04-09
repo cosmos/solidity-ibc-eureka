@@ -42,18 +42,31 @@ impl Relayer {
         payload: &[u8],
         proof: &[u8],
     ) -> Result<(Pubkey, Pubkey), BanksClientError> {
+        let client_id = chain.client_id().to_string();
+        self.upload_chunks_for_client(chain, &client_id, sequence, payload, proof)
+            .await
+    }
+
+    /// Upload payload and proof chunks keyed to a specific `client_id`.
+    ///
+    /// Use this when the target client differs from the chain's primary client
+    /// (e.g. multi-hop scenarios where Chain B routes through `"b-to-c"`).
+    pub async fn upload_chunks_for_client(
+        &self,
+        chain: &mut Chain,
+        client_id: &str,
+        sequence: u64,
+        payload: &[u8],
+        proof: &[u8],
+    ) -> Result<(Pubkey, Pubkey), BanksClientError> {
         let (payload_ix, payload_pda) = router::build_upload_payload_chunk_ix(
             self.pubkey(),
-            chain.client_id(),
+            client_id,
             sequence,
             payload.to_vec(),
         );
-        let (proof_ix, proof_pda) = router::build_upload_proof_chunk_ix(
-            self.pubkey(),
-            chain.client_id(),
-            sequence,
-            proof.to_vec(),
-        );
+        let (proof_ix, proof_pda) =
+            router::build_upload_proof_chunk_ix(self.pubkey(), client_id, sequence, proof.to_vec());
         let tx = Transaction::new_signed_with_payer(
             &[payload_ix, proof_ix],
             Some(&self.pubkey()),

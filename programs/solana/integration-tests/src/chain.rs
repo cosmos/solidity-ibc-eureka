@@ -32,6 +32,21 @@ pub struct ChainAccounts {
     pub counter_app_state_pda: Option<Pubkey>,
 }
 
+/// Derive mock light client PDAs for any `client_id`.
+pub fn derive_mock_lc_pdas(client_id: &str) -> (Pubkey, Pubkey) {
+    let (client_state, _) =
+        Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
+    let (consensus_state, _) = Pubkey::find_program_address(
+        &[
+            b"consensus_state",
+            client_state.as_ref(),
+            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
+        ],
+        &mock_light_client::ID,
+    );
+    (client_state, consensus_state)
+}
+
 /// Which IBC application to register on the `"transfer"` port.
 #[derive(Clone, Copy)]
 pub enum IbcApp {
@@ -66,6 +81,7 @@ pub struct Chain {
     payer: Option<Keypair>,
     blockhash: Hash,
     pub accounts: ChainAccounts,
+    additional_counterparties: Vec<(String, String)>,
 }
 
 impl Chain {
@@ -86,6 +102,7 @@ impl Chain {
             payer: None,
             blockhash: Hash::default(),
             accounts,
+            additional_counterparties: Vec::new(),
         }
     }
 
@@ -99,6 +116,15 @@ impl Chain {
     /// Pre-fund an account with a specific lamport amount.
     pub fn prefund_lamports(&mut self, pubkey: Pubkey, lamports: u64) {
         self.pt().add_account(pubkey, system_account(lamports));
+    }
+
+    /// Register an additional client/counterparty pair on this chain.
+    ///
+    /// The mock light client and router `add_client` instructions are executed
+    /// during `start()`, after the primary client is initialized.
+    pub fn add_counterparty(&mut self, client_id: &str, counterparty_client_id: &str) {
+        self.additional_counterparties
+            .push((client_id.to_string(), counterparty_client_id.to_string()));
     }
 
     /// Start the chain runtime, executing all initialization transactions.
@@ -123,6 +149,24 @@ impl Chain {
                 &[]
             };
             blockhash = send_init_tx(&banks, &payer, blockhash, ixs, extra).await;
+        }
+
+        // Initialize additional counterparties (for multi-hop tests)
+        let am_pda = derive_access_manager_pda();
+        let router_state_pda = derive_router_state_pda();
+        for (extra_client_id, extra_counterparty_id) in &self.additional_counterparties {
+            let lc_ix = build_mock_lc_initialize_ix(payer.pubkey(), extra_client_id);
+            blockhash = send_init_tx(&banks, &payer, blockhash, &[lc_ix], &[]).await;
+
+            let add_ix = build_add_client_ix(
+                &self.authority,
+                router_state_pda,
+                am_pda,
+                extra_client_id,
+                extra_counterparty_id,
+            );
+            blockhash =
+                send_init_tx(&banks, &payer, blockhash, &[add_ix], &[&self.authority]).await;
         }
 
         self.banks = Some(banks);
@@ -424,6 +468,7 @@ fn build_program_test(
         IbcApp::Gmp => {
             pt.add_program("ics27_gmp", ics27_gmp::ID, None);
             pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+            pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
             add_program_data(&mut pt, ics27_gmp::ID, authority.pubkey());
         }
     }
