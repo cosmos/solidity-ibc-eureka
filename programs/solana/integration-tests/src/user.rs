@@ -1,5 +1,6 @@
 use crate::chain::Chain;
 use crate::gmp::{self, GmpSendCallParams};
+use crate::ift::{self, IftTransferParams, TokenKind};
 use crate::router::{self, SendPacketParams, SendResult};
 use crate::Actor;
 use solana_program_test::BanksClientError;
@@ -78,5 +79,33 @@ impl User {
         );
         chain.process_transaction(tx).await?;
         Ok(commitment_pda)
+    }
+
+    /// Send an IFT transfer (sender != payer; chain's built-in payer pays fees).
+    pub async fn ift_transfer(
+        &self,
+        chain: &mut Chain,
+        mint: Pubkey,
+        token_kind: TokenKind,
+        params: IftTransferParams,
+    ) -> Result<ift::IftTransferResult, BanksClientError> {
+        let payer_pubkey = chain.payer().pubkey();
+        let result = ift::build_ift_transfer_ix(
+            self.pubkey(),
+            payer_pubkey,
+            &chain.accounts,
+            chain.client_id(),
+            mint,
+            token_kind,
+            params,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            std::slice::from_ref(&result.ix),
+            Some(&payer_pubkey),
+            &[chain.payer(), &self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(result)
     }
 }

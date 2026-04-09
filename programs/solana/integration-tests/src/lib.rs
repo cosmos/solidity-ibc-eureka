@@ -5,6 +5,7 @@ use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::Tra
 pub mod accounts;
 pub mod chain;
 pub mod gmp;
+pub mod ift;
 pub mod relayer;
 pub mod router;
 pub mod user;

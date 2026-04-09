@@ -3692,11 +3692,14 @@ name = "integration-tests"
 version = "0.1.0"
 dependencies = [
  "access-manager",
+ "alloy-sol-types",
  "anchor-lang",
+ "anchor-spl",
  "bincode",
  "borsh 0.10.4",
  "ics26-router",
  "ics27-gmp",
+ "ift",
  "mock-ibc-app",
  "mock-light-client",
  "prost",

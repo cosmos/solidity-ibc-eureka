@@ -19,7 +19,10 @@ workspace = true
 anchor-lang = { workspace = true }
 ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
+ift = { path = "../programs/ift", features = ["cpi"] }
 access-manager = { workspace = true, features = ["test-utils"] }
+anchor-spl = { workspace = true }
+alloy-sol-types = { workspace = true }
 test-ibc-app = { path = "../programs/test-ibc-app" }
 test-gmp-app = { path = "../programs/test-gmp-app" }
 mock-ibc-app = { path = "../programs/mock-ibc-app" }

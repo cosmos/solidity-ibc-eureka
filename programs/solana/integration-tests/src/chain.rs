@@ -30,6 +30,7 @@ pub struct ChainAccounts {
     pub app_state_pda: Pubkey,
     pub gmp_app_state_pda: Option<Pubkey>,
     pub counter_app_state_pda: Option<Pubkey>,
+    pub ift_app_state_pda: Option<Pubkey>,
 }
 
 /// Derive mock light client PDAs for any `client_id`.
@@ -65,6 +66,8 @@ pub enum Program {
     TestGmpApp,
     /// `test_cpi_proxy` — generic CPI proxy for security tests.
     TestCpiProxy,
+    /// `ift` — inter-chain fungible token transfers (uses GMP's port).
+    Ift,
 }
 
 pub struct ChainConfig<'a> {
@@ -201,6 +204,16 @@ impl Chain {
             .expect("chain should have counter_app_state PDA")
     }
 
+    pub const fn ift_app_state_pda(&self) -> Pubkey {
+        self.accounts
+            .ift_app_state_pda
+            .expect("chain should have ift_app_state PDA")
+    }
+
+    pub const fn authority(&self) -> &Keypair {
+        &self.authority
+    }
+
     pub const fn payer(&self) -> &Keypair {
         self.payer.as_ref().expect("chain not started yet")
     }
@@ -277,6 +290,7 @@ fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts
         app_state_pda: Pubkey::default(),
         gmp_app_state_pda: None,
         counter_app_state_pda: None,
+        ift_app_state_pda: None,
     };
 
     for program in programs {
@@ -308,6 +322,11 @@ fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts
                 accounts.counter_app_state_pda = Some(counter_pda);
             }
             Program::TestCpiProxy => {}
+            Program::Ift => {
+                let (ift_pda, _) =
+                    Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
+                accounts.ift_app_state_pda = Some(ift_pda);
+            }
         }
     }
 
@@ -343,7 +362,7 @@ fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
             Program::TestIbcApp => return (crate::router::PORT_ID, test_ibc_app::ID),
             Program::MockIbcApp => return (crate::router::PORT_ID, mock_ibc_app::ID),
             Program::Ics27Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
-            Program::TestGmpApp | Program::TestCpiProxy => {}
+            Program::TestGmpApp | Program::TestCpiProxy | Program::Ift => {}
         }
     }
     panic!("no IBC application in programs list");
@@ -442,6 +461,9 @@ fn build_init_steps(
                     false,
                 ));
             }
+            Program::Ift => {
+                steps.push((vec![build_ift_initialize_ix(payer, authority)], true));
+            }
             Program::MockIbcApp | Program::TestCpiProxy => {}
         }
     }
@@ -514,6 +536,10 @@ fn build_program_test(
             }
             Program::TestCpiProxy => {
                 pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
+            }
+            Program::Ift => {
+                pt.add_program("ift", ift::ID, None);
+                add_program_data(&mut pt, ift::ID, authority.pubkey());
             }
         }
     }
@@ -744,6 +770,28 @@ fn build_gmp_initialize_ix(
         ],
         data: ics27_gmp::instruction::Initialize {
             access_manager: access_manager_program,
+        }
+        .data(),
+    }
+}
+
+fn build_ift_initialize_ix(payer: Pubkey, authority: &Keypair) -> Instruction {
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[ift::ID.as_ref()], &bpf_loader_upgradeable::ID);
+
+    Instruction {
+        program_id: ift::ID,
+        accounts: vec![
+            AccountMeta::new(app_state_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+        ],
+        data: ift::instruction::Initialize {
+            admin: authority.pubkey(),
         }
         .data(),
     }

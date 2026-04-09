@@ -1,5 +1,6 @@
 use crate::chain::Chain;
 use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacketParams};
+use crate::ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, TokenKind};
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
 use crate::Actor;
 use solana_program_test::BanksClientError;
@@ -340,5 +341,82 @@ impl Relayer {
         );
         chain.process_transaction(tx).await?;
         Ok(commitment_pda)
+    }
+
+    // ── IFT GMP operations (ABI encoding) ────────────────────────────────
+
+    /// Deliver a GMP `ack_packet` for an IFT transfer (ABI encoding).
+    pub async fn ift_gmp_ack_packet(
+        &self,
+        chain: &mut Chain,
+        params: IftGmpAckPacketParams,
+    ) -> Result<Pubkey, BanksClientError> {
+        let (ix, commitment_pda) = ift::build_ift_gmp_ack_packet_ix(
+            self.pubkey(),
+            &chain.accounts,
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            params,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(commitment_pda)
+    }
+
+    /// Deliver a GMP `timeout_packet` for an IFT transfer (ABI encoding).
+    pub async fn ift_gmp_timeout_packet(
+        &self,
+        chain: &mut Chain,
+        params: IftGmpTimeoutPacketParams,
+    ) -> Result<Pubkey, BanksClientError> {
+        let (ix, commitment_pda) = ift::build_ift_gmp_timeout_packet_ix(
+            self.pubkey(),
+            &chain.accounts,
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            params,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(commitment_pda)
+    }
+
+    /// Finalize an IFT transfer after the GMP result is available.
+    pub async fn ift_finalize_transfer(
+        &self,
+        chain: &mut Chain,
+        mint: Pubkey,
+        sender: Pubkey,
+        client_id: &str,
+        sequence: u64,
+        token_kind: TokenKind,
+    ) -> Result<(), BanksClientError> {
+        let ix = ift::build_finalize_transfer_ix(
+            self.pubkey(),
+            mint,
+            sender,
+            client_id,
+            sequence,
+            token_kind,
+        );
+        let tx = Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await
     }
 }

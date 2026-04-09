@@ -86,6 +86,7 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 | `Ics27Gmp`     | `ics27_gmp`      | Yes               | GMP IBC application on the GMP port                               |
 | `TestGmpApp`   | `test_gmp_app`   | No                | Counter app invoked by GMP via CPI                                |
 | `TestCpiProxy` | `test_cpi_proxy` | No                | Generic CPI proxy for security tests                              |
+| `Ift`          | `ift`            | No                | Inter-chain fungible token transfers (uses GMP's port)            |
 
 ## Module Overview
 
@@ -95,16 +96,17 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
 | `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads |
 | `gmp`      | Instruction builders for GMP `send_call`, `recv_packet`, `ack_packet`, `timeout_packet` and raw `on_recv_packet` for security tests |
-| `user`     | `User` actor — sends packets and GMP calls                                                           |
-| `relayer`  | `Relayer` actor — uploads chunks (including per-client for multi-hop) and delivers recv/ack/timeout packets |
+| `ift`      | Instruction builders for IFT transfers, finalization, admin operations, pause, token creation (SPL and Token 2022), `TokenKind` enum and balance readers |
+| `user`     | `User` actor — sends packets, GMP calls and IFT transfers                                            |
+| `relayer`  | `Relayer` actor — uploads chunks (including per-client for multi-hop), delivers recv/ack/timeout packets and finalizes IFT transfers |
 
 ## Actors
 
 ```mermaid
 graph TB
     Actor["trait Actor\npubkey()"]
-    User["User\n- send_packet\n- send_call"]
-    Relayer["Relayer\n- upload_chunks\n- cleanup_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet"]
+    User["User\n- send_packet\n- send_call\n- ift_transfer"]
+    Relayer["Relayer\n- upload_chunks\n- cleanup_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet\n- ift_gmp_ack_packet\n- ift_gmp_timeout_packet\n- ift_finalize_transfer"]
 
     Actor --> User
     Actor --> Relayer
@@ -155,6 +157,30 @@ graph LR
     A -->|"packet expires"| R["Relayer"]
     R -->|"upload_chunks + gmp_timeout_packet"| A2["Chain A\n(commitment zeroed\n+ GMPCallResult timeout)"]
 ```
+
+### IFT: transfer → ack → finalize
+
+```mermaid
+graph LR
+    U["User"] -->|ift_transfer| A["Chain A\n(tokens burned,\ncommitment + PendingTransfer)"]
+    A -->|"relayer observes commitment"| R["Relayer"]
+    R -->|"upload_chunks + ift_gmp_ack_packet"| A2["Chain A\n(commitment zeroed\n+ GMPCallResult)"]
+    R -->|"finalize_transfer"| A3["Chain A\n(PendingTransfer closed,\nsuccess: no-op / error: refund)"]
+```
+
+The IFT module supports both SPL Token and Token 2022 mints via the `TokenKind` enum. Tests use `setup_ift_chain` (SPL) or `setup_ift_chain_with_token` (either variant) to create a token, register an EVM bridge and mint an initial balance.
+
+#### IFT Test Coverage
+
+| Test | Scenario |
+| --- | --- |
+| `full_lifecycle` | Transfer → success ack → finalize (tokens stay burned) |
+| `error_ack_refund` | Transfer → error ack → finalize (tokens refunded) |
+| `timeout_refund` | Transfer → timeout → finalize (tokens refunded) |
+| `batch_transfers` | Two consecutive transfers (seq 1 & 2), both acked and finalized |
+| `token_2022_lifecycle` | Full lifecycle with Token 2022 mint (metadata extensions) |
+| `admin_transfer` | Propose → accept admin; propose → cancel admin |
+| `pause` | Pause blocks transfer + admin_mint; unpause restores them |
 
 ## Writing a New Test
 
