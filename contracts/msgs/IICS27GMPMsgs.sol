@@ -40,16 +40,6 @@ interface IICS27GMPMsgs {
         bytes result;
     }
 
-    /// @notice GMPSolanaPayload is the ABI-encoded payload for Solana GMP execution.
-    /// @param packedAccounts Packed account entries (34 bytes each: pubkey + is_signer + is_writable)
-    /// @param instructionData Raw instruction data for the target program
-    /// @param prefundLamports Lamports to prefund the caller PDA
-    struct GMPSolanaPayload {
-        bytes packedAccounts;
-        bytes instructionData;
-        uint32 prefundLamports;
-    }
-
     /// @notice AccountIdentifier is used to identify a ICS27 account.
     /// @dev The keccak256 hash of abi.encode(AccountIdentifier) is used as the create2 salt
     /// @param clientId The (local) client identifier

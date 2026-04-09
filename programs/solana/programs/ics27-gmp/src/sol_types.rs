@@ -1,3 +1,4 @@
-//! Solidity ABI types imported from `IICS27GMPMsgs.sol`.
+//! Solidity ABI types imported from GMP message definitions.
 
 alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
+alloy_sol_types::sol!("../../../../contracts/utils/SolanaIFTSendCallConstructor.sol");

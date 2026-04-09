@@ -39,7 +39,7 @@ alloy::sol! {
     }
 }
 
-// ABI type matching `IICS27GMPMsgs.GMPSolanaPayload` struct encoding.
+// ABI type matching `ISolanaGMPMsgs.GMPSolanaPayload` struct encoding.
 alloy::sol! {
     struct AbiGmpSolanaPayload {
         bytes packedAccounts;

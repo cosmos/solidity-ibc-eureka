@@ -1,14 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-// solhint-disable gas-strict-inequalities,no-inline-assembly
-
 import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.sol";
-import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
 
+import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
+import { SafeCast } from "@openzeppelin-contracts/utils/math/SafeCast.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
 import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol";
+
+/// @title Solana GMP Messages
+/// @notice Interface defining Solana-specific GMP message types
+interface ISolanaGMPMsgs {
+    /// @notice GMPSolanaPayload is the ABI-encoded payload for Solana GMP execution.
+    /// @param packedAccounts Packed account entries (34 bytes each: pubkey + is_signer + is_writable)
+    /// @param instructionData Raw instruction data for the target program
+    /// @param prefundLamports Lamports to prefund the caller PDA
+    struct GMPSolanaPayload {
+        bytes packedAccounts;
+        bytes instructionData;
+        uint32 prefundLamports;
+    }
+}
 
 /// @title Solana IFT Send Call Constructor
 /// @notice Constructs ABI-encoded GmpSolanaPayload for minting IFT tokens on Solana.
@@ -34,12 +47,6 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
     /// @notice Expected length of receiver: "0x" + 64 hex (wallet) + 64 hex (ATA) = 130 chars
     uint256 private constant SOLANA_RECEIVER_HEX_LENGTH = 130;
-
-    /// @notice Each packed account entry is 34 bytes: 32 (pubkey) + 1 (is_signer) + 1 (is_writable)
-    uint256 private constant PACKED_ACCOUNT_SIZE = 34;
-
-    /// @notice Number of accounts in the payload (GMP PDA appears twice: as gmp_account and payer)
-    uint256 private constant NUM_ACCOUNTS = 12;
 
     // -- Static PDAs (set at deployment) --
 
@@ -96,7 +103,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
         (bytes32 wallet, bytes32 ata) = _parseWalletAndAta(receiver);
 
-        IICS27GMPMsgs.GMPSolanaPayload memory payload = IICS27GMPMsgs.GMPSolanaPayload({
+        ISolanaGMPMsgs.GMPSolanaPayload memory payload = ISolanaGMPMsgs.GMPSolanaPayload({
             packedAccounts: _buildPackedAccounts(wallet, ata),
             instructionData: _buildInstructionData(wallet, amount),
             prefundLamports: PREFUND_LAMPORTS
@@ -115,6 +122,8 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @return wallet The wallet pubkey
     /// @return ata The associated token account pubkey
     function _parseWalletAndAta(string calldata receiver) private pure returns (bytes32 wallet, bytes32 ata) {
+        require(bytes(receiver)[0] == "0" && bytes(receiver)[1] == "x", SolanaIFTInvalidReceiver(receiver));
+
         string memory walletHex = string(abi.encodePacked("0x", bytes(receiver)[2:66]));
         string memory ataHex = string(abi.encodePacked("0x", bytes(receiver)[66:130]));
 
@@ -136,85 +145,40 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @notice Build packed accounts for the GmpSolanaPayload.
     /// @param wallet The receiver wallet pubkey
     /// @param ata The receiver associated token account
-    /// @return packed The packed account bytes (11 * 34 bytes)
+    /// @return The packed account bytes (12 * 34 bytes)
     function _buildPackedAccounts(bytes32 wallet, bytes32 ata) private view returns (bytes memory) {
-        bytes memory packed = new bytes(NUM_ACCOUNTS * PACKED_ACCOUNT_SIZE);
-        uint256 offset = 0;
-
-        offset = _packAccount(packed, offset, APP_STATE, false, false);
-        offset = _packAccount(packed, offset, APP_MINT_STATE, false, true);
-        offset = _packAccount(packed, offset, IFT_BRIDGE, false, false);
-        offset = _packAccount(packed, offset, MINT, false, true);
-        offset = _packAccount(packed, offset, MINT_AUTHORITY, false, false);
-        offset = _packAccount(packed, offset, ata, false, true);
-        offset = _packAccount(packed, offset, wallet, false, false);
-        offset = _packAccount(packed, offset, GMP_ACCOUNT, true, false);
-        offset = _packAccount(packed, offset, GMP_ACCOUNT, true, true);
-        offset = _packAccount(packed, offset, TOKEN_PROGRAM, false, false);
-        offset = _packAccount(packed, offset, ASSOCIATED_TOKEN_PROGRAM, false, false);
-        _packAccount(packed, offset, SYSTEM_PROGRAM, false, false);
-
-        return packed;
+        return bytes.concat(
+            _packAccount(APP_STATE, false, false),
+            _packAccount(APP_MINT_STATE, false, true),
+            _packAccount(IFT_BRIDGE, false, false),
+            _packAccount(MINT, false, true),
+            _packAccount(MINT_AUTHORITY, false, false),
+            _packAccount(ata, false, true),
+            _packAccount(wallet, false, false),
+            // GMP PDA appears twice: as gmp_account (signer, read-only) and payer (signer, writable)
+            _packAccount(GMP_ACCOUNT, true, false),
+            _packAccount(GMP_ACCOUNT, true, true),
+            _packAccount(TOKEN_PROGRAM, false, false),
+            _packAccount(ASSOCIATED_TOKEN_PROGRAM, false, false),
+            _packAccount(SYSTEM_PROGRAM, false, false)
+        );
     }
 
     /// @notice Pack a single account entry: pubkey(32) + is_signer(1) + is_writable(1)
-    /// @param buf The target byte buffer
-    /// @param offset The current write offset
     /// @param pubkey The account pubkey
     /// @param isSigner Whether the account is a signer
     /// @param isWritable Whether the account is writable
-    /// @return The new offset after writing
-    function _packAccount(
-        bytes memory buf,
-        uint256 offset,
-        bytes32 pubkey,
-        bool isSigner,
-        bool isWritable
-    )
-        private
-        pure
-        returns (uint256)
-    {
-        assembly {
-            let ptr := add(add(buf, 32), offset)
-            mstore(ptr, pubkey)
-            mstore8(add(ptr, 32), isSigner)
-            mstore8(add(ptr, 33), isWritable)
-        }
-        return offset + PACKED_ACCOUNT_SIZE;
+    /// @return The packed 34-byte account entry
+    function _packAccount(bytes32 pubkey, bool isSigner, bool isWritable) private pure returns (bytes memory) {
+        return abi.encodePacked(pubkey, isSigner, isWritable);
     }
 
     /// @notice Build instruction data: discriminator(8) + wallet(32) + amount_le(8) = 48 bytes.
     /// @param wallet The receiver wallet pubkey
     /// @param amount The amount to mint
-    /// @return data The Borsh-encoded instruction data matching Anchor's IFTMintMsg
+    /// @return The Borsh-encoded instruction data matching Anchor's IFTMintMsg
     function _buildInstructionData(bytes32 wallet, uint256 amount) private pure returns (bytes memory) {
-        bytes memory data = new bytes(48);
-
-        bytes8 disc = IFT_MINT_DISCRIMINATOR;
-        assembly {
-            let ptr := add(data, 32)
-            mstore(ptr, disc)
-        }
-
-        assembly {
-            let ptr := add(add(data, 32), 8)
-            mstore(ptr, wallet)
-        }
-
-        uint64 amountU64 = uint64(amount);
-        assembly {
-            let ptr := add(add(data, 32), 40)
-            mstore8(ptr, and(amountU64, 0xff))
-            mstore8(add(ptr, 1), and(shr(8, amountU64), 0xff))
-            mstore8(add(ptr, 2), and(shr(16, amountU64), 0xff))
-            mstore8(add(ptr, 3), and(shr(24, amountU64), 0xff))
-            mstore8(add(ptr, 4), and(shr(32, amountU64), 0xff))
-            mstore8(add(ptr, 5), and(shr(40, amountU64), 0xff))
-            mstore8(add(ptr, 6), and(shr(48, amountU64), 0xff))
-            mstore8(add(ptr, 7), and(shr(56, amountU64), 0xff))
-        }
-
-        return data;
+        uint64 amountU64 = SafeCast.toUint64(amount);
+        return abi.encodePacked(IFT_MINT_DISCRIMINATOR, wallet, Bytes.reverseBytes8(bytes8(amountU64)));
     }
 }

@@ -6,7 +6,7 @@ use anchor_lang::prelude::*;
 use crate::errors::GMPError;
 use crate::proto::GmpSolanaPayload;
 
-pub use crate::sol_types::IICS27GMPMsgs::GMPSolanaPayload;
+pub use crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload;
 
 /// Size of a packed account entry: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
