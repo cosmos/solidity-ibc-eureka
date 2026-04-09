@@ -65,11 +65,8 @@ async fn test_full_packet_lifecycle() {
                 sequence,
                 payload_chunk_pda: b_recv_payload,
                 proof_chunk_pda: b_recv_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -94,11 +91,8 @@ async fn test_full_packet_lifecycle() {
                 acknowledgement: successful_ack,
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

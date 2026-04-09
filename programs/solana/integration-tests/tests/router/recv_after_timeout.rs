@@ -54,11 +54,8 @@ async fn test_recv_after_source_timeout() {
                 sequence,
                 payload_chunk_pda: a_to_payload,
                 proof_chunk_pda: a_to_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -79,11 +76,8 @@ async fn test_recv_after_source_timeout() {
                 sequence,
                 payload_chunk_pda: b_recv_payload,
                 proof_chunk_pda: b_recv_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -112,11 +106,8 @@ async fn test_recv_after_source_timeout() {
                 acknowledgement: ack_data,
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

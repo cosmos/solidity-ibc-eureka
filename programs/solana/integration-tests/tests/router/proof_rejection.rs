@@ -55,11 +55,8 @@ async fn test_proof_verification_failure() {
                 sequence,
                 payload_chunk_pda: b_payload,
                 proof_chunk_pda: b_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

@@ -42,11 +42,8 @@ async fn test_ack_after_timeout_fails() {
                 sequence,
                 payload_chunk_pda: payload_pda,
                 proof_chunk_pda: proof_pda,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -71,11 +68,8 @@ async fn test_ack_after_timeout_fails() {
                 acknowledgement: successful_ack,
                 payload_chunk_pda: a_payload,
                 proof_chunk_pda: a_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

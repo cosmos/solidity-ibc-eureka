@@ -71,11 +71,8 @@ async fn test_bidirectional_packets() {
                 sequence: seq_a_to_b,
                 payload_chunk_pda: b_recv_payload,
                 proof_chunk_pda: b_recv_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -93,11 +90,8 @@ async fn test_bidirectional_packets() {
                 sequence: seq_b_to_a,
                 payload_chunk_pda: a_recv_payload,
                 proof_chunk_pda: a_recv_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -116,11 +110,8 @@ async fn test_bidirectional_packets() {
                 acknowledgement: successful_ack.clone(),
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -139,11 +130,8 @@ async fn test_bidirectional_packets() {
                 acknowledgement: successful_ack,
                 payload_chunk_pda: b_ack_payload,
                 proof_chunk_pda: b_ack_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

@@ -59,11 +59,8 @@ async fn test_multiple_sequential_packets() {
                     sequence: seq,
                     payload_chunk_pda: payload,
                     proof_chunk_pda: proof,
-                    port_id: router::PORT_ID,
-                    version: "1",
-                    encoding: "json",
                     app_program: test_ibc_app::ID,
-                    extra_remaining_accounts: vec![],
+                    ..Default::default()
                 },
             )
             .await
@@ -87,11 +84,8 @@ async fn test_multiple_sequential_packets() {
                     acknowledgement: successful_ack.clone(),
                     payload_chunk_pda: payload,
                     proof_chunk_pda: proof,
-                    port_id: router::PORT_ID,
-                    version: "1",
-                    encoding: "json",
                     app_program: test_ibc_app::ID,
-                    extra_remaining_accounts: vec![],
+                    ..Default::default()
                 },
             )
             .await

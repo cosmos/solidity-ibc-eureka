@@ -47,11 +47,8 @@ async fn test_timeout_packet() {
                 sequence,
                 payload_chunk_pda: timeout_payload,
                 proof_chunk_pda: timeout_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

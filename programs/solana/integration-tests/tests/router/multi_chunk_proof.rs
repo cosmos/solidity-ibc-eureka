@@ -62,12 +62,8 @@ async fn test_multi_chunk_proof_lifecycle() {
             RecvPacketParams {
                 sequence,
                 payload_chunk_pda: b_payload,
-                proof_chunk_pda: Pubkey::default(), // unused — PDAs passed separately
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
             &b_proof_pdas,
         )
@@ -96,12 +92,8 @@ async fn test_multi_chunk_proof_lifecycle() {
                 sequence,
                 acknowledgement: successful_ack,
                 payload_chunk_pda: a_payload,
-                proof_chunk_pda: Pubkey::default(), // unused
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
             &a_proof_pdas,
         )

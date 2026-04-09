@@ -55,11 +55,8 @@ async fn test_empty_ack_rejected() {
                 sequence,
                 payload_chunk_pda: b_payload,
                 proof_chunk_pda: b_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: mock_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

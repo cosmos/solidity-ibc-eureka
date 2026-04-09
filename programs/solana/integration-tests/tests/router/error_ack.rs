@@ -56,11 +56,8 @@ async fn test_error_ack_lifecycle() {
                 sequence,
                 payload_chunk_pda: b_payload,
                 proof_chunk_pda: b_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: mock_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
@@ -100,11 +97,8 @@ async fn test_error_ack_lifecycle() {
                 acknowledgement: error_ack,
                 payload_chunk_pda: a_payload,
                 proof_chunk_pda: a_proof,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await

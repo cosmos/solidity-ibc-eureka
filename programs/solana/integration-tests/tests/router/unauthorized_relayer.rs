@@ -55,11 +55,8 @@ async fn test_unauthorized_relayer_rejected() {
                 sequence,
                 payload_chunk_pda: payload_pda,
                 proof_chunk_pda: proof_pda,
-                port_id: router::PORT_ID,
-                version: "1",
-                encoding: "json",
                 app_program: test_ibc_app::ID,
-                extra_remaining_accounts: vec![],
+                ..Default::default()
             },
         )
         .await
