@@ -1,5 +1,5 @@
 use crate::accounts::anchor_discriminator;
-use crate::chain::ChainAccounts;
+use crate::chain::{Chain, ChainAccounts};
 use anchor_lang::{AnchorSerialize, InstructionData};
 use ics26_router::state::*;
 use solana_ibc_types::{
@@ -780,4 +780,69 @@ pub fn build_cleanup_chunks_ix(
         ],
         data: ics26_router::instruction::CleanupChunks { msg }.data(),
     }
+}
+
+// ── AM transfer instruction builders ────────────────────────────────────
+
+fn derive_router_state_pda() -> Pubkey {
+    Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID).0
+}
+
+fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
+    solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
+}
+
+pub fn build_ics26_propose_am_transfer_ix(
+    admin: Pubkey,
+    new_access_manager: Pubkey,
+) -> Instruction {
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new(derive_router_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics26_router::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
+    }
+}
+
+pub fn build_ics26_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new(derive_router_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(new_am_program_id), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics26_router::instruction::AcceptAccessManagerTransfer {}.data(),
+    }
+}
+
+pub fn build_ics26_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
+    Instruction {
+        program_id: ics26_router::ID,
+        accounts: vec![
+            AccountMeta::new(derive_router_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics26_router::instruction::CancelAccessManagerTransfer {}.data(),
+    }
+}
+
+// ── State readers ───────────────────────────────────────────────────────
+
+pub async fn read_router_state(chain: &Chain) -> RouterState {
+    use anchor_lang::AccountDeserialize;
+
+    let pda = derive_router_state_pda();
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("RouterState should exist");
+    RouterState::try_deserialize(&mut &account.data[..]).expect("deserialize RouterState")
 }

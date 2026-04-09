@@ -12,12 +12,14 @@ use solana_sdk::{signer::Signer, transaction::Transaction};
 async fn test_gmp_three_chain_roundtrip() {
     let user = User::new();
     let relayer = Relayer::new();
+    let admin = Admin::new();
     let proof_data = vec![0u8; 32];
 
     // ── Chain A ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
@@ -27,6 +29,7 @@ async fn test_gmp_three_chain_roundtrip() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
@@ -37,6 +40,7 @@ async fn test_gmp_three_chain_roundtrip() {
     let mut chain_c = Chain::new(ChainConfig {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });

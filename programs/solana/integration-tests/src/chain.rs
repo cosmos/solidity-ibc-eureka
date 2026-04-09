@@ -1,4 +1,5 @@
 use crate::accounts::account_owned_by;
+use crate::admin::Admin;
 use crate::relayer::Relayer;
 use crate::Actor;
 use anchor_lang::InstructionData;
@@ -68,11 +69,14 @@ pub enum Program {
     TestCpiProxy,
     /// `ift` — inter-chain fungible token transfers (uses GMP's port).
     Ift,
+    /// `test_access_manager` — second AM instance for AM migration tests.
+    TestAccessManager,
 }
 
 pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
+    pub admin: &'a Admin,
     pub relayer: &'a Relayer,
     pub programs: &'a [Program],
 }
@@ -86,7 +90,7 @@ pub struct Chain {
     clock_time: i64,
     programs: Vec<Program>,
     relayer_pubkey: Pubkey,
-    authority: Keypair,
+    admin: Keypair,
     banks: Option<BanksClient>,
     payer: Option<Keypair>,
     blockhash: Hash,
@@ -96,9 +100,9 @@ pub struct Chain {
 
 impl Chain {
     pub fn new(config: ChainConfig<'_>) -> Self {
-        let authority = Keypair::new();
+        let admin = config.admin.keypair().insecure_clone();
         let accounts = derive_chain_accounts(config.client_id, config.programs);
-        let pt = build_program_test(&config, &authority, &accounts);
+        let pt = build_program_test(&config, &admin, &accounts);
 
         Self {
             pt: Some(pt),
@@ -107,7 +111,7 @@ impl Chain {
             clock_time: TEST_CLOCK_TIME,
             programs: config.programs.to_vec(),
             relayer_pubkey: config.relayer.pubkey(),
-            authority,
+            admin,
             banks: None,
             payer: None,
             blockhash: Hash::default(),
@@ -144,14 +148,14 @@ impl Chain {
 
         let steps = build_init_steps(
             payer.pubkey(),
-            &self.authority,
+            &self.admin,
             self.relayer_pubkey,
             &self.client_id,
             &self.counterparty_client_id,
             &self.programs,
         );
 
-        let authority_ref = &self.authority;
+        let authority_ref = &self.admin;
         for (ixs, needs_authority) in &steps {
             let extra: &[&Keypair] = if *needs_authority {
                 std::slice::from_ref(&authority_ref)
@@ -169,14 +173,13 @@ impl Chain {
             blockhash = send_init_tx(&banks, &payer, blockhash, &[lc_ix], &[]).await;
 
             let add_ix = build_add_client_ix(
-                &self.authority,
+                &self.admin,
                 router_state_pda,
                 am_pda,
                 extra_client_id,
                 extra_counterparty_id,
             );
-            blockhash =
-                send_init_tx(&banks, &payer, blockhash, &[add_ix], &[&self.authority]).await;
+            blockhash = send_init_tx(&banks, &payer, blockhash, &[add_ix], &[&self.admin]).await;
         }
 
         self.banks = Some(banks);
@@ -210,8 +213,8 @@ impl Chain {
             .expect("chain should have ift_app_state PDA")
     }
 
-    pub const fn authority(&self) -> &Keypair {
-        &self.authority
+    pub const fn admin_keypair(&self) -> &Keypair {
+        &self.admin
     }
 
     pub const fn payer(&self) -> &Keypair {
@@ -321,7 +324,7 @@ fn derive_chain_accounts(client_id: &str, programs: &[Program]) -> ChainAccounts
                 );
                 accounts.counter_app_state_pda = Some(counter_pda);
             }
-            Program::TestCpiProxy => {}
+            Program::TestCpiProxy | Program::TestAccessManager => {}
             Program::Ift => {
                 let (ift_pda, _) =
                     Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
@@ -362,7 +365,10 @@ fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
             Program::TestIbcApp => return (crate::router::PORT_ID, test_ibc_app::ID),
             Program::MockIbcApp => return (crate::router::PORT_ID, mock_ibc_app::ID),
             Program::Ics27Gmp => return (crate::gmp::GMP_PORT_ID, ics27_gmp::ID),
-            Program::TestGmpApp | Program::TestCpiProxy | Program::Ift => {}
+            Program::TestGmpApp
+            | Program::TestCpiProxy
+            | Program::Ift
+            | Program::TestAccessManager => {}
         }
     }
     panic!("no IBC application in programs list");
@@ -464,6 +470,23 @@ fn build_init_steps(
             Program::Ift => {
                 steps.push((vec![build_ift_initialize_ix(payer, authority)], true));
             }
+            Program::TestAccessManager => {
+                let test_am_pda = derive_test_access_manager_pda();
+                steps.push((
+                    vec![build_test_am_initialize_ix(payer, authority, test_am_pda)],
+                    true,
+                ));
+                steps.push((
+                    vec![build_am_grant_role_ix_for_program(
+                        test_am_pda,
+                        authority.pubkey(),
+                        solana_ibc_types::roles::ADMIN_ROLE,
+                        authority.pubkey(),
+                        test_access_manager::ID,
+                    )],
+                    true,
+                ));
+            }
             Program::MockIbcApp | Program::TestCpiProxy => {}
         }
     }
@@ -541,6 +564,10 @@ fn build_program_test(
                 pt.add_program("ift", ift::ID, None);
                 add_program_data(&mut pt, ift::ID, authority.pubkey());
             }
+            Program::TestAccessManager => {
+                pt.add_program("test_access_manager", test_access_manager::ID, None);
+                add_program_data(&mut pt, test_access_manager::ID, authority.pubkey());
+            }
         }
     }
 
@@ -602,14 +629,53 @@ fn build_am_grant_role_ix(
     role_id: u64,
     account: Pubkey,
 ) -> Instruction {
+    build_am_grant_role_ix_for_program(am_pda, admin, role_id, account, access_manager::ID)
+}
+
+fn build_am_grant_role_ix_for_program(
+    am_pda: Pubkey,
+    admin: Pubkey,
+    role_id: u64,
+    account: Pubkey,
+    am_program_id: Pubkey,
+) -> Instruction {
+    // Instruction discriminator is identical for access_manager and test_access_manager
+    // (symlinked source), so we can reuse access_manager::instruction::GrantRole.
     Instruction {
-        program_id: access_manager::ID,
+        program_id: am_program_id,
         accounts: vec![
             AccountMeta::new(am_pda, false),
             AccountMeta::new_readonly(admin, true),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         ],
         data: access_manager::instruction::GrantRole { role_id, account }.data(),
+    }
+}
+
+fn derive_test_access_manager_pda() -> Pubkey {
+    solana_ibc_types::access_manager::AccessManager::pda(test_access_manager::ID).0
+}
+
+fn build_test_am_initialize_ix(payer: Pubkey, authority: &Keypair, am_pda: Pubkey) -> Instruction {
+    let (program_data_pda, _) = Pubkey::find_program_address(
+        &[test_access_manager::ID.as_ref()],
+        &bpf_loader_upgradeable::ID,
+    );
+
+    Instruction {
+        program_id: test_access_manager::ID,
+        accounts: vec![
+            AccountMeta::new(am_pda, false),
+            AccountMeta::new(payer, true),
+            AccountMeta::new_readonly(system_program::ID, false),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority.pubkey(), true),
+        ],
+        data: access_manager::instruction::Initialize {
+            admin: authority.pubkey(),
+        }
+        .data(),
     }
 }
 

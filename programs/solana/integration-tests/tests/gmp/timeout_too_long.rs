@@ -4,10 +4,12 @@ use super::*;
 async fn test_send_call_timeout_too_long() {
     let user = User::new();
     let relayer = Relayer::new();
+    let admin = Admin::new();
 
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });

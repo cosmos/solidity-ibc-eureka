@@ -10,9 +10,11 @@ async fn test_ack_after_timeout_fails() {
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
+    let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });

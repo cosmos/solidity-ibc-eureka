@@ -3708,6 +3708,7 @@ dependencies = [
  "solana-ibc-types",
  "solana-program-test",
  "solana-sdk",
+ "test-access-manager",
  "test-cpi-proxy",
  "test-gmp-app",
  "test-ibc-app",

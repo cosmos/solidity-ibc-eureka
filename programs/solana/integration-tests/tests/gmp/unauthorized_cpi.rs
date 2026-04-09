@@ -8,12 +8,14 @@ use solana_sdk::{instruction::AccountMeta, transaction::Transaction};
 async fn test_gmp_unauthorized_cpi_rejected() {
     let user = User::new();
     let relayer = Relayer::new();
+    let admin = Admin::new();
     let sequence = 1u64;
     let increment_amount = 10u64;
 
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[
             Program::Ics27Gmp,

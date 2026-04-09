@@ -10,9 +10,11 @@ async fn test_full_packet_lifecycle() {
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
     // ── Build chains ──
+    let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
@@ -21,6 +23,7 @@ async fn test_full_packet_lifecycle() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });

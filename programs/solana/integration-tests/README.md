@@ -8,6 +8,8 @@ Solana-to-Solana IBC integration tests using `ProgramTest` (BanksClient). Two in
 graph LR
     subgraph "Test Harness"
         Test["Test Function"]
+        Admin["Admin (Actor)"]
+        IftAdmin["IftAdmin (Actor)"]
         User["User (Actor)"]
         Relayer["Relayer (Actor)"]
     end
@@ -26,6 +28,8 @@ graph LR
         AppB["test_ibc_app / mock_ibc_app / ics27_gmp"]
     end
 
+    Test --> Admin
+    Test --> IftAdmin
     Test --> User
     Test --> Relayer
     User -->|send_packet / send_call| RA
@@ -87,6 +91,7 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 | `TestGmpApp`   | `test_gmp_app`   | No                | Counter app invoked by GMP via CPI                                |
 | `TestCpiProxy` | `test_cpi_proxy` | No                | Generic CPI proxy for security tests                              |
 | `Ift`          | `ift`            | No                | Inter-chain fungible token transfers (uses GMP's port)            |
+| `TestAccessManager` | `test_access_manager` | No           | Second AM instance for access manager migration tests             |
 
 ## Module Overview
 
@@ -94,25 +99,28 @@ The `Program` enum lists programs to load onto a chain. IBC application variants
 | ---------- | ---------------------------------------------------------------------------------------------------- |
 | `chain`    | `Chain` struct with setup/runtime lifecycle, `ChainConfig`, `ChainAccounts`, `Program` enum, `add_counterparty` for multi-hop and `derive_mock_lc_pdas` |
 | `accounts` | `anchor_discriminator` and `account_owned_by` helpers                                                |
-| `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads |
-| `gmp`      | Instruction builders for GMP `send_call`, `recv_packet`, `ack_packet`, `timeout_packet` and raw `on_recv_packet` for security tests |
+| `actors`   | `Actor` trait and actor modules (`admin`, `ift_admin`, `user`, `relayer`)                             |
+| `router`   | Instruction builders for `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`, chunk uploads, AM transfer (propose/accept/cancel) and `read_router_state` |
+| `gmp`      | Instruction builders for GMP `send_call`, `recv_packet`, `ack_packet`, `timeout_packet`, raw `on_recv_packet` for security tests, AM transfer (propose/accept/cancel) and `read_gmp_app_state` |
 | `ift`      | Instruction builders for IFT transfers, finalization, admin operations, pause, token creation (SPL and Token 2022), `TokenKind` enum and balance readers |
-| `user`     | `User` actor — sends packets, GMP calls and IFT transfers                                            |
-| `relayer`  | `Relayer` actor — uploads chunks (including per-client for multi-hop), delivers recv/ack/timeout packets and finalizes IFT transfers |
 
 ## Actors
 
 ```mermaid
 graph TB
     Actor["trait Actor\npubkey()"]
+    Admin["Admin\n- ics26_propose/accept/cancel_am_transfer\n- gmp_propose/accept/cancel_am_transfer"]
+    IftAdmin["IftAdmin\n- set_paused\n- propose/accept/cancel_admin\n- admin_mint"]
     User["User\n- send_packet\n- send_call\n- ift_transfer"]
     Relayer["Relayer\n- upload_chunks\n- cleanup_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet\n- ift_gmp_ack_packet\n- ift_gmp_timeout_packet\n- ift_finalize_transfer"]
 
+    Actor --> Admin
+    Actor --> IftAdmin
     Actor --> User
     Actor --> Relayer
 ```
 
-Both actors wrap a `Keypair`. The `User` initiates IBC sends; the `Relayer` bridges packets between chains and holds the `RELAYER_ROLE` in the access manager.
+All actors wrap a `Keypair`. `Admin` manages access manager operations (AM transfers for ICS26 Router and GMP) and is passed into `ChainConfig` during setup. `IftAdmin` manages IFT-specific admin operations (pause, admin transfer, minting) — a separate concern from the AM admin. `User` initiates IBC sends; `Relayer` bridges packets between chains and holds the `RELAYER_ROLE` in the access manager.
 
 ## Packet Flow
 
@@ -182,6 +190,17 @@ The IFT module supports both SPL Token and Token 2022 mints via the `TokenKind` 
 | `admin_transfer` | Propose → accept admin; propose → cancel admin |
 | `pause` | Pause blocks transfer + admin_mint; unpause restores them |
 
+#### Admin Test Coverage
+
+| Test | Scenario |
+| --- | --- |
+| `ics26_am_transfer_propose_accept` | Propose AM transfer on ICS26 Router, accept, verify `RouterState.am_state` updated |
+| `ics26_am_transfer_propose_cancel` | Propose, cancel, verify pending cleared and AM unchanged |
+| `ics26_am_transfer_unauthorized_propose` | Non-admin propose fails with `Unauthorized` |
+| `gmp_am_transfer_propose_accept` | Propose AM transfer on GMP, accept, verify `GMPAppState.am_state` updated |
+| `gmp_am_transfer_propose_cancel` | Propose, cancel on GMP |
+| `gmp_am_transfer_unauthorized_propose` | Non-admin propose fails on GMP |
+
 ## Writing a New Test
 
 A minimal router test that sends a packet from Chain A, delivers it to Chain B and acknowledges it back:
@@ -192,6 +211,7 @@ use super::*;
 #[tokio::test]
 async fn test_my_scenario() {
     // 1. Create actors
+    let admin = Admin::new();
     let user = User::new();
     let relayer = Relayer::new();
 
@@ -199,6 +219,7 @@ async fn test_my_scenario() {
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-client",
         counterparty_client_id: "b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
@@ -207,6 +228,7 @@ async fn test_my_scenario() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "b-client",
         counterparty_client_id: "a-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });

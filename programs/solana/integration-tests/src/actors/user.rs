@@ -1,8 +1,8 @@
+use super::Actor;
 use crate::chain::Chain;
 use crate::gmp::{self, GmpSendCallParams};
 use crate::ift::{self, IftTransferParams, TokenKind};
 use crate::router::{self, SendPacketParams, SendResult};
-use crate::Actor;
 use solana_program_test::BanksClientError;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 

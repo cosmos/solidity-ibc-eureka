@@ -3,17 +3,13 @@ use solana_program_test::BanksClientError;
 use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::TransactionError};
 
 pub mod accounts;
+pub mod actors;
 pub mod chain;
 pub mod gmp;
 pub mod ift;
-pub mod relayer;
 pub mod router;
-pub mod user;
 
-/// Shared interface for test actors (`User`, `Relayer`).
-pub trait Actor {
-    fn pubkey(&self) -> Pubkey;
-}
+pub use actors::{admin, ift_admin, relayer, user, Actor};
 
 /// Anchor adds 6000 to the enum discriminant to produce the on-chain error code.
 const ANCHOR_ERROR_OFFSET: u32 = 6000;

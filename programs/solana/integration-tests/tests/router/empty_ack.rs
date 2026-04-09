@@ -13,9 +13,11 @@ async fn test_empty_ack_rejected() {
     let packet_data = b"RETURN_EMPTY_ACKextra";
 
     // Chain A: test_ibc_app (sender)
+    let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
@@ -25,6 +27,7 @@ async fn test_empty_ack_rejected() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::MockIbcApp],
     });

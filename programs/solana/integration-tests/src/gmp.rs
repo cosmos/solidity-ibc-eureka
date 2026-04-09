@@ -1,5 +1,5 @@
 use crate::accounts::anchor_discriminator;
-use crate::chain::ChainAccounts;
+use crate::chain::{Chain, ChainAccounts};
 use crate::router::RecvResult;
 use anchor_lang::InstructionData;
 use ics26_router::state::*;
@@ -383,4 +383,67 @@ pub fn build_gmp_ibc_payload(packet_bytes: &[u8]) -> Payload {
         encoding: ICS27_ENCODING_PROTOBUF.to_string(),
         value: packet_bytes.to_vec(),
     }
+}
+
+// ── AM transfer instruction builders ────────────────────────────────────
+
+fn derive_gmp_app_state_pda() -> Pubkey {
+    Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0
+}
+
+fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
+    solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
+}
+
+pub fn build_gmp_propose_am_transfer_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
+    Instruction {
+        program_id: ics27_gmp::ID,
+        accounts: vec![
+            AccountMeta::new(derive_gmp_app_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics27_gmp::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
+    }
+}
+
+pub fn build_gmp_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
+    Instruction {
+        program_id: ics27_gmp::ID,
+        accounts: vec![
+            AccountMeta::new(derive_gmp_app_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(new_am_program_id), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics27_gmp::instruction::AcceptAccessManagerTransfer {}.data(),
+    }
+}
+
+pub fn build_gmp_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
+    Instruction {
+        program_id: ics27_gmp::ID,
+        accounts: vec![
+            AccountMeta::new(derive_gmp_app_state_pda(), false),
+            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: ics27_gmp::instruction::CancelAccessManagerTransfer {}.data(),
+    }
+}
+
+// ── State readers ───────────────────────────────────────────────────────
+
+pub async fn read_gmp_app_state(chain: &Chain) -> ics27_gmp::state::GMPAppState {
+    use anchor_lang::AccountDeserialize;
+
+    let pda = derive_gmp_app_state_pda();
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("GMPAppState should exist");
+    ics27_gmp::state::GMPAppState::try_deserialize(&mut &account.data[..])
+        .expect("deserialize GMPAppState")
 }

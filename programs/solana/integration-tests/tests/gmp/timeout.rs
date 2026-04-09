@@ -9,6 +9,7 @@ use super::*;
 async fn test_gmp_timeout() {
     let user = User::new();
     let relayer = Relayer::new();
+    let admin = Admin::new();
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
@@ -17,6 +18,7 @@ async fn test_gmp_timeout() {
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });

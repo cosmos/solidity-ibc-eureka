@@ -17,6 +17,7 @@
 //! - **Batch relay (single tx with multiple recv/ack)**: tested in e2e only.
 
 use integration_tests::{
+    admin::Admin,
     assert_commitment_set, assert_commitment_zeroed,
     chain::{Chain, ChainConfig, Program, TEST_CLOCK_TIME},
     ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, IftTransferParams, TokenKind},
@@ -64,7 +65,7 @@ async fn setup_ift_chain_with_token(
     token_kind: TokenKind,
 ) -> (Pubkey, Pubkey) {
     let mint = mint_keypair.pubkey();
-    let authority_pubkey = chain.authority().pubkey();
+    let authority_pubkey = chain.admin_keypair().pubkey();
     let payer_pubkey = chain.payer().pubkey();
 
     // 1. Create token
@@ -85,7 +86,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[create_token_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.authority(), mint_keypair],
+        &[chain.payer(), chain.admin_keypair(), mint_keypair],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("create token");
@@ -101,7 +102,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[register_bridge_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.authority()],
+        &[chain.payer(), chain.admin_keypair()],
         chain.blockhash(),
     );
     chain
@@ -121,7 +122,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[admin_mint_ix],
         Some(&payer_pubkey),
-        &[chain.payer(), chain.authority()],
+        &[chain.payer(), chain.admin_keypair()],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("admin mint");

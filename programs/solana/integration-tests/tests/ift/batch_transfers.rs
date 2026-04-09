@@ -12,9 +12,11 @@ async fn test_ift_batch_transfers() {
     let mint_keypair = Keypair::new();
     let proof_data = vec![0u8; 32];
 
+    let admin = Admin::new();
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::Ics27Gmp, Program::Ift],
     });

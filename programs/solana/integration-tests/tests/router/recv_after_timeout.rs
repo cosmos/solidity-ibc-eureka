@@ -11,9 +11,11 @@ async fn test_recv_after_source_timeout() {
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
+    let admin = Admin::new();
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });
@@ -22,6 +24,7 @@ async fn test_recv_after_source_timeout() {
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
+        admin: &admin,
         relayer: &relayer,
         programs: &[Program::TestIbcApp],
     });

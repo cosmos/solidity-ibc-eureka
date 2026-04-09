@@ -1,8 +1,8 @@
+use super::Actor;
 use crate::chain::Chain;
 use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacketParams};
 use crate::ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, TokenKind};
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
-use crate::Actor;
 use solana_program_test::BanksClientError;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 
