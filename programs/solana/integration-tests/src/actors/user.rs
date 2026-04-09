@@ -57,31 +57,30 @@ impl User {
         Ok(result)
     }
 
-    /// Send a GMP call (sender != payer; chain's built-in payer pays fees).
+    /// Send a GMP call (user pays fees).
     pub async fn send_call(
         &self,
         chain: &mut Chain,
         params: GmpSendCallParams<'_>,
     ) -> Result<Pubkey, BanksClientError> {
-        let payer_pubkey = chain.payer().pubkey();
         let (ix, commitment_pda) = gmp::build_gmp_send_call_ix(
             self.pubkey(),
-            payer_pubkey,
+            self.pubkey(),
             &chain.accounts,
             chain.client_id(),
             params,
         );
         let tx = Transaction::new_signed_with_payer(
             &[ix],
-            Some(&payer_pubkey),
-            &[chain.payer(), &self.keypair],
+            Some(&self.pubkey()),
+            &[&self.keypair],
             chain.blockhash(),
         );
         chain.process_transaction(tx).await?;
         Ok(commitment_pda)
     }
 
-    /// Send an IFT transfer (sender != payer; chain's built-in payer pays fees).
+    /// Send an IFT transfer (user pays fees).
     pub async fn ift_transfer(
         &self,
         chain: &mut Chain,
@@ -89,10 +88,9 @@ impl User {
         token_kind: TokenKind,
         params: IftTransferParams,
     ) -> Result<ift::IftTransferResult, BanksClientError> {
-        let payer_pubkey = chain.payer().pubkey();
         let result = ift::build_ift_transfer_ix(
             self.pubkey(),
-            payer_pubkey,
+            self.pubkey(),
             &chain.accounts,
             chain.client_id(),
             mint,
@@ -101,8 +99,8 @@ impl User {
         );
         let tx = Transaction::new_signed_with_payer(
             std::slice::from_ref(&result.ix),
-            Some(&payer_pubkey),
-            &[chain.payer(), &self.keypair],
+            Some(&self.pubkey()),
+            &[&self.keypair],
             chain.blockhash(),
         );
         chain.process_transaction(tx).await?;

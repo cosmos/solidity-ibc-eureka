@@ -47,7 +47,7 @@ impl Admin {
     ) -> Result<(), BanksClientError> {
         let ix =
             crate::router::build_ics26_propose_am_transfer_ix(self.pubkey(), new_access_manager);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn ics26_accept_am_transfer(
@@ -56,7 +56,7 @@ impl Admin {
         new_am_program_id: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::router::build_ics26_accept_am_transfer_ix(self.pubkey(), new_am_program_id);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn ics26_cancel_am_transfer(
@@ -64,7 +64,7 @@ impl Admin {
         chain: &mut Chain,
     ) -> Result<(), BanksClientError> {
         let ix = crate::router::build_ics26_cancel_am_transfer_ix(self.pubkey());
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     // ── GMP AM transfer ─────────────────────────────────────────────────
@@ -75,7 +75,7 @@ impl Admin {
         new_access_manager: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_propose_am_transfer_ix(self.pubkey(), new_access_manager);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn gmp_accept_am_transfer(
@@ -84,11 +84,11 @@ impl Admin {
         new_am_program_id: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_accept_am_transfer_ix(self.pubkey(), new_am_program_id);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn gmp_cancel_am_transfer(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_cancel_am_transfer_ix(self.pubkey());
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 }

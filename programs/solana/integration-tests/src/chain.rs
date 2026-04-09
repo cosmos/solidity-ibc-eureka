@@ -7,7 +7,6 @@ use solana_sdk::{
     bpf_loader_upgradeable::{self, UpgradeableLoaderState},
     hash::Hash,
     pubkey::Pubkey,
-    signature::Keypair,
     system_program,
     sysvar::Sysvar as _,
     transaction::Transaction,
@@ -85,7 +84,6 @@ pub struct Chain {
     clock_time: i64,
     programs: Vec<Program>,
     banks: Option<BanksClient>,
-    payer: Option<Keypair>,
     blockhash: Hash,
     pub accounts: ChainAccounts,
 }
@@ -102,7 +100,6 @@ impl Chain {
             clock_time: TEST_CLOCK_TIME,
             programs: config.programs.to_vec(),
             banks: None,
-            payer: None,
             blockhash: Hash::default(),
             accounts,
         }
@@ -128,9 +125,8 @@ impl Chain {
     /// `Deployer::transfer_upgrade_authority` to initialize on-chain state.
     pub async fn start(&mut self) {
         let pt = self.pt.take().expect("chain already started");
-        let (banks, payer, blockhash) = pt.start().await;
+        let (banks, _payer, blockhash) = pt.start().await;
         self.banks = Some(banks);
-        self.payer = Some(payer);
         self.blockhash = blockhash;
     }
 
@@ -162,10 +158,6 @@ impl Chain {
         self.accounts
             .ift_app_state_pda
             .expect("chain should have ift_app_state PDA")
-    }
-
-    pub const fn payer(&self) -> &Keypair {
-        self.payer.as_ref().expect("chain not started yet")
     }
 
     pub const fn blockhash(&self) -> Hash {

@@ -13,12 +13,14 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-/// Which extra signers a particular init step requires.
+/// Which signers a particular init step requires.
+///
+/// The deployer always pays transaction fees and signs as the fee payer.
+/// `WithAdmin` adds the admin keypair as a co-signer for AM-role-gated steps.
 #[derive(Clone, Copy)]
-enum ExtraSigners {
-    None,
-    Deployer,
-    Admin,
+enum InitStepSigner {
+    DeployerOnly,
+    WithAdmin,
 }
 
 /// Deployer for the chain — holds the upgrade authority keypair and
@@ -61,7 +63,6 @@ impl Deployer {
     /// client, IBC app and program-specific initialization transactions.
     pub async fn init_programs(&self, chain: &mut Chain, admin: &Admin, relayer: &Relayer) {
         let steps = build_init_steps(
-            chain.payer().pubkey(),
             self.keypair(),
             admin.pubkey(),
             relayer.pubkey(),
@@ -70,15 +71,13 @@ impl Deployer {
             chain.programs(),
         );
 
-        let deployer_kp = self.keypair();
         let admin_kp = admin.keypair();
-        for (ixs, signers) in &steps {
-            let extra: &[&Keypair] = match signers {
-                ExtraSigners::None => &[],
-                ExtraSigners::Deployer => std::slice::from_ref(&deployer_kp),
-                ExtraSigners::Admin => std::slice::from_ref(&admin_kp),
+        for (ixs, signer) in &steps {
+            let signers: Vec<&Keypair> = match signer {
+                InitStepSigner::DeployerOnly => vec![self.keypair()],
+                InitStepSigner::WithAdmin => vec![self.keypair(), admin_kp],
             };
-            submit_tx(chain, ixs, extra).await;
+            submit_tx(chain, ixs, &signers).await;
         }
     }
 
@@ -105,8 +104,8 @@ impl Deployer {
         client_id: &str,
         counterparty_client_id: &str,
     ) {
-        let lc_ix = build_mock_lc_initialize_ix(chain.payer().pubkey(), client_id);
-        submit_tx(chain, &[lc_ix], &[]).await;
+        let lc_ix = build_mock_lc_initialize_ix(self.keypair().pubkey(), client_id);
+        submit_tx(chain, &[lc_ix], &[self.keypair()]).await;
 
         let add_ix = build_add_client_ix(
             admin.pubkey(),
@@ -115,19 +114,17 @@ impl Deployer {
             client_id,
             counterparty_client_id,
         );
-        submit_tx(chain, &[add_ix], &[admin.keypair()]).await;
+        submit_tx(chain, &[add_ix], &[self.keypair(), admin.keypair()]).await;
     }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-async fn submit_tx(chain: &mut Chain, ixs: &[Instruction], extra_signers: &[&Keypair]) {
-    let mut signers: Vec<&Keypair> = vec![chain.payer()];
-    signers.extend(extra_signers);
+async fn submit_tx(chain: &mut Chain, ixs: &[Instruction], signers: &[&Keypair]) {
     let tx = Transaction::new_signed_with_payer(
         ixs,
-        Some(&chain.payer().pubkey()),
-        &signers,
+        Some(&signers[0].pubkey()),
+        signers,
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("init tx failed");
@@ -167,32 +164,32 @@ fn get_port_and_app(programs: &[Program]) -> (&str, Pubkey) {
 
 /// Build all initialization instructions grouped by transaction.
 ///
-/// Returns `(instructions, extra_signers)` tuples that must be executed
-/// sequentially. `admin_pubkey` is installed as the AM admin and IFT
-/// admin; the deployer only signs for upgrade-authority-gated instructions.
+/// Returns `(instructions, signer)` tuples that must be executed
+/// sequentially. The deployer always pays transaction fees; `WithAdmin`
+/// steps additionally require the admin keypair as co-signer.
 fn build_init_steps(
-    payer: Pubkey,
     deployer: &Keypair,
     admin_pubkey: Pubkey,
     relayer_pubkey: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
     programs: &[Program],
-) -> Vec<(Vec<Instruction>, ExtraSigners)> {
+) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+    let deployer_pubkey = deployer.pubkey();
     let am_pda = derive_access_manager_pda();
     let router_state_pda = derive_router_state_pda();
     let (port_id, app_program_id) = get_port_and_app(programs);
 
     let mut steps = vec![
-        // TX1: access_manager::initialize (deployer = upgrade authority)
+        // TX1: access_manager::initialize (deployer = upgrade authority + payer)
         (
             vec![build_am_initialize_ix(
-                payer,
+                deployer_pubkey,
                 deployer,
                 am_pda,
                 admin_pubkey,
             )],
-            ExtraSigners::Deployer,
+            InitStepSigner::DeployerOnly,
         ),
         // TX2: grant RELAYER_ROLE and ID_CUSTOMIZER_ROLE (admin = AM admin)
         (
@@ -210,22 +207,22 @@ fn build_init_steps(
                     admin_pubkey,
                 ),
             ],
-            ExtraSigners::Admin,
+            InitStepSigner::WithAdmin,
         ),
-        // TX3: ics26_router::initialize (deployer = upgrade authority)
+        // TX3: ics26_router::initialize (deployer = upgrade authority + payer)
         (
             vec![build_router_initialize_ix(
-                payer,
+                deployer_pubkey,
                 deployer,
                 router_state_pda,
                 access_manager::ID,
             )],
-            ExtraSigners::Deployer,
+            InitStepSigner::DeployerOnly,
         ),
         // TX4: mock_light_client::initialize
         (
-            vec![build_mock_lc_initialize_ix(payer, client_id)],
-            ExtraSigners::None,
+            vec![build_mock_lc_initialize_ix(deployer_pubkey, client_id)],
+            InitStepSigner::DeployerOnly,
         ),
         // TX5: add_client + add_ibc_app (admin = ID_CUSTOMIZER_ROLE holder)
         (
@@ -238,7 +235,7 @@ fn build_init_steps(
                     counterparty_client_id,
                 ),
                 build_add_ibc_app_ix(
-                    payer,
+                    deployer_pubkey,
                     admin_pubkey,
                     router_state_pda,
                     am_pda,
@@ -246,7 +243,7 @@ fn build_init_steps(
                     app_program_id,
                 ),
             ],
-            ExtraSigners::Admin,
+            InitStepSigner::WithAdmin,
         ),
     ];
 
@@ -255,38 +252,52 @@ fn build_init_steps(
         match p {
             Program::TestIbcApp => {
                 steps.push((
-                    vec![build_test_ibc_app_initialize_ix(payer, deployer.pubkey())],
-                    ExtraSigners::None,
+                    vec![build_test_ibc_app_initialize_ix(
+                        deployer_pubkey,
+                        deployer_pubkey,
+                    )],
+                    InitStepSigner::DeployerOnly,
                 ));
             }
             Program::Ics27Gmp => {
                 steps.push((
-                    vec![build_gmp_initialize_ix(payer, deployer, access_manager::ID)],
-                    ExtraSigners::Deployer,
+                    vec![build_gmp_initialize_ix(
+                        deployer_pubkey,
+                        deployer,
+                        access_manager::ID,
+                    )],
+                    InitStepSigner::DeployerOnly,
                 ));
             }
             Program::TestGmpApp => {
                 steps.push((
-                    vec![build_test_gmp_app_initialize_ix(payer, deployer.pubkey())],
-                    ExtraSigners::None,
+                    vec![build_test_gmp_app_initialize_ix(
+                        deployer_pubkey,
+                        deployer_pubkey,
+                    )],
+                    InitStepSigner::DeployerOnly,
                 ));
             }
             Program::Ift => {
                 steps.push((
-                    vec![build_ift_initialize_ix(payer, deployer, admin_pubkey)],
-                    ExtraSigners::Deployer,
+                    vec![build_ift_initialize_ix(
+                        deployer_pubkey,
+                        deployer,
+                        admin_pubkey,
+                    )],
+                    InitStepSigner::DeployerOnly,
                 ));
             }
             Program::TestAccessManager => {
                 let test_am_pda = derive_test_access_manager_pda();
                 steps.push((
                     vec![build_test_am_initialize_ix(
-                        payer,
+                        deployer_pubkey,
                         deployer,
                         test_am_pda,
                         admin_pubkey,
                     )],
-                    ExtraSigners::Deployer,
+                    InitStepSigner::DeployerOnly,
                 ));
                 steps.push((
                     vec![build_am_grant_role_ix_for_program(
@@ -296,7 +307,7 @@ fn build_init_steps(
                         admin_pubkey,
                         test_access_manager::ID,
                     )],
-                    ExtraSigners::Admin,
+                    InitStepSigner::WithAdmin,
                 ));
             }
             Program::MockIbcApp | Program::TestCpiProxy => {}

@@ -20,6 +20,7 @@ async fn test_ift_admin_transfer() {
         programs: &[Program::Ics27Gmp, Program::Ift],
     });
     chain.prefund(&[&admin, &relayer]);
+    chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
     chain.start().await;
     deployer.init_programs(&mut chain, &admin, &relayer).await;
     deployer.transfer_upgrade_authority(&mut chain).await;

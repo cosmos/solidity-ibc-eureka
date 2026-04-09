@@ -46,7 +46,7 @@ impl IftAdmin {
         paused: bool,
     ) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_set_paused_ix(self.pubkey(), paused);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn propose_admin(
@@ -55,17 +55,17 @@ impl IftAdmin {
         new_admin: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_propose_admin_ix(self.pubkey(), new_admin);
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn accept_admin(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_accept_admin_ix(self.pubkey());
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn cancel_admin_proposal(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_cancel_admin_proposal_ix(self.pubkey());
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 
     pub async fn admin_mint(
@@ -78,12 +78,12 @@ impl IftAdmin {
     ) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_admin_mint_ix(
             self.pubkey(),
-            chain.payer().pubkey(),
+            self.pubkey(),
             mint,
             receiver,
             amount,
             token_kind,
         );
-        super::send_admin_tx(&self.keypair, chain, &[ix]).await
+        super::send_tx(&self.keypair, chain, &[ix]).await
     }
 }

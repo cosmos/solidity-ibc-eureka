@@ -1,6 +1,6 @@
 use super::*;
 use integration_tests::chain::{derive_mock_lc_pdas, ChainAccounts};
-use solana_sdk::{signer::Signer, transaction::Transaction};
+use solana_sdk::transaction::Transaction;
 
 /// Three-chain roundtrip: A→B then B→C, with independent GMP lifecycles on
 /// each hop.
@@ -152,10 +152,9 @@ async fn test_gmp_three_chain_roundtrip() {
         ..chain_b.accounts
     };
 
-    let payer_pubkey = chain_b.payer().pubkey();
     let (send_bc_ix, commitment_b) = gmp::build_gmp_send_call_ix(
         user.pubkey(),
-        payer_pubkey,
+        user.pubkey(),
         &btc_accounts,
         "b-to-c",
         GmpSendCallParams {
@@ -168,8 +167,8 @@ async fn test_gmp_three_chain_roundtrip() {
 
     let tx = Transaction::new_signed_with_payer(
         &[send_bc_ix],
-        Some(&payer_pubkey),
-        &[chain_b.payer(), user.keypair()],
+        Some(&user.pubkey()),
+        &[user.keypair()],
         chain_b.blockhash(),
     );
     chain_b

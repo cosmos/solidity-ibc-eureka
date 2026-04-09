@@ -68,14 +68,13 @@ async fn setup_ift_chain_with_token(
     token_kind: TokenKind,
 ) -> (Pubkey, Pubkey) {
     let mint = mint_keypair.pubkey();
-    let authority_pubkey = admin.pubkey();
-    let payer_pubkey = chain.payer().pubkey();
+    let admin_pubkey = admin.pubkey();
 
-    // 1. Create token
+    // 1. Create token (admin pays + signs as authority)
     let create_token_ix = match token_kind {
         TokenKind::Token2022 => ift::build_create_token_2022_ix(
-            authority_pubkey,
-            payer_pubkey,
+            admin_pubkey,
+            admin_pubkey,
             mint,
             MINT_DECIMALS,
             "Test Token".to_string(),
@@ -83,29 +82,29 @@ async fn setup_ift_chain_with_token(
             "https://example.com".to_string(),
         ),
         TokenKind::Spl => {
-            ift::build_create_spl_token_ix(authority_pubkey, payer_pubkey, mint, MINT_DECIMALS)
+            ift::build_create_spl_token_ix(admin_pubkey, admin_pubkey, mint, MINT_DECIMALS)
         }
     };
     let tx = Transaction::new_signed_with_payer(
         &[create_token_ix],
-        Some(&payer_pubkey),
-        &[chain.payer(), admin.keypair(), mint_keypair],
+        Some(&admin_pubkey),
+        &[admin.keypair(), mint_keypair],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("create token");
 
-    // 2. Register EVM bridge
+    // 2. Register EVM bridge (admin pays + signs)
     let register_bridge_ix = ift::build_register_bridge_ix(
-        authority_pubkey,
-        payer_pubkey,
+        admin_pubkey,
+        admin_pubkey,
         mint,
         chain.client_id(),
         ift::COUNTERPARTY_IFT_ADDRESS,
     );
     let tx = Transaction::new_signed_with_payer(
         &[register_bridge_ix],
-        Some(&payer_pubkey),
-        &[chain.payer(), admin.keypair()],
+        Some(&admin_pubkey),
+        &[admin.keypair()],
         chain.blockhash(),
     );
     chain
@@ -113,10 +112,10 @@ async fn setup_ift_chain_with_token(
         .await
         .expect("register bridge");
 
-    // 3. Mint tokens to user's ATA
+    // 3. Mint tokens to user's ATA (admin pays + signs)
     let admin_mint_ix = ift::build_admin_mint_ix(
-        authority_pubkey,
-        payer_pubkey,
+        admin_pubkey,
+        admin_pubkey,
         mint,
         user_pubkey,
         INITIAL_BALANCE,
@@ -124,8 +123,8 @@ async fn setup_ift_chain_with_token(
     );
     let tx = Transaction::new_signed_with_payer(
         &[admin_mint_ix],
-        Some(&payer_pubkey),
-        &[chain.payer(), admin.keypair()],
+        Some(&admin_pubkey),
+        &[admin.keypair()],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("admin mint");

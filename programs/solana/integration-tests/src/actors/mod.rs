@@ -1,7 +1,7 @@
 use crate::chain::Chain;
 use solana_program_test::BanksClientError;
 use solana_sdk::{
-    instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer,
+    instruction::Instruction, pubkey::Pubkey, signature::Keypair, signer::Signer as _,
     transaction::Transaction,
 };
 
@@ -16,17 +16,16 @@ pub trait Actor {
     fn pubkey(&self) -> Pubkey;
 }
 
-/// Sign and submit a transaction with `chain.payer()` as fee payer and
-/// `keypair` as the admin signer.
-async fn send_admin_tx(
+/// Sign and submit a transaction with `keypair` as both fee payer and signer.
+async fn send_tx(
     keypair: &Keypair,
     chain: &mut Chain,
     ixs: &[Instruction],
 ) -> Result<(), BanksClientError> {
     let tx = Transaction::new_signed_with_payer(
         ixs,
-        Some(&chain.payer().pubkey()),
-        &[chain.payer(), keypair],
+        Some(&keypair.pubkey()),
+        &[keypair],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await
