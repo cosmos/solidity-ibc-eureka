@@ -71,7 +71,6 @@ pub struct ChainConfig<'a> {
     pub client_id: &'a str,
     pub counterparty_client_id: &'a str,
     pub relayer: &'a Relayer,
-    pub clock_time: i64,
     pub programs: &'a [Program],
 }
 
@@ -102,7 +101,7 @@ impl Chain {
             pt: Some(pt),
             client_id: config.client_id.to_string(),
             counterparty_client_id: config.counterparty_client_id.to_string(),
-            clock_time: config.clock_time,
+            clock_time: TEST_CLOCK_TIME,
             programs: config.programs.to_vec(),
             relayer_pubkey: config.relayer.pubkey(),
             authority,
@@ -194,6 +193,12 @@ impl Chain {
 
     pub const fn clock_time(&self) -> i64 {
         self.clock_time
+    }
+
+    pub const fn counter_app_state_pda(&self) -> Pubkey {
+        self.accounts
+            .counter_app_state_pda
+            .expect("chain should have counter_app_state PDA")
     }
 
     pub const fn payer(&self) -> &Keypair {
@@ -521,10 +526,10 @@ fn build_program_test(
     // Deterministic clock
     let clock = solana_sdk::clock::Clock {
         slot: 1,
-        epoch_start_timestamp: config.clock_time,
+        epoch_start_timestamp: TEST_CLOCK_TIME,
         epoch: 0,
         leader_schedule_epoch: 0,
-        unix_timestamp: config.clock_time,
+        unix_timestamp: TEST_CLOCK_TIME,
     };
     let mut clock_data = vec![0u8; solana_sdk::clock::Clock::size_of()];
     bincode::serialize_into(&mut clock_data[..], &clock).unwrap();

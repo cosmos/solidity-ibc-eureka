@@ -19,7 +19,6 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
@@ -29,7 +28,6 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_b.prefund(&user);
@@ -40,7 +38,6 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
@@ -49,19 +46,13 @@ async fn test_gmp_three_chain_roundtrip() {
     let gmp_pda_on_b = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
     let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
-    let counter_state_b = chain_b
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_state_b = chain_b.counter_app_state_pda();
 
     // Leg 2: B→C — GMP account on Chain C derived from c-to-b client + user
     let gmp_pda_on_c = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
     chain_c.prefund_lamports(gmp_pda_on_c, 10_000_000);
     let counter_on_c = gmp::derive_user_counter_pda(&gmp_pda_on_c);
-    let counter_state_c = chain_c
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_state_c = chain_c.counter_app_state_pda();
 
     // Build payloads
     let amount_a_to_b = 42u64;
@@ -117,13 +108,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("A→B recv_packet failed");
 
-    // Ack back on Chain A
-    let ack_b_data = chain_b
-        .get_account(recv_on_b.ack_pda)
-        .await
-        .expect("A→B ack should exist")
-        .data[8..40]
-        .to_vec();
+    let ack_b_data = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
 
     let (a_ack_payload, a_ack_proof) = relayer
         .upload_chunks(&mut chain_a, 1, &packet_ab, &proof_data)
@@ -202,13 +187,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("B→C recv_packet failed");
 
-    // Ack back on Chain B (using b-to-c client accounts)
-    let ack_c_data = chain_c
-        .get_account(recv_on_c.ack_pda)
-        .await
-        .expect("B→C ack should exist")
-        .data[8..40]
-        .to_vec();
+    let ack_c_data = extract_ack_data(&chain_c, recv_on_c.ack_pda).await;
 
     let (b_ack_payload, b_ack_proof) = relayer
         .upload_chunks_for_client(&mut chain_b, "b-to-c", 1, &packet_bc, &proof_data)
@@ -245,47 +224,17 @@ async fn test_gmp_three_chain_roundtrip() {
     // ══════════════════════════════════════════════════════════════════════
 
     // Chain A: commitment zeroed, GMPCallResultAccount exists
-    let commitment_a_account = chain_a
-        .get_account(commitment_a)
-        .await
-        .expect("commitment A should exist");
-    assert_eq!(
-        &commitment_a_account.data[8..40],
-        &[0u8; 32],
-        "A→B commitment should be zeroed"
-    );
-    let (result_a, _) =
-        solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), 1, &ics27_gmp::ID);
-    assert!(chain_a.get_account(result_a).await.is_some());
+    assert_commitment_zeroed(&chain_a, commitment_a).await;
+    assert_gmp_result_exists(&chain_a, chain_a.client_id(), 1).await;
 
     // Chain B: UserCounter = 42 from leg 1
-    let counter_b_account = chain_b
-        .get_account(counter_on_b)
-        .await
-        .expect("UserCounter on B should exist");
-    let counter_b =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &counter_b_account.data[..])
-            .expect("deserialize UserCounter on B");
+    let counter_b = read_user_counter(&chain_b, counter_on_b).await;
     assert_eq!(counter_b.count, amount_a_to_b);
 
     // Chain B: commitment for leg 2 zeroed
-    let commitment_b_account = chain_b
-        .get_account(commitment_b)
-        .await
-        .expect("commitment B should exist");
-    assert_eq!(
-        &commitment_b_account.data[8..40],
-        &[0u8; 32],
-        "B→C commitment should be zeroed"
-    );
+    assert_commitment_zeroed(&chain_b, commitment_b).await;
 
     // Chain C: UserCounter = 58 from leg 2
-    let counter_c_account = chain_c
-        .get_account(counter_on_c)
-        .await
-        .expect("UserCounter on C should exist");
-    let counter_c =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &counter_c_account.data[..])
-            .expect("deserialize UserCounter on C");
+    let counter_c = read_user_counter(&chain_c, counter_on_c).await;
     assert_eq!(counter_c.count, amount_b_to_c);
 }

@@ -43,3 +43,45 @@ pub fn extract_custom_error(err: &BanksClientError) -> u32 {
         other => panic!("expected InstructionError::Custom, got {other:?}"),
     }
 }
+
+/// Assert a commitment PDA has non-zero data (exists after send).
+pub async fn assert_commitment_set(chain: &chain::Chain, pda: Pubkey) {
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("commitment should exist");
+    assert_ne!(
+        &account.data[8..40],
+        &[0u8; 32],
+        "commitment should be non-zero"
+    );
+}
+
+/// Assert a commitment PDA has zeroed data (consumed by ack/timeout).
+pub async fn assert_commitment_zeroed(chain: &chain::Chain, pda: Pubkey) {
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("commitment should exist");
+    assert_eq!(
+        &account.data[8..40],
+        &[0u8; 32],
+        "commitment should be zeroed"
+    );
+}
+
+/// Assert a receipt PDA exists and is owned by the router.
+pub async fn assert_receipt_created(chain: &chain::Chain, pda: Pubkey) {
+    let account = chain.get_account(pda).await.expect("receipt should exist");
+    assert_eq!(account.owner, ics26_router::ID);
+}
+
+/// Read ack commitment bytes from an ack PDA.
+pub async fn extract_ack_data(chain: &chain::Chain, ack_pda: Pubkey) -> Vec<u8> {
+    chain
+        .get_account(ack_pda)
+        .await
+        .expect("ack should exist")
+        .data[8..40]
+        .to_vec()
+}

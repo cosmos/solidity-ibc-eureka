@@ -13,7 +13,6 @@ async fn test_gmp_full_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
@@ -23,7 +22,6 @@ async fn test_gmp_full_lifecycle() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
@@ -33,10 +31,7 @@ async fn test_gmp_full_lifecycle() {
 
     // Derive target account PDAs on Chain B
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_b
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_b.counter_app_state_pda();
 
     // Build the GMP payload for test_gmp_app::increment
     let solana_payload = gmp::encode_increment_payload(
@@ -68,17 +63,7 @@ async fn test_gmp_full_lifecycle() {
         .await
         .expect("send_call on Chain A failed");
 
-    // Verify commitment was created
-    let commitment_account = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment should exist on Chain A");
-    assert_eq!(commitment_account.owner, ics26_router::ID);
-    assert_ne!(
-        &commitment_account.data[8..40],
-        &[0u8; 32],
-        "commitment should be non-zero after send"
-    );
+    assert_commitment_set(&chain_a, commitment_pda).await;
 
     // ──────────────────────────────────────────────────────────────────────
     // Relayer uploads chunks and delivers recv_packet to Chain B
@@ -107,42 +92,15 @@ async fn test_gmp_full_lifecycle() {
         .await
         .expect("recv_packet on Chain B failed");
 
-    // Verify receipt and ack on Chain B
-    let receipt = chain_b
-        .get_account(recv.receipt_pda)
-        .await
-        .expect("receipt should exist on Chain B");
-    assert_eq!(receipt.owner, ics26_router::ID);
+    assert_receipt_created(&chain_b, recv.receipt_pda).await;
 
-    let ack = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist on Chain B");
-    assert_eq!(ack.owner, ics26_router::ID);
-    assert_ne!(&ack.data[8..40], &[0u8; 32]);
-
-    // Verify UserCounter was created with correct count
-    let user_counter_account = chain_b
-        .get_account(user_counter_pda)
-        .await
-        .expect("UserCounter should exist on Chain B");
-    assert_eq!(user_counter_account.owner, test_gmp_app::ID);
-    let user_counter =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &user_counter_account.data[..])
-            .expect("failed to deserialize UserCounter");
+    let user_counter = read_user_counter(&chain_b, user_counter_pda).await;
     assert_eq!(
         user_counter.count, increment_amount,
         "UserCounter should have count == increment_amount"
     );
 
-    // Verify CounterAppState was updated
-    let counter_state_account = chain_b
-        .get_account(counter_app_state)
-        .await
-        .expect("CounterAppState should exist");
-    let counter_state =
-        test_gmp_app::state::CounterAppState::try_deserialize(&mut &counter_state_account.data[..])
-            .expect("failed to deserialize CounterAppState");
+    let counter_state = read_counter_app_state(&chain_b, counter_app_state).await;
     assert_eq!(counter_state.total_counters, 1);
 
     // ──────────────────────────────────────────────────────────────────────
@@ -153,7 +111,7 @@ async fn test_gmp_full_lifecycle() {
         .await
         .expect("upload ack chunks on Chain A failed");
 
-    let ack_data = ack.data[8..40].to_vec();
+    let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
 
     let ack_commitment_pda = relayer
         .gmp_ack_packet(
@@ -168,23 +126,6 @@ async fn test_gmp_full_lifecycle() {
         .await
         .expect("ack_packet on Chain A failed");
 
-    // Verify commitment was zeroed
-    let commitment = chain_a
-        .get_account(ack_commitment_pda)
-        .await
-        .expect("commitment PDA should still exist on Chain A");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after ack"
-    );
-
-    // Verify GMPCallResultAccount was created
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), sequence, &ics27_gmp::ID);
-    let result_account = chain_a
-        .get_account(result_pda)
-        .await
-        .expect("GMPCallResultAccount should exist on Chain A");
-    assert_eq!(result_account.owner, ics27_gmp::ID);
+    assert_commitment_zeroed(&chain_a, ack_commitment_pda).await;
+    assert_gmp_result_exists(&chain_a, chain_a.client_id(), sequence).await;
 }

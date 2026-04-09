@@ -63,12 +63,7 @@ async fn lifecycle(
         .await
         .expect("recv_packet failed");
 
-    let ack_data = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist")
-        .data[8..40]
-        .to_vec();
+    let ack_data = extract_ack_data(chain_b, recv.ack_pda).await;
 
     let (a_payload_pda, a_proof_pda) = relayer
         .upload_chunks(chain_a, sequence, &packet, proof_data)
@@ -108,7 +103,6 @@ async fn test_gmp_multi_user_isolation() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user_a);
@@ -118,7 +112,6 @@ async fn test_gmp_multi_user_isolation() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
@@ -129,10 +122,7 @@ async fn test_gmp_multi_user_isolation() {
 
     let counter_pda_a = gmp::derive_user_counter_pda(&gmp_pda_a);
     let counter_pda_b = gmp::derive_user_counter_pda(&gmp_pda_b);
-    let counter_app_state = chain_b
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_b.counter_app_state_pda();
 
     let target_a = LifecycleTarget {
         gmp_pda: gmp_pda_a,
@@ -189,43 +179,16 @@ async fn test_gmp_multi_user_isolation() {
 
     // ── Assertions ──
 
-    // user_a counter = 5 + 7 = 12
-    let counter_a_account = chain_b
-        .get_account(counter_pda_a)
-        .await
-        .expect("UserCounter for user_a should exist");
-    let counter_a =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &counter_a_account.data[..])
-            .expect("deserialize UserCounter for user_a");
+    let counter_a = read_user_counter(&chain_b, counter_pda_a).await;
     assert_eq!(counter_a.count, 12, "user_a counter should be 5 + 7 = 12");
 
-    // user_b counter = 3
-    let counter_b_account = chain_b
-        .get_account(counter_pda_b)
-        .await
-        .expect("UserCounter for user_b should exist");
-    let counter_b =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &counter_b_account.data[..])
-            .expect("deserialize UserCounter for user_b");
+    let counter_b = read_user_counter(&chain_b, counter_pda_b).await;
     assert_eq!(counter_b.count, 3, "user_b counter should be 3");
 
-    // total_counters = 2
-    let state_account = chain_b
-        .get_account(counter_app_state)
-        .await
-        .expect("CounterAppState should exist");
-    let state = test_gmp_app::state::CounterAppState::try_deserialize(&mut &state_account.data[..])
-        .expect("deserialize CounterAppState");
+    let state = read_counter_app_state(&chain_b, counter_app_state).await;
     assert_eq!(state.total_counters, 2, "should have 2 separate counters");
 
-    // 3 separate GMPCallResultAccount PDAs on Chain A
     for seq in [1u64, 2, 3] {
-        let (result_pda, _) =
-            solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), seq, &ics27_gmp::ID);
-        let result_account = chain_a
-            .get_account(result_pda)
-            .await
-            .expect("GMPCallResultAccount should exist");
-        assert_eq!(result_account.owner, ics27_gmp::ID);
+        assert_gmp_result_exists(&chain_a, chain_a.client_id(), seq).await;
     }
 }

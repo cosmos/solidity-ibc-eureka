@@ -15,7 +15,6 @@ async fn test_recv_after_source_timeout() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -24,7 +23,6 @@ async fn test_recv_after_source_timeout() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
 
@@ -66,16 +64,7 @@ async fn test_recv_after_source_timeout() {
         .await
         .expect("timeout_packet on source failed");
 
-    // Commitment on A is now zeroed
-    let commitment = chain_a
-        .get_account(send.commitment_pda)
-        .await
-        .expect("commitment PDA should still exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after timeout"
-    );
+    assert_commitment_zeroed(&chain_a, send.commitment_pda).await;
 
     // ── Step 3: Relayer delivers recv on B (succeeds — B is independent) ──
     let (b_recv_payload, b_recv_proof) = relayer
@@ -100,18 +89,8 @@ async fn test_recv_after_source_timeout() {
         .await
         .expect("recv_packet on dest should succeed despite source timeout");
 
-    // Receipt and ack created on B
-    let receipt = chain_b
-        .get_account(recv.receipt_pda)
-        .await
-        .expect("receipt should exist on chain B");
-    assert_eq!(receipt.owner, ics26_router::ID);
-
-    let ack = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist on chain B");
-    assert_ne!(&ack.data[8..40], &[0u8; 32]);
+    assert_receipt_created(&chain_b, recv.receipt_pda).await;
+    let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
 
     // ── Step 4: Relayer attempts ack on A — fails (commitment already zeroed) ──
     // Cleanup timeout chunks first so the same PDAs can be re-created for ack
@@ -130,7 +109,7 @@ async fn test_recv_after_source_timeout() {
             &mut chain_a,
             AckPacketParams {
                 sequence,
-                acknowledgement: ack.data[8..40].to_vec(),
+                acknowledgement: ack_data,
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
                 port_id: router::PORT_ID,

@@ -19,7 +19,6 @@ async fn test_multi_chunk_proof_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -28,7 +27,6 @@ async fn test_multi_chunk_proof_lifecycle() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
 
@@ -76,18 +74,8 @@ async fn test_multi_chunk_proof_lifecycle() {
         .await
         .expect("recv_packet with multi-chunk proof failed");
 
-    // Verify receipt and ack on B
-    let receipt = chain_b
-        .get_account(recv.receipt_pda)
-        .await
-        .expect("receipt should exist");
-    assert_ne!(&receipt.data[8..40], &[0u8; 32]);
-
-    let ack = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist");
-    assert_ne!(&ack.data[8..40], &[0u8; 32]);
+    assert_receipt_created(&chain_b, recv.receipt_pda).await;
+    assert_commitment_set(&chain_b, recv.ack_pda).await;
 
     // Relayer uploads 1 payload chunk + 2 proof chunks to A for ack
     let (a_payload, a_proof_pdas) = relayer
@@ -120,14 +108,5 @@ async fn test_multi_chunk_proof_lifecycle() {
         .await
         .expect("ack_packet with multi-chunk proof failed");
 
-    // Verify commitment zeroed on A
-    let commitment = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment should exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after ack"
-    );
+    assert_commitment_zeroed(&chain_a, commitment_pda).await;
 }

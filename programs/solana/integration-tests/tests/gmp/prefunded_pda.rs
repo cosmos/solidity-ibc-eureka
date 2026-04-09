@@ -16,7 +16,6 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
@@ -25,7 +24,6 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
 
@@ -34,10 +32,7 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     chain_b.prefund_lamports(gmp_account_pda, EXTRA_PREFUND_LAMPORTS);
 
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_b
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_b.counter_app_state_pda();
 
     let solana_payload = gmp::encode_increment_payload(
         counter_app_state,
@@ -89,23 +84,11 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         .await
         .expect("recv_packet should succeed despite pre-funded PDA");
 
-    // Counter was incremented
-    let user_counter_account = chain_b
-        .get_account(user_counter_pda)
-        .await
-        .expect("UserCounter should exist");
-    let user_counter =
-        test_gmp_app::state::UserCounter::try_deserialize(&mut &user_counter_account.data[..])
-            .expect("deserialize UserCounter");
+    let user_counter = read_user_counter(&chain_b, user_counter_pda).await;
     assert_eq!(user_counter.count, increment_amount);
 
     // ── Ack ──
-    let ack_data = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist")
-        .data[8..40]
-        .to_vec();
+    let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
 
     let (a_payload, a_proof) = relayer
         .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &proof_data)
@@ -125,19 +108,6 @@ async fn test_gmp_prefunded_pda_not_blocked() {
         .await
         .expect("ack_packet failed");
 
-    // Commitment zeroed
-    let commitment = chain_a
-        .get_account(ack_commitment_pda)
-        .await
-        .expect("commitment should exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after ack"
-    );
-
-    // GMPCallResultAccount exists
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), sequence, &ics27_gmp::ID);
-    assert!(chain_a.get_account(result_pda).await.is_some());
+    assert_commitment_zeroed(&chain_a, ack_commitment_pda).await;
+    assert_gmp_result_exists(&chain_a, chain_a.client_id(), sequence).await;
 }

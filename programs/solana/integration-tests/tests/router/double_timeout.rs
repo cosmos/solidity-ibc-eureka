@@ -13,7 +13,6 @@ async fn test_double_timeout_fails() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);

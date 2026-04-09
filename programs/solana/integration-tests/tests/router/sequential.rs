@@ -15,7 +15,6 @@ async fn test_multiple_sequential_packets() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -24,7 +23,6 @@ async fn test_multiple_sequential_packets() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
 
@@ -99,16 +97,7 @@ async fn test_multiple_sequential_packets() {
             .await
             .unwrap_or_else(|e| panic!("ack seq={seq} failed: {e:?}"));
 
-        // Verify commitment zeroed
-        let account = chain_a
-            .get_account(commitment_pda)
-            .await
-            .expect("commitment should exist");
-        assert_eq!(
-            &account.data[8..40],
-            &[0u8; 32],
-            "commitment for seq={seq} should be zeroed"
-        );
+        assert_commitment_zeroed(&chain_a, commitment_pda).await;
     }
 
     // ── Verify final counters ──

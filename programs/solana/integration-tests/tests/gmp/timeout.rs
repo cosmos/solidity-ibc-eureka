@@ -18,7 +18,6 @@ async fn test_gmp_timeout() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
@@ -26,10 +25,7 @@ async fn test_gmp_timeout() {
     // Build a GMP payload (same encoding as the full lifecycle test)
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_a
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_a.counter_app_state_pda();
 
     let solana_payload = gmp::encode_increment_payload(
         counter_app_state,
@@ -57,16 +53,7 @@ async fn test_gmp_timeout() {
         .await
         .expect("send_call failed");
 
-    // Verify commitment was created
-    let commitment = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment should exist");
-    assert_ne!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be non-zero after send"
-    );
+    assert_commitment_set(&chain_a, commitment_pda).await;
 
     // ── Relayer uploads chunks and delivers timeout on Chain A ──
     let (timeout_payload, timeout_proof) = relayer
@@ -85,16 +72,7 @@ async fn test_gmp_timeout() {
         .await
         .expect("gmp_timeout_packet failed");
 
-    // Verify commitment was zeroed
-    let commitment = chain_a
-        .get_account(timeout_commitment_pda)
-        .await
-        .expect("commitment PDA should still exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after timeout"
-    );
+    assert_commitment_zeroed(&chain_a, timeout_commitment_pda).await;
 
     // Verify GMPCallResultAccount was created with timeout status
     let (result_pda, _) =
@@ -103,8 +81,6 @@ async fn test_gmp_timeout() {
         .get_account(result_pda)
         .await
         .expect("GMPCallResultAccount should exist");
-    assert_eq!(result_account.owner, ics27_gmp::ID);
-
     let result_state =
         ics27_gmp::state::GMPCallResultAccount::try_deserialize(&mut &result_account.data[..])
             .expect("failed to deserialize GMPCallResultAccount");

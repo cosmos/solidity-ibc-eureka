@@ -15,7 +15,6 @@ async fn test_gmp_unauthorized_cpi_rejected() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[
             Program::Ics27Gmp,
             Program::TestGmpApp,
@@ -27,10 +26,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
 
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_b
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_b.counter_app_state_pda();
 
     let solana_payload = gmp::encode_increment_payload(
         counter_app_state,

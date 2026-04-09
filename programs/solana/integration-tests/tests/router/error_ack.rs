@@ -18,7 +18,6 @@ async fn test_error_ack_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -28,7 +27,6 @@ async fn test_error_ack_lifecycle() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::MockIbcApp],
     });
 
@@ -112,14 +110,5 @@ async fn test_error_ack_lifecycle() {
         .await
         .expect("ack_packet with error ack failed");
 
-    // Verify commitment zeroed on A
-    let commitment = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment should exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after error ack"
-    );
+    assert_commitment_zeroed(&chain_a, commitment_pda).await;
 }

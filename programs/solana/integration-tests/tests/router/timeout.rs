@@ -14,7 +14,6 @@ async fn test_timeout_packet() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -34,16 +33,7 @@ async fn test_timeout_packet() {
         .await
         .expect("send_packet failed");
 
-    // Verify commitment was created
-    let commitment = chain_a
-        .get_account(send.commitment_pda)
-        .await
-        .expect("commitment should exist");
-    assert_ne!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be non-zero after send"
-    );
+    assert_commitment_set(&chain_a, send.commitment_pda).await;
 
     // ── Relayer uploads chunks and delivers timeout on Chain A ──
     let (timeout_payload, timeout_proof) = relayer
@@ -67,16 +57,7 @@ async fn test_timeout_packet() {
         .await
         .expect("timeout_packet failed");
 
-    // Verify commitment was zeroed
-    let commitment = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment PDA should still exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after timeout"
-    );
+    assert_commitment_zeroed(&chain_a, commitment_pda).await;
 
     // Verify app state reflects the timeout
     let a_state = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;

@@ -14,7 +14,6 @@ async fn test_full_packet_lifecycle() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
     chain_a.prefund(&user);
@@ -23,7 +22,6 @@ async fn test_full_packet_lifecycle() {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::TestIbcApp],
     });
 
@@ -77,20 +75,8 @@ async fn test_full_packet_lifecycle() {
         .await
         .expect("recv_packet on B failed");
 
-    // Verify receipt and ack on B
-    let receipt = chain_b
-        .get_account(recv.receipt_pda)
-        .await
-        .expect("receipt should exist");
-    assert_eq!(receipt.owner, ics26_router::ID);
-    assert_ne!(&receipt.data[8..40], &[0u8; 32]);
-
-    let ack = chain_b
-        .get_account(recv.ack_pda)
-        .await
-        .expect("ack should exist");
-    assert_eq!(ack.owner, ics26_router::ID);
-    assert_ne!(&ack.data[8..40], &[0u8; 32]);
+    assert_receipt_created(&chain_b, recv.receipt_pda).await;
+    assert_commitment_set(&chain_b, recv.ack_pda).await;
 
     let b_state = read_app_state(&chain_b, chain_b.accounts.app_state_pda).await;
     assert_eq!(b_state.packets_received, 1);
@@ -118,16 +104,7 @@ async fn test_full_packet_lifecycle() {
         .await
         .expect("ack_packet on A failed");
 
-    // Verify commitment zeroed
-    let commitment = chain_a
-        .get_account(commitment_pda)
-        .await
-        .expect("commitment PDA should still exist");
-    assert_eq!(
-        &commitment.data[8..40],
-        &[0u8; 32],
-        "commitment should be zeroed after ack"
-    );
+    assert_commitment_zeroed(&chain_a, commitment_pda).await;
 
     let a_final = read_app_state(&chain_a, chain_a.accounts.app_state_pda).await;
     assert_eq!(a_final.packets_sent, 1);

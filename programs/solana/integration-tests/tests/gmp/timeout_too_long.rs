@@ -9,7 +9,6 @@ async fn test_send_call_timeout_too_long() {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         relayer: &relayer,
-        clock_time: TEST_CLOCK_TIME,
         programs: &[Program::Ics27Gmp, Program::TestGmpApp],
     });
     chain_a.prefund(&user);
@@ -17,10 +16,7 @@ async fn test_send_call_timeout_too_long() {
     // Build a minimal GMP payload (content doesn't matter — send will fail)
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_a
-        .accounts
-        .counter_app_state_pda
-        .expect("GMP chain should have counter app state");
+    let counter_app_state = chain_a.counter_app_state_pda();
     let payload =
         gmp::encode_increment_payload(counter_app_state, user_counter_pda, gmp_account_pda, 1);
 
