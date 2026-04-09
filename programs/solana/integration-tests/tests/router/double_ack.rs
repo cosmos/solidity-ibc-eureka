@@ -1,0 +1,117 @@
+use super::*;
+
+/// Acking the same packet twice fails — the commitment is already zeroed.
+#[tokio::test]
+async fn test_double_ack_fails() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let packet_data = b"double ack";
+    let proof_data = vec![0u8; 32];
+    let sequence = 1u64;
+    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+    chain_a.prefund(&user);
+
+    let mut chain_b = Chain::new(ChainConfig {
+        client_id: "chain-b-client",
+        counterparty_client_id: "chain-a-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::TestIbcApp,
+    });
+
+    chain_a.start().await;
+    chain_b.start().await;
+
+    // Send → recv → ack (full lifecycle)
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send failed");
+
+    let (b_payload, b_proof) = relayer
+        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .await
+        .expect("upload recv chunks failed");
+    relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: b_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect("recv failed");
+
+    let (a_payload, a_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .await
+        .expect("upload ack chunks failed");
+
+    let ack_params = AckPacketParams {
+        sequence,
+        acknowledgement: successful_ack.clone(),
+        payload_chunk_pda: a_payload,
+        proof_chunk_pda: a_proof,
+        port_id: router::PORT_ID,
+        version: "1",
+        encoding: "json",
+        app_program: test_ibc_app::ID,
+        extra_remaining_accounts: vec![],
+    };
+
+    relayer
+        .ack_packet(&mut chain_a, ack_params)
+        .await
+        .expect("first ack failed");
+
+    // Cleanup consumed chunks, then re-upload for second attempt
+    relayer
+        .cleanup_chunks(&mut chain_a, sequence, a_payload, a_proof)
+        .await
+        .expect("cleanup chunks failed");
+    let (a_payload, a_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .await
+        .expect("re-upload ack chunks failed");
+
+    // Second ack — commitment is zeroed, should fail
+    let err = relayer
+        .ack_packet(
+            &mut chain_a,
+            AckPacketParams {
+                sequence,
+                acknowledgement: successful_ack,
+                payload_chunk_pda: a_payload,
+                proof_chunk_pda: a_proof,
+                port_id: router::PORT_ID,
+                version: "1",
+                encoding: "json",
+                app_program: test_ibc_app::ID,
+                extra_remaining_accounts: vec![],
+            },
+        )
+        .await
+        .expect_err("second ack should fail");
+
+    assert_eq!(extract_custom_error(&err), PACKET_COMMITMENT_MISMATCH);
+}

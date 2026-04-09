@@ -1,0 +1,115 @@
+use super::*;
+
+/// GMP timeout lifecycle: `send_call` on A -> `timeout_packet` on A.
+///
+/// Chain A sends a GMP call but the packet is never delivered to Chain B.
+/// The relayer delivers a timeout back to Chain A, which creates a
+/// `GMPCallResultAccount` with timeout status.
+#[tokio::test]
+async fn test_gmp_timeout() {
+    let user = User::new();
+    let relayer = Relayer::new();
+    let proof_data = vec![0u8; 32];
+    let sequence = 1u64;
+    let increment_amount = 42u64;
+
+    // ── Build Chain A (sender chain, with GMP) ──
+    let mut chain_a = Chain::new(ChainConfig {
+        client_id: "chain-a-client",
+        counterparty_client_id: "chain-b-client",
+        relayer: &relayer,
+        clock_time: TEST_CLOCK_TIME,
+        ibc_app: IbcApp::Gmp,
+    });
+    chain_a.prefund(&user);
+
+    // Build a GMP payload (same encoding as the full lifecycle test)
+    let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
+    let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
+    let counter_app_state = chain_a
+        .accounts
+        .counter_app_state_pda
+        .expect("GMP chain should have counter app state");
+
+    let solana_payload = gmp::encode_increment_payload(
+        counter_app_state,
+        user_counter_pda,
+        gmp_account_pda,
+        increment_amount,
+    );
+    let gmp_packet_bytes =
+        gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &solana_payload);
+
+    // ── Start chain ──
+    chain_a.start().await;
+
+    // ── User sends GMP call on Chain A ──
+    let commitment_pda = user
+        .send_call(
+            &mut chain_a,
+            GmpSendCallParams {
+                sequence,
+                timeout_timestamp: GMP_TIMEOUT,
+                receiver: &test_gmp_app::ID.to_string(),
+                payload: solana_payload.encode_to_vec(),
+            },
+        )
+        .await
+        .expect("send_call failed");
+
+    // Verify commitment was created
+    let commitment = chain_a
+        .get_account(commitment_pda)
+        .await
+        .expect("commitment should exist");
+    assert_ne!(
+        &commitment.data[8..40],
+        &[0u8; 32],
+        "commitment should be non-zero after send"
+    );
+
+    // ── Relayer uploads chunks and delivers timeout on Chain A ──
+    let (timeout_payload, timeout_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &proof_data)
+        .await
+        .expect("upload timeout chunks on Chain A failed");
+    let timeout_commitment_pda = relayer
+        .gmp_timeout_packet(
+            &mut chain_a,
+            gmp::GmpTimeoutPacketParams {
+                sequence,
+                payload_chunk_pda: timeout_payload,
+                proof_chunk_pda: timeout_proof,
+            },
+        )
+        .await
+        .expect("gmp_timeout_packet failed");
+
+    // Verify commitment was zeroed
+    let commitment = chain_a
+        .get_account(timeout_commitment_pda)
+        .await
+        .expect("commitment PDA should still exist");
+    assert_eq!(
+        &commitment.data[8..40],
+        &[0u8; 32],
+        "commitment should be zeroed after timeout"
+    );
+
+    // Verify GMPCallResultAccount was created with timeout status
+    let (result_pda, _) =
+        solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), sequence, &ics27_gmp::ID);
+    let result_account = chain_a
+        .get_account(result_pda)
+        .await
+        .expect("GMPCallResultAccount should exist");
+    assert_eq!(result_account.owner, ics27_gmp::ID);
+
+    let result_state =
+        ics27_gmp::state::GMPCallResultAccount::try_deserialize(&mut &result_account.data[..])
+            .expect("failed to deserialize GMPCallResultAccount");
+    assert_eq!(
+        result_state.status,
+        solana_ibc_types::CallResultStatus::Timeout
+    );
+}

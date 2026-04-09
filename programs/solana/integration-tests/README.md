@@ -102,7 +102,7 @@ The `IbcApp` enum selects which application is registered on the chain:
 graph TB
     Actor["trait Actor\npubkey()"]
     User["User\n- send_packet\n- send_call"]
-    Relayer["Relayer\n- upload_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet"]
+    Relayer["Relayer\n- upload_chunks\n- cleanup_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet"]
 
     Actor --> User
     Actor --> Relayer
@@ -153,26 +153,6 @@ graph LR
     A -->|"packet expires"| R["Relayer"]
     R -->|"upload_chunks + gmp_timeout_packet"| A2["Chain A\n(commitment zeroed\n+ GMPCallResult timeout)"]
 ```
-
-## Test Matrix
-
-| Test                               | File                  | Flow                                               |
-| ---------------------------------- | --------------------- | -------------------------------------------------- |
-| `test_full_packet_lifecycle`       | `router_lifecycle.rs` | send → recv → ack                                  |
-| `test_bidirectional_packets`       | `router_lifecycle.rs` | A→B and B→A with different sequences               |
-| `test_multiple_sequential_packets` | `router_lifecycle.rs` | 3 packets: send all → recv all → ack all           |
-| `test_timeout_packet`              | `router_lifecycle.rs` | send → timeout                                     |
-| `test_recv_packet_replay_is_noop`  | `router_lifecycle.rs` | recv same packet twice — second is noop            |
-| `test_double_ack_fails`            | `router_lifecycle.rs` | ack same packet twice — second fails               |
-| `test_double_timeout_fails`        | `router_lifecycle.rs` | timeout same packet twice — second fails           |
-| `test_timeout_after_ack_fails`     | `router_lifecycle.rs` | ack then timeout on same packet — timeout fails    |
-| `test_ack_after_timeout_fails`     | `router_lifecycle.rs` | timeout then ack on same packet — ack fails        |
-| `test_error_ack_lifecycle`         | `router_lifecycle.rs` | send → recv (error ack via `MockIbcApp`) → ack     |
-| `test_empty_ack_rejected`          | `router_lifecycle.rs` | recv with empty ack — rejected by router           |
-| `test_multi_chunk_proof_lifecycle` | `router_lifecycle.rs` | send → recv → ack with proof split across chunks   |
-| `test_proof_verification_failure`  | `router_lifecycle.rs` | recv with tampered proof — rejected by light client |
-| `test_gmp_full_lifecycle`          | `gmp_lifecycle.rs`    | GMP send_call → recv (CPI into test_gmp_app) → ack |
-| `test_gmp_timeout`                 | `gmp_lifecycle.rs`    | GMP send_call → timeout                            |
 
 ## Running
 

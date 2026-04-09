@@ -20,6 +20,18 @@ pub const fn test_timeout(clock_time: i64) -> u64 {
     clock_time as u64 + 86_000
 }
 
+pub fn derive_receipt_pda(dest_client: &str, sequence: u64) -> Pubkey {
+    let (pda, _) = Pubkey::find_program_address(
+        &[
+            Commitment::PACKET_RECEIPT_SEED,
+            dest_client.as_bytes(),
+            &sequence.to_le_bytes(),
+        ],
+        &ics26_router::ID,
+    );
+    pda
+}
+
 // ── Send ────────────────────────────────────────────────────────────────
 
 pub struct SendPacketParams<'a> {
