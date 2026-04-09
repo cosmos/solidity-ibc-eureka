@@ -65,12 +65,12 @@ mod tests {
         packed.push(1); // is_signer
         packed.push(0); // is_writable
 
-        let encoded = AbiGmpSolanaPayload {
+        let encoded = GMPSolanaPayload {
             packedAccounts: packed.into(),
             instructionData: vec![0xCC, 0xDD].into(),
             prefundLamports: 0,
         }
-        .abi_encode_params();
+        .abi_encode();
 
         let decoded = decode(&encoded, crate::constants::ABI_ENCODING).unwrap();
 

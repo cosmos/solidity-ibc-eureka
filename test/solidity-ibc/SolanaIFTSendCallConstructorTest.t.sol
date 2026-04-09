@@ -7,6 +7,7 @@ import { Test } from "forge-std/Test.sol";
 
 import { SolanaIFTSendCallConstructor } from "../../contracts/utils/SolanaIFTSendCallConstructor.sol";
 import { IIFTSendCallConstructor } from "../../contracts/interfaces/IIFTSendCallConstructor.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol";
 
 contract SolanaIFTSendCallConstructorTest is Test {
@@ -52,20 +53,20 @@ contract SolanaIFTSendCallConstructorTest is Test {
     function test_constructMintCall_outputFormat() public view {
         bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, 1_000_000);
 
-        (bytes memory packedAccounts, bytes memory instructionData, uint32 prefundLamports) =
-            abi.decode(result, (bytes, bytes, uint32));
+        IICS27GMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (IICS27GMPMsgs.GMPSolanaPayload));
 
         // 12 accounts * 34 bytes each
-        assertEq(packedAccounts.length, 12 * PACKED_ACCOUNT_SIZE);
+        assertEq(payload.packedAccounts.length, 12 * PACKED_ACCOUNT_SIZE);
         // discriminator(8) + wallet(32) + amount_le(8) = 48
-        assertEq(instructionData.length, 48);
+        assertEq(payload.instructionData.length, 48);
         // Lamports to pre-fund GMP PDA for ATA creation rent
-        assertEq(prefundLamports, 3_000_000);
+        assertEq(payload.prefundLamports, 3_000_000);
     }
 
     function test_constructMintCall_packedAccounts() public view {
         bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, 1_000_000);
-        (bytes memory packedAccounts,,) = abi.decode(result, (bytes, bytes, uint32));
+        IICS27GMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (IICS27GMPMsgs.GMPSolanaPayload));
+        bytes memory packedAccounts = payload.packedAccounts;
 
         _assertAccount(packedAccounts, 0, APP_STATE, false, false);
         _assertAccount(packedAccounts, 1, APP_MINT_STATE, false, true);
@@ -84,7 +85,8 @@ contract SolanaIFTSendCallConstructorTest is Test {
     function test_constructMintCall_instructionData() public view {
         uint256 amount = 1_000_000;
         bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, amount);
-        (, bytes memory instructionData,) = abi.decode(result, (bytes, bytes, uint32));
+        IICS27GMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (IICS27GMPMsgs.GMPSolanaPayload));
+        bytes memory instructionData = payload.instructionData;
 
         bytes8 discriminator;
         assembly {
@@ -129,7 +131,8 @@ contract SolanaIFTSendCallConstructorTest is Test {
 
     function testFuzz_constructMintCall_amountEncoding(uint64 amount) public view {
         bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, uint256(amount));
-        (, bytes memory instructionData,) = abi.decode(result, (bytes, bytes, uint32));
+        IICS27GMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (IICS27GMPMsgs.GMPSolanaPayload));
+        bytes memory instructionData = payload.instructionData;
 
         uint64 decoded;
         for (uint256 i = 0; i < 8; i++) {

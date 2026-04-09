@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 // solhint-disable gas-strict-inequalities,no-inline-assembly
 
 import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.sol";
+import { IICS27GMPMsgs } from "../msgs/IICS27GMPMsgs.sol";
 
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
@@ -90,16 +91,18 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
     /// @inheritdoc IIFTSendCallConstructor
     /// @dev Receiver format: "0x" + wallet_hex(64) + ata_hex(64) = 130 chars.
-    ///      Returns `abi.encode(packedAccounts, instructionData, prefundLamports)`.
     function constructMintCall(string calldata receiver, uint256 amount) external view returns (bytes memory) {
         require(bytes(receiver).length == SOLANA_RECEIVER_HEX_LENGTH, SolanaIFTInvalidReceiver(receiver));
 
         (bytes32 wallet, bytes32 ata) = _parseWalletAndAta(receiver);
 
-        bytes memory packedAccounts = _buildPackedAccounts(wallet, ata);
-        bytes memory instructionData = _buildInstructionData(wallet, amount);
+        IICS27GMPMsgs.GMPSolanaPayload memory payload = IICS27GMPMsgs.GMPSolanaPayload({
+            packedAccounts: _buildPackedAccounts(wallet, ata),
+            instructionData: _buildInstructionData(wallet, amount),
+            prefundLamports: PREFUND_LAMPORTS
+        });
 
-        return abi.encode(packedAccounts, instructionData, PREFUND_LAMPORTS);
+        return abi.encode(payload);
     }
 
     /// @inheritdoc ERC165

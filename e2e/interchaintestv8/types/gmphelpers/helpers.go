@@ -49,17 +49,28 @@ func marshalGMPSolanaPayloadABI(payload *solanatypes.GMPSolanaPayload) ([]byte, 
 	}
 	prefund := uint32(payload.PrefundLamports) //nolint:gosec // checked above
 
-	bytesType, _ := abi.NewType("bytes", "", nil)
-	uint32Type, _ := abi.NewType("uint32", "", nil)
-
-	// abi.encode(bytes packedAccounts, bytes instructionData, uint32 prefundLamports)
-	args := abi.Arguments{
-		{Type: bytesType},
-		{Type: bytesType},
-		{Type: uint32Type},
+	tupleType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
+		{Name: "packedAccounts", Type: "bytes"},
+		{Name: "instructionData", Type: "bytes"},
+		{Name: "prefundLamports", Type: "uint32"},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("creating GMPSolanaPayload ABI type: %w", err)
 	}
 
-	encoded, err := args.Pack(packed, payload.Data, prefund)
+	args := abi.Arguments{{Type: tupleType}}
+
+	abiPayload := struct {
+		PackedAccounts  []byte `json:"packedAccounts"`
+		InstructionData []byte `json:"instructionData"`
+		PrefundLamports uint32 `json:"prefundLamports"`
+	}{
+		PackedAccounts:  packed,
+		InstructionData: payload.Data,
+		PrefundLamports: prefund,
+	}
+
+	encoded, err := args.Pack(abiPayload)
 	if err != nil {
 		return nil, fmt.Errorf("ABI encoding GMPSolanaPayload: %w", err)
 	}
