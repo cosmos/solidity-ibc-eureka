@@ -19,15 +19,9 @@ async fn test_gmp_am_transfer_propose_accept() {
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    chain.init(&deployer, &admin, &relayer, programs).await;
 
-    // Verify initial state
+    // ── Verify initial state ──
     let state = gmp::read_gmp_app_state(&chain).await;
     assert_eq!(state.am_state.access_manager, access_manager::ID);
     assert!(state.am_state.pending_access_manager.is_none());
@@ -70,14 +64,9 @@ async fn test_gmp_am_transfer_propose_cancel() {
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    chain.init(&deployer, &admin, &relayer, programs).await;
 
+    // ── Propose then cancel ──
     admin
         .gmp_propose_am_transfer(&mut chain, test_access_manager::ID)
         .await
@@ -114,14 +103,9 @@ async fn test_gmp_am_transfer_unauthorized_propose() {
     chain.prefund(&[&admin, &relayer, &non_admin]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    chain.init(&deployer, &admin, &relayer, programs).await;
 
+    // ── Unauthorized propose ──
     let err = non_admin
         .gmp_propose_am_transfer(&mut chain, test_access_manager::ID)
         .await

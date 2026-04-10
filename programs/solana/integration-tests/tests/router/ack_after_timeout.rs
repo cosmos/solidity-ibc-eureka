@@ -21,14 +21,9 @@ async fn test_ack_after_timeout_fails() {
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
 
+    // ── Send ──
     user.send_packet(
         &mut chain_a,
         SendPacketParams {

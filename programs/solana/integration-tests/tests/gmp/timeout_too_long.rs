@@ -13,20 +13,15 @@ async fn test_send_call_timeout_too_long() {
     let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payload ──
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
     let counter_app_state = chain_a.counter_app_state_pda();
     let payload =
         gmp::encode_increment_payload(counter_app_state, user_counter_pda, gmp_account_pda, 1);
-
-    // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
 
     // ── Timeout at the exact boundary: rejected ──
     // GMP checks `timeout < current_time + MAX_TIMEOUT_DURATION` (strict <)

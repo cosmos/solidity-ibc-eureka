@@ -17,6 +17,8 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // ── Test data ──
     let proof_data = vec![0u8; 32];
+    let amount_a_to_b = 42u64;
+    let amount_b_to_c = 58u64;
 
     // ── Chains ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
@@ -46,32 +48,12 @@ async fn test_gmp_three_chain_roundtrip() {
 
     let gmp_pda_on_b = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
-    let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
-    let counter_state_b = chain_b.counter_app_state_pda();
 
     let gmp_pda_on_c = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
     chain_c.prefund_lamports(gmp_pda_on_c, 10_000_000);
-    let counter_on_c = gmp::derive_user_counter_pda(&gmp_pda_on_c);
-    let counter_state_c = chain_c.counter_app_state_pda();
-
-    let amount_a_to_b = 42u64;
-    let payload_ab =
-        gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
-    let packet_ab = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_ab);
-
-    let amount_b_to_c = 58u64;
-    let payload_bc =
-        gmp::encode_increment_payload(counter_state_c, counter_on_c, gmp_pda_on_c, amount_b_to_c);
-    let packet_bc = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_bc);
 
     // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
     chain_b.start().await;
     deployer
         .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
@@ -82,13 +64,20 @@ async fn test_gmp_three_chain_roundtrip() {
     deployer
         .transfer_upgrade_authority(&mut chain_b, programs)
         .await;
-    chain_c.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_c, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_c, programs)
-        .await;
+    chain_c.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payloads ──
+    let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
+    let counter_state_b = chain_b.counter_app_state_pda();
+    let payload_ab =
+        gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
+    let packet_ab = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_ab);
+
+    let counter_on_c = gmp::derive_user_counter_pda(&gmp_pda_on_c);
+    let counter_state_c = chain_c.counter_app_state_pda();
+    let payload_bc =
+        gmp::encode_increment_payload(counter_state_c, counter_on_c, gmp_pda_on_c, amount_b_to_c);
+    let packet_bc = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_bc);
 
     // ── Leg 1: A → B (sequence=1, amount=42) ──
 

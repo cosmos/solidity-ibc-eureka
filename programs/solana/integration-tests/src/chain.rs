@@ -4,7 +4,9 @@
 //! transaction submission and account reads. Each [`Chain`] instance
 //! represents an independent local validator used by a single test.
 
+use crate::actors::admin::Admin;
 use crate::actors::deployer::Deployer;
+use crate::actors::relayer::Relayer;
 use crate::Actor;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
 use solana_sdk::{
@@ -196,6 +198,26 @@ impl Chain {
         let (banks, _payer, blockhash) = pt.start().await;
         self.banks = Some(banks);
         self.blockhash = blockhash;
+    }
+
+    /// Start the chain and initialize the full IBC stack, transferring
+    /// upgrade authority to the access manager PDA.
+    ///
+    /// Combines `start`, `Deployer::init_ibc_stack` and
+    /// `Deployer::transfer_upgrade_authority` into the canonical setup
+    /// sequence used by most tests.
+    pub async fn init(
+        &mut self,
+        deployer: &Deployer,
+        admin: &Admin,
+        relayer: &Relayer,
+        programs: &[&dyn ChainProgram],
+    ) {
+        self.start().await;
+        deployer
+            .init_ibc_stack(self, admin, relayer, programs)
+            .await;
+        deployer.transfer_upgrade_authority(self, programs).await;
     }
 
     // ── Runtime phase (after start) ─────────────────────────────────────

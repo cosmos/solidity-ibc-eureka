@@ -26,10 +26,15 @@ async fn test_gmp_failed_execution_aborts() {
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
 
-    let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-
     let fake_counter_app_state = Pubkey::new_unique();
     chain_b.prefund_lamports(fake_counter_app_state, 1_000_000);
+
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payload ──
+    let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
 
     let mut ix_data = integration_tests::accounts::anchor_discriminator("increment").to_vec();
     ix_data.extend_from_slice(&increment_amount.to_le_bytes());
@@ -68,23 +73,7 @@ async fn test_gmp_failed_execution_aborts() {
 
     let gmp_packet_bytes = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &bad_payload);
 
-    // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
-
-    // Send on Chain A
+    // ── Send on Chain A ──
     user.send_call(
         &mut chain_a,
         GmpSendCallParams {

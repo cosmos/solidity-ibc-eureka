@@ -115,6 +115,11 @@ async fn test_gmp_multi_user_isolation() {
     chain_b.prefund_lamports(gmp_pda_a, 10_000_000);
     chain_b.prefund_lamports(gmp_pda_b, 10_000_000);
 
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build targets ──
     let counter_pda_a = gmp::derive_user_counter_pda(&gmp_pda_a);
     let counter_pda_b = gmp::derive_user_counter_pda(&gmp_pda_b);
     let counter_app_state = chain_b.counter_app_state_pda();
@@ -129,22 +134,6 @@ async fn test_gmp_multi_user_isolation() {
         counter_pda: counter_pda_b,
         counter_app_state,
     };
-
-    // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
 
     // ── user_a: seq=1, amount=5 ──
     lifecycle(

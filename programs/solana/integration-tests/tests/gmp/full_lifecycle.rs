@@ -22,6 +22,11 @@ async fn test_gmp_full_lifecycle() {
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
 
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
     let counter_app_state = chain_b.counter_app_state_pda();
 
@@ -33,22 +38,6 @@ async fn test_gmp_full_lifecycle() {
     );
     let gmp_packet_bytes =
         gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &solana_payload);
-
-    // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
 
     // ── User sends GMP call on Chain A ──
     let commitment_pda = user

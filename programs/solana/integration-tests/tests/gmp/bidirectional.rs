@@ -22,15 +22,20 @@ async fn test_gmp_bidirectional() {
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer, &user]);
 
-    let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
-    let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
-    let counter_state_b = chain_b.counter_app_state_pda();
-
     let gmp_pda_on_a = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
     chain_a.prefund_lamports(gmp_pda_on_a, 10_000_000);
+    let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
+    chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
+
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payloads ──
     let counter_on_a = gmp::derive_user_counter_pda(&gmp_pda_on_a);
     let counter_state_a = chain_a.counter_app_state_pda();
+    let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
+    let counter_state_b = chain_b.counter_app_state_pda();
 
     let payload_a_to_b =
         gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
@@ -39,22 +44,6 @@ async fn test_gmp_bidirectional() {
     let payload_b_to_a =
         gmp::encode_increment_payload(counter_state_a, counter_on_a, gmp_pda_on_a, amount_b_to_a);
     let packet_b_to_a = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_b_to_a);
-
-    // ── Init ──
-    chain_a.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_a, programs)
-        .await;
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
 
     // ── Send on both chains ──
     user.send_call(

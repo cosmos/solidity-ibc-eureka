@@ -25,13 +25,15 @@ async fn test_gmp_unauthorized_cpi_rejected() {
         programs,
     });
     chain_b.prefund(&[&admin, &relayer]);
-
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
 
+    // ── Init ──
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
     let counter_app_state = chain_b.counter_app_state_pda();
-
     let solana_payload = gmp::encode_increment_payload(
         counter_app_state,
         user_counter_pda,
@@ -40,23 +42,13 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     );
     let gmp_packet_bytes =
         gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &solana_payload);
-
     let gmp_remaining = gmp::build_increment_remaining_accounts(
         gmp_account_pda,
         counter_app_state,
         user_counter_pda,
     );
 
-    // ── Init ──
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
-
-    // Build the raw GMP on_recv_packet instruction
+    // ── Unauthorized CPI rejected ──
     let raw_ix = gmp::build_raw_gmp_on_recv_packet_ix(
         relayer.pubkey(),
         chain_b.client_id(),
