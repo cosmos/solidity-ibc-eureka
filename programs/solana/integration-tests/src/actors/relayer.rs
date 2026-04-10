@@ -223,6 +223,72 @@ impl Relayer {
         Ok(commitment_pda)
     }
 
+    /// Deliver several `recv_packet` instructions in a single transaction.
+    ///
+    /// Mirrors the e2e batching path where the relayer submits multiple
+    /// router operations in one tx. Returns the per-packet `RecvResult`s in
+    /// the same order the params were provided.
+    pub async fn recv_packets_batched(
+        &self,
+        chain: &mut Chain,
+        params_list: Vec<RecvPacketParams<'_>>,
+    ) -> Result<Vec<RecvResult>, BanksClientError> {
+        let results: Vec<RecvResult> = params_list
+            .into_iter()
+            .map(|params| {
+                router::build_recv_packet_ix(
+                    self.pubkey(),
+                    chain.client_id(),
+                    chain.counterparty_client_id(),
+                    chain.clock_time(),
+                    params,
+                )
+            })
+            .collect();
+        let ixs: Vec<_> = results.iter().map(|r| r.ix.clone()).collect();
+        let tx = Transaction::new_signed_with_payer(
+            &ixs,
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(results)
+    }
+
+    /// Deliver several `ack_packet` instructions in a single transaction.
+    ///
+    /// Returns the per-packet commitment PDAs in the same order the params
+    /// were provided.
+    pub async fn ack_packets_batched(
+        &self,
+        chain: &mut Chain,
+        params_list: Vec<AckPacketParams<'_>>,
+    ) -> Result<Vec<Pubkey>, BanksClientError> {
+        let built: Vec<_> = params_list
+            .into_iter()
+            .map(|params| {
+                router::build_ack_packet_ix(
+                    self.pubkey(),
+                    chain.client_id(),
+                    chain.counterparty_client_id(),
+                    chain.clock_time(),
+                    params,
+                )
+            })
+            .collect();
+        let ixs: Vec<_> = built.iter().map(|(ix, _)| ix.clone()).collect();
+        let commitment_pdas: Vec<_> = built.iter().map(|(_, pda)| *pda).collect();
+        let tx = Transaction::new_signed_with_payer(
+            &ixs,
+            Some(&self.pubkey()),
+            &[&self.keypair],
+            chain.blockhash(),
+        );
+        chain.process_transaction(tx).await?;
+        Ok(commitment_pdas)
+    }
+
     /// Deliver a `recv_packet` with multiple proof chunks.
     pub async fn recv_packet_multi_proof(
         &self,

@@ -33,6 +33,7 @@ mod multi_user;
 mod multiple_calls;
 mod prefunded_pda;
 mod signer_exploit;
+mod signer_exploit_sol_transfer;
 mod three_chain;
 mod timeout;
 mod timeout_too_long;

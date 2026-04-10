@@ -12,16 +12,17 @@ use anchor_lang::AccountDeserialize;
 use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{mock_ibc_app_state_pda, Chain, ChainProgram},
+    chain::{mock_ibc_app_state_pda, Chain, ChainConfig, ChainProgram},
     deployer::Deployer,
     extract_ack_data, extract_custom_error,
     programs::{MockIbcApp, TestIbcApp},
     relayer::Relayer,
     router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},
     user::User,
-    ASYNC_ACK_NOT_SUPPORTED, DUMMY_PROOF, PACKET_COMMITMENT_MISMATCH,
+    Actor, ASYNC_ACK_NOT_SUPPORTED, DUMMY_PROOF, PACKET_COMMITMENT_MISMATCH,
 };
 use solana_ibc_types::ics24;
+use solana_sdk::transaction::Transaction;
 
 mod ack_after_timeout;
 mod bidirectional;
@@ -35,6 +36,7 @@ mod proof_rejection;
 mod recv_after_timeout;
 mod replay;
 mod sequential;
+mod three_chain;
 mod timeout;
 mod timeout_after_ack;
 mod unauthorized_relayer;

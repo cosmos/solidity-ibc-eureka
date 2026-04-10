@@ -1,17 +1,15 @@
 //! Solana IFT (Inter-chain Fungible Token) integration tests.
 //!
-//! A single chain runs as a `ProgramTest` instance with IFT + GMP. The IFT
-//! program burns tokens locally and sends a GMP call to the (simulated) EVM
-//! counterparty. The relayer delivers ack/timeout back, and `finalize_transfer`
-//! either confirms the burn (success ack) or refunds (timeout / error ack).
+//! Each test spins up one or more `ProgramTest` chains with IFT + GMP. Most
+//! tests use a single chain that burns tokens locally and dispatches a GMP
+//! call to a simulated EVM counterparty; `solana_roundtrip` exercises a real
+//! Solana↔Solana transfer across a pair of chains.
 //!
 //! The mock light client always accepts proofs so these tests exercise the full
 //! IFT lifecycle without real proof verification.
 //!
 //! ## Coverage gaps (not testable at integration level)
 //!
-//! - **Solana-to-Solana roundtrip**: `ChainOptions` only has `Evm` and `Cosmos`
-//!   variants; no `Solana` variant exists yet.
 //! - **`initialize_existing_token`**: requires an externally-created mint whose
 //!   authority signs the transfer — complex setup but doable later.
 //! - **Batch relay (single tx with multiple recv/ack)**: tested in e2e only.
@@ -22,7 +20,8 @@ use integration_tests::{
     assert_commitment_set, assert_commitment_zeroed,
     chain::{Chain, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
-    extract_custom_error,
+    extract_ack_data, extract_custom_error,
+    gmp::{self, GmpAckPacketParams, GmpRecvPacketParams},
     ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, IftTransferParams, TokenKind},
     ift_admin::IftAdmin,
     programs::{Ics27Gmp, Ift},
@@ -70,10 +69,12 @@ async fn init_ift_chain(
 }
 
 mod admin_transfer;
+mod batch_ack_single_tx;
 mod batch_transfers;
 mod error_ack_refund;
 mod full_lifecycle;
 mod pause;
+mod solana_roundtrip;
 mod timeout_refund;
 mod token_2022_lifecycle;
 
@@ -83,6 +84,11 @@ const IFT_TIMEOUT: u64 = TEST_CLOCK_TIME as u64 + 86_000;
 const MINT_DECIMALS: u8 = 6;
 const INITIAL_BALANCE: u64 = 1_000_000;
 const TRANSFER_AMOUNT: u64 = 100_000;
+
+/// Lamports prefunded into the destination-side GMP account PDA so that it
+/// has enough balance to pay ATA rent for the `ift_mint` CPI.
+/// Mirrors `GMP_ACCOUNT_PREFUND_LAMPORTS` in `tests/gmp/main.rs`.
+const GMP_ACCOUNT_PREFUND_LAMPORTS: u64 = 10_000_000;
 
 /// Set up a chain with IFT + GMP, create an SPL token, register a bridge and
 /// mint tokens to the user.
