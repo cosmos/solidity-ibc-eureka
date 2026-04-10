@@ -1,3 +1,9 @@
+//! [`ChainProgram`] implementations for every on-chain program used in tests.
+//!
+//! Each struct knows how to register its `.so` binary on `ProgramTest`,
+//! declare an IBC port (if applicable) and build program-specific
+//! initialization instructions.
+
 use crate::accounts::account_owned_by;
 use crate::chain::{add_program_data, mock_ibc_app_state_pda, ChainProgram, InitStepSigner};
 use anchor_lang::InstructionData;
@@ -160,6 +166,10 @@ impl ChainProgram for TestCpiProxy {
 // ── Ift ─────────────────────────────────────────────────────────────────
 
 /// `ift` — inter-chain fungible token transfers (uses GMP's port).
+///
+/// The IFT program has its own admin (stored in `IFTAppState.admin`) that is
+/// independent from the access manager `ADMIN_ROLE`. Initialize IFT separately
+/// via [`Deployer::init_programs`] to pass the desired IFT admin pubkey.
 pub struct Ift;
 
 impl ChainProgram for Ift {

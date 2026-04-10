@@ -1,3 +1,9 @@
+//! ICS26 Router instruction builders for the full packet lifecycle.
+//!
+//! Covers `send_packet`, `recv_packet`, `ack_packet`, `timeout_packet`,
+//! payload/proof chunk upload and cleanup, access-manager transfer
+//! operations and on-chain state readers.
+
 use crate::accounts::anchor_discriminator;
 use crate::chain::{derive_mock_lc_pdas, Chain};
 use anchor_lang::{AnchorSerialize, InstructionData};
@@ -12,10 +18,14 @@ use solana_sdk::{
     system_program,
 };
 
+/// Default source port used by `test_ibc_app`.
 pub const PORT_ID: &str = "transfer";
+/// Default destination port used by `test_ibc_app`.
 pub const DEST_PORT: &str = "transfer";
+/// Mock proof height passed to the mock light client.
 pub const PROOF_HEIGHT: u64 = 100;
 
+/// Compute a default timeout timestamp (~24 hours after `clock_time`).
 pub const fn test_timeout(clock_time: i64) -> u64 {
     clock_time as u64 + 86_000
 }
@@ -25,6 +35,7 @@ pub fn test_ibc_app_state_pda() -> Pubkey {
     Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID).0
 }
 
+/// Derive the packet receipt PDA for a given `dest_client` and `sequence`.
 pub fn derive_receipt_pda(dest_client: &str, sequence: u64) -> Pubkey {
     let (pda, _) = Pubkey::find_program_address(
         &[
@@ -39,17 +50,26 @@ pub fn derive_receipt_pda(dest_client: &str, sequence: u64) -> Pubkey {
 
 // ── Send ────────────────────────────────────────────────────────────────
 
+/// Parameters for building a `send_packet` instruction via `test_ibc_app`.
 pub struct SendPacketParams<'a> {
+    /// Packet sequence number (must match the router's next sequence).
     pub sequence: u64,
+    /// Raw payload data to include in the packet.
     pub packet_data: &'a [u8],
 }
 
+/// Output of [`build_send_packet_ix`] containing the instruction,
+/// commitment PDA and reconstructed packet for downstream recv/ack/timeout.
 pub struct SendResult {
+    /// The `send_packet` instruction to submit.
     pub ix: Instruction,
+    /// PDA where the packet commitment is stored.
     pub commitment_pda: Pubkey,
+    /// Reconstructed packet matching what the router committed.
     pub packet: Packet,
 }
 
+/// Build a `send_packet` instruction through `test_ibc_app`.
 pub fn build_send_packet_ix(
     user: Pubkey,
     client_id: &str,
@@ -131,15 +151,25 @@ pub fn build_send_packet_ix(
 
 // ── Recv ────────────────────────────────────────────────────────────────
 
+/// Parameters for building a `recv_packet` instruction.
 pub struct RecvPacketParams<'a> {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
+    /// IBC port identifier.
     pub port_id: &'a str,
+    /// IBC application version string.
     pub version: &'a str,
+    /// Payload encoding (e.g. `"json"`, `"application/x-protobuf"`).
     pub encoding: &'a str,
+    /// Target IBC application program ID.
     pub app_program: Pubkey,
+    /// Target IBC application state PDA.
     pub app_state_pda: Pubkey,
+    /// Additional accounts appended after the standard layout.
     pub extra_remaining_accounts: Vec<AccountMeta>,
 }
 
@@ -159,13 +189,18 @@ impl Default for RecvPacketParams<'_> {
     }
 }
 
+/// Output of a `recv_packet` instruction build.
 #[derive(Debug)]
 pub struct RecvResult {
+    /// The `recv_packet` instruction to submit.
     pub ix: Instruction,
+    /// PDA where the packet receipt is stored.
     pub receipt_pda: Pubkey,
+    /// PDA where the acknowledgement is stored.
     pub ack_pda: Pubkey,
 }
 
+/// Build a `recv_packet` instruction with a single proof chunk.
 pub fn build_recv_packet_ix(
     relayer: Pubkey,
     dest_client: &str,
@@ -355,16 +390,27 @@ pub fn build_recv_packet_ix_multi_proof(
 
 // ── Ack ─────────────────────────────────────────────────────────────────
 
+/// Parameters for building an `ack_packet` instruction.
 pub struct AckPacketParams<'a> {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// Raw acknowledgement bytes from the destination chain.
     pub acknowledgement: Vec<u8>,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
+    /// IBC port identifier.
     pub port_id: &'a str,
+    /// IBC application version string.
     pub version: &'a str,
+    /// Payload encoding.
     pub encoding: &'a str,
+    /// Target IBC application program ID.
     pub app_program: Pubkey,
+    /// Target IBC application state PDA.
     pub app_state_pda: Pubkey,
+    /// Additional accounts appended after the standard layout.
     pub extra_remaining_accounts: Vec<AccountMeta>,
 }
 
@@ -385,6 +431,9 @@ impl Default for AckPacketParams<'_> {
     }
 }
 
+/// Build an `ack_packet` instruction with a single proof chunk.
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_ack_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -550,15 +599,25 @@ pub fn build_ack_packet_ix_multi_proof(
 
 // ── Timeout ────────────────────────────────────────────────────────────
 
+/// Parameters for building a `timeout_packet` instruction.
 pub struct TimeoutPacketParams<'a> {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
+    /// IBC port identifier.
     pub port_id: &'a str,
+    /// IBC application version string.
     pub version: &'a str,
+    /// Payload encoding.
     pub encoding: &'a str,
+    /// Target IBC application program ID.
     pub app_program: Pubkey,
+    /// Target IBC application state PDA.
     pub app_state_pda: Pubkey,
+    /// Additional accounts appended after the standard layout.
     pub extra_remaining_accounts: Vec<AccountMeta>,
 }
 
@@ -578,6 +637,9 @@ impl Default for TimeoutPacketParams<'_> {
     }
 }
 
+/// Build a `timeout_packet` instruction.
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_timeout_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -657,6 +719,9 @@ pub fn build_timeout_packet_ix(
 
 // ── Upload Chunks ─────────────────────────────────────────────────────
 
+/// Build an `upload_payload_chunk` instruction.
+///
+/// Returns `(instruction, chunk_pda)`.
 pub fn build_upload_payload_chunk_ix(
     relayer: Pubkey,
     client_id: &str,
@@ -703,6 +768,9 @@ pub fn build_upload_payload_chunk_ix(
     (ix, chunk_pda)
 }
 
+/// Build an `upload_proof_chunk` instruction at chunk index 0.
+///
+/// Returns `(instruction, chunk_pda)`.
 pub fn build_upload_proof_chunk_ix(
     relayer: Pubkey,
     client_id: &str,
@@ -712,6 +780,9 @@ pub fn build_upload_proof_chunk_ix(
     build_upload_proof_chunk_ix_at(relayer, client_id, sequence, 0, proof_data)
 }
 
+/// Build an `upload_proof_chunk` instruction at a specific `chunk_index`.
+///
+/// Returns `(instruction, chunk_pda)`.
 pub fn build_upload_proof_chunk_ix_at(
     relayer: Pubkey,
     client_id: &str,
@@ -760,6 +831,7 @@ pub fn build_upload_proof_chunk_ix_at(
 
 // ── Cleanup Chunks ───────────────────────────────────────────────────
 
+/// Build a `cleanup_chunks` instruction to reclaim rent from consumed chunk accounts.
 pub fn build_cleanup_chunks_ix(
     relayer: Pubkey,
     client_id: &str,
@@ -803,6 +875,7 @@ fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
     solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
 }
 
+/// Build an ICS26 `propose_access_manager_transfer` instruction.
 pub fn build_ics26_propose_am_transfer_ix(
     admin: Pubkey,
     new_access_manager: Pubkey,
@@ -819,6 +892,7 @@ pub fn build_ics26_propose_am_transfer_ix(
     }
 }
 
+/// Build an ICS26 `accept_access_manager_transfer` instruction.
 pub fn build_ics26_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
     Instruction {
         program_id: ics26_router::ID,
@@ -832,6 +906,7 @@ pub fn build_ics26_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubke
     }
 }
 
+/// Build an ICS26 `cancel_access_manager_transfer` instruction.
 pub fn build_ics26_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
     Instruction {
         program_id: ics26_router::ID,
@@ -847,6 +922,7 @@ pub fn build_ics26_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
 
 // ── State readers ───────────────────────────────────────────────────────
 
+/// Deserialize the on-chain `RouterState` from its PDA.
 pub async fn read_router_state(chain: &Chain) -> RouterState {
     use anchor_lang::AccountDeserialize;
 

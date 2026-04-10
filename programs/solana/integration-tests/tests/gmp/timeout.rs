@@ -42,7 +42,7 @@ async fn test_gmp_timeout() {
     // ── Start chain ──
     chain_a.start().await;
     deployer
-        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_a, programs)

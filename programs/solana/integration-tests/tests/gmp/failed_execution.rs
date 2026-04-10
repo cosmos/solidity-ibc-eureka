@@ -80,14 +80,14 @@ async fn test_gmp_failed_execution_aborts() {
 
     chain_a.start().await;
     deployer
-        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_a, programs)
         .await;
     chain_b.start().await;
     deployer
-        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_b, programs)

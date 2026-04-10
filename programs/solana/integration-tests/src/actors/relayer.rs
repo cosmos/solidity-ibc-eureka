@@ -1,3 +1,9 @@
+//! Relayer actor.
+//!
+//! Uploads payload/proof chunks and submits `recv_packet`, `ack_packet`
+//! and `timeout_packet` transactions across Router, GMP and IFT flows.
+//! Must hold `RELAYER_ROLE` in the access manager.
+
 use super::Actor;
 use crate::chain::Chain;
 use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacketParams};
@@ -6,6 +12,7 @@ use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, Timeout
 use solana_program_test::BanksClientError;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 
+/// Relayer actor that uploads chunks and delivers IBC packets.
 pub struct Relayer {
     keypair: Keypair,
 }
@@ -23,12 +30,14 @@ impl Actor for Relayer {
 }
 
 impl Relayer {
+    /// Create a relayer with a fresh random keypair.
     pub fn new() -> Self {
         Self {
             keypair: Keypair::new(),
         }
     }
 
+    /// Borrow the underlying keypair.
     pub const fn keypair(&self) -> &Keypair {
         &self.keypair
     }

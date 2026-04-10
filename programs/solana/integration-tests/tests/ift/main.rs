@@ -22,6 +22,7 @@ use integration_tests::{
     chain::{Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
     ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, IftTransferParams, TokenKind},
+    ift_admin::IftAdmin,
     programs::{Ics27Gmp, Ift},
     relayer::Relayer,
     user::User,
@@ -50,11 +51,11 @@ const TRANSFER_AMOUNT: u64 = 100_000;
 /// Returns `(mint_pubkey, user_ata)`.
 async fn setup_ift_chain(
     chain: &mut Chain,
-    admin: &Admin,
+    ift_admin: &IftAdmin,
     mint_keypair: &Keypair,
     user_pubkey: Pubkey,
 ) -> (Pubkey, Pubkey) {
-    setup_ift_chain_with_token(chain, admin, mint_keypair, user_pubkey, TokenKind::Spl).await
+    setup_ift_chain_with_token(chain, ift_admin, mint_keypair, user_pubkey, TokenKind::Spl).await
 }
 
 /// Set up a chain with IFT + GMP, create a token (SPL or Token 2022), register
@@ -63,15 +64,15 @@ async fn setup_ift_chain(
 /// Returns `(mint_pubkey, user_ata)`.
 async fn setup_ift_chain_with_token(
     chain: &mut Chain,
-    admin: &Admin,
+    ift_admin: &IftAdmin,
     mint_keypair: &Keypair,
     user_pubkey: Pubkey,
     token_kind: TokenKind,
 ) -> (Pubkey, Pubkey) {
     let mint = mint_keypair.pubkey();
-    let admin_pubkey = admin.pubkey();
+    let admin_pubkey = ift_admin.pubkey();
 
-    // 1. Create token (admin pays + signs as authority)
+    // 1. Create token (IFT admin pays + signs as authority)
     let create_token_ix = match token_kind {
         TokenKind::Token2022 => ift::build_create_token_2022_ix(
             admin_pubkey,
@@ -89,12 +90,12 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[create_token_ix],
         Some(&admin_pubkey),
-        &[admin.keypair(), mint_keypair],
+        &[ift_admin.keypair(), mint_keypair],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("create token");
 
-    // 2. Register EVM bridge (admin pays + signs)
+    // 2. Register EVM bridge (IFT admin pays + signs)
     let register_bridge_ix = ift::build_register_bridge_ix(
         admin_pubkey,
         admin_pubkey,
@@ -105,7 +106,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[register_bridge_ix],
         Some(&admin_pubkey),
-        &[admin.keypair()],
+        &[ift_admin.keypair()],
         chain.blockhash(),
     );
     chain
@@ -113,7 +114,7 @@ async fn setup_ift_chain_with_token(
         .await
         .expect("register bridge");
 
-    // 3. Mint tokens to user's ATA (admin pays + signs)
+    // 3. Mint tokens to user's ATA (IFT admin pays + signs)
     let admin_mint_ix = ift::build_admin_mint_ix(
         admin_pubkey,
         admin_pubkey,
@@ -125,7 +126,7 @@ async fn setup_ift_chain_with_token(
     let tx = Transaction::new_signed_with_payer(
         &[admin_mint_ix],
         Some(&admin_pubkey),
-        &[admin.keypair()],
+        &[ift_admin.keypair()],
         chain.blockhash(),
     );
     chain.process_transaction(tx).await.expect("admin mint");

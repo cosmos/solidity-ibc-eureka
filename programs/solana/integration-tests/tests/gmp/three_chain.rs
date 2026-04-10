@@ -70,14 +70,14 @@ async fn test_gmp_three_chain_roundtrip() {
     // ── Start all chains ──
     chain_a.start().await;
     deployer
-        .init_programs(&mut chain_a, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_a, programs)
         .await;
     chain_b.start().await;
     deployer
-        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
         .await;
     deployer
         .add_counterparty(&mut chain_b, &admin, "b-to-c", "c-to-b")
@@ -87,7 +87,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await;
     chain_c.start().await;
     deployer
-        .init_programs(&mut chain_c, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_c, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_c, programs)

@@ -1,5 +1,5 @@
 use super::*;
-use integration_tests::{admin::Admin, extract_custom_error, ift_admin::IftAdmin};
+use integration_tests::extract_custom_error;
 
 /// Pause blocks transfers and admin-mint; unpause restores them.
 ///
@@ -13,6 +13,7 @@ async fn test_ift_pause() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let ift_admin = IftAdmin::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
@@ -20,18 +21,20 @@ async fn test_ift_pause() {
         deployer: &deployer,
         programs,
     });
-    chain.prefund(&[&admin, &relayer, &user]);
+    chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
+        .await;
+    deployer
+        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
-    let (mint, user_ata) = setup_ift_chain(&mut chain, &admin, &mint_keypair, user.pubkey()).await;
-
-    let ift_admin = IftAdmin::from_keypair(admin.keypair().insecure_clone());
+    let (mint, user_ata) =
+        setup_ift_chain(&mut chain, &ift_admin, &mint_keypair, user.pubkey()).await;
 
     // ── Pause the app ──
     ift_admin.set_paused(&mut chain, true).await.expect("pause");

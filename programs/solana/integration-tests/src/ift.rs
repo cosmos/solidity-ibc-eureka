@@ -1,3 +1,9 @@
+//! Inter-chain Fungible Token (IFT) transfer instruction builders.
+//!
+//! Covers SPL / Token-2022 token creation, bridge registration, transfers,
+//! finalization, admin operations (pause, admin transfer, admin mint),
+//! ABI-encoded GMP ack/timeout packets and on-chain state readers.
+
 use crate::chain::{derive_mock_lc_pdas, Chain};
 use crate::gmp::{GMP_PORT_ID, ICS27_VERSION};
 use anchor_lang::InstructionData;
@@ -9,12 +15,16 @@ use solana_sdk::{
     system_program,
 };
 
+/// ABI content-type used for IFT payload encoding towards EVM chains.
 pub const ICS27_ENCODING_ABI: &str = "application/x-solidity-abi";
+/// Dummy EVM address for the counterparty IFT contract in tests.
 pub const COUNTERPARTY_IFT_ADDRESS: &str = "0x1234567890abcdef1234567890abcdef12345678";
+/// Dummy EVM receiver address used in IFT transfer tests.
 pub const EVM_RECEIVER: &str = "0xabcdef1234567890abcdef1234567890abcdef12";
 
 // ── Token program selection ─────────────────────────────────────────────
 
+/// Selects between SPL Token and Token-2022 programs.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum TokenKind {
     Spl,
@@ -22,6 +32,7 @@ pub enum TokenKind {
 }
 
 impl TokenKind {
+    /// Return the on-chain program ID for this token standard.
     pub const fn program_id(self) -> Pubkey {
         match self {
             Self::Spl => anchor_spl::token::ID,
@@ -29,10 +40,12 @@ impl TokenKind {
         }
     }
 
+    /// Derive the associated token account for `owner` and `mint`.
     pub fn get_ata(self, owner: &Pubkey, mint: &Pubkey) -> Pubkey {
         get_associated_token_address_with_program_id(owner, mint, &self.program_id())
     }
 
+    /// Read the token balance from an on-chain token account.
     pub async fn read_balance(self, chain: &Chain, token_account: Pubkey) -> u64 {
         use anchor_spl::token_interface::spl_token_2022::{
             extension::StateWithExtensions, state::Account as Token2022Account,
@@ -60,10 +73,12 @@ impl TokenKind {
 
 // ── PDA derivation ──────────────────────────────────────────────────────
 
+/// Derive the IFT `IFTAppState` PDA.
 pub fn derive_app_state_pda() -> Pubkey {
     Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID).0
 }
 
+/// Derive the IFT per-mint state PDA.
 pub fn derive_app_mint_state_pda(mint: &Pubkey) -> Pubkey {
     Pubkey::find_program_address(
         &[ift::constants::IFT_APP_MINT_STATE_SEED, mint.as_ref()],
@@ -72,6 +87,7 @@ pub fn derive_app_mint_state_pda(mint: &Pubkey) -> Pubkey {
     .0
 }
 
+/// Derive the IFT bridge PDA for a given `mint` and `client_id`.
 pub fn derive_bridge_pda(mint: &Pubkey, client_id: &str) -> Pubkey {
     Pubkey::find_program_address(
         &[
@@ -84,6 +100,7 @@ pub fn derive_bridge_pda(mint: &Pubkey, client_id: &str) -> Pubkey {
     .0
 }
 
+/// Derive the pending-transfer PDA for a given `mint`, `client_id` and `sequence`.
 pub fn derive_pending_transfer_pda(mint: &Pubkey, client_id: &str, sequence: u64) -> Pubkey {
     Pubkey::find_program_address(
         &[
@@ -97,6 +114,7 @@ pub fn derive_pending_transfer_pda(mint: &Pubkey, client_id: &str, sequence: u64
     .0
 }
 
+/// Derive the IFT mint-authority PDA for a given `mint`.
 pub fn derive_mint_authority_pda(mint: &Pubkey) -> Pubkey {
     Pubkey::find_program_address(
         &[ift::constants::MINT_AUTHORITY_SEED, mint.as_ref()],
@@ -107,6 +125,7 @@ pub fn derive_mint_authority_pda(mint: &Pubkey) -> Pubkey {
 
 // ── Instruction builders ────────────────────────────────────────────────
 
+/// Build a `create_and_initialize_spl_token` instruction for SPL Token.
 pub fn build_create_spl_token_ix(
     authority: Pubkey,
     payer: Pubkey,
@@ -122,6 +141,7 @@ pub fn build_create_spl_token_ix(
     )
 }
 
+/// Build a `create_and_initialize_spl_token` instruction for Token-2022.
 pub fn build_create_token_2022_ix(
     authority: Pubkey,
     payer: Pubkey,
@@ -173,6 +193,7 @@ fn build_create_token_ix(
     }
 }
 
+/// Build a `register_ift_bridge` instruction linking a mint to a counterparty.
 pub fn build_register_bridge_ix(
     authority: Pubkey,
     payer: Pubkey,
@@ -206,6 +227,7 @@ pub fn build_register_bridge_ix(
     }
 }
 
+/// Build an `admin_mint` instruction to mint tokens to a receiver.
 pub fn build_admin_mint_ix(
     authority: Pubkey,
     payer: Pubkey,
@@ -244,20 +266,30 @@ pub fn build_admin_mint_ix(
 
 // ── Transfer instruction ────────────────────────────────────────────────
 
+/// Parameters for building an `ift_transfer` instruction.
 pub struct IftTransferParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// Receiver address on the destination chain.
     pub receiver: String,
+    /// Amount of tokens to transfer.
     pub amount: u64,
+    /// Absolute timeout timestamp (seconds).
     pub timeout_timestamp: u64,
 }
 
+/// Output of [`build_ift_transfer_ix`].
 #[derive(Debug)]
 pub struct IftTransferResult {
+    /// The `ift_transfer` instruction to submit.
     pub ix: Instruction,
+    /// PDA where the packet commitment is stored.
     pub commitment_pda: Pubkey,
+    /// PDA tracking the pending transfer state.
     pub pending_transfer_pda: Pubkey,
 }
 
+/// Build an `ift_transfer` instruction that initiates a cross-chain token transfer.
 pub fn build_ift_transfer_ix(
     sender: Pubkey,
     payer: Pubkey,
@@ -335,6 +367,8 @@ pub fn build_ift_transfer_ix(
 
 // ── Finalize Transfer ───────────────────────────────────────────────────
 
+/// Build a `finalize_transfer` instruction to complete or refund a transfer
+/// after the GMP result is available.
 pub fn build_finalize_transfer_ix(
     payer: Pubkey,
     mint: Pubkey,
@@ -377,21 +411,33 @@ pub fn build_finalize_transfer_ix(
 
 // ── GMP ack/timeout param structs ───────────────────────────────────────
 
+/// Parameters for building an IFT GMP `ack_packet` instruction (ABI encoding).
 pub struct IftGmpAckPacketParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// Raw acknowledgement bytes.
     pub acknowledgement: Vec<u8>,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
 }
 
+/// Parameters for building an IFT GMP `timeout_packet` instruction (ABI encoding).
 pub struct IftGmpTimeoutPacketParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
 }
 
 // ── GMP ack/timeout builders with ABI encoding ─────────────────────────
 
+/// Build a GMP `ack_packet` instruction for an IFT transfer (ABI encoding).
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_ift_gmp_ack_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -424,6 +470,9 @@ pub fn build_ift_gmp_ack_packet_ix(
     )
 }
 
+/// Build a GMP `timeout_packet` instruction for an IFT transfer (ABI encoding).
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_ift_gmp_timeout_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -510,6 +559,7 @@ pub fn encode_ift_gmp_packet(counterparty_addr: &str, mint_call_payload: Vec<u8>
 
 // ── Account state readers ───────────────────────────────────────────────
 
+/// Deserialize a `PendingTransfer` from its PDA.
 pub async fn read_pending_transfer(chain: &Chain, pda: Pubkey) -> ift::state::PendingTransfer {
     use anchor_lang::AccountDeserialize;
     let account = chain
@@ -520,6 +570,7 @@ pub async fn read_pending_transfer(chain: &Chain, pda: Pubkey) -> ift::state::Pe
         .expect("deserialize PendingTransfer")
 }
 
+/// Deserialize the on-chain `IFTAppState` from its PDA.
 pub async fn read_app_state(chain: &Chain) -> ift::state::IFTAppState {
     use anchor_lang::AccountDeserialize;
     let pda = derive_app_state_pda();
@@ -531,6 +582,7 @@ pub async fn read_app_state(chain: &Chain) -> ift::state::IFTAppState {
         .expect("deserialize IFTAppState")
 }
 
+/// Assert that a `PendingTransfer` account has been closed.
 pub async fn assert_pending_transfer_closed(chain: &Chain, pda: Pubkey) {
     assert!(
         chain.get_account(pda).await.is_none(),
@@ -540,6 +592,7 @@ pub async fn assert_pending_transfer_closed(chain: &Chain, pda: Pubkey) {
 
 // ── Admin instruction builders ──────────────────────────────────────────
 
+/// Build an IFT `propose_admin` instruction.
 pub fn build_propose_admin_ix(admin: Pubkey, new_admin: Pubkey) -> Instruction {
     let app_state_pda = derive_app_state_pda();
 
@@ -554,6 +607,7 @@ pub fn build_propose_admin_ix(admin: Pubkey, new_admin: Pubkey) -> Instruction {
     }
 }
 
+/// Build an IFT `accept_admin` instruction.
 pub fn build_accept_admin_ix(pending_admin: Pubkey) -> Instruction {
     let app_state_pda = derive_app_state_pda();
 
@@ -568,6 +622,7 @@ pub fn build_accept_admin_ix(pending_admin: Pubkey) -> Instruction {
     }
 }
 
+/// Build an IFT `cancel_admin_proposal` instruction.
 pub fn build_cancel_admin_proposal_ix(admin: Pubkey) -> Instruction {
     let app_state_pda = derive_app_state_pda();
 
@@ -582,6 +637,7 @@ pub fn build_cancel_admin_proposal_ix(admin: Pubkey) -> Instruction {
     }
 }
 
+/// Build an IFT `set_paused` instruction.
 pub fn build_set_paused_ix(admin: Pubkey, paused: bool) -> Instruction {
     let app_state_pda = derive_app_state_pda();
 

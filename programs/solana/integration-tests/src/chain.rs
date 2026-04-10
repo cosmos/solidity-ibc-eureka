@@ -1,3 +1,9 @@
+//! Simulated Solana chain backed by `ProgramTest` / `BanksClient`.
+//!
+//! Handles program registration, deterministic clock setup, actor funding,
+//! transaction submission and account reads. Each [`Chain`] instance
+//! represents an independent local validator used by a single test.
+
 use crate::actors::deployer::Deployer;
 use crate::Actor;
 use solana_program_test::{BanksClient, BanksClientError, ProgramTest};
@@ -14,6 +20,7 @@ use solana_sdk::{
 };
 
 const DEPLOY_DIR: &str = "../target/deploy";
+/// Deterministic Unix timestamp used for every test chain clock.
 pub const TEST_CLOCK_TIME: i64 = 1_700_000_000;
 const DEFAULT_PREFUND_LAMPORTS: u64 = 10_000_000_000;
 pub(crate) const MOCK_LC_LATEST_HEIGHT: u64 = 1;
@@ -88,13 +95,23 @@ pub trait ChainProgram: Sync {
 
 // ── Chain config & runtime ──────────────────────────────────────────────
 
+/// Parameters for constructing a new [`Chain`].
 pub struct ChainConfig<'a> {
+    /// Light-client identifier on this chain (e.g. `"08-wasm-0"`).
     pub client_id: &'a str,
+    /// Light-client identifier on the counterparty chain.
     pub counterparty_client_id: &'a str,
+    /// Deployer actor that holds upgrade authority.
     pub deployer: &'a Deployer,
+    /// Application programs to register alongside the core stack.
     pub programs: &'a [&'a dyn ChainProgram],
 }
 
+/// Simulated Solana validator for a single test.
+///
+/// Has two phases: **setup** (before [`Chain::start`]) where programs and
+/// accounts are registered, and **runtime** (after start) where
+/// transactions can be submitted.
 pub struct Chain {
     pt: Option<ProgramTest>,
     client_id: String,
@@ -105,6 +122,7 @@ pub struct Chain {
 }
 
 impl Chain {
+    /// Create a new chain from the given config (setup phase).
     pub fn new(config: ChainConfig<'_>) -> Self {
         let pt = build_program_test(&config);
 
@@ -134,7 +152,7 @@ impl Chain {
 
     /// Start the `ProgramTest` runtime, producing a `BanksClient`.
     ///
-    /// After calling `start()`, use `Deployer::init_programs` and
+    /// After calling `start()`, use `Deployer::init_ibc_stack` and
     /// `Deployer::transfer_upgrade_authority` to initialize on-chain state.
     pub async fn start(&mut self) {
         let pt = self.pt.take().expect("chain already started");
@@ -145,18 +163,22 @@ impl Chain {
 
     // ── Runtime phase (after start) ─────────────────────────────────────
 
+    /// Light-client identifier on this chain.
     pub fn client_id(&self) -> &str {
         &self.client_id
     }
 
+    /// Light-client identifier on the counterparty chain.
     pub fn counterparty_client_id(&self) -> &str {
         &self.counterparty_client_id
     }
 
+    /// Deterministic Unix timestamp set during chain construction.
     pub const fn clock_time(&self) -> i64 {
         self.clock_time
     }
 
+    /// Derive the `test_gmp_app` `CounterAppState` PDA.
     pub fn counter_app_state_pda(&self) -> Pubkey {
         Pubkey::find_program_address(
             &[test_gmp_app::state::CounterAppState::SEED],
@@ -165,10 +187,12 @@ impl Chain {
         .0
     }
 
+    /// Derive the IFT `IFTAppState` PDA.
     pub fn ift_app_state_pda(&self) -> Pubkey {
         Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID).0
     }
 
+    /// Latest blockhash, refreshed after every transaction.
     pub const fn blockhash(&self) -> Hash {
         self.blockhash
     }

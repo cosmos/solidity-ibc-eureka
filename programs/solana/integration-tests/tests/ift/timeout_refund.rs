@@ -15,6 +15,7 @@ async fn test_ift_timeout_refund() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let ift_admin = IftAdmin::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
@@ -22,16 +23,20 @@ async fn test_ift_timeout_refund() {
         deployer: &deployer,
         programs,
     });
-    chain.prefund(&[&admin, &relayer, &user]);
+    chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
+        .await;
+    deployer
+        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
-    let (mint, user_ata) = setup_ift_chain(&mut chain, &admin, &mint_keypair, user.pubkey()).await;
+    let (mint, user_ata) =
+        setup_ift_chain(&mut chain, &ift_admin, &mint_keypair, user.pubkey()).await;
 
     // Build expected GMP packet bytes for timeout delivery
     let mint_call_payload = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);

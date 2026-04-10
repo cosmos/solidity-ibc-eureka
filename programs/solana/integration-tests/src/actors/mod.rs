@@ -1,3 +1,9 @@
+//! Test actors that model distinct on-chain roles.
+//!
+//! Each actor wraps a [`Keypair`] and exposes high-level async methods
+//! that build, sign and submit transactions. The shared [`Actor`] trait
+//! provides a uniform `pubkey()` accessor used by [`Chain::prefund`].
+
 use crate::chain::Chain;
 use solana_program_test::BanksClientError;
 use solana_sdk::{

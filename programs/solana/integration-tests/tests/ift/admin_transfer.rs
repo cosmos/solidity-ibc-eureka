@@ -1,5 +1,4 @@
 use super::*;
-use integration_tests::{admin::Admin, ift_admin::IftAdmin};
 
 /// Two-step admin transfer: propose -> accept. Then propose -> cancel.
 ///
@@ -13,6 +12,7 @@ async fn test_ift_admin_transfer() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let ift_admin = IftAdmin::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
@@ -20,17 +20,18 @@ async fn test_ift_admin_transfer() {
         deployer: &deployer,
         programs,
     });
-    chain.prefund(&[&admin, &relayer]);
+    chain.prefund(&[&admin, &relayer, &ift_admin]);
     chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
+        .await;
+    deployer
+        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
-
-    let ift_admin = IftAdmin::from_keypair(admin.keypair().insecure_clone());
 
     // ── Verify initial state ──
     let state = ift::read_app_state(&chain).await;

@@ -1,3 +1,9 @@
+//! Deployer / upgrade-authority actor.
+//!
+//! Orchestrates the full program initialization sequence (access manager,
+//! router, light client, IBC apps and program-specific steps) and
+//! transfers upgrade authority to the access manager PDA afterwards.
+
 use super::Actor;
 use crate::admin::Admin;
 use crate::chain::{Chain, ChainProgram, InitStepSigner, MOCK_LC_LATEST_HEIGHT};
@@ -13,11 +19,7 @@ use solana_sdk::{
     transaction::Transaction,
 };
 
-/// Deployer for the chain — holds the upgrade authority keypair and
-/// orchestrates program initialization via `init_programs()`.
-///
-/// After initialization, `transfer_upgrade_authority()` transfers
-/// upgrade authority of all programs to the access manager PDA.
+/// Deployer / upgrade-authority actor.
 pub struct Deployer {
     keypair: Keypair,
 }
@@ -35,23 +37,26 @@ impl Actor for Deployer {
 }
 
 impl Deployer {
+    /// Create a deployer with a fresh random keypair.
     pub fn new() -> Self {
         Self {
             keypair: Keypair::new(),
         }
     }
 
+    /// Borrow the underlying keypair (used as upgrade authority).
     pub const fn keypair(&self) -> &Keypair {
         &self.keypair
     }
 
     // ── Public init methods ──────────────────────────────────────────────
 
-    /// Initialize all programs on the chain.
+    /// Initialize the full IBC stack on the chain.
     ///
     /// Must be called after `chain.start()`. Executes AM, router, light
-    /// client, IBC app and program-specific initialization transactions.
-    pub async fn init_programs(
+    /// client, IBC app registration and program-specific initialization
+    /// transactions.
+    pub async fn init_ibc_stack(
         &self,
         chain: &mut Chain,
         admin: &Admin,
@@ -74,6 +79,24 @@ impl Deployer {
                 InitStepSigner::WithAdmin => vec![self.keypair(), admin_kp],
             };
             submit_tx(chain, ixs, &signers).await;
+        }
+    }
+
+    /// Run only the program-specific initialization steps.
+    ///
+    /// Unlike [`init_ibc_stack`](Self::init_ibc_stack), this skips the core
+    /// infrastructure (AM, router, light client, IBC app registration).
+    /// Use this when a program needs a different admin than the core stack.
+    pub async fn init_programs(
+        &self,
+        chain: &mut Chain,
+        admin: Pubkey,
+        programs: &[&dyn ChainProgram],
+    ) {
+        for p in programs {
+            for (ixs, _signer) in p.init_steps(self.keypair(), admin) {
+                submit_tx(chain, &ixs, &[self.keypair()]).await;
+            }
         }
     }
 

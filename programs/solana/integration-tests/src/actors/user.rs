@@ -1,3 +1,9 @@
+//! End-user actor.
+//!
+//! Sends packets via `test_ibc_app`, initiates GMP calls through
+//! `ics27_gmp` and starts IFT transfers. The user pays transaction
+//! fees for all operations.
+
 use super::Actor;
 use crate::chain::Chain;
 use crate::gmp::{self, GmpSendCallParams};
@@ -6,6 +12,7 @@ use crate::router::{self, SendPacketParams, SendResult};
 use solana_program_test::BanksClientError;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 
+/// End-user actor that initiates packets, GMP calls and IFT transfers.
 pub struct User {
     keypair: Keypair,
 }
@@ -23,12 +30,14 @@ impl Actor for User {
 }
 
 impl User {
+    /// Create a user with a fresh random keypair.
     pub fn new() -> Self {
         Self {
             keypair: Keypair::new(),
         }
     }
 
+    /// Borrow the underlying keypair.
     pub const fn keypair(&self) -> &Keypair {
         &self.keypair
     }

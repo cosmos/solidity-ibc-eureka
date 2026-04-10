@@ -1,3 +1,10 @@
+//! ICS27 General Message Passing (GMP) instruction builders.
+//!
+//! Wraps router primitives with GMP-specific port, version and protobuf
+//! encoding. Also provides payload encoding helpers for `test_gmp_app`,
+//! raw `on_recv_packet` construction for security tests and
+//! access-manager transfer operations.
+
 use crate::accounts::anchor_discriminator;
 use crate::chain::{derive_mock_lc_pdas, Chain};
 use crate::router::RecvResult;
@@ -12,19 +19,30 @@ use solana_sdk::{
     system_program,
 };
 
+/// IBC port identifier used by `ics27_gmp`.
 pub const GMP_PORT_ID: &str = "gmpport";
+/// ICS27 application version string.
 pub const ICS27_VERSION: &str = "ics27-2";
+/// Protobuf content-type used for GMP payload encoding.
 pub const ICS27_ENCODING_PROTOBUF: &str = "application/x-protobuf";
 
 // ── Send Call ───────────────────────────────────────────────────────────
 
+/// Parameters for building a GMP `send_call` instruction.
 pub struct GmpSendCallParams<'a> {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// Absolute timeout timestamp (seconds).
     pub timeout_timestamp: u64,
+    /// Receiver address on the destination chain.
     pub receiver: &'a str,
+    /// Encoded GMP payload bytes.
     pub payload: Vec<u8>,
 }
 
+/// Build a GMP `send_call` instruction.
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_gmp_send_call_ix(
     sender: Pubkey,
     payer: Pubkey,
@@ -85,13 +103,19 @@ pub fn build_gmp_send_call_ix(
 
 // ── Recv Packet ─────────────────────────────────────────────────────────
 
+/// Parameters for building a GMP `recv_packet` instruction.
 pub struct GmpRecvPacketParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
+    /// GMP-specific remaining accounts (GMP account PDA, target program, etc.).
     pub remaining_accounts: Vec<AccountMeta>,
 }
 
+/// Build a GMP `recv_packet` instruction (delegates to [`router::build_recv_packet_ix`]).
 pub fn build_gmp_recv_packet_ix(
     relayer: Pubkey,
     dest_client: &str,
@@ -120,13 +144,21 @@ pub fn build_gmp_recv_packet_ix(
 
 // ── Ack Packet ──────────────────────────────────────────────────────────
 
+/// Parameters for building a GMP `ack_packet` instruction.
 pub struct GmpAckPacketParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// Raw acknowledgement bytes from the destination chain.
     pub acknowledgement: Vec<u8>,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
 }
 
+/// Build a GMP `ack_packet` instruction.
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_gmp_ack_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -159,12 +191,19 @@ pub fn build_gmp_ack_packet_ix(
 
 // ── Timeout Packet ─────────────────────────────────────────────────────
 
+/// Parameters for building a GMP `timeout_packet` instruction.
 pub struct GmpTimeoutPacketParams {
+    /// Packet sequence number.
     pub sequence: u64,
+    /// PDA of the uploaded payload chunk.
     pub payload_chunk_pda: Pubkey,
+    /// PDA of the uploaded proof chunk.
     pub proof_chunk_pda: Pubkey,
 }
 
+/// Build a GMP `timeout_packet` instruction.
+///
+/// Returns `(instruction, commitment_pda)`.
 pub fn build_gmp_timeout_packet_ix(
     relayer: Pubkey,
     source_client: &str,
@@ -365,6 +404,7 @@ fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
     solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
 }
 
+/// Build a GMP `propose_access_manager_transfer` instruction.
 pub fn build_gmp_propose_am_transfer_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
     Instruction {
         program_id: ics27_gmp::ID,
@@ -378,6 +418,7 @@ pub fn build_gmp_propose_am_transfer_ix(admin: Pubkey, new_access_manager: Pubke
     }
 }
 
+/// Build a GMP `accept_access_manager_transfer` instruction.
 pub fn build_gmp_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
     Instruction {
         program_id: ics27_gmp::ID,
@@ -391,6 +432,7 @@ pub fn build_gmp_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey)
     }
 }
 
+/// Build a GMP `cancel_access_manager_transfer` instruction.
 pub fn build_gmp_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
     Instruction {
         program_id: ics27_gmp::ID,
@@ -406,6 +448,7 @@ pub fn build_gmp_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
 
 // ── State readers ───────────────────────────────────────────────────────
 
+/// Deserialize the on-chain `GMPAppState` from its PDA.
 pub async fn read_gmp_app_state(chain: &Chain) -> ics27_gmp::state::GMPAppState {
     use anchor_lang::AccountDeserialize;
 

@@ -16,6 +16,7 @@ async fn test_ift_token_2022_lifecycle() {
 
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let ift_admin = IftAdmin::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
@@ -23,18 +24,26 @@ async fn test_ift_token_2022_lifecycle() {
         deployer: &deployer,
         programs,
     });
-    chain.prefund(&[&admin, &relayer, &user]);
+    chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
+        .await;
+    deployer
+        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
-    let (mint, user_ata) =
-        setup_ift_chain_with_token(&mut chain, &admin, &mint_keypair, user.pubkey(), token_kind)
-            .await;
+    let (mint, user_ata) = setup_ift_chain_with_token(
+        &mut chain,
+        &ift_admin,
+        &mint_keypair,
+        user.pubkey(),
+        token_kind,
+    )
+    .await;
 
     // Verify initial balance (Token 2022 account)
     let balance = token_kind.read_balance(&chain, user_ata).await;

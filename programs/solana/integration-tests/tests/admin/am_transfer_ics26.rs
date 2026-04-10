@@ -22,7 +22,7 @@ async fn test_ics26_am_transfer_propose_accept() {
     chain.prefund(&[&admin, &relayer]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
@@ -74,7 +74,7 @@ async fn test_ics26_am_transfer_propose_cancel() {
     chain.prefund(&[&admin, &relayer]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)
@@ -121,7 +121,7 @@ async fn test_ics26_am_transfer_unauthorized_propose() {
     chain.prefund(&[&non_admin]);
     chain.start().await;
     deployer
-        .init_programs(&mut chain, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain, programs)

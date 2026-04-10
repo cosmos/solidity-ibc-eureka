@@ -45,7 +45,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
 
     chain_b.start().await;
     deployer
-        .init_programs(&mut chain_b, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
         .await;
     deployer
         .transfer_upgrade_authority(&mut chain_b, programs)
