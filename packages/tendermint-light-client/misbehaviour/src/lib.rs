@@ -107,6 +107,7 @@ pub fn check_for_misbehaviour<'a>(
     time: u128,
     verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
     program_id: &'a anchor_lang::prelude::Pubkey,
+    sig_verification_discriminator: [u8; 8],
 ) -> Result<MisbehaviourOutput, MisbehaviourError> {
     let verifier = tendermint_light_client_solana::SolanaVerifier::new(
         tendermint_light_client_solana::SolanaPredicates,
@@ -114,6 +115,7 @@ pub fn check_for_misbehaviour<'a>(
             tendermint_light_client_solana::SolanaSignatureVerifier::new(
                 verification_accounts,
                 program_id,
+                sig_verification_discriminator,
             ),
         ),
         tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
@@ -178,7 +180,7 @@ where
     let options = Options {
         trust_threshold,
         trusting_period: Duration::from_secs(client_state.trusting_period_seconds),
-        clock_drift: Duration::from_secs(15),
+        clock_drift: Duration::from_secs(client_state.max_clock_drift_seconds),
     };
 
     // Call into ibc-rs verify_misbehaviour function to verify that both headers are valid given their respective trusted consensus states

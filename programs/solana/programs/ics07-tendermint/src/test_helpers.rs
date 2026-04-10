@@ -277,20 +277,32 @@ pub mod fixtures {
         expected_error: crate::error::ErrorCode,
         test_name: &str,
     ) {
+        assert_error_code_one_of(result, &[expected_error], test_name);
+    }
+
+    /// Asserts the program failed with one of `expected_errors`. Used when
+    /// randomness (e.g. `Pubkey::new_unique()`) can legitimately push a
+    /// test onto one of several error paths.
+    pub fn assert_error_code_one_of(
+        result: mollusk_svm::result::InstructionResult,
+        expected_errors: &[crate::error::ErrorCode],
+        test_name: &str,
+    ) {
         match result.program_result {
             mollusk_svm::result::ProgramResult::Success => {
-                panic!("Expected {test_name} to fail with {expected_error:?}, but it succeeded");
+                panic!(
+                    "Expected {test_name} to fail with one of {expected_errors:?}, but it succeeded"
+                );
             }
             mollusk_svm::result::ProgramResult::Failure(error) => {
                 if let Some(code) = get_error_code(&error) {
-                    let expected_code = expected_error as u32 + 6000; // Anchor errors start at 6000
-                    assert_eq!(
-                        code, expected_code,
-                        "Expected {expected_error:?} ({expected_code}), but got error code {code}"
+                    let expected_codes: Vec<u32> =
+                        expected_errors.iter().map(|e| *e as u32 + 6000).collect();
+                    assert!(
+                        expected_codes.contains(&code),
+                        "Expected one of {expected_errors:?} ({expected_codes:?}), but got error code {code}"
                     );
-                    println!(
-                        "✅ {test_name} correctly failed with {expected_error:?} ({expected_code})"
-                    );
+                    println!("✅ {test_name} correctly failed with error code {code}");
                 } else {
                     panic!("Expected custom error code for {test_name}, got: {error:?}");
                 }
@@ -718,6 +730,14 @@ pub mod chunk_test_utils {
     }
 
     pub fn derive_chunk_pda(submitter: &Pubkey, target_height: u64, chunk_index: u8) -> Pubkey {
+        derive_chunk_pda_with_bump(submitter, target_height, chunk_index).0
+    }
+
+    pub fn derive_chunk_pda_with_bump(
+        submitter: &Pubkey,
+        target_height: u64,
+        chunk_index: u8,
+    ) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[
                 crate::state::HeaderChunk::SEED,
@@ -727,7 +747,6 @@ pub mod chunk_test_utils {
             ],
             &crate::ID,
         )
-        .0
     }
 
     pub fn derive_client_state_pda() -> Pubkey {

@@ -95,12 +95,14 @@ pub mod ics07_tendermint {
         target_height: u64,
         chunk_count: u8,
         trusted_height: u64,
+        chunk_bumps: Vec<u8>,
     ) -> Result<UpdateResult> {
         instructions::assemble_and_update_client::assemble_and_update_client(
             ctx,
             target_height,
             chunk_count,
             trusted_height,
+            chunk_bumps,
         )
     }
 
@@ -126,12 +128,14 @@ pub mod ics07_tendermint {
         chunk_count: u8,
         trusted_height_1: u64,
         trusted_height_2: u64,
+        chunk_bumps: Vec<u8>,
     ) -> Result<()> {
         instructions::assemble_and_submit_misbehaviour::assemble_and_submit_misbehaviour(
             ctx,
             chunk_count,
             trusted_height_1,
             trusted_height_2,
+            chunk_bumps,
         )
     }
 

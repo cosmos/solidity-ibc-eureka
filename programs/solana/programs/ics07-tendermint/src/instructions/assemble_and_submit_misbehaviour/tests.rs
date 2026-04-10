@@ -23,6 +23,7 @@ struct TestAccounts {
     height_2: u64,
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
+    chunk_bumps: Vec<u8>,
     accounts: Vec<(Pubkey, Account)>,
 }
 
@@ -253,22 +254,23 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
     ));
 
     let mut chunk_pdas = vec![];
+    let mut chunk_bumps = vec![];
     if with_chunks {
         const CHUNK_SIZE: usize = 700;
         let num_chunks = misbehaviour_bytes.len().div_ceil(CHUNK_SIZE);
 
         for i in 0..num_chunks {
-            let chunk_pda = Pubkey::find_program_address(
+            let (chunk_pda, chunk_bump) = Pubkey::find_program_address(
                 &[
                     crate::state::MisbehaviourChunk::SEED,
                     submitter.as_ref(),
                     &[i as u8],
                 ],
                 &crate::ID,
-            )
-            .0;
+            );
 
             chunk_pdas.push(chunk_pda);
+            chunk_bumps.push(chunk_bump);
 
             let start = i * CHUNK_SIZE;
             let end = std::cmp::min(start + CHUNK_SIZE, misbehaviour_bytes.len());
@@ -303,6 +305,7 @@ fn setup_test_accounts(config: TestSetupConfig) -> TestAccounts {
         height_2,
         submitter,
         chunk_pdas,
+        chunk_bumps,
         accounts,
     }
 }
@@ -313,6 +316,7 @@ fn create_assemble_instruction(test_accounts: &TestAccounts) -> Instruction {
         chunk_count,
         trusted_height_1: test_accounts.height_1,
         trusted_height_2: test_accounts.height_2,
+        chunk_bumps: test_accounts.chunk_bumps.clone(),
     };
 
     let (access_manager_pda, _) =
@@ -676,4 +680,59 @@ fn test_non_pda_consensus_state_bypasses_constraint() {
     let result = mollusk.process_instruction(&instruction, &test_accounts.accounts);
 
     assert_constraint_seeds(&result);
+}
+
+#[test]
+fn test_assemble_and_submit_misbehaviour_wrong_chunk_bump() {
+    let chain_id = "test-chain";
+    let height_1 = 90;
+    let height_2 = 95;
+    let submitter = Pubkey::new_unique();
+
+    let misbehaviour_bytes = create_mock_misbehaviour_bytes(100, 100, true);
+
+    let mut test_accounts = setup_test_accounts(TestSetupConfig {
+        chain_id,
+        height_1,
+        height_2,
+        submitter,
+        client_frozen: false,
+        with_valid_consensus_states: true,
+        with_chunks: true,
+        misbehaviour_bytes: &misbehaviour_bytes,
+    });
+
+    assert!(
+        !test_accounts.chunk_bumps.is_empty(),
+        "test setup must produce at least one chunk"
+    );
+
+    // Pick an on-curve bump so the failure is deterministically
+    // `InvalidBump` instead of a collision with another valid PDA.
+    let canonical_bump = test_accounts.chunk_bumps[0];
+    let wrong_bump = (0u8..=u8::MAX)
+        .find(|&b| {
+            b != canonical_bump
+                && Pubkey::create_program_address(
+                    &[
+                        crate::state::MisbehaviourChunk::SEED,
+                        submitter.as_ref(),
+                        &[0u8],
+                        &[b],
+                    ],
+                    &crate::ID,
+                )
+                .is_err()
+        })
+        .expect("expected at least one on-curve bump for the misbehaviour chunk seeds");
+
+    test_accounts.chunk_bumps[0] = wrong_bump;
+
+    let instruction = create_assemble_instruction(&test_accounts);
+
+    let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+    let checks = vec![Check::err(
+        anchor_lang::error::Error::from(ErrorCode::InvalidBump).into(),
+    )];
+    mollusk.process_and_validate_instruction(&instruction, &test_accounts.accounts, &checks);
 }

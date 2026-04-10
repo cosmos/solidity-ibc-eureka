@@ -104,14 +104,17 @@ fn create_test_header_and_chunks(num_chunks: u8) -> (Vec<u8>, Vec<Vec<u8>>) {
 }
 
 fn get_chunk_pdas(submitter: &Pubkey, target_height: u64, num_chunks: u8) -> Vec<Pubkey> {
-    let mut chunk_pdas = vec![];
+    get_chunk_pdas_with_bumps(submitter, target_height, num_chunks).0
+}
 
-    for i in 0..num_chunks {
-        let chunk_pda = derive_chunk_pda(submitter, target_height, i);
-        chunk_pdas.push(chunk_pda);
-    }
-
-    chunk_pdas
+fn get_chunk_pdas_with_bumps(
+    submitter: &Pubkey,
+    target_height: u64,
+    num_chunks: u8,
+) -> (Vec<Pubkey>, Vec<u8>) {
+    (0..num_chunks)
+        .map(|i| derive_chunk_pda_with_bump(submitter, target_height, i))
+        .unzip()
 }
 
 fn create_app_state_account(access_manager_program_id: Pubkey) -> (Pubkey, Account) {
@@ -145,6 +148,7 @@ struct AssembleInstructionParams {
     new_consensus_state_pda: Pubkey,
     submitter: Pubkey,
     chunk_pdas: Vec<Pubkey>,
+    chunk_bumps: Vec<u8>,
     target_height: u64,
     trusted_height: u64,
 }
@@ -174,6 +178,7 @@ fn create_assemble_instruction(params: AssembleInstructionParams) -> Instruction
             target_height: params.target_height,
             chunk_count,
             trusted_height: params.trusted_height,
+            chunk_bumps: params.chunk_bumps,
         }
         .data(),
     }
@@ -232,7 +237,8 @@ fn test_successful_assembly_and_update() {
     client_state_account.data = client_data;
 
     // Get chunk PDAs
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, chunks.len() as u8);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&submitter, target_height, chunks.len() as u8);
 
     // Create instruction
     let payer = Pubkey::new_unique();
@@ -247,6 +253,7 @@ fn test_successful_assembly_and_update() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -365,7 +372,7 @@ fn test_assembly_with_corrupted_chunk() {
     );
 
     // Create metadata // Get chunk PDAs
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
     // Access manager PDA
     let (access_manager_pda, _) =
@@ -387,6 +394,7 @@ fn test_assembly_with_corrupted_chunk() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -466,7 +474,8 @@ fn test_assembly_wrong_submitter() {
     let (_, chunks) = create_test_header_and_chunks(2);
 
     // Create metadata with original submitter
-    let chunk_pdas = get_chunk_pdas(&original_submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&original_submitter, target_height, 2);
 
     // Try to assemble with wrong submitter
     let client_state_pda = derive_client_state_pda();
@@ -497,6 +506,7 @@ fn test_assembly_wrong_submitter() {
         new_consensus_state_pda: consensus_state_pda,
         submitter: wrong_submitter, // Wrong!
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -555,9 +565,15 @@ fn test_assembly_wrong_submitter() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    // When the submitter is wrong, the PDA validation fails because chunks were created
-    // with a different submitter, so we get InvalidChunkAccount
-    assert_error_code(result, ErrorCode::InvalidChunkAccount, "wrong submitter");
+    // Bumps belong to `original_submitter`; pairing them with
+    // `wrong_submitter` either hits an on-curve point (`InvalidBump`) or
+    // some other valid-but-wrong PDA (`InvalidChunkAccount`) depending on
+    // the random keys in scope.
+    crate::test_helpers::fixtures::assert_error_code_one_of(
+        result,
+        &[ErrorCode::InvalidBump, ErrorCode::InvalidChunkAccount],
+        "wrong submitter",
+    );
 }
 
 #[test]
@@ -581,7 +597,7 @@ fn test_assembly_chunks_in_wrong_order() {
     );
 
     // Create accounts // Get chunk PDAs
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 3);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 3);
 
     // Pass chunks in wrong order (2, 0, 1 instead of 0, 1, 2)
     let wrong_order_pdas = vec![chunk_pdas[2], chunk_pdas[0], chunk_pdas[1]];
@@ -605,6 +621,7 @@ fn test_assembly_chunks_in_wrong_order() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: wrong_order_pdas,
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -697,7 +714,7 @@ fn test_rent_reclaim_after_assembly() {
         ],
         &crate::ID,
     ); // Get chunk PDAs
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
     // Submitter account
     let submitter_account = create_submitter_account(initial_balance);
@@ -721,6 +738,7 @@ fn test_rent_reclaim_after_assembly() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -827,7 +845,8 @@ fn test_assemble_and_update_client_happy_path() {
         ],
         &crate::ID,
     );
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, num_chunks);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&submitter, target_height, num_chunks);
 
     // Access manager PDA
     let (access_manager_pda, _) =
@@ -864,6 +883,7 @@ fn test_assemble_and_update_client_happy_path() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -990,7 +1010,8 @@ fn test_assemble_with_frozen_client() {
         ],
         &crate::ID,
     );
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, num_chunks);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&submitter, target_height, num_chunks);
 
     // Create frozen client state from real fixture
     let mut frozen_client_state = client_state;
@@ -1035,6 +1056,7 @@ fn test_assemble_with_frozen_client() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1123,7 +1145,8 @@ fn test_assemble_with_existing_consensus_state() {
         ],
         &crate::ID,
     );
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, num_chunks);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&submitter, target_height, num_chunks);
 
     // Create a conflicting consensus state at target height (different from what header will produce)
     let mut conflicting_consensus_data = vec![];
@@ -1193,6 +1216,7 @@ fn test_assemble_with_existing_consensus_state() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1308,7 +1332,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
         ],
         &crate::ID,
     );
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
     // Access manager PDA
     let (access_manager_pda, _) =
@@ -1329,6 +1353,7 @@ fn test_assemble_with_invalid_header_after_assembly() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1418,7 +1443,7 @@ fn test_assemble_updates_latest_height() {
         ],
         &crate::ID,
     );
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
     // Access manager PDA
     let (access_manager_pda, _) =
@@ -1439,6 +1464,7 @@ fn test_assemble_updates_latest_height() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1606,8 +1632,9 @@ fn test_assemble_and_update_with_invalid_signature() {
 
     // Create chunk PDAs and accounts
     let mut chunk_accounts = Vec::new();
+    let mut chunk_bumps = Vec::new();
     for (i, chunk_data) in corrupted_chunks.iter().enumerate() {
-        let (chunk_pda, _) = Pubkey::find_program_address(
+        let (chunk_pda, chunk_bump) = Pubkey::find_program_address(
             &[
                 HeaderChunk::SEED,
                 submitter.as_ref(),
@@ -1619,6 +1646,7 @@ fn test_assemble_and_update_with_invalid_signature() {
 
         let chunk_account = create_chunk_account(chunk_data.clone());
         chunk_accounts.push((chunk_pda, chunk_account));
+        chunk_bumps.push(chunk_bump);
     }
 
     // Access manager PDA
@@ -1707,6 +1735,7 @@ fn test_assemble_and_update_with_invalid_signature() {
         target_height,
         chunk_count: chunk_accounts.len() as u8,
         trusted_height,
+        chunk_bumps,
     };
 
     let instruction = Instruction {
@@ -1778,7 +1807,7 @@ fn test_assemble_wrong_client_state_pda() {
         &crate::ID,
     );
 
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
     let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
@@ -1797,6 +1826,7 @@ fn test_assemble_wrong_client_state_pda() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1858,7 +1888,7 @@ fn test_assemble_wrong_new_consensus_state_pda() {
     let (_, chunks) = create_test_header_and_chunks(2);
 
     let client_state_pda = derive_client_state_pda();
-    let chunk_pdas = get_chunk_pdas(&submitter, target_height, 2);
+    let (chunk_pdas, chunk_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
     // Derive the WRONG PDA using a different height
     let wrong_height = target_height.saturating_add(999);
@@ -1892,6 +1922,7 @@ fn test_assemble_wrong_new_consensus_state_pda() {
         new_consensus_state_pda: wrong_consensus_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height,
         trusted_height,
     });
@@ -1968,7 +1999,8 @@ fn test_assemble_target_height_mismatch() {
     );
     // Chunk PDAs use wrong_target_height so chunk assembly succeeds — the
     // mismatch is only caught after header verification returns new_height.
-    let chunk_pdas = get_chunk_pdas(&submitter, wrong_target_height, num_chunks);
+    let (chunk_pdas, chunk_bumps) =
+        get_chunk_pdas_with_bumps(&submitter, wrong_target_height, num_chunks);
 
     let (access_manager_pda, _) =
         solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
@@ -1998,6 +2030,7 @@ fn test_assemble_target_height_mismatch() {
         new_consensus_state_pda: consensus_state_pda,
         submitter,
         chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
         target_height: wrong_target_height,
         trusted_height,
     });
@@ -2053,4 +2086,182 @@ fn test_assemble_target_height_mismatch() {
 
     let result = mollusk_with_budget.process_instruction(&instruction, &accounts);
     assert_error_code(result, ErrorCode::HeightMismatch, "target height mismatch");
+}
+
+#[test]
+fn test_assembly_fails_with_wrong_chunk_bump() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    let (_, chunks) = create_test_header_and_chunks(2);
+
+    let client_state_pda = derive_client_state_pda();
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    let (chunk_pdas, canonical_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
+
+    // Pick an on-curve bump so the failure is deterministically
+    // `InvalidBump` instead of a collision with another valid PDA.
+    let target_height_le = target_height.to_le_bytes();
+    let index_byte = [0u8];
+    let wrong_bump = (0u8..=u8::MAX)
+        .find(|&b| {
+            b != canonical_bumps[0]
+                && Pubkey::create_program_address(
+                    &[
+                        crate::state::HeaderChunk::SEED,
+                        submitter.as_ref(),
+                        &target_height_le,
+                        &index_byte,
+                        &[b],
+                    ],
+                    &crate::ID,
+                )
+                .is_err()
+        })
+        .expect("expected at least one on-curve bump for the header chunk seeds");
+
+    let mut chunk_bumps = canonical_bumps;
+    chunk_bumps[0] = wrong_bump;
+
+    let (access_manager_pda, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let payer = Pubkey::new_unique();
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
+
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
+        client_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
+        submitter,
+        chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps,
+        target_height,
+        trusted_height,
+    });
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        (payer, create_submitter_account(1_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    accounts.push(create_clock_account(0));
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert_error_code(result, ErrorCode::InvalidBump, "wrong chunk bump");
+}
+
+#[test]
+fn test_assembly_fails_when_chunk_bumps_length_mismatches_chunk_count() {
+    let mollusk = setup_mollusk();
+
+    let chain_id = "test-chain";
+    let target_height = 100u64;
+    let submitter = Pubkey::new_unique();
+
+    let (_, chunks) = create_test_header_and_chunks(2);
+
+    let client_state_pda = derive_client_state_pda();
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[
+            crate::state::ConsensusStateStore::SEED,
+            &target_height.to_le_bytes(),
+        ],
+        &crate::ID,
+    );
+
+    let (chunk_pdas, canonical_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
+
+    // One short so the length check fires before any PDA derivation.
+    let mut short_bumps = canonical_bumps;
+    short_bumps.pop();
+
+    let (access_manager_pda, access_manager_account) =
+        crate::test_helpers::access_control::create_access_manager_account(
+            submitter,
+            vec![submitter],
+        );
+    let (app_state_pda, app_state_account) = create_app_state_account(access_manager::ID);
+
+    let payer = Pubkey::new_unique();
+    let trusted_height = 90u64;
+    let trusted_consensus_pda = derive_consensus_state_pda(trusted_height);
+
+    let instruction = create_assemble_instruction(AssembleInstructionParams {
+        app_state_pda,
+        access_manager_pda,
+        client_state_pda,
+        trusted_consensus_state_pda: trusted_consensus_pda,
+        new_consensus_state_pda: consensus_state_pda,
+        submitter,
+        chunk_pdas: chunk_pdas.clone(),
+        chunk_bumps: short_bumps,
+        target_height,
+        trusted_height,
+    });
+
+    let mut accounts = vec![
+        (app_state_pda, app_state_account),
+        (access_manager_pda, access_manager_account),
+        (client_state_pda, create_client_state_account(chain_id, 90)),
+        (
+            trusted_consensus_pda,
+            create_consensus_state_account([0; 32], [0; 32], 0),
+        ),
+        (consensus_state_pda, Account::default()),
+        (submitter, create_submitter_account(10_000_000_000)),
+        (payer, create_submitter_account(1_000_000_000)),
+        keyed_account_for_system_program(),
+    ];
+
+    for (i, chunk_pda) in chunk_pdas.iter().enumerate() {
+        accounts.push((*chunk_pda, create_chunk_account(chunks[i].clone())));
+    }
+
+    accounts.push(create_clock_account(0));
+    accounts.push((
+        anchor_lang::solana_program::sysvar::instructions::ID,
+        crate::test_helpers::create_instructions_sysvar_account(),
+    ));
+
+    let result = mollusk.process_instruction(&instruction, &accounts);
+    assert_error_code(
+        result,
+        ErrorCode::InvalidChunkCount,
+        "chunk_bumps length mismatch",
+    );
 }

@@ -67,6 +67,8 @@ pub enum ErrorCode {
     InvalidChunkAccount,
     #[msg("Chunk data too large: exceeds maximum chunk size")]
     ChunkDataTooLarge,
+    #[msg("Invalid bump: chunk bump does not produce the expected PDA")]
+    InvalidBump,
 
     // Access control errors
     #[msg("Unauthorized: caller does not have required role")]
