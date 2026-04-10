@@ -10,6 +10,10 @@ async fn test_multiple_gmp_calls() {
     let relayer = Relayer::new();
     let user = User::new();
 
+    // ── Test data ──
+    let first_amount = 42u64;
+    let second_amount = 58u64;
+
     // ── Chains ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
@@ -26,7 +30,6 @@ async fn test_multiple_gmp_calls() {
     // ── First call: increment by 42 ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
     let counter_app_state = chain_b.counter_app_state_pda();
-    let first_amount = 42u64;
     let first_payload = gmp::encode_increment_payload(
         counter_app_state,
         user_counter_pda,
@@ -92,7 +95,6 @@ async fn test_multiple_gmp_calls() {
         .expect("first ack_packet failed");
 
     // ── Second call: increment by 58 ──
-    let second_amount = 58u64;
     let second_payload = gmp::encode_increment_payload(
         counter_app_state,
         user_counter_pda,

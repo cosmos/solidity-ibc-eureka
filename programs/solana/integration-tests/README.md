@@ -130,7 +130,7 @@ graph TB
     Admin["Admin\n- ics26_propose/accept/cancel_am_transfer\n- gmp_propose/accept/cancel_am_transfer"]
     IftAdmin["IftAdmin\n- set_paused\n- propose/accept/cancel_admin\n- admin_mint"]
     User["User\n- send_packet\n- send_call\n- ift_transfer"]
-    Relayer["Relayer\n- upload_chunks\n- cleanup_chunks\n- recv_packet\n- ack_packet\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet\n- ift_gmp_ack_packet\n- ift_gmp_timeout_packet\n- ift_finalize_transfer"]
+    Relayer["Relayer\n- upload_chunks\n- upload_chunks_for_client\n- upload_chunks_with_multi_proof\n- cleanup_chunks\n- recv_packet\n- recv_packet_multi_proof\n- ack_packet\n- ack_packet_multi_proof\n- timeout_packet\n- gmp_recv_packet\n- gmp_ack_packet\n- gmp_timeout_packet\n- ift_gmp_ack_packet\n- ift_gmp_timeout_packet\n- ift_finalize_transfer"]
 
     Actor --> Deployer
     Actor --> Admin
@@ -270,7 +270,6 @@ async fn test_my_scenario() {
             SendPacketParams {
                 sequence,
                 packet_data,
-                ..Default::default()
             },
         )
         .await
