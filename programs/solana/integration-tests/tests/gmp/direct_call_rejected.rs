@@ -17,22 +17,17 @@ async fn test_gmp_direct_call_rejected() {
 
     // ── Chain ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
-    chain_b.prefund(&[&admin, &relayer]);
-    let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
+    let mut chain_a = Chain::single(&deployer, programs);
+    chain_a.prefund(&[&admin, &relayer]);
+    let gmp_account_pda = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
+    chain_a.prefund_lamports(gmp_account_pda, 10_000_000);
 
     // ── Init ──
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
 
     // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
-    let counter_app_state = chain_b.counter_app_state_pda();
+    let counter_app_state = chain_a.counter_app_state_pda();
     let solana_payload = gmp::encode_increment_payload(
         counter_app_state,
         user_counter_pda,
@@ -50,8 +45,8 @@ async fn test_gmp_direct_call_rejected() {
     // ── Direct call rejected ──
     let ix = gmp::build_raw_gmp_on_recv_packet_ix(
         relayer.pubkey(),
-        chain_b.client_id(),
-        "chain-a-client",
+        chain_a.client_id(),
+        chain_a.counterparty_client_id(),
         sequence,
         &gmp_packet_bytes,
         remaining,
@@ -61,10 +56,10 @@ async fn test_gmp_direct_call_rejected() {
         &[ix],
         Some(&relayer.pubkey()),
         &[relayer.keypair()],
-        chain_b.blockhash(),
+        chain_a.blockhash(),
     );
 
-    let err = chain_b
+    let err = chain_a
         .process_transaction(tx)
         .await
         .expect_err("direct call to on_recv_packet should fail");
@@ -76,9 +71,9 @@ async fn test_gmp_direct_call_rejected() {
     );
 
     // No receipt PDA should have been created
-    let receipt_pda = integration_tests::router::derive_receipt_pda(chain_b.client_id(), sequence);
+    let receipt_pda = integration_tests::router::derive_receipt_pda(chain_a.client_id(), sequence);
     assert!(
-        chain_b.get_account(receipt_pda).await.is_none(),
+        chain_a.get_account(receipt_pda).await.is_none(),
         "receipt should not exist after rejected direct call"
     );
 }
