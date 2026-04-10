@@ -125,9 +125,7 @@ fn assemble_chunks(
     Ok(misbehaviour_bytes)
 }
 
-/// Checks `chunk_account` is the `MisbehaviourChunk` PDA for
-/// `(submitter, index, bump)`. Owner check first so unrelated accounts
-/// skip the `create_program_address` syscall.
+/// Owner check runs first so unrelated accounts skip the syscall.
 fn verify_misbehaviour_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,

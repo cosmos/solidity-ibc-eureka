@@ -111,9 +111,6 @@ impl super::TxBuilder {
             .unzip();
         accounts.extend(chunk_metas);
 
-        // PDAs match `pre_verify_signatures.rs`. The on-chain verifier
-        // looks up by `sig_hash` field, not PDA, so if that ever changes
-        // these `AccountMeta`s do too.
         accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
                 &[b"sig_verify", &sig_data.signature_hash],
@@ -127,7 +124,7 @@ impl super::TxBuilder {
         data.extend_from_slice(&target_height.to_le_bytes());
         data.extend_from_slice(&[total_chunks]);
         data.extend_from_slice(&trusted_height.to_le_bytes());
-        // Borsh `Vec<u8>` encoding: 4-byte little-endian length prefix followed by bytes.
+        // Borsh `Vec<u8>`: u32 LE length prefix then bytes.
         let bumps_len = u32::try_from(chunk_bumps.len())
             .expect("chunk count fits in u32; bounded by u8 total_chunks");
         data.extend_from_slice(&bumps_len.to_le_bytes());
@@ -496,9 +493,7 @@ impl super::TxBuilder {
 mod tests {
     use borsh::{BorshDeserialize, BorshSerialize};
 
-    /// Mirrors `instruction::AssembleAndUpdateClient`. Field order must
-    /// match the on-chain handler; the test pins the hand-rolled byte
-    /// layout against borsh so a reorder trips locally.
+    /// Mirrors `instruction::AssembleAndUpdateClient` — field order must match.
     #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
     struct AssembleAndUpdateClientArgs {
         target_height: u64,
@@ -516,7 +511,7 @@ mod tests {
             chunk_bumps: vec![254, 255, 250],
         };
 
-        // Hand-rolled encoder copied from `build_assemble_and_update_client_tx`.
+        // Mirrors the encoder in `build_assemble_and_update_client_tx`.
         let mut hand_rolled = Vec::new();
         hand_rolled.extend_from_slice(&args.target_height.to_le_bytes());
         hand_rolled.extend_from_slice(&[args.chunk_count]);

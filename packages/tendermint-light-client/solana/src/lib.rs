@@ -74,10 +74,9 @@ pub type SolanaVotingPowerCalculator<'a> =
 pub struct SolanaSignatureVerifier<'a> {
     /// Pre-verified signature accounts from `remaining_accounts`
     verification_accounts: &'a [AccountInfo<'a>],
-    /// Program ID the verification accounts must be owned by
+    /// Expected owner of the verification accounts
     program_id: &'a Pubkey,
-    /// Anchor discriminator of `SignatureVerification`; filters out other
-    /// program-owned accounts like `HeaderChunk`.
+    /// Anchor discriminator of the consumer's `SignatureVerification` account
     sig_verification_discriminator: [u8; 8],
 }
 
@@ -87,9 +86,7 @@ unsafe impl Send for SolanaSignatureVerifier<'_> {}
 unsafe impl Sync for SolanaSignatureVerifier<'_> {}
 
 impl<'a> SolanaSignatureVerifier<'a> {
-    /// `sig_verification_discriminator` must be the Anchor discriminator of
-    /// the consumer's `SignatureVerification` account; the wrong value opens
-    /// a type-confusion path. In-repo callers should use
+    /// In-repo callers should pass
     /// `crate::state::SignatureVerification::discriminator_array()`.
     pub fn new(
         verification_accounts: &'a [AccountInfo<'a>],
@@ -123,8 +120,7 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
                 .map_err(|_| Error::VerificationFailed)
         };
 
-        // O(N²): scans all verification_accounts per signature. Fine at
-        // ~100 validators; if it shows up in a profile, index by sig_hash.
+        // Linear scan, fine for ~100 validators.
         let matched_is_valid = self.verification_accounts.iter().find_map(|a| {
             if a.owner != self.program_id {
                 return None;
@@ -133,7 +129,6 @@ impl<'a> tendermint::crypto::signature::Verifier for SolanaSignatureVerifier<'a>
             if data.len() < SIGNATURE_VERIFICATION_MIN_SIZE {
                 return None;
             }
-            // Rejects `HeaderChunk` and any other program-owned account.
             if data[..8] != self.sig_verification_discriminator {
                 return None;
             }
@@ -315,7 +310,6 @@ mod tests {
         let sig_bytes = [2u8; 64];
         let sig_hash = compute_sig_hash(&pk_bytes, msg, &sig_bytes);
 
-        // Correct sig_hash but the wrong discriminator; must not match.
         let wrong_disc = [0xff; 8];
         let mut data = create_verification_account_data(wrong_disc, 1, sig_hash);
         let mut lamports = 1_000_000u64;
@@ -330,7 +324,6 @@ mod tests {
         let pk = tendermint::PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
         let sig = Signature::try_from(sig_bytes.as_slice()).unwrap();
 
-        // Falls through to brine-ed25519, which rejects the dummy bytes.
         assert!(verifier.verify(pk, msg, &sig).is_err());
     }
 

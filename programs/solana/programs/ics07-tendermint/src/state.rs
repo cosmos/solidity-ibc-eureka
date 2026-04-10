@@ -79,16 +79,14 @@ pub struct SignatureVerification {
     pub is_valid: bool,
     /// The submitter who created this verification
     pub submitter: Pubkey,
-    /// `sha256(pk || msg || sig)`. Verified against the recomputed hash in
-    /// `pre_verify_signature`; used by the verifier to match accounts.
+    /// `sha256(pk || msg || sig)` — used by the verifier to match accounts.
     pub sig_hash: [u8; 32],
 }
 
 impl SignatureVerification {
     pub const SEED: &'static [u8] = b"sig_verify";
 
-    /// Fixed-size discriminator for `SolanaSignatureVerifier`. Length is
-    /// pinned by the `const _ assert!` below.
+    /// Anchor discriminator as a fixed-size array (length pinned by the assert below).
     pub fn discriminator_array() -> [u8; 8] {
         Self::DISCRIMINATOR
             .try_into()
@@ -101,7 +99,7 @@ const _: () = assert!(
     SignatureVerification::DISCRIMINATOR.len() == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN
 );
 
-// Compile-time verification that offset constants match the Anchor layout.
+// Offset constants must match the Anchor layout.
 const _: () = assert!(
     solana_ibc_types::ics07::SIGNATURE_VERIFICATION_SIG_HASH_OFFSET
         == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN + 1 + 32
@@ -129,9 +127,8 @@ mod compatibility_tests {
         );
     }
 
-    /// Trips on a field reorder of `SignatureVerification`. The verifier
-    /// reads `is_valid` and `sig_hash` at fixed offsets; a reorder still
-    /// compiles but shifts the bytes.
+    /// Trips on a field reorder of `SignatureVerification` — the verifier
+    /// reads `is_valid` and `sig_hash` at fixed offsets.
     #[test]
     fn test_signature_verification_layout_sentinel() {
         let sentinel_sig_hash = [0xABu8; 32];

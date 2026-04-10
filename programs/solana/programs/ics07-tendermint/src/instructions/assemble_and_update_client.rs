@@ -116,9 +116,7 @@ pub fn assemble_and_update_client<'info>(
     Ok(result)
 }
 
-/// Checks `chunk_account` is the `HeaderChunk` PDA for
-/// `(submitter, target_height, index, bump)`. Owner check first so
-/// unrelated accounts skip the `create_program_address` syscall.
+/// Owner check runs first so unrelated accounts skip the syscall.
 fn verify_header_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,

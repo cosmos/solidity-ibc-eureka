@@ -124,11 +124,9 @@ pub struct SignatureData {
 pub const SIGNATURE_VERIFICATION_IS_VALID_OFFSET: usize =
     solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN;
 
-/// Offset of `sig_hash` field in `SignatureVerification` account data.
-/// Anchor layout: `[discriminator: 8][is_valid: 1][submitter: 32][sig_hash: 32]`
+/// Layout: `[discriminator: 8][is_valid: 1][submitter: 32][sig_hash: 32]`
 pub const SIGNATURE_VERIFICATION_SIG_HASH_OFFSET: usize =
     solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN + 1 + 32;
 
-/// Minimum valid size of a `SignatureVerification` account.
 pub const SIGNATURE_VERIFICATION_MIN_SIZE: usize =
     solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN + 1 + 32 + 32;
