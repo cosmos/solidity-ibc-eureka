@@ -124,7 +124,6 @@ impl super::TxBuilder {
         data.extend_from_slice(&target_height.to_le_bytes());
         data.extend_from_slice(&[total_chunks]);
         data.extend_from_slice(&trusted_height.to_le_bytes());
-        // Borsh `Vec<u8>`: u32 LE length prefix then bytes.
         let bumps_len = u32::try_from(chunk_bumps.len())
             .expect("chunk count fits in u32; bounded by u8 total_chunks");
         data.extend_from_slice(&bumps_len.to_le_bytes());
