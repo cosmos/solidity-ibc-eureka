@@ -329,8 +329,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 				PrefundLamports: 5_000_000, // rent for UserCounter + GMP PDA rent-exempt minimum
 			}
 
-			// Marshal to protobuf bytes
-			payload, err := proto.Marshal(solanaInstruction)
+			payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 			if err != nil {
 				return nil
 			}
@@ -646,7 +645,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call
@@ -1468,7 +1467,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call with short timeout
@@ -1729,7 +1728,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call
@@ -2561,7 +2560,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 			PrefundLamports: 5_000_000,
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
@@ -2687,7 +2686,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_RelayerPubkey() {
 		gmpPayload, err := instructionToGMPPayload(ix, 5_000_000)
 		s.Require().NoError(err)
 
-		payload, err := proto.Marshal(gmpPayload)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(gmpPayload, testvalues.Ics27ProtobufEncoding)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
@@ -2757,7 +2756,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_SOLTransfer() {
 		gmpPayload, err := instructionToGMPPayload(transferIx, 5_000_000)
 		s.Require().NoError(err)
 
-		payload, err := proto.Marshal(gmpPayload)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(gmpPayload, testvalues.Ics27ProtobufEncoding)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
