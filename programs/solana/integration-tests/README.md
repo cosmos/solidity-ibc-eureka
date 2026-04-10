@@ -59,14 +59,13 @@ Each `Chain` follows a setup → init → runtime lifecycle:
 flowchart LR
     subgraph Setup["Setup Phase"]
         direction TB
-        New["Chain::new(config)"] --> Prefund["prefund(&[actors])"]
+        New["Chain::single / pair / pair_with / new"] --> Prefund["prefund(&[actors])"]
     end
 
     subgraph Init["Init Phase"]
         direction TB
-        Start["chain.start().await"] --> InitProg["deployer.init_ibc_stack()"]
-        InitProg --> InitApp["deployer.init_programs()\n(optional, for IFT etc.)"]
-        InitApp --> XferAuth["deployer.transfer_upgrade_authority()"]
+        ChainInit["chain.init(deployer, admin, relayer, programs)\n(= start + init_ibc_stack + transfer_upgrade_authority)"]
+        ChainInit -.->|IFT etc.| InitApp["deployer.init_programs()"]
     end
 
     subgraph Runtime["Runtime Phase"]
@@ -79,9 +78,9 @@ flowchart LR
     Setup --> Init --> Runtime
 ```
 
-**Setup phase** — `Chain::new(config)` configures `ProgramTest` with program binaries and `ProgramData` accounts (for upgrade authority verification). Only the deployer is pre-funded automatically; other actors must be pre-funded explicitly via `chain.prefund(&[&admin, &relayer, &user])`. No on-chain state exists yet.
+**Setup phase** — `Chain::single(deployer, programs)`, `Chain::pair(deployer, programs)`, `Chain::pair_with(deployer, programs_a, programs_b)` or the lower-level `Chain::new(ChainConfig { .. })` configure `ProgramTest` with program binaries and `ProgramData` accounts (for upgrade authority verification). `single` / `pair` default to the `chain-a-client` ↔ `chain-b-client` IDs; use `new` when a test needs custom client IDs (e.g. the three-chain test). Only the deployer is pre-funded automatically; other actors must be pre-funded explicitly via `chain.prefund(&[&admin, &relayer, &user])`. Per-PDA lamport top-ups (e.g. for GMP account PDAs) go through `chain.prefund_lamports(pda, GMP_ACCOUNT_PREFUND_LAMPORTS)` and must happen before `start()`. No on-chain state exists yet.
 
-**Init phase** — `start()` consumes the `ProgramTest` and produces a `BanksClient`. Then `deployer.init_ibc_stack()` executes a sequence of real initialization transactions. The deployer signs upgrade-authority-gated steps; the admin signs AM-role-gated steps:
+**Init phase** — `chain.init(deployer, admin, relayer, programs)` is the canonical one-shot helper that wraps `start()` + `deployer.init_ibc_stack()` + `deployer.transfer_upgrade_authority()`. Tests that need to interleave extra steps (e.g. `deployer.init_programs()` for IFT, or `deployer.add_counterparty()` for multi-hop) drop down to the individual calls. Inside `init_ibc_stack` the deployer signs upgrade-authority-gated steps while the admin signs AM-role-gated steps:
 
 1. `access_manager::initialize` — creates the AM account with admin's pubkey as `ADMIN_ROLE` holder *(deployer signs)*
 2. `access_manager::grant_role` — grants `RELAYER_ROLE` to relayer and `ID_CUSTOMIZER_ROLE` to admin *(admin signs)*
@@ -92,7 +91,7 @@ flowchart LR
 
 Programs that need a different admin (e.g. IFT) are initialized separately via `deployer.init_programs(chain, ift_admin_pubkey, &[&Ift])`, which runs only the program-specific `init_steps` with the given admin pubkey.
 
-Finally, `deployer.transfer_upgrade_authority()` transfers upgrade authority of all programs to the access manager PDA so governance controls upgrades *(deployer signs)*.
+Finally, `deployer.transfer_upgrade_authority()` transfers upgrade authority of all programs to the access manager PDA so governance controls upgrades *(deployer signs)*. `Chain::init` runs this step automatically.
 
 **Runtime phase** — actors submit transactions and read account state.
 
@@ -223,6 +222,19 @@ The IFT module supports both SPL Token and Token 2022 mints via the `TokenKind` 
 
 ## Writing a New Test
 
+Tests are organized into labelled sections so the setup → runtime → assertions flow is consistent across the suite. The canonical layout is:
+
+```text
+// ── Actors ──         actor declarations only (deployer, admin, user, relayer, ...)
+// ── Test data ──      sequences, amounts, packet_data, acks, ... (plain values only)
+// ── Chains ──         programs slice, Chain::single / pair + prefund + prefund_lamports
+// ── Init ──           chain.init(...) (or start / init_ibc_stack / init_programs / add_counterparty / transfer_upgrade_authority)
+// ── Build payload ──  PDA derivations, payload encoding (after init so on-chain state is available)
+// ── <scenario> ──     send → recv → ack / timeout, assertions
+```
+
+The `programs` slice lives in the `// ── Chains ──` section (next to the `Chain::pair` call that consumes it), not in `// ── Test data ──`. Single-chain tests can drop the `// ── Test data ──` section entirely if there is no plain test data to declare.
+
 A minimal router test that sends a packet from Chain A, delivers it to Chain B and acknowledges it back:
 
 ```rust
@@ -230,45 +242,34 @@ use super::*;
 
 #[tokio::test]
 async fn test_my_scenario() {
-    // 1. Create actors
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
-    let user = User::new();
     let relayer = Relayer::new();
+    let user = User::new();
 
-    // 2. Configure chains with the programs they need
+    // ── Test data ──
+    let sequence = 1u64;
+    let packet_data = b"hello from chain A";
+    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+
+    // ── Chains ──
     let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "a-client",
-        counterparty_client_id: "b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "b-client",
-        counterparty_client_id: "a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
-    // 3. Start chains and initialize programs
-    chain_a.start().await;
-    deployer.init_ibc_stack(&mut chain_a, &admin, &relayer, programs).await;
-    deployer.transfer_upgrade_authority(&mut chain_a, programs).await;
-    chain_b.start().await;
-    deployer.init_ibc_stack(&mut chain_b, &admin, &relayer, programs).await;
-    deployer.transfer_upgrade_authority(&mut chain_b, programs).await;
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
 
-    // 4. User sends a packet on Chain A
+    // ── Send on Chain A ──
     let send = user
         .send_packet(
             &mut chain_a,
             SendPacketParams {
-                sequence: 1,
-                packet_data: b"hello",
+                sequence,
+                packet_data,
                 ..Default::default()
             },
         )
@@ -277,9 +278,9 @@ async fn test_my_scenario() {
 
     assert_commitment_set(&chain_a, send.commitment_pda).await;
 
-    // 5. Relayer uploads chunks and delivers to Chain B
+    // ── Recv on Chain B ──
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_b, 1, b"hello", &[0u8; 32])
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload failed");
 
@@ -287,7 +288,7 @@ async fn test_my_scenario() {
         .recv_packet(
             &mut chain_b,
             RecvPacketParams {
-                sequence: 1,
+                sequence,
                 payload_chunk_pda: payload_pda,
                 proof_chunk_pda: proof_pda,
                 app_program: test_ibc_app::ID,
@@ -299,9 +300,9 @@ async fn test_my_scenario() {
 
     assert_receipt_created(&chain_b, recv.receipt_pda).await;
 
-    // 6. Relayer delivers ack back to Chain A
+    // ── Ack on Chain A ──
     let (ack_payload, ack_proof) = relayer
-        .upload_chunks(&mut chain_a, 1, b"hello", &[0u8; 32])
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload failed");
 
@@ -309,8 +310,8 @@ async fn test_my_scenario() {
         .ack_packet(
             &mut chain_a,
             AckPacketParams {
-                sequence: 1,
-                acknowledgement: br#"{"result": "AQ=="}"#.to_vec(),
+                sequence,
+                acknowledgement: successful_ack,
                 payload_chunk_pda: ack_payload,
                 proof_chunk_pda: ack_proof,
                 app_program: test_ibc_app::ID,
@@ -326,8 +327,11 @@ async fn test_my_scenario() {
 
 Key patterns:
 
-- **Setup before start** — `prefund` and program selection must happen before `chain.start().await`.
-- **Three-step init** — after `start()`, call `deployer.init_ibc_stack(chain, admin, relayer, programs)` then `deployer.transfer_upgrade_authority(chain, programs)`. Programs with a separate admin (like IFT) are excluded from `init_ibc_stack` and initialized via `deployer.init_programs(chain, ift_admin.pubkey(), &[&Ift])`. For multi-hop, call `deployer.add_counterparty()` before `transfer_upgrade_authority`.
+- **Section markers** — group code into `// ── Actors ──`, `// ── Test data ──`, `// ── Chains ──`, `// ── Init ──`, `// ── Build payload ──` and per-scenario sections. Keep actor declarations separate from test data so the intent of each binding is obvious at a glance.
+- **Chain constructors** — prefer `Chain::pair` (two chains, shared programs), `Chain::pair_with` (two chains, different programs) and `Chain::single` (one chain). Fall back to `Chain::new(ChainConfig { .. })` only when a test needs custom client IDs (e.g. `three_chain`).
+- **Prefund before init** — `chain.prefund(&[actors])` and `chain.prefund_lamports(pda, GMP_ACCOUNT_PREFUND_LAMPORTS)` must happen before `chain.init(...)` because `ProgramTest::start` consumes the builder.
+- **One-shot init** — `chain.init(&deployer, &admin, &relayer, programs).await` wraps `start` + `init_ibc_stack` + `transfer_upgrade_authority`. Programs with a separate admin (like IFT) are excluded from `init_ibc_stack` and initialized via `deployer.init_programs(chain, ift_admin.pubkey(), &[&Ift])` between `start` and `transfer_upgrade_authority`. For multi-hop, call `deployer.add_counterparty()` before `transfer_upgrade_authority`.
+- **Shared constants** — use `DUMMY_PROOF` for the 32-byte mock proof, `GMP_ACCOUNT_PREFUND_LAMPORTS` / `GMP_PAYLOAD_PREFUND_LAMPORTS` for GMP prefund amounts, `GMP_TIMEOUT` / `IFT_TIMEOUT` for packet timeouts. Don't inline these literals.
 - **Chunks before delivery** — every `recv_packet`, `ack_packet` and `timeout_packet` requires a preceding `upload_chunks` call.
 - **`Default::default()`** — param structs implement `Default` for fields like `timeout_timestamp` and `proof_height`, so you only need to set what matters for your test.
 - **Error assertions** — use `extract_custom_error` to match specific Anchor error codes instead of just checking that a transaction failed.
@@ -344,6 +348,17 @@ Key patterns:
 | `anchor_error_code(discriminant)` | Computes `6000 + discriminant` for an Anchor error variant | When constructing expected error codes from enum variants |
 
 Pre-computed error constants are also available: `PACKET_COMMITMENT_MISMATCH`, `ASYNC_ACK_NOT_SUPPORTED`.
+
+## Shared Constants
+
+| Constant | Defined in | Meaning |
+| --- | --- | --- |
+| `DUMMY_PROOF` | `integration_tests` (`src/lib.rs`) | 32-byte zero proof accepted by the mock light client — pass as the `&[u8]` proof argument to `upload_chunks` / `upload_chunks_for_client` |
+| `GMP_ACCOUNT_PREFUND_LAMPORTS` | `tests/gmp/main.rs` | Lamports to top up a `GMPAccount` PDA so the counter program can pay rent for the user-counter PDA it creates on receipt |
+| `GMP_PAYLOAD_PREFUND_LAMPORTS` | `tests/gmp/main.rs` | Lamports requested via `RawGmpSolanaPayload.prefund_lamports` to fund the payload PDA before executing the wrapped instruction |
+| `GMP_TIMEOUT` / `GMP_TIMEOUT_TOO_LONG` | `tests/gmp/main.rs` | GMP packet timeout at/within `MAX_TIMEOUT_DURATION`, and one just past it (used to exercise the `TimeoutTooLong` rejection) |
+| `IFT_TIMEOUT` | `tests/ift/main.rs` | IFT packet timeout aligned with `router::test_timeout(TEST_CLOCK_TIME)` |
+| `MINT_DECIMALS` / `INITIAL_BALANCE` / `TRANSFER_AMOUNT` | `tests/ift/main.rs` | IFT token setup and transfer amounts |
 
 ## Running
 
