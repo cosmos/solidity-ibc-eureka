@@ -13,7 +13,6 @@ async fn test_gmp_failed_execution_aborts() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 10u64;
 
@@ -24,7 +23,7 @@ async fn test_gmp_failed_execution_aborts() {
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
+    chain_b.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     let fake_counter_app_state = Pubkey::new_unique();
     chain_b.prefund_lamports(fake_counter_app_state, 1_000_000);
@@ -68,7 +67,7 @@ async fn test_gmp_failed_execution_aborts() {
                 is_writable: false,
             },
         ],
-        prefund_lamports: 5_000_000,
+        prefund_lamports: GMP_PAYLOAD_PREFUND_LAMPORTS,
     };
 
     let gmp_packet_bytes = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &bad_payload);
@@ -88,7 +87,7 @@ async fn test_gmp_failed_execution_aborts() {
 
     // Upload chunks and attempt recv on Chain B
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload recv chunks failed");
 

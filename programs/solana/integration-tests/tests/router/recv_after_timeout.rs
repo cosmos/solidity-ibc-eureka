@@ -13,7 +13,6 @@ async fn test_recv_after_source_timeout() {
 
     // ── Test data ──
     let packet_data = b"timeout then recv";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chains ──
@@ -40,7 +39,7 @@ async fn test_recv_after_source_timeout() {
 
     // ── Step 2: Relayer times out on A ──
     let (a_to_payload, a_to_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks failed");
 
@@ -62,7 +61,7 @@ async fn test_recv_after_source_timeout() {
 
     // ── Step 3: Relayer delivers recv on B (succeeds — B is independent) ──
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload recv chunks on B failed");
 
@@ -91,7 +90,7 @@ async fn test_recv_after_source_timeout() {
         .expect("cleanup timeout chunks failed");
 
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload ack chunks on A failed");
 

@@ -16,7 +16,6 @@ async fn test_gmp_three_chain_roundtrip() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let amount_a_to_b = 42u64;
     let amount_b_to_c = 58u64;
 
@@ -47,10 +46,10 @@ async fn test_gmp_three_chain_roundtrip() {
     chain_c.prefund(&[&admin, &relayer]);
 
     let gmp_pda_on_b = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
-    chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
+    chain_b.prefund_lamports(gmp_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     let gmp_pda_on_c = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
-    chain_c.prefund_lamports(gmp_pda_on_c, 10_000_000);
+    chain_c.prefund_lamports(gmp_pda_on_c, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
@@ -96,7 +95,7 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // Recv on Chain B
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, 1, &packet_ab, &proof_data)
+        .upload_chunks(&mut chain_b, 1, &packet_ab, DUMMY_PROOF)
         .await
         .expect("upload A→B recv chunks failed");
 
@@ -118,7 +117,7 @@ async fn test_gmp_three_chain_roundtrip() {
     let ack_b_data = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
 
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, 1, &packet_ab, &proof_data)
+        .upload_chunks(&mut chain_a, 1, &packet_ab, DUMMY_PROOF)
         .await
         .expect("upload A→B ack chunks failed");
 
@@ -163,7 +162,7 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // Recv on Chain C
     let (c_recv_payload, c_recv_proof) = relayer
-        .upload_chunks(&mut chain_c, 1, &packet_bc, &proof_data)
+        .upload_chunks(&mut chain_c, 1, &packet_bc, DUMMY_PROOF)
         .await
         .expect("upload B→C recv chunks failed");
 
@@ -185,7 +184,7 @@ async fn test_gmp_three_chain_roundtrip() {
     let ack_c_data = extract_ack_data(&chain_c, recv_on_c.ack_pda).await;
 
     let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks_for_client(&mut chain_b, "b-to-c", 1, &packet_bc, &proof_data)
+        .upload_chunks_for_client(&mut chain_b, "b-to-c", 1, &packet_bc, DUMMY_PROOF)
         .await
         .expect("upload B→C ack chunks failed");
 

@@ -26,7 +26,7 @@ use integration_tests::{
     programs::{Ics27Gmp, Ift},
     relayer::Relayer,
     user::User,
-    Actor,
+    Actor, DUMMY_PROOF,
 };
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
 

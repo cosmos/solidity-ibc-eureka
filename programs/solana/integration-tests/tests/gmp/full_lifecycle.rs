@@ -9,7 +9,6 @@ async fn test_gmp_full_lifecycle() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
 
@@ -20,7 +19,7 @@ async fn test_gmp_full_lifecycle() {
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
+    chain_b.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
@@ -57,7 +56,7 @@ async fn test_gmp_full_lifecycle() {
 
     // ── Relayer uploads chunks and delivers recv_packet to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload recv chunks on Chain B failed");
 
@@ -93,7 +92,7 @@ async fn test_gmp_full_lifecycle() {
 
     // ── Relayer uploads chunks and delivers ack_packet back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload ack chunks on Chain A failed");
 

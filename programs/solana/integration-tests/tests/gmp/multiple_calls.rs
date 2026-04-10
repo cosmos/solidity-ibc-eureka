@@ -10,9 +10,6 @@ async fn test_multiple_gmp_calls() {
     let relayer = Relayer::new();
     let user = User::new();
 
-    // ── Test data ──
-    let proof_data = vec![0u8; 32];
-
     // ── Chains ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
@@ -20,7 +17,7 @@ async fn test_multiple_gmp_calls() {
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_account_pda, 10_000_000);
+    chain_b.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
@@ -51,7 +48,7 @@ async fn test_multiple_gmp_calls() {
     .expect("first send_call failed");
 
     let (b_payload_1, b_proof_1) = relayer
-        .upload_chunks(&mut chain_b, 1, &first_packet, &proof_data)
+        .upload_chunks(&mut chain_b, 1, &first_packet, DUMMY_PROOF)
         .await
         .expect("upload first recv chunks failed");
 
@@ -77,7 +74,7 @@ async fn test_multiple_gmp_calls() {
     let ack_1_data = extract_ack_data(&chain_b, recv_1.ack_pda).await;
 
     let (a_payload_1, a_proof_1) = relayer
-        .upload_chunks(&mut chain_a, 1, &first_packet, &proof_data)
+        .upload_chunks(&mut chain_a, 1, &first_packet, DUMMY_PROOF)
         .await
         .expect("upload first ack chunks failed");
 
@@ -117,7 +114,7 @@ async fn test_multiple_gmp_calls() {
     .expect("second send_call failed");
 
     let (b_payload_2, b_proof_2) = relayer
-        .upload_chunks(&mut chain_b, 2, &second_packet, &proof_data)
+        .upload_chunks(&mut chain_b, 2, &second_packet, DUMMY_PROOF)
         .await
         .expect("upload second recv chunks failed");
 
@@ -137,7 +134,7 @@ async fn test_multiple_gmp_calls() {
     let ack_2_data = extract_ack_data(&chain_b, recv_2.ack_pda).await;
 
     let (a_payload_2, a_proof_2) = relayer
-        .upload_chunks(&mut chain_a, 2, &second_packet, &proof_data)
+        .upload_chunks(&mut chain_a, 2, &second_packet, DUMMY_PROOF)
         .await
         .expect("upload second ack chunks failed");
 

@@ -14,7 +14,6 @@ async fn test_gmp_timeout() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
 
@@ -58,7 +57,7 @@ async fn test_gmp_timeout() {
 
     // ── Relayer uploads chunks and delivers timeout on Chain A ──
     let (timeout_payload, timeout_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks on Chain A failed");
     let timeout_commitment_pda = relayer

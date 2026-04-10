@@ -11,7 +11,6 @@ async fn test_bidirectional_packets() {
     let user_b = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
     let data_a_to_b = b"A says hello to B";
     let data_b_to_a = b"B says hello to A";
@@ -54,7 +53,7 @@ async fn test_bidirectional_packets() {
 
     // ── Relayer uploads chunks and delivers A→B to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, seq_a_to_b, data_a_to_b, &proof_data)
+        .upload_chunks(&mut chain_b, seq_a_to_b, data_a_to_b, DUMMY_PROOF)
         .await
         .expect("upload B recv chunks failed");
     relayer
@@ -73,7 +72,7 @@ async fn test_bidirectional_packets() {
 
     // ── Relayer uploads chunks and delivers B→A to Chain A ──
     let (a_recv_payload, a_recv_proof) = relayer
-        .upload_chunks(&mut chain_a, seq_b_to_a, data_b_to_a, &proof_data)
+        .upload_chunks(&mut chain_a, seq_b_to_a, data_b_to_a, DUMMY_PROOF)
         .await
         .expect("upload A recv chunks failed");
     relayer
@@ -92,7 +91,7 @@ async fn test_bidirectional_packets() {
 
     // ── Relayer uploads chunks and delivers A→B ack back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, seq_a_to_b, data_a_to_b, &proof_data)
+        .upload_chunks(&mut chain_a, seq_a_to_b, data_a_to_b, DUMMY_PROOF)
         .await
         .expect("upload A ack chunks failed");
     relayer
@@ -112,7 +111,7 @@ async fn test_bidirectional_packets() {
 
     // ── Relayer uploads chunks and delivers B→A ack back to Chain B ──
     let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks(&mut chain_b, seq_b_to_a, data_b_to_a, &proof_data)
+        .upload_chunks(&mut chain_b, seq_b_to_a, data_b_to_a, DUMMY_PROOF)
         .await
         .expect("upload B ack chunks failed");
     relayer

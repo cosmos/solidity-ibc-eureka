@@ -19,7 +19,7 @@ use integration_tests::{
     relayer::Relayer,
     router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},
     user::User,
-    ASYNC_ACK_NOT_SUPPORTED, PACKET_COMMITMENT_MISMATCH,
+    ASYNC_ACK_NOT_SUPPORTED, DUMMY_PROOF, PACKET_COMMITMENT_MISMATCH,
 };
 use solana_ibc_types::ics24;
 

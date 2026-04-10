@@ -11,7 +11,6 @@ async fn test_timeout_packet() {
 
     // ── Test data ──
     let packet_data = b"this packet will time out";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
@@ -38,7 +37,7 @@ async fn test_timeout_packet() {
 
     // ── Relayer uploads chunks and delivers timeout on Chain A ──
     let (timeout_payload, timeout_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks failed");
     let commitment_pda = relayer

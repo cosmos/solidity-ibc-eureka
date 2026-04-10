@@ -11,7 +11,6 @@ async fn test_gmp_bidirectional() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let amount_a_to_b = 10u64;
     let amount_b_to_a = 20u64;
@@ -23,9 +22,9 @@ async fn test_gmp_bidirectional() {
     chain_b.prefund(&[&admin, &relayer, &user]);
 
     let gmp_pda_on_a = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
-    chain_a.prefund_lamports(gmp_pda_on_a, 10_000_000);
+    chain_a.prefund_lamports(gmp_pda_on_a, GMP_ACCOUNT_PREFUND_LAMPORTS);
     let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
+    chain_b.prefund_lamports(gmp_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
@@ -72,7 +71,7 @@ async fn test_gmp_bidirectional() {
 
     // ── Deliver A→B recv on Chain B ──
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &packet_a_to_b, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, &packet_a_to_b, DUMMY_PROOF)
         .await
         .expect("upload A→B recv chunks failed");
 
@@ -93,7 +92,7 @@ async fn test_gmp_bidirectional() {
 
     // ── Deliver B→A recv on Chain A ──
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &packet_b_to_a, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, &packet_b_to_a, DUMMY_PROOF)
         .await
         .expect("upload B→A recv chunks failed");
 
@@ -120,7 +119,7 @@ async fn test_gmp_bidirectional() {
         .expect("cleanup B→A recv chunks on A failed");
     let ack_b_data = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &packet_a_to_b, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, &packet_a_to_b, DUMMY_PROOF)
         .await
         .expect("upload A→B ack chunks failed");
     relayer
@@ -144,7 +143,7 @@ async fn test_gmp_bidirectional() {
         .expect("cleanup A→B recv chunks on B failed");
     let ack_a_data = extract_ack_data(&chain_a, recv_on_a.ack_pda).await;
     let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &packet_b_to_a, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, &packet_b_to_a, DUMMY_PROOF)
         .await
         .expect("upload B→A ack chunks failed");
     relayer

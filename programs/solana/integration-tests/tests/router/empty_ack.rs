@@ -12,7 +12,6 @@ async fn test_empty_ack_rejected() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     // Payload prefix triggers empty ack in mock_ibc_app
     let packet_data = b"RETURN_EMPTY_ACKextra";
@@ -41,7 +40,7 @@ async fn test_empty_ack_rejected() {
 
     // Relayer delivers to B — mock_ibc_app returns empty ack, router rejects
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload recv chunks failed");
     let err = relayer

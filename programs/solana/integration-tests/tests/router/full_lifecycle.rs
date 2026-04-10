@@ -10,7 +10,6 @@ async fn test_full_packet_lifecycle() {
 
     // ── Test data ──
     let packet_data = b"hello from chain A";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
@@ -50,7 +49,7 @@ async fn test_full_packet_lifecycle() {
 
     // ── Relayer uploads chunks and delivers to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload recv chunks on B failed");
     let recv = relayer
@@ -75,7 +74,7 @@ async fn test_full_packet_lifecycle() {
 
     // ── Relayer uploads chunks and delivers ack back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload ack chunks on A failed");
     let commitment_pda = relayer

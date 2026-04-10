@@ -13,7 +13,6 @@ async fn test_unauthorized_relayer_rejected() {
 
     // ── Test data ──
     let packet_data = b"unauthorized delivery";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chains ──
@@ -39,7 +38,7 @@ async fn test_unauthorized_relayer_rejected() {
 
     // Authorized relayer uploads chunks on B (upload requires RELAYER_ROLE)
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("authorized relayer upload_chunks should succeed");
 

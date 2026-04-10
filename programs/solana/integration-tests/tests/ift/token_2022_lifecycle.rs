@@ -16,7 +16,6 @@ async fn test_ift_token_2022_lifecycle() {
     let mint_keypair = Keypair::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let token_kind = TokenKind::Token2022;
 
@@ -76,7 +75,7 @@ async fn test_ift_token_2022_lifecycle() {
 
     // ── Relayer uploads chunks and delivers success ack ──
     let (ack_payload_pda, ack_proof_pda) = relayer
-        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
 

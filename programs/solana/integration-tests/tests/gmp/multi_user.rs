@@ -101,9 +101,6 @@ async fn test_gmp_multi_user_isolation() {
     let user_a = User::new();
     let user_b = User::new();
 
-    // ── Test data ──
-    let proof_data = vec![0u8; 32];
-
     // ── Chains ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
@@ -112,8 +109,8 @@ async fn test_gmp_multi_user_isolation() {
 
     let gmp_pda_a = gmp::derive_gmp_account_pda(chain_b.client_id(), &user_a.pubkey());
     let gmp_pda_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user_b.pubkey());
-    chain_b.prefund_lamports(gmp_pda_a, 10_000_000);
-    chain_b.prefund_lamports(gmp_pda_b, 10_000_000);
+    chain_b.prefund_lamports(gmp_pda_a, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_b.prefund_lamports(gmp_pda_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
@@ -144,7 +141,7 @@ async fn test_gmp_multi_user_isolation() {
         1,
         5,
         &target_a,
-        &proof_data,
+        DUMMY_PROOF,
     )
     .await;
 
@@ -157,7 +154,7 @@ async fn test_gmp_multi_user_isolation() {
         2,
         7,
         &target_a,
-        &proof_data,
+        DUMMY_PROOF,
     )
     .await;
 
@@ -170,7 +167,7 @@ async fn test_gmp_multi_user_isolation() {
         3,
         3,
         &target_b,
-        &proof_data,
+        DUMMY_PROOF,
     )
     .await;
 

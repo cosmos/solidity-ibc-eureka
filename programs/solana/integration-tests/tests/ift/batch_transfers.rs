@@ -15,9 +15,6 @@ async fn test_ift_batch_transfers() {
     let user = User::new();
     let mint_keypair = Keypair::new();
 
-    // ── Test data ──
-    let proof_data = vec![0u8; 32];
-
     // ── Chain ──
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let mut chain = Chain::single(&deployer, programs);
@@ -86,7 +83,7 @@ async fn test_ift_batch_transfers() {
     let gmp_packet_1 = ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_1);
 
     let (payload_pda_1, proof_pda_1) = relayer
-        .upload_chunks(&mut chain, 1, &gmp_packet_1, &proof_data)
+        .upload_chunks(&mut chain, 1, &gmp_packet_1, DUMMY_PROOF)
         .await
         .expect("upload chunks #1");
 
@@ -123,7 +120,7 @@ async fn test_ift_batch_transfers() {
     let gmp_packet_2 = ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_2);
 
     let (payload_pda_2, proof_pda_2) = relayer
-        .upload_chunks(&mut chain, 2, &gmp_packet_2, &proof_data)
+        .upload_chunks(&mut chain, 2, &gmp_packet_2, DUMMY_PROOF)
         .await
         .expect("upload chunks #2");
 

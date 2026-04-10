@@ -21,7 +21,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer]);
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
-    chain_a.prefund_lamports(gmp_account_pda, 10_000_000);
+    chain_a.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;

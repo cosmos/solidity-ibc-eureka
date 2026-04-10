@@ -16,7 +16,6 @@ async fn test_ift_timeout_refund() {
     let mint_keypair = Keypair::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
@@ -67,7 +66,7 @@ async fn test_ift_timeout_refund() {
 
     // ── Relayer uploads chunks and delivers timeout ──
     let (timeout_payload_pda, timeout_proof_pda) = relayer
-        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks failed");
 

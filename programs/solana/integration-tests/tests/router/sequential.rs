@@ -10,7 +10,6 @@ async fn test_multiple_sequential_packets() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
     let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
 
@@ -43,7 +42,7 @@ async fn test_multiple_sequential_packets() {
     // ── Relayer uploads chunks and delivers all 3 packets to B ──
     for &(seq, data) in &packets {
         let (payload, proof) = relayer
-            .upload_chunks(&mut chain_b, seq, data, &proof_data)
+            .upload_chunks(&mut chain_b, seq, data, DUMMY_PROOF)
             .await
             .unwrap_or_else(|e| panic!("upload B recv chunks seq={seq} failed: {e:?}"));
         relayer
@@ -67,7 +66,7 @@ async fn test_multiple_sequential_packets() {
     // ── Relayer uploads chunks and delivers all 3 acks back to A ──
     for &(seq, data) in &packets {
         let (payload, proof) = relayer
-            .upload_chunks(&mut chain_a, seq, data, &proof_data)
+            .upload_chunks(&mut chain_a, seq, data, DUMMY_PROOF)
             .await
             .unwrap_or_else(|e| panic!("upload A ack chunks seq={seq} failed: {e:?}"));
         let commitment_pda = relayer

@@ -20,7 +20,7 @@ use integration_tests::{
     programs::{Ics27Gmp, TestCpiProxy, TestGmpApp},
     relayer::Relayer,
     user::User,
-    Actor,
+    Actor, DUMMY_PROOF,
 };
 use prost::Message as ProstMessage;
 use solana_sdk::pubkey::Pubkey;
@@ -43,6 +43,13 @@ mod unauthorized_cpi;
 const GMP_TIMEOUT: u64 = TEST_CLOCK_TIME as u64 + 86_000;
 /// GMP `send_call` with a timeout exceeding `MAX_TIMEOUT_DURATION` is rejected.
 const GMP_TIMEOUT_TOO_LONG: u64 = TEST_CLOCK_TIME as u64 + 86_400;
+
+/// Lamports prefunded to the `GMPAccount` PDA so the counter program can pay
+/// rent for the user-counter PDA it creates on receipt.
+const GMP_ACCOUNT_PREFUND_LAMPORTS: u64 = 10_000_000;
+/// Lamports requested via `RawGmpSolanaPayload.prefund_lamports` to fund the
+/// payload PDA before executing the wrapped instruction.
+const GMP_PAYLOAD_PREFUND_LAMPORTS: u64 = 5_000_000;
 
 async fn read_user_counter(chain: &Chain, pda: Pubkey) -> test_gmp_app::state::UserCounter {
     let account = chain

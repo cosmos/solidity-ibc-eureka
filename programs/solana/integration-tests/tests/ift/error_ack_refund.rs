@@ -16,7 +16,6 @@ async fn test_ift_error_ack_refund() {
     let mint_keypair = Keypair::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
@@ -67,7 +66,7 @@ async fn test_ift_error_ack_refund() {
 
     // ── Relayer uploads chunks and delivers error ack ──
     let (ack_payload_pda, ack_proof_pda) = relayer
-        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
 

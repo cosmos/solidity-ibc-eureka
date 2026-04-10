@@ -11,7 +11,6 @@ async fn test_double_timeout_fails() {
 
     // ── Test data ──
     let packet_data = b"double timeout";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
@@ -34,7 +33,7 @@ async fn test_double_timeout_fails() {
     .expect("send failed");
 
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks failed");
 
@@ -57,7 +56,7 @@ async fn test_double_timeout_fails() {
         .await
         .expect("cleanup chunks failed");
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("re-upload timeout chunks failed");
 

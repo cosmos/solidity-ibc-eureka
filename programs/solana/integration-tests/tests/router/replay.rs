@@ -12,7 +12,6 @@ async fn test_recv_packet_replay_is_noop() {
 
     // ── Test data ──
     let packet_data = b"replay me";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chains ──
@@ -38,7 +37,7 @@ async fn test_recv_packet_replay_is_noop() {
 
     // First recv on B
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload chunks failed");
 
@@ -67,7 +66,7 @@ async fn test_recv_packet_replay_is_noop() {
 
     // Re-upload fresh chunks for the second attempt
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("re-upload chunks failed");
 

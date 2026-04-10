@@ -37,6 +37,9 @@ pub const PACKET_COMMITMENT_MISMATCH: u32 =
 pub const ASYNC_ACK_NOT_SUPPORTED: u32 =
     anchor_error_code(RouterError::AsyncAcknowledgementNotSupported as u32);
 
+/// Dummy 32-byte proof accepted by the mock light client used in integration tests.
+pub const DUMMY_PROOF: &[u8] = &[0u8; 32];
+
 /// Extract the custom error code from a `BanksClientError`, panicking if the
 /// error is not an `InstructionError::Custom`.
 pub fn extract_custom_error(err: &BanksClientError) -> u32 {

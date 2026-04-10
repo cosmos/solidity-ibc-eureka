@@ -11,7 +11,6 @@ async fn test_ack_after_timeout_fails() {
 
     // ── Test data ──
     let packet_data = b"timeout then ack";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
@@ -36,7 +35,7 @@ async fn test_ack_after_timeout_fails() {
 
     // Timeout the packet
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload timeout chunks failed");
     relayer
@@ -59,7 +58,7 @@ async fn test_ack_after_timeout_fails() {
         .await
         .expect("cleanup chunks failed");
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
 

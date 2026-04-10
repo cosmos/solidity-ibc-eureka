@@ -11,7 +11,6 @@ async fn test_double_ack_fails() {
 
     // ── Test data ──
     let packet_data = b"double ack";
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
@@ -37,7 +36,7 @@ async fn test_double_ack_fails() {
     .expect("send failed");
 
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload recv chunks failed");
     relayer
@@ -55,7 +54,7 @@ async fn test_double_ack_fails() {
         .expect("recv failed");
 
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
 
@@ -79,7 +78,7 @@ async fn test_double_ack_fails() {
         .await
         .expect("cleanup chunks failed");
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("re-upload ack chunks failed");
 

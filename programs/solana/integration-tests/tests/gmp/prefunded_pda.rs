@@ -13,7 +13,6 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
 
@@ -58,7 +57,7 @@ async fn test_gmp_prefunded_pda_not_blocked() {
 
     // ── Recv ──
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload recv chunks failed");
 
@@ -88,7 +87,7 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
 
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
 

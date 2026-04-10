@@ -12,7 +12,6 @@ async fn test_error_ack_lifecycle() {
     let user = User::new();
 
     // ── Test data ──
-    let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     // Payload prefix triggers error ack in mock_ibc_app (first 16 bytes checked)
     let packet_data = b"RETURN_ERROR_ACKextra";
@@ -42,7 +41,7 @@ async fn test_error_ack_lifecycle() {
 
     // Relayer delivers to B — mock_ibc_app returns b"error"
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload recv chunks failed");
     let recv = relayer
@@ -83,7 +82,7 @@ async fn test_error_ack_lifecycle() {
 
     // Relayer delivers ack back to A with the raw error ack bytes
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, &proof_data)
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
         .await
         .expect("upload ack chunks failed");
     let commitment_pda = relayer
