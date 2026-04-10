@@ -707,8 +707,7 @@ fn test_assemble_and_submit_misbehaviour_wrong_chunk_bump() {
         "test setup must produce at least one chunk"
     );
 
-    // Pick an on-curve bump so the failure is deterministically
-    // `InvalidBump` instead of a collision with another valid PDA.
+    // Pick an on-curve bump so the failure is deterministically `InvalidBump`.
     let canonical_bump = test_accounts.chunk_bumps[0];
     let wrong_bump = (0u8..=u8::MAX)
         .find(|&b| {

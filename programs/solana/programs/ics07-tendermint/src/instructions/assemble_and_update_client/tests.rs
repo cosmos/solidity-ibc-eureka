@@ -565,10 +565,8 @@ fn test_assembly_wrong_submitter() {
 
     let result = mollusk.process_instruction(&instruction, &accounts);
 
-    // Bumps belong to `original_submitter`; pairing them with
-    // `wrong_submitter` either hits an on-curve point (`InvalidBump`) or
-    // some other valid-but-wrong PDA (`InvalidChunkAccount`) depending on
-    // the random keys in scope.
+    // Wrong submitter may fail as either `InvalidBump` or `InvalidChunkAccount`
+    // depending on whether the bump lands on-curve for the foreign key.
     crate::test_helpers::fixtures::assert_error_code_one_of(
         result,
         &[ErrorCode::InvalidBump, ErrorCode::InvalidChunkAccount],
@@ -2109,8 +2107,7 @@ fn test_assembly_fails_with_wrong_chunk_bump() {
 
     let (chunk_pdas, canonical_bumps) = get_chunk_pdas_with_bumps(&submitter, target_height, 2);
 
-    // Pick an on-curve bump so the failure is deterministically
-    // `InvalidBump` instead of a collision with another valid PDA.
+    // Pick an on-curve bump so the failure is deterministically `InvalidBump`.
     let target_height_le = target_height.to_le_bytes();
     let index_byte = [0u8];
     let wrong_bump = (0u8..=u8::MAX)
