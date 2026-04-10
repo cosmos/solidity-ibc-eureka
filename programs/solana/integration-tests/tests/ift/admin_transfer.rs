@@ -21,16 +21,10 @@ async fn test_ift_admin_transfer() {
     chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
-        .await;
-    deployer
-        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    init_ift_chain(
+        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+    )
+    .await;
 
     // ── Verify initial state ──
     let state = ift::read_app_state(&chain).await;

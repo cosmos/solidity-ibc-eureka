@@ -21,16 +21,10 @@ async fn test_ift_batch_transfers() {
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
-        .await;
-    deployer
-        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    init_ift_chain(
+        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+    )
+    .await;
 
     // ── Setup ──
     let (mint, user_ata) =

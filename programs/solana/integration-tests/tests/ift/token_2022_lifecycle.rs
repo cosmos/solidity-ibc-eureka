@@ -25,16 +25,10 @@ async fn test_ift_token_2022_lifecycle() {
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
-        .await;
-    deployer
-        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    init_ift_chain(
+        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+    )
+    .await;
 
     // ── Setup ──
     let (mint, user_ata) = setup_ift_chain_with_token(

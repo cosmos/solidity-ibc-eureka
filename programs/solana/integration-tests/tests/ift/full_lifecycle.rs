@@ -25,16 +25,10 @@ async fn test_ift_full_lifecycle() {
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
-    chain.start().await;
-    deployer
-        .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
-        .await;
-    deployer
-        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain, programs)
-        .await;
+    init_ift_chain(
+        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+    )
+    .await;
 
     // ── Setup ──
     let (mint, user_ata) =
@@ -44,6 +38,9 @@ async fn test_ift_full_lifecycle() {
     let mint_call_payload = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);
     let gmp_packet_bytes =
         ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_payload);
+
+    // ── Verify mint_keypair has no residual authority ──
+    assert_mint_keypair_powerless(&mut chain, &user, &mint_keypair, mint).await;
 
     // ── User sends IFT transfer ──
     let result = user

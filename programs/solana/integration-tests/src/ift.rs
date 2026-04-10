@@ -570,6 +570,16 @@ pub async fn read_pending_transfer(chain: &Chain, pda: Pubkey) -> ift::state::Pe
         .expect("deserialize PendingTransfer")
 }
 
+/// Read and deserialize an SPL Token `Mint` account.
+pub async fn read_spl_mint(
+    chain: &Chain,
+    mint: Pubkey,
+) -> anchor_spl::token::spl_token::state::Mint {
+    use solana_sdk::program_pack::Pack;
+    let account = chain.get_account(mint).await.expect("mint should exist");
+    anchor_spl::token::spl_token::state::Mint::unpack(&account.data).expect("valid Mint")
+}
+
 /// Deserialize the on-chain `IFTAppState` from its PDA.
 pub async fn read_app_state(chain: &Chain) -> ift::state::IFTAppState {
     use anchor_lang::AccountDeserialize;
