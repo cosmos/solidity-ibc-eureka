@@ -80,6 +80,7 @@ pub fn pre_verify_signature<'info>(
 
     ctx.accounts.signature_verification.is_valid = is_valid;
     ctx.accounts.signature_verification.submitter = ctx.accounts.submitter.key();
+    ctx.accounts.signature_verification.sig_hash = signature.signature_hash;
 
     Ok(())
 }

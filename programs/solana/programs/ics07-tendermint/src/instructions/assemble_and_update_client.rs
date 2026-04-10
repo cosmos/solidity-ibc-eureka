@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_header;
-use crate::state::{ConsensusStateStore, HeaderChunk, CHUNK_DATA_SIZE};
+use crate::state::{ConsensusStateStore, HeaderChunk, SignatureVerification, CHUNK_DATA_SIZE};
 use crate::types::{AppState, ClientState, ConsensusState, UpdateResult};
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;
@@ -13,7 +13,7 @@ use tendermint_light_client_update_client::ClientState as UpdateClientState;
 /// Remaining accounts must contain chunk PDAs in order, optionally followed by
 /// `SignatureVerification` accounts for pre-verified Ed25519 signatures.
 #[derive(Accounts)]
-#[instruction(target_height: u64, chunk_count: u8, trusted_height: u64)]
+#[instruction(target_height: u64, chunk_count: u8, trusted_height: u64, chunk_bumps: Vec<u8>)]
 pub struct AssembleAndUpdateClient<'info> {
     /// PDA holding the light client configuration; updated with the new latest height on success.
     #[account(
@@ -81,6 +81,7 @@ pub fn assemble_and_update_client<'info>(
     target_height: u64,
     chunk_count: u8,
     trusted_height: u64,
+    chunk_bumps: Vec<u8>,
 ) -> Result<UpdateResult> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -97,7 +98,9 @@ pub fn assemble_and_update_client<'info>(
 
     let chunk_count = chunk_count as usize;
 
-    let header_bytes = assemble_chunks(&ctx, target_height, chunk_count)?;
+    require_eq!(chunk_bumps.len(), chunk_count, ErrorCode::InvalidChunkCount);
+
+    let header_bytes = assemble_chunks(&ctx, target_height, chunk_count, &chunk_bumps)?;
 
     let result = process_header_update(
         &mut ctx,
@@ -113,39 +116,61 @@ pub fn assemble_and_update_client<'info>(
     Ok(result)
 }
 
+/// Owner check runs first so unrelated accounts skip the syscall.
+fn verify_header_chunk_pda(
+    chunk_account: &AccountInfo,
+    submitter: Pubkey,
+    target_height_le: &[u8; 8],
+    index: u8,
+    bump: u8,
+) -> Result<()> {
+    require_keys_eq!(
+        *chunk_account.owner,
+        crate::ID,
+        ErrorCode::InvalidAccountOwner
+    );
+
+    let index_byte = [index];
+    let bump_byte = [bump];
+    let expected_seeds: &[&[u8]] = &[
+        crate::state::HeaderChunk::SEED,
+        submitter.as_ref(),
+        target_height_le,
+        &index_byte,
+        &bump_byte,
+    ];
+    let expected_pda = Pubkey::create_program_address(expected_seeds, &crate::ID)
+        .map_err(|_| ErrorCode::InvalidBump)?;
+    require_keys_eq!(
+        chunk_account.key(),
+        expected_pda,
+        ErrorCode::InvalidChunkAccount
+    );
+    Ok(())
+}
+
 fn assemble_chunks(
     ctx: &Context<AssembleAndUpdateClient>,
     target_height: u64,
     chunk_count: usize,
+    chunk_bumps: &[u8],
 ) -> Result<Vec<u8>> {
     let submitter = ctx.accounts.submitter.key();
     let header_size = chunk_count * CHUNK_DATA_SIZE;
     let mut header_bytes = Vec::with_capacity(header_size);
+    let target_height_le = target_height.to_le_bytes();
 
     for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
-        let expected_seeds = &[
-            crate::state::HeaderChunk::SEED,
-            submitter.as_ref(),
-            &target_height.to_le_bytes(),
-            &[index as u8],
-        ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_keys_eq!(
-            chunk_account.key(),
-            expected_pda,
-            ErrorCode::InvalidChunkAccount
-        );
-
-        require_keys_eq!(
-            *chunk_account.owner,
-            crate::ID,
-            ErrorCode::InvalidAccountOwner
-        );
+        verify_header_chunk_pda(
+            chunk_account,
+            submitter,
+            &target_height_le,
+            index as u8,
+            chunk_bumps[index],
+        )?;
 
         let chunk_data = chunk_account.try_borrow_data()?;
-
         let chunk: HeaderChunk = HeaderChunk::try_deserialize(&mut &chunk_data[..])?;
-
         header_bytes.extend_from_slice(&chunk.chunk_data);
     }
 
@@ -230,6 +255,7 @@ fn verify_and_update_header<'info>(
         current_time,
         signature_verification_accounts,
         &crate::ID,
+        SignatureVerification::discriminator_array(),
     )
     .map_err(|e| {
         msg!("update_client FAILED: {:?}", e);

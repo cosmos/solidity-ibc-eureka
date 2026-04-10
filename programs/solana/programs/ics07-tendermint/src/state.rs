@@ -79,10 +79,19 @@ pub struct SignatureVerification {
     pub is_valid: bool,
     /// The submitter who created this verification
     pub submitter: Pubkey,
+    /// `sha256(pk || msg || sig)` — used by the verifier to match accounts.
+    pub sig_hash: [u8; 32],
 }
 
 impl SignatureVerification {
     pub const SEED: &'static [u8] = b"sig_verify";
+
+    /// Anchor discriminator as a fixed-size array (length pinned by the assert below).
+    pub fn discriminator_array() -> [u8; 8] {
+        Self::DISCRIMINATOR
+            .try_into()
+            .expect("Anchor discriminator is always 8 bytes")
+    }
 }
 
 // Compile-time verification that discriminator length matches the shared constant
@@ -90,9 +99,24 @@ const _: () = assert!(
     SignatureVerification::DISCRIMINATOR.len() == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN
 );
 
+// Offset constants must match the Anchor layout.
+const _: () = assert!(
+    solana_ibc_types::ics07::SIGNATURE_VERIFICATION_SIG_HASH_OFFSET
+        == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN + 1 + 32
+);
+const _: () = assert!(
+    solana_ibc_types::ics07::SIGNATURE_VERIFICATION_MIN_SIZE
+        == solana_ibc_constants::ANCHOR_DISCRIMINATOR_LEN + 1 + 32 + 32
+);
+
 #[cfg(test)]
 mod compatibility_tests {
     use super::*;
+    use anchor_lang::AccountSerialize;
+    use solana_ibc_types::ics07::{
+        SIGNATURE_VERIFICATION_IS_VALID_OFFSET, SIGNATURE_VERIFICATION_MIN_SIZE,
+        SIGNATURE_VERIFICATION_SIG_HASH_OFFSET,
+    };
 
     /// Ensures `ConsensusStateStore` SEED constant matches solana-ibc-types
     #[test]
@@ -100,6 +124,35 @@ mod compatibility_tests {
         assert_eq!(
             ConsensusStateStore::SEED,
             solana_ibc_types::ConsensusState::SEED
+        );
+    }
+
+    /// Trips on a field reorder of `SignatureVerification` — the verifier
+    /// reads `is_valid` and `sig_hash` at fixed offsets.
+    #[test]
+    fn test_signature_verification_layout_sentinel() {
+        let sentinel_sig_hash = [0xABu8; 32];
+        let value = SignatureVerification {
+            is_valid: true,
+            submitter: Pubkey::new_unique(),
+            sig_hash: sentinel_sig_hash,
+        };
+
+        let mut serialized = Vec::new();
+        value
+            .try_serialize(&mut serialized)
+            .expect("AccountSerialize is infallible for fixed-size struct");
+
+        assert!(serialized.len() >= SIGNATURE_VERIFICATION_MIN_SIZE);
+        assert_eq!(
+            serialized[SIGNATURE_VERIFICATION_IS_VALID_OFFSET], 1,
+            "is_valid offset shifted"
+        );
+        assert_eq!(
+            &serialized[SIGNATURE_VERIFICATION_SIG_HASH_OFFSET
+                ..SIGNATURE_VERIFICATION_SIG_HASH_OFFSET + 32],
+            &sentinel_sig_hash,
+            "sig_hash offset shifted; SolanaSignatureVerifier would read wrong bytes"
         );
     }
 }

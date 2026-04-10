@@ -124,10 +124,13 @@ pub fn update_client(
 /// - `trusted_consensus_state` - Consensus state at `proposed_header.trusted_height`.
 /// - `proposed_header` - Tendermint header to verify against the trusted state.
 /// - `time` - Current time in **nanoseconds** since Unix epoch.
-/// - `verification_accounts` - Pre-verified signature PDAs from `remaining_accounts`.
-///   Derived as `PDA(["sig_verify", sha256(pk ‖ msg ‖ sig)], program_id)`.
-///   Falls back to `brine-ed25519` when accounts are missing.
-/// - `program_id` - Light-client program ID for signature PDA derivation.
+/// - `verification_accounts` - Pre-verified signature accounts from `remaining_accounts`.
+///   Matched by owner, Anchor discriminator and embedded `sig_hash` field.
+///   Falls back to `brine-ed25519` when accounts are missing or mismatched.
+/// - `program_id` - Expected owner of the verification accounts.
+/// - `sig_verification_discriminator` - Anchor discriminator for the consumer's
+///   `SignatureVerification` account, used to reject unrelated program-owned
+///   accounts (e.g. `HeaderChunk`).
 ///
 /// # Errors
 /// Returns error if client/chain ID is invalid or header verification fails.
@@ -139,6 +142,7 @@ pub fn update_client<'a>(
     time: u128,
     verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
     program_id: &'a anchor_lang::prelude::Pubkey,
+    sig_verification_discriminator: [u8; 8],
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     update_client_impl(
         client_state,
@@ -147,6 +151,7 @@ pub fn update_client<'a>(
         time,
         verification_accounts,
         program_id,
+        sig_verification_discriminator,
     )
 }
 
@@ -175,6 +180,7 @@ fn update_client_impl<'a>(
     time: u128,
     verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
     program_id: &'a anchor_lang::prelude::Pubkey,
+    sig_verification_discriminator: [u8; 8],
 ) -> Result<UpdateClientOutput, UpdateClientError> {
     let verifier = tendermint_light_client_solana::SolanaVerifier::new(
         tendermint_light_client_solana::SolanaPredicates,
@@ -182,6 +188,7 @@ fn update_client_impl<'a>(
             tendermint_light_client_solana::SolanaSignatureVerifier::new(
                 verification_accounts,
                 program_id,
+                sig_verification_discriminator,
             ),
         ),
         tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
