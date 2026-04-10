@@ -11,11 +11,13 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &TestCpiProxy];
+
+    // ── Test data ──
     let sequence = 1u64;
     let increment_amount = 10u64;
 
     // ── Chain ──
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &TestCpiProxy];
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",

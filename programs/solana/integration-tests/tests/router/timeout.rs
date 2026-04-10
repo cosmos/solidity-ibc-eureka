@@ -8,18 +8,15 @@ async fn test_timeout_packet() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+
+    // ── Test data ──
     let packet_data = b"this packet will time out";
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Init ──

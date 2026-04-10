@@ -15,7 +15,7 @@ use access_manager::AccessManagerError;
 use integration_tests::{
     admin::Admin,
     anchor_error_code,
-    chain::{Chain, ChainConfig, ChainProgram},
+    chain::{Chain, ChainProgram},
     deployer::Deployer,
     extract_custom_error, gmp,
     programs::{Ics27Gmp, TestAccessManager},

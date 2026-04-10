@@ -14,10 +14,12 @@ async fn test_gmp_three_chain_roundtrip() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
 
     // ── Chains ──
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",

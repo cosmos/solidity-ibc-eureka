@@ -100,24 +100,14 @@ async fn test_gmp_multi_user_isolation() {
     let relayer = Relayer::new();
     let user_a = User::new();
     let user_b = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user_a, &user_b]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_pda_a = gmp::derive_gmp_account_pda(chain_b.client_id(), &user_a.pubkey());

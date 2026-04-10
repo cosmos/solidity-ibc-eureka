@@ -11,26 +11,16 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());

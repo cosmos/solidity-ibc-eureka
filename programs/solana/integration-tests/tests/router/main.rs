@@ -12,7 +12,7 @@ use anchor_lang::AccountDeserialize;
 use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{mock_ibc_app_state_pda, Chain, ChainConfig, ChainProgram},
+    chain::{mock_ibc_app_state_pda, Chain, ChainProgram},
     deployer::Deployer,
     extract_ack_data, extract_custom_error,
     programs::{MockIbcApp, TestIbcApp},

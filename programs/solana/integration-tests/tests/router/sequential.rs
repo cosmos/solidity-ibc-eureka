@@ -8,26 +8,16 @@ async fn test_multiple_sequential_packets() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
     let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
     // ── Init ──

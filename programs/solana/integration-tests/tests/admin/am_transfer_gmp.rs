@@ -12,15 +12,10 @@ async fn test_gmp_am_transfer_propose_accept() {
     let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
     // ── Chain ──
-    let mut chain = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
@@ -68,15 +63,10 @@ async fn test_gmp_am_transfer_propose_cancel() {
     let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
     // ── Chain ──
-    let mut chain = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
@@ -117,15 +107,10 @@ async fn test_gmp_am_transfer_unauthorized_propose() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let non_admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
     // ── Chain ──
-    let mut chain = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer, &non_admin]);
 
     // ── Init ──

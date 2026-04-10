@@ -10,8 +10,8 @@ async fn test_error_ack_lifecycle() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp];
-    let programs_b: &[&dyn ChainProgram] = &[&MockIbcApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     // Payload prefix triggers error ack in mock_ibc_app (first 16 bytes checked)
@@ -19,20 +19,10 @@ async fn test_error_ack_lifecycle() {
     let error_ack = b"error".to_vec();
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs: programs_a,
-    });
+    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let programs_b: &[&dyn ChainProgram] = &[&MockIbcApp];
+    let (mut chain_a, mut chain_b) = Chain::pair_with(&deployer, programs_a, programs_b);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs: programs_b,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
     // ── Init ──

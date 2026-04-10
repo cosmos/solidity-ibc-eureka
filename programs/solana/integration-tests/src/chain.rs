@@ -136,6 +136,43 @@ impl Chain {
         }
     }
 
+    /// Create a single chain with the default `chain-a-client` /
+    /// `chain-b-client` client IDs.
+    pub fn single(deployer: &Deployer, programs: &[&dyn ChainProgram]) -> Self {
+        Self::new(ChainConfig {
+            client_id: "chain-a-client",
+            counterparty_client_id: "chain-b-client",
+            deployer,
+            programs,
+        })
+    }
+
+    /// Create two chains with mirrored client IDs and the same programs.
+    pub fn pair(deployer: &Deployer, programs: &[&dyn ChainProgram]) -> (Self, Self) {
+        Self::pair_with(deployer, programs, programs)
+    }
+
+    /// Create two chains with mirrored client IDs but different programs.
+    pub fn pair_with(
+        deployer: &Deployer,
+        programs_a: &[&dyn ChainProgram],
+        programs_b: &[&dyn ChainProgram],
+    ) -> (Self, Self) {
+        let chain_a = Self::new(ChainConfig {
+            client_id: "chain-a-client",
+            counterparty_client_id: "chain-b-client",
+            deployer,
+            programs: programs_a,
+        });
+        let chain_b = Self::new(ChainConfig {
+            client_id: "chain-b-client",
+            counterparty_client_id: "chain-a-client",
+            deployer,
+            programs: programs_b,
+        });
+        (chain_a, chain_b)
+    }
+
     // ── Setup phase (before start) ──────────────────────────────────────
 
     /// Pre-fund actor accounts with the default amount (10 SOL each).

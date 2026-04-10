@@ -10,11 +10,13 @@ async fn test_gmp_direct_call_rejected() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+
+    // ── Test data ──
     let sequence = 1u64;
     let increment_amount = 10u64;
 
     // ── Chain ──
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",

@@ -10,26 +10,16 @@ async fn test_unauthorized_relayer_rejected() {
     let relayer = Relayer::new();
     let user = User::new();
     let unauthorized = Relayer::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+
+    // ── Test data ──
     let packet_data = b"unauthorized delivery";
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer, &unauthorized]);
 
     // ── Init ──

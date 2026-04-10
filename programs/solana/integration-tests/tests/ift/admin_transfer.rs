@@ -13,15 +13,10 @@ async fn test_ift_admin_transfer() {
     let relayer = Relayer::new();
     let new_admin_keypair = Keypair::new();
     let another_admin_keypair = Keypair::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
 
     // ── Chain ──
-    let mut chain = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+    let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer, &ift_admin]);
     chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
 

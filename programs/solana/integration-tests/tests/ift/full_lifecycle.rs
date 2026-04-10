@@ -15,17 +15,14 @@ async fn test_ift_full_lifecycle() {
     let relayer = Relayer::new();
     let user = User::new();
     let mint_keypair = Keypair::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chain ──
-    let mut chain = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+    let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──

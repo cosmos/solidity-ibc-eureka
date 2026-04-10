@@ -7,15 +7,10 @@ async fn test_send_call_timeout_too_long() {
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
 
     // ── Chain ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+    let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());

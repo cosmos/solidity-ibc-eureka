@@ -9,7 +9,8 @@ async fn test_bidirectional_packets() {
     let relayer = Relayer::new();
     let user_a = User::new();
     let user_b = User::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+
+    // ── Test data ──
     let proof_data = vec![0u8; 32];
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
     let data_a_to_b = b"A says hello to B";
@@ -18,20 +19,9 @@ async fn test_bidirectional_packets() {
     let seq_b_to_a = 2u64;
 
     // ── Chains ──
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-    });
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user_a]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-    });
     chain_b.prefund(&[&admin, &relayer, &user_b]);
 
     // ── Init ──
