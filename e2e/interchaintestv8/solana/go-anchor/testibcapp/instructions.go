@@ -334,7 +334,6 @@ func NewOnTimeoutPacketInstruction(
 	// Accounts:
 	appStateAccount solanago.PublicKey,
 	instructionSysvarAccount solanago.PublicKey,
-	escrowAccountAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
@@ -363,13 +362,10 @@ func NewOnTimeoutPacketInstruction(
 		// Account 1 "instruction_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar for CPI validation
 		accounts__.Append(solanago.NewAccountMeta(instructionSysvarAccount, false, false))
-		// Account 2 "escrow_account": Writable, Non-signer, Optional
-		// Escrow account that holds SOL (funds remain in escrow on timeout)
-		accounts__.Append(solanago.NewAccountMeta(escrowAccountAccount, true, false))
-		// Account 3 "payer": Writable, Signer, Required
+		// Account 2 "payer": Writable, Signer, Required
 		// Payer for account creation if needed
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 4 "system_program": Read-only, Non-signer, Required
+		// Account 3 "system_program": Read-only, Non-signer, Required
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
 	}
 

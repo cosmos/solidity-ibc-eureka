@@ -1,0 +1,271 @@
+//! [`ChainProgram`] implementations for every on-chain program used in tests.
+//!
+//! Each struct knows how to register its `.so` binary on `ProgramTest`,
+//! declare an IBC port (if applicable) and build program-specific
+//! initialization instructions.
+
+use crate::accounts::account_owned_by;
+use crate::chain::{add_program_data, mock_ibc_app_state_pda, ChainProgram, InitStepSigner};
+use anchor_lang::InstructionData;
+use solana_program_test::ProgramTest;
+use solana_sdk::{
+    bpf_loader_upgradeable,
+    instruction::{AccountMeta, Instruction},
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer as _,
+    system_program,
+};
+
+// ── TestIbcApp ──────────────────────────────────────────────────────────
+
+/// Stateful `test_ibc_app` that counts packets sent/received/acked/timed-out.
+pub struct TestIbcApp;
+
+impl ChainProgram for TestIbcApp {
+    fn register(&self, pt: &mut ProgramTest, _deployer: Pubkey) {
+        pt.add_program("test_ibc_app", test_ibc_app::ID, None);
+    }
+
+    fn ibc_port_and_id(&self) -> Option<(&str, Pubkey)> {
+        Some((crate::router::PORT_ID, test_ibc_app::ID))
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        _admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
+        let ix = Instruction {
+            program_id: test_ibc_app::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: test_ibc_app::instruction::Initialize { authority: payer }.data(),
+        };
+        vec![(vec![ix], InitStepSigner::DeployerOnly)]
+    }
+}
+
+// ── MockIbcApp ──────────────────────────────────────────────────────────
+
+/// Stateless `mock_ibc_app` with magic-string ack control
+/// (`RETURN_ERROR_ACK` / `RETURN_EMPTY_ACK`).
+pub struct MockIbcApp;
+
+impl ChainProgram for MockIbcApp {
+    fn register(&self, pt: &mut ProgramTest, _deployer: Pubkey) {
+        pt.add_program("mock_ibc_app", mock_ibc_app::ID, None);
+        pt.add_account(
+            mock_ibc_app_state_pda(),
+            account_owned_by(vec![0u8; 100], mock_ibc_app::ID),
+        );
+    }
+
+    fn ibc_port_and_id(&self) -> Option<(&str, Pubkey)> {
+        Some((crate::router::PORT_ID, mock_ibc_app::ID))
+    }
+}
+
+// ── Ics27Gmp ────────────────────────────────────────────────────────────
+
+/// `ics27_gmp` — GMP IBC application registered on the GMP port.
+pub struct Ics27Gmp;
+
+impl ChainProgram for Ics27Gmp {
+    fn register(&self, pt: &mut ProgramTest, deployer: Pubkey) {
+        pt.add_program("ics27_gmp", ics27_gmp::ID, None);
+        add_program_data(pt, ics27_gmp::ID, deployer);
+    }
+
+    fn ibc_port_and_id(&self) -> Option<(&str, Pubkey)> {
+        Some((crate::gmp::GMP_PORT_ID, ics27_gmp::ID))
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        _admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
+        let ix = Instruction {
+            program_id: ics27_gmp::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(payer, true),
+            ],
+            data: ics27_gmp::instruction::Initialize {
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+        vec![(vec![ix], InitStepSigner::DeployerOnly)]
+    }
+
+    fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
+        Some(ics27_gmp::ID)
+    }
+}
+
+// ── TestGmpApp ──────────────────────────────────────────────────────────
+
+/// `test_gmp_app` — counter app invoked by GMP via CPI.
+pub struct TestGmpApp;
+
+impl ChainProgram for TestGmpApp {
+    fn register(&self, pt: &mut ProgramTest, _deployer: Pubkey) {
+        pt.add_program("test_gmp_app", test_gmp_app::ID, None);
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        _admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let (app_state_pda, _) = Pubkey::find_program_address(
+            &[test_gmp_app::state::CounterAppState::SEED],
+            &test_gmp_app::ID,
+        );
+        let ix = Instruction {
+            program_id: test_gmp_app::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+            ],
+            data: test_gmp_app::instruction::Initialize { authority: payer }.data(),
+        };
+        vec![(vec![ix], InitStepSigner::DeployerOnly)]
+    }
+}
+
+// ── TestCpiProxy ────────────────────────────────────────────────────────
+
+/// `test_cpi_proxy` — generic CPI proxy for security tests.
+pub struct TestCpiProxy;
+
+impl ChainProgram for TestCpiProxy {
+    fn register(&self, pt: &mut ProgramTest, _deployer: Pubkey) {
+        pt.add_program("test_cpi_proxy", test_cpi_proxy::ID, None);
+    }
+}
+
+// ── Ift ─────────────────────────────────────────────────────────────────
+
+/// `ift` — inter-chain fungible token transfers (uses GMP's port).
+///
+/// The IFT program has its own admin (stored in `IFTAppState.admin`) that is
+/// independent from the access manager `ADMIN_ROLE`. Initialize IFT separately
+/// via [`Deployer::init_programs`] to pass the desired IFT admin pubkey.
+pub struct Ift;
+
+impl ChainProgram for Ift {
+    fn register(&self, pt: &mut ProgramTest, deployer: Pubkey) {
+        pt.add_program("ift", ift::ID, None);
+        add_program_data(pt, ift::ID, deployer);
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[ift::ID.as_ref()], &bpf_loader_upgradeable::ID);
+        let ix = Instruction {
+            program_id: ift::ID,
+            accounts: vec![
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(payer, true),
+            ],
+            data: ift::instruction::Initialize { admin }.data(),
+        };
+        vec![(vec![ix], InitStepSigner::DeployerOnly)]
+    }
+
+    fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
+        Some(ift::ID)
+    }
+}
+
+// ── TestAccessManager ───────────────────────────────────────────────────
+
+/// `test_access_manager` — second AM instance for AM migration tests.
+pub struct TestAccessManager;
+
+impl ChainProgram for TestAccessManager {
+    fn register(&self, pt: &mut ProgramTest, deployer: Pubkey) {
+        pt.add_program("test_access_manager", test_access_manager::ID, None);
+        add_program_data(pt, test_access_manager::ID, deployer);
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let test_am_pda =
+            solana_ibc_types::access_manager::AccessManager::pda(test_access_manager::ID).0;
+
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[test_access_manager::ID.as_ref()],
+            &bpf_loader_upgradeable::ID,
+        );
+
+        let init_ix = Instruction {
+            program_id: test_access_manager::ID,
+            accounts: vec![
+                AccountMeta::new(test_am_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(payer, true),
+            ],
+            data: access_manager::instruction::Initialize { admin }.data(),
+        };
+
+        let grant_ix = Instruction {
+            program_id: test_access_manager::ID,
+            accounts: vec![
+                AccountMeta::new(test_am_pda, false),
+                AccountMeta::new_readonly(admin, true),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+            ],
+            data: access_manager::instruction::GrantRole {
+                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                account: admin,
+            }
+            .data(),
+        };
+
+        vec![
+            (vec![init_ix], InitStepSigner::DeployerOnly),
+            (vec![grant_ix], InitStepSigner::WithAdmin),
+        ]
+    }
+
+    fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
+        Some(test_access_manager::ID)
+    }
+}

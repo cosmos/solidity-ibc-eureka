@@ -1,0 +1,101 @@
+use super::*;
+
+/// After a successful ack, attempting to timeout the same packet fails.
+#[tokio::test]
+async fn test_timeout_after_ack_fails() {
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
+
+    // ── Test data ──
+    let packet_data = b"ack then timeout";
+    let sequence = 1u64;
+    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+
+    // ── Chains ──
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    chain_a.prefund(&[&admin, &relayer, &user]);
+    chain_b.prefund(&[&admin, &relayer]);
+
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_b.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Full lifecycle: send → recv → ack ──
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send failed");
+
+    let (b_payload, b_proof) = relayer
+        .upload_chunks(&mut chain_b, sequence, packet_data, DUMMY_PROOF)
+        .await
+        .expect("upload recv chunks failed");
+    relayer
+        .recv_packet(
+            &mut chain_b,
+            RecvPacketParams {
+                sequence,
+                payload_chunk_pda: b_payload,
+                proof_chunk_pda: b_proof,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("recv failed");
+
+    let (a_payload, a_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .await
+        .expect("upload ack chunks failed");
+    relayer
+        .ack_packet(
+            &mut chain_a,
+            AckPacketParams {
+                sequence,
+                acknowledgement: successful_ack,
+                payload_chunk_pda: a_payload,
+                proof_chunk_pda: a_proof,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect("ack failed");
+
+    // Cleanup consumed ack chunks, then upload fresh ones for the timeout attempt
+    relayer
+        .cleanup_chunks(&mut chain_a, sequence, a_payload, a_proof)
+        .await
+        .expect("cleanup chunks failed");
+    let (t_payload, t_proof) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .await
+        .expect("upload timeout chunks failed");
+
+    // Now try to timeout — commitment is zeroed, should fail
+    let err = relayer
+        .timeout_packet(
+            &mut chain_a,
+            TimeoutPacketParams {
+                sequence,
+                payload_chunk_pda: t_payload,
+                proof_chunk_pda: t_proof,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("timeout after ack should fail");
+
+    assert_eq!(extract_custom_error(&err), PACKET_COMMITMENT_MISMATCH);
+}

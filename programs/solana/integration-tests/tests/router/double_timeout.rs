@@ -1,0 +1,79 @@
+use super::*;
+
+/// Timing out the same packet twice fails — the commitment is already zeroed.
+#[tokio::test]
+async fn test_double_timeout_fails() {
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
+
+    // ── Test data ──
+    let packet_data = b"double timeout";
+    let sequence = 1u64;
+
+    // ── Chain ──
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let mut chain_a = Chain::single(&deployer, programs);
+    chain_a.prefund(&[&admin, &relayer, &user]);
+
+    // ── Init ──
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
+
+    // ── Send ──
+    user.send_packet(
+        &mut chain_a,
+        SendPacketParams {
+            sequence,
+            packet_data,
+        },
+    )
+    .await
+    .expect("send failed");
+
+    let (payload_pda, proof_pda) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .await
+        .expect("upload timeout chunks failed");
+
+    let timeout_params = TimeoutPacketParams {
+        sequence,
+        payload_chunk_pda: payload_pda,
+        proof_chunk_pda: proof_pda,
+        app_program: test_ibc_app::ID,
+        ..Default::default()
+    };
+
+    relayer
+        .timeout_packet(&mut chain_a, timeout_params)
+        .await
+        .expect("first timeout failed");
+
+    // Cleanup consumed chunks, then re-upload for second attempt
+    relayer
+        .cleanup_chunks(&mut chain_a, sequence, payload_pda, proof_pda)
+        .await
+        .expect("cleanup chunks failed");
+    let (payload_pda, proof_pda) = relayer
+        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .await
+        .expect("re-upload timeout chunks failed");
+
+    // Second timeout — commitment is zeroed, should fail
+    let err = relayer
+        .timeout_packet(
+            &mut chain_a,
+            TimeoutPacketParams {
+                sequence,
+                payload_chunk_pda: payload_pda,
+                proof_chunk_pda: proof_pda,
+                app_program: test_ibc_app::ID,
+                ..Default::default()
+            },
+        )
+        .await
+        .expect_err("second timeout should fail");
+
+    assert_eq!(extract_custom_error(&err), PACKET_COMMITMENT_MISMATCH);
+}

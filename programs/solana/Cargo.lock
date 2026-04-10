@@ -3688,6 +3688,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "integration-tests"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "alloy-sol-types",
+ "anchor-lang",
+ "anchor-spl",
+ "bincode",
+ "borsh 0.10.4",
+ "ics26-router",
+ "ics27-gmp",
+ "ift",
+ "mock-ibc-app",
+ "mock-light-client",
+ "prost",
+ "sha2 0.10.9",
+ "solana-ibc-proto",
+ "solana-ibc-types",
+ "solana-program-test",
+ "solana-sdk",
+ "test-access-manager",
+ "test-cpi-proxy",
+ "test-gmp-app",
+ "test-ibc-app",
+ "tokio",
+]
+
+[[package]]
 name = "io-uring"
 version = "0.7.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
