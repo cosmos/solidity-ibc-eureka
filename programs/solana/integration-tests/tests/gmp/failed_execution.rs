@@ -6,15 +6,17 @@ use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey, system_program};
 /// and no receipt or ack is created.
 #[tokio::test]
 async fn test_gmp_failed_execution_aborts() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 10u64;
 
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -36,11 +38,9 @@ async fn test_gmp_failed_execution_aborts() {
 
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
 
-    // Use a fake CounterAppState PDA — Anchor will reject it during CPI
     let fake_counter_app_state = Pubkey::new_unique();
     chain_b.prefund_lamports(fake_counter_app_state, 1_000_000);
 
-    // Build payload referencing the fake PDA
     let mut ix_data = integration_tests::accounts::anchor_discriminator("increment").to_vec();
     ix_data.extend_from_slice(&increment_amount.to_le_bytes());
 
@@ -78,6 +78,7 @@ async fn test_gmp_failed_execution_aborts() {
 
     let gmp_packet_bytes = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &bad_payload);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

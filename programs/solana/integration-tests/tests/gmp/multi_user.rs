@@ -94,14 +94,16 @@ async fn lifecycle(
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn test_gmp_multi_user_isolation() {
-    let user_a = User::new();
-    let user_b = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user_a = User::new();
+    let user_b = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
 
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -138,6 +140,7 @@ async fn test_gmp_multi_user_isolation() {
         counter_app_state,
     };
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

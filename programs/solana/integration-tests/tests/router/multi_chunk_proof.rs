@@ -4,20 +4,21 @@ use super::*;
 /// (900 bytes) and is split across two chunk accounts.
 #[tokio::test]
 async fn test_multi_chunk_proof_lifecycle() {
-    let user = User::new();
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
     let relayer = Relayer::new();
+    let user = User::new();
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
     let packet_data = b"multi-chunk proof test";
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
-
     // Proof > 900 bytes: needs 2 chunks (900 + 300)
     let proof_data = vec![0xAB; 1200];
     let proof_chunk_0 = proof_data[..900].to_vec();
     let proof_chunk_1 = proof_data[900..].to_vec();
 
-    let deployer = Deployer::new();
-    let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -34,6 +35,7 @@ async fn test_multi_chunk_proof_lifecycle() {
     });
     chain_b.prefund(&[&admin, &relayer]);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

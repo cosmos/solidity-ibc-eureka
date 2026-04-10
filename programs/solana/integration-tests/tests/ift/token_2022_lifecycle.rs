@@ -7,17 +7,19 @@ use super::*;
 /// support works end-to-end.
 #[tokio::test]
 async fn test_ift_token_2022_lifecycle() {
-    let user = User::new();
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
+    let ift_admin = IftAdmin::new();
     let relayer = Relayer::new();
+    let user = User::new();
     let mint_keypair = Keypair::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let token_kind = TokenKind::Token2022;
 
-    let deployer = Deployer::new();
-    let admin = Admin::new();
-    let ift_admin = IftAdmin::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -25,6 +27,8 @@ async fn test_ift_token_2022_lifecycle() {
         programs,
     });
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
+
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
@@ -36,6 +40,7 @@ async fn test_ift_token_2022_lifecycle() {
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
+    // ── Setup ──
     let (mint, user_ata) = setup_ift_chain_with_token(
         &mut chain,
         &ift_admin,
@@ -44,12 +49,8 @@ async fn test_ift_token_2022_lifecycle() {
         token_kind,
     )
     .await;
-
-    // Verify initial balance (Token 2022 account)
     let balance = token_kind.read_balance(&chain, user_ata).await;
     assert_eq!(balance, INITIAL_BALANCE);
-
-    // Build expected GMP packet bytes for ack delivery
     let mint_call_payload = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);
     let gmp_packet_bytes =
         ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_payload);

@@ -7,14 +7,16 @@ use integration_tests::extract_custom_error;
 /// should fail with `AppPaused`. Unpausing should restore normal operation.
 #[tokio::test]
 async fn test_ift_pause() {
-    let user = User::new();
-    let relayer = Relayer::new();
-    let mint_keypair = Keypair::new();
-
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
     let ift_admin = IftAdmin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
+    let mint_keypair = Keypair::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -22,6 +24,8 @@ async fn test_ift_pause() {
         programs,
     });
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
+
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
@@ -33,6 +37,7 @@ async fn test_ift_pause() {
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
+    // ── Setup ──
     let (mint, user_ata) =
         setup_ift_chain(&mut chain, &ift_admin, &mint_keypair, user.pubkey()).await;
 

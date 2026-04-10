@@ -5,14 +5,16 @@ use solana_sdk::transaction::Transaction;
 /// with `DirectCallNotAllowed`.
 #[tokio::test]
 async fn test_gmp_direct_call_rejected() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let sequence = 1u64;
     let increment_amount = 10u64;
 
+    // ── Chain ──
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
@@ -42,6 +44,7 @@ async fn test_gmp_direct_call_rejected() {
         user_counter_pda,
     );
 
+    // ── Init ──
     chain_b.start().await;
     deployer
         .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)

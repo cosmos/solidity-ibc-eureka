@@ -3,16 +3,18 @@ use super::*;
 /// After a successful timeout, attempting to ack the same packet fails.
 #[tokio::test]
 async fn test_ack_after_timeout_fails() {
-    let user = User::new();
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
     let relayer = Relayer::new();
+    let user = User::new();
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
     let packet_data = b"timeout then ack";
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
-    let deployer = Deployer::new();
-    let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    // ── Chain ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -21,6 +23,7 @@ async fn test_ack_after_timeout_fails() {
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

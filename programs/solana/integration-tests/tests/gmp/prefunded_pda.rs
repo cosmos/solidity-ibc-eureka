@@ -6,15 +6,17 @@ const EXTRA_PREFUND_LAMPORTS: u64 = 50_000_000;
 /// or `invoke_signed` during the recv flow.
 #[tokio::test]
 async fn test_gmp_prefunded_pda_not_blocked() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let increment_amount = 42u64;
 
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -32,7 +34,6 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
-    // Pre-fund with significantly more lamports than the default
     chain_b.prefund_lamports(gmp_account_pda, EXTRA_PREFUND_LAMPORTS);
 
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
@@ -47,6 +48,7 @@ async fn test_gmp_prefunded_pda_not_blocked() {
     let gmp_packet_bytes =
         gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &solana_payload);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

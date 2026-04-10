@@ -9,14 +9,15 @@ use solana_sdk::transaction::Transaction;
 /// Chain C: client `"c-to-b"` ↔ counterparty `"b-to-c"`
 #[tokio::test]
 async fn test_gmp_three_chain_roundtrip() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
 
-    // ── Chain A ──
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
@@ -25,7 +26,6 @@ async fn test_gmp_three_chain_roundtrip() {
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
-    // ── Chain B (dual client) ──
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
@@ -34,7 +34,6 @@ async fn test_gmp_three_chain_roundtrip() {
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
-    // ── Chain C ──
     let mut chain_c = Chain::new(ChainConfig {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
@@ -43,20 +42,16 @@ async fn test_gmp_three_chain_roundtrip() {
     });
     chain_c.prefund(&[&admin, &relayer]);
 
-    // Derive GMP PDAs for each hop
-    // Leg 1: A→B — GMP account on Chain B derived from b-to-a client + user
     let gmp_pda_on_b = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
     let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
     let counter_state_b = chain_b.counter_app_state_pda();
 
-    // Leg 2: B→C — GMP account on Chain C derived from c-to-b client + user
     let gmp_pda_on_c = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
     chain_c.prefund_lamports(gmp_pda_on_c, 10_000_000);
     let counter_on_c = gmp::derive_user_counter_pda(&gmp_pda_on_c);
     let counter_state_c = chain_c.counter_app_state_pda();
 
-    // Build payloads
     let amount_a_to_b = 42u64;
     let payload_ab =
         gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
@@ -67,7 +62,7 @@ async fn test_gmp_three_chain_roundtrip() {
         gmp::encode_increment_payload(counter_state_c, counter_on_c, gmp_pda_on_c, amount_b_to_c);
     let packet_bc = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_bc);
 
-    // ── Start all chains ──
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)
@@ -93,9 +88,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .transfer_upgrade_authority(&mut chain_c, programs)
         .await;
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Leg 1: A → B (sequence=1, amount=42)
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Leg 1: A → B (sequence=1, amount=42) ──
 
     let commitment_a = user
         .send_call(
@@ -151,9 +144,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("A→B ack_packet failed");
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Leg 2: B → C (sequence=1, amount=58)
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Leg 2: B → C (sequence=1, amount=58) ──
 
     // Build send_call using the b-to-c client on Chain B.
     let (send_bc_ix, commitment_b) = gmp::build_gmp_send_call_ix(
@@ -231,9 +222,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("B→C ack_packet failed");
 
-    // ══════════════════════════════════════════════════════════════════════
-    // Assertions
-    // ══════════════════════════════════════════════════════════════════════
+    // ── Assertions ──
 
     // Chain A: commitment zeroed, GMPCallResultAccount exists
     assert_commitment_zeroed(&chain_a, commitment_a).await;

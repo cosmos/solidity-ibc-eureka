@@ -3,17 +3,17 @@ use super::*;
 /// Send 3 packets A->B, recv all on B, ack all on A.
 #[tokio::test]
 async fn test_multiple_sequential_packets() {
-    let user = User::new();
-    let relayer = Relayer::new();
-    let proof_data = vec![0u8; 32];
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
-
-    let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
-
-    // ── Build chains ──
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let proof_data = vec![0u8; 32];
+    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
+
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -30,7 +30,7 @@ async fn test_multiple_sequential_packets() {
     });
     chain_b.prefund(&[&admin, &relayer]);
 
-    // ── Start both chains ──
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

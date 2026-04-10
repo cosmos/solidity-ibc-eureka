@@ -4,13 +4,15 @@ use super::*;
 /// across both deliveries and `CounterAppState.total_counters` stays at 1.
 #[tokio::test]
 async fn test_multiple_gmp_calls() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
 
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -33,6 +35,7 @@ async fn test_multiple_gmp_calls() {
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
     let counter_app_state = chain_b.counter_app_state_pda();
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

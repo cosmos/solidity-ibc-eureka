@@ -4,16 +4,18 @@ use super::*;
 /// `UserCounter` and `GMPCallResultAccount`.
 #[tokio::test]
 async fn test_gmp_bidirectional() {
-    let user = User::new();
-    let relayer = Relayer::new();
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     let amount_a_to_b = 10u64;
     let amount_b_to_a = 20u64;
 
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -30,19 +32,16 @@ async fn test_gmp_bidirectional() {
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
-    // A→B: GMP account on B
     let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, 10_000_000);
     let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
     let counter_state_b = chain_b.counter_app_state_pda();
 
-    // B→A: GMP account on A
     let gmp_pda_on_a = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
     chain_a.prefund_lamports(gmp_pda_on_a, 10_000_000);
     let counter_on_a = gmp::derive_user_counter_pda(&gmp_pda_on_a);
     let counter_state_a = chain_a.counter_app_state_pda();
 
-    // Build payloads
     let payload_a_to_b =
         gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
     let packet_a_to_b = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_a_to_b);
@@ -51,6 +50,7 @@ async fn test_gmp_bidirectional() {
         gmp::encode_increment_payload(counter_state_a, counter_on_a, gmp_pda_on_a, amount_b_to_a);
     let packet_b_to_a = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_b_to_a);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

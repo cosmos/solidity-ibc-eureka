@@ -3,16 +3,17 @@ use super::*;
 /// Timeout lifecycle: send on A -> timeout on A (packet never delivered to B).
 #[tokio::test]
 async fn test_timeout_packet() {
-    let user = User::new();
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
     let relayer = Relayer::new();
+    let user = User::new();
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
     let packet_data = b"this packet will time out";
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
 
-    // ── Build Chain A (only chain needed — timeout is delivered to source) ──
-    let deployer = Deployer::new();
-    let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    // ── Chain ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -21,7 +22,7 @@ async fn test_timeout_packet() {
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
-    // ── Start chain ──
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs)

@@ -8,16 +8,18 @@ use super::*;
 /// `INITIAL_BALANCE - TRANSFER_AMOUNT`.
 #[tokio::test]
 async fn test_ift_full_lifecycle() {
-    let user = User::new();
-    let relayer = Relayer::new();
-    let mint_keypair = Keypair::new();
-    let proof_data = vec![0u8; 32];
-    let sequence = 1u64;
-
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
     let ift_admin = IftAdmin::new();
+    let relayer = Relayer::new();
+    let user = User::new();
+    let mint_keypair = Keypair::new();
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
+    let proof_data = vec![0u8; 32];
+    let sequence = 1u64;
+
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -25,6 +27,8 @@ async fn test_ift_full_lifecycle() {
         programs,
     });
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
+
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, &[&Ics27Gmp])
@@ -36,14 +40,11 @@ async fn test_ift_full_lifecycle() {
         .transfer_upgrade_authority(&mut chain, programs)
         .await;
 
+    // ── Setup ──
     let (mint, user_ata) =
         setup_ift_chain(&mut chain, &ift_admin, &mint_keypair, user.pubkey()).await;
-
-    // Verify initial balance
     let balance = TokenKind::Spl.read_balance(&chain, user_ata).await;
     assert_eq!(balance, INITIAL_BALANCE);
-
-    // Build expected GMP packet bytes for ack delivery
     let mint_call_payload = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);
     let gmp_packet_bytes =
         ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_payload);

@@ -8,11 +8,13 @@ use super::*;
 /// accepted. Verifies `RouterState.am_state` at each step.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_accept() {
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -20,6 +22,8 @@ async fn test_ics26_am_transfer_propose_accept() {
         programs,
     });
     chain.prefund(&[&admin, &relayer]);
+
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, programs)
@@ -60,11 +64,13 @@ async fn test_ics26_am_transfer_propose_accept() {
 /// Propose then cancel AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_cancel() {
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -72,6 +78,8 @@ async fn test_ics26_am_transfer_propose_cancel() {
         programs,
     });
     chain.prefund(&[&admin, &relayer]);
+
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, programs)
@@ -104,21 +112,23 @@ async fn test_ics26_am_transfer_propose_cancel() {
 /// Non-admin cannot propose AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_unauthorized_propose() {
+    // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
     let relayer = Relayer::new();
+    let non_admin = Admin::new();
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
 
+    // ── Chain ──
     let mut chain = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
         programs,
     });
-    chain.prefund(&[&admin, &relayer]);
+    chain.prefund(&[&admin, &relayer, &non_admin]);
 
-    let non_admin = Admin::new();
-    chain.prefund(&[&non_admin]);
+    // ── Init ──
     chain.start().await;
     deployer
         .init_ibc_stack(&mut chain, &admin, &relayer, programs)

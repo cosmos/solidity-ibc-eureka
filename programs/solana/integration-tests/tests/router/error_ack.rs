@@ -5,19 +5,20 @@ use super::*;
 /// full send -> recv -> ack flow completes successfully.
 #[tokio::test]
 async fn test_error_ack_lifecycle() {
-    let user = User::new();
+    // ── Actors ──
+    let deployer = Deployer::new();
+    let admin = Admin::new();
     let relayer = Relayer::new();
+    let user = User::new();
+    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let programs_b: &[&dyn ChainProgram] = &[&MockIbcApp];
     let proof_data = vec![0u8; 32];
     let sequence = 1u64;
     // Payload prefix triggers error ack in mock_ibc_app (first 16 bytes checked)
     let packet_data = b"RETURN_ERROR_ACKextra";
     let error_ack = b"error".to_vec();
 
-    // Chain A: test_ibc_app (sender)
-    let deployer = Deployer::new();
-    let admin = Admin::new();
-    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp];
-    let programs_b: &[&dyn ChainProgram] = &[&MockIbcApp];
+    // ── Chains ──
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "chain-a-client",
         counterparty_client_id: "chain-b-client",
@@ -26,7 +27,6 @@ async fn test_error_ack_lifecycle() {
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
-    // Chain B: mock_ibc_app (receiver with magic-string ack control)
     let mut chain_b = Chain::new(ChainConfig {
         client_id: "chain-b-client",
         counterparty_client_id: "chain-a-client",
@@ -35,6 +35,7 @@ async fn test_error_ack_lifecycle() {
     });
     chain_b.prefund(&[&admin, &relayer]);
 
+    // ── Init ──
     chain_a.start().await;
     deployer
         .init_ibc_stack(&mut chain_a, &admin, &relayer, programs_a)
