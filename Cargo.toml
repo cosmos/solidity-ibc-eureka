@@ -120,6 +120,7 @@ indexmap           = { version = "2.10.0", default-features = false }
 ed25519-zebra      = { version = "4.1.0", default-features = false, features = ["alloc"] }
 
 tendermint                       = { version = "0.40", default-features = false }
+tendermint-testgen               = { version = "0.40", default-features = false }
 tendermint-rpc                   = { version = "0.40", default-features = false }
 tendermint-light-client-verifier = { version = "0.40", default-features = false }
 tendermint-proto                 = { version = "0.40", default-features = false }
@@ -218,3 +219,4 @@ tendermint-proto.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-light-client-verifier.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-config.git = "https://github.com/cometbft/tendermint-rs"
 tendermint-rpc.git = "https://github.com/cometbft/tendermint-rs"
+tendermint-testgen.git = "https://github.com/cometbft/tendermint-rs"
