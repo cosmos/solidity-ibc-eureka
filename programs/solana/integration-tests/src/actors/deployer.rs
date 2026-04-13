@@ -31,8 +31,8 @@ impl Default for Deployer {
 }
 
 impl Actor for Deployer {
-    fn pubkey(&self) -> Pubkey {
-        self.keypair.pubkey()
+    fn keypair(&self) -> &Keypair {
+        &self.keypair
     }
 }
 
@@ -42,11 +42,6 @@ impl Deployer {
         Self {
             keypair: Keypair::new(),
         }
-    }
-
-    /// Borrow the underlying keypair (used as upgrade authority).
-    pub const fn keypair(&self) -> &Keypair {
-        &self.keypair
     }
 
     // ── Public init methods ──────────────────────────────────────────────

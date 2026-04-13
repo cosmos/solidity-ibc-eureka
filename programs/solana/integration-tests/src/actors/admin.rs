@@ -10,7 +10,7 @@
 use super::Actor;
 use crate::chain::Chain;
 use solana_program_test::BanksClientError;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// Access Manager admin actor.
 pub struct Admin {
@@ -24,8 +24,8 @@ impl Default for Admin {
 }
 
 impl Actor for Admin {
-    fn pubkey(&self) -> Pubkey {
-        self.keypair.pubkey()
+    fn keypair(&self) -> &Keypair {
+        &self.keypair
     }
 }
 
@@ -35,11 +35,6 @@ impl Admin {
         Self {
             keypair: Keypair::new(),
         }
-    }
-
-    /// Borrow the underlying keypair (e.g. for co-signing transactions).
-    pub const fn keypair(&self) -> &Keypair {
-        &self.keypair
     }
 
     // ── ICS26 Router AM transfer ────────────────────────────────────────
@@ -52,7 +47,7 @@ impl Admin {
     ) -> Result<(), BanksClientError> {
         let ix =
             crate::router::build_ics26_propose_am_transfer_ix(self.pubkey(), new_access_manager);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Accept a pending ICS26 access-manager transfer.
@@ -62,7 +57,7 @@ impl Admin {
         new_am_program_id: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::router::build_ics26_accept_am_transfer_ix(self.pubkey(), new_am_program_id);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Cancel a pending ICS26 access-manager transfer.
@@ -71,7 +66,7 @@ impl Admin {
         chain: &mut Chain,
     ) -> Result<(), BanksClientError> {
         let ix = crate::router::build_ics26_cancel_am_transfer_ix(self.pubkey());
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     // ── GMP AM transfer ─────────────────────────────────────────────────
@@ -83,7 +78,7 @@ impl Admin {
         new_access_manager: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_propose_am_transfer_ix(self.pubkey(), new_access_manager);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Accept a pending GMP access-manager transfer.
@@ -93,12 +88,12 @@ impl Admin {
         new_am_program_id: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_accept_am_transfer_ix(self.pubkey(), new_am_program_id);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Cancel a pending GMP access-manager transfer.
     pub async fn gmp_cancel_am_transfer(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::gmp::build_gmp_cancel_am_transfer_ix(self.pubkey());
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 }

@@ -10,7 +10,7 @@ use crate::gmp::{self, GmpSendCallParams};
 use crate::ift::{self, IftTransferParams, TokenKind};
 use crate::router::{self, SendPacketParams, SendResult};
 use solana_program_test::BanksClientError;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// End-user actor that initiates packets, GMP calls and IFT transfers.
 pub struct User {
@@ -24,8 +24,8 @@ impl Default for User {
 }
 
 impl Actor for User {
-    fn pubkey(&self) -> Pubkey {
-        self.keypair.pubkey()
+    fn keypair(&self) -> &Keypair {
+        &self.keypair
     }
 }
 
@@ -35,11 +35,6 @@ impl User {
         Self {
             keypair: Keypair::new(),
         }
-    }
-
-    /// Borrow the underlying keypair.
-    pub const fn keypair(&self) -> &Keypair {
-        &self.keypair
     }
 
     /// Send a packet via `test_ibc_app` (user is the payer).
@@ -55,13 +50,8 @@ impl User {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            std::slice::from_ref(&result.ix),
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
         Ok(result)
     }
 
@@ -73,13 +63,7 @@ impl User {
     ) -> Result<Pubkey, BanksClientError> {
         let (ix, commitment_pda) =
             gmp::build_gmp_send_call_ix(self.pubkey(), self.pubkey(), chain.client_id(), params);
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -99,13 +83,8 @@ impl User {
             token_kind,
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            std::slice::from_ref(&result.ix),
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
         Ok(result)
     }
 }

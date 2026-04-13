@@ -10,7 +10,7 @@ use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacket
 use crate::ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, TokenKind};
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
 use solana_program_test::BanksClientError;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// Relayer actor that uploads chunks and delivers IBC packets.
 pub struct Relayer {
@@ -24,8 +24,8 @@ impl Default for Relayer {
 }
 
 impl Actor for Relayer {
-    fn pubkey(&self) -> Pubkey {
-        self.keypair.pubkey()
+    fn keypair(&self) -> &Keypair {
+        &self.keypair
     }
 }
 
@@ -35,11 +35,6 @@ impl Relayer {
         Self {
             keypair: Keypair::new(),
         }
-    }
-
-    /// Borrow the underlying keypair.
-    pub const fn keypair(&self) -> &Keypair {
-        &self.keypair
     }
 
     // ── Chunk upload ────────────────────────────────────────────────────
@@ -77,13 +72,7 @@ impl Relayer {
         );
         let (proof_ix, proof_pda) =
             router::build_upload_proof_chunk_ix(self.pubkey(), client_id, sequence, proof.to_vec());
-        let tx = Transaction::new_signed_with_payer(
-            &[payload_ix, proof_ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[payload_ix, proof_ix]).await?;
         Ok((payload_pda, proof_pda))
     }
 
@@ -117,13 +106,7 @@ impl Relayer {
             proof_pdas.push(pda);
         }
 
-        let tx = Transaction::new_signed_with_payer(
-            &ixs,
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &ixs).await?;
         Ok((payload_pda, proof_pdas))
     }
 
@@ -143,13 +126,7 @@ impl Relayer {
             payload_chunk_pda,
             proof_chunk_pda,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await
+        self.send_tx(chain, &[ix]).await
     }
 
     // ── Router operations ───────────────────────────────────────────────
@@ -167,13 +144,8 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            std::slice::from_ref(&result.ix),
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
         Ok(result)
     }
 
@@ -190,13 +162,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -213,13 +179,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -246,13 +206,7 @@ impl Relayer {
             })
             .collect();
         let ixs: Vec<_> = results.iter().map(|r| r.ix.clone()).collect();
-        let tx = Transaction::new_signed_with_payer(
-            &ixs,
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &ixs).await?;
         Ok(results)
     }
 
@@ -279,13 +233,7 @@ impl Relayer {
             .collect();
         let ixs: Vec<_> = built.iter().map(|(ix, _)| ix.clone()).collect();
         let commitment_pdas: Vec<_> = built.iter().map(|(_, pda)| *pda).collect();
-        let tx = Transaction::new_signed_with_payer(
-            &ixs,
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pdas)
     }
 
@@ -304,13 +252,8 @@ impl Relayer {
             params,
             proof_chunk_pdas,
         );
-        let tx = Transaction::new_signed_with_payer(
-            std::slice::from_ref(&result.ix),
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
         Ok(result)
     }
 
@@ -329,13 +272,7 @@ impl Relayer {
             params,
             proof_chunk_pdas,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -354,13 +291,8 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            std::slice::from_ref(&result.ix),
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
         Ok(result)
     }
 
@@ -377,13 +309,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -400,13 +326,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -425,13 +345,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -448,13 +362,7 @@ impl Relayer {
             chain.clock_time(),
             params,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await?;
+        self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
 
@@ -476,12 +384,6 @@ impl Relayer {
             sequence,
             token_kind,
         );
-        let tx = Transaction::new_signed_with_payer(
-            &[ix],
-            Some(&self.pubkey()),
-            &[&self.keypair],
-            chain.blockhash(),
-        );
-        chain.process_transaction(tx).await
+        self.send_tx(chain, &[ix]).await
     }
 }

@@ -8,7 +8,7 @@ use super::Actor;
 use crate::chain::Chain;
 use crate::ift::TokenKind;
 use solana_program_test::BanksClientError;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer};
+use solana_sdk::{pubkey::Pubkey, signature::Keypair};
 
 /// IFT program admin actor.
 pub struct IftAdmin {
@@ -22,8 +22,8 @@ impl Default for IftAdmin {
 }
 
 impl Actor for IftAdmin {
-    fn pubkey(&self) -> Pubkey {
-        self.keypair.pubkey()
+    fn keypair(&self) -> &Keypair {
+        &self.keypair
     }
 }
 
@@ -40,11 +40,6 @@ impl IftAdmin {
         Self { keypair }
     }
 
-    /// Borrow the underlying keypair (e.g. for co-signing transactions).
-    pub const fn keypair(&self) -> &Keypair {
-        &self.keypair
-    }
-
     /// Pause or unpause the IFT program.
     pub async fn set_paused(
         &self,
@@ -52,7 +47,7 @@ impl IftAdmin {
         paused: bool,
     ) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_set_paused_ix(self.pubkey(), paused);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Propose a new IFT admin.
@@ -62,19 +57,19 @@ impl IftAdmin {
         new_admin: Pubkey,
     ) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_propose_admin_ix(self.pubkey(), new_admin);
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Accept the pending IFT admin proposal (must be signed by the proposed admin).
     pub async fn accept_admin(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_accept_admin_ix(self.pubkey());
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Cancel a pending IFT admin proposal.
     pub async fn cancel_admin_proposal(&self, chain: &mut Chain) -> Result<(), BanksClientError> {
         let ix = crate::ift::build_cancel_admin_proposal_ix(self.pubkey());
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 
     /// Mint tokens to `receiver` using admin authority.
@@ -94,6 +89,6 @@ impl IftAdmin {
             amount,
             token_kind,
         );
-        super::send_tx(&self.keypair, chain, &[ix]).await
+        self.send_tx(chain, &[ix]).await
     }
 }
