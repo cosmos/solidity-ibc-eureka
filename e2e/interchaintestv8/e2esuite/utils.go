@@ -51,9 +51,8 @@ import (
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-// BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
-// Once the broadcast response is returned, we wait for two blocks to be created on chain.
-func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+// broadcastMessages is the shared broadcast path. Pass waitBlocks=0 to skip the post-inclusion wait.
+func (s *TestSuite) broadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, waitBlocks int, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
 	sdk.GetConfig().SetBech32PrefixForAccount(chain.Config().Bech32Prefix, chain.Config().Bech32Prefix+sdk.PrefixPublic)
 	sdk.GetConfig().SetBech32PrefixForValidator(
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
@@ -79,14 +78,26 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 		return nil, err
 	}
 
-	// wait for 2 blocks for the transaction to be included
-	s.Require().NoError(testutil.WaitForBlocks(ctx, 2, chain))
+	if waitBlocks > 0 {
+		s.Require().NoError(testutil.WaitForBlocks(ctx, waitBlocks, chain))
+	}
 
 	if resp.Code != 0 {
 		return nil, fmt.Errorf("tx failed with code %d: %s", resp.Code, resp.RawLog)
 	}
 
 	return &resp, nil
+}
+
+// BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
+// Once the broadcast response is returned, we wait for two blocks to be created on chain.
+func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return s.broadcastMessages(ctx, chain, user, gas, 2, msgs...)
+}
+
+// BroadcastMessagesNoWait is like BroadcastMessages but skips the 2-block wait after inclusion.
+func (s *TestSuite) BroadcastMessagesNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return s.broadcastMessages(ctx, chain, user, gas, 0, msgs...)
 }
 
 // CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
@@ -409,6 +420,32 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+}
+
+func (s *TestSuite) BroadcastSdkTxBodyNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(txBodyBz, &txBody)
+	s.Require().NoError(err)
+
+	var msgs []sdk.Msg
+	for _, msg := range txBody.Messages {
+		var sdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		s.Require().NoError(err)
+
+		msgs = append(msgs, sdkMsg)
+	}
+
+	s.Require().NotZero(len(msgs))
+
+	return s.BroadcastMessagesNoWait(ctx, chain, user, gas, msgs...)
+}
+
+func (s *TestSuite) MustBroadcastSdkTxBodyNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	resp, err := s.BroadcastSdkTxBodyNoWait(ctx, chain, user, gas, txBodyBz)
+	s.Require().NoError(err)
+
+	return resp
 }
 
 // StripHTTPPrefix removes http:// or https:// prefix from an endpoint.

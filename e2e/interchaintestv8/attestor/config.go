@@ -11,6 +11,7 @@ import (
 // ServerConfig represents the server configuration section
 type ServerConfig struct {
 	ListenAddr string `toml:"listen_addr"`
+	HealthAddr string `toml:"health_addr"`
 }
 
 // AdapterConfig represents the blockchain adapter configuration
@@ -37,6 +38,7 @@ func DefaultAttestorConfig() *AttestorConfig {
 	return &AttestorConfig{
 		Server: ServerConfig{
 			ListenAddr: "0.0.0.0:2025",
+			HealthAddr: "0.0.0.0:8081",
 		},
 		Signer: LocalSignerConfig{
 			KeystorePath: KeystorePath(0),
