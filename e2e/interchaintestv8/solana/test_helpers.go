@@ -1141,10 +1141,20 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	trustedConsensusState1PDA, _ := Ics07Tendermint.ConsensusStateWithArgSeedPDA(ics07_tendermint.ProgramID, height1Bytes)
 	trustedConsensusState2PDA, _ := Ics07Tendermint.ConsensusStateWithArgSeedPDA(ics07_tendermint.ProgramID, height2Bytes)
 
+	chunkBumps := make([]byte, len(chunks))
+	chunkPDAs := make([]solana.PublicKey, len(chunks))
+	for i := 0; i < len(chunks); i++ {
+		pda, bump, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(i), ics07_tendermint.ProgramID)
+		require.NoError(err, "Failed to derive chunk PDA for assembly")
+		chunkPDAs[i] = pda
+		chunkBumps[i] = bump
+	}
+
 	assembleIx, err := ics07_tendermint.NewAssembleAndSubmitMisbehaviourInstruction(
 		uint8(len(chunks)),
 		trustedHeight1,
 		trustedHeight2,
+		chunkBumps,
 		clientStatePDA,
 		appStatePDA,
 		accessManagerPDA,
@@ -1155,12 +1165,9 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	)
 	require.NoError(err, "Failed to create assemble instruction")
 
-	// Add remaining accounts (chunk accounts) to the instruction
 	if ix, ok := assembleIx.(*solana.GenericInstruction); ok {
-		for i := 0; i < len(chunks); i++ {
-			chunkPDA, _, err := MisbehaviourChunkPDA(user.PublicKey(), uint8(i), ics07_tendermint.ProgramID)
-			require.NoError(err, "Failed to derive chunk PDA for assembly")
-			ix.AccountValues = append(ix.AccountValues, solana.Meta(chunkPDA).WRITE())
+		for _, pda := range chunkPDAs {
+			ix.AccountValues = append(ix.AccountValues, solana.Meta(pda).WRITE())
 		}
 	}
 

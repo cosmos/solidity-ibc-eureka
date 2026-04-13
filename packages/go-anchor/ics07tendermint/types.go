@@ -309,6 +309,11 @@ type Ics07TendermintStateSignatureVerification struct {
 
 	// The submitter who created this verification
 	Submitter solanago.PublicKey `json:"submitter"`
+
+	// Hash of `pk || msg || signature` used to match verification accounts
+	// without re-deriving the PDA. Validated against the recomputed hash at
+	// account creation time in `pre_verify_signature`.
+	SigHash [32]uint8 `json:"sigHash"`
 }
 
 func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -321,6 +326,11 @@ func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder 
 	err = encoder.Encode(obj.Submitter)
 	if err != nil {
 		return errors.NewField("Submitter", err)
+	}
+	// Serialize `SigHash`:
+	err = encoder.Encode(obj.SigHash)
+	if err != nil {
+		return errors.NewField("SigHash", err)
 	}
 	return nil
 }
@@ -346,6 +356,11 @@ func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decod
 	if err != nil {
 		return errors.NewField("Submitter", err)
 	}
+	// Deserialize `SigHash`:
+	err = decoder.Decode(&obj.SigHash)
+	if err != nil {
+		return errors.NewField("SigHash", err)
+	}
 	return nil
 }
 
@@ -369,7 +384,7 @@ func UnmarshalIcs07TendermintStateSignatureVerification(buf []byte) (*Ics07Tende
 // Global ICS07 Tendermint program configuration.
 //
 // Singleton PDA that links the light client program to its access manager
-// for admin-gated operations (e.g. `set_access_manager`) and stores the
+// for admin-gated operations (e.g. `access_manager_transfer`) and stores the
 // chain ID for introspection by off-chain tooling.
 type Ics07TendermintTypesAppState struct {
 	// Access manager transfer state for two-step propose/accept
