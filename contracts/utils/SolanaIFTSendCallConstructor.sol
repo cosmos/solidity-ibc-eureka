@@ -104,7 +104,8 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
     /// @notice Parse wallet and ATA from the receiver hex string.
     /// @param receiver The receiver string in format "0x" + wallet_hex(64) + ata_hex(64)
-    /// @return The wallet pubkey and ATA pubkey
+    /// @return The receiver wallet pubkey
+    /// @return The receiver associated token account
     function _parseWalletAndAta(string calldata receiver) private pure returns (bytes32, bytes32) {
         require(bytes(receiver).length == SOLANA_RECEIVER_HEX_LENGTH, SolanaIFTInvalidReceiver(receiver));
         require(bytes(receiver)[0] == "0" && bytes(receiver)[1] == "x", SolanaIFTInvalidReceiver(receiver));
