@@ -729,6 +729,55 @@ func (s *EthereumSolanaIFTTestSuite) registerSolanaIFTBridgeForEVM(ctx context.C
 	s.T().Logf("  Bridge PDA: %s, Counterparty IFT: %s", bridgePDA, counterpartyIFTAddress)
 }
 
+func (s *EthereumSolanaIFTTestSuite) setupIFTBridges(ctx context.Context, eth *ethereum.Ethereum, ethIFTAddress ethcommon.Address) {
+	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
+		s.createIFTSplToken(ctx, s.IFTMintWallet)
+
+		mint := s.IFTMint()
+		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
+		s.Require().NoError(err)
+		s.SenderTokenAccount = tokenAccount
+	}))
+
+	s.Require().True(s.Run("Register IFT bridges", func() {
+		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
+
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+	}))
+}
+
+func (s *EthereumSolanaIFTTestSuite) mintEthIFTTokens(ctx context.Context, eth *ethereum.Ethereum, ethIFTAddress ethcommon.Address, receiver ethcommon.Address, amount *big.Int) {
+	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
+
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
+
+		tx, err := iftContract.Mint(txOpts, receiver, amount)
+		s.Require().NoError(err)
+
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
+
+		balance, err := iftContract.BalanceOf(nil, receiver)
+		s.Require().NoError(err)
+		s.Require().Equal(amount.String(), balance.String())
+	}))
+}
+
 func (s *EthereumSolanaIFTTestSuite) adminMintIFTTokens(ctx context.Context, receiver solanago.PublicKey, amount uint64) {
 	mint := s.IFTMint()
 	mintBytes := s.IFTMintBytes()
@@ -823,56 +872,12 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 	eth := s.Eth.Chains[0]
 	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
 
-	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
-		s.createIFTSplToken(ctx, s.IFTMintWallet)
-
-		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
-		s.Require().NoError(err)
-		s.SenderTokenAccount = tokenAccount
-		s.T().Logf("SPL token mint: %s, token account: %s", mint, tokenAccount)
-	}))
-
-	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
-
-		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
-		s.Require().NoError(err)
-
-		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-		s.Require().NoError(err)
-
-		// counterpartyIFTAddress for Solana is the IFT program ID
-		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		s.T().Logf("IFT bridge registered on Ethereum for Solana counterparty")
-	}))
+	s.setupIFTBridges(ctx, eth, ethIFTAddress)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
 
-	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
-		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
-		s.Require().NoError(err)
-
-		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-		s.Require().NoError(err)
-
-		tx, err := iftContract.Mint(txOpts, ethUserAddr, transferAmount)
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
-		s.Require().NoError(err)
-		s.Require().Equal(transferAmount.String(), balance.String())
-	}))
+	s.mintEthIFTTokens(ctx, eth, ethIFTAddress, ethUserAddr, transferAmount)
 
 	s.Require().True(s.Run("Transfer: Ethereum -> Solana", func() {
 		var ethSendTxHash []byte
@@ -1412,48 +1417,12 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEthereum() {
 	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
 	ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 
-	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
-		s.createIFTSplToken(ctx, s.IFTMintWallet)
-
-		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
-		s.Require().NoError(err)
-		s.SenderTokenAccount = tokenAccount
-	}))
+	s.setupIFTBridges(ctx, eth, ethIFTAddress)
 
 	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
 	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
 
-	s.Require().True(s.Run("Register IFT bridges and mint tokens", func() {
-		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
-
-		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
-		s.Require().NoError(err)
-
-		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-		s.Require().NoError(err)
-
-		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		txOpts, err = eth.GetTransactOpts(s.ethDeployer)
-		s.Require().NoError(err)
-
-		tx, err = iftContract.Mint(txOpts, ethUserAddr, transferAmount)
-		s.Require().NoError(err)
-
-		receipt, err = eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-
-		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
-		s.Require().NoError(err)
-		s.Require().Equal(transferAmount.String(), balance.String())
-	}))
+	s.mintEthIFTTokens(ctx, eth, ethIFTAddress, ethUserAddr, transferAmount)
 
 	var ethSendTxHash []byte
 	s.Require().True(s.Run("Send transfer with short timeout", func() {
@@ -1548,31 +1517,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	eth := s.Eth.Chains[0]
 	ethIFTAddress := ethcommon.HexToAddress(s.contractAddresses.Ift)
 
-	s.Require().True(s.Run("Create IFT SPL token on Solana", func() {
-		s.createIFTSplToken(ctx, s.IFTMintWallet)
-
-		mint := s.IFTMint()
-		tokenAccount, err := s.Solana.Chain.CreateOrGetAssociatedTokenAccount(ctx, s.SolanaRelayer, mint, s.SolanaUser.PublicKey())
-		s.Require().NoError(err)
-		s.SenderTokenAccount = tokenAccount
-	}))
-
-	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
-
-		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
-		s.Require().NoError(err)
-
-		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-		s.Require().NoError(err)
-
-		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-		s.Require().NoError(err)
-		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-	}))
+	s.setupIFTBridges(ctx, eth, ethIFTAddress)
 
 	s.Require().True(s.Run("Admin mint tokens to sender on Solana", func() {
 		s.adminMintIFTTokens(ctx, s.SolanaUser.PublicKey(), EthSolanaIFTMintAmount)
