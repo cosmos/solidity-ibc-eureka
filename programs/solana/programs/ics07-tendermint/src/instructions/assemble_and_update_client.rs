@@ -120,7 +120,7 @@ pub fn assemble_and_update_client<'info>(
 fn verify_header_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,
-    target_height_le: &[u8; 8],
+    target_height_le: [u8; 8],
     index: u8,
     bump: u8,
 ) -> Result<()> {
@@ -135,7 +135,7 @@ fn verify_header_chunk_pda(
     let expected_seeds: &[&[u8]] = &[
         crate::state::HeaderChunk::SEED,
         submitter.as_ref(),
-        target_height_le,
+        &target_height_le,
         &index_byte,
         &bump_byte,
     ];
@@ -164,7 +164,7 @@ fn assemble_chunks(
         verify_header_chunk_pda(
             chunk_account,
             submitter,
-            &target_height_le,
+            target_height_le,
             index as u8,
             chunk_bumps[index],
         )?;
