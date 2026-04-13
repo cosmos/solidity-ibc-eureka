@@ -28,25 +28,13 @@ pub const MAX_PREFUND_LAMPORTS: u64 = 50_000_000;
 /// Packed account entry size: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
 
-// ABI type matching Solidity's `IICS27GMPMsgs.GMPPacketData`.
-alloy::sol! {
-    struct AbiGmpPacketData {
-        string sender;
-        string receiver;
-        bytes salt;
-        bytes payload;
-        string memo;
-    }
-}
+alloy::sol!("../../../contracts/msgs/IICS27GMPMsgs.sol");
+alloy::sol!("../../../contracts/msgs/ISolanaGMPMsgs.sol");
 
-// ABI type matching `ISolanaGMPMsgs.GMPSolanaPayload` struct encoding.
-alloy::sol! {
-    struct AbiGmpSolanaPayload {
-        bytes packedAccounts;
-        bytes instructionData;
-        uint32 prefundLamports;
-    }
-}
+/// ABI type alias for [`IICS27GMPMsgs::GMPPacketData`].
+pub type AbiGmpPacketData = IICS27GMPMsgs::GMPPacketData;
+/// ABI type alias for [`AbiGmpSolanaPayload`].
+pub type AbiGmpSolanaPayload = ISolanaGMPMsgs::GMPSolanaPayload;
 
 /// Extract GMP remaining accounts from a packet payload.
 ///
@@ -253,7 +241,7 @@ fn decode_abi_gmp_payload(payload_value: &[u8]) -> Result<Option<DecodedGmpPaylo
         sender,
         receiver: abi_gmp.receiver,
         salt,
-        prefund_lamports: u64::from(abi_solana.prefundLamports),
+        prefund_lamports: abi_solana.prefundLamports,
         execution_accounts,
     }))
 }

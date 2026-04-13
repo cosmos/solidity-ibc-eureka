@@ -192,6 +192,7 @@ pub fn on_recv_packet<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::abi::GmpSolanaPayloadAbi;
     use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
     use crate::encoding::encode_gmp_packet;
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
@@ -1435,7 +1436,7 @@ mod tests {
                     packed.push(u8::from(account.is_signer));
                     packed.push(u8::from(account.is_writable));
                 }
-                crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+                GmpSolanaPayloadAbi {
                     packedAccounts: packed.into(),
                     instructionData: raw.data.clone().into(),
                     prefundLamports: raw.prefund_lamports,

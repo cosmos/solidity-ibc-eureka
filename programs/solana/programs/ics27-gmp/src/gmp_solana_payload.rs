@@ -27,6 +27,7 @@ pub fn decode(value: &[u8], encoding: &str) -> Result<GmpSolanaPayload> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::abi::GmpSolanaPayloadAbi;
     use solana_ibc_proto::ProstMessage;
 
     #[test]
@@ -63,7 +64,7 @@ mod tests {
         packed.push(1); // is_signer
         packed.push(0); // is_writable
 
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: packed.into(),
             instructionData: vec![0xCC, 0xDD].into(),
             prefundLamports: 0,

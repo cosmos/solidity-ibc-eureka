@@ -5,6 +5,7 @@ use anchor_lang::prelude::*;
 
 use crate::errors::GMPError;
 use crate::proto::GmpSolanaPayload;
+pub use crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload as GmpSolanaPayloadAbi;
 
 /// Size of a packed account entry: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
@@ -17,13 +18,13 @@ const fn parse_bool_byte(byte: u8) -> std::result::Result<bool, GMPError> {
     }
 }
 
-impl TryFrom<crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload>
+impl TryFrom<GmpSolanaPayloadAbi>
     for solana_ibc_proto::RawGmpSolanaPayload
 {
     type Error = GMPError;
 
     fn try_from(
-        abi: crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload,
+        abi: GmpSolanaPayloadAbi,
     ) -> std::result::Result<Self, Self::Error> {
         let chunks = abi.packedAccounts.chunks_exact(PACKED_ACCOUNT_SIZE);
         if !chunks.remainder().is_empty() {
@@ -48,7 +49,7 @@ impl TryFrom<crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload>
 
 /// Decode ABI-encoded [`GMPSolanaPayload`].
 pub fn decode_abi_gmp_solana_payload(data: &[u8]) -> Result<GmpSolanaPayload> {
-    let decoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload::abi_decode(data)
+    let decoded = GmpSolanaPayloadAbi::abi_decode(data)
         .map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
     let raw: solana_ibc_proto::RawGmpSolanaPayload =
         decoded.try_into().map_err(|e: GMPError| error!(e))?;
@@ -75,7 +76,7 @@ mod tests {
 
         let instr_data = vec![0xAA, 0xBB, 0xCC, 0xDD];
 
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: packed.into(),
             instructionData: instr_data.clone().into(),
             prefundLamports: 8,
@@ -98,7 +99,7 @@ mod tests {
     #[test]
     fn test_decode_abi_gmp_solana_payload_empty_accounts() {
         let instr_data = vec![1, 2, 3];
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: Vec::new().into(),
             instructionData: instr_data.clone().into(),
             prefundLamports: 0,
@@ -121,7 +122,7 @@ mod tests {
     #[test]
     fn test_decode_abi_gmp_solana_payload_misaligned_accounts() {
         let bad_packed = vec![0u8; 35]; // not a multiple of 34
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: bad_packed.into(),
             instructionData: vec![1].into(),
             prefundLamports: 0,
@@ -133,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_decode_abi_gmp_solana_payload_empty_instruction_data_rejected() {
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: Vec::new().into(),
             instructionData: Vec::new().into(),
             prefundLamports: 0,
@@ -151,7 +152,7 @@ mod tests {
         packed.push(2); // invalid is_signer
         packed.push(0);
 
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: packed.into(),
             instructionData: vec![1].into(),
             prefundLamports: 0,
@@ -169,7 +170,7 @@ mod tests {
         packed.push(0);
         packed.push(3); // invalid is_writable
 
-        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
+        let encoded = GmpSolanaPayloadAbi {
             packedAccounts: packed.into(),
             instructionData: vec![1].into(),
             prefundLamports: 0,
