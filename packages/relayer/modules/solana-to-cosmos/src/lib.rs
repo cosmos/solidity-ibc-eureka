@@ -8,7 +8,9 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
-use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
+use ibc_eureka_relayer_lib::events::{
+    EurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight,
+};
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -16,7 +18,7 @@ use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
 use ibc_eureka_relayer_lib::tx_builder::TxBuilderService;
-use ibc_eureka_relayer_lib::utils::RelayEventsParams;
+use ibc_eureka_relayer_lib::utils::{wait_for_condition, RelayEventsParams};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -169,10 +171,45 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 
         tracing::debug!("Fetched {} timeout events", timeout_events.len());
 
-        // For timeouts in attested mode, get the current slot from the source chain (Solana)
-        // where non-membership is proven
+        // Solana finalization lags ~12s behind tip. We need a finalized slot
+        // whose block time is past now so the non-membership proof is valid.
         let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-            Some(self.src_listener.get_slot().map_err(to_tonic_status)?)
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            let max_timeout = timeout_events
+                .iter()
+                .filter_map(|e| match &e.event {
+                    EurekaEvent::SendPacket(packet) => Some(packet.timeoutTimestamp),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(now);
+            let cutoff = now.min(max_timeout);
+            let src_listener = &self.src_listener;
+            wait_for_condition(
+                std::time::Duration::from_secs(24),
+                std::time::Duration::from_secs(1),
+                || async {
+                    let (_, block_time) = src_listener.get_finalized_slot_with_time()?;
+                    if block_time >= cutoff {
+                        Ok(true)
+                    } else {
+                        tracing::debug!(
+                            "Finalized block time ({block_time}) < cutoff ({cutoff}), waiting"
+                        );
+                        Ok(false)
+                    }
+                },
+            )
+            .await
+            .map_err(to_tonic_status)?;
+            let (slot, _) = self
+                .src_listener
+                .get_finalized_slot_with_time()
+                .map_err(to_tonic_status)?;
+            Some(slot)
         } else {
             None
         };
