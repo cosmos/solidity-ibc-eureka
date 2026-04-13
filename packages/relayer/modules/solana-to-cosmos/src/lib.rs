@@ -8,7 +8,9 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::aggregator::{Aggregator, Config as AggregatorConfig};
-use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
+use ibc_eureka_relayer_lib::events::{
+    EurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight,
+};
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
@@ -172,10 +174,19 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
         // Solana finalization lags ~12s behind tip. We need a finalized slot
         // whose block time is past now so the non-membership proof is valid.
         let timeout_relay_height = if self.tx_builder.is_attested() && !timeout_events.is_empty() {
-            let cutoff = std::time::SystemTime::now()
+            let now = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap()
                 .as_secs();
+            let max_timeout = timeout_events
+                .iter()
+                .filter_map(|e| match &e.event {
+                    EurekaEvent::SendPacket(packet) => Some(packet.timeoutTimestamp),
+                    _ => None,
+                })
+                .max()
+                .unwrap_or(now);
+            let cutoff = now.min(max_timeout);
             let src_listener = &self.src_listener;
             wait_for_condition(
                 std::time::Duration::from_secs(24),
