@@ -69,7 +69,9 @@ mod tests {
                     anchor_err.error_name
                 );
             }
-            other => panic!("expected AnchorError, got {other:?}"),
+            other @ anchor_lang::error::Error::ProgramError(_) => {
+                panic!("expected AnchorError, got {other:?}")
+            }
         }
     }
 
@@ -206,7 +208,7 @@ mod tests {
 
     #[test]
     fn test_decode_abi_gmp_solana_payload_too_many_accounts() {
-        let packed: Vec<u8> = (0..MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS + 1)
+        let packed: Vec<u8> = (0..=MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS)
             .flat_map(|_| {
                 let mut entry = Pubkey::new_unique().to_bytes().to_vec();
                 entry.push(0); // is_signer
