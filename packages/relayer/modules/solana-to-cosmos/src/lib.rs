@@ -178,7 +178,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 .as_secs();
             let src_listener = &self.src_listener;
             wait_for_condition(
-                std::time::Duration::from_secs(25 * 60),
+                std::time::Duration::from_secs(24),
                 std::time::Duration::from_secs(1),
                 || async {
                     let (_, block_time) = src_listener.get_finalized_slot_with_time()?;

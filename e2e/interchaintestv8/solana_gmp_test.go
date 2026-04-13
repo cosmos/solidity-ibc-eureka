@@ -31,6 +31,7 @@ import (
 	channeltypesv2 "github.com/cosmos/ibc-go/v10/modules/core/04-channel/v2/types"
 
 	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v10/testutil"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
@@ -1145,7 +1146,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_SolanaToCosmosPacket(
 
 		relayElapsed := time.Since(start)
 		s.T().Logf("RelayByTx completed in %s", relayElapsed)
-		s.Require().Less(relayElapsed, 20*time.Second, "RelayByTx should complete within finalization window")
+		// Locally passes at ~3s; padded to 7s for CI.
+		s.Require().Less(relayElapsed, 7*time.Second, "RelayByTx should complete within finalization window")
 
 		receipt := s.MustBroadcastSdkTxBodyNoWait(ctx, simd, s.Cosmos.Users[0], 2_000_000, resp.Tx)
 		s.Require().Equal(uint32(0), receipt.Code)
@@ -1191,9 +1193,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 	}))
 
 	var cosmosGMPTxHash []byte
+	packetTimeout := uint64(time.Now().Add(35 * time.Second).Unix())
 
 	s.Require().True(s.Run("Send GMP call from Cosmos with short timeout", func() {
-		timeout := uint64(time.Now().Add(35 * time.Second).Unix())
+		timeout := packetTimeout
 
 		recipientWallet, err := s.Solana.Chain.CreateAndFundWallet()
 		s.Require().NoError(err)
@@ -1242,7 +1245,20 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 		s.T().Logf("Cosmos packet sent: %s", resp.TxHash)
 	}))
 
-	time.Sleep(40 * time.Second) // wait past the 35s timeout
+	s.Require().True(s.Run("Wait for finalized block past timeout", func() {
+		err := testutil.WaitForCondition(60*time.Second, 1*time.Second, func() (bool, error) {
+			slot, err := s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
+			if err != nil {
+				return false, err
+			}
+			blockTime, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, slot)
+			if err != nil {
+				return false, err
+			}
+			return uint64(*blockTime) >= packetTimeout, nil
+		})
+		s.Require().NoError(err)
+	}))
 
 	s.Require().True(s.Run("Relay timeout and assert latency", func() {
 		start := time.Now()
@@ -1259,7 +1275,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPRelayLatency_CosmosToSolanaTimeout
 
 		relayElapsed := time.Since(start)
 		s.T().Logf("RelayByTx completed in %s", relayElapsed)
-		s.Require().Less(relayElapsed, 20*time.Second, "RelayByTx should complete within finalization window")
+		// Locally passes at ~3s; padded to 7s for CI.
+		s.Require().Less(relayElapsed, 7*time.Second, "RelayByTx should complete within finalization window")
 
 		txResp, err := s.BroadcastSdkTxBodyNoWait(ctx, simd, cosmosUser, 500_000, resp.Tx)
 		s.Require().NoError(err)
