@@ -55,7 +55,6 @@ mod tests {
 
     #[test]
     fn test_decode_abi() {
-        use crate::abi::*;
         use alloy_sol_types::SolValue;
 
         let pubkey = Pubkey::new_unique();
@@ -64,7 +63,7 @@ mod tests {
         packed.push(1); // is_signer
         packed.push(0); // is_writable
 
-        let encoded = GMPSolanaPayload {
+        let encoded = crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
             packedAccounts: packed.into(),
             instructionData: vec![0xCC, 0xDD].into(),
             prefundLamports: 0,

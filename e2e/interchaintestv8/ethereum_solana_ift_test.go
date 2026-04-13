@@ -1404,7 +1404,7 @@ func parseForgeScriptJSON(t *testing.T, require *require.Assertions, output stri
 	return value
 }
 
-func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEthereum() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
@@ -1421,7 +1421,10 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 		s.SenderTokenAccount = tokenAccount
 	}))
 
-	s.Require().True(s.Run("Register IFT bridges", func() {
+	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
+	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
+
+	s.Require().True(s.Run("Register IFT bridges and mint tokens", func() {
 		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
 
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
@@ -1436,22 +1439,14 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-	}))
 
-	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
-	transferAmount := big.NewInt(int64(EthSolanaIFTTransferAmount))
-
-	s.Require().True(s.Run("Mint tokens on Ethereum", func() {
-		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		txOpts, err = eth.GetTransactOpts(s.ethDeployer)
 		s.Require().NoError(err)
 
-		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		tx, err = iftContract.Mint(txOpts, ethUserAddr, transferAmount)
 		s.Require().NoError(err)
 
-		tx, err := iftContract.Mint(txOpts, ethUserAddr, transferAmount)
-		s.Require().NoError(err)
-
-		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		receipt, err = eth.GetTxReciept(ctx, tx.Hash())
 		s.Require().NoError(err)
 		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 
@@ -1546,7 +1541,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutEthToSolana() {
 	}))
 }
 
-func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutSolanaToEth() {
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 

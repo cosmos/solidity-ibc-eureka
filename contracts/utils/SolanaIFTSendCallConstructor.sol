@@ -2,26 +2,13 @@
 pragma solidity ^0.8.28;
 
 import { IIFTSendCallConstructor } from "../interfaces/IIFTSendCallConstructor.sol";
+import { ISolanaGMPMsgs } from "../msgs/ISolanaGMPMsgs.sol";
 
 import { Bytes } from "@openzeppelin-contracts/utils/Bytes.sol";
 import { SafeCast } from "@openzeppelin-contracts/utils/math/SafeCast.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC165 } from "@openzeppelin-contracts/utils/introspection/ERC165.sol";
 import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol";
-
-/// @title Solana GMP Messages
-/// @notice Interface defining Solana-specific GMP message types
-interface ISolanaGMPMsgs {
-    /// @notice GMPSolanaPayload is the ABI-encoded payload for Solana GMP execution.
-    /// @param packedAccounts Packed account entries (34 bytes each: pubkey + is_signer + is_writable)
-    /// @param instructionData Raw instruction data for the target program
-    /// @param prefundLamports Lamports to prefund the caller PDA
-    struct GMPSolanaPayload {
-        bytes packedAccounts;
-        bytes instructionData;
-        uint32 prefundLamports;
-    }
-}
 
 /// @title Solana IFT Send Call Constructor
 /// @notice Constructs ABI-encoded GmpSolanaPayload for minting IFT tokens on Solana.
@@ -43,7 +30,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     bytes8 private constant IFT_MINT_DISCRIMINATOR = 0x9cc9d99072afaa53;
 
     /// @notice Lamports to pre-fund the GMP PDA for ATA creation rent (~2,039,280 lamports minimum)
-    uint32 private constant PREFUND_LAMPORTS = 3_000_000;
+    uint64 private constant PREFUND_LAMPORTS = 3_000_000;
 
     /// @notice Expected length of receiver: "0x" + 64 hex (wallet) + 64 hex (ATA) = 130 chars
     uint256 private constant SOLANA_RECEIVER_HEX_LENGTH = 130;
@@ -99,8 +86,6 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @inheritdoc IIFTSendCallConstructor
     /// @dev Receiver format: "0x" + wallet_hex(64) + ata_hex(64) = 130 chars.
     function constructMintCall(string calldata receiver, uint256 amount) external view returns (bytes memory) {
-        require(bytes(receiver).length == SOLANA_RECEIVER_HEX_LENGTH, SolanaIFTInvalidReceiver(receiver));
-
         (bytes32 wallet, bytes32 ata) = _parseWalletAndAta(receiver);
 
         ISolanaGMPMsgs.GMPSolanaPayload memory payload = ISolanaGMPMsgs.GMPSolanaPayload({
@@ -119,27 +104,20 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
 
     /// @notice Parse wallet and ATA from the receiver hex string.
     /// @param receiver The receiver string in format "0x" + wallet_hex(64) + ata_hex(64)
-    /// @return wallet The wallet pubkey
-    /// @return ata The associated token account pubkey
-    function _parseWalletAndAta(string calldata receiver) private pure returns (bytes32 wallet, bytes32 ata) {
+    function _parseWalletAndAta(string calldata receiver) private pure returns (bytes32, bytes32) {
+        require(bytes(receiver).length == SOLANA_RECEIVER_HEX_LENGTH, SolanaIFTInvalidReceiver(receiver));
         require(bytes(receiver)[0] == "0" && bytes(receiver)[1] == "x", SolanaIFTInvalidReceiver(receiver));
 
         string memory walletHex = string(abi.encodePacked("0x", bytes(receiver)[2:66]));
         string memory ataHex = string(abi.encodePacked("0x", bytes(receiver)[66:130]));
 
-        bool successW;
-        bool successA;
-        uint256 walletParsed;
-        uint256 ataParsed;
-
-        (successW, walletParsed) = Strings.tryParseHexUint(walletHex);
+        (bool successW, uint256 walletParsed) = Strings.tryParseHexUint(walletHex);
         require(successW, SolanaIFTInvalidReceiver(receiver));
 
-        (successA, ataParsed) = Strings.tryParseHexUint(ataHex);
+        (bool successA, uint256 ataParsed) = Strings.tryParseHexUint(ataHex);
         require(successA, SolanaIFTInvalidReceiver(receiver));
 
-        wallet = bytes32(walletParsed);
-        ata = bytes32(ataParsed);
+        return (bytes32(walletParsed), bytes32(ataParsed));
     }
 
     /// @notice Build packed accounts for the GmpSolanaPayload.

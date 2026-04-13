@@ -1435,10 +1435,10 @@ mod tests {
                     packed.push(u8::from(account.is_signer));
                     packed.push(u8::from(account.is_writable));
                 }
-                crate::abi::GMPSolanaPayload {
+                crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload {
                     packedAccounts: packed.into(),
                     instructionData: raw.data.clone().into(),
-                    prefundLamports: raw.prefund_lamports as u32,
+                    prefundLamports: raw.prefund_lamports,
                 }
                 .abi_encode()
             }

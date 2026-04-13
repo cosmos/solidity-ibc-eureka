@@ -31,13 +31,16 @@ const DEFAULT_PRIORITY_FEE: u64 = 1000;
 pub trait SolanaAttestationTxBuilder {
     /// Resolves the light client program ID for the given client ID.
     fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey>;
-    /// Fetches the minimum required signatures from the attestation light client.
-    fn attestation_client_min_sigs(&self, program_id: Pubkey) -> Result<usize>;
+    /// Fetches the attestation light client state from Solana.
+    fn attestation_client_state(
+        &self,
+        program_id: Pubkey,
+    ) -> Result<solana_ibc_types::attestation::ClientState>;
     /// Resolves the access manager program ID from the router state.
     fn resolve_access_manager_program_id(&self) -> Result<Pubkey>;
     /// Returns the fee payer public key.
     fn fee_payer(&self) -> Pubkey;
-    /// Serializes instructions into a versioned transaction.
+    /// Serializes instructions into a Solana versioned transaction (v0) with optional ALT.
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>>;
 }
 
@@ -291,7 +294,8 @@ pub async fn build_attestation_update_client_tx(
     );
 
     let light_client_program_id = tx_builder.resolve_client_program_id(dst_client_id)?;
-    let min_sigs = tx_builder.attestation_client_min_sigs(light_client_program_id)?;
+    let client_state = tx_builder.attestation_client_state(light_client_program_id)?;
+    let min_sigs = client_state.min_required_sigs as usize;
 
     let state_attestation = aggregator.get_state_attestation(target_height).await?;
 

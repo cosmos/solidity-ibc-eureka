@@ -2,7 +2,6 @@ package gmphelpers
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/cosmos/gogoproto/proto"
 
@@ -44,15 +43,10 @@ func marshalGMPSolanaPayloadABI(payload *solanatypes.GMPSolanaPayload) ([]byte, 
 		}
 	}
 
-	if payload.PrefundLamports > math.MaxUint32 {
-		return nil, fmt.Errorf("prefund_lamports %d exceeds uint32 max", payload.PrefundLamports)
-	}
-	prefund := uint32(payload.PrefundLamports) //nolint:gosec // checked above
-
 	tupleType, err := abi.NewType("tuple", "", []abi.ArgumentMarshaling{
 		{Name: "packedAccounts", Type: "bytes"},
 		{Name: "instructionData", Type: "bytes"},
-		{Name: "prefundLamports", Type: "uint32"},
+		{Name: "prefundLamports", Type: "uint64"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("creating GMPSolanaPayload ABI type: %w", err)
@@ -63,11 +57,11 @@ func marshalGMPSolanaPayloadABI(payload *solanatypes.GMPSolanaPayload) ([]byte, 
 	abiPayload := struct {
 		PackedAccounts  []byte `json:"packedAccounts"`
 		InstructionData []byte `json:"instructionData"`
-		PrefundLamports uint32 `json:"prefundLamports"`
+		PrefundLamports uint64 `json:"prefundLamports"`
 	}{
 		PackedAccounts:  packed,
 		InstructionData: payload.Data,
-		PrefundLamports: prefund,
+		PrefundLamports: payload.PrefundLamports,
 	}
 
 	encoded, err := args.Pack(abiPayload)

@@ -178,16 +178,6 @@ impl SolanaTxBuilder {
         Ok(client_state)
     }
 
-    /// Fetch the minimum required signatures from the attestation light client.
-    pub(crate) fn attestation_client_min_sigs(
-        &self,
-        light_client_program_id: Pubkey,
-    ) -> Result<usize> {
-        Ok(self
-            .attestation_client_state(light_client_program_id)?
-            .min_required_sigs as usize)
-    }
-
     /// Fetch the attestation consensus state timestamp at a given height (seconds).
     pub(crate) fn attestation_consensus_state_timestamp_secs(
         &self,
@@ -355,8 +345,11 @@ impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
         self.resolve_client_program_id(client_id)
     }
 
-    fn attestation_client_min_sigs(&self, program_id: Pubkey) -> Result<usize> {
-        self.attestation_client_min_sigs(program_id)
+    fn attestation_client_state(
+        &self,
+        program_id: Pubkey,
+    ) -> Result<solana_ibc_types::attestation::ClientState> {
+        self.attestation_client_state(program_id)
     }
 
     fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {

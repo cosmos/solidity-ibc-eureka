@@ -219,9 +219,8 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events", target_events.len());
 
-        // For timeouts in attested mode, get the current source chain height
-        // where non-membership is proven
-        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
+        // For timeouts, get the current source chain height where non-membership is proven
+        let timeout_relay_height = if !target_events.is_empty() {
             Some(
                 self.src_listener
                     .get_block_height()
@@ -388,9 +387,5 @@ impl CosmosToSolanaTxBuilder {
             Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(dst_client_id).await,
         }
-    }
-
-    const fn is_attested(&self) -> bool {
-        matches!(self, Self::Attested(_))
     }
 }

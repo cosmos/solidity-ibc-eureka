@@ -12,17 +12,18 @@ use solana_ibc_proto::{GmpPacketData, Protobuf, RawGmpPacketData};
 ///
 /// Returns `None` when decoding fails (treated as a non-GMP packet).
 pub(crate) fn decode_gmp_packet(payload_value: &[u8], encoding: &str) -> Option<GmpPacketData> {
-    if encoding == ABI_ENCODING {
-        let abi = AbiGmpPacketData::abi_decode(payload_value).ok()?;
-        let raw = RawGmpPacketData {
-            sender: abi.sender,
-            receiver: abi.receiver,
-            salt: abi.salt.to_vec(),
-            payload: abi.payload.to_vec(),
-            memo: abi.memo,
-        };
-        GmpPacketData::try_from(raw).ok()
-    } else {
-        GmpPacketData::decode_vec(payload_value).ok()
+    match encoding {
+        ABI_ENCODING => {
+            let abi = AbiGmpPacketData::abi_decode(payload_value).ok()?;
+            let raw = RawGmpPacketData {
+                sender: abi.sender,
+                receiver: abi.receiver,
+                salt: abi.salt.to_vec(),
+                payload: abi.payload.to_vec(),
+                memo: abi.memo,
+            };
+            GmpPacketData::try_from(raw).ok()
+        }
+        _ => GmpPacketData::decode_vec(payload_value).ok(),
     }
 }
