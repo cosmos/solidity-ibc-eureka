@@ -24,27 +24,39 @@ const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
 const DEFAULT_PRIORITY_FEE: u64 = 1000;
 
 /// Trait abstracting the Solana tx builder methods needed for attestation
-/// update_client transactions.
+/// `update_client` transactions.
 ///
 /// Implemented by both eth-to-solana `SolanaTxBuilder` and cosmos-to-solana
 /// `TxBuilder` to allow shared attestation logic.
-pub trait SolanaAttestationTxBuilder {
+pub trait SolanaAttestationTxBuilder: Sync {
     /// Resolves the light client program ID for the given client ID.
+    ///
+    /// # Errors
+    /// Returns an error if the client ID cannot be resolved.
     fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey>;
     /// Fetches the attestation light client state from Solana.
+    ///
+    /// # Errors
+    /// Returns an error if the account cannot be fetched or deserialized.
     fn attestation_client_state(
         &self,
         program_id: Pubkey,
     ) -> Result<solana_ibc_types::attestation::ClientState>;
     /// Resolves the access manager program ID from the router state.
+    ///
+    /// # Errors
+    /// Returns an error if the router state cannot be read.
     fn resolve_access_manager_program_id(&self) -> Result<Pubkey>;
     /// Returns the fee payer public key.
     fn fee_payer(&self) -> Pubkey;
     /// Serializes instructions into a Solana versioned transaction (v0) with optional ALT.
+    ///
+    /// # Errors
+    /// Returns an error if transaction construction fails.
     fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>>;
 }
 
-/// Result of building an attestation update_client transaction.
+/// Result of building an attestation `update_client` transaction.
 pub struct AttestationUpdateClientResult {
     /// Serialized assembly transaction bytes.
     pub assembly_tx: Vec<u8>,
@@ -143,7 +155,7 @@ pub fn collect_timeout_packets_solana(timeout_msgs: &[TimeoutPacketWithChunks]) 
                 sequence: t.msg.packet.sequence,
                 sourceClient: t.msg.packet.source_client.clone(),
                 destClient: t.msg.packet.dest_client.clone(),
-                timeoutTimestamp: u64::try_from(t.msg.packet.timeout_timestamp).unwrap_or(0),
+                timeoutTimestamp: t.msg.packet.timeout_timestamp,
                 payloads: t
                     .msg
                     .packet
@@ -357,6 +369,11 @@ fn build_update_client_instruction_tx(
         ConsensusState as AttestationConsensusState,
     };
 
+    #[derive(BorshSerialize)]
+    struct UpdateClientParams {
+        proof: Vec<u8>,
+    }
+
     let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
     let (new_consensus_state_pda, _) =
         AttestationConsensusState::pda(new_height, light_client_program_id);
@@ -374,11 +391,6 @@ fn build_update_client_instruction_tx(
         let result = hasher.finalize();
         <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
     };
-
-    #[derive(BorshSerialize)]
-    struct UpdateClientParams {
-        proof: Vec<u8>,
-    }
 
     let mut data = discriminator.to_vec();
     BorshSerialize::serialize(&new_height, &mut data).context("Failed to serialize new_height")?;

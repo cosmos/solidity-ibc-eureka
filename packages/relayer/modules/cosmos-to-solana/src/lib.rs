@@ -220,15 +220,15 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
         tracing::debug!("Fetched {} target events", target_events.len());
 
         // For timeouts, get the current source chain height where non-membership is proven
-        let timeout_relay_height = if !target_events.is_empty() {
+        let timeout_relay_height = if target_events.is_empty() {
+            None
+        } else {
             Some(
                 self.src_listener
                     .get_block_height()
                     .await
                     .map_err(to_tonic_status)?,
             )
-        } else {
-            None
         };
 
         let (packet_txs, update_client) = self
