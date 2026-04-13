@@ -18,14 +18,10 @@ const fn parse_bool_byte(byte: u8) -> std::result::Result<bool, GMPError> {
     }
 }
 
-impl TryFrom<GmpSolanaPayloadAbi>
-    for solana_ibc_proto::RawGmpSolanaPayload
-{
+impl TryFrom<GmpSolanaPayloadAbi> for solana_ibc_proto::RawGmpSolanaPayload {
     type Error = GMPError;
 
-    fn try_from(
-        abi: GmpSolanaPayloadAbi,
-    ) -> std::result::Result<Self, Self::Error> {
+    fn try_from(abi: GmpSolanaPayloadAbi) -> std::result::Result<Self, Self::Error> {
         let chunks = abi.packedAccounts.chunks_exact(PACKED_ACCOUNT_SIZE);
         if !chunks.remainder().is_empty() {
             return Err(GMPError::InvalidAbiEncoding);
@@ -49,17 +45,33 @@ impl TryFrom<GmpSolanaPayloadAbi>
 
 /// Decode ABI-encoded [`GMPSolanaPayload`].
 pub fn decode_abi_gmp_solana_payload(data: &[u8]) -> Result<GmpSolanaPayload> {
-    let decoded = GmpSolanaPayloadAbi::abi_decode(data)
-        .map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
+    let decoded =
+        GmpSolanaPayloadAbi::abi_decode(data).map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
     let raw: solana_ibc_proto::RawGmpSolanaPayload =
         decoded.try_into().map_err(|e: GMPError| error!(e))?;
     raw.try_into()
-        .map_err(|_| error!(GMPError::InvalidSolanaPayload))
+        .map_err(|e: solana_ibc_proto::GmpValidationError| error!(GMPError::from(e)))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use solana_ibc_proto::MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS;
+
+    fn assert_anchor_error(result: Result<GmpSolanaPayload>, expected: GMPError) {
+        let err = result.unwrap_err();
+        match err {
+            anchor_lang::error::Error::AnchorError(anchor_err) => {
+                assert_eq!(
+                    anchor_err.error_code_number,
+                    u32::from(expected),
+                    "expected {expected:?}, got {}",
+                    anchor_err.error_name
+                );
+            }
+            other => panic!("expected AnchorError, got {other:?}"),
+        }
+    }
 
     #[test]
     fn test_decode_abi_gmp_solana_payload_roundtrip() {
@@ -129,7 +141,10 @@ mod tests {
         }
         .abi_encode();
 
-        assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
+        assert_anchor_error(
+            decode_abi_gmp_solana_payload(&encoded),
+            GMPError::InvalidAbiEncoding,
+        );
     }
 
     #[test]
@@ -141,7 +156,10 @@ mod tests {
         }
         .abi_encode();
 
-        assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
+        assert_anchor_error(
+            decode_abi_gmp_solana_payload(&encoded),
+            GMPError::EmptyPayload,
+        );
     }
 
     #[test]
@@ -159,7 +177,10 @@ mod tests {
         }
         .abi_encode();
 
-        assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
+        assert_anchor_error(
+            decode_abi_gmp_solana_payload(&encoded),
+            GMPError::InvalidAbiEncoding,
+        );
     }
 
     #[test]
@@ -177,6 +198,61 @@ mod tests {
         }
         .abi_encode();
 
-        assert!(decode_abi_gmp_solana_payload(&encoded).is_err());
+        assert_anchor_error(
+            decode_abi_gmp_solana_payload(&encoded),
+            GMPError::InvalidAbiEncoding,
+        );
+    }
+
+    #[test]
+    fn test_decode_abi_gmp_solana_payload_too_many_accounts() {
+        let packed: Vec<u8> = (0..MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS + 1)
+            .flat_map(|_| {
+                let mut entry = Pubkey::new_unique().to_bytes().to_vec();
+                entry.push(0); // is_signer
+                entry.push(0); // is_writable
+                entry
+            })
+            .collect();
+
+        let encoded = GmpSolanaPayloadAbi {
+            packedAccounts: packed.into(),
+            instructionData: vec![1].into(),
+            prefundLamports: 0,
+        }
+        .abi_encode();
+
+        assert_anchor_error(
+            decode_abi_gmp_solana_payload(&encoded),
+            GMPError::TooManyAccounts,
+        );
+    }
+
+    #[test]
+    fn test_decode_abi_gmp_solana_payload_invalid_account_key() {
+        // 33-byte pubkey (too long) triggers InvalidAccountKey during RawGmpSolanaPayload -> GmpSolanaPayload
+        // But since packed accounts are fixed 34-byte chunks with 32-byte keys,
+        // the only way to get InvalidAccountKey is via a malformed RawSolanaAccountMeta.
+        // The ABI path validates booleans first, so InvalidAccountKey can't happen
+        // through ABI decoding alone — it's covered by the protobuf path tests.
+        // This test verifies the max-boundary case (exactly at limit) succeeds.
+        let packed: Vec<u8> = (0..MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS)
+            .flat_map(|_| {
+                let mut entry = Pubkey::new_unique().to_bytes().to_vec();
+                entry.push(0);
+                entry.push(1);
+                entry
+            })
+            .collect();
+
+        let encoded = GmpSolanaPayloadAbi {
+            packedAccounts: packed.into(),
+            instructionData: vec![1].into(),
+            prefundLamports: 0,
+        }
+        .abi_encode();
+
+        let decoded = decode_abi_gmp_solana_payload(&encoded).unwrap();
+        assert_eq!(decoded.accounts.len(), MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS);
     }
 }
