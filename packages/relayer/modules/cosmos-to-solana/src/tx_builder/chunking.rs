@@ -113,6 +113,14 @@ impl super::TxBuilder {
         // build_finalize_transfer_instruction logs internally for unexpected failures
         let instruction = ift::build_finalize_transfer_instruction(&params)?;
 
+        if !self.ift_program_ids.contains(&instruction.program_id) {
+            tracing::warn!(
+                sender = %instruction.program_id,
+                "IFT: Program not in whitelist, skipping finalize_transfer"
+            );
+            return None;
+        }
+
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
 
@@ -246,8 +254,7 @@ impl super::TxBuilder {
 
             let total_chunks = msg_payloads
                 .get(payload_idx)
-                .map(|p| p.data.total_chunks())
-                .unwrap_or(0);
+                .map_or(0, |p| p.data.total_chunks());
 
             if total_chunks > 0 {
                 let chunks = Self::split_into_chunks(data);
@@ -304,8 +311,7 @@ impl super::TxBuilder {
 
             let total_chunks = msg_payloads
                 .get(payload_idx)
-                .map(|p| p.data.total_chunks())
-                .unwrap_or(0);
+                .map_or(0, |p| p.data.total_chunks());
 
             if total_chunks > 0 {
                 for chunk_idx in 0..total_chunks {

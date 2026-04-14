@@ -65,6 +65,11 @@ pub struct EthToSolanaConfig {
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub solana_alt_address: Option<String>,
+    /// Whitelisted Solana IFT program IDs. Only IFT instructions targeting
+    /// these programs are relayed (defense-in-depth against untrusted GMP
+    /// sender fields). Empty means IFT relay is disabled.
+    #[serde(default)]
+    pub solana_ift_program_ids: Vec<String>,
     /// Transaction builder mode.
     pub mode: EthToSolanaTxBuilderMode,
 }
@@ -106,6 +111,13 @@ impl EthToSolanaRelayerModuleService {
             .transpose()
             .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
+        let ift_program_ids = config
+            .solana_ift_program_ids
+            .iter()
+            .map(|addr| addr.parse())
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Invalid IFT program ID: {e}"))?;
+
         let tx_builder = match config.mode {
             EthToSolanaTxBuilderMode::Attested(aggregator_config) => {
                 let base_builder = tx_builder::SolanaTxBuilder::new(
@@ -113,6 +125,7 @@ impl EthToSolanaRelayerModuleService {
                     solana_ics26_program_id,
                     fee_payer,
                     alt_address,
+                    ift_program_ids,
                 )?;
                 let attested_builder = tx_builder::AttestedTxBuilder::new(
                     aggregator_config,
@@ -298,6 +311,7 @@ impl RelayerModule for EthToSolanaRelayerModule {
 }
 
 impl EthToSolanaTxBuilder {
+    #[allow(clippy::too_many_arguments)]
     async fn relay_events(
         &self,
         src_events: Vec<ibc_eureka_relayer_lib::events::EurekaEventWithHeight>,

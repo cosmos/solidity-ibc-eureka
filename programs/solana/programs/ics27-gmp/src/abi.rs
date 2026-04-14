@@ -4,8 +4,8 @@ use alloy_sol_types::SolValue;
 use anchor_lang::prelude::*;
 
 use crate::errors::GMPError;
-use crate::proto::GmpSolanaPayload;
 pub use crate::sol_types::ISolanaGMPMsgs::GMPSolanaPayload as GmpSolanaPayloadAbi;
+use solana_ibc_proto::{RawGmpSolanaPayload, RawSolanaAccountMeta};
 
 /// Size of a packed account entry: pubkey(32) + `is_signer`(1) + `is_writable`(1)
 const PACKED_ACCOUNT_SIZE: usize = 34;
@@ -18,7 +18,7 @@ const fn parse_bool_byte(byte: u8) -> std::result::Result<bool, GMPError> {
     }
 }
 
-impl TryFrom<GmpSolanaPayloadAbi> for solana_ibc_proto::RawGmpSolanaPayload {
+impl TryFrom<GmpSolanaPayloadAbi> for RawGmpSolanaPayload {
     type Error = GMPError;
 
     fn try_from(abi: GmpSolanaPayloadAbi) -> std::result::Result<Self, Self::Error> {
@@ -28,7 +28,7 @@ impl TryFrom<GmpSolanaPayloadAbi> for solana_ibc_proto::RawGmpSolanaPayload {
         }
         let accounts = chunks
             .map(|chunk| {
-                Ok(solana_ibc_proto::RawSolanaAccountMeta {
+                Ok(RawSolanaAccountMeta {
                     pubkey: chunk[..32].to_vec(),
                     is_signer: parse_bool_byte(chunk[32])?,
                     is_writable: parse_bool_byte(chunk[33])?,
@@ -43,14 +43,15 @@ impl TryFrom<GmpSolanaPayloadAbi> for solana_ibc_proto::RawGmpSolanaPayload {
     }
 }
 
-/// Decode ABI-encoded [`GMPSolanaPayload`].
-pub fn decode_abi_gmp_solana_payload(data: &[u8]) -> Result<GmpSolanaPayload> {
+/// Decode ABI-encoded bytes into a raw (unvalidated) [`RawGmpSolanaPayload`].
+///
+/// Performs structural decoding only (ABI envelope + packed-account splitting).
+/// The caller is responsible for converting to the validated [`GmpSolanaPayload`]
+/// via `TryFrom`.
+pub fn decode_abi_to_raw(data: &[u8]) -> Result<RawGmpSolanaPayload> {
     let decoded =
         GmpSolanaPayloadAbi::abi_decode(data).map_err(|_| error!(GMPError::InvalidAbiEncoding))?;
-    let raw: solana_ibc_proto::RawGmpSolanaPayload =
-        decoded.try_into().map_err(|e: GMPError| error!(e))?;
-    raw.try_into()
-        .map_err(|e: solana_ibc_proto::GmpValidationError| error!(GMPError::from(e)))
+    decoded.try_into().map_err(|e: GMPError| error!(e))
 }
 
 #[cfg(test)]
@@ -58,7 +59,7 @@ mod tests {
     use super::*;
     use solana_ibc_proto::MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS;
 
-    fn assert_anchor_error(result: Result<GmpSolanaPayload>, expected: GMPError) {
+    fn assert_anchor_error(result: Result<RawGmpSolanaPayload>, expected: GMPError) {
         let err = result.unwrap_err();
         match err {
             anchor_lang::error::Error::AnchorError(anchor_err) => {
@@ -76,7 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_roundtrip() {
+    fn test_decode_abi_to_raw_roundtrip() {
         let pubkey1 = Pubkey::new_unique();
         let pubkey2 = Pubkey::new_unique();
 
@@ -97,21 +98,21 @@ mod tests {
         }
         .abi_encode();
 
-        let decoded = decode_abi_gmp_solana_payload(&encoded).unwrap();
+        let raw = decode_abi_to_raw(&encoded).unwrap();
 
-        assert_eq!(decoded.accounts.len(), 2);
-        assert_eq!(decoded.accounts[0].pubkey, pubkey1);
-        assert!(decoded.accounts[0].is_signer);
-        assert!(!decoded.accounts[0].is_writable);
-        assert_eq!(decoded.accounts[1].pubkey, pubkey2);
-        assert!(!decoded.accounts[1].is_signer);
-        assert!(decoded.accounts[1].is_writable);
-        assert_eq!(decoded.data, instr_data);
-        assert_eq!(decoded.prefund_lamports, 8);
+        assert_eq!(raw.accounts.len(), 2);
+        assert_eq!(raw.accounts[0].pubkey, pubkey1.to_bytes());
+        assert!(raw.accounts[0].is_signer);
+        assert!(!raw.accounts[0].is_writable);
+        assert_eq!(raw.accounts[1].pubkey, pubkey2.to_bytes());
+        assert!(!raw.accounts[1].is_signer);
+        assert!(raw.accounts[1].is_writable);
+        assert_eq!(raw.data, instr_data);
+        assert_eq!(raw.prefund_lamports, 8);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_empty_accounts() {
+    fn test_decode_abi_to_raw_empty_accounts() {
         let instr_data = vec![1, 2, 3];
         let encoded = GmpSolanaPayloadAbi {
             packedAccounts: Vec::new().into(),
@@ -120,21 +121,21 @@ mod tests {
         }
         .abi_encode();
 
-        let decoded = decode_abi_gmp_solana_payload(&encoded).unwrap();
+        let raw = decode_abi_to_raw(&encoded).unwrap();
 
-        assert!(decoded.accounts.is_empty());
-        assert_eq!(decoded.data, instr_data);
-        assert_eq!(decoded.prefund_lamports, 0);
+        assert!(raw.accounts.is_empty());
+        assert_eq!(raw.data, instr_data);
+        assert_eq!(raw.prefund_lamports, 0);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_too_short() {
+    fn test_decode_abi_to_raw_too_short() {
         let data = vec![0u8; 95]; // less than 3 words
-        assert!(decode_abi_gmp_solana_payload(&data).is_err());
+        assert!(decode_abi_to_raw(&data).is_err());
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_misaligned_accounts() {
+    fn test_decode_abi_to_raw_misaligned_accounts() {
         let bad_packed = vec![0u8; 35]; // not a multiple of 34
         let encoded = GmpSolanaPayloadAbi {
             packedAccounts: bad_packed.into(),
@@ -143,14 +144,11 @@ mod tests {
         }
         .abi_encode();
 
-        assert_anchor_error(
-            decode_abi_gmp_solana_payload(&encoded),
-            GMPError::InvalidAbiEncoding,
-        );
+        assert_anchor_error(decode_abi_to_raw(&encoded), GMPError::InvalidAbiEncoding);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_empty_instruction_data_rejected() {
+    fn test_decode_abi_to_raw_empty_instruction_data() {
         let encoded = GmpSolanaPayloadAbi {
             packedAccounts: Vec::new().into(),
             instructionData: Vec::new().into(),
@@ -158,14 +156,13 @@ mod tests {
         }
         .abi_encode();
 
-        assert_anchor_error(
-            decode_abi_gmp_solana_payload(&encoded),
-            GMPError::EmptyPayload,
-        );
+        // Raw decoding succeeds — empty data is rejected during validation
+        let raw = decode_abi_to_raw(&encoded).unwrap();
+        assert!(raw.data.is_empty());
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_invalid_is_signer_byte() {
+    fn test_decode_abi_to_raw_invalid_is_signer_byte() {
         let pubkey = Pubkey::new_unique();
         let mut packed = Vec::new();
         packed.extend_from_slice(&pubkey.to_bytes());
@@ -179,14 +176,11 @@ mod tests {
         }
         .abi_encode();
 
-        assert_anchor_error(
-            decode_abi_gmp_solana_payload(&encoded),
-            GMPError::InvalidAbiEncoding,
-        );
+        assert_anchor_error(decode_abi_to_raw(&encoded), GMPError::InvalidAbiEncoding);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_invalid_is_writable_byte() {
+    fn test_decode_abi_to_raw_invalid_is_writable_byte() {
         let pubkey = Pubkey::new_unique();
         let mut packed = Vec::new();
         packed.extend_from_slice(&pubkey.to_bytes());
@@ -200,14 +194,12 @@ mod tests {
         }
         .abi_encode();
 
-        assert_anchor_error(
-            decode_abi_gmp_solana_payload(&encoded),
-            GMPError::InvalidAbiEncoding,
-        );
+        assert_anchor_error(decode_abi_to_raw(&encoded), GMPError::InvalidAbiEncoding);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_too_many_accounts() {
+    fn test_decode_abi_to_raw_many_accounts() {
+        // Raw decoding succeeds even with MAX+1 accounts — count is checked during validation
         let packed: Vec<u8> = (0..=MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS)
             .flat_map(|_| {
                 let mut entry = Pubkey::new_unique().to_bytes().to_vec();
@@ -224,20 +216,12 @@ mod tests {
         }
         .abi_encode();
 
-        assert_anchor_error(
-            decode_abi_gmp_solana_payload(&encoded),
-            GMPError::TooManyAccounts,
-        );
+        let raw = decode_abi_to_raw(&encoded).unwrap();
+        assert_eq!(raw.accounts.len(), MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS + 1);
     }
 
     #[test]
-    fn test_decode_abi_gmp_solana_payload_invalid_account_key() {
-        // 33-byte pubkey (too long) triggers InvalidAccountKey during RawGmpSolanaPayload -> GmpSolanaPayload
-        // But since packed accounts are fixed 34-byte chunks with 32-byte keys,
-        // the only way to get InvalidAccountKey is via a malformed RawSolanaAccountMeta.
-        // The ABI path validates booleans first, so InvalidAccountKey can't happen
-        // through ABI decoding alone — it's covered by the protobuf path tests.
-        // This test verifies the max-boundary case (exactly at limit) succeeds.
+    fn test_decode_abi_to_raw_max_accounts() {
         let packed: Vec<u8> = (0..MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS)
             .flat_map(|_| {
                 let mut entry = Pubkey::new_unique().to_bytes().to_vec();
@@ -254,7 +238,7 @@ mod tests {
         }
         .abi_encode();
 
-        let decoded = decode_abi_gmp_solana_payload(&encoded).unwrap();
-        assert_eq!(decoded.accounts.len(), MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS);
+        let raw = decode_abi_to_raw(&encoded).unwrap();
+        assert_eq!(raw.accounts.len(), MAX_GMP_SOLANA_PAYLOAD_ACCOUNTS);
     }
 }

@@ -323,6 +323,7 @@ type CosmosToSolanaModuleConfig struct {
 	SolanaIcs26ProgramId   string        `json:"solana_ics26_program_id"`
 	SolanaFeePayer         string        `json:"solana_fee_payer"`
 	SolanaAltAddress       *string       `json:"solana_alt_address,omitempty"`
+	SolanaIftProgramIds    []string      `json:"solana_ift_program_ids,omitempty"`
 	SkipPreVerifyThreshold *int          `json:"skip_pre_verify_threshold,omitempty"`
 	Mode                   TxBuilderMode `json:"mode,omitempty"`
 }
@@ -334,6 +335,7 @@ type EthToSolanaModuleConfig struct {
 	SolanaIcs26ProgramId string        `json:"solana_ics26_program_id"`
 	SolanaFeePayer       string        `json:"solana_fee_payer"`
 	SolanaAltAddress     *string       `json:"solana_alt_address,omitempty"`
+	SolanaIftProgramIds  []string      `json:"solana_ift_program_ids,omitempty"`
 	Mode                 TxBuilderMode `json:"mode"`
 }
 

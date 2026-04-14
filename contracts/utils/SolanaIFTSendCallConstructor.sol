@@ -60,6 +60,9 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @param receiver The invalid receiver string
     error SolanaIFTInvalidReceiver(string receiver);
 
+    /// @notice Error thrown when the amount is zero
+    error SolanaIFTZeroAmount();
+
     /// @notice Initializes the constructor with 6 static Solana PDAs.
     /// @param _appState IFT app state PDA
     /// @param _appMintState IFT app mint state PDA
@@ -86,6 +89,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @inheritdoc IIFTSendCallConstructor
     /// @dev Receiver format: "0x" + wallet_hex(64) + ata_hex(64) = 130 chars.
     function constructMintCall(string calldata receiver, uint256 amount) external view returns (bytes memory) {
+        require(amount > 0, SolanaIFTZeroAmount());
         (bytes32 wallet, bytes32 ata) = _parseWalletAndAta(receiver);
 
         ISolanaGMPMsgs.GMPSolanaPayload memory payload = ISolanaGMPMsgs.GMPSolanaPayload({
@@ -159,6 +163,7 @@ contract SolanaIFTSendCallConstructor is IIFTSendCallConstructor, ERC165 {
     /// @return The Borsh-encoded instruction data matching Anchor's IFTMintMsg
     function _buildInstructionData(bytes32 wallet, uint256 amount) private pure returns (bytes memory) {
         uint64 amountU64 = SafeCast.toUint64(amount);
+        // Convert to little-endian for Borsh encoding expected by Solana
         return abi.encodePacked(IFT_MINT_DISCRIMINATOR, wallet, Bytes.reverseBytes8(bytes8(amountU64)));
     }
 }

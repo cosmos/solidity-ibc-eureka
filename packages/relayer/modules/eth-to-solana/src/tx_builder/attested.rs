@@ -35,6 +35,10 @@ pub struct AttestedTxBuilder {
 
 impl AttestedTxBuilder {
     /// Create a new [`AttestedTxBuilder`] instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the aggregator cannot be created from the config.
     pub async fn new(
         aggregator_config: AggregatorConfig,
         tx_builder: SolanaTxBuilder,
@@ -49,16 +53,23 @@ impl AttestedTxBuilder {
     }
 
     /// Get the inner `SolanaTxBuilder` reference.
-    pub fn tx_builder(&self) -> &SolanaTxBuilder {
+    #[must_use]
+    pub const fn tx_builder(&self) -> &SolanaTxBuilder {
         &self.tx_builder
     }
 
     /// Get the ICS26 Ethereum address.
+    #[must_use]
     pub const fn ics26_eth_address(&self) -> &Address {
         &self.ics26_eth_address
     }
 
     /// Relay events from Ethereum to Solana using attestations.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if building relay transactions fails.
+    #[allow(clippy::too_many_lines)]
     pub async fn relay_events(
         &self,
         params: RelayParams,
@@ -213,13 +224,16 @@ impl AttestedTxBuilder {
         };
 
         let packets = self
-            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)
-            .await?;
+            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
 
         Ok((packets, update_client))
     }
 
     /// Update the attestation light client to the latest height.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attestation update transaction cannot be built.
     pub async fn update_client(&self, dst_client_id: &str) -> Result<api::SolanaUpdateClient> {
         let result = solana_attested::update_attestation_client_tx(
             &self.aggregator,
@@ -237,7 +251,7 @@ impl AttestedTxBuilder {
         })
     }
 
-    async fn build_packet_transactions(
+    fn build_packet_transactions(
         &self,
         recv_msgs: Vec<MsgRecvPacket>,
         ack_msgs: Vec<MsgAcknowledgement>,
@@ -264,8 +278,7 @@ impl AttestedTxBuilder {
                     &ack_with_chunks.msg,
                     &ack_with_chunks.payload_chunks,
                     &ack_with_chunks.proof_chunks,
-                )
-                .await?;
+                )?;
             results.push(packet_txs);
         }
 
@@ -294,7 +307,7 @@ fn max_timeout_timestamp(events: &[SolanaEurekaEventWithHeight]) -> Option<u64> 
     events
         .iter()
         .filter_map(|e| match &e.event {
-            SolanaEurekaEvent::SendPacket(send) => u64::try_from(send.timeout_timestamp).ok(),
+            SolanaEurekaEvent::SendPacket(send) => Some(send.timeout_timestamp),
             SolanaEurekaEvent::WriteAcknowledgement(_) => None,
         })
         .max()

@@ -9,22 +9,23 @@ import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 
 import { SolanaIFTSendCallConstructor } from "../contracts/utils/SolanaIFTSendCallConstructor.sol";
 
-/// @notice Deploys SolanaIFTSendCallConstructor with 6 static Solana PDAs from environment variables.
+/// @notice Deploys SolanaIFTSendCallConstructor with 6 static Solana PDAs passed as arguments.
 /// @dev Called separately from the main E2E deploy script because the PDAs depend on the Solana IFT mint
 ///      (created during the test) and the EVM IFT contract address (created by the main deploy script).
-///      Required env vars: SOL_IFT_APP_STATE, SOL_IFT_APP_MINT_STATE, SOL_IFT_BRIDGE,
-///      SOL_IFT_MINT, SOL_IFT_MINT_AUTHORITY, SOL_IFT_GMP_ACCOUNT
 contract DeploySolanaIFTConstructor is Script {
     using stdJson for string;
 
-    function run() public returns (string memory) {
-        bytes32 appState = vm.envBytes32("SOL_IFT_APP_STATE");
-        bytes32 appMintState = vm.envBytes32("SOL_IFT_APP_MINT_STATE");
-        bytes32 iftBridge = vm.envBytes32("SOL_IFT_BRIDGE");
-        bytes32 mint = vm.envBytes32("SOL_IFT_MINT");
-        bytes32 mintAuthority = vm.envBytes32("SOL_IFT_MINT_AUTHORITY");
-        bytes32 gmpAccount = vm.envBytes32("SOL_IFT_GMP_ACCOUNT");
-
+    function run(
+        bytes32 appState,
+        bytes32 appMintState,
+        bytes32 iftBridge,
+        bytes32 mint,
+        bytes32 mintAuthority,
+        bytes32 gmpAccount
+    )
+        public
+        returns (string memory)
+    {
         vm.startBroadcast();
 
         address deployed = address(

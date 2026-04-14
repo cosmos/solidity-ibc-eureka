@@ -359,8 +359,9 @@ type CosmosToSolanaParams struct {
 	ICS07ProgramID         string
 	ICS26ProgramID         string
 	FeePayer               string
-	ALTAddress             string // Optional
-	SkipPreVerifyThreshold *int   // Optional
+	ALTAddress             string   // Optional
+	IFTProgramIDs          []string // Optional
+	SkipPreVerifyThreshold *int     // Optional
 }
 
 // CosmosToSolana adds a Cosmos→Solana module.
@@ -369,7 +370,6 @@ func (b *ConfigBuilder) CosmosToSolana(p CosmosToSolanaParams) *ConfigBuilder {
 	if p.ALTAddress != "" {
 		altAddress = &p.ALTAddress
 	}
-
 	module := ModuleConfig{
 		Name:     ModuleCosmosToSolana,
 		SrcChain: p.CosmosChainID,
@@ -380,6 +380,7 @@ func (b *ConfigBuilder) CosmosToSolana(p CosmosToSolanaParams) *ConfigBuilder {
 			SolanaIcs26ProgramId:   p.ICS26ProgramID,
 			SolanaFeePayer:         p.FeePayer,
 			SolanaAltAddress:       altAddress,
+			SolanaIftProgramIds:    p.IFTProgramIDs,
 			SkipPreVerifyThreshold: p.SkipPreVerifyThreshold,
 		},
 	}
@@ -400,6 +401,7 @@ type CosmosToSolanaAttestedParams struct {
 	ICS26ProgramID         string
 	FeePayer               string
 	ALTAddress             string   // Optional
+	IFTProgramIDs          []string // Optional
 	SkipPreVerifyThreshold *int     // Optional
 	AttestorEndpoints      []string // Required for attestation mode
 	AttestorTimeout        int      // Optional, defaults to 5000
@@ -412,7 +414,6 @@ func (b *ConfigBuilder) CosmosToSolanaAttested(p CosmosToSolanaAttestedParams) *
 	if p.ALTAddress != "" {
 		altAddress = &p.ALTAddress
 	}
-
 	aggConfig := DefaultAggregatorConfig()
 	if len(p.AttestorEndpoints) > 0 {
 		aggConfig.Attestor.AttestorEndpoints = p.AttestorEndpoints
@@ -434,6 +435,7 @@ func (b *ConfigBuilder) CosmosToSolanaAttested(p CosmosToSolanaAttestedParams) *
 			SolanaIcs26ProgramId:   p.ICS26ProgramID,
 			SolanaFeePayer:         p.FeePayer,
 			SolanaAltAddress:       altAddress,
+			SolanaIftProgramIds:    p.IFTProgramIDs,
 			SkipPreVerifyThreshold: p.SkipPreVerifyThreshold,
 			Mode:                   AttestedMode{Config: aggConfig},
 		},
@@ -451,6 +453,7 @@ type EthToSolanaAttestedParams struct {
 	ICS26ProgramID    string
 	FeePayer          string
 	ALTAddress        string   // Optional
+	IFTProgramIDs     []string // Optional
 	AttestorEndpoints []string // Required for attestation mode
 	AttestorTimeout   int      // Optional, defaults to 5000
 	QuorumThreshold   int      // Optional, defaults to 1
@@ -472,7 +475,6 @@ func (b *ConfigBuilder) EthToSolanaAttested(p EthToSolanaAttestedParams) *Config
 	if p.ALTAddress != "" {
 		altAddress = &p.ALTAddress
 	}
-
 	module := ModuleConfig{
 		Name:     ModuleEthToSolana,
 		SrcChain: p.EthChainID,
@@ -484,6 +486,7 @@ func (b *ConfigBuilder) EthToSolanaAttested(p EthToSolanaAttestedParams) *Config
 			SolanaIcs26ProgramId: p.ICS26ProgramID,
 			SolanaFeePayer:       p.FeePayer,
 			SolanaAltAddress:     altAddress,
+			SolanaIftProgramIds:  p.IFTProgramIDs,
 			Mode:                 AttestedMode{Config: aggConfig},
 		},
 	}

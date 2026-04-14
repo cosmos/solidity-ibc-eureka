@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"os"
 	"regexp"
@@ -94,8 +93,6 @@ type EthereumSolanaIFTTestSuite struct {
 	RouterStatePDA solanago.PublicKey
 	IBCClientPDA   solanago.PublicKey
 	GMPIBCAppPDA   solanago.PublicKey
-
-	skipEthBridge bool
 }
 
 func (s *EthereumSolanaIFTTestSuite) IFTMint() solanago.PublicKey {
@@ -107,19 +104,10 @@ func (s *EthereumSolanaIFTTestSuite) IFTMintBytes() []byte {
 	return pk[:]
 }
 
-// deploySolanaIFTConstructor deploys SolanaIFTSendCallConstructor for the default bridge.
-func (s *EthereumSolanaIFTTestSuite) deploySolanaIFTConstructor(eth *ethereum.Ethereum) {
-	s.contractAddresses.SolanaIftConstructor = s.deploySolanaIFTConstructorForMint(
-		eth, EthClientIDOnSolana, s.IFTMint(), s.contractAddresses.Ift,
-	)
-}
-
-// deploySolanaIFTConstructorForMint deploys a SolanaIFTSendCallConstructor via forge script.
-// Each bridge requires its own constructor because IFT_BRIDGE and GMP_ACCOUNT PDAs depend
-// on the client ID, mint and IFT contract address.
-func (s *EthereumSolanaIFTTestSuite) deploySolanaIFTConstructorForMint(
-	eth *ethereum.Ethereum, clientID string, mint solanago.PublicKey, iftContractAddr string,
-) string {
+// deriveIFTConstructorPDAs derives the PDAs needed for a SolanaIFTSendCallConstructor deployment.
+func (s *EthereumSolanaIFTTestSuite) deriveIFTConstructorPDAs(
+	clientID string, mint solanago.PublicKey, iftContractAddr string,
+) e2esuite.SolanaIFTConstructorPDAs {
 	mintBytes := mint[:]
 
 	appStatePDA, _ := solana.Ift.IftAppStatePDA(ift.ProgramID)
@@ -132,42 +120,30 @@ func (s *EthereumSolanaIFTTestSuite) deploySolanaIFTConstructorForMint(
 		ics27_gmp.ProgramID, []byte(clientID), []byte(iftChecksumAddr), []byte{},
 	)
 
-	s.T().Logf("Constructor PDAs for %s (mint=%s): appState=%s, appMintState=%s, iftBridge=%s, mintAuthority=%s, gmpAccount=%s",
-		clientID, mint, appStatePDA, appMintStatePDA, iftBridgePDA, mintAuthorityPDA, gmpAccountPDA)
-
-	pubkeyToBytes32Hex := func(pk solanago.PublicKey) string {
-		return "0x" + hex.EncodeToString(pk[:])
+	return e2esuite.SolanaIFTConstructorPDAs{
+		AppState:      appStatePDA,
+		AppMintState:  appMintStatePDA,
+		IFTBridge:     iftBridgePDA,
+		Mint:          mint,
+		MintAuthority: mintAuthorityPDA,
+		GMPAccount:    gmpAccountPDA,
 	}
-	os.Setenv("SOL_IFT_APP_STATE", pubkeyToBytes32Hex(appStatePDA))
-	os.Setenv("SOL_IFT_APP_MINT_STATE", pubkeyToBytes32Hex(appMintStatePDA))
-	os.Setenv("SOL_IFT_BRIDGE", pubkeyToBytes32Hex(iftBridgePDA))
-	os.Setenv("SOL_IFT_MINT", pubkeyToBytes32Hex(mint))
-	os.Setenv("SOL_IFT_MINT_AUTHORITY", pubkeyToBytes32Hex(mintAuthorityPDA))
-	os.Setenv("SOL_IFT_GMP_ACCOUNT", pubkeyToBytes32Hex(gmpAccountPDA))
+}
 
-	stdout, err := eth.ForgeScript(s.ethDeployer, "scripts/DeploySolanaIFTConstructor.s.sol:DeploySolanaIFTConstructor")
-	s.Require().NoError(err)
+// deploySolanaIFTConstructor deploys SolanaIFTSendCallConstructor for the default bridge.
+func (s *EthereumSolanaIFTTestSuite) deploySolanaIFTConstructor(eth *ethereum.Ethereum) {
+	pdas := s.deriveIFTConstructorPDAs(EthClientIDOnSolana, s.IFTMint(), s.contractAddresses.Ift)
+	s.contractAddresses.SolanaIftConstructor = e2esuite.DeploySolanaIFTConstructor(
+		s.T(), eth, s.ethDeployer, EthClientIDOnSolana, pdas,
+	)
+}
 
-	output := string(stdout)
-	cutOff := "== Return =="
-	cutoffIndex := strings.Index(output, cutOff)
-	s.Require().Greater(cutoffIndex, 0, "forge script output missing '== Return ==' section")
-	output = output[cutoffIndex+len(cutOff):]
-
-	re := regexp.MustCompile(`\{.*\}`)
-	jsonPart := re.FindString(output)
-	jsonPart = strings.ReplaceAll(jsonPart, `\"`, `"`)
-	jsonPart = strings.Trim(jsonPart, `"`)
-
-	var result struct {
-		SolanaIftConstructor string `json:"solanaIftConstructor"`
-	}
-	err = json.Unmarshal([]byte(jsonPart), &result)
-	s.Require().NoError(err)
-	s.Require().NotEmpty(result.SolanaIftConstructor, "SolanaIftConstructor address is empty")
-
-	s.T().Logf("SolanaIFTSendCallConstructor for %s deployed at: %s", clientID, result.SolanaIftConstructor)
-	return result.SolanaIftConstructor
+// deploySolanaIFTConstructorForMint deploys a SolanaIFTSendCallConstructor for a specific mint.
+func (s *EthereumSolanaIFTTestSuite) deploySolanaIFTConstructorForMint(
+	eth *ethereum.Ethereum, clientID string, mint solanago.PublicKey, iftContractAddr string,
+) string {
+	pdas := s.deriveIFTConstructorPDAs(clientID, mint, iftContractAddr)
+	return e2esuite.DeploySolanaIFTConstructor(s.T(), eth, s.ethDeployer, clientID, pdas)
 }
 
 func TestWithEthereumSolanaIFTTestSuite(t *testing.T) {
@@ -267,27 +243,16 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 			const keypairDir = "solana-keypairs/localnet"
 			const deployerPath = keypairDir + "/deployer_wallet.json"
 
-			deployProgram := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {
-				return e2esuite.ParallelTaskWithResult[solanago.PublicKey]{
-					Name: displayName,
-					Run: func() (solanago.PublicKey, error) {
-						s.T().Logf("Deploying %s...", displayName)
-						keypairPath := fmt.Sprintf("%s/%s-keypair.json", keypairDir, programName)
-						programID, err := s.Solana.Chain.DeploySolanaProgramAsync(ctx, programName, keypairPath, deployerPath)
-						if err == nil {
-							s.T().Logf("Deployed %s at: %s", displayName, programID)
-						}
-						return programID, err
-					},
-				}
+			deploy := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {
+				return e2esuite.DeploySolanaProgramTask(ctx, s.T(), s.Solana.Chain, displayName, programName, keypairDir, deployerPath)
 			}
 
 			deployResults, err := e2esuite.RunParallelTasksWithResults(
-				deployProgram("Access Manager", "access_manager"),
-				deployProgram("ICS26 Router", "ics26_router"),
-				deployProgram("ICS27 GMP", "ics27_gmp"),
-				deployProgram("IFT", "ift"),
-				deployProgram("Attestation", "attestation"),
+				deploy("Access Manager", "access_manager"),
+				deploy("ICS26 Router", "ics26_router"),
+				deploy("ICS27 GMP", "ics27_gmp"),
+				deploy("IFT", "ift"),
+				deploy("Attestation", "attestation"),
 			)
 			s.Require().NoError(err)
 
@@ -498,6 +463,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:    ics26_router.ProgramID.String(),
 				FeePayer:          s.SolanaRelayer.PublicKey().String(),
 				ALTAddress:        s.SolanaAltAddress,
+				IFTProgramIDs:     []string{ift.ProgramID.String()},
 				AttestorEndpoints: s.ethAttestorResult.Endpoints,
 				AttestorTimeout:   30000,
 				QuorumThreshold:   numEthAttestors,
@@ -613,20 +579,18 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Register IFT bridges", func() {
 		s.registerSolanaIFTBridgeForEVM(ctx, EthClientIDOnSolana, ethIFTAddress.Hex())
 
-		if !s.skipEthBridge {
-			iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
-			s.Require().NoError(err)
+		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
+		s.Require().NoError(err)
 
-			txOpts, err := eth.GetTransactOpts(s.ethDeployer)
-			s.Require().NoError(err)
+		txOpts, err := eth.GetTransactOpts(s.ethDeployer)
+		s.Require().NoError(err)
 
-			tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
-			s.Require().NoError(err)
+		tx, err := iftContract.RegisterIFTBridge(txOpts, SolanaClientIDOnEth, ift.ProgramID.String(), ethcommon.HexToAddress(s.contractAddresses.SolanaIftConstructor))
+		s.Require().NoError(err)
 
-			receipt, err := eth.GetTxReciept(ctx, tx.Hash())
-			s.Require().NoError(err)
-			s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
-		}
+		receipt, err := eth.GetTxReciept(ctx, tx.Hash())
+		s.Require().NoError(err)
+		s.Require().Equal(ethtypes.ReceiptStatusSuccessful, receipt.Status)
 	}))
 }
 
@@ -984,14 +948,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 			pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
 
-			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
-			s.Require().NoError(err)
-
 			transferMsg := ift.IftStateIftTransferMsg{
 				ClientId:         EthClientIDOnSolana,
 				Receiver:         ethUserAddr.Hex(),
 				Amount:           EthSolanaIFTTransferAmount,
-				TimeoutTimestamp: uint64(solanaClockTime) + 900,
+				TimeoutTimestamp: uint64(time.Now().Add(15 * time.Minute).Unix()),
 				Sequence:         solanaToEthSequence,
 			}
 
@@ -1528,14 +1489,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
 
-		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
-		s.Require().NoError(err)
-
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: uint64(solanaClockTime) + 90,
+			TimeoutTimestamp: uint64(time.Now().Add(30 * time.Second).Unix()),
 			Sequence:         timeoutSequence,
 		}
 
@@ -1575,8 +1533,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 90 seconds for timeout...")
-		time.Sleep(90 * time.Second)
+		s.T().Log("Waiting 30 seconds for timeout...")
+		time.Sleep(30 * time.Second)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
@@ -1622,13 +1580,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 }
 
 // Test_EthSolana_IFT_FailedReceiveOnEth tests error acknowledgment when Ethereum receive fails.
-// The test registers the IFT bridge only on Solana (intentionally skipping Ethereum bridge registration).
-// When Solana sends an IFT transfer, Ethereum's IFT contract fails because no bridge is registered
-// for the client ID. The ICS26 router catches this error and generates an error ack, which is
-// relayed back to Solana to refund the sender.
+// The transfer uses the zero address as receiver so ERC20's _mint reverts on the Ethereum side.
+// The ICS26 router catches this error and generates an error ack, which is relayed back to Solana
+// to refund the sender.
 func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 	ctx := context.Background()
-	s.skipEthBridge = true // intentionally skip Ethereum bridge to trigger error ack
 	s.SetupSuite(ctx)
 
 	eth := s.Eth.Chains[0]
@@ -1655,14 +1611,11 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(EthClientIDOnSolana), seqBytes)
 		pendingTransferPDA, _ := solana.Ift.PendingTransferPDA(ift.ProgramID, s.IFTMintBytes(), []byte(EthClientIDOnSolana), seqBytes)
 
-		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
-		s.Require().NoError(err)
-
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         EthClientIDOnSolana,
-			Receiver:         ethUserAddr.Hex(),
+			Receiver:         "0x0000000000000000000000000000000000000000",
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: uint64(solanaClockTime) + 900,
+			TimeoutTimestamp: uint64(time.Now().Add(15 * time.Minute).Unix()),
 			Sequence:         failedRecvSequence,
 		}
 

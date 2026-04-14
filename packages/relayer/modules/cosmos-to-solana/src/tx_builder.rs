@@ -137,6 +137,10 @@ pub struct TxBuilder {
     /// Signature threshold for skipping pre-verification.
     /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
     pub skip_pre_verify_threshold: Option<usize>,
+    /// Whitelisted IFT program IDs. Only IFT instructions targeting these
+    /// programs are relayed (defense-in-depth against untrusted GMP sender
+    /// fields).
+    pub ift_program_ids: Vec<Pubkey>,
 }
 
 impl TxBuilder {
@@ -151,6 +155,7 @@ impl TxBuilder {
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
         skip_pre_verify_threshold: Option<usize>,
+        ift_program_ids: Vec<Pubkey>,
     ) -> Result<Self> {
         Ok(Self {
             src_tm_client,
@@ -159,6 +164,7 @@ impl TxBuilder {
             fee_payer,
             alt_address,
             skip_pre_verify_threshold,
+            ift_program_ids,
         })
     }
 

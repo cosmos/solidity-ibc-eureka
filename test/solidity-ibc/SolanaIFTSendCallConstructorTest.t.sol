@@ -14,13 +14,12 @@ import { IERC165 } from "@openzeppelin-contracts/utils/introspection/IERC165.sol
 contract SolanaIFTSendCallConstructorTest is Test {
     SolanaIFTSendCallConstructor public constructor_;
 
-    // Test PDA values (arbitrary bytes32 for testing)
-    bytes32 internal constant APP_STATE = bytes32(uint256(1));
-    bytes32 internal constant APP_MINT_STATE = bytes32(uint256(2));
-    bytes32 internal constant IFT_BRIDGE = bytes32(uint256(3));
-    bytes32 internal constant MINT = bytes32(uint256(4));
-    bytes32 internal constant MINT_AUTHORITY = bytes32(uint256(5));
-    bytes32 internal constant GMP_ACCOUNT = bytes32(uint256(6));
+    bytes32 internal constant APP_STATE = keccak256("APP_STATE");
+    bytes32 internal constant APP_MINT_STATE = keccak256("APP_MINT_STATE");
+    bytes32 internal constant IFT_BRIDGE = keccak256("IFT_BRIDGE");
+    bytes32 internal constant MINT = keccak256("MINT");
+    bytes32 internal constant MINT_AUTHORITY = keccak256("MINT_AUTHORITY");
+    bytes32 internal constant GMP_ACCOUNT = keccak256("GMP_ACCOUNT");
 
     // Receiver: "0x" + wallet(64 hex) + ata(64 hex) = 130 chars
     bytes32 internal constant WALLET = 0x06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a9;
@@ -37,6 +36,9 @@ contract SolanaIFTSendCallConstructorTest is Test {
 
     uint256 internal constant PACKED_ACCOUNT_SIZE = 34;
 
+    /// @dev Anchor discriminator for `ift_mint`: sha256("global:ift_mint")[0:8]
+    bytes8 internal constant IFT_MINT_DISCRIMINATOR = 0x9cc9d99072afaa53;
+
     function setUp() public {
         constructor_ =
             new SolanaIFTSendCallConstructor(APP_STATE, APP_MINT_STATE, IFT_BRIDGE, MINT, MINT_AUTHORITY, GMP_ACCOUNT);
@@ -51,8 +53,9 @@ contract SolanaIFTSendCallConstructorTest is Test {
         assertEq(constructor_.GMP_ACCOUNT(), GMP_ACCOUNT);
     }
 
-    function test_constructMintCall_outputFormat() public view {
-        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, 1_000_000);
+    function testFuzz_constructMintCall_success(uint64 amount) public view {
+        vm.assume(amount > 0);
+        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, uint256(amount));
 
         ISolanaGMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (ISolanaGMPMsgs.GMPSolanaPayload));
 
@@ -62,13 +65,8 @@ contract SolanaIFTSendCallConstructorTest is Test {
         assertEq(payload.instructionData.length, 48);
         // Lamports to pre-fund GMP PDA for ATA creation rent
         assertEq(payload.prefundLamports, 3_000_000);
-    }
 
-    function test_constructMintCall_packedAccounts() public view {
-        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, 1_000_000);
-        ISolanaGMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (ISolanaGMPMsgs.GMPSolanaPayload));
         bytes memory packedAccounts = payload.packedAccounts;
-
         _assertAccount(packedAccounts, 0, APP_STATE, false, false);
         _assertAccount(packedAccounts, 1, APP_MINT_STATE, false, true);
         _assertAccount(packedAccounts, 2, IFT_BRIDGE, false, false);
@@ -83,9 +81,9 @@ contract SolanaIFTSendCallConstructorTest is Test {
         _assertAccount(packedAccounts, 11, SYSTEM_PROGRAM, false, false);
     }
 
-    function test_constructMintCall_instructionData() public view {
-        uint256 amount = 1_000_000;
-        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, amount);
+    function testFuzz_constructMintCall_instructionData(uint64 amount) public view {
+        vm.assume(amount > 0);
+        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, uint256(amount));
         ISolanaGMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (ISolanaGMPMsgs.GMPSolanaPayload));
         bytes memory instructionData = payload.instructionData;
 
@@ -93,7 +91,7 @@ contract SolanaIFTSendCallConstructorTest is Test {
         assembly {
             discriminator := mload(add(instructionData, 32))
         }
-        assertEq(discriminator, bytes8(0x9cc9d99072afaa53));
+        assertEq(discriminator, IFT_MINT_DISCRIMINATOR);
 
         bytes32 walletInData;
         assembly {
@@ -101,56 +99,63 @@ contract SolanaIFTSendCallConstructorTest is Test {
         }
         assertEq(walletInData, WALLET);
 
-        // Decode little-endian u64 from last 8 bytes
-        uint64 decoded;
-        for (uint256 i = 0; i < 8; i++) {
-            decoded |= uint64(uint8(instructionData[40 + i])) << uint64(i * 8);
+        assertEq(_decodeLittleEndianU64(instructionData, 40), uint256(amount));
+    }
+
+    function testFuzz_constructMintCall_invalidReceiverLength_reverts(
+        uint8 hexLength,
+        uint64 amount,
+        uint256 seed
+    )
+        public
+    {
+        vm.assume(hexLength != 128);
+        vm.assume(amount > 0);
+        bytes16 hexDigits = "0123456789abcdef";
+        bytes memory hexChars = new bytes(hexLength);
+        for (uint256 i = 0; i < hexLength; i++) {
+            uint256 hash = uint256(keccak256(abi.encodePacked(seed, i)));
+            hexChars[i] = hexDigits[hash % 16];
         }
-        assertEq(decoded, amount);
-    }
+        string memory receiver = string.concat("0x", string(hexChars));
 
-    function test_constructMintCall_wrongLength_reverts() public {
-        vm.expectRevert();
-        constructor_.constructMintCall("0x1234", 1000);
-    }
-
-    function test_constructMintCall_tooLong_reverts() public {
-        vm.expectRevert();
-        constructor_.constructMintCall(
-            "0x06ddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a98c97258f4e2489f1bb3d1029148e0d830b5a1399daff1084048e7bd8dbe9f859ab",
-            1000
+        vm.expectRevert(
+            abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, receiver)
         );
+        constructor_.constructMintCall(receiver, uint256(amount));
     }
 
-    function test_constructMintCall_invalidHex_reverts() public {
-        vm.expectRevert();
-        constructor_.constructMintCall(
-            "0xGGddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a98c97258f4e2489f1bb3d1029148e0d830b5a1399daff1084048e7bd8dbe9f859",
-            1000
+    function test_constructMintCall_invalidReceiverHex_reverts() public {
+        string memory receiver =
+            "0xGGddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a98c97258f4e2489f1bb3d1029148e0d830b5a1399daff1084048e7bd8dbe9f859";
+        vm.expectRevert(
+            abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, receiver)
         );
+        constructor_.constructMintCall(receiver, 1000);
     }
 
-    function test_constructMintCall_amountOverflow_reverts() public {
-        uint256 overflowAmount = uint256(type(uint64).max) + 1;
+    function test_constructMintCall_zeroAmount_reverts() public {
+        vm.expectRevert(abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTZeroAmount.selector));
+        constructor_.constructMintCall(VALID_RECEIVER, 0);
+    }
+
+    function testFuzz_constructMintCall_amountOverflow_reverts(uint256 overflowAmount) public {
+        overflowAmount = bound(overflowAmount, uint256(type(uint64).max) + 1, type(uint256).max);
         vm.expectRevert(abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 64, overflowAmount));
         constructor_.constructMintCall(VALID_RECEIVER, overflowAmount);
-    }
-
-    function testFuzz_constructMintCall_amountEncoding(uint64 amount) public view {
-        bytes memory result = constructor_.constructMintCall(VALID_RECEIVER, uint256(amount));
-        ISolanaGMPMsgs.GMPSolanaPayload memory payload = abi.decode(result, (ISolanaGMPMsgs.GMPSolanaPayload));
-        bytes memory instructionData = payload.instructionData;
-
-        uint64 decoded;
-        for (uint256 i = 0; i < 8; i++) {
-            decoded |= uint64(uint8(instructionData[40 + i])) << uint64(i * 8);
-        }
-        assertEq(decoded, amount);
     }
 
     function test_supportsInterface() public view {
         assertTrue(constructor_.supportsInterface(type(IIFTSendCallConstructor).interfaceId));
         assertTrue(constructor_.supportsInterface(type(IERC165).interfaceId));
+    }
+
+    function _decodeLittleEndianU64(bytes memory data, uint256 offset) private pure returns (uint256) {
+        uint64 decoded;
+        for (uint256 i = 0; i < 8; i++) {
+            decoded |= uint64(uint8(data[offset + i])) << uint64(i * 8);
+        }
+        return uint256(decoded);
     }
 
     function _assertAccount(

@@ -82,10 +82,7 @@ pub fn build_finalize_transfer_instruction(
         return None;
     }
 
-    let gmp_packet = match crate::gmp::decode_gmp_packet(params.payload_value, params.encoding) {
-        Some(packet) => packet,
-        None => return None,
-    };
+    let gmp_packet = crate::gmp::decode_gmp_packet(params.payload_value, params.encoding)?;
 
     // Parse sender as Pubkey (the IFT program ID).
     // GMP's `send_call_cpi` uses the calling program ID as the sender.

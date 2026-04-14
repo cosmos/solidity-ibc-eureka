@@ -68,21 +68,32 @@ pub struct SolanaTxBuilder {
     pub fee_payer: Pubkey,
     /// Address Lookup Table address for reducing transaction size.
     pub alt_address: Option<Pubkey>,
+    /// Whitelisted IFT program IDs. Only IFT instructions targeting these
+    /// programs are relayed (defense-in-depth against untrusted GMP sender
+    /// fields).
+    pub ift_program_ids: Vec<Pubkey>,
 }
 
 impl SolanaTxBuilder {
     /// Creates a new `SolanaTxBuilder`.
+    ///
+    /// # Errors
+    ///
+    /// This function is infallible but returns `Result` for API consistency.
+    #[allow(clippy::missing_const_for_fn)]
     pub fn new(
         target_solana_client: Arc<RpcClient>,
         solana_ics26_program_id: Pubkey,
         fee_payer: Pubkey,
         alt_address: Option<Pubkey>,
+        ift_program_ids: Vec<Pubkey>,
     ) -> Result<Self> {
         Ok(Self {
             target_solana_client,
             solana_ics26_program_id,
             fee_payer,
             alt_address,
+            ift_program_ids,
         })
     }
 
@@ -330,6 +341,11 @@ impl SolanaTxBuilder {
     }
 
     /// Create a client on Solana (stub for attestation mode).
+    ///
+    /// # Errors
+    ///
+    /// Always returns an error because this is not yet implemented.
+    #[allow(clippy::unused_async)]
     pub async fn create_client(
         &self,
         _parameters: &std::collections::HashMap<String, String>,

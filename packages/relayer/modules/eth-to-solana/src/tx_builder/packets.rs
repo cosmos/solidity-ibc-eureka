@@ -188,7 +188,7 @@ impl super::SolanaTxBuilder {
         })
     }
 
-    async fn build_ack_packet_instruction(
+    fn build_ack_packet_instruction(
         &self,
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
@@ -770,6 +770,14 @@ impl super::SolanaTxBuilder {
 
         let instruction = ift::build_claim_refund_instruction(&params)?;
 
+        if !self.ift_program_ids.contains(&instruction.program_id) {
+            tracing::warn!(
+                sender = %instruction.program_id,
+                "IFT: Program not in whitelist, skipping claim_refund"
+            );
+            return None;
+        }
+
         let mut instructions = Self::extend_compute_ix();
         instructions.push(instruction);
 
@@ -877,7 +885,7 @@ impl super::SolanaTxBuilder {
         })
     }
 
-    pub(crate) async fn build_ack_packet_chunked(
+    pub(crate) fn build_ack_packet_chunked(
         &self,
         msg: &MsgAckPacket,
         payload_data: &[Vec<u8>],
@@ -901,8 +909,7 @@ impl super::SolanaTxBuilder {
         )?;
 
         let ack_instruction = self
-            .build_ack_packet_instruction(msg, remaining_account_pubkeys)
-            .await?;
+            .build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);
