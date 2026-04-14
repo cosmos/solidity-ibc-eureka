@@ -179,15 +179,15 @@ impl RelayerService for SolanaToEthRelayerModuleService {
 
         // For timeouts in attested mode, get the current Solana slot
         // where non-membership is proven
-        let timeout_relay_height = if !target_events.is_empty() {
+        let timeout_relay_height = if target_events.is_empty() {
+            None
+        } else {
             let slot = self
                 .src_listener
                 .client()
                 .get_slot_with_commitment(CommitmentConfig::finalized())
                 .map_err(|e| tonic::Status::internal(format!("Failed to get Solana slot: {e}")))?;
             Some(slot)
-        } else {
-            None
         };
 
         let tx = self

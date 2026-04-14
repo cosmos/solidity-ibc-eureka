@@ -908,8 +908,7 @@ impl super::SolanaTxBuilder {
             msg.proof.data.total_chunks(),
         )?;
 
-        let ack_instruction = self
-            .build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
+        let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
         let mut instructions = Self::extend_compute_ix();
         instructions.push(ack_instruction);

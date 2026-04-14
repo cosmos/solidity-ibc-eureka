@@ -223,8 +223,7 @@ impl AttestedTxBuilder {
             None
         };
 
-        let packets = self
-            .build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
+        let packets = self.build_packet_transactions(recv_msgs, ack_msgs, timeout_msgs)?;
 
         Ok((packets, update_client))
     }
@@ -272,13 +271,11 @@ impl AttestedTxBuilder {
 
         for msg in ack_msgs {
             let ack_with_chunks = ibc_to_solana_ack_packet(msg)?;
-            let packet_txs = self
-                .tx_builder
-                .build_ack_packet_chunked(
-                    &ack_with_chunks.msg,
-                    &ack_with_chunks.payload_chunks,
-                    &ack_with_chunks.proof_chunks,
-                )?;
+            let packet_txs = self.tx_builder.build_ack_packet_chunked(
+                &ack_with_chunks.msg,
+                &ack_with_chunks.payload_chunks,
+                &ack_with_chunks.proof_chunks,
+            )?;
             results.push(packet_txs);
         }
 

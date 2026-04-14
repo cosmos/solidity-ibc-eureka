@@ -27,6 +27,10 @@ pub struct AttestedTxBuilder {
 
 impl AttestedTxBuilder {
     /// Create a new [`AttestedTxBuilder`] instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the aggregator cannot be created from the config.
     pub async fn new(aggregator_config: AggregatorConfig, provider: RootProvider) -> Result<Self> {
         let aggregator = Aggregator::from_config(aggregator_config).await?;
         Ok(Self {
@@ -37,18 +41,30 @@ impl AttestedTxBuilder {
 
     /// Relay events from Solana to Ethereum using attestations.
     ///
-    /// Builds an ABI-encoded multicall transaction containing update_client,
-    /// recv_packet, ack_packet, and timeout_packet calls.
+    /// Builds an ABI-encoded multicall transaction containing `update_client`,
+    /// `recv_packet`, `ack_packet` and `timeout_packet` calls.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if building the relay transaction fails.
     pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
         build_eth_attestor_relay_events_tx(&self.aggregator, params).await
     }
 
-    /// Build create_client calldata for an attestation light client on EVM.
+    /// Build `create_client` calldata for an attestation light client on EVM.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if calldata construction fails.
     pub fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         build_eth_attestor_create_client_calldata(parameters, self.provider.clone())
     }
 
-    /// Build update_client calldata for the attestation light client on EVM.
+    /// Build `update_client` calldata for the attestation light client on EVM.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if calldata construction fails.
     pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
         build_eth_attestor_update_client_calldata(&self.aggregator, dst_client_id.to_string()).await
     }
