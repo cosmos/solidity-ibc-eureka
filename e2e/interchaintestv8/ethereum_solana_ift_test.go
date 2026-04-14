@@ -1363,7 +1363,7 @@ func parseForgeScriptJSON(t *testing.T, require *require.Assertions, output stri
 	return value
 }
 
-func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEthereum() {
+func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
@@ -1599,8 +1599,6 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 		s.updateAttestationClientOnSolana(ctx, eth.ChainID.String())
 	}))
 
-	ethUserAddr := crypto.PubkeyToAddress(s.ethUser.PublicKey)
-
 	var solanaTransferTxSig solanago.Signature
 	var failedRecvSequence uint64
 	s.Require().True(s.Run("Execute transfer from Solana to Ethereum", func() {
@@ -1674,7 +1672,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
 
-		balance, err := iftContract.BalanceOf(nil, ethUserAddr)
+		balance, err := iftContract.BalanceOf(nil, crypto.PubkeyToAddress(s.ethUser.PublicKey))
 		s.Require().NoError(err)
 		s.Require().Equal("0", balance.String(), "Ethereum should have no tokens")
 	}))
