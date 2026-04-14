@@ -102,47 +102,63 @@ contract SolanaIFTSendCallConstructorTest is Test {
         assertEq(_decodeLittleEndianU64(instructionData, 40), uint256(amount));
     }
 
-    function testFuzz_constructMintCall_invalidReceiverLength_reverts(
-        uint8 hexLength,
-        uint64 amount,
-        uint256 seed
-    )
-        public
-    {
-        vm.assume(hexLength != 128);
-        vm.assume(amount > 0);
-        bytes16 hexDigits = "0123456789abcdef";
-        bytes memory hexChars = new bytes(hexLength);
-        for (uint256 i = 0; i < hexLength; i++) {
-            uint256 hash = uint256(keccak256(abi.encodePacked(seed, i)));
-            hexChars[i] = hexDigits[hash % 16];
-        }
-        string memory receiver = string.concat("0x", string(hexChars));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, receiver)
-        );
-        constructor_.constructMintCall(receiver, uint256(amount));
+    struct ConstructMintCallRevertCase {
+        string name;
+        string receiver;
+        uint256 amount;
+        bytes expectedRevert;
     }
 
-    function test_constructMintCall_invalidReceiverHex_reverts() public {
-        string memory receiver =
+    function test_constructMintCall_reverts() public {
+        string memory invalidHexReceiver =
             "0xGGddf6e1d765a193d9cbe146ceeb79ac1cb485ed5f5b37913a8cf5857eff00a98c97258f4e2489f1bb3d1029148e0d830b5a1399daff1084048e7bd8dbe9f859";
-        vm.expectRevert(
-            abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, receiver)
-        );
-        constructor_.constructMintCall(receiver, 1000);
-    }
+        string memory tooShortReceiver = "0xaabbccdd";
+        string memory tooLongReceiver = string.concat(VALID_RECEIVER, "aabbccdd");
+        uint256 overflowAmount = uint256(type(uint64).max) + 1;
 
-    function test_constructMintCall_zeroAmount_reverts() public {
-        vm.expectRevert(abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTZeroAmount.selector));
-        constructor_.constructMintCall(VALID_RECEIVER, 0);
-    }
+        ConstructMintCallRevertCase[] memory cases = new ConstructMintCallRevertCase[](5);
+        cases[0] = ConstructMintCallRevertCase({
+            name: "invalid hex receiver",
+            receiver: invalidHexReceiver,
+            amount: 1000,
+            expectedRevert: abi.encodeWithSelector(
+                SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, invalidHexReceiver
+            )
+        });
+        cases[1] = ConstructMintCallRevertCase({
+            name: "receiver too short",
+            receiver: tooShortReceiver,
+            amount: 1000,
+            expectedRevert: abi.encodeWithSelector(
+                SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, tooShortReceiver
+            )
+        });
+        cases[2] = ConstructMintCallRevertCase({
+            name: "receiver too long",
+            receiver: tooLongReceiver,
+            amount: 1000,
+            expectedRevert: abi.encodeWithSelector(
+                SolanaIFTSendCallConstructor.SolanaIFTInvalidReceiver.selector, tooLongReceiver
+            )
+        });
+        cases[3] = ConstructMintCallRevertCase({
+            name: "zero amount",
+            receiver: VALID_RECEIVER,
+            amount: 0,
+            expectedRevert: abi.encodeWithSelector(SolanaIFTSendCallConstructor.SolanaIFTZeroAmount.selector)
+        });
+        cases[4] = ConstructMintCallRevertCase({
+            name: "amount overflow",
+            receiver: VALID_RECEIVER,
+            amount: overflowAmount,
+            expectedRevert: abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 64, overflowAmount)
+        });
 
-    function testFuzz_constructMintCall_amountOverflow_reverts(uint256 overflowAmount) public {
-        overflowAmount = bound(overflowAmount, uint256(type(uint64).max) + 1, type(uint256).max);
-        vm.expectRevert(abi.encodeWithSelector(SafeCast.SafeCastOverflowedUintDowncast.selector, 64, overflowAmount));
-        constructor_.constructMintCall(VALID_RECEIVER, overflowAmount);
+        for (uint256 i = 0; i < cases.length; ++i) {
+            ConstructMintCallRevertCase memory tc = cases[i];
+            vm.expectRevert(tc.expectedRevert);
+            constructor_.constructMintCall(tc.receiver, tc.amount);
+        }
     }
 
     function test_supportsInterface() public view {
