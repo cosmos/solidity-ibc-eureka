@@ -17,6 +17,8 @@ import (
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
@@ -25,25 +27,20 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
-// ExternalCosmosTestSuite tests Solana light client with real Cosmos chain
 type ExternalCosmosTestSuite struct {
 	suite.Suite
 
-	// External Cosmos configuration from environment
 	ExternalCosmosRPC     string
 	ExternalCosmosChainID string
 
-	// Solana components
 	SolanaChain    solana.Solana
 	SolanaUser     *solanago.Wallet
 	SolanaRPCConn  *rpc.Client
 	SolanaLocalnet chainconfig.SolanaLocalnetChain
 
-	// Relayer components
 	RelayerClient  relayertypes.RelayerServiceClient
 	RelayerProcess *os.Process
 
-	// ALT configuration
 	SolanaAltAddress string
 }
 
@@ -69,8 +66,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	err = os.Chdir("../..")
 	s.Require().NoError(err)
 
-	s.T().Log("Starting local Solana test validator...")
-
 	s.SolanaLocalnet, err = chainconfig.StartLocalnet(ctx)
 	s.Require().NoError(err, "Failed to start Solana test validator")
 
@@ -92,11 +87,8 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.T().Logf("Faucet balance after validator start: %d lamports", balance.Value)
 	}
 
-	s.T().Log("Waiting for Solana cluster to be ready...")
 	err = s.SolanaChain.WaitForClusterReady(ctx, 30*time.Second)
 	s.Require().NoError(err, "Solana cluster failed to initialize")
-
-	s.T().Log("Solana test validator started successfully")
 
 	s.SolanaRPCConn = rpc.New(testvalues.SolanaLocalnetRPC)
 
@@ -104,7 +96,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.SolanaUser = solanago.NewWallet()
 		s.T().Logf("Created SolanaUser wallet: %s", s.SolanaUser.PublicKey())
 
-		s.T().Log("Funding wallets...")
 		const deployerFunding = 100 * testvalues.InitialSolBalance
 
 		err := e2esuite.RunParallelTasks(
@@ -125,7 +116,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		)
 		s.Require().NoError(err, "Failed to fund wallets")
 
-		s.T().Log("Deploying Solana programs...")
 		const keypairDir = "solana-keypairs/localnet"
 		const deployerPath = keypairDir + "/deployer_wallet.json"
 
@@ -185,12 +175,12 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.Require().NoError(err)
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 		s.Require().NoError(err)
-		s.T().Log("Access control initialized")
 	}))
 
-	s.Require().True(s.Run("Grant RELAYER_ROLE to SolanaUser", func() {
+	s.Require().True(s.Run("Grant RELAYER_ROLE and ID_CUSTOMIZER_ROLE to SolanaUser", func() {
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 		const RELAYER_ROLE = uint64(1)
+		const ID_CUSTOMIZER_ROLE = uint64(6)
 
 		grantRelayerRoleInstruction, err := access_manager.NewGrantRoleInstruction(
 			RELAYER_ROLE,
@@ -201,15 +191,22 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction)
+		grantCustomizerRoleInstruction, err := access_manager.NewGrantRoleInstruction(
+			ID_CUSTOMIZER_ROLE,
+			s.SolanaUser.PublicKey(),
+			accessControlAccount,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction, grantCustomizerRoleInstruction)
 		s.Require().NoError(err)
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
 		s.Require().NoError(err)
-		s.T().Log("Granted RELAYER_ROLE to SolanaUser")
 	}))
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
-		s.T().Log("Initializing ICS26 Router...")
 		const deployerPath = keypairDir + "/deployer_wallet.json"
 		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
@@ -232,11 +229,9 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 		s.Require().NoError(err)
-		s.T().Log("ICS26 Router initialized successfully")
 	}))
 
 	s.Require().True(s.Run("Create Address Lookup Table", func() {
-		s.T().Log("Creating Address Lookup Table for external Cosmos chain...")
 		altAddress := s.SolanaChain.CreateIBCAddressLookupTable(
 			ctx, s.T(), s.Require(), s.SolanaUser,
 			s.ExternalCosmosChainID, "transfer", s.ExternalCosmosChainID,
@@ -246,7 +241,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Start Relayer with External Cosmos", func() {
-		s.T().Log("Starting relayer with external Cosmos configuration...")
 
 		modules := []relayer.ModuleConfig{
 			{
@@ -277,13 +271,11 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.RelayerProcess = process
 		s.T().Logf("Relayer process started with PID: %d", process.Pid)
 
-		s.T().Log("Waiting for relayer to initialize...")
 		time.Sleep(5 * time.Second)
 
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err, "Failed to create relayer client")
 
-		s.T().Logf("Relayer started successfully with external Cosmos chain: %s", s.ExternalCosmosChainID)
 	}))
 }
 
@@ -340,6 +332,36 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	s.Require().NoError(err, "Failed to parse client state")
 
 	s.Require().Equal(s.ExternalCosmosChainID, clientState.ChainId, "Chain ID mismatch")
+
+	clientID := s.ExternalCosmosChainID
+	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+	clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID))
+
+	counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
+		ClientId:     clientID,
+		MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+	}
+
+	addClientInstruction, err := ics26_router.NewAddClientInstruction(
+		clientID,
+		counterpartyInfo,
+		s.SolanaUser.PublicKey(),
+		routerStateAccount,
+		accessControlAccount,
+		clientAccount,
+		ics07_tendermint.ProgramID,
+		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
+	)
+	s.Require().NoError(err, "Failed to create add client instruction")
+
+	addClientTx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
+	s.Require().NoError(err)
+
+	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, addClientTx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+	s.Require().NoError(err, "Failed to add client to router")
+	s.T().Logf("Client %s registered with ICS26 router", clientID)
 }
 
 func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
@@ -394,7 +416,6 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 	for i := range numUpdates {
 		s.T().Logf("Performing update %d/%d", i+1, numUpdates)
 
-		// Wait for new blocks
 		time.Sleep(7 * time.Second)
 
 		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
