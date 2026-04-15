@@ -1165,6 +1165,7 @@ func (s *Solana) SubmitChunkedMisbehaviour(
 	)
 	require.NoError(err, "Failed to create assemble instruction")
 
+	// Add remaining accounts (chunk accounts) to the instruction
 	if ix, ok := assembleIx.(*solana.GenericInstruction); ok {
 		for _, pda := range chunkPDAs {
 			ix.AccountValues = append(ix.AccountValues, solana.Meta(pda).WRITE())

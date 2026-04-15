@@ -27,20 +27,25 @@ import (
 	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
 )
 
+// ExternalCosmosTestSuite tests Solana light client with real Cosmos chain
 type ExternalCosmosTestSuite struct {
 	suite.Suite
 
+	// External Cosmos configuration from environment
 	ExternalCosmosRPC     string
 	ExternalCosmosChainID string
 
+	// Solana components
 	SolanaChain    solana.Solana
 	SolanaUser     *solanago.Wallet
 	SolanaRPCConn  *rpc.Client
 	SolanaLocalnet chainconfig.SolanaLocalnetChain
 
+	// Relayer components
 	RelayerClient  relayertypes.RelayerServiceClient
 	RelayerProcess *os.Process
 
+	// ALT configuration
 	SolanaAltAddress string
 }
 
@@ -431,6 +436,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 	for i := range numUpdates {
 		s.T().Logf("Performing update %d/%d", i+1, numUpdates)
 
+		// Wait for new blocks
 		time.Sleep(7 * time.Second)
 
 		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
