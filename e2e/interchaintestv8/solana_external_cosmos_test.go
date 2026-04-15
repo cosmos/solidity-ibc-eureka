@@ -13,11 +13,11 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
-
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
@@ -154,7 +154,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize Access Control", func() {
-		const deployerPath = keypairDir + "/deployer_wallet.json"
+		const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
 		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
 
@@ -207,7 +207,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
-		const deployerPath = keypairDir + "/deployer_wallet.json"
+		const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
 		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
 
@@ -241,7 +241,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Start Relayer with External Cosmos", func() {
-
 		modules := []relayer.ModuleConfig{
 			{
 				Name:     relayer.ModuleCosmosToSolana,
@@ -275,7 +274,6 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 
 		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
 		s.Require().NoError(err, "Failed to create relayer client")
-
 	}))
 }
 

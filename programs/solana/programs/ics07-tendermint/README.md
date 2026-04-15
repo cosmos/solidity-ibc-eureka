@@ -398,7 +398,7 @@ Approximate compute units per operation:
 
 ### Update Client Performance Optimizations (Real-World Benchmarks)
 
-The update client implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators):
+The update client implementation includes several optimizations tested with real Tendermint chains (Noble: 20 validators, Celestia: 100 validators, Cosmos Hub: 180 validators):
 
 **Ed25519 Signature Verification:**
 
@@ -409,7 +409,8 @@ The update client implementation includes several optimizations tested with real
   - Pre-verification PDAs store validation results, checked during `assemble_and_update_client`
   - **Latency (real-world, RPC-dependent):**
     - Noble (20 validators, ~14 sigs at 2/3): ~18s total (Phase 1: ~3.3s for 19 prep txs, Phase 2: ~15s assembly)
-    - Celestia (100 validators, ~67 sigs at 2/3): ~22s total (Phase 1: ~6s for 83 prep txs, Phase 2: ~16s assembly)
+    - Celestia (100 validators, ~39 sigs at 2/3): ~22s total (Phase 1: ~5s for 61 prep txs, Phase 2: ~17s assembly)
+    - Cosmos Hub (180 validators, ~53 sigs at 2/3): ~24s total (Phase 1: ~6.5s for 93 prep txs, Phase 2: ~17s assembly)
     - **Note:** Highly dependent on RPC throttling/rate limiting - implementation uses many parallel transactions
     - Optimal conditions (no RPC limits): Could complete within ~2 blocks (≈1s)
 - **Fallback verification:** brine-ed25519 on-chain **~30k CU per signature**
@@ -418,7 +419,8 @@ The update client implementation includes several optimizations tested with real
   - Works well for smaller validator sets that fit within CU limits
 - **Savings examples (2/3 threshold):**
   - Noble (20 validators, ~14 sigs): ~280k CU saved with pre-verification vs pure brine
-  - Celestia (100 validators, ~67 sigs): ~1,340k CU saved with pre-verification vs pure brine
+  - Celestia (100 validators, ~39 sigs): ~780k CU saved with pre-verification vs pure brine
+  - Cosmos Hub (180 validators, ~53 sigs): ~1,060k CU saved with pre-verification vs pure brine
 - Implementation in `packages/tendermint-light-client/solana/src/lib.rs::SolanaSignatureVerifier`
 
 **Merkle Hashing Optimizations:**
@@ -461,15 +463,21 @@ The update client process is split into two phases:
 - **Phase 2** - Assembly: 348,679 CUs, 0.0000064 SOL (~15s)
 - **TOTAL: ~548k CUs, 0.000166 SOL** (~$0.025-0.033 USD at $150-200/SOL, ~18s)
 
-**Celestia (100 validators, 2/3 = ~67 signatures):**
+**Celestia (100 validators, 2/3 = ~39 signatures):**
 
-- **Phase 1** - 83 parallel prep txs: 893,310 CUs, 0.000715 SOL (~6s)
-- **Phase 2** - Assembly: 1,270,083 CUs, 0.0000064 SOL (~16s)
-- **TOTAL: ~2.16M CUs, 0.000721 SOL** (~$0.11-0.14 USD at $150-200/SOL, ~22s)
+- **Phase 1** - 61 parallel prep txs: 1,526,481 CUs, 0.000500 SOL (~5s)
+- **Phase 2** - Assembly: 778,884 CUs, 0.0000064 SOL (~17s)
+- **TOTAL: ~2.31M CUs, 0.000506 SOL** (~$0.08-0.10 USD at $150-200/SOL, ~22s)
+
+**Cosmos Hub (180 validators, 2/3 = ~53 signatures):**
+
+- **Phase 1** - 93 parallel prep txs: 2,291,619 CUs, 0.000730 SOL (~6.5s)
+- **Phase 2** - Assembly: 1,318,395 CUs, 0.0000064 SOL (~17s)
+- **TOTAL: ~3.61M CUs, 0.000736 SOL** (~$0.11-0.15 USD at $150-200/SOL, ~24s)
 
 **Key Insights:**
 
-- Cost scales roughly linearly with validator count (~5x validators = ~4x cost)
+- Cost scales roughly linearly with validator count
 - Latency dominated by RPC throttling/rate limiting, not CU consumption
 - Costs include base fees (5000 lamports/tx) + priority fees (variable, market-driven)
 - Without optimizations: Large validator sets would exceed Solana's 1.4M CU transaction limit
@@ -547,10 +555,11 @@ The existing chunking system actually **strengthens** the case for brine-ed25519
 
 The same Solana Tendermint light client implementation handles different chains with update client costs scaling based on validator count:
 
-| Chain        | Validators | 2/3 Threshold | Prep Txs    | Total CUs | Total Cost (SOL) | USD Cost      | Latency |
-| ------------ | ---------- | ------------- | ----------- | --------- | ---------------- | ------------- | ------- |
-| **Noble**    | 20         | ~14 sigs      | 19 parallel | ~548k     | 0.000166         | ~$0.025-0.033 | ~18s    |
-| **Celestia** | 100        | ~67 sigs      | 83 parallel | ~2.16M    | 0.000721         | ~$0.11-0.14   | ~22s    |
+| Chain          | Validators | 2/3 Threshold | Prep Txs    | Total CUs | Total Cost (SOL) | USD Cost      | Latency |
+| -------------- | ---------- | ------------- | ----------- | --------- | ---------------- | ------------- | ------- |
+| **Noble**      | 20         | ~14 sigs      | 19 parallel | ~548k     | 0.000166         | ~$0.025-0.033 | ~18s    |
+| **Celestia**   | 100        | ~39 sigs      | 61 parallel | ~2.31M    | 0.000506         | ~$0.08-0.10   | ~22s    |
+| **Cosmos Hub** | 180        | ~53 sigs      | 93 parallel | ~3.61M    | 0.000736         | ~$0.11-0.15   | ~24s    |
 
 All costs measured on mainnet with real validator sets. Latency is highly dependent on RPC throttling/rate limiting.
 
