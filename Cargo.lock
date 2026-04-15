@@ -5836,6 +5836,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
+ "bincode",
  "borsh 1.6.0",
  "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",

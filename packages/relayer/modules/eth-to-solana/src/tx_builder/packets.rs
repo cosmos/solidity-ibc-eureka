@@ -24,10 +24,10 @@ use solana_ibc_types::attestation::{
     ClientState as AttestationClientState, ConsensusState as AttestationConsensusState,
 };
 
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{derive_alt_address, extend_compute_ix};
+
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::{gmp, ift};
-
-use super::derive_alt_address;
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
@@ -609,7 +609,7 @@ impl super::SolanaTxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)
@@ -778,7 +778,7 @@ impl super::SolanaTxBuilder {
             return None;
         }
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         match self.create_tx_bytes(&instructions) {
@@ -861,7 +861,7 @@ impl super::SolanaTxBuilder {
         let recv_instruction =
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.extend(self.build_gmp_prefund_instruction(msg, payload_data)?);
         instructions.push(recv_instruction);
 
@@ -910,7 +910,7 @@ impl super::SolanaTxBuilder {
 
         let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(ack_instruction);
 
         let unique_accounts = Self::count_unique_accounts(&instructions, self.fee_payer);
@@ -992,7 +992,7 @@ impl super::SolanaTxBuilder {
         let timeout_instruction =
             self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(timeout_instruction);
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;

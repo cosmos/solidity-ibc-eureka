@@ -167,6 +167,7 @@
         "solana_ics26_program_id": "11111111111111111111111111111111",
         "solana_fee_payer": "11111111111111111111111111111111",
         "solana_alt_address": "11111111111111111111111111111111",
+        "solana_ift_program_ids": [],
         "skip_pre_verify_threshold": 50
       }
     },

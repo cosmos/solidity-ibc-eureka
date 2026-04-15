@@ -4,22 +4,10 @@ use anchor_lang::prelude::*;
 use solana_ibc_proto::ProstMessage;
 
 use crate::errors::GMPError;
-use crate::proto::GmpSolanaPayload;
-
-/// Decode `GmpSolanaPayload` from either protobuf or ABI encoding based on the encoding string.
-///
-/// Decodes the raw payload first, then validates it into the domain type.
-/// Used by `on_recv_packet` to extract the target program accounts and instruction data.
-pub fn decode(value: &[u8], encoding: &str) -> Result<GmpSolanaPayload> {
-    let raw = decode_raw(value, encoding)?;
-    raw.try_into()
-        .map_err(|e: solana_ibc_proto::GmpValidationError| {
-            msg!("GMP Solana payload validation failed: {}", e);
-            error!(GMPError::from(e))
-        })
-}
 
 /// Decode raw (unvalidated) `RawGmpSolanaPayload` from either protobuf or ABI encoding.
+///
+/// Callers should validate the result into `GmpSolanaPayload` via `try_into()`.
 pub fn decode_raw(value: &[u8], encoding: &str) -> Result<solana_ibc_proto::RawGmpSolanaPayload> {
     match encoding {
         crate::constants::ICS27_ENCODING_ABI => crate::abi::decode_abi_to_raw(value).map_err(|e| {
@@ -40,6 +28,7 @@ pub fn decode_raw(value: &[u8], encoding: &str) -> Result<solana_ibc_proto::RawG
 mod tests {
     use super::*;
     use crate::abi::GmpSolanaPayloadAbi;
+    use crate::proto::GmpSolanaPayload;
     use solana_ibc_proto::ProstMessage;
 
     #[test]
@@ -56,7 +45,11 @@ mod tests {
         };
         let encoded = raw.encode_to_vec();
 
-        let decoded = decode(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF).unwrap();
+        let decoded: GmpSolanaPayload =
+            decode_raw(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF)
+                .expect("protobuf decode_raw should succeed")
+                .try_into()
+                .expect("protobuf validation should succeed");
 
         assert_eq!(decoded.accounts.len(), 1);
         assert_eq!(decoded.accounts[0].pubkey, pubkey);
@@ -83,7 +76,10 @@ mod tests {
         }
         .abi_encode();
 
-        let decoded = decode(&encoded, crate::constants::ICS27_ENCODING_ABI).unwrap();
+        let decoded: GmpSolanaPayload = decode_raw(&encoded, crate::constants::ICS27_ENCODING_ABI)
+            .expect("ABI decode_raw should succeed")
+            .try_into()
+            .expect("ABI validation should succeed");
 
         assert_eq!(decoded.accounts.len(), 1);
         assert_eq!(decoded.accounts[0].pubkey, pubkey);
@@ -94,14 +90,14 @@ mod tests {
     }
 
     #[test]
-    fn test_decode_invalid_encoding() {
-        let result = decode(&[1, 2, 3], "application/json");
+    fn test_decode_raw_invalid_encoding() {
+        let result = decode_raw(&[1, 2, 3], "application/json");
         assert!(result.is_err());
     }
 
     #[test]
-    fn test_decode_abi_invalid_bytes() {
-        let result = decode(&[0xFF; 10], crate::constants::ICS27_ENCODING_ABI);
+    fn test_decode_raw_abi_invalid_bytes() {
+        let result = decode_raw(&[0xFF; 10], crate::constants::ICS27_ENCODING_ABI);
         assert!(result.is_err());
     }
 
@@ -115,10 +111,9 @@ mod tests {
         let encoded = raw.encode_to_vec();
 
         // decode_raw succeeds, but validation rejects empty data
-        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF);
-        assert!(raw_decoded.is_ok());
-
-        let result = decode(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF);
+        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_PROTOBUF)
+            .expect("protobuf decode_raw should succeed");
+        let result: std::result::Result<GmpSolanaPayload, _> = raw_decoded.try_into();
         assert!(result.is_err());
     }
 
@@ -134,10 +129,9 @@ mod tests {
         .abi_encode();
 
         // decode_raw succeeds, but validation rejects empty data
-        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_ABI);
-        assert!(raw_decoded.is_ok());
-
-        let result = decode(&encoded, crate::constants::ICS27_ENCODING_ABI);
+        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_ABI)
+            .expect("ABI decode_raw should succeed");
+        let result: std::result::Result<GmpSolanaPayload, _> = raw_decoded.try_into();
         assert!(result.is_err());
     }
 
@@ -163,10 +157,9 @@ mod tests {
         .abi_encode();
 
         // decode_raw succeeds, but validation rejects too many accounts
-        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_ABI);
-        assert!(raw_decoded.is_ok());
-
-        let result = decode(&encoded, crate::constants::ICS27_ENCODING_ABI);
+        let raw_decoded = decode_raw(&encoded, crate::constants::ICS27_ENCODING_ABI)
+            .expect("ABI decode_raw should succeed");
+        let result: std::result::Result<GmpSolanaPayload, _> = raw_decoded.try_into();
         assert!(result.is_err());
     }
 }

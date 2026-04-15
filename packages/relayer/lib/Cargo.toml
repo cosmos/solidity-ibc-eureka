@@ -35,6 +35,7 @@ tendermint                       = { workspace = true, features = ["std"] }
 tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
 anchor-lang                      = { workspace = true }
+bincode                          = { workspace = true }
 borsh                            = { workspace = true }
 solana-sdk                       = { workspace = true }
 solana-client                    = { workspace = true }

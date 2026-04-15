@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::errors::GMPError;
+use crate::proto::{GmpSolanaPayload, GmpValidationError};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
@@ -133,8 +134,13 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    let solana_payload =
-        crate::gmp_solana_payload::decode(&packet_data.payload, &msg.payload.encoding)?;
+    let solana_payload: GmpSolanaPayload =
+        crate::gmp_solana_payload::decode_raw(&packet_data.payload, &msg.payload.encoding)?
+            .try_into()
+            .map_err(|e: GmpValidationError| {
+                msg!("GMP Solana payload validation failed: {}", e);
+                error!(GMPError::from(e))
+            })?;
 
     // Build account metas from GMP Solana payload
     let account_metas = solana_payload.to_account_metas();

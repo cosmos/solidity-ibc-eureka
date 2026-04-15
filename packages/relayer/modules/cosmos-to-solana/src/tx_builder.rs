@@ -44,8 +44,6 @@ use ibc_eureka_relayer_core::api::{self, SolanaPacketTxs};
 use solana_ibc_constants::ASSEMBLE_UPDATE_CLIENT_STATIC_ACCOUNTS;
 use solana_ibc_types::ics07::{ClientState, ConsensusState};
 
-pub use transaction::derive_alt_address;
-
 /// Parameters for assembling timeout packet accounts
 pub(crate) struct TimeoutAccountsParams {
     pub access_manager: Pubkey,
@@ -80,12 +78,6 @@ pub struct RelayParams {
     /// non-membership needs to be proven. Required when processing timeouts.
     pub timeout_relay_height: Option<u64>,
 }
-
-/// Maximum compute units allowed per Solana transaction
-pub(crate) const MAX_COMPUTE_UNIT_LIMIT: u32 = 1_400_000;
-
-/// Priority fee in micro-lamports per compute unit
-pub(crate) const DEFAULT_PRIORITY_FEE: u64 = 1000;
 
 /// Maximum accounts that fit in a Solana transaction without ALT
 const MAX_ACCOUNTS_WITHOUT_ALT: usize = 20;
