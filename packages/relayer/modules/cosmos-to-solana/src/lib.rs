@@ -235,17 +235,16 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         // For timeouts in attested mode, get the current source chain height where
         // non-membership is proven. ICS07 Tendermint does not use this value.
-        let timeout_relay_height =
-            if self.tx_builder.is_attested() && !target_events.is_empty() {
-                Some(
-                    self.src_listener
-                        .get_block_height()
-                        .await
-                        .map_err(to_tonic_status)?,
-                )
-            } else {
-                None
-            };
+        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
+            Some(
+                self.src_listener
+                    .get_block_height()
+                    .await
+                    .map_err(to_tonic_status)?,
+            )
+        } else {
+            None
+        };
 
         let (packet_txs, update_client) = self
             .tx_builder
