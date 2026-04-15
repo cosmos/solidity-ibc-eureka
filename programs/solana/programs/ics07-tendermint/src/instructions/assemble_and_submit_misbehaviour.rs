@@ -125,7 +125,8 @@ fn assemble_chunks(
     Ok(misbehaviour_bytes)
 }
 
-/// Owner check runs first so unrelated accounts skip the syscall.
+/// Checks that a remaining-account is the expected `MisbehaviourChunk` PDA.
+/// Owner check runs first so unrelated accounts bail before the syscall.
 fn verify_misbehaviour_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,

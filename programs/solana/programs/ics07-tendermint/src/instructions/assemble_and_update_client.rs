@@ -116,7 +116,8 @@ pub fn assemble_and_update_client<'info>(
     Ok(result)
 }
 
-/// Owner check runs first so unrelated accounts skip the syscall.
+/// Checks that a remaining-account is the expected `HeaderChunk` PDA.
+/// Owner check runs first so unrelated accounts bail before the syscall.
 fn verify_header_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,
