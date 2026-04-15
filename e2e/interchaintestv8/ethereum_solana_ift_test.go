@@ -1125,30 +1125,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 	}))
 
 	// Register IFT bridges — same client on both sides, one bridge per (mint, clientId)
+	// Token A's Solana bridge is already registered by SetupSuite; only Token B needs one.
 	s.Require().True(s.Run("Register IFT bridges", func() {
-		s.Require().True(s.Run("Solana bridge for Token A", func() {
-			appMintState, _ := solana.Ift.IftAppMintStatePDA(ift.ProgramID, mintA[:])
-			bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, mintA[:], []byte(EthClientIDOnSolana))
-
-			evmOpt := ift.IftStateChainOptions_Evm(0)
-			ix, err := ift.NewRegisterIftBridgeInstruction(
-				ift.IftStateRegisterIftBridgeMsg{
-					ClientId:               EthClientIDOnSolana,
-					CounterpartyIftAddress: ethIFTAddrA.Hex(),
-					ChainOptions:           &evmOpt,
-				},
-				appState, appMintState, bridgePDA,
-				s.SolanaRelayer.PublicKey(), s.SolanaRelayer.PublicKey(),
-				solanago.SystemProgramID, solanago.SysVarInstructionsPubkey,
-			)
-			s.Require().NoError(err)
-
-			tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaRelayer.PublicKey(), ix)
-			s.Require().NoError(err)
-			_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
-			s.Require().NoError(err)
-		}))
-
 		s.Require().True(s.Run("Solana bridge for Token B", func() {
 			appMintState, _ := solana.Ift.IftAppMintStatePDA(ift.ProgramID, mintB[:])
 			bridgePDA, _ := solana.Ift.IftBridgePDA(ift.ProgramID, mintB[:], []byte(EthClientIDOnSolana))
