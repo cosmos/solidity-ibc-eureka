@@ -10,7 +10,7 @@ use crate::gmp::{self, GmpAckPacketParams, GmpRecvPacketParams, GmpTimeoutPacket
 use crate::ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, TokenKind};
 use crate::router::{self, AckPacketParams, RecvPacketParams, RecvResult, TimeoutPacketParams};
 use solana_program_test::BanksClientError;
-use solana_sdk::{pubkey::Pubkey, signature::Keypair};
+use solana_sdk::{compute_budget::ComputeBudgetInstruction, pubkey::Pubkey, signature::Keypair};
 
 /// Relayer actor that uploads chunks and delivers IBC packets.
 pub struct Relayer {
@@ -398,6 +398,74 @@ impl Relayer {
         );
         let ix = crate::attestation::build_update_client_ix(self.pubkey(), height, proof);
         self.send_tx(chain, &[ix]).await
+    }
+
+    /// Like [`attestation_update_client`](Self::attestation_update_client)
+    /// but prepends a `ComputeBudgetInstruction` to raise the CU limit.
+    ///
+    /// Needed when the attestor count is high enough that ECDSA signature
+    /// recovery exceeds the default 200K CU budget.
+    pub async fn attestation_update_client_with_budget(
+        &self,
+        chain: &mut Chain,
+        attestors: &crate::attestor::Attestors,
+        height: u64,
+        compute_units: u32,
+    ) -> Result<(), BanksClientError> {
+        let proof = crate::attestation::build_state_membership_proof(
+            attestors,
+            height,
+            chain.clock_time() as u64,
+        );
+        let update_ix = crate::attestation::build_update_client_ix(self.pubkey(), height, proof);
+        let budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(compute_units);
+        self.send_tx(chain, &[budget_ix, update_ix]).await
+    }
+
+    /// Like [`recv_packet_multi_proof`](Self::recv_packet_multi_proof) but
+    /// prepends a `ComputeBudgetInstruction` to raise the CU limit.
+    pub async fn recv_packet_multi_proof_with_budget(
+        &self,
+        chain: &mut Chain,
+        params: RecvPacketParams<'_>,
+        proof_chunk_pdas: &[Pubkey],
+        compute_units: u32,
+    ) -> Result<RecvResult, BanksClientError> {
+        let result = router::build_recv_packet_ix_multi_proof(
+            self.pubkey(),
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            &chain.lc_accounts(),
+            params,
+            proof_chunk_pdas,
+        );
+        let budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(compute_units);
+        self.send_tx(chain, &[budget_ix, result.ix.clone()]).await?;
+        Ok(result)
+    }
+
+    /// Like [`ack_packet_multi_proof`](Self::ack_packet_multi_proof) but
+    /// prepends a `ComputeBudgetInstruction` to raise the CU limit.
+    pub async fn ack_packet_multi_proof_with_budget(
+        &self,
+        chain: &mut Chain,
+        params: AckPacketParams<'_>,
+        proof_chunk_pdas: &[Pubkey],
+        compute_units: u32,
+    ) -> Result<Pubkey, BanksClientError> {
+        let (ix, commitment_pda) = router::build_ack_packet_ix_multi_proof(
+            self.pubkey(),
+            chain.client_id(),
+            chain.counterparty_client_id(),
+            chain.clock_time(),
+            &chain.lc_accounts(),
+            params,
+            proof_chunk_pdas,
+        );
+        let budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(compute_units);
+        self.send_tx(chain, &[budget_ix, ix]).await?;
+        Ok(commitment_pda)
     }
 
     // ── IFT finalize ────────────────────────────────────────────────────

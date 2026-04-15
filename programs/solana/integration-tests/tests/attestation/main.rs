@@ -4,7 +4,6 @@
 //! verification instead of the mock light client. Attestor signatures are
 //! produced off-chain and verified on-chain via ECDSA recovery.
 
-use anchor_lang::AccountDeserialize;
 use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
@@ -23,4 +22,5 @@ use solana_ibc_types::ics24;
 /// Attestation program ID re-exported for chain construction.
 const ATTESTATION_PROGRAM_ID: solana_sdk::pubkey::Pubkey = attestation::ID;
 
+mod attestor_limits;
 mod send_recv_ack;

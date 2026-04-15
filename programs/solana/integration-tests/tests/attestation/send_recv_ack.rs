@@ -144,20 +144,10 @@ async fn test_attestation_send_recv_ack_roundtrip() {
     assert_commitment_zeroed(&chain_a, commitment_pda).await;
 
     // ── Final assertions ──
-    let a_state = read_app_state(&chain_a).await;
+    let a_state = router::read_test_ibc_app_state(&chain_a).await;
     assert_eq!(a_state.packets_sent, 1);
     assert_eq!(a_state.packets_acknowledged, 1);
 
-    let b_state = read_app_state(&chain_b).await;
+    let b_state = router::read_test_ibc_app_state(&chain_b).await;
     assert_eq!(b_state.packets_received, 1);
-}
-
-async fn read_app_state(chain: &Chain) -> test_ibc_app::state::TestIbcAppState {
-    let pda = router::test_ibc_app_state_pda();
-    let account = chain
-        .get_account(pda)
-        .await
-        .expect("app state should exist");
-    test_ibc_app::state::TestIbcAppState::try_deserialize(&mut &account.data[..])
-        .expect("failed to deserialize app state")
 }

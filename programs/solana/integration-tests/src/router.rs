@@ -920,6 +920,16 @@ pub fn build_ics26_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
     }
 }
 
+// ── Chunk helpers ────────────────────────────────────────────────────────
+
+/// Split a byte slice into chunks that fit within the router's upload limit.
+///
+/// Used when a serialized proof exceeds `CHUNK_DATA_SIZE` bytes and must be
+/// delivered via [`Relayer::upload_chunks_with_multi_proof`].
+pub fn split_into_chunks(data: &[u8]) -> Vec<Vec<u8>> {
+    data.chunks(CHUNK_DATA_SIZE).map(<[u8]>::to_vec).collect()
+}
+
 // ── State readers ───────────────────────────────────────────────────────
 
 /// Deserialize the on-chain `RouterState` from its PDA.
@@ -932,4 +942,17 @@ pub async fn read_router_state(chain: &Chain) -> RouterState {
         .await
         .expect("RouterState should exist");
     RouterState::try_deserialize(&mut &account.data[..]).expect("deserialize RouterState")
+}
+
+/// Deserialize the `TestIbcAppState` from its PDA.
+pub async fn read_test_ibc_app_state(chain: &Chain) -> test_ibc_app::state::TestIbcAppState {
+    use anchor_lang::AccountDeserialize;
+
+    let pda = test_ibc_app_state_pda();
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("TestIbcAppState should exist");
+    test_ibc_app::state::TestIbcAppState::try_deserialize(&mut &account.data[..])
+        .expect("deserialize TestIbcAppState")
 }
