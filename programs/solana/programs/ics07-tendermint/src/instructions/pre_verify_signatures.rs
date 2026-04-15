@@ -189,14 +189,10 @@ mod integration_tests {
         signer::Signer,
     };
 
-    fn build_pre_verify_signature_ix(submitter: Pubkey) -> Instruction {
-        let signature = SignatureData {
-            signature_hash: [1u8; 32],
-            pubkey: [2u8; 32],
-            msg: vec![3u8; 32],
-            signature: [4u8; 64],
-        };
-
+    fn build_pre_verify_signature_ix_with(
+        submitter: Pubkey,
+        signature: SignatureData,
+    ) -> Instruction {
         let (sig_verification_pda, _) = Pubkey::find_program_address(
             &[
                 crate::state::SignatureVerification::SEED,
@@ -225,6 +221,16 @@ mod integration_tests {
         }
     }
 
+    fn build_pre_verify_signature_ix(submitter: Pubkey) -> Instruction {
+        let signature = SignatureData {
+            signature_hash: [1u8; 32],
+            pubkey: [2u8; 32],
+            msg: vec![3u8; 32],
+            signature: [4u8; 64],
+        };
+        build_pre_verify_signature_ix_with(submitter, signature)
+    }
+
     #[tokio::test]
     async fn test_direct_call_without_relayer_role_rejected() {
         let relayer = Keypair::new();
@@ -245,6 +251,39 @@ mod integration_tests {
         assert_eq!(
             extract_custom_error(&err),
             Some(ANCHOR_ERROR_OFFSET + access_manager::AccessManagerError::Unauthorized as u32),
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mismatched_sig_hash_rejected() {
+        let relayer = Keypair::new();
+        let pt = setup_program_test_with_relayer(&relayer.pubkey());
+        let (banks_client, payer, recent_blockhash) = pt.start().await;
+
+        let pubkey = [2u8; 32];
+        let msg = vec![3u8; 32];
+        let signature = [4u8; 64];
+        let wrong_hash = [0xFFu8; 32]; // does not match sha256(pk || msg || sig)
+
+        let sig_data = SignatureData {
+            signature_hash: wrong_hash,
+            pubkey,
+            msg,
+            signature,
+        };
+
+        let ix = build_pre_verify_signature_ix_with(relayer.pubkey(), sig_data);
+
+        let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
+            &[ix],
+            Some(&payer.pubkey()),
+            &[&payer, &relayer],
+            recent_blockhash,
+        );
+        let err = banks_client.process_transaction(tx).await.unwrap_err();
+        assert_eq!(
+            extract_custom_error(&err),
+            Some(ANCHOR_ERROR_OFFSET + crate::error::ErrorCode::InvalidAccountData as u32),
         );
     }
 
