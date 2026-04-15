@@ -57,6 +57,8 @@ const (
 	TestTransferAmount = OneSolInLamports / 1_000 // 0.001 SOL in lamports
 	SolDenom           = "sol"
 	TransferPortID     = transfertypes.PortID
+	// Must exceed MIN_TIMEOUT_DURATION (10s) plus tx execution delay.
+	SolanaOriginatedTimeoutSeconds = 15
 	// Compute Units
 	DefaultComputeUnits = uint32(400_000)
 	// Cosmos Gas Limits

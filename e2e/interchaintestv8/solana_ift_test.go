@@ -32,6 +32,7 @@ import (
 	ift "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ift"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
+	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -1255,7 +1256,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp = uint64(solanaClockTime + 15)
+		timeoutTimestamp = uint64(solanaClockTime + SolanaOriginatedTimeoutSeconds)
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -1314,7 +1315,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 	}))
 
 	s.Require().True(s.Run("Wait for packet timeout", func() {
-		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmosutils.Chain{Cosmos: s.Wfchain}, timeoutTimestamp)
 		s.Require().NoError(err)
 	}))
 

@@ -49,6 +49,20 @@ func GetEventValue(events []abcitypes.Event, eventType, attrKey string) (string,
 	return "", fmt.Errorf("event type %s with attribute key %s not found", eventType, attrKey)
 }
 
+// Chain wraps a CosmosChain to implement e2esuite.BlockTimeFetcher.
+type Chain struct {
+	Cosmos *cosmos.CosmosChain
+}
+
+// GetBlockTime returns the latest block timestamp as Unix seconds.
+func (c *Chain) GetBlockTime(ctx context.Context) (int64, error) {
+	header, err := FetchCosmosHeader(ctx, c.Cosmos)
+	if err != nil {
+		return 0, err
+	}
+	return header.Time.Unix(), nil
+}
+
 // FetchCosmosHeader fetches the latest header from the given chain.
 func FetchCosmosHeader(ctx context.Context, chain *cosmos.CosmosChain) (*cmtservice.Header, error) {
 	latestHeight, err := chain.Height(ctx)

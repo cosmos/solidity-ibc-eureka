@@ -1420,7 +1420,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, timeoutTimestamp)
 		s.Require().NoError(err)
 	}))
 
@@ -1496,7 +1496,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: uint64(time.Now().Add(15 * time.Second).Unix()),
+			TimeoutTimestamp: uint64(time.Now().Add(SolanaOriginatedTimeoutSeconds * time.Second).Unix()),
 			Sequence:         timeoutSequence,
 		}
 
@@ -1537,7 +1537,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), solanaTimeoutTimestamp, 2*time.Minute)
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), eth, solanaTimeoutTimestamp)
 		s.Require().NoError(err)
 	}))
 

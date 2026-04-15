@@ -1437,9 +1437,9 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 			s.Require().NoError(err)
 
-			timeoutTimestamp = uint64(solanaClockTime + 17)
+			timeoutTimestamp = uint64(solanaClockTime + SolanaOriginatedTimeoutSeconds)
 
-			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 17s)", timeoutTimestamp, solanaClockTime)
+			s.T().Logf("Setting timeout to: %d (solana_clock=%d + %ds)", timeoutTimestamp, solanaClockTime, SolanaOriginatedTimeoutSeconds)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
@@ -1501,7 +1501,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.T().Log("Retrieved recv relay transaction before timeout")
 	}))
 
-	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmos.Chain{Cosmos: simd}, timeoutTimestamp)
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
@@ -1772,7 +1772,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		}
 	}))
 
-	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), cosmosTimeoutTimestamp, 2*time.Minute)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Cosmos", func() {

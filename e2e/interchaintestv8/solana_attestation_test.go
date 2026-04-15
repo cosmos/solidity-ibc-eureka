@@ -38,6 +38,7 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
+	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -1332,8 +1333,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		solanaTimeoutTimestamp = uint64(solanaClockTime + 15)
-		s.T().Logf("Setting timeout to %d (solana_clock=%d + 15s)", solanaTimeoutTimestamp, solanaClockTime)
+		solanaTimeoutTimestamp = uint64(solanaClockTime + SolanaOriginatedTimeoutSeconds)
+		s.T().Logf("Setting timeout to %d (solana_clock=%d + %ds)", solanaTimeoutTimestamp, solanaClockTime, SolanaOriginatedTimeoutSeconds)
 
 		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     s.AttestationClientID,
@@ -1388,7 +1389,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		s.T().Logf("Packet commitment verified for sequence %d", solanaSequence)
 	}))
 
-	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), solanaTimeoutTimestamp, 2*time.Minute)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmosutils.Chain{Cosmos: simd}, solanaTimeoutTimestamp)
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout from Cosmos to Solana via attested path", func() {
@@ -1490,7 +1491,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 		s.T().Logf("Cosmos packet commitment verified for sequence %d", cosmosPacketSequence)
 	}))
 
-	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), cosmosTimeoutTimestamp, 2*time.Minute)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
 	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout from Solana to Cosmos via attested path", func() {
