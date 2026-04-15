@@ -1363,7 +1363,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 		txOpts, err := eth.GetTransactOpts(s.ethUser)
 		s.Require().NoError(err)
 
-		timeout := uint64(time.Now().Add(20 * time.Second).Unix())
+		timeout := uint64(time.Now().Add(15 * time.Second).Unix())
 		timeoutTimestamp = timeout
 		wallet := s.SolanaUser.PublicKey()
 		ata, ataErr := solana.AssociatedTokenAccountAddress(wallet, s.IFTMint())
@@ -1400,6 +1400,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	s.Require().True(s.Run("Wait for timeout", func() {
 		err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, timeoutTimestamp)
 		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
 	}))
 
 	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
@@ -1517,6 +1519,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	s.Require().True(s.Run("Wait for timeout", func() {
 		err := e2esuite.WaitForBlockTime(ctx, s.T(), eth, solanaTimeoutTimestamp)
 		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {

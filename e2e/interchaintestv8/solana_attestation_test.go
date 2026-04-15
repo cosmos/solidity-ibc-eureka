@@ -1389,8 +1389,12 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		s.T().Logf("Packet commitment verified for sequence %d", solanaSequence)
 	}))
 
-	err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmosutils.Chain{Cosmos: simd}, solanaTimeoutTimestamp)
-	s.Require().NoError(err)
+	s.Require().True(s.Run("Wait for timeout", func() {
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmosutils.Chain{Cosmos: simd}, solanaTimeoutTimestamp)
+		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
+	}))
 
 	s.Require().True(s.Run("Relay timeout from Cosmos to Solana via attested path", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
@@ -1491,8 +1495,12 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 		s.T().Logf("Cosmos packet commitment verified for sequence %d", cosmosPacketSequence)
 	}))
 
-	err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
-	s.Require().NoError(err)
+	s.Require().True(s.Run("Wait for timeout", func() {
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
+		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
+	}))
 
 	s.Require().True(s.Run("Relay timeout from Solana to Cosmos via attested path", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
