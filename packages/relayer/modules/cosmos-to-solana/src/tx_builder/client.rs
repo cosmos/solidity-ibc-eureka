@@ -492,7 +492,7 @@ impl super::TxBuilder {
 mod tests {
     use borsh::{BorshDeserialize, BorshSerialize};
 
-    /// Mirrors `instruction::AssembleAndUpdateClient` — field order must match.
+    /// Mirrors `instruction::AssembleAndUpdateClient`, field order must match.
     #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
     struct AssembleAndUpdateClientArgs {
         target_height: u64,

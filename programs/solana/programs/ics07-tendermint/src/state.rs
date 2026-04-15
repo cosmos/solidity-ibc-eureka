@@ -79,7 +79,7 @@ pub struct SignatureVerification {
     pub is_valid: bool,
     /// The submitter who created this verification
     pub submitter: Pubkey,
-    /// `sha256(pk || msg || sig)` — used by the verifier to match accounts.
+    /// `sha256(pk || msg || sig)`, used by the verifier to match accounts.
     pub sig_hash: [u8; 32],
 }
 
@@ -127,7 +127,7 @@ mod compatibility_tests {
         );
     }
 
-    /// Trips on a field reorder of `SignatureVerification` — the verifier
+    /// Trips on a field reorder of `SignatureVerification`. The verifier
     /// reads `is_valid` and `sig_hash` at fixed offsets.
     #[test]
     fn test_signature_verification_layout_sentinel() {
