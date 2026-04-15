@@ -3693,9 +3693,12 @@ name = "integration-tests"
 version = "0.1.0"
 dependencies = [
  "access-manager",
+ "alloy-signer",
+ "alloy-signer-local",
  "alloy-sol-types",
  "anchor-lang",
  "anchor-spl",
+ "attestation",
  "bincode",
  "borsh 0.10.4",
  "ics26-router",
@@ -3707,6 +3710,7 @@ dependencies = [
  "sha2 0.10.9",
  "solana-ibc-proto",
  "solana-ibc-types",
+ "solana-keccak-hasher",
  "solana-program-test",
  "solana-sdk",
  "test-access-manager",

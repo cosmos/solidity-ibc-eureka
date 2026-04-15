@@ -31,6 +31,7 @@ async fn test_router_three_chain_roundtrip() {
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -39,6 +40,7 @@ async fn test_router_three_chain_roundtrip() {
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -47,6 +49,7 @@ async fn test_router_three_chain_roundtrip() {
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_c.prefund(&[&admin, &relayer]);
 
@@ -128,6 +131,7 @@ async fn test_router_three_chain_roundtrip() {
         "b-to-c",
         "c-to-b",
         chain_b.clock_time(),
+        &mock_lc_accounts("b-to-c"),
         SendPacketParams {
             sequence: 1,
             packet_data: packet_data_bc,
@@ -174,6 +178,7 @@ async fn test_router_three_chain_roundtrip() {
         "b-to-c",
         "c-to-b",
         chain_b.clock_time(),
+        &mock_lc_accounts("b-to-c"),
         AckPacketParams {
             sequence: 1,
             acknowledgement: successful_ack,

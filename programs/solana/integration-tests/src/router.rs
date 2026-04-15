@@ -5,7 +5,7 @@
 //! operations and on-chain state readers.
 
 use crate::accounts::anchor_discriminator;
-use crate::chain::{derive_mock_lc_pdas, Chain};
+use crate::chain::{Chain, LcAccounts};
 use anchor_lang::{AnchorSerialize, InstructionData};
 use ics26_router::state::*;
 use solana_ibc_types::{
@@ -22,7 +22,7 @@ use solana_sdk::{
 pub const PORT_ID: &str = "transfer";
 /// Default destination port used by `test_ibc_app`.
 pub const DEST_PORT: &str = "transfer";
-/// Mock proof height passed to the mock light client.
+/// Default proof height used for packet verification.
 pub const PROOF_HEIGHT: u64 = 100;
 
 /// Compute a default timeout timestamp (~24 hours after `clock_time`).
@@ -75,10 +75,10 @@ pub fn build_send_packet_ix(
     client_id: &str,
     counterparty_client_id: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: SendPacketParams<'_>,
 ) -> SendResult {
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(client_id);
 
     let (app_state_pda, _) =
         Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
@@ -119,9 +119,9 @@ pub fn build_send_packet_ix(
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new(commitment_pda, false),
             AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(mock_light_client::ID, false),
-            AccountMeta::new_readonly(mock_client_state, false),
-            AccountMeta::new_readonly(mock_consensus_state, false),
+            AccountMeta::new_readonly(lc.program_id, false),
+            AccountMeta::new_readonly(lc.client_state, false),
+            AccountMeta::new_readonly(lc.consensus_state, false),
             AccountMeta::new_readonly(ics26_router::ID, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
@@ -206,10 +206,10 @@ pub fn build_recv_packet_ix(
     dest_client: &str,
     source_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: RecvPacketParams<'_>,
 ) -> RecvResult {
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(dest_client);
 
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
@@ -270,9 +270,9 @@ pub fn build_recv_packet_ix(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(mock_light_client::ID, false),
-        AccountMeta::new_readonly(mock_client_state, false),
-        AccountMeta::new_readonly(mock_consensus_state, false),
+        AccountMeta::new_readonly(lc.program_id, false),
+        AccountMeta::new_readonly(lc.client_state, false),
+        AccountMeta::new_readonly(lc.consensus_state, false),
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
@@ -297,12 +297,12 @@ pub fn build_recv_packet_ix_multi_proof(
     dest_client: &str,
     source_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: RecvPacketParams<'_>,
     proof_chunk_pdas: &[Pubkey],
 ) -> RecvResult {
     let total_proof_chunks = proof_chunk_pdas.len() as u8;
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(dest_client);
 
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
@@ -365,9 +365,9 @@ pub fn build_recv_packet_ix_multi_proof(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(mock_light_client::ID, false),
-        AccountMeta::new_readonly(mock_client_state, false),
-        AccountMeta::new_readonly(mock_consensus_state, false),
+        AccountMeta::new_readonly(lc.program_id, false),
+        AccountMeta::new_readonly(lc.client_state, false),
+        AccountMeta::new_readonly(lc.consensus_state, false),
         AccountMeta::new(params.payload_chunk_pda, false),
     ];
     for pda in proof_chunk_pdas {
@@ -439,10 +439,10 @@ pub fn build_ack_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: AckPacketParams<'_>,
 ) -> (Instruction, Pubkey) {
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(source_client);
 
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
@@ -495,9 +495,9 @@ pub fn build_ack_packet_ix(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(mock_light_client::ID, false),
-        AccountMeta::new_readonly(mock_client_state, false),
-        AccountMeta::new_readonly(mock_consensus_state, false),
+        AccountMeta::new_readonly(lc.program_id, false),
+        AccountMeta::new_readonly(lc.client_state, false),
+        AccountMeta::new_readonly(lc.consensus_state, false),
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
@@ -518,12 +518,12 @@ pub fn build_ack_packet_ix_multi_proof(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: AckPacketParams<'_>,
     proof_chunk_pdas: &[Pubkey],
 ) -> (Instruction, Pubkey) {
     let total_proof_chunks = proof_chunk_pdas.len() as u8;
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(source_client);
 
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
@@ -578,9 +578,9 @@ pub fn build_ack_packet_ix_multi_proof(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(mock_light_client::ID, false),
-        AccountMeta::new_readonly(mock_client_state, false),
-        AccountMeta::new_readonly(mock_consensus_state, false),
+        AccountMeta::new_readonly(lc.program_id, false),
+        AccountMeta::new_readonly(lc.client_state, false),
+        AccountMeta::new_readonly(lc.consensus_state, false),
         AccountMeta::new(params.payload_chunk_pda, false),
     ];
     for pda in proof_chunk_pdas {
@@ -645,10 +645,10 @@ pub fn build_timeout_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: TimeoutPacketParams<'_>,
 ) -> (Instruction, Pubkey) {
     let timeout = test_timeout(clock_time);
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(source_client);
 
     let (router_state_pda, _) =
         Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
@@ -700,9 +700,9 @@ pub fn build_timeout_packet_ix(
         AccountMeta::new_readonly(system_program::ID, false),
         AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(mock_light_client::ID, false),
-        AccountMeta::new_readonly(mock_client_state, false),
-        AccountMeta::new_readonly(mock_consensus_state, false),
+        AccountMeta::new_readonly(lc.program_id, false),
+        AccountMeta::new_readonly(lc.client_state, false),
+        AccountMeta::new_readonly(lc.consensus_state, false),
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];

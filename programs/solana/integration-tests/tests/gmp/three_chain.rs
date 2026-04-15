@@ -26,6 +26,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -34,6 +35,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -42,6 +44,7 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
         programs,
+        lc_program_id: mock_light_client::ID,
     });
     chain_c.prefund(&[&admin, &relayer]);
 
@@ -141,6 +144,7 @@ async fn test_gmp_three_chain_roundtrip() {
         user.pubkey(),
         user.pubkey(),
         "b-to-c",
+        &mock_lc_accounts("b-to-c"),
         GmpSendCallParams {
             sequence: 1,
             timeout_timestamp: GMP_TIMEOUT,
@@ -194,6 +198,7 @@ async fn test_gmp_three_chain_roundtrip() {
         "b-to-c",
         "c-to-b",
         chain_b.clock_time(),
+        &mock_lc_accounts("b-to-c"),
         GmpAckPacketParams {
             sequence: 1,
             acknowledgement: ack_c_data,

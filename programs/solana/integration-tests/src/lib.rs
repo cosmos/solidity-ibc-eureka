@@ -9,6 +9,8 @@ use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::Tra
 
 pub mod accounts;
 pub mod actors;
+pub mod attestation;
+pub mod attestor;
 pub mod chain;
 pub mod gmp;
 pub mod ift;
@@ -82,6 +84,17 @@ pub async fn assert_commitment_zeroed(chain: &chain::Chain, pda: Pubkey) {
 pub async fn assert_receipt_created(chain: &chain::Chain, pda: Pubkey) {
     let account = chain.get_account(pda).await.expect("receipt should exist");
     assert_eq!(account.owner, ics26_router::ID);
+}
+
+/// Read the raw 32-byte commitment value stored in a commitment PDA.
+pub async fn read_commitment(chain: &chain::Chain, pda: Pubkey) -> [u8; 32] {
+    let account = chain
+        .get_account(pda)
+        .await
+        .expect("commitment should exist");
+    account.data[8..40]
+        .try_into()
+        .expect("commitment is 32 bytes")
 }
 
 /// Read ack commitment bytes from an ack PDA.

@@ -48,6 +48,7 @@ impl User {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, std::slice::from_ref(&result.ix))
@@ -61,8 +62,13 @@ impl User {
         chain: &mut Chain,
         params: GmpSendCallParams<'_>,
     ) -> Result<Pubkey, BanksClientError> {
-        let (ix, commitment_pda) =
-            gmp::build_gmp_send_call_ix(self.pubkey(), self.pubkey(), chain.client_id(), params);
+        let (ix, commitment_pda) = gmp::build_gmp_send_call_ix(
+            self.pubkey(),
+            self.pubkey(),
+            chain.client_id(),
+            &chain.lc_accounts(),
+            params,
+        );
         self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
@@ -81,6 +87,7 @@ impl User {
             chain.client_id(),
             mint,
             token_kind,
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, std::slice::from_ref(&result.ix))

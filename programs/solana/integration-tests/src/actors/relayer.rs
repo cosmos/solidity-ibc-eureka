@@ -142,6 +142,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, std::slice::from_ref(&result.ix))
@@ -160,6 +161,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
@@ -177,6 +179,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
@@ -193,6 +196,7 @@ impl Relayer {
         chain: &mut Chain,
         params_list: Vec<RecvPacketParams<'_>>,
     ) -> Result<Vec<RecvResult>, BanksClientError> {
+        let lc = chain.lc_accounts();
         let results: Vec<RecvResult> = params_list
             .into_iter()
             .map(|params| {
@@ -201,6 +205,7 @@ impl Relayer {
                     chain.client_id(),
                     chain.counterparty_client_id(),
                     chain.clock_time(),
+                    &lc,
                     params,
                 )
             })
@@ -219,6 +224,7 @@ impl Relayer {
         chain: &mut Chain,
         params_list: Vec<AckPacketParams<'_>>,
     ) -> Result<Vec<Pubkey>, BanksClientError> {
+        let lc = chain.lc_accounts();
         let built: Vec<_> = params_list
             .into_iter()
             .map(|params| {
@@ -227,6 +233,7 @@ impl Relayer {
                     chain.client_id(),
                     chain.counterparty_client_id(),
                     chain.clock_time(),
+                    &lc,
                     params,
                 )
             })
@@ -249,6 +256,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
             proof_chunk_pdas,
         );
@@ -269,6 +277,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
             proof_chunk_pdas,
         );
@@ -289,6 +298,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, std::slice::from_ref(&result.ix))
@@ -307,6 +317,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
@@ -324,6 +335,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
@@ -343,6 +355,7 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
@@ -360,11 +373,34 @@ impl Relayer {
             chain.client_id(),
             chain.counterparty_client_id(),
             chain.clock_time(),
+            &chain.lc_accounts(),
             params,
         );
         self.send_tx(chain, &[ix]).await?;
         Ok(commitment_pda)
     }
+
+    // ── Attestation LC operations ─────────────────────────────────────
+
+    /// Build a state attestation proof from the attestors and submit an
+    /// `update_client` instruction for the attestation LC, creating a
+    /// consensus state at the given height.
+    pub async fn attestation_update_client(
+        &self,
+        chain: &mut Chain,
+        attestors: &crate::attestor::Attestors,
+        height: u64,
+    ) -> Result<(), BanksClientError> {
+        let proof = crate::attestation::build_state_membership_proof(
+            attestors,
+            height,
+            chain.clock_time() as u64,
+        );
+        let ix = crate::attestation::build_update_client_ix(self.pubkey(), height, proof);
+        self.send_tx(chain, &[ix]).await
+    }
+
+    // ── IFT finalize ────────────────────────────────────────────────────
 
     /// Finalize an IFT transfer after the GMP result is available.
     pub async fn ift_finalize_transfer(

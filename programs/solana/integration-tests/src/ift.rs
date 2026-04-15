@@ -4,7 +4,7 @@
 //! finalization, admin operations (pause, admin transfer, admin mint),
 //! ABI-encoded GMP ack/timeout packets and on-chain state readers.
 
-use crate::chain::{derive_mock_lc_pdas, Chain};
+use crate::chain::{Chain, LcAccounts};
 use crate::gmp::{GMP_PORT_ID, ICS27_VERSION};
 use anchor_lang::InstructionData;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
@@ -345,9 +345,9 @@ pub fn build_ift_transfer_ix(
     client_id: &str,
     mint: Pubkey,
     token_kind: TokenKind,
+    lc: &LcAccounts,
     params: IftTransferParams,
 ) -> IftTransferResult {
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(client_id);
     let app_state_pda = derive_app_state_pda();
     let app_mint_state_pda = derive_app_mint_state_pda(&mint);
     let bridge_pda = derive_bridge_pda(&mint, client_id);
@@ -398,10 +398,10 @@ pub fn build_ift_transfer_ix(
             AccountMeta::new(commitment_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(mock_light_client::ID, false),
-            AccountMeta::new_readonly(mock_client_state, false),
+            AccountMeta::new_readonly(lc.program_id, false),
+            AccountMeta::new_readonly(lc.client_state, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(mock_consensus_state, false),
+            AccountMeta::new_readonly(lc.consensus_state, false),
             AccountMeta::new(pending_transfer_pda, false),
         ],
         data: ift::instruction::IftTransfer { msg }.data(),
@@ -521,6 +521,7 @@ pub fn build_ift_gmp_ack_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: IftGmpAckPacketParams,
 ) -> (Instruction, Pubkey) {
     crate::router::build_ack_packet_ix(
@@ -528,6 +529,7 @@ pub fn build_ift_gmp_ack_packet_ix(
         source_client,
         dest_client,
         clock_time,
+        lc,
         build_ift_gmp_ack_packet_params(source_client, params),
     )
 }
@@ -540,6 +542,7 @@ pub fn build_ift_gmp_timeout_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: IftGmpTimeoutPacketParams,
 ) -> (Instruction, Pubkey) {
     let gmp_app_state_pda =
@@ -552,6 +555,7 @@ pub fn build_ift_gmp_timeout_packet_ix(
         source_client,
         dest_client,
         clock_time,
+        lc,
         crate::router::TimeoutPacketParams {
             sequence: params.sequence,
             payload_chunk_pda: params.payload_chunk_pda,

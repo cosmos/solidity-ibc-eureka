@@ -5,6 +5,7 @@
 //! initialization instructions.
 
 use crate::accounts::account_owned_by;
+use crate::attestor::Attestors;
 use crate::chain::{add_program_data, mock_ibc_app_state_pda, ChainProgram, InitStepSigner};
 use anchor_lang::InstructionData;
 use solana_program_test::ProgramTest;
@@ -204,6 +205,72 @@ impl ChainProgram for Ift {
 
     fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
         Some(ift::ID)
+    }
+}
+
+// ── AttestationLc ──────────────────────────────────────────────────────
+
+/// Attestation-based light client with ECDSA signature verification.
+///
+/// Unlike mock LC (auto-registered by the chain), the attestation LC must
+/// be included in the `programs` slice and requires explicit attestor
+/// addresses and a quorum threshold.
+pub struct AttestationLc {
+    pub attestor_addresses: Vec<[u8; 20]>,
+    pub min_required_sigs: u8,
+}
+
+impl AttestationLc {
+    /// Build from an [`Attestors`] set, requiring all signatures (N-of-N quorum).
+    pub fn new(attestors: &Attestors) -> Self {
+        let addresses = attestors.eth_addresses();
+        let min_required_sigs = addresses.len() as u8;
+        Self {
+            attestor_addresses: addresses,
+            min_required_sigs,
+        }
+    }
+}
+
+impl ChainProgram for AttestationLc {
+    fn register(&self, pt: &mut ProgramTest, deployer: Pubkey) {
+        pt.add_program("attestation", attestation::ID, None);
+        add_program_data(pt, attestation::ID, deployer);
+    }
+
+    fn init_steps(
+        &self,
+        deployer: &Keypair,
+        _admin: Pubkey,
+    ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
+        let payer = deployer.pubkey();
+        let client_state_pda = attestation::types::ClientState::pda();
+        let app_state_pda = attestation::types::AppState::pda();
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[attestation::ID.as_ref()], &bpf_loader_upgradeable::ID);
+
+        let ix = Instruction {
+            program_id: attestation::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(payer, true),
+            ],
+            data: attestation::instruction::Initialize {
+                attestor_addresses: self.attestor_addresses.clone(),
+                min_required_sigs: self.min_required_sigs,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+        vec![(vec![ix], InitStepSigner::DeployerOnly)]
+    }
+
+    fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
+        Some(attestation::ID)
     }
 }
 

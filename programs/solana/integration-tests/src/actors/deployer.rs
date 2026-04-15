@@ -64,6 +64,7 @@ impl Deployer {
             relayer.pubkey(),
             chain.client_id(),
             chain.counterparty_client_id(),
+            chain.lc_program_id(),
             programs,
         );
 
@@ -130,6 +131,7 @@ impl Deployer {
             derive_access_manager_pda(),
             client_id,
             counterparty_client_id,
+            mock_light_client::ID,
         );
         submit_tx(chain, &[add_ix], &[self.keypair(), admin.keypair()]).await;
     }
@@ -180,6 +182,7 @@ fn build_init_steps(
     relayer_pubkey: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
+    lc_program_id: Pubkey,
     programs: &[&dyn ChainProgram],
 ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
     let deployer_pubkey = deployer.pubkey();
@@ -226,33 +229,38 @@ fn build_init_steps(
             )],
             InitStepSigner::DeployerOnly,
         ),
-        // TX4: mock_light_client::initialize
-        (
+    ];
+
+    // Initialize mock LC if that's the configured light client
+    if lc_program_id == mock_light_client::ID {
+        steps.push((
             vec![build_mock_lc_initialize_ix(deployer_pubkey, client_id)],
             InitStepSigner::DeployerOnly,
-        ),
-        // TX5: add_client + add_ibc_app (admin = ID_CUSTOMIZER_ROLE holder)
-        (
-            vec![
-                build_add_client_ix(
-                    admin_pubkey,
-                    router_state_pda,
-                    am_pda,
-                    client_id,
-                    counterparty_client_id,
-                ),
-                build_add_ibc_app_ix(
-                    deployer_pubkey,
-                    admin_pubkey,
-                    router_state_pda,
-                    am_pda,
-                    port_id,
-                    app_program_id,
-                ),
-            ],
-            InitStepSigner::WithAdmin,
-        ),
-    ];
+        ));
+    }
+
+    // add_client + add_ibc_app (admin = ID_CUSTOMIZER_ROLE holder)
+    steps.push((
+        vec![
+            build_add_client_ix(
+                admin_pubkey,
+                router_state_pda,
+                am_pda,
+                client_id,
+                counterparty_client_id,
+                lc_program_id,
+            ),
+            build_add_ibc_app_ix(
+                deployer_pubkey,
+                admin_pubkey,
+                router_state_pda,
+                am_pda,
+                port_id,
+                app_program_id,
+            ),
+        ],
+        InitStepSigner::WithAdmin,
+    ));
 
     // App-specific initialization (each program provides its own steps)
     for p in programs {
@@ -394,6 +402,7 @@ fn build_add_client_ix(
     am_pda: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
+    lc_program_id: Pubkey,
 ) -> Instruction {
     let (client_pda, _) = Pubkey::find_program_address(
         &[ics26_router::state::Client::SEED, client_id.as_bytes()],
@@ -407,7 +416,7 @@ fn build_add_client_ix(
             AccountMeta::new_readonly(router_state_pda, false),
             AccountMeta::new_readonly(am_pda, false),
             AccountMeta::new(client_pda, false),
-            AccountMeta::new_readonly(mock_light_client::ID, false),
+            AccountMeta::new_readonly(lc_program_id, false),
             AccountMeta::new_readonly(system_program::ID, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
         ],

@@ -20,8 +20,11 @@ anchor-lang = { workspace = true }
 ics26-router = { workspace = true, features = ["cpi"] }
 ics27-gmp = { workspace = true, features = ["cpi"] }
 ift = { path = "../programs/ift", features = ["cpi"] }
+attestation = { path = "../programs/attestation" }
 access-manager = { workspace = true, features = ["test-utils"] }
 anchor-spl = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
 alloy-sol-types = { workspace = true }
 test-ibc-app = { path = "../programs/test-ibc-app" }
 test-gmp-app = { path = "../programs/test-gmp-app" }
@@ -36,5 +39,6 @@ solana-program-test = { workspace = true }
 prost = { workspace = true }
 borsh = { workspace = true }
 sha2 = { workspace = true }
+solana-keccak-hasher = { workspace = true }
 bincode = { workspace = true }
 tokio = { version = "1", features = ["full"] }

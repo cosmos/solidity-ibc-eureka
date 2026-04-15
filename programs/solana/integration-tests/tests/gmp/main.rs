@@ -13,7 +13,7 @@ use ics27_gmp::errors::GMPError;
 use integration_tests::{
     admin::Admin,
     anchor_error_code, assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
+    chain::{mock_lc_accounts, Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
     extract_ack_data, extract_custom_error, gmp,
     gmp::{GmpAckPacketParams, GmpRecvPacketParams, GmpSendCallParams},
@@ -25,6 +25,8 @@ use integration_tests::{
 use prost::Message as ProstMessage;
 use solana_sdk::pubkey::Pubkey;
 
+mod attestation_lifecycle;
+mod attestation_roundtrip;
 mod bidirectional;
 mod direct_call_rejected;
 mod failed_execution;

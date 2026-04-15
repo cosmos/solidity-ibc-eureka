@@ -69,6 +69,7 @@ async fn init_ift_chain(
 }
 
 mod admin_transfer;
+mod attestation_lifecycle;
 mod batch_ack_single_tx;
 mod batch_transfers;
 mod error_ack_refund;

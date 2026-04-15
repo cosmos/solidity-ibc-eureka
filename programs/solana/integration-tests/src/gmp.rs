@@ -6,7 +6,7 @@
 //! access-manager transfer operations.
 
 use crate::accounts::anchor_discriminator;
-use crate::chain::{derive_mock_lc_pdas, Chain};
+use crate::chain::{Chain, LcAccounts};
 use crate::router::RecvResult;
 use anchor_lang::InstructionData;
 use ics26_router::state::*;
@@ -47,9 +47,9 @@ pub fn build_gmp_send_call_ix(
     sender: Pubkey,
     payer: Pubkey,
     client_id: &str,
+    lc: &LcAccounts,
     params: GmpSendCallParams<'_>,
 ) -> (Instruction, Pubkey) {
-    let (mock_client_state, mock_consensus_state) = derive_mock_lc_pdas(client_id);
     let (gmp_app_state_pda, _) =
         Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
     let (router_state_pda, _) =
@@ -89,10 +89,10 @@ pub fn build_gmp_send_call_ix(
             AccountMeta::new(commitment_pda, false),
             AccountMeta::new_readonly(ibc_app_pda, false),
             AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(mock_light_client::ID, false),
-            AccountMeta::new_readonly(mock_client_state, false),
+            AccountMeta::new_readonly(lc.program_id, false),
+            AccountMeta::new_readonly(lc.client_state, false),
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(mock_consensus_state, false),
+            AccountMeta::new_readonly(lc.consensus_state, false),
             AccountMeta::new_readonly(system_program::ID, false),
         ],
         data: ics27_gmp::instruction::SendCall { msg }.data(),
@@ -121,6 +121,7 @@ pub fn build_gmp_recv_packet_ix(
     dest_client: &str,
     source_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: GmpRecvPacketParams,
 ) -> RecvResult {
     crate::router::build_recv_packet_ix(
@@ -128,6 +129,7 @@ pub fn build_gmp_recv_packet_ix(
         dest_client,
         source_client,
         clock_time,
+        lc,
         crate::router::RecvPacketParams {
             sequence: params.sequence,
             payload_chunk_pda: params.payload_chunk_pda,
@@ -164,6 +166,7 @@ pub fn build_gmp_ack_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: GmpAckPacketParams,
 ) -> (Instruction, Pubkey) {
     let (result_pda, _) =
@@ -174,6 +177,7 @@ pub fn build_gmp_ack_packet_ix(
         source_client,
         dest_client,
         clock_time,
+        lc,
         crate::router::AckPacketParams {
             sequence: params.sequence,
             acknowledgement: params.acknowledgement,
@@ -209,6 +213,7 @@ pub fn build_gmp_timeout_packet_ix(
     source_client: &str,
     dest_client: &str,
     clock_time: i64,
+    lc: &LcAccounts,
     params: GmpTimeoutPacketParams,
 ) -> (Instruction, Pubkey) {
     let (result_pda, _) =
@@ -219,6 +224,7 @@ pub fn build_gmp_timeout_packet_ix(
         source_client,
         dest_client,
         clock_time,
+        lc,
         crate::router::TimeoutPacketParams {
             sequence: params.sequence,
             payload_chunk_pda: params.payload_chunk_pda,
