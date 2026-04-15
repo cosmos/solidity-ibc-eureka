@@ -1385,7 +1385,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 		txOpts, err := eth.GetTransactOpts(s.ethUser)
 		s.Require().NoError(err)
 
-		timeout := uint64(time.Now().Add(15 * time.Second).Unix())
+		timeout := uint64(time.Now().Add(20 * time.Second).Unix())
 		timeoutTimestamp = timeout
 		wallet := s.SolanaUser.PublicKey()
 		ata, ataErr := solana.AssociatedTokenAccountAddress(wallet, s.IFTMint())

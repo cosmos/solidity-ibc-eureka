@@ -1691,7 +1691,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	var cosmosTimeoutTimestamp uint64
 
 	s.Require().True(s.Run("Send GMP call from Cosmos with short timeout", func() {
-		cosmosTimeoutTimestamp = uint64(time.Now().Add(15 * time.Second).Unix())
+		cosmosTimeoutTimestamp = uint64(time.Now().Add(20 * time.Second).Unix())
 
 		// Build SPL transfer instruction
 		var err error
