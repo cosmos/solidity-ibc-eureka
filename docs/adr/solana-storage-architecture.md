@@ -2,7 +2,7 @@
 
 **Status**: Implemented
 **Date**: 2025-06-17
-**Updated**: 2025-12-19
+**Updated**: 2026-04-15
 
 ## Context
 
@@ -153,8 +153,12 @@ Stores:
 Seeds: [b"sig_verify", signature_hash]
 ```
 Stores:
-- `submitter`: Pubkey
 - `is_valid`: bool
+- `submitter`: Pubkey
+- `sig_hash`: [u8; 32] — `sha256(pk || msg || sig)`
+
+At verification time, the verifier scans remaining accounts by owner, discriminator, and
+`sig_hash` to locate the matching result.
 
 **Inline vs Chunked Mode (ICS26-Router payloads and proofs):**
 
@@ -176,6 +180,7 @@ Note: Header and misbehaviour uploads in ICS07-Tendermint are always chunked (Te
 
 2. Assembly Phase:
    - Single transaction reads all chunk accounts
+   - Chunk PDAs verified via caller-supplied bumps + `create_program_address`
    - Assembles full data (header/proof/payload)
    - Triggers verification/processing
 
