@@ -1377,6 +1377,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	s.mintEthIFTTokens(ctx, eth, ethIFTAddress, ethUserAddr, transferAmount)
 
 	var ethSendTxHash []byte
+	var timeoutTimestamp uint64
 	s.Require().True(s.Run("Send transfer with short timeout", func() {
 		iftContract, err := evmift.NewContract(ethIFTAddress, eth.RPCClient)
 		s.Require().NoError(err)
@@ -1384,7 +1385,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 		txOpts, err := eth.GetTransactOpts(s.ethUser)
 		s.Require().NoError(err)
 
-		timeout := uint64(time.Now().Add(30 * time.Second).Unix())
+		timeout := uint64(time.Now().Add(15 * time.Second).Unix())
+		timeoutTimestamp = timeout
 		wallet := s.SolanaUser.PublicKey()
 		ata, ataErr := solana.AssociatedTokenAccountAddress(wallet, s.IFTMint())
 		s.Require().NoError(ataErr)
@@ -1418,8 +1420,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 60 seconds for timeout...")
-		time.Sleep(60 * time.Second)
+		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
@@ -1481,6 +1483,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 
 	var solanaPacketTxHash []byte
 	var timeoutSequence uint64
+	var solanaTimeoutTimestamp uint64
 	s.Require().True(s.Run("Execute transfer with short timeout", func() {
 		timeoutSequence = 1
 		seqBytes := make([]byte, 8)
@@ -1493,7 +1496,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 			ClientId:         EthClientIDOnSolana,
 			Receiver:         ethUserAddr.Hex(),
 			Amount:           EthSolanaIFTTransferAmount,
-			TimeoutTimestamp: uint64(time.Now().Add(45 * time.Second).Unix()),
+			TimeoutTimestamp: uint64(time.Now().Add(15 * time.Second).Unix()),
 			Sequence:         timeoutSequence,
 		}
 
@@ -1518,6 +1521,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 		s.Require().NoError(err)
 
 		solanaPacketTxHash = []byte(sig.String())
+		solanaTimeoutTimestamp = transferMsg.TimeoutTimestamp
 		s.T().Logf("IFT transfer transaction (will timeout): %s", sig)
 	}))
 
@@ -1533,8 +1537,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Wait for timeout", func() {
-		s.T().Log("Waiting 45 seconds for timeout...")
-		time.Sleep(45 * time.Second)
+		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), solanaTimeoutTimestamp, 2*time.Minute)
+		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {

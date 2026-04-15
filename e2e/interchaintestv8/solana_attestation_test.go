@@ -1317,6 +1317,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 	}))
 
 	var solanaSendTxSig solanago.Signature
+	var solanaTimeoutTimestamp uint64
 	solanaSequence := uint64(1)
 
 	s.Require().True(s.Run("Send packet from Solana with short timeout", func() {
@@ -1331,8 +1332,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp := uint64(solanaClockTime + 35)
-		s.T().Logf("Setting timeout to %d (solana_clock=%d + 35s)", timeoutTimestamp, solanaClockTime)
+		solanaTimeoutTimestamp = uint64(solanaClockTime + 15)
+		s.T().Logf("Setting timeout to %d (solana_clock=%d + 15s)", solanaTimeoutTimestamp, solanaClockTime)
 
 		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
 			SourceClient:     s.AttestationClientID,
@@ -1341,7 +1342,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 			Version:          transfertypes.V1,
 			Encoding:         "application/json",
 			PacketData:       []byte(fmt.Sprintf(`{"denom":"%s","amount":"%d","sender":"%s","receiver":"%s","memo":"timeout-test-from-solana"}`, simd.Config().Denom, TestTransferAmount, solanaUserAddress, cosmosUserAddress)),
-			TimeoutTimestamp: timeoutTimestamp,
+			TimeoutTimestamp: solanaTimeoutTimestamp,
 			Sequence:         solanaSequence,
 		}
 
@@ -1387,8 +1388,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		s.T().Logf("Packet commitment verified for sequence %d", solanaSequence)
 	}))
 
-	s.T().Log("Waiting 40 seconds for packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), solanaTimeoutTimestamp, 2*time.Minute)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout from Cosmos to Solana via attested path", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
@@ -1439,11 +1440,12 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 	}))
 
 	var cosmosPacketTxHash []byte
+	var cosmosTimeoutTimestamp uint64
 	cosmosPacketSequence := uint64(1)
 
 	s.Require().True(s.Run("Send ICS20 transfer from Cosmos with short timeout", func() {
-		timeout := uint64(time.Now().Add(35 * time.Second).Unix())
-		s.T().Logf("Setting timeout to %d (now + 35s)", timeout)
+		cosmosTimeoutTimestamp = uint64(time.Now().Add(15 * time.Second).Unix())
+		s.T().Logf("Setting timeout to %d (now + 15s)", cosmosTimeoutTimestamp)
 
 		transferPayload := transfertypes.FungibleTokenPacketData{
 			Denom:    transferCoin.Denom,
@@ -1464,7 +1466,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 		}
 		msgSendPacket := channeltypesv2.MsgSendPacket{
 			SourceClient:     CosmosClientID,
-			TimeoutTimestamp: timeout,
+			TimeoutTimestamp: cosmosTimeoutTimestamp,
 			Payloads:         []channeltypesv2.Payload{payload},
 			Signer:           cosmosUserAddress,
 		}
@@ -1488,8 +1490,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 		s.T().Logf("Cosmos packet commitment verified for sequence %d", cosmosPacketSequence)
 	}))
 
-	s.T().Log("Waiting 40 seconds for packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), cosmosTimeoutTimestamp, 2*time.Minute)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout from Solana to Cosmos via attested path", func() {
 		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{

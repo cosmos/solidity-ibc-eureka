@@ -1393,6 +1393,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 	var solanaPacketTxHash []byte
 	var sequence uint64
+	var timeoutTimestamp uint64
 
 	s.Require().True(s.Run("Send call from Solana with short timeout", func() {
 		var payload []byte
@@ -1436,16 +1437,15 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 			s.Require().NoError(err)
 
-			// Using 35 seconds to provide buffer above the transaction execution delay
-			timeout := uint64(solanaClockTime + 35)
+			timeoutTimestamp = uint64(solanaClockTime + 17)
 
-			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeout, solanaClockTime)
+			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 17s)", timeoutTimestamp, solanaClockTime)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					Sequence:         sequence,
-					TimeoutTimestamp: timeout,
+					TimeoutTimestamp: timeoutTimestamp,
 					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
@@ -1501,9 +1501,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.T().Log("Retrieved recv relay transaction before timeout")
 	}))
 
-	// Sleep for 40 seconds to let the packet timeout (timeout is set to solana_time + 35 seconds)
-	s.T().Log("Sleeping 40 seconds to let packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -1689,10 +1688,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	var cosmosGMPTxHash []byte
 	var recipientWallet *solanago.Wallet
 	var destTokenAccount solanago.PublicKey
+	var cosmosTimeoutTimestamp uint64
 
 	s.Require().True(s.Run("Send GMP call from Cosmos with short timeout", func() {
-		// Using 35 seconds to allow packet to timeout quickly for test purposes
-		timeout := uint64(time.Now().Add(35 * time.Second).Unix())
+		cosmosTimeoutTimestamp = uint64(time.Now().Add(15 * time.Second).Unix())
 
 		// Build SPL transfer instruction
 		var err error
@@ -1733,7 +1732,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			Receiver:         token.ProgramID.String(),
 			Salt:             []byte{},
 			Payload:          payload,
-			TimeoutTimestamp: timeout,
+			TimeoutTimestamp: cosmosTimeoutTimestamp,
 			Memo:             "timeout test from Cosmos",
 			Encoding:         encodingType.String(),
 		})
@@ -1773,9 +1772,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		}
 	}))
 
-	// Sleep for 40 seconds to let the packet timeout (timeout is set to 35 seconds)
-	s.T().Log("Sleeping 40 seconds to let packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), cosmosTimeoutTimestamp, 2*time.Minute)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Cosmos", func() {
 		s.Require().True(s.Run("Relay timeout transaction", func() {

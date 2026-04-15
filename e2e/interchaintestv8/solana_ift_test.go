@@ -1243,6 +1243,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 
 	var solanaPacketTxHash []byte
 	var solanaToCosmosSequence uint64
+	var timeoutTimestamp uint64
 	s.Require().True(s.Run("Execute Transfer with Short Timeout", func() {
 		solanaToCosmosSequence = 1
 
@@ -1254,7 +1255,7 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 		s.Require().NoError(err)
 
-		timeoutTimestamp := uint64(solanaClockTime + 65)
+		timeoutTimestamp = uint64(solanaClockTime + 15)
 
 		transferMsg := ift.IftStateIftTransferMsg{
 			ClientId:         SolanaClientID,
@@ -1313,7 +1314,8 @@ func (s *IbcEurekaSolanaIFTTestSuite) Test_IFT_ExistingToken_TimeoutRefund() {
 	}))
 
 	s.Require().True(s.Run("Wait for packet timeout", func() {
-		time.Sleep(70 * time.Second)
+		err := s.Solana.Chain.WaitForTimeout(ctx, s.T(), timeoutTimestamp, 2*time.Minute)
+		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {

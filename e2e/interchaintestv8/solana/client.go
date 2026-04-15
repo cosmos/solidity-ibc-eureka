@@ -405,6 +405,24 @@ func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 	return unixTimestamp, nil
 }
 
+// WaitForTimeout polls the Solana clock every second until it exceeds timeoutTimestamp,
+// logging the elapsed time when the condition is met. Returns an error if maxWait is exceeded.
+func (s *Solana) WaitForTimeout(ctx context.Context, t *testing.T, timeoutTimestamp uint64, maxWait time.Duration) error {
+	t.Helper()
+	start := time.Now()
+	return testutil.WaitForCondition(maxWait, time.Second, func() (bool, error) {
+		clockTime, err := s.GetSolanaClockTime(ctx)
+		if err != nil {
+			return false, nil
+		}
+		if uint64(clockTime) > timeoutTimestamp {
+			t.Logf("Timeout reached after %s (clock: %d > timeout: %d)", time.Since(start).Round(time.Second), clockTime, timeoutTimestamp)
+			return true, nil
+		}
+		return false, nil
+	})
+}
+
 // GetProgramDataAddress derives the ProgramData account address for an upgradeable program
 func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error) {
 	pda, _, err := solana.FindProgramAddress(
