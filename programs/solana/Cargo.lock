@@ -3576,6 +3576,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "solana-ibc-gmp-types",
+ "solana-ibc-proto",
  "solana-ibc-types",
  "solana-sdk",
 ]
@@ -3687,6 +3688,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array",
+]
+
+[[package]]
+name = "integration-tests"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anchor-lang",
+ "anchor-spl",
+ "attestation",
+ "bincode",
+ "borsh 0.10.4",
+ "ics26-router",
+ "ics27-gmp",
+ "ift",
+ "mock-ibc-app",
+ "prost",
+ "sha2 0.10.9",
+ "solana-ibc-proto",
+ "solana-ibc-types",
+ "solana-keccak-hasher",
+ "solana-program-test",
+ "solana-sdk",
+ "test-access-manager",
+ "test-cpi-proxy",
+ "test-gmp-app",
+ "test-ibc-app",
+ "tokio",
 ]
 
 [[package]]

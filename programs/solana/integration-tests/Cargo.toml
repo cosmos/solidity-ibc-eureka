@@ -1,0 +1,43 @@
+[package]
+name = "integration-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Solana-to-Solana IBC integration tests"
+readme = "../../README.md"
+keywords = ["solana", "ibc", "testing"]
+categories = ["development-tools::testing"]
+
+[lib]
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+anchor-lang = { workspace = true }
+ics26-router = { workspace = true, features = ["cpi"] }
+ics27-gmp = { workspace = true, features = ["cpi"] }
+ift = { path = "../programs/ift", features = ["cpi"] }
+attestation = { path = "../programs/attestation" }
+access-manager = { workspace = true, features = ["test-utils"] }
+anchor-spl = { workspace = true }
+alloy-signer = { workspace = true }
+alloy-signer-local = { workspace = true }
+alloy-sol-types = { workspace = true }
+test-ibc-app = { path = "../programs/test-ibc-app" }
+test-gmp-app = { path = "../programs/test-gmp-app" }
+mock-ibc-app = { path = "../programs/mock-ibc-app" }
+test-cpi-proxy = { path = "../programs/test-cpi-proxy" }
+test-access-manager = { workspace = true, features = ["cpi"] }
+solana-ibc-types = { workspace = true }
+solana-ibc-proto = { workspace = true }
+solana-sdk = { workspace = true, features = ["full"] }
+solana-program-test = { workspace = true }
+prost = { workspace = true }
+borsh = { workspace = true }
+sha2 = { workspace = true }
+solana-keccak-hasher = { workspace = true }
+bincode = { workspace = true }
+tokio = { version = "1", features = ["full"] }
