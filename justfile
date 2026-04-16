@@ -153,7 +153,7 @@ build-solana program="":
     echo "🦀 Using {{anchor_cmd}}"
 
     # Build specific program and generate its IDL
-    (cd programs/solana && {{anchor_cmd}} build -- --manifest-path "programs/{{program}}/Cargo.toml")
+    (cd programs/solana && {{anchor_cmd}} build -- --manifest-path "$PWD/programs/{{program}}/Cargo.toml")
 
     echo "✅ Build complete for {{program}}"
   fi

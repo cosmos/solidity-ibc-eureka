@@ -102,6 +102,6 @@ $ANCHOR_CMD keys sync -p "$INSTANCE_UNDERSCORE" --provider.cluster localnet
 
 # 7. Build (skip IDL — only the .so binary is needed)
 echo "🔨 Building $INSTANCE"
-$ANCHOR_CMD build --no-idl -- --manifest-path "programs/$INSTANCE/Cargo.toml"
+$ANCHOR_CMD build --no-idl -- --manifest-path "$INSTANCE_DIR/Cargo.toml"
 
 echo "✅ Built: target/deploy/${INSTANCE_UNDERSCORE}.so"
