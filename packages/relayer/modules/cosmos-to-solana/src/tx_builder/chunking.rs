@@ -18,9 +18,9 @@ use solana_ibc_types::{
     RouterState,
 };
 
-use super::transaction::derive_alt_address;
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{derive_alt_address, extend_compute_ix};
 
-use crate::{constants::MAX_PREFUND_LAMPORTS, gmp, ift};
+use crate::{gmp, gmp::MAX_PREFUND_LAMPORTS, ift};
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
@@ -113,7 +113,15 @@ impl super::TxBuilder {
         // build_finalize_transfer_instruction logs internally for unexpected failures
         let instruction = ift::build_finalize_transfer_instruction(&params)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        if !self.ift_program_ids.contains(&instruction.program_id) {
+            tracing::warn!(
+                sender = %instruction.program_id,
+                "IFT: Program not in whitelist, skipping finalize_transfer"
+            );
+            return None;
+        }
+
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         match self.create_tx_bytes(&instructions) {
@@ -246,8 +254,7 @@ impl super::TxBuilder {
 
             let total_chunks = msg_payloads
                 .get(payload_idx)
-                .map(|p| p.data.total_chunks())
-                .unwrap_or(0);
+                .map_or(0, |p| p.data.total_chunks());
 
             if total_chunks > 0 {
                 let chunks = Self::split_into_chunks(data);
@@ -304,8 +311,7 @@ impl super::TxBuilder {
 
             let total_chunks = msg_payloads
                 .get(payload_idx)
-                .map(|p| p.data.total_chunks())
-                .unwrap_or(0);
+                .map_or(0, |p| p.data.total_chunks());
 
             if total_chunks > 0 {
                 for chunk_idx in 0..total_chunks {
@@ -366,7 +372,7 @@ impl super::TxBuilder {
         let recv_instruction =
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.extend(self.build_gmp_prefund_instruction(msg, payload_data)?);
         instructions.push(recv_instruction);
 
@@ -419,7 +425,7 @@ impl super::TxBuilder {
 
         let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(ack_instruction);
 
         // Count unique accounts across all instructions
@@ -617,7 +623,7 @@ impl super::TxBuilder {
         let timeout_instruction =
             self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(timeout_instruction);
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;
@@ -719,7 +725,7 @@ impl super::TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)

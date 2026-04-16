@@ -330,8 +330,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPCounterFromCosmos() {
 				PrefundLamports: 5_000_000, // rent for UserCounter + GMP PDA rent-exempt minimum
 			}
 
-			// Marshal to protobuf bytes
-			payload, err := proto.Marshal(solanaInstruction)
+			payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 			if err != nil {
 				return nil
 			}
@@ -647,7 +646,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSPLTokenTransferFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call
@@ -1394,6 +1393,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 
 	var solanaPacketTxHash []byte
 	var sequence uint64
+	var timeoutTimestamp uint64
 
 	s.Require().True(s.Run("Send call from Solana with short timeout", func() {
 		var payload []byte
@@ -1437,16 +1437,15 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 			solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
 			s.Require().NoError(err)
 
-			// Using 35 seconds to provide buffer above the transaction execution delay
-			timeout := uint64(solanaClockTime + 35)
+			timeoutTimestamp = uint64(solanaClockTime + SolanaOriginatedTimeoutSeconds)
 
-			s.T().Logf("Setting timeout to: %d (solana_clock=%d + 35 seconds)", timeout, solanaClockTime)
+			s.T().Logf("Setting timeout to: %d (solana_clock=%d + %ds)", timeoutTimestamp, solanaClockTime, SolanaOriginatedTimeoutSeconds)
 
 			sendCallInstruction, err = ics27_gmp.NewSendCallInstruction(
 				ics27_gmp.Ics27GmpStateSendCallMsg{
 					SourceClient:     SolanaClientID,
 					Sequence:         sequence,
-					TimeoutTimestamp: timeout,
+					TimeoutTimestamp: timeoutTimestamp,
 					Receiver:         "", // Target program on Cosmos (empty for native modules)
 					Salt:             []byte{},
 					Payload:          payload,
@@ -1502,9 +1501,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromSolana() {
 		s.T().Log("Retrieved recv relay transaction before timeout")
 	}))
 
-	// Sleep for 40 seconds to let the packet timeout (timeout is set to solana_time + 35 seconds)
-	s.T().Log("Sleeping 40 seconds to let packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmos.Chain{Cosmos: simd}, timeoutTimestamp)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
 		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
@@ -1690,10 +1688,10 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 	var cosmosGMPTxHash []byte
 	var recipientWallet *solanago.Wallet
 	var destTokenAccount solanago.PublicKey
+	var cosmosTimeoutTimestamp uint64
 
 	s.Require().True(s.Run("Send GMP call from Cosmos with short timeout", func() {
-		// Using 35 seconds to allow packet to timeout quickly for test purposes
-		timeout := uint64(time.Now().Add(35 * time.Second).Unix())
+		cosmosTimeoutTimestamp = uint64(time.Now().Add(20 * time.Second).Unix())
 
 		// Build SPL transfer instruction
 		var err error
@@ -1724,7 +1722,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call with short timeout
@@ -1734,7 +1732,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 			Receiver:         token.ProgramID.String(),
 			Salt:             []byte{},
 			Payload:          payload,
-			TimeoutTimestamp: timeout,
+			TimeoutTimestamp: cosmosTimeoutTimestamp,
 			Memo:             "timeout test from Cosmos",
 			Encoding:         encodingType.String(),
 		})
@@ -1774,9 +1772,8 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPTimeoutFromCosmos() {
 		}
 	}))
 
-	// Sleep for 40 seconds to let the packet timeout (timeout is set to 35 seconds)
-	s.T().Log("Sleeping 40 seconds to let packet timeout...")
-	time.Sleep(40 * time.Second)
+	err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
+	s.Require().NoError(err)
 
 	s.Require().True(s.Run("Relay timeout back to Cosmos", func() {
 		s.Require().True(s.Run("Relay timeout transaction", func() {
@@ -1985,7 +1982,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPFailedExecutionFromCosmos() {
 			},
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		// Send GMP call
@@ -2817,7 +2814,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPPrefundedPDANotBlocked() {
 			PrefundLamports: 5_000_000,
 		}
 
-		payload, err := proto.Marshal(solanaInstruction)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(solanaInstruction, encodingType.String())
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
@@ -2943,7 +2940,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_RelayerPubkey() {
 		gmpPayload, err := instructionToGMPPayload(ix, 5_000_000)
 		s.Require().NoError(err)
 
-		payload, err := proto.Marshal(gmpPayload)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(gmpPayload, testvalues.Ics27ProtobufEncoding)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{
@@ -3013,7 +3010,7 @@ func (s *IbcEurekaSolanaGMPTestSuite) Test_GMPSignerExploit_SOLTransfer() {
 		gmpPayload, err := instructionToGMPPayload(transferIx, 5_000_000)
 		s.Require().NoError(err)
 
-		payload, err := proto.Marshal(gmpPayload)
+		payload, err := gmphelpers.MarshalGMPSolanaPayload(gmpPayload, testvalues.Ics27ProtobufEncoding)
 		s.Require().NoError(err)
 
 		resp, err := s.BroadcastMessages(ctx, simd, cosmosUser, 2_000_000, &gmptypes.MsgSendCall{

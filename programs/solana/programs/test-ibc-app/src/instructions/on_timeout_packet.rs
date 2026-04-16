@@ -2,8 +2,10 @@ use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
 /// Accounts for handling a packet timeout callback.
+///
+/// The account layout must match the CPI interface defined in
+/// `solana_ibc_types::ibc_app::OnTimeoutPacket`: `[app_state, instructions_sysvar, payer, system_program]`.
 #[derive(Accounts)]
-#[instruction(msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
     /// App state PDA that tracks packet counters.
     #[account(
