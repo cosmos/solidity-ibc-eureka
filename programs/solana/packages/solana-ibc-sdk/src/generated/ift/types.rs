@@ -32,6 +32,11 @@ pub enum ChainOptions {
         type_url: String,
         ica_address: String,
     },
+    Solana {
+        ift_program_id: Pubkey,
+        counterparty_mint: Pubkey,
+        counterparty_client_id: String,
+    },
 }
 
 /// Token type and configuration for `create_and_initialize_spl_token`

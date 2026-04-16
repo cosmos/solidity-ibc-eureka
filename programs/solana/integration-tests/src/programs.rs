@@ -8,6 +8,10 @@ use crate::accounts::account_owned_by;
 use crate::attestor::Attestors;
 use crate::chain::{add_program_data, mock_ibc_app_state_pda, ChainProgram, InitStepSigner};
 use anchor_lang::InstructionData;
+use solana_ibc_sdk::access_manager::instructions as am_sdk;
+use solana_ibc_sdk::attestation::instructions as attestation_sdk;
+use solana_ibc_sdk::ics27_gmp::instructions as gmp_sdk;
+use solana_ibc_sdk::ift::instructions as ift_sdk;
 use solana_program_test::ProgramTest;
 use solana_sdk::{
     bpf_loader_upgradeable,
@@ -102,24 +106,18 @@ impl ChainProgram for Ics27Gmp {
         _admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
         let (program_data_pda, _) =
             Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
-        let ix = Instruction {
-            program_id: ics27_gmp::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(program_data_pda, false),
-                AccountMeta::new_readonly(payer, true),
-            ],
-            data: ics27_gmp::instruction::Initialize {
+        let ix = gmp_sdk::Initialize::builder(&ics27_gmp::ID)
+            .accounts(gmp_sdk::InitializeAccounts {
+                payer,
+                program_data: program_data_pda,
+                authority: payer,
+            })
+            .args(&gmp_sdk::InitializeArgs {
                 access_manager: access_manager::ID,
-            }
-            .data(),
-        };
+            })
+            .build();
         vec![(vec![ix], InitStepSigner::DeployerOnly)]
     }
 
@@ -193,21 +191,16 @@ impl ChainProgram for Ift {
         admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID);
         let (program_data_pda, _) =
             Pubkey::find_program_address(&[ift::ID.as_ref()], &bpf_loader_upgradeable::ID);
-        let ix = Instruction {
-            program_id: ift::ID,
-            accounts: vec![
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(program_data_pda, false),
-                AccountMeta::new_readonly(payer, true),
-            ],
-            data: ift::instruction::Initialize { admin }.data(),
-        };
+        let ix = ift_sdk::Initialize::builder(&ift::ID)
+            .accounts(ift_sdk::InitializeAccounts {
+                payer,
+                program_data: program_data_pda,
+                authority: payer,
+            })
+            .args(&ift_sdk::InitializeArgs { admin })
+            .build();
         vec![(vec![ix], InitStepSigner::DeployerOnly)]
     }
 
@@ -281,30 +274,21 @@ impl ChainProgram for AttestationLc {
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
         let pid = self.program_id;
-        let (client_state_pda, _) =
-            Pubkey::find_program_address(&[attestation::types::ClientState::SEED], &pid);
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[attestation::types::AppState::SEED], &pid);
         let (program_data_pda, _) =
             Pubkey::find_program_address(&[pid.as_ref()], &bpf_loader_upgradeable::ID);
 
-        let ix = Instruction {
-            program_id: pid,
-            accounts: vec![
-                AccountMeta::new(client_state_pda, false),
-                AccountMeta::new(app_state_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(program_data_pda, false),
-                AccountMeta::new_readonly(payer, true),
-            ],
-            data: attestation::instruction::Initialize {
+        let ix = attestation_sdk::Initialize::builder(&pid)
+            .accounts(attestation_sdk::InitializeAccounts {
+                payer,
+                program_data: program_data_pda,
+                authority: payer,
+            })
+            .args(&attestation_sdk::InitializeArgs {
                 attestor_addresses: self.attestor_addresses.clone(),
                 min_required_sigs: self.min_required_sigs,
                 access_manager: access_manager::ID,
-            }
-            .data(),
-        };
+            })
+            .build();
         vec![(vec![ix], InitStepSigner::DeployerOnly)]
     }
 
@@ -330,40 +314,27 @@ impl ChainProgram for TestAccessManager {
         admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let test_am_pda =
-            solana_ibc_types::access_manager::AccessManager::pda(test_access_manager::ID).0;
-
         let (program_data_pda, _) = Pubkey::find_program_address(
             &[test_access_manager::ID.as_ref()],
             &bpf_loader_upgradeable::ID,
         );
 
-        let init_ix = Instruction {
-            program_id: test_access_manager::ID,
-            accounts: vec![
-                AccountMeta::new(test_am_pda, false),
-                AccountMeta::new(payer, true),
-                AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-                AccountMeta::new_readonly(program_data_pda, false),
-                AccountMeta::new_readonly(payer, true),
-            ],
-            data: access_manager::instruction::Initialize { admin }.data(),
-        };
+        let init_ix = am_sdk::Initialize::builder(&test_access_manager::ID)
+            .accounts(am_sdk::InitializeAccounts {
+                payer,
+                program_data: program_data_pda,
+                authority: payer,
+            })
+            .args(&am_sdk::InitializeArgs { admin })
+            .build();
 
-        let grant_ix = Instruction {
-            program_id: test_access_manager::ID,
-            accounts: vec![
-                AccountMeta::new(test_am_pda, false),
-                AccountMeta::new_readonly(admin, true),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            ],
-            data: access_manager::instruction::GrantRole {
+        let grant_ix = am_sdk::GrantRole::builder(&test_access_manager::ID)
+            .accounts(am_sdk::GrantRoleAccounts { admin })
+            .args(&am_sdk::GrantRoleArgs {
                 role_id: solana_ibc_types::roles::ADMIN_ROLE,
                 account: admin,
-            }
-            .data(),
-        };
+            })
+            .build();
 
         vec![
             (vec![init_ix], InitStepSigner::DeployerOnly),

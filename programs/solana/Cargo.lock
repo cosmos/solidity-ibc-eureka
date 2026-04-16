@@ -3710,6 +3710,7 @@ dependencies = [
  "prost",
  "sha2 0.10.9",
  "solana-ibc-proto",
+ "solana-ibc-sdk",
  "solana-ibc-types",
  "solana-keccak-hasher",
  "solana-program-test",

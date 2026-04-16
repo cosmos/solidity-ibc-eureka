@@ -31,6 +31,7 @@ test-gmp-app = { path = "../programs/test-gmp-app" }
 mock-ibc-app = { path = "../programs/mock-ibc-app" }
 test-cpi-proxy = { path = "../programs/test-cpi-proxy" }
 test-access-manager = { workspace = true, features = ["cpi"] }
+solana-ibc-sdk = { workspace = true }
 solana-ibc-types = { workspace = true }
 solana-ibc-proto = { workspace = true }
 solana-sdk = { workspace = true, features = ["full"] }
