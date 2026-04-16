@@ -102,6 +102,6 @@ $ANCHOR_CMD keys sync -p "$INSTANCE_UNDERSCORE" --provider.cluster localnet
 
 # 7. Build
 echo "🔨 Building $INSTANCE"
-$ANCHOR_CMD build -- -p "$INSTANCE"
+$ANCHOR_CMD build -p "$INSTANCE"
 
 echo "✅ Built: target/deploy/${INSTANCE_UNDERSCORE}.so"
