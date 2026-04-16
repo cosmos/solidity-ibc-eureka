@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 	"time"
 	"unicode"
 
@@ -446,6 +447,36 @@ func (s *TestSuite) MustBroadcastSdkTxBodyNoWait(ctx context.Context, chain *cos
 	s.Require().NoError(err)
 
 	return resp
+}
+
+// BlockTimeFetcher abstracts reading the latest block timestamp from any chain.
+type BlockTimeFetcher interface {
+	GetBlockTime(ctx context.Context) (int64, error)
+}
+
+// ProofStaleness is the extra time to wait after a timeout is reached on-chain
+// before relaying the timeout proof. The relayer builds proofs against recent
+// consensus states that may lag behind the actual chain clock by ~12s (attestor
+// update interval). Without this buffer the destination chain rejects the proof
+// because its counterparty timestamp is still below the timeout.
+const ProofStaleness = 15 * time.Second
+
+// WaitForBlockTime polls chain's block time every second until it exceeds
+// timeoutTimestamp, returning an error if 2 minutes elapse first.
+func WaitForBlockTime(ctx context.Context, t *testing.T, chain BlockTimeFetcher, timeoutTimestamp uint64) error {
+	t.Helper()
+	start := time.Now()
+	return testutil.WaitForCondition(2*time.Minute, time.Second, func() (bool, error) {
+		blockTime, err := chain.GetBlockTime(ctx)
+		if err != nil {
+			return false, nil
+		}
+		if uint64(blockTime) > timeoutTimestamp {
+			t.Logf("Timeout reached after %s (block time: %d > timeout: %d)", time.Since(start).Round(time.Second), blockTime, timeoutTimestamp)
+			return true, nil
+		}
+		return false, nil
+	})
 }
 
 // StripHTTPPrefix removes http:// or https:// prefix from an endpoint.

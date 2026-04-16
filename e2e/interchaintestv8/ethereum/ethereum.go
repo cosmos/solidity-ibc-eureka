@@ -51,6 +51,15 @@ func NewEthereum(ctx context.Context, rpc string, beaconAPIClient *BeaconAPIClie
 	}, nil
 }
 
+// GetBlockTime returns the latest block timestamp as Unix seconds.
+func (e *Ethereum) GetBlockTime(ctx context.Context) (int64, error) {
+	header, err := e.RPCClient.HeaderByNumber(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	return int64(header.Time), nil
+}
+
 // BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
 // Once the transaction is mined, the receipt is returned.
 func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, gasLimit uint64, address *ethcommon.Address, txBz []byte) (*ethtypes.Receipt, error) {
@@ -91,12 +100,14 @@ func (e *Ethereum) BroadcastTx(ctx context.Context, userKey *ecdsa.PrivateKey, g
 }
 
 func (e Ethereum) ForgeScript(deployer *ecdsa.PrivateKey, solidityContract string, args ...string) ([]byte, error) {
-	args = append(args, "script", "--rpc-url", e.RPC, "--private-key",
+	cmdArgs := []string{
+		"script", "--rpc-url", e.RPC, "--private-key",
 		hex.EncodeToString(crypto.FromECDSA(deployer)), "--broadcast",
 		"--non-interactive", "-vvvv", solidityContract,
-	)
+	}
+	cmdArgs = append(cmdArgs, args...)
 	cmd := exec.Command(
-		"forge", args...,
+		"forge", cmdArgs...,
 	)
 
 	faucetAddress := crypto.PubkeyToAddress(e.Faucet.PublicKey)

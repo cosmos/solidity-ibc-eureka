@@ -405,6 +405,11 @@ func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 	return unixTimestamp, nil
 }
 
+// GetBlockTime returns the latest block timestamp as Unix seconds from the Solana clock sysvar.
+func (s *Solana) GetBlockTime(ctx context.Context) (int64, error) {
+	return s.GetSolanaClockTime(ctx)
+}
+
 // GetProgramDataAddress derives the ProgramData account address for an upgradeable program
 func GetProgramDataAddress(programID solana.PublicKey) (solana.PublicKey, error) {
 	pda, _, err := solana.FindProgramAddress(

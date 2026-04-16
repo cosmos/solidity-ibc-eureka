@@ -14,6 +14,8 @@ ibc-eureka-relayer-cosmos-to-cosmos     = { workspace = true, default-features =
 ibc-eureka-relayer-eth-to-cosmos-compat = { workspace = true, default-features = false }
 ibc-eureka-relayer-solana-to-cosmos     = { workspace = true, default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { workspace = true, default-features = false }
+ibc-eureka-relayer-eth-to-solana        = { workspace = true, default-features = false }
+ibc-eureka-relayer-solana-to-eth        = { workspace = true, default-features = false }
 
 tokio      = { workspace = true, default-features = true }
 prometheus = { workspace = true, default-features = true }
