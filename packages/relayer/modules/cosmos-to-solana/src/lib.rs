@@ -13,12 +13,14 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::aggregator::Config as AggregatorConfig;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
+use ibc_eureka_relayer_lib::utils::wait_for_condition;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -233,15 +235,51 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events", target_events.len());
 
-        // For timeouts in attested mode, get the current source chain height where
-        // non-membership is proven. ICS07 Tendermint does not use this value.
-        let timeout_relay_height = if self.tx_builder.is_attested() && !target_events.is_empty() {
-            Some(
-                self.src_listener
-                    .get_block_height()
+        // For timeouts in attested mode, find a source chain height whose
+        // block time is past the packet timeout. ICS07 Tendermint does not
+        // use this value.
+        let timeout_relay_height = if self.tx_builder.is_attested() {
+            let max_timeout = target_events
+                .iter()
+                .filter_map(|e| match &e.event {
+                    SolanaEurekaEvent::SendPacket(event) => Some(event.timeout_timestamp),
+                    SolanaEurekaEvent::WriteAcknowledgement(_) => None,
+                })
+                .max();
+
+            if let Some(max_timeout) = max_timeout {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("system clock before UNIX epoch")
+                    .as_secs();
+                let cutoff = now.min(max_timeout);
+                let src_listener = &self.src_listener;
+                wait_for_condition(
+                    std::time::Duration::from_secs(24),
+                    std::time::Duration::from_secs(1),
+                    || async {
+                        let (_, block_time) = src_listener.get_block_height_with_time().await?;
+                        if block_time >= cutoff {
+                            Ok(true)
+                        } else {
+                            tracing::debug!(
+                                "Cosmos block time ({block_time}) < cutoff ({cutoff}), waiting"
+                            );
+                            Ok(false)
+                        }
+                    },
+                )
+                .await
+                .map_err(to_tonic_status)?;
+                let (height, _) = self
+                    .src_listener
+                    .get_block_height_with_time()
                     .await
-                    .map_err(to_tonic_status)?,
-            )
+                    .map_err(to_tonic_status)?;
+                Some(height)
+            } else {
+                None
+            }
         } else {
             None
         };

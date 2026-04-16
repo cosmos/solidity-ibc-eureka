@@ -158,6 +158,35 @@
       }
     },
     {
+      "name": "eth_to_solana",
+      "src_chain": "0x1",
+      "dst_chain": "solana-localnet",
+      "config": {
+        "ics26_address": "0x4242424242424242424242424242424242424242",
+        "eth_rpc_url": "https://ethereum-holesky-rpc.publicnode.com",
+        "solana_rpc_url": "https://api.devnet.solana.com",
+        "solana_ics26_program_id": "11111111111111111111111111111111",
+        "solana_fee_payer": "11111111111111111111111111111111",
+        "solana_alt_address": "11111111111111111111111111111111",
+        "solana_ift_program_ids": [],
+        "mode": {
+          "attested": {
+            "attestor": {
+              "attestor_query_timeout_ms": 1500,
+              "quorum_threshold": 1,
+              "attestor_endpoints": [
+                "https://attestor-1.example.com"
+              ]
+            },
+            "cache": {
+              "state_cache_max_entries": 100000,
+              "packet_cache_max_entries": 100000
+            }
+          }
+        }
+      }
+    },
+    {
       "name": "cosmos_to_solana",
       "src_chain": "cosmoshub-4",
       "dst_chain": "solana-localnet",
