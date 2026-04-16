@@ -2,6 +2,10 @@ use super::*;
 
 #[tokio::test]
 async fn test_gmp_full_lifecycle() {
+    // ── Attestors (independent per chain) ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -13,8 +17,14 @@ async fn test_gmp_full_lifecycle() {
     let increment_amount = 42u64;
 
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
-    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let programs_a: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_a];
+
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
+
+    let (mut chain_a, mut chain_b) =
+        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -22,8 +32,12 @@ async fn test_gmp_full_lifecycle() {
     chain_b.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b)
+        .await;
 
     // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
@@ -54,9 +68,20 @@ async fn test_gmp_full_lifecycle() {
 
     assert_commitment_set(&chain_a, commitment_pda).await;
 
+    // ── Build attestation proof for recv on Chain B ──
+    let packet_commitment = read_commitment(&chain_a, commitment_pda).await;
+    let recv_entry = att_helpers::packet_commitment_entry(
+        chain_b.counterparty_client_id(),
+        sequence,
+        packet_commitment,
+    );
+    let recv_proof =
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+
     // ── Relayer uploads chunks and delivers recv_packet to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &recv_proof_bytes)
         .await
         .expect("upload recv chunks on Chain B failed");
 
@@ -90,20 +115,38 @@ async fn test_gmp_full_lifecycle() {
     let counter_state = read_counter_app_state(&chain_b, counter_app_state).await;
     assert_eq!(counter_state.total_counters, 1);
 
+    // ── Build attestation proof for ack on Chain A ──
+    let ack_commitment = extract_ack_data(&chain_b, recv.ack_pda).await;
+    let ack_entry = att_helpers::ack_commitment_entry(
+        chain_a.counterparty_client_id(),
+        sequence,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof =
+        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+
     // ── Relayer uploads chunks and delivers ack_packet back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &ack_proof_bytes)
         .await
         .expect("upload ack chunks on Chain A failed");
 
-    let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
+    let raw_ack = ics27_gmp::encoding::encode_gmp_ack(
+        &increment_amount.to_le_bytes(),
+        gmp::ICS27_ENCODING_PROTOBUF,
+    )
+    .expect("encode GMP ack");
 
     let ack_commitment_pda = relayer
         .gmp_ack_packet(
             &mut chain_a,
             GmpAckPacketParams {
                 sequence,
-                acknowledgement: ack_data,
+                acknowledgement: raw_ack,
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
             },

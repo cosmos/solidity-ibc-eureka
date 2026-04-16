@@ -59,19 +59,19 @@ pub fn mock_lc_accounts(client_id: &str) -> LcAccounts {
     }
 }
 
-/// Derive attestation light client [`LcAccounts`] for a given proof height.
+/// Derive attestation light client [`LcAccounts`] for a given program and proof height.
 ///
 /// Unlike mock LC, the attestation client state PDA is height-independent
 /// (seeds: `["client"]`), and the consensus state PDA depends on the proof
 /// height (seeds: `["consensus_state", height.to_le_bytes()]`).
-pub fn attestation_lc_accounts(proof_height: u64) -> LcAccounts {
-    let (client_state, _) = Pubkey::find_program_address(&[b"client"], &attestation::ID);
+pub fn attestation_lc_accounts(program_id: Pubkey, proof_height: u64) -> LcAccounts {
+    let (client_state, _) = Pubkey::find_program_address(&[b"client"], &program_id);
     let (consensus_state, _) = Pubkey::find_program_address(
         &[b"consensus_state", &proof_height.to_le_bytes()],
-        &attestation::ID,
+        &program_id,
     );
     LcAccounts {
-        program_id: attestation::ID,
+        program_id,
         client_state,
         consensus_state,
     }
@@ -215,19 +215,30 @@ impl Chain {
         programs_a: &[&dyn ChainProgram],
         programs_b: &[&dyn ChainProgram],
     ) -> (Self, Self) {
+        Self::pair_with_lc(deployer, programs_a, programs_b, mock_light_client::ID)
+    }
+
+    /// Create two chains with mirrored client IDs, different programs and a
+    /// specific light-client program.
+    pub fn pair_with_lc(
+        deployer: &Deployer,
+        programs_a: &[&dyn ChainProgram],
+        programs_b: &[&dyn ChainProgram],
+        lc_program_id: Pubkey,
+    ) -> (Self, Self) {
         let chain_a = Self::new(ChainConfig {
             client_id: "chain-a-client",
             counterparty_client_id: "chain-b-client",
             deployer,
             programs: programs_a,
-            lc_program_id: mock_light_client::ID,
+            lc_program_id,
         });
         let chain_b = Self::new(ChainConfig {
             client_id: "chain-b-client",
             counterparty_client_id: "chain-a-client",
             deployer,
             programs: programs_b,
-            lc_program_id: mock_light_client::ID,
+            lc_program_id,
         });
         (chain_a, chain_b)
     }
@@ -277,6 +288,29 @@ impl Chain {
         deployer.transfer_upgrade_authority(self, programs).await;
     }
 
+    /// Like [`init`](Self::init) but also submits an `update_client`
+    /// transaction for the attestation LC, creating a consensus state at
+    /// [`PROOF_HEIGHT`](crate::router::PROOF_HEIGHT).
+    ///
+    /// Attestation LC requires an explicit `update_client` after
+    /// initialization (unlike mock LC which is pre-seeded with a
+    /// consensus state). This method bundles both steps so attestation
+    /// tests don't need a separate `update_client` call.
+    pub async fn init_with_attestation(
+        &mut self,
+        deployer: &Deployer,
+        admin: &Admin,
+        relayer: &Relayer,
+        programs: &[&dyn ChainProgram],
+        attestors: &crate::attestor::Attestors,
+    ) {
+        self.init(deployer, admin, relayer, programs).await;
+        relayer
+            .attestation_update_client(self, attestors, crate::router::PROOF_HEIGHT)
+            .await
+            .expect("attestation update_client during init failed");
+    }
+
     // ── Runtime phase (after start) ─────────────────────────────────────
 
     /// Light-client identifier on this chain.
@@ -308,7 +342,7 @@ impl Chain {
         if self.lc_program_id == mock_light_client::ID {
             mock_lc_accounts(&self.client_id)
         } else {
-            attestation_lc_accounts(crate::router::PROOF_HEIGHT)
+            attestation_lc_accounts(self.lc_program_id, crate::router::PROOF_HEIGHT)
         }
     }
 
@@ -319,7 +353,7 @@ impl Chain {
         if self.lc_program_id == mock_light_client::ID {
             mock_lc_accounts(&self.client_id)
         } else {
-            attestation_lc_accounts(height)
+            attestation_lc_accounts(self.lc_program_id, height)
         }
     }
 

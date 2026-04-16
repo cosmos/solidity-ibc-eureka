@@ -6,6 +6,10 @@ use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey, system_program};
 /// and no receipt or ack is created.
 #[tokio::test]
 async fn test_gmp_failed_execution_aborts() {
+    // ── Attestors (independent per chain) ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -17,8 +21,14 @@ async fn test_gmp_failed_execution_aborts() {
     let increment_amount = 10u64;
 
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
-    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let programs_a: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_a];
+
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
+
+    let (mut chain_a, mut chain_b) =
+        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -29,8 +39,12 @@ async fn test_gmp_failed_execution_aborts() {
     chain_b.prefund_lamports(fake_counter_app_state, 1_000_000);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b)
+        .await;
 
     // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
@@ -70,24 +84,37 @@ async fn test_gmp_failed_execution_aborts() {
         prefund_lamports: GMP_PAYLOAD_PREFUND_LAMPORTS,
     };
 
-    let gmp_packet_bytes = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &bad_payload);
+    let gmp_packet_bytes =
+        gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &bad_payload);
 
     // ── Send on Chain A ──
-    user.send_call(
-        &mut chain_a,
-        GmpSendCallParams {
-            sequence,
-            timeout_timestamp: GMP_TIMEOUT,
-            receiver: &test_gmp_app::ID.to_string(),
-            payload: bad_payload.encode_to_vec(),
-        },
-    )
-    .await
-    .expect("send_call failed");
+    let commitment_pda = user
+        .send_call(
+            &mut chain_a,
+            GmpSendCallParams {
+                sequence,
+                timeout_timestamp: GMP_TIMEOUT,
+                receiver: &test_gmp_app::ID.to_string(),
+                payload: bad_payload.encode_to_vec(),
+            },
+        )
+        .await
+        .expect("send_call failed");
 
-    // Upload chunks and attempt recv on Chain B
+    // ── Build attestation proof for recv on Chain B ──
+    let packet_commitment = read_commitment(&chain_a, commitment_pda).await;
+    let recv_entry = att_helpers::packet_commitment_entry(
+        chain_b.counterparty_client_id(),
+        sequence,
+        packet_commitment,
+    );
+    let recv_proof =
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+
+    // ── Upload chunks and attempt recv on Chain B ──
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &recv_proof_bytes)
         .await
         .expect("upload recv chunks failed");
 

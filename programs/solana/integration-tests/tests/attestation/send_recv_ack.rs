@@ -41,20 +41,13 @@ async fn test_attestation_send_recv_ack_roundtrip() {
     });
     chain_b.prefund(&[&admin, &relayer]);
 
-    // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
-
-    // ── Update client (create consensus state at PROOF_HEIGHT) ──
-    relayer
-        .attestation_update_client(&mut chain_a, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on A failed");
-
-    relayer
-        .attestation_update_client(&mut chain_b, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on B failed");
+    // ── Init (includes update_client at PROOF_HEIGHT) ──
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── User sends on Chain A ──
     let send = user

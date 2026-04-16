@@ -4,23 +4,26 @@
 //! `Relayer` actor bridges packets between them while the `User` actor
 //! initiates GMP calls via `send_call`.
 //!
-//! The mock light client always accepts proofs, so these tests exercise the
-//! full GMP lifecycle (`send_call` -> `recv_packet` -> `ack_packet`) without
-//! real proof verification.
+//! All tests use the attestation light client with real ECDSA proofs
+//! verified on-chain. Each chain gets its own independent attestor set.
 
 use anchor_lang::AccountDeserialize;
 use ics27_gmp::errors::GMPError;
 use integration_tests::{
     admin::Admin,
     anchor_error_code, assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{mock_lc_accounts, Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
+    attestation as att_helpers,
+    attestor::Attestors,
+    chain::{Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
     extract_ack_data, extract_custom_error, gmp,
     gmp::{GmpAckPacketParams, GmpRecvPacketParams, GmpSendCallParams},
-    programs::{Ics27Gmp, TestCpiProxy, TestGmpApp},
+    programs::{AttestationLc, Ics27Gmp, TestCpiProxy, TestGmpApp},
+    read_commitment,
     relayer::Relayer,
+    router::PROOF_HEIGHT,
     user::User,
-    Actor, DUMMY_PROOF,
+    Actor,
 };
 use prost::Message as ProstMessage;
 use solana_sdk::pubkey::Pubkey;

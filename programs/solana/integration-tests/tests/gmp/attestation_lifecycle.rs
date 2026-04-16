@@ -1,6 +1,6 @@
 use super::*;
 use integration_tests::{
-    attestation as att_helpers, attestor::Attestors, chain::ChainConfig, programs::AttestationLc,
+    attestation as att_helpers, attestor::Attestors, programs::AttestationLc,
     read_commitment, router::PROOF_HEIGHT,
 };
 
@@ -25,41 +25,21 @@ async fn test_gmp_attestation_full_lifecycle() {
     let attestation_lc = AttestationLc::new(&attestors);
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
 
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-        lc_program_id: attestation::ID,
-    });
+    let (mut chain_a, mut chain_b) =
+        Chain::pair_with_lc(&deployer, programs, programs, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-        lc_program_id: attestation::ID,
-    });
     chain_b.prefund(&[&admin, &relayer]);
 
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
-    // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
-
-    // ── Update client (create consensus state at PROOF_HEIGHT) ──
-    relayer
-        .attestation_update_client(&mut chain_a, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on A failed");
-
-    relayer
-        .attestation_update_client(&mut chain_b, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on B failed");
+    // ── Init (includes update_client at PROOF_HEIGHT) ──
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);

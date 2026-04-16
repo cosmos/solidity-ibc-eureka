@@ -1,32 +1,74 @@
 use super::*;
+use integration_tests::chain::attestation_lc_accounts as att_lc_accounts;
+use integration_tests::programs::TEST_ATTESTATION_ID;
+use solana_sdk::compute_budget::ComputeBudgetInstruction;
 use solana_sdk::transaction::Transaction;
 
-/// Three-chain roundtrip: A→B then B→C, with independent GMP lifecycles on
-/// each hop.
+/// Three-chain full-circle roundtrip: A→B→C→A→C→B→A.
 ///
-/// Chain A: client `"a-to-b"` ↔ counterparty `"b-to-a"`
-/// Chain B: primary `"b-to-a"` ↔ `"a-to-b"`, additional `"b-to-c"` ↔ `"c-to-b"`
-/// Chain C: client `"c-to-b"` ↔ counterparty `"b-to-c"`
+/// Six independent GMP legs traverse every edge of the A-B-C triangle in
+/// both directions. Each leg is a complete send→recv→ack lifecycle.
+///
+/// Topology:
+///   Chain A: `"a-to-b"` ↔ `"b-to-a"`, `"a-to-c"` ↔ `"c-to-a"`
+///   Chain B: `"b-to-a"` ↔ `"a-to-b"`, `"b-to-c"` ↔ `"c-to-b"`
+///   Chain C: `"c-to-b"` ↔ `"b-to-c"`, `"c-to-a"` ↔ `"a-to-c"`
+///
+/// Each chain hosts two attestation LC instances (`attestation::ID` and
+/// `TEST_ATTESTATION_ID`) with independent attestor sets per directed
+/// client connection.
 #[tokio::test]
 async fn test_gmp_three_chain_roundtrip() {
+    // ── Attestor sets (one per directed connection) ──
+    let attestors_a_ab = Attestors::new(2);
+    let attestors_a_ac = Attestors::new(2);
+    let attestors_b_ba = Attestors::new(2);
+    let attestors_b_bc = Attestors::new(2);
+    let attestors_c_cb = Attestors::new(2);
+    let attestors_c_ca = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
     let user = User::new();
 
-    // ── Test data ──
-    let amount_a_to_b = 42u64;
-    let amount_b_to_c = 58u64;
-
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
+    // Each chain has two attestation LC instances: primary (attestation::ID)
+    // and secondary (TEST_ATTESTATION_ID) with independent attestor sets.
+    let att_lc_a_primary = AttestationLc::new(&attestors_a_ab);
+    let att_lc_a_secondary = AttestationLc::with_program_id(
+        &attestors_a_ac,
+        TEST_ATTESTATION_ID,
+        "test_attestation",
+    );
+    let programs_a: &[&dyn ChainProgram] =
+        &[&Ics27Gmp, &TestGmpApp, &att_lc_a_primary, &att_lc_a_secondary];
+
+    let att_lc_b_primary = AttestationLc::new(&attestors_b_ba);
+    let att_lc_b_secondary = AttestationLc::with_program_id(
+        &attestors_b_bc,
+        TEST_ATTESTATION_ID,
+        "test_attestation",
+    );
+    let programs_b: &[&dyn ChainProgram] =
+        &[&Ics27Gmp, &TestGmpApp, &att_lc_b_primary, &att_lc_b_secondary];
+
+    let att_lc_c_primary = AttestationLc::new(&attestors_c_cb);
+    let att_lc_c_secondary = AttestationLc::with_program_id(
+        &attestors_c_ca,
+        TEST_ATTESTATION_ID,
+        "test_attestation",
+    );
+    let programs_c: &[&dyn ChainProgram] =
+        &[&Ics27Gmp, &TestGmpApp, &att_lc_c_primary, &att_lc_c_secondary];
+
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_a,
+        lc_program_id: attestation::ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -34,8 +76,8 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_b,
+        lc_program_id: attestation::ID,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -43,194 +85,493 @@ async fn test_gmp_three_chain_roundtrip() {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_c,
+        lc_program_id: attestation::ID,
     });
-    chain_c.prefund(&[&admin, &relayer]);
+    chain_c.prefund(&[&admin, &relayer, &user]);
 
-    let gmp_pda_on_b = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
-    chain_b.prefund_lamports(gmp_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    // GMP account PDAs (one per receiving-chain × receiving-client × sender).
+    let gmp_b_from_a = gmp::derive_gmp_account_pda("b-to-a", &user.pubkey());
+    let gmp_b_from_c = gmp::derive_gmp_account_pda("b-to-c", &user.pubkey());
+    let gmp_c_from_b = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
+    let gmp_c_from_a = gmp::derive_gmp_account_pda("c-to-a", &user.pubkey());
+    let gmp_a_from_b = gmp::derive_gmp_account_pda("a-to-b", &user.pubkey());
+    let gmp_a_from_c = gmp::derive_gmp_account_pda("a-to-c", &user.pubkey());
 
-    let gmp_pda_on_c = gmp::derive_gmp_account_pda("c-to-b", &user.pubkey());
-    chain_c.prefund_lamports(gmp_pda_on_c, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_a.prefund_lamports(gmp_a_from_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_a.prefund_lamports(gmp_a_from_c, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_b.prefund_lamports(gmp_b_from_a, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_b.prefund_lamports(gmp_b_from_c, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_c.prefund_lamports(gmp_c_from_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
+    chain_c.prefund_lamports(gmp_c_from_a, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.start().await;
-    deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
+    // Each chain: init primary client, add secondary client, update_client
+    // on secondary LC.
+
+    // Chain A: primary "a-to-b" (attestation::ID), secondary "a-to-c" (TEST_ATTESTATION_ID)
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a_ab)
         .await;
     deployer
-        .add_counterparty(&mut chain_b, &admin, "b-to-c", "c-to-b")
-        .await;
-    deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
-        .await;
-    chain_c.init(&deployer, &admin, &relayer, programs).await;
-
-    // ── Build payloads ──
-    let counter_on_b = gmp::derive_user_counter_pda(&gmp_pda_on_b);
-    let counter_state_b = chain_b.counter_app_state_pda();
-    let payload_ab =
-        gmp::encode_increment_payload(counter_state_b, counter_on_b, gmp_pda_on_b, amount_a_to_b);
-    let packet_ab = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_ab);
-
-    let counter_on_c = gmp::derive_user_counter_pda(&gmp_pda_on_c);
-    let counter_state_c = chain_c.counter_app_state_pda();
-    let payload_bc =
-        gmp::encode_increment_payload(counter_state_c, counter_on_c, gmp_pda_on_c, amount_b_to_c);
-    let packet_bc = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_bc);
-
-    // ── Leg 1: A → B (sequence=1, amount=42) ──
-
-    let commitment_a = user
-        .send_call(
+        .add_counterparty_with_attestation(
             &mut chain_a,
-            GmpSendCallParams {
-                sequence: 1,
-                timeout_timestamp: GMP_TIMEOUT,
-                receiver: &test_gmp_app::ID.to_string(),
-                payload: payload_ab.encode_to_vec(),
-            },
+            &admin,
+            "a-to-c",
+            "c-to-a",
+            TEST_ATTESTATION_ID,
         )
-        .await
-        .expect("A→B send_call failed");
-
-    // Recv on Chain B
-    let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, 1, &packet_ab, DUMMY_PROOF)
-        .await
-        .expect("upload A→B recv chunks failed");
-
-    let remaining_b =
-        gmp::build_increment_remaining_accounts(gmp_pda_on_b, counter_state_b, counter_on_b);
-    let recv_on_b = relayer
-        .gmp_recv_packet(
-            &mut chain_b,
-            GmpRecvPacketParams {
-                sequence: 1,
-                payload_chunk_pda: b_recv_payload,
-                proof_chunk_pda: b_recv_proof,
-                remaining_accounts: remaining_b,
-            },
-        )
-        .await
-        .expect("A→B recv_packet failed");
-
-    let ack_b_data = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
-
-    let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, 1, &packet_ab, DUMMY_PROOF)
-        .await
-        .expect("upload A→B ack chunks failed");
-
+        .await;
     relayer
-        .gmp_ack_packet(
+        .attestation_update_client_for_program(
             &mut chain_a,
-            GmpAckPacketParams {
-                sequence: 1,
-                acknowledgement: ack_b_data,
-                payload_chunk_pda: a_ack_payload,
-                proof_chunk_pda: a_ack_proof,
-            },
+            &attestors_a_ac,
+            PROOF_HEIGHT,
+            TEST_ATTESTATION_ID,
         )
         .await
-        .expect("A→B ack_packet failed");
+        .expect("update secondary LC on A");
 
-    // ── Leg 2: B → C (sequence=1, amount=58) ──
-
-    // Build send_call using the b-to-c client on Chain B.
-    let (send_bc_ix, commitment_b) = gmp::build_gmp_send_call_ix(
-        user.pubkey(),
-        user.pubkey(),
-        "b-to-c",
-        &mock_lc_accounts("b-to-c"),
-        GmpSendCallParams {
-            sequence: 1,
-            timeout_timestamp: GMP_TIMEOUT,
-            receiver: &test_gmp_app::ID.to_string(),
-            payload: payload_bc.encode_to_vec(),
-        },
-    );
-
-    let tx = Transaction::new_signed_with_payer(
-        &[send_bc_ix],
-        Some(&user.pubkey()),
-        &[user.keypair()],
-        chain_b.blockhash(),
-    );
+    // Chain B: primary "b-to-a" (attestation::ID), secondary "b-to-c" (TEST_ATTESTATION_ID)
     chain_b
-        .process_transaction(tx)
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b_ba)
+        .await;
+    deployer
+        .add_counterparty_with_attestation(
+            &mut chain_b,
+            &admin,
+            "b-to-c",
+            "c-to-b",
+            TEST_ATTESTATION_ID,
+        )
+        .await;
+    relayer
+        .attestation_update_client_for_program(
+            &mut chain_b,
+            &attestors_b_bc,
+            PROOF_HEIGHT,
+            TEST_ATTESTATION_ID,
+        )
         .await
-        .expect("B→C send_call failed");
+        .expect("update secondary LC on B");
 
-    // Recv on Chain C
-    let (c_recv_payload, c_recv_proof) = relayer
-        .upload_chunks(&mut chain_c, 1, &packet_bc, DUMMY_PROOF)
-        .await
-        .expect("upload B→C recv chunks failed");
-
-    let remaining_c =
-        gmp::build_increment_remaining_accounts(gmp_pda_on_c, counter_state_c, counter_on_c);
-    let recv_on_c = relayer
-        .gmp_recv_packet(
+    // Chain C: primary "c-to-b" (attestation::ID), secondary "c-to-a" (TEST_ATTESTATION_ID)
+    chain_c
+        .init_with_attestation(&deployer, &admin, &relayer, programs_c, &attestors_c_cb)
+        .await;
+    deployer
+        .add_counterparty_with_attestation(
             &mut chain_c,
-            GmpRecvPacketParams {
-                sequence: 1,
-                payload_chunk_pda: c_recv_payload,
-                proof_chunk_pda: c_recv_proof,
-                remaining_accounts: remaining_c,
-            },
+            &admin,
+            "c-to-a",
+            "a-to-c",
+            TEST_ATTESTATION_ID,
+        )
+        .await;
+    relayer
+        .attestation_update_client_for_program(
+            &mut chain_c,
+            &attestors_c_ca,
+            PROOF_HEIGHT,
+            TEST_ATTESTATION_ID,
         )
         .await
-        .expect("B→C recv_packet failed");
+        .expect("update secondary LC on C");
 
-    let ack_c_data = extract_ack_data(&chain_c, recv_on_c.ack_pda).await;
+    // ── Connection contexts ──
+    let conn_a_ab = ConnCtx {
+        lc_program_id: attestation::ID,
+        attestors: &attestors_a_ab,
+    };
+    let conn_a_ac = ConnCtx {
+        lc_program_id: TEST_ATTESTATION_ID,
+        attestors: &attestors_a_ac,
+    };
+    let conn_b_ba = ConnCtx {
+        lc_program_id: attestation::ID,
+        attestors: &attestors_b_ba,
+    };
+    let conn_b_bc = ConnCtx {
+        lc_program_id: TEST_ATTESTATION_ID,
+        attestors: &attestors_b_bc,
+    };
+    let conn_c_cb = ConnCtx {
+        lc_program_id: attestation::ID,
+        attestors: &attestors_c_cb,
+    };
+    let conn_c_ca = ConnCtx {
+        lc_program_id: TEST_ATTESTATION_ID,
+        attestors: &attestors_c_ca,
+    };
 
-    let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks_for_client(&mut chain_b, "b-to-c", 1, &packet_bc, DUMMY_PROOF)
-        .await
-        .expect("upload B→C ack chunks failed");
+    // ── Counter state PDAs ──
+    let cs_a = chain_a.counter_app_state_pda();
+    let cs_b = chain_b.counter_app_state_pda();
+    let cs_c = chain_c.counter_app_state_pda();
 
-    // Build ack with the b-to-c client
-    let (ack_bc_ix, _ack_commitment_b) = gmp::build_gmp_ack_packet_ix(
-        relayer.pubkey(),
+    // ── User-counter PDAs ──
+    let ctr_b_from_a = gmp::derive_user_counter_pda(&gmp_b_from_a);
+    let ctr_b_from_c = gmp::derive_user_counter_pda(&gmp_b_from_c);
+    let ctr_c_from_b = gmp::derive_user_counter_pda(&gmp_c_from_b);
+    let ctr_c_from_a = gmp::derive_user_counter_pda(&gmp_c_from_a);
+    let ctr_a_from_b = gmp::derive_user_counter_pda(&gmp_a_from_b);
+    let ctr_a_from_c = gmp::derive_user_counter_pda(&gmp_a_from_c);
+
+    // ── Leg 1: A → B ──
+    let l1 = run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_a,
+        "a-to-b",
+        &conn_a_ab,
+        &mut chain_b,
+        "b-to-a",
+        &conn_b_ba,
+        gmp_b_from_a,
+        cs_b,
+        ctr_b_from_a,
+        10,
+        1,
+        None,
+        None,
+    )
+    .await;
+
+    // ── Leg 2: B → C ──
+    let l2 = run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_b,
         "b-to-c",
+        &conn_b_bc,
+        &mut chain_c,
         "c-to-b",
-        chain_b.clock_time(),
-        &mock_lc_accounts("b-to-c"),
-        GmpAckPacketParams {
-            sequence: 1,
-            acknowledgement: ack_c_data,
-            payload_chunk_pda: b_ack_payload,
-            proof_chunk_pda: b_ack_proof,
-        },
-    );
-    let tx = Transaction::new_signed_with_payer(
-        &[ack_bc_ix],
-        Some(&relayer.pubkey()),
-        &[relayer.keypair()],
-        chain_b.blockhash(),
-    );
-    chain_b
-        .process_transaction(tx)
-        .await
-        .expect("B→C ack_packet failed");
+        &conn_c_cb,
+        gmp_c_from_b,
+        cs_c,
+        ctr_c_from_b,
+        20,
+        1,
+        None,
+        None,
+    )
+    .await;
+
+    // ── Leg 3: C → A ──
+    let l3 = run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_c,
+        "c-to-a",
+        &conn_c_ca,
+        &mut chain_a,
+        "a-to-c",
+        &conn_a_ac,
+        gmp_a_from_c,
+        cs_a,
+        ctr_a_from_c,
+        30,
+        1,
+        None,
+        None,
+    )
+    .await;
+
+    // ── Leg 4: A → C  (reuses C("c-to-a",1) and A("a-to-c",1) slots) ──
+    let l4 = run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_a,
+        "a-to-c",
+        &conn_a_ac,
+        &mut chain_c,
+        "c-to-a",
+        &conn_c_ca,
+        gmp_c_from_a,
+        cs_c,
+        ctr_c_from_a,
+        40,
+        1,
+        Some(&l3.ack),
+        Some(&l3.recv),
+    )
+    .await;
+    let _ = l4;
+
+    // ── Leg 5: C → B  (reuses B("b-to-c",1) and C("c-to-b",1) slots) ──
+    let l5 = run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_c,
+        "c-to-b",
+        &conn_c_cb,
+        &mut chain_b,
+        "b-to-c",
+        &conn_b_bc,
+        gmp_b_from_c,
+        cs_b,
+        ctr_b_from_c,
+        50,
+        1,
+        Some(&l2.ack),
+        Some(&l2.recv),
+    )
+    .await;
+    let _ = l5;
+
+    // ── Leg 6: B → A  (reuses A("a-to-b",1) and B("b-to-a",1) slots) ──
+    run_gmp_leg(
+        &user,
+        &relayer,
+        &mut chain_b,
+        "b-to-a",
+        &conn_b_ba,
+        &mut chain_a,
+        "a-to-b",
+        &conn_a_ab,
+        gmp_a_from_b,
+        cs_a,
+        ctr_a_from_b,
+        60,
+        1,
+        Some(&l1.ack),
+        Some(&l1.recv),
+    )
+    .await;
 
     // ── Assertions ──
 
-    // Chain A: commitment zeroed, GMPCallResultAccount exists
-    assert_commitment_zeroed(&chain_a, commitment_a).await;
-    assert_gmp_result_exists(&chain_a, chain_a.client_id(), 1).await;
+    // Chain A: received from C (30) and B (60)
+    let counter = read_user_counter(&chain_a, ctr_a_from_c).await;
+    assert_eq!(counter.count, 30);
+    let counter = read_user_counter(&chain_a, ctr_a_from_b).await;
+    assert_eq!(counter.count, 60);
 
-    // Chain B: UserCounter = 42 from leg 1
-    let counter_b = read_user_counter(&chain_b, counter_on_b).await;
-    assert_eq!(counter_b.count, amount_a_to_b);
+    // Chain B: received from A (10) and C (50)
+    let counter = read_user_counter(&chain_b, ctr_b_from_a).await;
+    assert_eq!(counter.count, 10);
+    let counter = read_user_counter(&chain_b, ctr_b_from_c).await;
+    assert_eq!(counter.count, 50);
 
-    // Chain B: commitment for leg 2 zeroed
-    assert_commitment_zeroed(&chain_b, commitment_b).await;
+    // Chain C: received from B (20) and A (40)
+    let counter = read_user_counter(&chain_c, ctr_c_from_b).await;
+    assert_eq!(counter.count, 20);
+    let counter = read_user_counter(&chain_c, ctr_c_from_a).await;
+    assert_eq!(counter.count, 40);
 
-    // Chain C: UserCounter = 58 from leg 2
-    let counter_c = read_user_counter(&chain_c, counter_on_c).await;
-    assert_eq!(counter_c.count, amount_b_to_c);
+    // All GMPCallResult accounts exist
+    assert_gmp_result_exists(&chain_a, "a-to-b", 1).await;
+    assert_gmp_result_exists(&chain_a, "a-to-c", 1).await;
+    assert_gmp_result_exists(&chain_b, "b-to-c", 1).await;
+    assert_gmp_result_exists(&chain_b, "b-to-a", 1).await;
+    assert_gmp_result_exists(&chain_c, "c-to-a", 1).await;
+    assert_gmp_result_exists(&chain_c, "c-to-b", 1).await;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/// Connection context: LC program ID and attestor set for a directed link.
+struct ConnCtx<'a> {
+    lc_program_id: Pubkey,
+    attestors: &'a Attestors,
+}
+
+struct ChunkPdas {
+    payload: Pubkey,
+    proof: Pubkey,
+}
+
+struct LegChunks {
+    recv: ChunkPdas,
+    ack: ChunkPdas,
+}
+
+/// Run a complete GMP leg: send → recv → ack with real attestation proofs.
+///
+/// `source_conn` / `dest_conn` provide the LC program ID and attestors for
+/// each side. `stale_on_dest` / `stale_on_source` are chunk PDAs from a
+/// previous leg that occupy the same (client, sequence) slot and must be
+/// cleaned first.
+#[allow(clippy::too_many_arguments)]
+async fn run_gmp_leg(
+    user: &User,
+    relayer: &Relayer,
+    source: &mut Chain,
+    source_client: &str,
+    source_conn: &ConnCtx<'_>,
+    dest: &mut Chain,
+    dest_client: &str,
+    dest_conn: &ConnCtx<'_>,
+    gmp_pda: Pubkey,
+    counter_state: Pubkey,
+    counter_pda: Pubkey,
+    amount: u64,
+    sequence: u64,
+    stale_on_dest: Option<&ChunkPdas>,
+    stale_on_source: Option<&ChunkPdas>,
+) -> LegChunks {
+    let payload = gmp::encode_increment_payload(counter_state, counter_pda, gmp_pda, amount);
+    let packet = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload);
+
+    // ── Send on source chain ──
+    let source_lc = att_lc_accounts(source_conn.lc_program_id, PROOF_HEIGHT);
+    let (send_ix, commitment_pda) = gmp::build_gmp_send_call_ix(
+        user.pubkey(),
+        user.pubkey(),
+        source_client,
+        &source_lc,
+        GmpSendCallParams {
+            sequence,
+            timeout_timestamp: GMP_TIMEOUT,
+            receiver: &test_gmp_app::ID.to_string(),
+            payload: payload.encode_to_vec(),
+        },
+    );
+    let tx = Transaction::new_signed_with_payer(
+        &[send_ix],
+        Some(&user.pubkey()),
+        &[user.keypair()],
+        source.blockhash(),
+    );
+    source
+        .process_transaction(tx)
+        .await
+        .expect("send_call failed");
+
+    // ── Build recv proof (signed by dest attestors) ──
+    let packet_commitment = read_commitment(source, commitment_pda).await;
+    let recv_entry = att_helpers::packet_commitment_entry(
+        source_client, // counterparty from dest's perspective
+        sequence,
+        packet_commitment,
+    );
+    let recv_proof = att_helpers::build_packet_membership_proof(
+        dest_conn.attestors,
+        PROOF_HEIGHT,
+        &[recv_entry],
+    );
+    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+
+    // ── Recv on dest chain ──
+    if let Some(stale) = stale_on_dest {
+        relayer
+            .cleanup_chunks_for_client(
+                dest,
+                dest_client,
+                sequence,
+                stale.payload,
+                stale.proof,
+            )
+            .await
+            .expect("cleanup stale dest chunks failed");
+    }
+
+    let (recv_pl, recv_pr) = relayer
+        .upload_chunks_for_client(dest, dest_client, sequence, &packet, &recv_proof_bytes)
+        .await
+        .expect("upload recv chunks failed");
+
+    let remaining =
+        gmp::build_increment_remaining_accounts(gmp_pda, counter_state, counter_pda);
+    let dest_lc = att_lc_accounts(dest_conn.lc_program_id, PROOF_HEIGHT);
+    let recv_result = gmp::build_gmp_recv_packet_ix(
+        relayer.pubkey(),
+        dest_client,
+        source_client,
+        dest.clock_time(),
+        &dest_lc,
+        GmpRecvPacketParams {
+            sequence,
+            payload_chunk_pda: recv_pl,
+            proof_chunk_pda: recv_pr,
+            remaining_accounts: remaining,
+        },
+    );
+    let budget_ix = ComputeBudgetInstruction::set_compute_unit_limit(300_000);
+    let tx = Transaction::new_signed_with_payer(
+        &[budget_ix, recv_result.ix],
+        Some(&relayer.pubkey()),
+        &[relayer.keypair()],
+        dest.blockhash(),
+    );
+    dest.process_transaction(tx)
+        .await
+        .expect("recv_packet failed");
+
+    // ── Build ack proof (signed by source attestors) ──
+    let ack_commitment = extract_ack_data(dest, recv_result.ack_pda).await;
+    let ack_entry = att_helpers::ack_commitment_entry(
+        dest_client, // counterparty from source's perspective
+        sequence,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof = att_helpers::build_packet_membership_proof(
+        source_conn.attestors,
+        PROOF_HEIGHT,
+        &[ack_entry],
+    );
+    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+
+    // ── Ack on source chain ──
+    if let Some(stale) = stale_on_source {
+        relayer
+            .cleanup_chunks_for_client(
+                source,
+                source_client,
+                sequence,
+                stale.payload,
+                stale.proof,
+            )
+            .await
+            .expect("cleanup stale source chunks failed");
+    }
+
+    let (ack_pl, ack_pr) = relayer
+        .upload_chunks_for_client(source, source_client, sequence, &packet, &ack_proof_bytes)
+        .await
+        .expect("upload ack chunks failed");
+
+    let raw_ack = ics27_gmp::encoding::encode_gmp_ack(
+        &amount.to_le_bytes(),
+        gmp::ICS27_ENCODING_PROTOBUF,
+    )
+    .expect("encode GMP ack");
+
+    let (ack_ix, _) = gmp::build_gmp_ack_packet_ix(
+        relayer.pubkey(),
+        source_client,
+        dest_client,
+        source.clock_time(),
+        &source_lc,
+        GmpAckPacketParams {
+            sequence,
+            acknowledgement: raw_ack,
+            payload_chunk_pda: ack_pl,
+            proof_chunk_pda: ack_pr,
+        },
+    );
+    let tx = Transaction::new_signed_with_payer(
+        &[ack_ix],
+        Some(&relayer.pubkey()),
+        &[relayer.keypair()],
+        source.blockhash(),
+    );
+    source
+        .process_transaction(tx)
+        .await
+        .expect("ack_packet failed");
+
+    LegChunks {
+        recv: ChunkPdas {
+            payload: recv_pl,
+            proof: recv_pr,
+        },
+        ack: ChunkPdas {
+            payload: ack_pl,
+            proof: ack_pr,
+        },
+    }
 }

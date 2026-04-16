@@ -4,6 +4,10 @@ use super::*;
 /// `UserCounter` and `GMPCallResultAccount`.
 #[tokio::test]
 async fn test_gmp_bidirectional() {
+    // ── Attestors (independent per chain) ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -15,9 +19,15 @@ async fn test_gmp_bidirectional() {
     let amount_a_to_b = 10u64;
     let amount_b_to_a = 20u64;
 
-    // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
-    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    // ── Chains (each with its own attestation LC) ──
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let programs_a: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_a];
+
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
+
+    let (mut chain_a, mut chain_b) =
+        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -26,9 +36,13 @@ async fn test_gmp_bidirectional() {
     let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
-    // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
+    // ── Init (includes update_client at PROOF_HEIGHT) ──
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b)
+        .await;
 
     // ── Build payloads ──
     let counter_on_a = gmp::derive_user_counter_pda(&gmp_pda_on_a);
@@ -45,33 +59,46 @@ async fn test_gmp_bidirectional() {
     let packet_b_to_a = gmp::encode_gmp_packet(&user.pubkey(), &test_gmp_app::ID, &payload_b_to_a);
 
     // ── Send on both chains ──
-    user.send_call(
-        &mut chain_a,
-        GmpSendCallParams {
-            sequence,
-            timeout_timestamp: GMP_TIMEOUT,
-            receiver: &test_gmp_app::ID.to_string(),
-            payload: payload_a_to_b.encode_to_vec(),
-        },
-    )
-    .await
-    .expect("send_call on A failed");
+    let commitment_a = user
+        .send_call(
+            &mut chain_a,
+            GmpSendCallParams {
+                sequence,
+                timeout_timestamp: GMP_TIMEOUT,
+                receiver: &test_gmp_app::ID.to_string(),
+                payload: payload_a_to_b.encode_to_vec(),
+            },
+        )
+        .await
+        .expect("send_call on A failed");
 
-    user.send_call(
-        &mut chain_b,
-        GmpSendCallParams {
-            sequence,
-            timeout_timestamp: GMP_TIMEOUT,
-            receiver: &test_gmp_app::ID.to_string(),
-            payload: payload_b_to_a.encode_to_vec(),
-        },
-    )
-    .await
-    .expect("send_call on B failed");
+    let commitment_b = user
+        .send_call(
+            &mut chain_b,
+            GmpSendCallParams {
+                sequence,
+                timeout_timestamp: GMP_TIMEOUT,
+                receiver: &test_gmp_app::ID.to_string(),
+                payload: payload_b_to_a.encode_to_vec(),
+            },
+        )
+        .await
+        .expect("send_call on B failed");
+
+    // ── Build attestation proof for A→B recv on Chain B ──
+    let packet_commitment_a = read_commitment(&chain_a, commitment_a).await;
+    let recv_entry_a = att_helpers::packet_commitment_entry(
+        chain_b.counterparty_client_id(),
+        sequence,
+        packet_commitment_a,
+    );
+    let recv_proof_a =
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry_a]);
+    let recv_proof_a_bytes = att_helpers::serialize_proof(&recv_proof_a);
 
     // ── Deliver A→B recv on Chain B ──
     let (b_payload, b_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &packet_a_to_b, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, sequence, &packet_a_to_b, &recv_proof_a_bytes)
         .await
         .expect("upload A→B recv chunks failed");
 
@@ -90,9 +117,20 @@ async fn test_gmp_bidirectional() {
         .await
         .expect("A→B recv_packet failed");
 
+    // ── Build attestation proof for B→A recv on Chain A ──
+    let packet_commitment_b = read_commitment(&chain_b, commitment_b).await;
+    let recv_entry_b = att_helpers::packet_commitment_entry(
+        chain_a.counterparty_client_id(),
+        sequence,
+        packet_commitment_b,
+    );
+    let recv_proof_b =
+        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[recv_entry_b]);
+    let recv_proof_b_bytes = att_helpers::serialize_proof(&recv_proof_b);
+
     // ── Deliver B→A recv on Chain A ──
     let (a_payload, a_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &packet_b_to_a, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, &packet_b_to_a, &recv_proof_b_bytes)
         .await
         .expect("upload B→A recv chunks failed");
 
@@ -111,15 +149,33 @@ async fn test_gmp_bidirectional() {
         .await
         .expect("B→A recv_packet failed");
 
+    // ── Build attestation proof for A→B ack on Chain A ──
+    let raw_ack_b = ics27_gmp::encoding::encode_gmp_ack(
+        &amount_a_to_b.to_le_bytes(),
+        gmp::ICS27_ENCODING_PROTOBUF,
+    )
+    .expect("encode GMP ack B");
+
+    let ack_commitment_b = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
+    let ack_entry_b = att_helpers::ack_commitment_entry(
+        chain_a.counterparty_client_id(),
+        sequence,
+        ack_commitment_b
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof_b =
+        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry_b]);
+    let ack_proof_b_bytes = att_helpers::serialize_proof(&ack_proof_b);
+
     // ── Deliver A→B ack back on Chain A ──
-    // Clean up B→A recv chunks before uploading A→B ack chunks (same chain + sequence)
     relayer
         .cleanup_chunks(&mut chain_a, sequence, a_payload, a_proof)
         .await
         .expect("cleanup B→A recv chunks on A failed");
-    let ack_b_data = extract_ack_data(&chain_b, recv_on_b.ack_pda).await;
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, sequence, &packet_a_to_b, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, &packet_a_to_b, &ack_proof_b_bytes)
         .await
         .expect("upload A→B ack chunks failed");
     relayer
@@ -127,7 +183,7 @@ async fn test_gmp_bidirectional() {
             &mut chain_a,
             GmpAckPacketParams {
                 sequence,
-                acknowledgement: ack_b_data,
+                acknowledgement: raw_ack_b,
                 payload_chunk_pda: a_ack_payload,
                 proof_chunk_pda: a_ack_proof,
             },
@@ -135,15 +191,33 @@ async fn test_gmp_bidirectional() {
         .await
         .expect("A→B ack_packet failed");
 
+    // ── Build attestation proof for B→A ack on Chain B ──
+    let raw_ack_a = ics27_gmp::encoding::encode_gmp_ack(
+        &amount_b_to_a.to_le_bytes(),
+        gmp::ICS27_ENCODING_PROTOBUF,
+    )
+    .expect("encode GMP ack A");
+
+    let ack_commitment_a = extract_ack_data(&chain_a, recv_on_a.ack_pda).await;
+    let ack_entry_a = att_helpers::ack_commitment_entry(
+        chain_b.counterparty_client_id(),
+        sequence,
+        ack_commitment_a
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof_a =
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[ack_entry_a]);
+    let ack_proof_a_bytes = att_helpers::serialize_proof(&ack_proof_a);
+
     // ── Deliver B→A ack back on Chain B ──
-    // Clean up A→B recv chunks before uploading B→A ack chunks (same chain + sequence)
     relayer
         .cleanup_chunks(&mut chain_b, sequence, b_payload, b_proof)
         .await
         .expect("cleanup A→B recv chunks on B failed");
-    let ack_a_data = extract_ack_data(&chain_a, recv_on_a.ack_pda).await;
     let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks(&mut chain_b, sequence, &packet_b_to_a, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, sequence, &packet_b_to_a, &ack_proof_a_bytes)
         .await
         .expect("upload B→A ack chunks failed");
     relayer
@@ -151,7 +225,7 @@ async fn test_gmp_bidirectional() {
             &mut chain_b,
             GmpAckPacketParams {
                 sequence,
-                acknowledgement: ack_a_data,
+                acknowledgement: raw_ack_a,
                 payload_chunk_pda: b_ack_payload,
                 proof_chunk_pda: b_ack_proof,
             },

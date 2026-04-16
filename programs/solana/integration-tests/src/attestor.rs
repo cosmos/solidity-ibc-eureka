@@ -23,14 +23,9 @@ pub struct Attestor {
 }
 
 impl Attestor {
-    /// Create an attestor from a deterministic seed byte.
-    pub fn new(seed: u8) -> Self {
-        let mut key_bytes = [0u8; 32];
-        key_bytes[0] = seed;
-        key_bytes[31] = 1; // ensure non-zero
-
-        let signer =
-            PrivateKeySigner::from_bytes(&key_bytes.into()).expect("valid key bytes for testing");
+    /// Create an attestor with a random ECDSA key.
+    pub fn random() -> Self {
+        let signer = PrivateKeySigner::random();
         let eth_address = signer.address().0 .0;
 
         Self {
@@ -62,13 +57,16 @@ impl Attestor {
     }
 }
 
-/// A set of attestors with deterministic keys.
+/// A set of attestors with random keys.
+///
+/// Each call to [`Attestors::new`] produces a unique set, so tests that need
+/// independent attestor sets per chain can simply call `new` twice.
 pub struct Attestors(Vec<Attestor>);
 
 impl Attestors {
-    /// Create `count` attestors with deterministic keys (seeds 1..=count).
+    /// Create `count` attestors with random ECDSA keys.
     pub fn new(count: usize) -> Self {
-        Self((1..=count as u8).map(Attestor::new).collect())
+        Self((0..count).map(|_| Attestor::random()).collect())
     }
 
     pub fn as_slice(&self) -> &[Attestor] {

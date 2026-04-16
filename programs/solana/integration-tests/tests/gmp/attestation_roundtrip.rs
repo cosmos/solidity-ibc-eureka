@@ -1,18 +1,20 @@
 use super::*;
 use integration_tests::{
-    attestation as att_helpers, attestor::Attestors, chain::ChainConfig, programs::AttestationLc,
+    attestation as att_helpers, attestor::Attestors, programs::AttestationLc,
     read_commitment, router::PROOF_HEIGHT,
 };
 
-/// Bidirectional GMP roundtrip with attestation light client (2-of-2 quorum).
+/// Bidirectional GMP roundtrip with attestation light client.
 ///
-/// Both chains send a GMP call to each other. All recv and ack proofs are
-/// real attestation proofs verified on-chain via ECDSA recovery, unlike
-/// `bidirectional` which relies on the mock LC.
+/// Each chain has its own independent attestor set (2-of-2 quorum),
+/// verifying that proofs are correctly tied to the verifying chain's
+/// attestors rather than being shared. All recv and ack proofs are
+/// real attestation proofs verified on-chain via ECDSA recovery.
 #[tokio::test]
 async fn test_gmp_attestation_roundtrip() {
-    // ── Attestors ──
-    let attestors = Attestors::new(2);
+    // ── Attestors (independent sets per chain) ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
 
     // ── Actors ──
     let deployer = Deployer::new();
@@ -25,26 +27,16 @@ async fn test_gmp_attestation_roundtrip() {
     let amount_a_to_b = 10u64;
     let amount_b_to_a = 20u64;
 
-    // ── Chains ──
-    let attestation_lc = AttestationLc::new(&attestors);
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
+    // ── Chains (each with its own attestation LC) ──
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let programs_a: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_a];
 
-    let mut chain_a = Chain::new(ChainConfig {
-        client_id: "chain-a-client",
-        counterparty_client_id: "chain-b-client",
-        deployer: &deployer,
-        programs,
-        lc_program_id: attestation::ID,
-    });
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
+
+    let (mut chain_a, mut chain_b) =
+        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
-
-    let mut chain_b = Chain::new(ChainConfig {
-        client_id: "chain-b-client",
-        counterparty_client_id: "chain-a-client",
-        deployer: &deployer,
-        programs,
-        lc_program_id: attestation::ID,
-    });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
     let gmp_pda_on_a = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
@@ -52,19 +44,13 @@ async fn test_gmp_attestation_roundtrip() {
     let gmp_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &user.pubkey());
     chain_b.prefund_lamports(gmp_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
-    // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
-
-    // ── Update client on both chains ──
-    relayer
-        .attestation_update_client(&mut chain_a, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on A failed");
-    relayer
-        .attestation_update_client(&mut chain_b, &attestors, PROOF_HEIGHT)
-        .await
-        .expect("update_client on B failed");
+    // ── Init (includes update_client at PROOF_HEIGHT) ──
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b)
+        .await;
 
     // ── Build payloads ──
     let counter_on_a = gmp::derive_user_counter_pda(&gmp_pda_on_a);
@@ -108,6 +94,7 @@ async fn test_gmp_attestation_roundtrip() {
         .expect("send_call on B failed");
 
     // ── Build attestation proof for A→B recv on Chain B ──
+    // Chain B verifies → sign with attestors_b
     let packet_commitment_a = read_commitment(&chain_a, commitment_a).await;
     let recv_entry_a = att_helpers::packet_commitment_entry(
         chain_b.counterparty_client_id(),
@@ -115,7 +102,7 @@ async fn test_gmp_attestation_roundtrip() {
         packet_commitment_a,
     );
     let recv_proof_a =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry_a]);
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry_a]);
     let recv_proof_a_bytes = att_helpers::serialize_proof(&recv_proof_a);
 
     // ── Deliver A→B recv on Chain B ──
@@ -142,6 +129,7 @@ async fn test_gmp_attestation_roundtrip() {
     assert_receipt_created(&chain_b, recv_on_b.receipt_pda).await;
 
     // ── Build attestation proof for B→A recv on Chain A ──
+    // Chain A verifies → sign with attestors_a
     let packet_commitment_b = read_commitment(&chain_b, commitment_b).await;
     let recv_entry_b = att_helpers::packet_commitment_entry(
         chain_a.counterparty_client_id(),
@@ -149,7 +137,7 @@ async fn test_gmp_attestation_roundtrip() {
         packet_commitment_b,
     );
     let recv_proof_b =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry_b]);
+        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[recv_entry_b]);
     let recv_proof_b_bytes = att_helpers::serialize_proof(&recv_proof_b);
 
     // ── Deliver B→A recv on Chain A ──
@@ -176,6 +164,7 @@ async fn test_gmp_attestation_roundtrip() {
     assert_receipt_created(&chain_a, recv_on_a.receipt_pda).await;
 
     // ── Build attestation proof for A→B ack on Chain A ──
+    // Chain A verifies → sign with attestors_a
     let raw_ack_b = ics27_gmp::encoding::encode_gmp_ack(
         &amount_a_to_b.to_le_bytes(),
         gmp::ICS27_ENCODING_PROTOBUF,
@@ -192,7 +181,7 @@ async fn test_gmp_attestation_roundtrip() {
             .expect("ack should be 32 bytes"),
     );
     let ack_proof_b =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry_b]);
+        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry_b]);
     let ack_proof_b_bytes = att_helpers::serialize_proof(&ack_proof_b);
 
     // ── Deliver A→B ack back on Chain A ──
@@ -218,6 +207,7 @@ async fn test_gmp_attestation_roundtrip() {
         .expect("A→B ack_packet failed");
 
     // ── Build attestation proof for B→A ack on Chain B ──
+    // Chain B verifies → sign with attestors_b
     let raw_ack_a = ics27_gmp::encoding::encode_gmp_ack(
         &amount_b_to_a.to_le_bytes(),
         gmp::ICS27_ENCODING_PROTOBUF,
@@ -234,7 +224,7 @@ async fn test_gmp_attestation_roundtrip() {
             .expect("ack should be 32 bytes"),
     );
     let ack_proof_a =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry_a]);
+        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[ack_entry_a]);
     let ack_proof_a_bytes = att_helpers::serialize_proof(&ack_proof_a);
 
     // ── Deliver B→A ack back on Chain B ──

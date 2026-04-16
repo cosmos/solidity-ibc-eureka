@@ -22,11 +22,26 @@ use solana_sdk::{
     system_program,
 };
 
-/// Build an `update_client` instruction for the attestation LC.
+/// Build an `update_client` instruction for the default attestation LC instance.
 pub fn build_update_client_ix(relayer: Pubkey, height: u64, proof: MembershipProof) -> Instruction {
-    let client_state_pda = ClientState::pda();
-    let consensus_state_pda = ConsensusStateStore::pda(height);
-    let app_state_pda = AppState::pda();
+    build_update_client_ix_for_program(attestation::ID, relayer, height, proof)
+}
+
+/// Build an `update_client` instruction targeting a specific attestation program.
+pub fn build_update_client_ix_for_program(
+    program_id: Pubkey,
+    relayer: Pubkey,
+    height: u64,
+    proof: MembershipProof,
+) -> Instruction {
+    let (client_state_pda, _) =
+        Pubkey::find_program_address(&[ClientState::SEED], &program_id);
+    let (consensus_state_pda, _) = Pubkey::find_program_address(
+        &[ConsensusStateStore::SEED, &height.to_le_bytes()],
+        &program_id,
+    );
+    let (app_state_pda, _) =
+        Pubkey::find_program_address(&[AppState::SEED], &program_id);
 
     let (access_manager_pda, _) = Pubkey::find_program_address(
         &[access_manager::state::AccessManager::SEED],
@@ -34,7 +49,7 @@ pub fn build_update_client_ix(relayer: Pubkey, height: u64, proof: MembershipPro
     );
 
     Instruction {
-        program_id: attestation::ID,
+        program_id,
         accounts: vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),

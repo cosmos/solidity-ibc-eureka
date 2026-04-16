@@ -12,11 +12,17 @@ use solana_program_test::ProgramTest;
 use solana_sdk::{
     bpf_loader_upgradeable,
     instruction::{AccountMeta, Instruction},
+    pubkey,
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer as _,
     system_program,
 };
+
+/// Program ID for the `test-attestation` instance
+/// (built via `just build-solana-test-instance attestation test-attestation`).
+pub const TEST_ATTESTATION_ID: Pubkey =
+    pubkey!("2kXQM1LsQeWLEB5GHBGDmUqNzNfejh3pVHaauiQv6FdV");
 
 // ── TestIbcApp ──────────────────────────────────────────────────────────
 
@@ -215,27 +221,55 @@ impl ChainProgram for Ift {
 /// Unlike mock LC (auto-registered by the chain), the attestation LC must
 /// be included in the `programs` slice and requires explicit attestor
 /// addresses and a quorum threshold.
+///
+/// Supports multiple instances via [`with_program_id`](Self::with_program_id),
+/// each backed by a separate `.so` binary with its own `declare_id!`.
 pub struct AttestationLc {
     pub attestor_addresses: Vec<[u8; 20]>,
     pub min_required_sigs: u8,
+    pub program_id: Pubkey,
+    pub binary_name: &'static str,
 }
 
 impl AttestationLc {
     /// Build from an [`Attestors`] set, requiring all signatures (N-of-N quorum).
+    ///
+    /// Uses the default `attestation::ID` and `"attestation"` binary.
     pub fn new(attestors: &Attestors) -> Self {
         let addresses = attestors.eth_addresses();
         let min_required_sigs = addresses.len() as u8;
         Self {
             attestor_addresses: addresses,
             min_required_sigs,
+            program_id: attestation::ID,
+            binary_name: "attestation",
+        }
+    }
+
+    /// Build from an [`Attestors`] set with a custom program ID and binary name.
+    ///
+    /// Use this when deploying multiple attestation instances on the same chain
+    /// (e.g. the three-chain test where each chain needs two client connections).
+    pub fn with_program_id(
+        attestors: &Attestors,
+        program_id: Pubkey,
+        binary_name: &'static str,
+    ) -> Self {
+        let addresses = attestors.eth_addresses();
+        let min_required_sigs = addresses.len() as u8;
+        Self {
+            attestor_addresses: addresses,
+            min_required_sigs,
+            program_id,
+            binary_name,
         }
     }
 }
 
 impl ChainProgram for AttestationLc {
     fn register(&self, pt: &mut ProgramTest, deployer: Pubkey) {
-        pt.add_program("attestation", attestation::ID, None);
-        add_program_data(pt, attestation::ID, deployer);
+        pt.add_program(self.binary_name, self.program_id, None);
+        add_program_data(pt, self.program_id, deployer);
     }
 
     fn init_steps(
@@ -244,13 +278,16 @@ impl ChainProgram for AttestationLc {
         _admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let client_state_pda = attestation::types::ClientState::pda();
-        let app_state_pda = attestation::types::AppState::pda();
+        let pid = self.program_id;
+        let (client_state_pda, _) =
+            Pubkey::find_program_address(&[attestation::types::ClientState::SEED], &pid);
+        let (app_state_pda, _) =
+            Pubkey::find_program_address(&[attestation::types::AppState::SEED], &pid);
         let (program_data_pda, _) =
-            Pubkey::find_program_address(&[attestation::ID.as_ref()], &bpf_loader_upgradeable::ID);
+            Pubkey::find_program_address(&[pid.as_ref()], &bpf_loader_upgradeable::ID);
 
         let ix = Instruction {
-            program_id: attestation::ID,
+            program_id: pid,
             accounts: vec![
                 AccountMeta::new(client_state_pda, false),
                 AccountMeta::new(app_state_pda, false),
@@ -270,7 +307,7 @@ impl ChainProgram for AttestationLc {
     }
 
     fn upgrade_authority_program_id(&self) -> Option<Pubkey> {
-        Some(attestation::ID)
+        Some(self.program_id)
     }
 }
 

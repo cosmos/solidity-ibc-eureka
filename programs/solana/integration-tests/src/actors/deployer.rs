@@ -135,6 +135,32 @@ impl Deployer {
         );
         submit_tx(chain, &[add_ix], &[self.keypair(), admin.keypair()]).await;
     }
+
+    /// Register an additional client/counterparty pair backed by an
+    /// attestation LC instance.
+    ///
+    /// Calls `add_client` on the router referencing the given `lc_program_id`.
+    /// The attestation LC's `initialize` is already handled by the
+    /// `AttestationLc` `ChainProgram` in `init_steps`, so only the
+    /// router-side registration is needed here.
+    pub async fn add_counterparty_with_attestation(
+        &self,
+        chain: &mut Chain,
+        admin: &Admin,
+        client_id: &str,
+        counterparty_client_id: &str,
+        lc_program_id: Pubkey,
+    ) {
+        let add_ix = build_add_client_ix(
+            admin.pubkey(),
+            derive_router_state_pda(),
+            derive_access_manager_pda(),
+            client_id,
+            counterparty_client_id,
+            lc_program_id,
+        );
+        submit_tx(chain, &[add_ix], &[self.keypair(), admin.keypair()]).await;
+    }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────

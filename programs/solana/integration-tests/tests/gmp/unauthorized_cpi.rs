@@ -6,6 +6,9 @@ use solana_sdk::{instruction::AccountMeta, transaction::Transaction};
 /// (`test_cpi_proxy`, not `ics26_router`) is rejected with `UnauthorizedRouter`.
 #[tokio::test]
 async fn test_gmp_unauthorized_cpi_rejected() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -17,14 +20,18 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     let increment_amount = 10u64;
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &TestCpiProxy];
-    let mut chain_a = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &TestCpiProxy, &attestation_lc];
+
+    let mut chain_a = Chain::single_with_lc(&deployer, programs, attestation::ID);
     chain_a.prefund(&[&admin, &relayer]);
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
     chain_a.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Build payload ──
     let user_counter_pda = gmp::derive_user_counter_pda(&gmp_account_pda);
@@ -72,7 +79,7 @@ async fn test_gmp_unauthorized_cpi_rejected() {
     // proxy_cpi accounts: target_program, payer, then remaining_accounts
     let mut proxy_accounts = vec![
         AccountMeta::new_readonly(ics27_gmp::ID, false), // target_program
-        AccountMeta::new(relayer.pubkey(), true),        // payer
+        AccountMeta::new(relayer.pubkey(), true),         // payer
     ];
     // All accounts from the raw instruction become remaining_accounts
     for m in &raw_ix.accounts {

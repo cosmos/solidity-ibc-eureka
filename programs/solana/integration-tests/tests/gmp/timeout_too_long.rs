@@ -2,6 +2,9 @@ use super::*;
 
 #[tokio::test]
 async fn test_send_call_timeout_too_long() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -9,12 +12,16 @@ async fn test_send_call_timeout_too_long() {
     let user = User::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp];
-    let mut chain_a = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
+
+    let mut chain_a = Chain::single_with_lc(&deployer, programs, attestation::ID);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Build payload ──
     let gmp_account_pda = gmp::derive_gmp_account_pda("chain-b-client", &user.pubkey());

@@ -119,9 +119,25 @@ impl Relayer {
         payload_chunk_pda: Pubkey,
         proof_chunk_pda: Pubkey,
     ) -> Result<(), BanksClientError> {
+        let client_id = chain.client_id().to_string();
+        self.cleanup_chunks_for_client(chain, &client_id, sequence, payload_chunk_pda, proof_chunk_pda)
+            .await
+    }
+
+    /// Like [`cleanup_chunks`](Self::cleanup_chunks) but for a specific
+    /// `client_id` (used when cleaning up chunks for non-primary clients
+    /// in multi-hop scenarios).
+    pub async fn cleanup_chunks_for_client(
+        &self,
+        chain: &mut Chain,
+        client_id: &str,
+        sequence: u64,
+        payload_chunk_pda: Pubkey,
+        proof_chunk_pda: Pubkey,
+    ) -> Result<(), BanksClientError> {
         let ix = router::build_cleanup_chunks_ix(
             self.pubkey(),
-            chain.client_id(),
+            client_id,
             sequence,
             payload_chunk_pda,
             proof_chunk_pda,
@@ -301,8 +317,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, std::slice::from_ref(&result.ix))
-            .await?;
+        let ixs = with_attestation_budget(chain, result.ix.clone());
+        self.send_tx(chain, &ixs).await?;
         Ok(result)
     }
 
@@ -338,7 +354,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(chain, ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -383,20 +400,43 @@ impl Relayer {
     // ── Attestation LC operations ─────────────────────────────────────
 
     /// Build a state attestation proof from the attestors and submit an
-    /// `update_client` instruction for the attestation LC, creating a
-    /// consensus state at the given height.
+    /// `update_client` instruction for the default attestation LC, creating
+    /// a consensus state at the given height.
     pub async fn attestation_update_client(
         &self,
         chain: &mut Chain,
         attestors: &crate::attestor::Attestors,
         height: u64,
     ) -> Result<(), BanksClientError> {
+        self.attestation_update_client_for_program(
+            chain,
+            attestors,
+            height,
+            attestation::ID,
+        )
+        .await
+    }
+
+    /// Like [`attestation_update_client`](Self::attestation_update_client)
+    /// but targets a specific attestation program instance.
+    pub async fn attestation_update_client_for_program(
+        &self,
+        chain: &mut Chain,
+        attestors: &crate::attestor::Attestors,
+        height: u64,
+        program_id: Pubkey,
+    ) -> Result<(), BanksClientError> {
         let proof = crate::attestation::build_state_membership_proof(
             attestors,
             height,
             chain.clock_time() as u64,
         );
-        let ix = crate::attestation::build_update_client_ix(self.pubkey(), height, proof);
+        let ix = crate::attestation::build_update_client_ix_for_program(
+            program_id,
+            self.pubkey(),
+            height,
+            proof,
+        );
         self.send_tx(chain, &[ix]).await
     }
 
@@ -489,5 +529,22 @@ impl Relayer {
             token_kind,
         );
         self.send_tx(chain, &[ix]).await
+    }
+}
+
+/// Compute budget (in CUs) for attestation-based packet verification.
+///
+/// ECDSA recovery is expensive (~30k CU per attestor) and the default 200k
+/// limit is not enough when attestor counts grow beyond 2. This budget
+/// leaves comfortable headroom for the router + LC + app CPI chain.
+const ATTESTATION_COMPUTE_BUDGET: u32 = 400_000;
+
+/// Prepend a `SetComputeUnitLimit` instruction when the chain uses an
+/// attestation light client, otherwise return the instruction as-is.
+fn with_attestation_budget(chain: &Chain, ix: solana_sdk::instruction::Instruction) -> Vec<solana_sdk::instruction::Instruction> {
+    if chain.lc_program_id() == ::mock_light_client::ID {
+        vec![ix]
+    } else {
+        vec![ComputeBudgetInstruction::set_compute_unit_limit(ATTESTATION_COMPUTE_BUDGET), ix]
     }
 }
