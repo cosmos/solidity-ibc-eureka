@@ -296,7 +296,7 @@ pub fn encode_gmp_packet(
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         ICS27_ENCODING_PROTOBUF,
     )
     .expect("GMP packet encoding should succeed")
@@ -322,7 +322,7 @@ pub fn build_increment_remaining_accounts(
 
 /// Derive the GMP account PDA for a given sender and `client_id`.
 pub fn derive_gmp_account_pda(client_id: &str, sender: &Pubkey) -> Pubkey {
-    let gmp_account = solana_ibc_types::GMPAccount::new(
+    let gmp_account = solana_ibc_gmp_types::GMPAccount::new(
         client_id.to_string().try_into().expect("valid client_id"),
         sender.to_string().try_into().expect("valid sender"),
         vec![].try_into().expect("empty salt"),

@@ -14,7 +14,6 @@ use solana_ibc_sdk::ics27_gmp::instructions as gmp_sdk;
 use solana_ibc_sdk::ift::instructions as ift_sdk;
 use solana_program_test::ProgramTest;
 use solana_sdk::{
-    bpf_loader_upgradeable,
     instruction::{AccountMeta, Instruction},
     pubkey,
     pubkey::Pubkey,
@@ -50,8 +49,7 @@ impl ChainProgram for TestIbcApp {
         _admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let (app_state_pda, _) =
-            Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
+        let (app_state_pda, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&test_ibc_app::ID);
         let ix = Instruction {
             program_id: test_ibc_app::ID,
             accounts: vec![
@@ -106,12 +104,10 @@ impl ChainProgram for Ics27Gmp {
         _admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let (program_data_pda, _) =
-            Pubkey::find_program_address(&[ics27_gmp::ID.as_ref()], &bpf_loader_upgradeable::ID);
         let ix = gmp_sdk::Initialize::builder(&ics27_gmp::ID)
             .accounts(gmp_sdk::InitializeAccounts {
                 payer,
-                program_data: program_data_pda,
+                program_data: gmp_sdk::Initialize::program_data_pda().0,
                 authority: payer,
             })
             .args(&gmp_sdk::InitializeArgs {
@@ -191,12 +187,10 @@ impl ChainProgram for Ift {
         admin: Pubkey,
     ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
         let payer = deployer.pubkey();
-        let (program_data_pda, _) =
-            Pubkey::find_program_address(&[ift::ID.as_ref()], &bpf_loader_upgradeable::ID);
         let ix = ift_sdk::Initialize::builder(&ift::ID)
             .accounts(ift_sdk::InitializeAccounts {
                 payer,
-                program_data: program_data_pda,
+                program_data: ift_sdk::Initialize::program_data_pda().0,
                 authority: payer,
             })
             .args(&ift_sdk::InitializeArgs { admin })
@@ -275,7 +269,7 @@ impl ChainProgram for AttestationLc {
         let payer = deployer.pubkey();
         let pid = self.program_id;
         let (program_data_pda, _) =
-            Pubkey::find_program_address(&[pid.as_ref()], &bpf_loader_upgradeable::ID);
+            Pubkey::find_program_address(&[pid.as_ref()], &solana_sdk::bpf_loader_upgradeable::ID);
 
         let ix = attestation_sdk::Initialize::builder(&pid)
             .accounts(attestation_sdk::InitializeAccounts {
@@ -316,7 +310,7 @@ impl ChainProgram for TestAccessManager {
         let payer = deployer.pubkey();
         let (program_data_pda, _) = Pubkey::find_program_address(
             &[test_access_manager::ID.as_ref()],
-            &bpf_loader_upgradeable::ID,
+            &solana_sdk::bpf_loader_upgradeable::ID,
         );
 
         let init_ix = am_sdk::Initialize::builder(&test_access_manager::ID)
@@ -331,7 +325,7 @@ impl ChainProgram for TestAccessManager {
         let grant_ix = am_sdk::GrantRole::builder(&test_access_manager::ID)
             .accounts(am_sdk::GrantRoleAccounts { admin })
             .args(&am_sdk::GrantRoleArgs {
-                role_id: solana_ibc_types::roles::ADMIN_ROLE,
+                role_id: solana_ibc_constants::roles::ADMIN_ROLE,
                 account: admin,
             })
             .build();

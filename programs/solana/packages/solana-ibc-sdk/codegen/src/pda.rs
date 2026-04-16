@@ -8,6 +8,12 @@ use crate::util::sanitize_ident;
 pub struct ResolvedPda {
     pub const_seeds: Vec<Vec<u8>>,
     pub params: Vec<PdaParam>,
+    /// Fixed outer program for `find_program_address` (from `pda.program` in IDL).
+    ///
+    /// When `Some`, the generated helper uses this constant instead of a
+    /// `program_id` parameter. This is needed for PDAs owned by a different
+    /// program (e.g. `program_data` is owned by `bpf_loader_upgradeable`).
+    pub outer_program: Option<Vec<u8>>,
 }
 
 pub struct PdaParam {
@@ -45,29 +51,62 @@ pub fn resolve_account_pda(
     }
 
     let params = resolve_pda_params(&pda.seeds, ix_args, type_map);
+    let outer_program = extract_const_program(pda.program.as_ref());
 
     Some(ResolvedPda {
         const_seeds,
         params,
+        outer_program,
     })
+}
+
+/// Extracts a const program address from the IDL `pda.program` field.
+///
+/// Returns `Some(bytes)` when `program` is `{"kind": "const", "value": [...]}`,
+/// `None` for dynamic programs or absent fields.
+fn extract_const_program(program: Option<&serde_json::Value>) -> Option<Vec<u8>> {
+    let val = program?;
+    if val.get("kind")?.as_str()? != "const" {
+        return None;
+    }
+    val.get("value")?
+        .as_array()?
+        .iter()
+        .map(|v| v.as_u64().map(|n| n as u8))
+        .collect()
+}
+
+/// BPF Loader Upgradeable program ID bytes.
+const BPF_LOADER_UPGRADEABLE_BYTES: [u8; 32] = [
+    2, 168, 246, 145, 78, 136, 161, 176, 226, 16, 21, 62, 247, 99, 174, 43, 0, 194, 185, 61, 22,
+    193, 36, 210, 192, 83, 122, 16, 4, 128, 0, 0,
+];
+
+/// Maps const program bytes to a Rust expression for `find_program_address`.
+fn const_program_expr(bytes: &[u8]) -> String {
+    if bytes == BPF_LOADER_UPGRADEABLE_BYTES {
+        "anchor_lang::solana_program::bpf_loader_upgradeable::ID".to_string()
+    } else {
+        let b: Vec<String> = bytes.iter().map(ToString::to_string).collect();
+        format!("Pubkey::new_from_array([{}])", b.join(", "))
+    }
 }
 
 /// Generates a PDA associated method on an instruction struct.
 ///
-/// Produces code like:
-/// ```ignore
-/// #[must_use]
-/// pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-///     Pubkey::find_program_address(&[b"app_state"], program_id)
-/// }
-/// ```
+/// When the PDA has a fixed outer program (e.g. `bpf_loader_upgradeable`),
+/// the generated method omits the `program_id` parameter and uses the
+/// const program directly.
 pub fn generate_pda_method(output: &mut String, account_name: &str, resolved: &ResolvedPda) {
     let mut param_strs: Vec<String> = resolved
         .params
         .iter()
         .map(|p| format!("{}: {}", sanitize_ident(&p.name), p.rust_type))
         .collect();
-    param_strs.push("program_id: &Pubkey".to_string());
+
+    if resolved.outer_program.is_none() {
+        param_strs.push("program_id: &Pubkey".to_string());
+    }
 
     let method_name = format!("{}_pda", sanitize_ident(account_name));
     writeln!(output, "    #[must_use]").unwrap();
@@ -85,7 +124,12 @@ pub fn generate_pda_method(output: &mut String, account_name: &str, resolved: &R
     }
 
     writeln!(output, "            ],").unwrap();
-    writeln!(output, "            program_id,").unwrap();
+    if let Some(ref prog_bytes) = resolved.outer_program {
+        let expr = const_program_expr(prog_bytes);
+        writeln!(output, "            &{expr},").unwrap();
+    } else {
+        writeln!(output, "            program_id,").unwrap();
+    }
     writeln!(output, "        )").unwrap();
     writeln!(output, "    }}\n").unwrap();
 }
@@ -363,6 +407,7 @@ mod tests {
                 rust_type: "&Pubkey".to_string(),
                 seed_expr: "owner.as_ref()".to_string(),
             }],
+            outer_program: None,
         };
 
         let exprs = build_seed_exprs(&resolved);
@@ -381,6 +426,7 @@ mod tests {
                 rust_type: "&str".to_string(),
                 seed_expr: "client_id.as_bytes()".to_string(),
             }],
+            outer_program: None,
         };
 
         let mut output = String::new();
@@ -398,6 +444,7 @@ mod tests {
         let resolved = ResolvedPda {
             const_seeds: vec![b"access_manager".to_vec()],
             params: vec![],
+            outer_program: None,
         };
 
         let mut output = String::new();
@@ -416,6 +463,7 @@ mod tests {
                 rust_type: "&str".to_string(),
                 seed_expr: "match.as_bytes()".to_string(),
             }],
+            outer_program: None,
         };
 
         let mut output = String::new();
@@ -538,5 +586,117 @@ mod tests {
         let params = resolve_pda_params(&seeds, &ix_args, &type_map);
         assert_eq!(params.len(), 1);
         assert_eq!(params[0].name, "owner");
+    }
+
+    #[test]
+    fn extract_const_program_returns_bytes_for_const_kind() {
+        let program = Some(serde_json::json!({
+            "kind": "const",
+            "value": BPF_LOADER_UPGRADEABLE_BYTES.to_vec(),
+        }));
+        let result = extract_const_program(program.as_ref());
+        assert_eq!(result, Some(BPF_LOADER_UPGRADEABLE_BYTES.to_vec()));
+    }
+
+    #[test]
+    fn extract_const_program_returns_none_for_account_kind() {
+        let program = Some(serde_json::json!({
+            "kind": "account",
+            "path": "external",
+        }));
+        assert!(extract_const_program(program.as_ref()).is_none());
+    }
+
+    #[test]
+    fn extract_const_program_returns_none_for_absent() {
+        assert!(extract_const_program(None).is_none());
+    }
+
+    #[test]
+    fn resolve_account_pda_captures_const_outer_program() {
+        let acc = IdlInstructionAccount {
+            name: "program_data".to_string(),
+            writable: false,
+            signer: false,
+            address: None,
+            pda: Some(IdlPda {
+                seeds: vec![const_seed(&[1; 32])],
+                program: Some(serde_json::json!({
+                    "kind": "const",
+                    "value": BPF_LOADER_UPGRADEABLE_BYTES.to_vec(),
+                })),
+            }),
+        };
+        let type_map = HashMap::new();
+
+        let resolved = resolve_account_pda(&acc, &[], &type_map).unwrap();
+        assert_eq!(
+            resolved.outer_program,
+            Some(BPF_LOADER_UPGRADEABLE_BYTES.to_vec())
+        );
+    }
+
+    #[test]
+    fn resolve_account_pda_no_outer_program_for_normal_pda() {
+        let acc = pda_account("state", vec![const_seed(b"state")]);
+        let type_map = HashMap::new();
+
+        let resolved = resolve_account_pda(&acc, &[], &type_map).unwrap();
+        assert!(resolved.outer_program.is_none());
+    }
+
+    #[test]
+    fn generate_pda_method_with_const_outer_program() {
+        let resolved = ResolvedPda {
+            const_seeds: vec![vec![1; 32]],
+            params: vec![],
+            outer_program: Some(BPF_LOADER_UPGRADEABLE_BYTES.to_vec()),
+        };
+
+        let mut output = String::new();
+        generate_pda_method(&mut output, "program_data", &resolved);
+
+        // No program_id parameter
+        assert!(output.contains("pub fn program_data_pda() -> (Pubkey, u8)"));
+        assert!(!output.contains("program_id"));
+        // Uses bpf_loader_upgradeable::ID
+        assert!(output.contains("bpf_loader_upgradeable::ID"));
+    }
+
+    #[test]
+    fn generate_pda_method_with_dynamic_seeds_and_const_outer_program() {
+        let resolved = ResolvedPda {
+            const_seeds: vec![],
+            params: vec![PdaParam {
+                name: "program".to_string(),
+                rust_type: "&Pubkey".to_string(),
+                seed_expr: "program.as_ref()".to_string(),
+            }],
+            outer_program: Some(BPF_LOADER_UPGRADEABLE_BYTES.to_vec()),
+        };
+
+        let mut output = String::new();
+        generate_pda_method(&mut output, "program_data", &resolved);
+
+        // Has the dynamic param but no program_id
+        assert!(output.contains("pub fn program_data_pda(program: &Pubkey) -> (Pubkey, u8)"));
+        assert!(output.contains("bpf_loader_upgradeable::ID"));
+    }
+
+    #[test]
+    fn const_program_expr_bpf_loader() {
+        let expr = const_program_expr(&BPF_LOADER_UPGRADEABLE_BYTES);
+        assert_eq!(
+            expr,
+            "anchor_lang::solana_program::bpf_loader_upgradeable::ID"
+        );
+    }
+
+    #[test]
+    fn const_program_expr_unknown_program() {
+        let bytes = [42u8; 32];
+        let expr = const_program_expr(&bytes);
+        assert!(expr.starts_with("Pubkey::new_from_array("));
+        assert!(expr.contains("42"));
     }
 }

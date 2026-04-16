@@ -7,16 +7,13 @@
 use crate::accounts::anchor_discriminator;
 use crate::chain::{Chain, LcAccounts};
 use anchor_lang::AnchorSerialize;
-use ics26_router::state::{
-    Client, Commitment, IBCApp, Packet, PayloadChunk, ProofChunk, RouterState, CHUNK_DATA_SIZE,
-};
+use ics26_router::state::{Packet, Payload, RouterState, CHUNK_DATA_SIZE};
 use solana_ibc_sdk::access_manager::instructions as am_sdk;
 use solana_ibc_sdk::ics26_router::instructions as router_sdk;
 use solana_ibc_sdk::ics26_router::types::{
     Delivery, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof, MsgRecvPacket,
     MsgTimeoutPacket, MsgUploadChunk,
 };
-use solana_ibc_types::Payload;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -37,7 +34,7 @@ pub const fn test_timeout(clock_time: i64) -> u64 {
 
 /// Derive the `test_ibc_app` state PDA.
 pub fn test_ibc_app_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID).0
+    solana_ibc_sdk::pda::ibc_app::app_state_pda(&test_ibc_app::ID).0
 }
 
 /// Derive the packet receipt PDA for a given `dest_client` and `sequence`.
@@ -77,20 +74,13 @@ pub fn build_send_packet_ix(
 ) -> SendResult {
     let timeout = test_timeout(clock_time);
 
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (ibc_app_pda, _) =
-        Pubkey::find_program_address(&[IBCApp::SEED, PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            client_id.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
+    let (app_state_pda, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&test_ibc_app::ID);
+    let (router_state_pda, _) = router_sdk::Initialize::router_state_pda(&ics26_router::ID);
+    let (ibc_app_pda, _) = router_sdk::AddIbcApp::ibc_app_pda(PORT_ID, &ics26_router::ID);
+    let (client_pda, _) = router_sdk::AddClient::client_pda(client_id, &ics26_router::ID);
+    let (commitment_pda, _) = router_sdk::SendPacket::packet_commitment_pda(
+        client_id,
+        params.sequence,
         &ics26_router::ID,
     );
 
@@ -636,15 +626,12 @@ pub fn build_upload_payload_chunk_ix(
     payload_data: Vec<u8>,
 ) -> (Instruction, Pubkey) {
     let am_pda = derive_am_pda(access_manager::ID);
-    let (chunk_pda, _) = Pubkey::find_program_address(
-        &[
-            PayloadChunk::SEED,
-            relayer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[0], // payload_index
-            &[0], // chunk_index
-        ],
+    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+        &relayer,
+        client_id,
+        sequence,
+        0,
+        0,
         &ics26_router::ID,
     );
 
@@ -691,14 +678,11 @@ pub fn build_upload_proof_chunk_ix_at(
     proof_data: Vec<u8>,
 ) -> (Instruction, Pubkey) {
     let am_pda = derive_am_pda(access_manager::ID);
-    let (chunk_pda, _) = Pubkey::find_program_address(
-        &[
-            ProofChunk::SEED,
-            relayer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[chunk_index],
-        ],
+    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+        &relayer,
+        client_id,
+        sequence,
+        chunk_index,
         &ics26_router::ID,
     );
 

@@ -27,7 +27,6 @@ pub struct FinalizeTransferParams<'a> {
     pub source_client: &'a str,
     pub sequence: u64,
     pub solana_client: &'a Arc<RpcClient>,
-    pub gmp_program_id: Pubkey,
     pub fee_payer: Pubkey,
 }
 
@@ -96,7 +95,6 @@ pub fn build_finalize_transfer_instruction(
 
     Some(build_finalize_transfer_ix(
         ift_program_id,
-        params.gmp_program_id,
         &pending_transfer,
         params.source_client,
         params.sequence,
@@ -143,7 +141,6 @@ fn find_pending_transfer(
 
 fn build_finalize_transfer_ix(
     ift_program_id: Pubkey,
-    gmp_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
     client_id: &str,
     sequence: u64,
@@ -154,8 +151,7 @@ fn build_finalize_transfer_ix(
 
     let (pending_transfer_pda, _) =
         FinalizeTransfer::pending_transfer_pda(&mint, client_id, sequence, &ift_program_id);
-    let (gmp_result_pda, _) =
-        FinalizeTransfer::gmp_result_pda(client_id, sequence, &gmp_program_id);
+    let (gmp_result_pda, _) = FinalizeTransfer::gmp_result_pda(client_id, sequence);
 
     let sender_token_account = get_associated_token_address_with_program_id(
         &pending_transfer.sender,

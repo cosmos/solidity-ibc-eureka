@@ -22,14 +22,28 @@ graph LR
         ics07["ics07-tendermint"]
         ics26["ics26-router"]
         ics27["ics27-gmp"]
-        ift["ift"]
+        ift_prog["ift"]
         att["attestation"]
     end
 
     idls["IDL files<br/><i>target/idl/*.json</i>"]
 
+    subgraph tests["Integration Tests"]
+        it_router["router"]
+        it_gmp["gmp"]
+        it_ift["ift"]
+        it_att["attestation"]
+        it_setup["programs + actors"]
+    end
+
     subgraph relayer["Relayer"]
         c2s["cosmos-to-solana"]
+        e2s["eth-to-solana"]
+        lib["relayer-lib"]
+    end
+
+    subgraph operator["Operator"]
+        op["operator"]
     end
 
     subgraph tm["Tendermint Light Client"]
@@ -62,10 +76,11 @@ graph LR
     ics27 --> types
     ics27 --> proto
     ics27 --> macros
-    ift --> ics26
-    ift --> ics27
-    ift --> types
-    ift --> gmp_types
+    ift_prog --> ics26
+    ift_prog --> ics27
+    ift_prog --> types
+    ift_prog --> gmp_types
+    ift_prog --> proto
     att --> am
     att --> types
     att --> ics25
@@ -74,38 +89,69 @@ graph LR
     ics07 -.- idls
     ics26 -.- idls
     ics27 -.- idls
-    ift -.- idls
+    ift_prog -.- idls
     att -.- idls
     idls -.-|build.rs codegen| sdk
 
-    c2s --> sdk
+    it_router -->|builders + types| sdk
+    it_router -->|state| ics26
+    it_gmp -->|builders + types| sdk
+    it_gmp -->|protobuf| proto
+    it_gmp -->|encoding, state| ics27
+    it_ift -->|builders + types| sdk
+    it_ift -->|protobuf| proto
+    it_ift -->|state, helpers| ift_prog
+    it_ift -->|encoding| ics27
+    it_att -->|builders + types| sdk
+    it_att -->|crypto, types| att
+    it_setup -->|builders + types| sdk
+    it_setup -->|program IDs| am
+
+    c2s -->|builders + types| sdk
     c2s --> constants
     c2s --> proto
     c2s --> borsh
     c2s --> gmp_types
+    e2s -->|builders + types| sdk
+    e2s --> constants
+    e2s --> proto
+    e2s --> gmp_types
+    lib -->|builders + types| sdk
+    lib --> gmp_types
+    lib --> constants
+    lib --> proto
+    op --> borsh
 
     style shared fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
     style programs fill:#d1fae5,stroke:#059669,color:#064e3b
+    style tests fill:#fef3c7,stroke:#d97706,color:#78350f
     style relayer fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style operator fill:#e2e8f0,stroke:#475569,color:#1e293b
     style tm fill:#fce7f3,stroke:#db2777,color:#831843
     style idls fill:#fef9c3,stroke:#ca8a04,color:#713f12
 
     classDef sharedNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
     classDef programNode fill:#a7f3d0,stroke:#059669,color:#064e3b
+    classDef testNode fill:#fde68a,stroke:#d97706,color:#78350f
     classDef relayerNode fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef operatorNode fill:#cbd5e1,stroke:#475569,color:#1e293b
     classDef tmNode fill:#fbcfe8,stroke:#db2777,color:#831843
     classDef idlNode fill:#fef08a,stroke:#ca8a04,color:#713f12
 
     class types,sdk,constants,proto,borsh,ics25,gmp_types,macros sharedNode
-    class am,ics07,ics26,ics27,ift,att programNode
-    class c2s,s2c relayerNode
+    class am,ics07,ics26,ics27,ift_prog,att programNode
+    class it_router,it_gmp,it_ift,it_att,it_setup testNode
+    class c2s,e2s,lib relayerNode
+    class op operatorNode
     class tm_update,tm_membership,tm_misbehaviour tmNode
     class idls idlNode
 
     linkStyle 0,1,2,3,4 stroke:#4f46e5
-    linkStyle 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29 stroke:#059669
-    linkStyle 30,31,32,33,34,35,36 stroke:#ca8a04,stroke-dasharray:5 5
-    linkStyle 37,38,39,40,41 stroke:#ea580c
+    linkStyle 5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30 stroke:#059669
+    linkStyle 31,32,33,34,35,36,37 stroke:#ca8a04,stroke-dasharray:5 5
+    linkStyle 38,39,40,41,42,43,44,45,46,47,48,49,50 stroke:#d97706
+    linkStyle 51,52,53,54,55,56,57,58,59,60,61,62,63 stroke:#ea580c
+    linkStyle 64 stroke:#475569
 ```
 
 ### Generate Keypairs for a Cluster

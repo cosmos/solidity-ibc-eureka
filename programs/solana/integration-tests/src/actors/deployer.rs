@@ -199,12 +199,12 @@ fn build_init_steps(
             vec![
                 build_am_grant_role_ix(
                     admin_pubkey,
-                    solana_ibc_types::roles::RELAYER_ROLE,
+                    solana_ibc_constants::roles::RELAYER_ROLE,
                     relayer_pubkey,
                 ),
                 build_am_grant_role_ix(
                     admin_pubkey,
-                    solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                    solana_ibc_constants::roles::ID_CUSTOMIZER_ROLE,
                     admin_pubkey,
                 ),
             ],
@@ -282,13 +282,10 @@ fn build_transfer_upgrade_authority_ixs(
 // ── Instruction builders for initialization ─────────────────────────────
 
 fn build_am_initialize_ix(payer: Pubkey, deployer: &Keypair, admin: Pubkey) -> Instruction {
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[access_manager::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
     am_sdk::Initialize::builder(&access_manager::ID)
         .accounts(am_sdk::InitializeAccounts {
             payer,
-            program_data: program_data_pda,
+            program_data: am_sdk::Initialize::program_data_pda().0,
             authority: deployer.pubkey(),
         })
         .args(&am_sdk::InitializeArgs { admin })
@@ -307,13 +304,10 @@ fn build_router_initialize_ix(
     deployer: &Keypair,
     access_manager_program: Pubkey,
 ) -> Instruction {
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[ics26_router::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
     router_sdk::Initialize::builder(&ics26_router::ID)
         .accounts(router_sdk::InitializeAccounts {
             payer,
-            program_data: program_data_pda,
+            program_data: router_sdk::Initialize::program_data_pda().0,
             authority: deployer.pubkey(),
         })
         .args(&router_sdk::InitializeArgs {

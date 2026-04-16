@@ -1233,6 +1233,7 @@ mod tests {
                     rust_type: "&str".to_string(),
                     seed_expr: "client_id.as_bytes()".to_string(),
                 }],
+                outer_program: None,
             },
         );
 
@@ -1258,6 +1259,7 @@ mod tests {
                     rust_type: "&Pubkey".to_string(),
                     seed_expr: "owner.as_ref()".to_string(),
                 }],
+                outer_program: None,
             },
         );
 
@@ -1275,6 +1277,7 @@ mod tests {
                 rust_type: "&Pubkey".to_string(),
                 seed_expr: "owner.as_ref()".to_string(),
             }],
+            outer_program: None,
         };
 
         let seed_refs = vec![SeedRef::AccountField("owner".to_string())];
@@ -1291,6 +1294,7 @@ mod tests {
                 rust_type: "&Pubkey".to_string(),
                 seed_expr: "key.as_ref()".to_string(),
             }],
+            outer_program: None,
         };
 
         let seed_refs = vec![SeedRef::ArgField("key".to_string())];
@@ -1307,6 +1311,7 @@ mod tests {
                 rust_type: "&str".to_string(),
                 seed_expr: "id.as_bytes()".to_string(),
             }],
+            outer_program: None,
         };
 
         let seed_refs = vec![SeedRef::ArgField("id".to_string())];
@@ -1319,6 +1324,7 @@ mod tests {
         let resolved = ResolvedPda {
             const_seeds: vec![b"state".to_vec()],
             params: vec![],
+            outer_program: None,
         };
 
         let seed_refs = vec![];
@@ -1461,6 +1467,7 @@ mod tests {
                         seed_expr: "id.as_bytes()".to_string(),
                     },
                 ],
+                outer_program: None,
             },
         );
 

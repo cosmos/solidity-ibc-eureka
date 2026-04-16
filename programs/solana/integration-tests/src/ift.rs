@@ -350,8 +350,7 @@ pub fn build_finalize_transfer_ix(
 ) -> Instruction {
     let pending_transfer = derive_pending_transfer_pda(&mint, client_id, sequence);
     let sender_ata = token_kind.get_ata(&sender, &mint);
-    let (gmp_result, _) =
-        ift_sdk::FinalizeTransfer::gmp_result_pda(client_id, sequence, &ics27_gmp::ID);
+    let (gmp_result, _) = ift_sdk::FinalizeTransfer::gmp_result_pda(client_id, sequence);
 
     ift_sdk::FinalizeTransfer::builder(&ift::ID)
         .accounts(ift_sdk::FinalizeTransferAccounts {
@@ -494,7 +493,7 @@ pub fn success_ack() -> Vec<u8> {
 
 /// Universal error acknowledgement: `sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")`.
 pub fn universal_error_ack() -> Vec<u8> {
-    solana_ibc_types::UNIVERSAL_ERROR_ACK.to_vec()
+    solana_ibc_constants::UNIVERSAL_ERROR_ACK.to_vec()
 }
 
 // ── Payload encoding ────────────────────────────────────────────────────
@@ -532,7 +531,7 @@ pub fn encode_ift_gmp_packet(counterparty_addr: &str, mint_call_payload: Vec<u8>
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         ICS27_ENCODING_ABI,
     )
     .expect("GMP packet encoding should succeed")
@@ -621,7 +620,7 @@ pub fn encode_ift_solana_gmp_packet(
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         crate::gmp::ICS27_ENCODING_PROTOBUF,
     )
     .expect("GMP packet encoding should succeed")

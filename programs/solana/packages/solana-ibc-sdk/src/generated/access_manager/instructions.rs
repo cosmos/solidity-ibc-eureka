@@ -35,13 +35,13 @@ impl Initialize {
     }
 
     #[must_use]
-    pub fn program_data_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+    pub fn program_data_pda() -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[&[
                 54, 102, 142, 239, 64, 150, 35, 184, 58, 55, 175, 62, 246, 200, 67, 254, 235, 183,
                 190, 141, 66, 189, 81, 48, 98, 84, 59, 36, 146, 209, 8, 170,
             ]],
-            program_id,
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
         )
     }
 

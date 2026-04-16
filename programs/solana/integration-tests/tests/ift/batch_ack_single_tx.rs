@@ -1,5 +1,5 @@
 use super::*;
-use solana_ibc_types::ics24;
+use ics26_router::ics24;
 
 /// Two consecutive IFT transfers acked in a *single* router transaction.
 ///

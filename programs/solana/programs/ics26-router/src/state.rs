@@ -5,7 +5,7 @@ use anchor_lang::prelude::*;
 pub use solana_ibc_types::{
     AccountVersion, ClientAccount, CounterpartyInfo, Delivery, MsgAckPacket, MsgCleanupChunks,
     MsgPayload, MsgProof, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet,
-    MAX_CLIENT_ID_LENGTH,
+    Payload, MAX_CLIENT_ID_LENGTH,
 };
 
 pub const MIN_CLIENT_ID_LENGTH: usize = 4;

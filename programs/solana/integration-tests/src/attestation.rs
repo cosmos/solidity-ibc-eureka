@@ -8,12 +8,12 @@ use alloy_sol_types::SolValue;
 use attestation::crypto::AttestationType;
 use attestation::types::{MembershipProof, PacketAttestation, PacketCompact, StateAttestation};
 use borsh::BorshSerialize;
+use ics26_router::ics24::{
+    packet_acknowledgement_commitment_path, packet_commitment_path, packet_receipt_commitment_path,
+};
 use solana_ibc_sdk::access_manager::instructions as am_sdk;
 use solana_ibc_sdk::attestation::instructions as attestation_sdk;
 use solana_ibc_sdk::attestation::types::UpdateClientParams;
-use solana_ibc_types::ics24::{
-    packet_acknowledgement_commitment_path, packet_commitment_path, packet_receipt_commitment_path,
-};
 use solana_keccak_hasher::hash as keccak256;
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 

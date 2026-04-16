@@ -98,18 +98,6 @@ impl super::TxBuilder {
             return None;
         };
 
-        let gmp_program_id = match self.resolve_port_program_id(&payload.source_port) {
-            Ok(id) => id,
-            Err(e) => {
-                tracing::warn!(
-                    source_port = %payload.source_port,
-                    error = ?e,
-                    "IFT: Failed to resolve port program ID for finalize_transfer"
-                );
-                return None;
-            }
-        };
-
         let params = ift::FinalizeTransferParams {
             source_port: &payload.source_port,
             encoding: &payload.encoding,
@@ -117,7 +105,6 @@ impl super::TxBuilder {
             source_client,
             sequence,
             solana_client: &self.target_solana_client,
-            gmp_program_id,
             fee_payer: self.fee_payer,
         };
 

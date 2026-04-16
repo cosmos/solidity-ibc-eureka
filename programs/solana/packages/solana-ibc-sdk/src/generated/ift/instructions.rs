@@ -35,13 +35,13 @@ impl Initialize {
     }
 
     #[must_use]
-    pub fn program_data_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+    pub fn program_data_pda() -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[&[
                 184, 79, 65, 243, 166, 47, 74, 1, 143, 84, 165, 73, 79, 223, 50, 63, 150, 219, 160,
                 238, 90, 122, 252, 13, 150, 116, 24, 249, 254, 157, 137, 26,
             ]],
-            program_id,
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
         )
     }
 
@@ -851,10 +851,13 @@ impl FinalizeTransfer {
     }
 
     #[must_use]
-    pub fn gmp_result_pda(client_id: &str, sequence: u64, program_id: &Pubkey) -> (Pubkey, u8) {
+    pub fn gmp_result_pda(client_id: &str, sequence: u64) -> (Pubkey, u8) {
         Pubkey::find_program_address(
             &[b"gmp_result", client_id.as_bytes(), &sequence.to_le_bytes()],
-            program_id,
+            &Pubkey::new_from_array([
+                37, 40, 66, 123, 139, 0, 91, 33, 44, 55, 180, 176, 253, 94, 71, 113, 48, 226, 97,
+                219, 212, 239, 34, 219, 50, 240, 72, 193, 101, 64, 229, 25,
+            ]),
         )
     }
 
