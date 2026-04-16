@@ -5,7 +5,7 @@ use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterfa
 
 use anchor_spl::associated_token::get_associated_token_address;
 use solana_ibc_proto::{RawGmpSolanaPayload, RawSolanaAccountMeta};
-use solana_ibc_types::ics27::{GMPAccount, Salt};
+use solana_ibc_gmp_types::{GMPAccount, Salt};
 
 use crate::constants::*;
 use crate::errors::IFTError;
