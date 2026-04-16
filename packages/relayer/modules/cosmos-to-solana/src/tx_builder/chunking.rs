@@ -20,12 +20,13 @@ use solana_ibc_sdk::ics26_router::types::{
     Delivery, MsgAckPacket, MsgCleanupChunks, MsgPayload, MsgRecvPacket, MsgTimeoutPacket,
     MsgUploadChunk,
 };
+use solana_ibc_sdk::pda::ics26_router::{payload_chunk_pda, proof_chunk_pda};
 
-use super::transaction::derive_alt_address;
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{derive_alt_address, extend_compute_ix};
 
-use crate::{constants::MAX_PREFUND_LAMPORTS, gmp, ift};
+use crate::{gmp, gmp::MAX_PREFUND_LAMPORTS, ift};
 
-fn delivery_total_chunks(delivery: &Delivery) -> u8 {
+const fn delivery_total_chunks(delivery: &Delivery) -> u8 {
     match delivery {
         Delivery::Inline { .. } => 0,
         Delivery::Chunked { total_chunks } => *total_chunks,
@@ -123,7 +124,15 @@ impl super::TxBuilder {
         // build_finalize_transfer_instruction logs internally for unexpected failures
         let instruction = ift::build_finalize_transfer_instruction(&params)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        if !self.ift_program_ids.contains(&instruction.program_id) {
+            tracing::warn!(
+                sender = %instruction.program_id,
+                "IFT: Program not in whitelist, skipping finalize_transfer"
+            );
+            return None;
+        }
+
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         match self.create_tx_bytes(&instructions) {
@@ -165,7 +174,7 @@ impl super::TxBuilder {
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+        let (chunk_pda, _) = payload_chunk_pda(
             &self.fee_payer,
             client_id,
             sequence,
@@ -203,7 +212,7 @@ impl super::TxBuilder {
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-        let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+        let (chunk_pda, _) = proof_chunk_pda(
             &self.fee_payer,
             client_id,
             sequence,
@@ -238,8 +247,7 @@ impl super::TxBuilder {
 
             let total_chunks = msg_payloads
                 .get(payload_idx)
-                .map(|p| delivery_total_chunks(&p.data))
-                .unwrap_or(0);
+                .map_or(0, |p| delivery_total_chunks(&p.data));
 
             if total_chunks > 0 {
                 let chunks = Self::split_into_chunks(data);
@@ -296,11 +304,11 @@ impl super::TxBuilder {
 
             let total = msg_payloads
                 .get(payload_idx)
-                .map(|p| delivery_total_chunks(&p.data))
-                .unwrap_or(0);
+                .map_or(0, |p| delivery_total_chunks(&p.data));
+
             if total > 0 {
                 for chunk_idx in 0..total {
-                    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                    let (chunk_pda, _) = payload_chunk_pda(
                         &self.fee_payer,
                         client_id,
                         sequence,
@@ -315,7 +323,7 @@ impl super::TxBuilder {
 
         if proof_total_chunks > 0 {
             for chunk_idx in 0..proof_total_chunks {
-                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+                let (chunk_pda, _) = proof_chunk_pda(
                     &self.fee_payer,
                     client_id,
                     sequence,
@@ -357,7 +365,7 @@ impl super::TxBuilder {
         let recv_instruction =
             self.build_recv_packet_instruction(msg, remaining_account_pubkeys, payload_data)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.extend(self.build_gmp_prefund_instruction(msg, payload_data)?);
         instructions.push(recv_instruction);
 
@@ -410,7 +418,7 @@ impl super::TxBuilder {
 
         let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(ack_instruction);
 
         // Count unique accounts across all instructions
@@ -608,7 +616,7 @@ impl super::TxBuilder {
         let timeout_instruction =
             self.build_timeout_packet_instruction(msg, remaining_account_pubkeys)?;
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(timeout_instruction);
 
         let timeout_tx = self.create_tx_bytes(&instructions)?;
@@ -665,7 +673,7 @@ impl super::TxBuilder {
 
             let total = delivery_total_chunks(&payload.data);
             for chunk_index in 0..total {
-                let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+                let (chunk_pda, _) = payload_chunk_pda(
                     &self.fee_payer,
                     client_id,
                     sequence,
@@ -678,7 +686,7 @@ impl super::TxBuilder {
         }
 
         for chunk_index in 0..proof_total_chunks {
-            let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+            let (chunk_pda, _) = proof_chunk_pda(
                 &self.fee_payer,
                 client_id,
                 sequence,
@@ -708,7 +716,7 @@ impl super::TxBuilder {
             .remaining_accounts(remaining_accounts)
             .build();
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)

@@ -1,10 +1,10 @@
 use crate::constants::*;
 use crate::errors::GMPError;
-use crate::proto::GmpSolanaPayload;
+use crate::proto::{GmpSolanaPayload, GmpValidationError};
 use crate::state::GMPAppState;
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::instruction::Instruction;
-use solana_ibc_proto::{GmpPacketData, Protobuf};
+use solana_ibc_proto::GmpPacketData;
 use solana_ibc_types::GMPAccount;
 
 /// Number of fixed accounts in `remaining_accounts` (before target program accounts)
@@ -134,17 +134,18 @@ pub fn on_recv_packet<'info>(
         GMPError::GMPAccountPDAMismatch
     );
 
-    // Decode and validate the GMP Solana payload
-    // The payload contains all required accounts and instruction data
-    let solana_payload = GmpSolanaPayload::decode(&packet_data.payload[..]).map_err(|e| {
-        msg!("GMP Solana payload validation failed: {}", e);
-        GMPError::InvalidSolanaPayload
-    })?;
+    let solana_payload: GmpSolanaPayload =
+        crate::gmp_solana_payload::decode_raw(&packet_data.payload, &msg.payload.encoding)?
+            .try_into()
+            .map_err(|e: GmpValidationError| {
+                msg!("GMP Solana payload validation failed: {}", e);
+                error!(GMPError::from(e))
+            })?;
 
     // Build account metas from GMP Solana payload
     let account_metas = solana_payload.to_account_metas();
 
-    // Skip gmp_account_pda[0] and target_program[1]
+    // Skip fixed accounts: gmp_account[0] and target_program[1]
     let remaining_accounts_for_execution = &ctx.remaining_accounts[FIXED_REMAINING_ACCOUNTS..];
 
     // Validate account count matches exactly (before payer injection)
@@ -197,6 +198,7 @@ pub fn on_recv_packet<'info>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::abi::GmpSolanaPayloadAbi;
     use crate::constants::{ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF};
     use crate::encoding::encode_gmp_packet;
     use crate::proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
@@ -1170,7 +1172,7 @@ mod tests {
             sender,
             &DUMMY_TARGET_PROGRAM.to_string(),
             salt,
-            solana_payload.encode_to_vec(),
+            encode_test_solana_payload(&solana_payload, ICS27_ENCODING_ABI),
         );
         // ABI-encode the outer packet (signer check must work for both encodings)
         let packet_data_bytes = encode_test_packet(raw_packet, ICS27_ENCODING_ABI);
@@ -1428,6 +1430,29 @@ mod tests {
         encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
     }
 
+    /// Encode a `RawGmpSolanaPayload` using the same encoding as the outer packet.
+    /// ABI packets expect the inner payload to be ABI-encoded too.
+    fn encode_test_solana_payload(raw: &RawGmpSolanaPayload, encoding: &str) -> Vec<u8> {
+        match encoding {
+            ICS27_ENCODING_ABI => {
+                use alloy_sol_types::SolValue;
+                let mut packed = Vec::new();
+                for account in &raw.accounts {
+                    packed.extend_from_slice(&account.pubkey);
+                    packed.push(u8::from(account.is_signer));
+                    packed.push(u8::from(account.is_writable));
+                }
+                GmpSolanaPayloadAbi {
+                    packedAccounts: packed.into(),
+                    instructionData: raw.data.clone().into(),
+                    prefundLamports: raw.prefund_lamports,
+                }
+                .abi_encode()
+            }
+            _ => raw.encode_to_vec(),
+        }
+    }
+
     fn run_recv_success_test(encoding: &str) {
         // Create Mollusk instance and load both programs
         let mut mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
@@ -1507,7 +1532,7 @@ mod tests {
             prefund_lamports: 5_000_000,
         };
 
-        let solana_payload_bytes = solana_payload.encode_to_vec();
+        let solana_payload_bytes = encode_test_solana_payload(&solana_payload, encoding);
 
         let raw_packet = RawGmpPacketData {
             sender: sender.to_string(),

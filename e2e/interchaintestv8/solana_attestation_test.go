@@ -38,6 +38,7 @@ import (
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
+	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
@@ -1275,6 +1276,267 @@ func convertSolanaPacketToABI(packet solana.SolanaPacket) ics26router.IICS26Rout
 		TimeoutTimestamp: uint64(packet.TimeoutTimestamp),
 		Payloads:         payloads,
 	}
+}
+
+// Test_Attestation_TimeoutFromSolana tests the CosmosToSolanaAttested timeout path.
+// A packet is sent from Solana with a short timeout. After the timeout expires,
+// the relayer proves non-membership on Cosmos and delivers the timeout to Solana
+// via the attestation light client.
+func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	simd := s.Cosmos.Chains[0]
+	solanaUserAddress := s.SolanaUser.PublicKey().String()
+	cosmosUserAddress := s.Cosmos.Users[0].FormattedAddress()
+
+	routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
+	client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
+	appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
+
+	s.Require().True(s.Run("Update attestation client on Solana", func() {
+		resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			SrcChain:    simd.Config().ChainID,
+			DstChain:    testvalues.SolanaChainID,
+			DstClientId: s.AttestationClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx)
+
+		var solanaUpdateClient relayertypes.SolanaUpdateClient
+		err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
+
+		unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(solanaUpdateClient.AssemblyTx))
+		s.Require().NoError(err)
+
+		sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentFinalized, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Attestation client updated - tx: %s", sig)
+	}))
+
+	var solanaSendTxSig solanago.Signature
+	var solanaTimeoutTimestamp uint64
+	solanaSequence := uint64(1)
+
+	s.Require().True(s.Run("Send packet from Solana with short timeout", func() {
+		sequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sequenceBytes, solanaSequence)
+		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
+
+		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
+		attestationConsensusStatePDA := s.deriveAttestationConsensusStatePDA(ctx, attestationClientStatePDA)
+
+		// Query clock as late as possible to minimize drift between query and execution
+		solanaClockTime, err := s.Solana.Chain.GetSolanaClockTime(ctx)
+		s.Require().NoError(err)
+
+		solanaTimeoutTimestamp = uint64(solanaClockTime + SolanaOriginatedTimeoutSeconds)
+		s.T().Logf("Setting timeout to %d (solana_clock=%d + %ds)", solanaTimeoutTimestamp, solanaClockTime, SolanaOriginatedTimeoutSeconds)
+
+		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
+			SourceClient:     s.AttestationClientID,
+			SourcePort:       transfertypes.PortID,
+			DestPort:         transfertypes.PortID,
+			Version:          transfertypes.V1,
+			Encoding:         "application/json",
+			PacketData:       []byte(fmt.Sprintf(`{"denom":"%s","amount":"%d","sender":"%s","receiver":"%s","memo":"timeout-test-from-solana"}`, simd.Config().Denom, TestTransferAmount, solanaUserAddress, cosmosUserAddress)),
+			TimeoutTimestamp: solanaTimeoutTimestamp,
+			Sequence:         solanaSequence,
+		}
+
+		sendPacketInstruction, err := test_ibc_app.NewSendPacketInstruction(
+			packetMsg,
+			appState,
+			s.SolanaUser.PublicKey(),
+			routerState,
+			ibcApp,
+			packetCommitmentPDA,
+			client,
+			attestation.ProgramID,
+			attestationClientStatePDA,
+			attestationConsensusStatePDA,
+			ics26_router.ProgramID,
+			solanago.SystemProgramID,
+		)
+		s.Require().NoError(err)
+
+		computeBudgetInstruction := solana.NewComputeBudgetInstruction(DefaultComputeUnits)
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(
+			s.SolanaUser.PublicKey(),
+			computeBudgetInstruction,
+			sendPacketInstruction,
+		)
+		s.Require().NoError(err)
+
+		solanaSendTxSig, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Packet sent from Solana (will timeout): %s", solanaSendTxSig)
+	}))
+
+	s.Require().True(s.Run("Verify packet commitment exists on Solana", func() {
+		sequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sequenceBytes, solanaSequence)
+		packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
+
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+		s.T().Logf("Packet commitment verified for sequence %d", solanaSequence)
+	}))
+
+	s.Require().True(s.Run("Wait for timeout", func() {
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &cosmosutils.Chain{Cosmos: simd}, solanaTimeoutTimestamp)
+		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
+	}))
+
+	s.Require().True(s.Run("Relay timeout from Cosmos to Solana via attested path", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:     simd.Config().ChainID,
+			DstChain:     testvalues.SolanaChainID,
+			TimeoutTxIds: [][]byte{[]byte(solanaSendTxSig.String())},
+			SrcClientId:  CosmosClientID,
+			DstClientId:  s.AttestationClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		sig, err := s.Solana.Chain.SubmitChunkedRelayPackets(ctx, s.T(), resp, s.SolanaUser)
+		s.Require().NoError(err)
+		s.T().Logf("Timeout relayed to Solana: %s", sig)
+	}))
+
+	s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
+		s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), s.AttestationClientID, solanaSequence)
+		s.T().Logf("Packet commitment deleted for sequence %d", solanaSequence)
+	}))
+}
+
+// Test_Attestation_TimeoutFromCosmos tests the SolanaToCosmosAttested timeout path.
+// A packet is sent from Cosmos with a short timeout. After the timeout expires,
+// the relayer proves non-membership on Solana and delivers the timeout to Cosmos
+// via the attestation light client.
+func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	simd := s.Cosmos.Chains[0]
+	cosmosUserWallet := s.Cosmos.Users[0]
+	cosmosUserAddress := cosmosUserWallet.FormattedAddress()
+	solanaUserAddress := s.SolanaUser.PublicKey().String()
+	transferCoin := sdk.NewCoin(simd.Config().Denom, sdkmath.NewInt(TestTransferAmount))
+
+	var initialCosmosBalance int64
+	s.Require().True(s.Run("Record initial Cosmos balance", func() {
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   transferCoin.Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		initialCosmosBalance = resp.Balance.Amount.Int64()
+		s.T().Logf("Initial Cosmos balance: %d %s", initialCosmosBalance, transferCoin.Denom)
+	}))
+
+	var cosmosPacketTxHash []byte
+	var cosmosTimeoutTimestamp uint64
+	cosmosPacketSequence := uint64(1)
+
+	s.Require().True(s.Run("Send ICS20 transfer from Cosmos with short timeout", func() {
+		cosmosTimeoutTimestamp = uint64(time.Now().Add(15 * time.Second).Unix())
+		s.T().Logf("Setting timeout to %d (now + 15s)", cosmosTimeoutTimestamp)
+
+		transferPayload := transfertypes.FungibleTokenPacketData{
+			Denom:    transferCoin.Denom,
+			Amount:   transferCoin.Amount.String(),
+			Sender:   cosmosUserAddress,
+			Receiver: solanaUserAddress,
+			Memo:     "timeout-test-from-cosmos",
+		}
+		encodedPayload, err := transfertypes.MarshalPacketData(transferPayload, transfertypes.V1, transfertypes.EncodingProtobuf)
+		s.Require().NoError(err)
+
+		payload := channeltypesv2.Payload{
+			SourcePort:      transfertypes.PortID,
+			DestinationPort: transfertypes.PortID,
+			Version:         transfertypes.V1,
+			Encoding:        transfertypes.EncodingProtobuf,
+			Value:           encodedPayload,
+		}
+		msgSendPacket := channeltypesv2.MsgSendPacket{
+			SourceClient:     CosmosClientID,
+			TimeoutTimestamp: cosmosTimeoutTimestamp,
+			Payloads:         []channeltypesv2.Payload{payload},
+			Signer:           cosmosUserAddress,
+		}
+
+		resp, err := s.BroadcastMessages(ctx, simd, cosmosUserWallet, CosmosDefaultGasLimit, &msgSendPacket)
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.TxHash)
+
+		cosmosPacketTxHash, err = hex.DecodeString(resp.TxHash)
+		s.Require().NoError(err)
+		s.T().Logf("Cosmos packet sent (will timeout): %s", resp.TxHash)
+	}))
+
+	s.Require().True(s.Run("Verify packet commitment exists on Cosmos", func() {
+		commitmentResp, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+			ClientId: CosmosClientID,
+			Sequence: cosmosPacketSequence,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(commitmentResp.Commitment)
+		s.T().Logf("Cosmos packet commitment verified for sequence %d", cosmosPacketSequence)
+	}))
+
+	s.Require().True(s.Run("Wait for timeout", func() {
+		err := e2esuite.WaitForBlockTime(ctx, s.T(), &s.Solana.Chain, cosmosTimeoutTimestamp)
+		s.Require().NoError(err)
+		// Wait for attestor consensus state to catch up with chain clock
+		time.Sleep(e2esuite.ProofStaleness)
+	}))
+
+	s.Require().True(s.Run("Relay timeout from Solana to Cosmos via attested path", func() {
+		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			SrcChain:     testvalues.SolanaChainID,
+			DstChain:     simd.Config().ChainID,
+			TimeoutTxIds: [][]byte{cosmosPacketTxHash},
+			SrcClientId:  s.AttestationClientID,
+			DstClientId:  CosmosClientID,
+		})
+		s.Require().NoError(err)
+		s.Require().NotEmpty(resp.Tx, "Relay should return transaction")
+
+		relayTxResult := s.MustBroadcastSdkTxBody(ctx, simd, cosmosUserWallet, CosmosDefaultGasLimit, resp.Tx)
+		s.T().Logf("Timeout relayed to Cosmos: %s", relayTxResult.TxHash)
+	}))
+
+	s.Require().True(s.Run("Verify packet commitment deleted on Cosmos", func() {
+		_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, simd, &channeltypesv2.QueryPacketCommitmentRequest{
+			ClientId: CosmosClientID,
+			Sequence: cosmosPacketSequence,
+		})
+		s.Require().ErrorContains(err, "packet commitment hash not found")
+		s.T().Logf("Cosmos packet commitment deleted for sequence %d", cosmosPacketSequence)
+	}))
+
+	s.Require().True(s.Run("Verify Cosmos balance unchanged", func() {
+		resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, simd, &banktypes.QueryBalanceRequest{
+			Address: cosmosUserAddress,
+			Denom:   transferCoin.Denom,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(resp.Balance)
+		s.Require().Equal(initialCosmosBalance, resp.Balance.Amount.Int64(),
+			"Cosmos balance should be unchanged after timeout")
+		s.T().Logf("Cosmos balance unchanged: %d %s", resp.Balance.Amount.Int64(), transferCoin.Denom)
+	}))
 }
 
 // Test_Attestation_AccessManagerTransfer tests propose/accept/cancel access manager

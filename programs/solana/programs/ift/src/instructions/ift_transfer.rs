@@ -589,7 +589,7 @@ mod tests {
                     ..default
                 },
                 TransferErrorCase::TimeoutBelowMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + 30, // 30s in future, below 60s min
+                    timeout_timestamp: 1_700_000_000 + 5, // 5s in future, below 10s min
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },

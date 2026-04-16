@@ -16,7 +16,8 @@ use solana_ibc_sdk::ift::instructions::{
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
-use crate::constants::{ABI_ENCODING, ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
+use crate::gmp::{ABI_ENCODING, GMP_PORT_ID, PROTOBUF_ENCODING};
 
 /// Parameters for building IFT `finalize_transfer` instruction
 pub struct FinalizeTransferParams<'a> {
@@ -44,14 +45,7 @@ pub fn build_finalize_transfer_instruction(
         return None;
     }
 
-    let gmp_packet = match crate::gmp::decode_gmp_packet(
-        params.payload_value,
-        params.encoding,
-        params.source_port,
-    ) {
-        Some(packet) => packet,
-        None => return None,
-    };
+    let gmp_packet = crate::gmp::decode_gmp_packet(params.payload_value, params.encoding)?;
 
     // Parse sender as Pubkey (the IFT program ID).
     // GMP's `send_call_cpi` uses the calling program ID as the sender.

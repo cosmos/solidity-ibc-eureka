@@ -57,6 +57,8 @@ const (
 	TestTransferAmount = OneSolInLamports / 1_000 // 0.001 SOL in lamports
 	SolDenom           = "sol"
 	TransferPortID     = transfertypes.PortID
+	// Must exceed MIN_TIMEOUT_DURATION (10s) plus tx execution delay.
+	SolanaOriginatedTimeoutSeconds = 15
 	// Compute Units
 	DefaultComputeUnits = uint32(400_000)
 	// Cosmos Gas Limits
@@ -153,30 +155,19 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			const keypairDir = "solana-keypairs/localnet"
 			const deployerPath = keypairDir + "/deployer_wallet.json"
 
-			deployProgram := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {
-				return e2esuite.ParallelTaskWithResult[solanago.PublicKey]{
-					Name: displayName,
-					Run: func() (solanago.PublicKey, error) {
-						s.T().Logf("Deploying %s...", displayName)
-						keypairPath := fmt.Sprintf("%s/%s-keypair.json", keypairDir, programName)
-						programID, err := s.Solana.Chain.DeploySolanaProgramAsync(ctx, programName, keypairPath, deployerPath)
-						if err == nil {
-							s.T().Logf("✓ %s deployed at: %s", displayName, programID)
-						}
-						return programID, err
-					},
-				}
+			deploy := func(displayName, programName string) e2esuite.ParallelTaskWithResult[solanago.PublicKey] {
+				return e2esuite.DeploySolanaProgramTask(ctx, s.T(), s.Solana.Chain, displayName, programName, keypairDir, deployerPath)
 			}
 
 			deployResults, err := e2esuite.RunParallelTasksWithResults(
-				deployProgram("Deploy Access Manager", "access_manager"),
-				deployProgram("Deploy ICS07 Tendermint", "ics07_tendermint"),
-				deployProgram("Deploy ICS26 Router", "ics26_router"),
-				deployProgram("Deploy ICS27 GMP", "ics27_gmp"),
-				deployProgram("Deploy IFT", "ift"),
-				deployProgram("Deploy GMP Counter App", "test_gmp_app"),
-				deployProgram("Deploy Test IBC App", "test_ibc_app"),
-				deployProgram("Deploy Test CPI Proxy", "test_cpi_proxy"),
+				deploy("Deploy Access Manager", "access_manager"),
+				deploy("Deploy ICS07 Tendermint", "ics07_tendermint"),
+				deploy("Deploy ICS26 Router", "ics26_router"),
+				deploy("Deploy ICS27 GMP", "ics27_gmp"),
+				deploy("Deploy IFT", "ift"),
+				deploy("Deploy GMP Counter App", "test_gmp_app"),
+				deploy("Deploy Test IBC App", "test_ibc_app"),
+				deploy("Deploy Test CPI Proxy", "test_cpi_proxy"),
 			)
 			s.Require().NoError(err, "Program deployment failed")
 
@@ -313,6 +304,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				ICS26ProgramID:         ics26_router.ProgramID.String(),
 				FeePayer:               s.SolanaRelayer.PublicKey().String(),
 				ALTAddress:             s.SolanaAltAddress,
+				IFTProgramIDs:          []string{ift.ProgramID.String()},
 				SkipPreVerifyThreshold: s.SkipPreVerifyThreshold,
 			}).
 			Build()

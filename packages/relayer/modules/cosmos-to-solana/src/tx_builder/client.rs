@@ -10,6 +10,9 @@ use solana_sdk::{
 use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{
+    derive_alt_address, extend_compute_ix, extend_compute_ix_with_heap,
+};
 use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
 use solana_ibc_sdk::ics07_tendermint::accounts::ClientState;
 use solana_ibc_sdk::ics07_tendermint::instructions::{
@@ -19,6 +22,7 @@ use solana_ibc_sdk::ics07_tendermint::instructions::{
     UploadHeaderChunkAccounts,
 };
 use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, SignatureData, UploadChunkParams};
+use solana_ibc_sdk::pda::ics07_tendermint::{header_chunk_pda, sig_verify_pda};
 
 impl super::TxBuilder {
     pub(crate) fn build_create_client_instruction(
@@ -63,14 +67,12 @@ impl super::TxBuilder {
         alt_config: Option<(u64, Vec<Pubkey>)>,
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use super::transaction::derive_alt_address;
-
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
         let chunk_iter = (0..total_chunks).map(|chunk_index| {
-            let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+            let (chunk_pda, _) = header_chunk_pda(
                 &self.fee_payer,
                 target_height,
                 chunk_index,
@@ -80,10 +82,8 @@ impl super::TxBuilder {
         });
 
         let sig_iter = signature_data.iter().map(|sig_data| {
-            let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
-                &sig_data.signature_hash,
-                &solana_ics07_program_id,
-            );
+            let (sig_verify_pda, _) =
+                sig_verify_pda(&sig_data.signature_hash, &solana_ics07_program_id);
             AccountMeta::new_readonly(sig_verify_pda, false)
         });
 
@@ -102,7 +102,7 @@ impl super::TxBuilder {
             .remaining_accounts(chunk_iter.chain(sig_iter))
             .build();
 
-        let mut instructions = Self::extend_compute_ix_with_heap();
+        let mut instructions = extend_compute_ix_with_heap();
         instructions.push(ix);
 
         match alt_config {
@@ -122,7 +122,7 @@ impl super::TxBuilder {
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
         let chunk_iter = (0..total_chunks).map(|chunk_index| {
-            let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+            let (chunk_pda, _) = header_chunk_pda(
                 &self.fee_payer,
                 target_height,
                 chunk_index,
@@ -132,10 +132,8 @@ impl super::TxBuilder {
         });
 
         let sig_iter = signature_data.iter().map(|sig_data| {
-            let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
-                &sig_data.signature_hash,
-                &solana_ics07_program_id,
-            );
+            let (sig_verify_pda, _) =
+                sig_verify_pda(&sig_data.signature_hash, &solana_ics07_program_id);
             AccountMeta::new(sig_verify_pda, false)
         });
 
@@ -146,7 +144,7 @@ impl super::TxBuilder {
             .remaining_accounts(chunk_iter.chain(sig_iter))
             .build();
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)
@@ -168,7 +166,7 @@ impl super::TxBuilder {
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =
             access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
-        let (chunk_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::header_chunk_pda(
+        let (chunk_pda, _) = header_chunk_pda(
             &self.fee_payer,
             target_height,
             chunk_index,
@@ -405,10 +403,8 @@ impl super::TxBuilder {
             data: instruction_data,
         };
 
-        let (sig_verify_pda, _) = solana_ibc_sdk::pda::ics07_tendermint::sig_verify_pda(
-            &sig_data.signature_hash,
-            &solana_ics07_program_id,
-        );
+        let (sig_verify_pda, _) =
+            sig_verify_pda(&sig_data.signature_hash, &solana_ics07_program_id);
 
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
         let (access_manager, _) =

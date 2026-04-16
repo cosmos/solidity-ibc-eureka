@@ -2,21 +2,10 @@
 
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
-use solana_sdk::{
-    address_lookup_table::{
-        instruction::{create_lookup_table, extend_lookup_table},
-        state::AddressLookupTable,
-        AddressLookupTableAccount,
-    },
-    commitment_config::CommitmentConfig,
-    compute_budget::ComputeBudgetInstruction,
-    instruction::Instruction,
-    message::{v0, VersionedMessage},
-    pubkey::Pubkey,
-    transaction::VersionedTransaction,
-};
+use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, pubkey::Pubkey};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
+use ibc_eureka_relayer_lib::utils::solana_v0_tx;
 use solana_ibc_sdk::attestation::{
     accounts::{
         ClientState as AttestationClientState,
@@ -32,17 +21,6 @@ use solana_ibc_sdk::ics26_router::{
     instructions as router_instructions,
     types::ClientAccount,
 };
-
-use super::{DEFAULT_PRIORITY_FEE, MAX_COMPUTE_UNIT_LIMIT};
-
-/// Helper to derive ALT address from current slot and authority
-#[must_use]
-pub fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(
-        &[authority.as_ref(), &slot.to_le_bytes()],
-        &solana_sdk::address_lookup_table::program::id(),
-    )
-}
 
 impl super::TxBuilder {
     /// Fetches the ICS07 Tendermint program's upgrade authority from its `ProgramData` account.
@@ -221,16 +199,6 @@ impl super::TxBuilder {
         Ok(client_state)
     }
 
-    /// Fetch the minimum required signatures from the attestation light client on Solana.
-    pub(crate) fn attestation_client_min_sigs(
-        &self,
-        light_client_program_id: Pubkey,
-    ) -> Result<usize> {
-        Ok(self
-            .attestation_client_state(light_client_program_id)?
-            .min_required_sigs as usize)
-    }
-
     /// Fetch the attestation consensus state timestamp at a given height (in seconds).
     pub(crate) fn attestation_consensus_state_timestamp_secs(
         &self,
@@ -258,177 +226,51 @@ impl super::TxBuilder {
         Ok(consensus_state.timestamp)
     }
 
+    /// Build a serialized v0 transaction from instructions, resolving the ALT if present.
     pub(crate) fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
-        if instructions.is_empty() {
-            anyhow::bail!("No instructions to execute on Solana");
-        }
-
-        let recent_blockhash = self.get_recent_blockhash()?;
-
-        let alt_addresses = match self.alt_address {
-            Some(alt_address) => self.fetch_alt_addresses(alt_address)?,
-            None => vec![],
-        };
-
-        self.create_v0_tx(instructions, recent_blockhash, alt_addresses)
+        solana_v0_tx::create_tx_bytes(
+            &self.target_solana_client,
+            self.fee_payer,
+            self.alt_address,
+            instructions,
+        )
     }
 
+    /// Build a serialized v0 transaction using an explicit ALT address and its entries.
     pub(crate) fn create_tx_bytes_with_alt(
         &self,
         instructions: &[Instruction],
         alt_address: Pubkey,
         alt_addresses: Vec<Pubkey>,
     ) -> Result<Vec<u8>> {
-        let recent_blockhash = self.get_recent_blockhash()?;
-
-        let alt_account = AddressLookupTableAccount {
-            key: alt_address,
-            addresses: alt_addresses,
-        };
-
-        let v0_message =
-            self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?;
-
-        Self::serialize_v0_transaction(v0_message)
-    }
-
-    pub(crate) fn get_recent_blockhash(&self) -> Result<solana_sdk::hash::Hash> {
-        self.target_solana_client
-            .get_latest_blockhash()
-            .map_err(|e| anyhow::anyhow!("Failed to get blockhash: {e}"))
-    }
-
-    pub(crate) fn create_v0_tx(
-        &self,
-        instructions: &[Instruction],
-        recent_blockhash: solana_sdk::hash::Hash,
-        alt_addresses: Vec<Pubkey>,
-    ) -> Result<Vec<u8>> {
-        // Debug: log instruction account counts before compilation
-        for (i, ix) in instructions.iter().enumerate() {
-            tracing::debug!(
-                "create_v0_tx: instruction[{}] program={} accounts={}",
-                i,
-                ix.program_id,
-                ix.accounts.len()
-            );
-        }
-
-        let v0_message = if alt_addresses.is_empty() {
-            self.compile_v0_message(instructions, recent_blockhash)?
-        } else {
-            let alt_account = AddressLookupTableAccount {
-                key: self.alt_address.expect("ALT address should be set"),
-                addresses: alt_addresses,
-            };
-
-            self.compile_v0_message_with_alt(instructions, recent_blockhash, alt_account)?
-        };
-
-        // Debug: log v0 message account count after compilation
-        tracing::debug!(
-            "create_v0_tx: v0_message compiled with {} static accounts, {} instructions",
-            v0_message.account_keys.len(),
-            v0_message.instructions.len()
-        );
-        for (i, key) in v0_message.account_keys.iter().enumerate() {
-            tracing::debug!("create_v0_tx: v0_message account[{}]: {}", i, key);
-        }
-
-        Self::serialize_v0_transaction(v0_message)
-    }
-
-    pub(crate) fn compile_v0_message(
-        &self,
-        instructions: &[Instruction],
-        recent_blockhash: solana_sdk::hash::Hash,
-    ) -> Result<v0::Message> {
-        // Debug: log total unique accounts across all instructions
-        let mut all_accounts: std::collections::HashSet<Pubkey> = std::collections::HashSet::new();
-        all_accounts.insert(self.fee_payer);
-        for ix in instructions {
-            all_accounts.insert(ix.program_id);
-            for acc in &ix.accounts {
-                all_accounts.insert(acc.pubkey);
-            }
-        }
-        tracing::debug!(
-            "compile_v0_message: {} unique accounts, {} instructions",
-            all_accounts.len(),
-            instructions.len()
-        );
-
-        v0::Message::try_compile(&self.fee_payer, instructions, &[], recent_blockhash)
-            .map_err(|e| anyhow::anyhow!("Failed to compile v0 message: {e}"))
-    }
-
-    pub(crate) fn compile_v0_message_with_alt(
-        &self,
-        instructions: &[Instruction],
-        recent_blockhash: solana_sdk::hash::Hash,
-        alt_account: AddressLookupTableAccount,
-    ) -> Result<v0::Message> {
-        v0::Message::try_compile(
-            &self.fee_payer,
+        solana_v0_tx::create_tx_bytes_with_alt(
+            &self.target_solana_client,
+            self.fee_payer,
             instructions,
-            &[alt_account],
-            recent_blockhash,
+            alt_address,
+            alt_addresses,
         )
-        .map_err(|e| anyhow::anyhow!("Failed to compile v0 message with ALT: {e}"))
     }
 
-    pub(crate) fn serialize_v0_transaction(v0_message: v0::Message) -> Result<Vec<u8>> {
-        let num_signatures = v0_message.header.num_required_signatures as usize;
-        let versioned_tx = VersionedTransaction {
-            signatures: vec![solana_sdk::signature::Signature::default(); num_signatures],
-            message: VersionedMessage::V0(v0_message),
-        };
-
-        let serialized_tx = bincode::serialize(&versioned_tx)?;
-        Ok(serialized_tx)
-    }
-
-    pub(crate) fn fetch_alt_addresses(&self, alt_address: Pubkey) -> Result<Vec<Pubkey>> {
-        let alt_account = self
-            .target_solana_client
-            .get_account_with_commitment(&alt_address, CommitmentConfig::confirmed())
-            .map_err(|e| anyhow::anyhow!("Failed to fetch ALT account {alt_address}: {e}"))?
-            .value
-            .ok_or_else(|| anyhow::anyhow!("ALT account {alt_address} not found"))?;
-
-        let lookup_table = AddressLookupTable::deserialize(&alt_account.data)
-            .map_err(|e| anyhow::anyhow!("Failed to deserialize ALT: {e}"))?;
-
-        Ok(lookup_table.addresses.to_vec())
-    }
-
+    /// Build a transaction that creates a new Address Lookup Table.
     pub(crate) fn build_create_alt_tx(&self, slot: u64) -> Result<Vec<u8>> {
-        let (create_ix, _alt_address) = create_lookup_table(self.fee_payer, self.fee_payer, slot);
-        self.create_tx_bytes(&[create_ix])
+        solana_v0_tx::build_create_alt_tx(
+            &self.target_solana_client,
+            self.fee_payer,
+            self.alt_address,
+            slot,
+        )
     }
 
+    /// Build a transaction that extends an Address Lookup Table with new accounts.
     pub(crate) fn build_extend_alt_tx(&self, slot: u64, accounts: Vec<Pubkey>) -> Result<Vec<u8>> {
-        let (alt_address, _) = derive_alt_address(slot, self.fee_payer);
-        let extend_ix =
-            extend_lookup_table(alt_address, self.fee_payer, Some(self.fee_payer), accounts);
-        self.create_tx_bytes(&[extend_ix])
-    }
-
-    pub(crate) fn extend_compute_ix() -> Vec<Instruction> {
-        let compute_budget_ix =
-            ComputeBudgetInstruction::set_compute_unit_limit(MAX_COMPUTE_UNIT_LIMIT);
-        let priority_fee_ix =
-            ComputeBudgetInstruction::set_compute_unit_price(DEFAULT_PRIORITY_FEE);
-        vec![compute_budget_ix, priority_fee_ix]
-    }
-
-    pub(crate) fn extend_compute_ix_with_heap() -> Vec<Instruction> {
-        let compute_budget_ix =
-            ComputeBudgetInstruction::set_compute_unit_limit(MAX_COMPUTE_UNIT_LIMIT);
-        let priority_fee_ix =
-            ComputeBudgetInstruction::set_compute_unit_price(DEFAULT_PRIORITY_FEE);
-        let heap_size_ix = ComputeBudgetInstruction::request_heap_frame(256 * 1024);
-        vec![compute_budget_ix, priority_fee_ix, heap_size_ix]
+        solana_v0_tx::build_extend_alt_tx(
+            &self.target_solana_client,
+            self.fee_payer,
+            self.alt_address,
+            slot,
+            accounts,
+        )
     }
 
     /// Check if an account exists on-chain
@@ -438,5 +280,34 @@ impl super::TxBuilder {
             .get_account_with_commitment(pubkey, CommitmentConfig::confirmed())
             .map(|response| response.value.is_some())
             .unwrap_or(false)
+    }
+}
+
+impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
+    for super::TxBuilder
+{
+    fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
+        self.resolve_client_program_id(client_id)
+    }
+
+    fn attestation_client_state(&self, program_id: Pubkey) -> Result<AttestationClientState> {
+        self.attestation_client_state(program_id)
+    }
+
+    fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
+        self.resolve_access_manager_program_id()
+    }
+
+    fn fee_payer(&self) -> Pubkey {
+        self.fee_payer
+    }
+
+    fn create_tx_bytes(&self, instructions: &[Instruction]) -> Result<Vec<u8>> {
+        solana_v0_tx::create_tx_bytes(
+            &self.target_solana_client,
+            self.fee_payer,
+            self.alt_address,
+            instructions,
+        )
     }
 }
