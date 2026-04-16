@@ -100,8 +100,8 @@ echo "🔄 Syncing declare_id! for $INSTANCE_UNDERSCORE"
 cd "$SOLANA_DIR"
 $ANCHOR_CMD keys sync -p "$INSTANCE_UNDERSCORE" --provider.cluster localnet
 
-# 7. Build
+# 7. Build (skip IDL — only the .so binary is needed)
 echo "🔨 Building $INSTANCE"
-$ANCHOR_CMD build -p "$INSTANCE"
+$ANCHOR_CMD build --no-idl -- --manifest-path "programs/$INSTANCE/Cargo.toml"
 
 echo "✅ Built: target/deploy/${INSTANCE_UNDERSCORE}.so"

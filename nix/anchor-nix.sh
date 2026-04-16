@@ -77,8 +77,11 @@ run_build() {
 
   if [[ -n "${specific_package}" ]]; then
     local program_dir=""
+    local hyphenated="${specific_package//_/-}"
     for dir in programs/*/; do
-      if [[ "$(basename "${dir}")" == "${specific_package}" ]]; then
+      local dirname
+      dirname="$(basename "${dir}")"
+      if [[ "${dirname}" == "${specific_package}" || "${dirname}" == "${hyphenated}" ]]; then
         program_dir="${dir}"
         break
       fi
