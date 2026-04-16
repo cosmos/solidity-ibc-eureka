@@ -5,7 +5,7 @@ use crate::aggregator::Aggregator;
 use crate::utils::attestor::get_packet_attestation;
 use crate::utils::solana::TimeoutPacketWithChunks;
 use alloy::sol_types::SolValue;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use borsh::BorshSerialize;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{Packet, Payload};
 use ibc_proto_eureka::ibc::core::{
@@ -364,60 +364,27 @@ fn build_update_client_instruction_tx(
     proof: Vec<u8>,
     light_client_program_id: Pubkey,
 ) -> Result<Vec<u8>> {
-    use sha2::{Digest, Sha256};
     use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
-    use solana_ibc_sdk::attestation::instructions as attestation_instructions;
-
-    #[derive(BorshSerialize)]
-    struct UpdateClientParams {
-        proof: Vec<u8>,
-    }
-
-    let (client_state_pda, _) =
-        attestation_instructions::UpdateClient::client_state_pda(&light_client_program_id);
-    let (new_consensus_state_pda, _) =
-        attestation_instructions::UpdateClient::consensus_state_store_pda(
-            new_height,
-            &light_client_program_id,
-        );
-    let (app_state_pda, _) =
-        attestation_instructions::UpdateClient::app_state_pda(&light_client_program_id);
+    use solana_ibc_sdk::attestation::{
+        instructions::{UpdateClient, UpdateClientAccounts, UpdateClientArgs},
+        types::UpdateClientParams,
+    };
 
     let access_manager_program_id = tx_builder.resolve_access_manager_program_id()?;
-    let (access_manager_pda, _) =
+    let (access_manager, _) =
         access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-    let discriminator = {
-        let mut hasher = Sha256::new();
-        hasher.update(b"global:update_client");
-        let result = hasher.finalize();
-        <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
-    };
-
-    let mut data = discriminator.to_vec();
-    BorshSerialize::serialize(&new_height, &mut data).context("Failed to serialize new_height")?;
-    BorshSerialize::serialize(&UpdateClientParams { proof }, &mut data)
-        .context("Failed to serialize UpdateClientParams")?;
-
-    let instruction = Instruction {
-        program_id: light_client_program_id,
-        accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(
-                solana_sdk::sysvar::instructions::ID,
-                false,
-            ),
-            solana_sdk::instruction::AccountMeta::new(tx_builder.fee_payer(), true),
-            solana_sdk::instruction::AccountMeta::new_readonly(
-                solana_sdk::system_program::ID,
-                false,
-            ),
-        ],
-        data,
-    };
+    let instruction = UpdateClient::builder(&light_client_program_id)
+        .accounts(UpdateClientAccounts {
+            access_manager,
+            submitter: tx_builder.fee_payer(),
+            new_height,
+        })
+        .args(&UpdateClientArgs {
+            new_height,
+            params: UpdateClientParams { proof },
+        })
+        .build();
 
     let instructions = vec![
         ComputeBudgetInstruction::set_compute_unit_limit(MAX_COMPUTE_UNIT_LIMIT),
