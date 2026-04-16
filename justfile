@@ -110,6 +110,13 @@ sync-solana-keys cluster="localnet": (_validate-cluster cluster)
 
   echo "✅ Keys synced for cluster: {{cluster}}"
 
+# Build a Solana program instance under a different program ID (for tests)
+# Usage: just build-solana-test-instance <source-program> <instance-name>
+# Example: just build-solana-test-instance attestation test-attestation
+[group('solana')]
+build-solana-test-instance SOURCE INSTANCE:
+  ./scripts/build-solana-test-instance.sh {{SOURCE}} {{INSTANCE}} {{anchor_cmd}}
+
 # Build Solana Anchor programs
 # Usage: just build-solana [program]
 # Example: just build-solana              (builds all programs)
@@ -123,8 +130,16 @@ build-solana program="":
     echo "Building all programs..."
     echo "🦀 Using {{anchor_cmd}}"
     (cd programs/solana && {{anchor_cmd}} build)
+    echo "Building test attestation instance..."
+    just build-solana-test-instance attestation test-attestation
     echo "✅ Build complete"
   else
+    # Test instances are built via build-solana-test-instance, not anchor directly
+    if [ "{{program}}" = "test-attestation" ]; then
+      just build-solana-test-instance attestation test-attestation
+      exit 0
+    fi
+
     echo "Building program: {{program}}"
     PROGRAM_DIR="programs/solana/programs/{{program}}"
 
@@ -138,7 +153,7 @@ build-solana program="":
     echo "🦀 Using {{anchor_cmd}}"
 
     # Build specific program and generate its IDL
-    (cd programs/solana && {{anchor_cmd}} build -- -p "{{program}}")
+    (cd programs/solana && {{anchor_cmd}} build -- --manifest-path "$PWD/programs/{{program}}/Cargo.toml")
 
     echo "✅ Build complete for {{program}}"
   fi

@@ -35,3 +35,12 @@ pub const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
 
 /// Seconds per day for rate limit day calculation
 pub const SECONDS_PER_DAY: u64 = 60 * 60 * 24;
+
+/// Lamports deposited into the destination GMP account PDA before
+/// `ift_mint` is dispatched on a Solana↔Solana IFT transfer.
+///
+/// `5_000_000` lamports = 0.005 SOL (1 SOL = `1_000_000_000` lamports).
+///
+/// Covers rent for the receiver ATA creation (~2.04M lamports / ~0.00204 SOL)
+/// plus a margin for any further init accounts the instruction might touch.
+pub const SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS: u64 = 5_000_000;

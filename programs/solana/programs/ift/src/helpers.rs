@@ -3,7 +3,11 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{self, Mint, MintTo, TokenAccount, TokenInterface};
 
-use crate::constants::{MINT_AUTHORITY_SEED, SECONDS_PER_DAY};
+use anchor_spl::associated_token::get_associated_token_address;
+use solana_ibc_proto::{RawGmpSolanaPayload, RawSolanaAccountMeta};
+use solana_ibc_types::ics27::{GMPAccount, Salt};
+
+use crate::constants::*;
 use crate::errors::IFTError;
 use crate::state::IFTAppMintState;
 
@@ -96,6 +100,109 @@ pub(crate) fn reduce_mint_rate_limit_usage(
     }
     maybe_reset_day(mint_state, clock);
     mint_state.rate_limit_daily_usage = mint_state.rate_limit_daily_usage.saturating_sub(amount);
+}
+
+// ── Solana mint account derivation ────────────────────────────────────────
+
+/// All derived accounts needed for an `ift_mint` CPI on a counterparty
+/// Solana chain.
+///
+/// Use [`derive`](Self::derive) to compute every PDA from the counterparty's
+/// program ID, mint, client ID, source address and receiver. Then call
+/// [`to_payload`](Self::to_payload) to build the `RawGmpSolanaPayload`
+/// committed in the GMP packet.
+///
+/// The account order in [`to_payload`](Self::to_payload) matches
+/// `instructions::ift_mint::IFTMint<'info>`.
+pub struct IftMintAccounts {
+    pub app_state: Pubkey,
+    pub app_mint_state: Pubkey,
+    pub ift_bridge: Pubkey,
+    pub mint: Pubkey,
+    pub mint_authority: Pubkey,
+    pub receiver_ata: Pubkey,
+    pub receiver: Pubkey,
+    pub gmp_account: Pubkey,
+}
+
+impl IftMintAccounts {
+    /// Derive all accounts for an `ift_mint` instruction on the counterparty.
+    ///
+    /// `source_address` is the sender string embedded in the GMP packet
+    /// (typically the source IFT program ID as base58).
+    pub fn derive(
+        ift_program_id: &Pubkey,
+        mint: &Pubkey,
+        client_id: &str,
+        source_address: &str,
+        receiver: &Pubkey,
+    ) -> Result<Self> {
+        let (app_state, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], ift_program_id);
+        let (app_mint_state, _) =
+            Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], ift_program_id);
+        let (ift_bridge, _) = Pubkey::find_program_address(
+            &[IFT_BRIDGE_SEED, mint.as_ref(), client_id.as_bytes()],
+            ift_program_id,
+        );
+        let (mint_authority, _) =
+            Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], ift_program_id);
+        let receiver_ata = get_associated_token_address(receiver, mint);
+
+        let gmp = GMPAccount::new(
+            client_id
+                .to_string()
+                .try_into()
+                .map_err(|_| error!(IFTError::InvalidClientIdLength))?,
+            source_address
+                .to_string()
+                .try_into()
+                .map_err(|_| error!(IFTError::EmptyCounterpartyAddress))?,
+            Salt::empty(),
+            &ics27_gmp::ID,
+        );
+
+        Ok(Self {
+            app_state,
+            app_mint_state,
+            ift_bridge,
+            mint: *mint,
+            mint_authority,
+            receiver_ata,
+            receiver: *receiver,
+            gmp_account: gmp.pda,
+        })
+    }
+
+    /// Build the `RawGmpSolanaPayload` that the GMP program dispatches on
+    /// the counterparty chain.
+    ///
+    /// `ix_data` is the Anchor instruction data for `ift_mint`.
+    pub fn to_payload(&self, ix_data: Vec<u8>) -> RawGmpSolanaPayload {
+        let meta = |pubkey: &Pubkey, is_signer: bool, is_writable: bool| RawSolanaAccountMeta {
+            pubkey: pubkey.to_bytes().to_vec(),
+            is_signer,
+            is_writable,
+        };
+
+        RawGmpSolanaPayload {
+            data: ix_data,
+            accounts: vec![
+                meta(&self.app_state, false, false),
+                meta(&self.app_mint_state, false, true),
+                meta(&self.ift_bridge, false, false),
+                meta(&self.mint, false, true),
+                meta(&self.mint_authority, false, false),
+                meta(&self.receiver_ata, false, true),
+                meta(&self.receiver, false, false),
+                meta(&self.gmp_account, true, false),
+                meta(&self.gmp_account, true, true),
+                meta(&anchor_spl::token::ID, false, false),
+                meta(&anchor_spl::associated_token::ID, false, false),
+                meta(&anchor_lang::system_program::ID, false, false),
+            ],
+            prefund_lamports: SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS,
+        }
+    }
 }
 
 #[cfg(test)]
