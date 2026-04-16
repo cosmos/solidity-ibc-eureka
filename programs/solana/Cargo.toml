@@ -13,6 +13,7 @@ members = [
   "programs/test-access-manager",
   "programs/test-cpi-proxy",
   "programs/test-cpi-target",
+  "integration-tests",
   "packages/solana-ibc-types",
   "packages/solana-ibc-proto",
   "packages/ics25-handler",
@@ -93,6 +94,7 @@ ics26-router = { path = "./programs/ics26-router", default-features = false }
 ics27-gmp = { path = "./programs/ics27-gmp", default-features = false }
 ift = { path = "./programs/ift", default-features = false }
 test-gmp-app = { path = "./programs/test-gmp-app", default-features = false }
+test-access-manager = { path = "./programs/test-access-manager", default-features = false }
 
 ibc-client-tendermint = { version = "0.57", default-features = false }
 ibc-core-client-types = { version = "0.57", default-features = false }

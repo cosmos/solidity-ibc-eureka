@@ -1,15 +1,17 @@
 use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
+use anchor_lang::InstructionData;
 use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use serde::Serialize;
+use solana_ibc_proto::ProstMessage;
 
 use crate::constants::*;
 use crate::errors::IFTError;
 use crate::events::IFTTransferInitiated;
 use crate::gmp_cpi::{SendGmpCallAccounts, SendGmpCallMsg};
 use crate::state::{
-    AccountVersion, ChainOptions, IFTAppMintState, IFTAppState, IFTBridge, IFTTransferMsg,
-    PendingTransfer,
+    AccountVersion, ChainOptions, IFTAppMintState, IFTAppState, IFTBridge, IFTMintMsg,
+    IFTTransferMsg, PendingTransfer,
 };
 
 #[derive(Accounts)]
@@ -201,7 +203,9 @@ pub fn ift_transfer(ctx: Context<IFTTransfer>, msg: IFTTransferMsg) -> Result<u6
 
     let encoding = match &ctx.accounts.ift_bridge.chain_options {
         ChainOptions::Evm => ics27_gmp::constants::ICS27_ENCODING_ABI,
-        ChainOptions::Cosmos { .. } => ics27_gmp::constants::ICS27_ENCODING_PROTOBUF,
+        ChainOptions::Cosmos { .. } | ChainOptions::Solana { .. } => {
+            ics27_gmp::constants::ICS27_ENCODING_PROTOBUF
+        }
     };
 
     let gmp_msg = SendGmpCallMsg {
@@ -258,6 +262,17 @@ fn construct_mint_call(
             receiver,
             amount,
         )),
+        ChainOptions::Solana {
+            ift_program_id,
+            counterparty_mint,
+            counterparty_client_id,
+        } => construct_solana_mint_call(
+            ift_program_id,
+            counterparty_mint,
+            counterparty_client_id,
+            receiver,
+            amount,
+        ),
     }
 }
 
@@ -316,6 +331,46 @@ fn construct_cosmos_mint_call(
     };
     // TODO: use proto
     serde_json::to_vec(&tx).expect("cannot fail for this simple struct")
+}
+
+/// Construct a protobuf-encoded `GmpSolanaPayload` that dispatches the
+/// counterparty IFT program's `ift_mint` instruction.
+///
+/// Delegates PDA derivation and account-list construction to
+/// [`IftMintAccounts`](crate::helpers::IftMintAccounts), which centralizes
+/// the logic shared with the integration test helpers.
+///
+/// Only the classic SPL Token program is supported for the receiver ATA.
+/// Token 2022 can be added later by threading a token-program field through
+/// `ChainOptions::Solana`.
+fn construct_solana_mint_call(
+    ift_program_id: &Pubkey,
+    counterparty_mint: &Pubkey,
+    counterparty_client_id: &str,
+    receiver: &str,
+    amount: u64,
+) -> Result<Vec<u8>> {
+    let receiver_pubkey: Pubkey = receiver
+        .parse()
+        .map_err(|_| error!(IFTError::InvalidReceiver))?;
+
+    let accounts = crate::helpers::IftMintAccounts::derive(
+        ift_program_id,
+        counterparty_mint,
+        counterparty_client_id,
+        &crate::ID.to_string(),
+        &receiver_pubkey,
+    )?;
+
+    let ix_data = crate::instruction::IftMint {
+        msg: IFTMintMsg {
+            receiver: receiver_pubkey,
+            amount,
+        },
+    }
+    .data();
+
+    Ok(accounts.to_payload(ix_data).encode_to_vec())
 }
 
 #[cfg(test)]
@@ -408,9 +463,29 @@ mod tests {
         }
     }
 
+    /// Receiver must be base58-encoded — use a constant derived from a real keypair.
+    const SOLANA_RECEIVER: &str = "11111111111111111111111111111112";
+    const SOLANA_TEST_CLIENT_ID: &str = "07-tendermint-0";
+
+    fn solana_test_case() -> MintCallTestCase {
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        MintCallTestCase {
+            chain_options: ChainOptions::Solana {
+                ift_program_id,
+                counterparty_mint: mint,
+                counterparty_client_id: SOLANA_TEST_CLIENT_ID.to_string(),
+            },
+            receiver: SOLANA_RECEIVER,
+            expected_len: None,
+            expected_content: vec![],
+        }
+    }
+
     #[rstest]
     #[case::evm(evm_test_case())]
     #[case::cosmos(cosmos_test_case())]
+    #[case::solana(solana_test_case())]
     fn test_construct_mint_call(#[case] test_case: MintCallTestCase) {
         let result = construct_mint_call(&test_case.chain_options, test_case.receiver, 100);
         assert!(result.is_ok());
@@ -429,6 +504,122 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_construct_solana_mint_call_payload_structure() {
+        use solana_ibc_proto::RawGmpSolanaPayload;
+
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let receiver: Pubkey = SOLANA_RECEIVER.parse().unwrap();
+
+        let bytes = construct_solana_mint_call(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            SOLANA_RECEIVER,
+            1_000,
+        )
+        .unwrap();
+
+        let payload =
+            RawGmpSolanaPayload::decode(bytes.as_slice()).expect("valid protobuf payload");
+
+        // 12 accounts matching IFTMint<'info>
+        assert_eq!(payload.accounts.len(), 12);
+        assert_eq!(
+            payload.prefund_lamports,
+            crate::constants::SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS
+        );
+
+        // Verify each account pubkey is 32 bytes
+        for meta in &payload.accounts {
+            assert_eq!(meta.pubkey.len(), 32);
+        }
+
+        // Account 6 (index 5) is the receiver ATA
+        let receiver_ata =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        assert_eq!(payload.accounts[5].pubkey, receiver_ata.to_bytes());
+        assert!(payload.accounts[5].is_writable);
+
+        // Account 7 (index 6) is the receiver owner (readonly)
+        assert_eq!(payload.accounts[6].pubkey, receiver.to_bytes());
+        assert!(!payload.accounts[6].is_signer);
+        assert!(!payload.accounts[6].is_writable);
+
+        // Accounts 8 and 9 (indices 7, 8) are the GMP account (both signer)
+        assert_eq!(payload.accounts[7].pubkey, payload.accounts[8].pubkey);
+        assert!(payload.accounts[7].is_signer);
+        assert!(payload.accounts[8].is_signer);
+        assert!(payload.accounts[8].is_writable);
+    }
+
+    #[test]
+    fn test_construct_solana_mint_call_invalid_receiver() {
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+
+        let result = construct_solana_mint_call(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            "not-a-valid-pubkey",
+            100,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ift_mint_accounts_derive() {
+        use crate::helpers::IftMintAccounts;
+
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let receiver: Pubkey = SOLANA_RECEIVER.parse().unwrap();
+        let source_address = crate::ID.to_string();
+
+        let accounts = IftMintAccounts::derive(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            &source_address,
+            &receiver,
+        )
+        .unwrap();
+
+        // Verify PDAs match manual derivation
+        let (expected_app_state, _) =
+            Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+        assert_eq!(accounts.app_state, expected_app_state);
+
+        let (expected_app_mint_state, _) = Pubkey::find_program_address(
+            &[IFT_APP_MINT_STATE_SEED, mint.as_ref()],
+            &ift_program_id,
+        );
+        assert_eq!(accounts.app_mint_state, expected_app_mint_state);
+
+        let (expected_bridge, _) = Pubkey::find_program_address(
+            &[
+                IFT_BRIDGE_SEED,
+                mint.as_ref(),
+                SOLANA_TEST_CLIENT_ID.as_bytes(),
+            ],
+            &ift_program_id,
+        );
+        assert_eq!(accounts.ift_bridge, expected_bridge);
+
+        let (expected_mint_authority, _) =
+            Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
+        assert_eq!(accounts.mint_authority, expected_mint_authority);
+
+        let expected_ata =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        assert_eq!(accounts.receiver_ata, expected_ata);
+
+        assert_eq!(accounts.mint, mint);
+        assert_eq!(accounts.receiver, receiver);
     }
 
     fn create_token_account(
@@ -589,7 +780,7 @@ mod tests {
                     ..default
                 },
                 TransferErrorCase::TimeoutBelowMinDuration => Self {
-                    timeout_timestamp: 1_700_000_000 + 30, // 30s in future, below 60s min
+                    timeout_timestamp: 1_700_000_000 + 5, // 5s in future, below 10s min
                     expected_error: ANCHOR_ERROR_OFFSET + IFTError::TimeoutInPast as u32,
                     ..default
                 },

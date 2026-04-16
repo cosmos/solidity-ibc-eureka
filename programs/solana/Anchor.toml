@@ -12,6 +12,7 @@ localnet = "http://localhost:8899"
 # mainnet = "https://api.mainnet-beta.solana.com"
 
 [programs.localnet]
+test_attestation = "2kXQM1LsQeWLEB5GHBGDmUqNzNfejh3pVHaauiQv6FdV"
 access_manager = "4fMih2CidrXPeRx77kj3QcuBZwREYtxEbXjURUgadoe1"
 attestation = "F2G7Gtw2qVhG3uvvwr6w8h7n5ZzGy92cFQ3ZgkaX1AWe"
 ics07_tendermint = "HqPcGpVHxNNFfVatjhG78dFVMwjyZixoKPdZSt3d3TdD"

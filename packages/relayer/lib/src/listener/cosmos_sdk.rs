@@ -61,6 +61,20 @@ impl ChainListener {
             .height
             .value())
     }
+
+    /// Get the latest block height and timestamp (seconds since epoch).
+    ///
+    /// # Errors
+    /// Returns an error if the block cannot be fetched or the timestamp is
+    /// negative.
+    #[instrument(skip(self), err)]
+    pub async fn get_block_height_with_time(&self) -> Result<(u64, u64)> {
+        let block = self.client().latest_block().await?.block;
+        let height = block.header.height.value();
+        let time = u64::try_from(block.header.time.unix_timestamp())
+            .map_err(|_| anyhow::anyhow!("block timestamp is negative"))?;
+        Ok((height, time))
+    }
 }
 
 #[async_trait::async_trait]

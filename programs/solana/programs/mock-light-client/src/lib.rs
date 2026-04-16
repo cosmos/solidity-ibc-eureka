@@ -26,6 +26,10 @@ pub mod mock_light_client {
     }
 
     pub fn verify_membership(_ctx: Context<VerifyMembership>, _msg: MembershipMsg) -> Result<()> {
+        if _msg.proof.starts_with(b"REJECT_PROOF") {
+            return err!(MockLightClientError::ProofRejected);
+        }
+
         msg!("Mock light client: verify_membership always returns success");
 
         // Return the height as bytes for membership verification
@@ -135,4 +139,10 @@ pub struct UpdateClient<'info> {
     pub payer: AccountInfo<'info>,
     /// CHECK: Mock system program - not actually used
     pub system_program: AccountInfo<'info>,
+}
+
+#[error_code]
+pub enum MockLightClientError {
+    #[msg("Proof rejected by mock light client")]
+    ProofRejected,
 }

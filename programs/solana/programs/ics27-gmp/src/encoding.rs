@@ -5,12 +5,8 @@ use solana_ibc_proto::{
     GmpAcknowledgement, GmpPacketData, ProstMessage, Protobuf, RawGmpPacketData,
 };
 
-mod sol_types {
-    alloy_sol_types::sol!("../../../../contracts/msgs/IICS27GMPMsgs.sol");
-}
-
-use sol_types::IICS27GMPMsgs::GMPAcknowledgement as GmpAcknowledgementAbi;
-pub use sol_types::IICS27GMPMsgs::GMPPacketData as GmpPacketDataAbi;
+use crate::sol_types::IICS27GMPMsgs::GMPAcknowledgement as GmpAcknowledgementAbi;
+pub use crate::sol_types::IICS27GMPMsgs::GMPPacketData as GmpPacketDataAbi;
 
 impl From<GmpPacketData> for GmpPacketDataAbi {
     fn from(data: GmpPacketData) -> Self {

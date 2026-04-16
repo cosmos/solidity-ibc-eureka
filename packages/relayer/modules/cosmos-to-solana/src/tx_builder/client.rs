@@ -11,6 +11,9 @@ use solana_sdk::{
 use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{
+    derive_alt_address, extend_compute_ix, extend_compute_ix_with_heap,
+};
 use solana_ibc_types::ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData};
 use solana_ibc_types::AccessManager;
 
@@ -75,8 +78,6 @@ impl super::TxBuilder {
         alt_config: Option<(u64, Vec<Pubkey>)>,
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use super::transaction::derive_alt_address;
-
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
             ConsensusState::pda(trusted_height, solana_ics07_program_id);
@@ -128,7 +129,7 @@ impl super::TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix_with_heap();
+        let mut instructions = extend_compute_ix_with_heap();
         instructions.push(ix);
 
         match alt_config {
@@ -175,7 +176,7 @@ impl super::TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)

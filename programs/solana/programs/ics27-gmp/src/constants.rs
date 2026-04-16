@@ -19,8 +19,8 @@ pub const ICS27_ENCODING_ABI: &str = "application/x-solidity-abi";
 /// Maximum timeout duration (24 hours in seconds)
 pub const MAX_TIMEOUT_DURATION: u64 = 86400;
 
-/// Minimum timeout duration (12 seconds)
-pub const MIN_TIMEOUT_DURATION: u64 = 12;
+/// Minimum timeout duration (10 seconds)
+pub const MIN_TIMEOUT_DURATION: u64 = 10;
 
 /// Universal error acknowledgement bytes
 pub const ACK_ERROR: &[u8] = b"error";

@@ -28,6 +28,23 @@ pub enum ChainOptions {
         #[max_len(128)]
         ica_address: String,
     },
+    /// Solana chain - encode as protobuf `GmpSolanaPayload` dispatched to the
+    /// counterparty IFT program's `ift_mint` instruction.
+    ///
+    /// The source chain must commit to the exact destination account list in
+    /// the GMP payload, so all information needed to derive the destination
+    /// PDAs (`app_state`, `app_mint_state`, `ift_bridge`, `mint_authority`,
+    /// `gmp_account`, receiver ATA) is stored here.
+    Solana {
+        /// Counterparty IFT program ID (target of the GMP CPI)
+        ift_program_id: Pubkey,
+        /// Counterparty mint that will receive the newly-minted tokens
+        counterparty_mint: Pubkey,
+        /// Counterparty's local IBC client identifier (used to derive the
+        /// counterparty `IFTBridge` PDA and the dispatch `GMPAccount` PDA)
+        #[max_len(MAX_CLIENT_ID_LENGTH)]
+        counterparty_client_id: String,
+    },
 }
 
 /// Token type and configuration for `create_and_initialize_spl_token`
@@ -75,6 +92,16 @@ impl ChainOptions {
                 require!(
                     ica_address.len() <= MAX_COUNTERPARTY_ADDRESS_LENGTH,
                     IFTError::InvalidCosmosIcaAddressLength
+                );
+            }
+            Self::Solana {
+                counterparty_client_id,
+                ..
+            } => {
+                require!(!counterparty_client_id.is_empty(), IFTError::EmptyClientId);
+                require!(
+                    counterparty_client_id.len() <= MAX_CLIENT_ID_LENGTH,
+                    IFTError::InvalidClientIdLength
                 );
             }
         }

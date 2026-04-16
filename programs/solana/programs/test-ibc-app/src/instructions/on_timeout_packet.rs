@@ -2,8 +2,10 @@ use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
 /// Accounts for handling a packet timeout callback.
+///
+/// The account layout must match the CPI interface defined in
+/// `solana_ibc_types::ibc_app::OnTimeoutPacket`: `[app_state, instructions_sysvar, payer, system_program]`.
 #[derive(Accounts)]
-#[instruction(msg: OnTimeoutPacketMsg)]
 pub struct OnTimeoutPacket<'info> {
     /// App state PDA that tracks packet counters.
     #[account(
@@ -19,15 +21,6 @@ pub struct OnTimeoutPacket<'info> {
     /// CHECK: Validated via address constraint
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instruction_sysvar: AccountInfo<'info>,
-
-    /// Escrow account that holds SOL (funds remain in escrow on timeout)
-    /// CHECK: PDA derived from `source_client`
-    #[account(
-        mut,
-        seeds = [TestIbcAppState::ESCROW_SEED, msg.source_client.as_bytes()],
-        bump
-    )]
-    pub escrow_account: Option<AccountInfo<'info>>,
 
     /// Payer for account creation if needed
     #[account(mut)]
