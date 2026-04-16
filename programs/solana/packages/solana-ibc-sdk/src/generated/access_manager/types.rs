@@ -8,6 +8,12 @@ use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey;
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PendingAuthorityTransfer {
+    pub target_program: Pubkey,
+    pub new_authority: Pubkey,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct RoleData {
     pub role_id: u64,
     pub members: Vec<Pubkey>,

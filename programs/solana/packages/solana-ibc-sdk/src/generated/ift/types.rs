@@ -32,6 +32,11 @@ pub enum ChainOptions {
         type_url: String,
         ica_address: String,
     },
+    Solana {
+        ift_program_id: Pubkey,
+        counterparty_mint: Pubkey,
+        counterparty_client_id: String,
+    },
 }
 
 /// Token type and configuration for `create_and_initialize_spl_token`
@@ -62,7 +67,7 @@ pub struct GMPCallResultAccount {
     pub version: Ics27Gmp_State_AccountVersion,
     /// Original sender pubkey.
     pub sender: Pubkey,
-    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+    /// Caller-chosen IBC packet sequence number.
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
     pub source_client: String,
@@ -96,6 +101,8 @@ pub struct IFTTransferMsg {
     pub amount: u64,
     /// Timeout timestamp (0 for default 15 minutes)
     pub timeout_timestamp: u64,
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
 }
 
 /// Account schema version

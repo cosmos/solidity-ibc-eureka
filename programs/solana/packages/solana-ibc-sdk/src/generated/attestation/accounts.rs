@@ -16,8 +16,8 @@ use super::types::*;
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
     pub version: AccountVersion,
-    /// Program ID of the access manager that controls admin operations.
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Reserved for future upgrades without account migration.
     pub _reserved: [u8; 256],
 }

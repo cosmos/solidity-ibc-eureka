@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::{
     AccountSerialize, AnchorDeserialize, AnchorSerialize, Discriminator, InstructionData,
     ToAccountMetas,
@@ -32,7 +33,7 @@ fn setup_program_test() -> ProgramTest {
     let (app_state_pda, _) =
         Pubkey::find_program_address(&[ics07_tendermint::AppState::SEED], &ics07_tendermint::ID);
     let app_state = ics07_tendermint::AppState {
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let mut app_data = Vec::new();
@@ -72,6 +73,7 @@ fn add_access_manager_with_relayer(pt: &mut ProgramTest, relayer: &Pubkey) {
             },
         ],
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();

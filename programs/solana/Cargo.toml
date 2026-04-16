@@ -10,6 +10,7 @@ members = [
   "programs/mock-light-client",
   "programs/mock-ibc-app",
   "programs/test-ibc-app",
+  "programs/test-access-manager",
   "programs/test-cpi-proxy",
   "programs/test-cpi-target",
   "packages/solana-ibc-types",

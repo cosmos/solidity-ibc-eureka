@@ -17,7 +17,7 @@ use solana_ibc_sdk::ics26_router::{
         AckPacket, AckPacketAccounts, RecvPacket, RecvPacketAccounts, SendPacket, TimeoutPacket,
         TimeoutPacketAccounts,
     },
-    types::{MsgAckPacket, MsgRecvPacket, MsgTimeoutPacket, Payload, PayloadMetadata},
+    types::{Delivery, MsgAckPacket, MsgPayload, MsgRecvPacket, MsgTimeoutPacket},
 };
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
@@ -42,60 +42,42 @@ pub(super) struct RecvPayloadInfo<'a> {
     pub value: &'a [u8],
 }
 
-/// Extract `source_port` from either inline payloads or chunked metadata.
-fn extract_source_port<'a>(
-    packet_payloads: &'a [Payload],
-    metadata_payloads: &'a [PayloadMetadata],
-    context: &str,
-) -> Result<&'a str> {
-    if !packet_payloads.is_empty() {
-        let [payload] = packet_payloads else {
-            anyhow::bail!(
-                "Expected exactly one {context} packet payload element, got {}",
-                packet_payloads.len()
-            );
-        };
-        Ok(&payload.source_port)
-    } else if !metadata_payloads.is_empty() {
-        let [payload_meta] = metadata_payloads else {
-            anyhow::bail!(
-                "Expected exactly one {context} packet payload metadata element, got {}",
-                metadata_payloads.len()
-            );
-        };
-        Ok(&payload_meta.source_port)
-    } else {
-        anyhow::bail!("No payload data found in either packet.payloads or payloads metadata");
-    }
+/// Extract `source_port` from packet payloads.
+fn extract_source_port<'a>(payloads: &'a [MsgPayload], context: &str) -> Result<&'a str> {
+    let [payload] = payloads else {
+        anyhow::bail!(
+            "Expected exactly one {context} packet payload element, got {}",
+            payloads.len()
+        );
+    };
+    Ok(&payload.source_port)
 }
 
-/// Extract payload info from either `packet.payloads` or metadata + `payload_data`.
+/// Extract payload info from packet payloads, using `payload_data` for chunked deliveries.
 pub(super) fn extract_recv_payload_info<'a>(
     msg: &'a MsgRecvPacket,
     payload_data: &'a [Vec<u8>],
 ) -> Result<RecvPayloadInfo<'a>> {
-    if msg.packet.payloads.is_empty() {
-        let [metadata] = msg.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one recv packet payload metadata element");
-        };
-        let value = payload_data
-            .first()
-            .ok_or_else(|| anyhow::anyhow!("Missing payload data"))?
-            .as_slice();
-        Ok(RecvPayloadInfo {
-            dest_port: &metadata.dest_port,
-            encoding: &metadata.encoding,
-            value,
-        })
-    } else {
-        let [payload] = msg.packet.payloads.as_slice() else {
-            anyhow::bail!("Expected exactly one recv packet payload element");
-        };
-        Ok(RecvPayloadInfo {
+    let [payload] = msg.packet.payloads.as_slice() else {
+        anyhow::bail!("Expected exactly one recv packet payload element");
+    };
+    match &payload.data {
+        Delivery::Inline { data } => Ok(RecvPayloadInfo {
             dest_port: &payload.dest_port,
             encoding: &payload.encoding,
-            value: &payload.value,
-        })
+            value: data,
+        }),
+        Delivery::Chunked { .. } => {
+            let value = payload_data
+                .first()
+                .ok_or_else(|| anyhow::anyhow!("Missing payload data"))?
+                .as_slice();
+            Ok(RecvPayloadInfo {
+                dest_port: &payload.dest_port,
+                encoding: &payload.encoding,
+                value,
+            })
+        }
     }
 }
 
@@ -154,7 +136,7 @@ impl super::TxBuilder {
         msg: &MsgAckPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "ack")?;
+        let source_port = extract_source_port(&msg.packet.payloads, "ack")?;
 
         let (ibc_app_pda, _) = SendPacket::ibc_app_pda(source_port, &self.solana_ics26_program_id);
 
@@ -222,7 +204,7 @@ impl super::TxBuilder {
         msg: &MsgTimeoutPacket,
         chunk_accounts: Vec<Pubkey>,
     ) -> Result<Instruction> {
-        let source_port = extract_source_port(&msg.packet.payloads, &msg.payloads, "timeout")?;
+        let source_port = extract_source_port(&msg.packet.payloads, "timeout")?;
 
         let ibc_app_program_id = self.resolve_port_program_id(source_port)?;
         let (ibc_app_state, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&ibc_app_program_id);

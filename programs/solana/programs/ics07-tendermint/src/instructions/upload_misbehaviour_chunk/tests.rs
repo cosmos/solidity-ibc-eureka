@@ -3,6 +3,7 @@ use crate::state::{MisbehaviourChunk, CHUNK_DATA_SIZE};
 use crate::test_helpers::access_control::create_access_manager_account;
 use crate::test_helpers::{create_instructions_sysvar_account, PROGRAM_BINARY_PATH};
 use crate::types::{AppState, ClientState, IbcHeight, UploadMisbehaviourChunkParams};
+use access_manager::AccessManagerState;
 use anchor_lang::solana_program::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -25,7 +26,7 @@ fn create_app_state_account() -> (Pubkey, Account) {
     let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &crate::ID);
 
     let app_state = AppState {
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
 

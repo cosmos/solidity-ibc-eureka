@@ -54,20 +54,55 @@ Initializes a new Tendermint light client instance for a specific chain. Multipl
 
 **Multi-Chain Support**: Each chain_id creates a separate client instance with its own state. This allows Solana to maintain IBC connections with multiple Tendermint chains concurrently.
 
-#### `set_access_manager`
+#### `propose_access_manager_transfer`
 
-Updates the access manager program ID. Only callable by admin via the current access manager.
+Starts a two-step transfer to a new access manager program ID.
+Requires `ADMIN_ROLE` on the current access manager.
 
 **Parameters:**
 
-- `new_access_manager`: The new access manager program ID
+- `new_access_manager`: Proposed new access manager program ID
 
 **Accounts:**
 
 - `app_state` (mut): PDA storing global application state
-- `access_manager`: Current access manager account for validation
-- `admin` (signer): Admin account
+- `access_manager`: Current access manager state PDA used for role validation
+- `admin` (signer): Admin on the current access manager
 - `instructions_sysvar`: Instructions sysvar for CPI validation
+
+#### `accept_access_manager_transfer`
+
+Finalizes a pending transfer and switches `app_state.am_state.access_manager` to the proposed program ID.
+Requires `ADMIN_ROLE` on the new (pending) access manager.
+
+**Parameters:**
+
+- None
+
+**Accounts:**
+
+- `app_state` (mut): PDA storing global application state, must have a pending transfer
+- `new_am_state`: New access manager state PDA derived from `pending_access_manager`
+- `admin` (signer): Admin on the new access manager
+- `instructions_sysvar`: Instructions sysvar for CPI validation
+
+#### `cancel_access_manager_transfer`
+
+Cancels a pending transfer.
+Requires `ADMIN_ROLE` on the current access manager.
+
+**Parameters:**
+
+- None
+
+**Accounts:**
+
+- `app_state` (mut): PDA storing global application state
+- `am_state`: Current access manager state PDA used for role validation
+- `admin` (signer): Admin on the current access manager
+- `instructions_sysvar`: Instructions sysvar for CPI validation
+
+For AM-A -> AM-B migration context shared across IBC programs, see [AccessManager](../access-manager/README.md).
 
 ### Chunked Upload Instructions
 

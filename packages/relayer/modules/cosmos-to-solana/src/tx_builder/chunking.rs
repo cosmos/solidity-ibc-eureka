@@ -17,13 +17,20 @@ use solana_ibc_sdk::ics26_router::instructions::{
     UploadProofChunk, UploadProofChunkAccounts,
 };
 use solana_ibc_sdk::ics26_router::types::{
-    MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgTimeoutPacket, MsgUploadChunk,
-    PayloadMetadata,
+    Delivery, MsgAckPacket, MsgCleanupChunks, MsgPayload, MsgRecvPacket, MsgTimeoutPacket,
+    MsgUploadChunk,
 };
 
 use super::transaction::derive_alt_address;
 
 use crate::{constants::MAX_PREFUND_LAMPORTS, gmp, ift};
+
+fn delivery_total_chunks(delivery: &Delivery) -> u8 {
+    match delivery {
+        Delivery::Inline { .. } => 0,
+        Delivery::Chunked { total_chunks } => *total_chunks,
+    }
+}
 
 /// Result type for ALT transaction building: (`create_alt_tx`, `extend_alt_txs`, `packet_txs`)
 type AltBuildResult = (Vec<u8>, Vec<u8>, Vec<Vec<u8>>);
@@ -39,7 +46,7 @@ impl super::TxBuilder {
     /// Returns empty vec for empty payloads, errors on multi-payload.
     fn derive_gmp_result_pda_bytes(
         &self,
-        payloads: &[PayloadMetadata],
+        payloads: &[MsgPayload],
         source_client: &str,
         sequence: u64,
     ) -> Result<Vec<u8>> {
@@ -76,7 +83,7 @@ impl super::TxBuilder {
     /// `PendingTransfer` and user can manually finalize later.
     fn build_ift_finalize_transfer_tx(
         &self,
-        payloads: &[PayloadMetadata],
+        payloads: &[MsgPayload],
         payload_data: &[Vec<u8>],
         source_client: &str,
         sequence: u64,
@@ -218,7 +225,7 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[PayloadMetadata],
+        msg_payloads: &[MsgPayload],
         payload_data: &[Vec<u8>],
         proof_total_chunks: u8,
         proof_data: &[u8],
@@ -229,7 +236,12 @@ impl super::TxBuilder {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
+            let total_chunks = msg_payloads
+                .get(payload_idx)
+                .map(|p| delivery_total_chunks(&p.data))
+                .unwrap_or(0);
+
+            if total_chunks > 0 {
                 let chunks = Self::split_into_chunks(data);
                 for (chunk_idx, chunk_data) in chunks.iter().enumerate() {
                     let chunk_index = u8::try_from(chunk_idx)
@@ -272,7 +284,7 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[PayloadMetadata],
+        msg_payloads: &[MsgPayload],
         payload_data: &[Vec<u8>],
         proof_total_chunks: u8,
     ) -> Result<Vec<Pubkey>> {
@@ -282,8 +294,12 @@ impl super::TxBuilder {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            if payload_idx < msg_payloads.len() && msg_payloads[payload_idx].total_chunks > 0 {
-                for chunk_idx in 0..msg_payloads[payload_idx].total_chunks {
+            let total = msg_payloads
+                .get(payload_idx)
+                .map(|p| delivery_total_chunks(&p.data))
+                .unwrap_or(0);
+            if total > 0 {
+                for chunk_idx in 0..total {
                     let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
                         &self.fee_payer,
                         client_id,
@@ -319,21 +335,23 @@ impl super::TxBuilder {
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
     ) -> Result<SolanaPacketTxs> {
+        let proof_total_chunks = delivery_total_chunks(&msg.proof.data);
+
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
             proof_data,
         )?;
 
         let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
         )?;
 
         let recv_instruction =
@@ -348,8 +366,8 @@ impl super::TxBuilder {
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.dest_client,
             msg.packet.sequence,
-            &msg.payloads,
-            msg.proof.total_chunks,
+            &msg.packet.payloads,
+            proof_total_chunks,
         )?;
 
         // recv_packet doesn't create GMP result PDA - that happens when ack/timeout comes back
@@ -371,21 +389,23 @@ impl super::TxBuilder {
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
     ) -> Result<SolanaPacketTxs> {
+        let proof_total_chunks = delivery_total_chunks(&msg.proof.data);
+
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
             proof_data,
         )?;
 
         let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
         )?;
 
         let ack_instruction = self.build_ack_packet_instruction(msg, remaining_account_pubkeys)?;
@@ -418,19 +438,19 @@ impl super::TxBuilder {
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
-            msg.proof.total_chunks,
+            &msg.packet.payloads,
+            proof_total_chunks,
         )?;
 
         let gmp_result_pda = self.derive_gmp_result_pda_bytes(
-            &msg.payloads,
+            &msg.packet.payloads,
             &msg.packet.source_client,
             msg.packet.sequence,
         )?;
 
         let ift_finalize_transfer_tx = self
             .build_ift_finalize_transfer_tx(
-                &msg.payloads,
+                &msg.packet.payloads,
                 payload_data,
                 &msg.packet.source_client,
                 msg.packet.sequence,
@@ -566,21 +586,23 @@ impl super::TxBuilder {
         payload_data: &[Vec<u8>],
         proof_data: &[u8],
     ) -> Result<SolanaPacketTxs> {
+        let proof_total_chunks = delivery_total_chunks(&msg.proof.data);
+
         let chunk_txs = self.build_packet_chunk_txs(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
             proof_data,
         )?;
 
         let remaining_account_pubkeys = self.build_chunk_remaining_accounts(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
+            &msg.packet.payloads,
             payload_data,
-            msg.proof.total_chunks,
+            proof_total_chunks,
         )?;
 
         let timeout_instruction =
@@ -594,19 +616,19 @@ impl super::TxBuilder {
         let cleanup_tx = self.build_packet_cleanup_tx(
             &msg.packet.source_client,
             msg.packet.sequence,
-            &msg.payloads,
-            msg.proof.total_chunks,
+            &msg.packet.payloads,
+            proof_total_chunks,
         )?;
 
         let gmp_result_pda = self.derive_gmp_result_pda_bytes(
-            &msg.payloads,
+            &msg.packet.payloads,
             &msg.packet.source_client,
             msg.packet.sequence,
         )?;
 
         let ift_finalize_transfer_tx = self
             .build_ift_finalize_transfer_tx(
-                &msg.payloads,
+                &msg.packet.payloads,
                 payload_data,
                 &msg.packet.source_client,
                 msg.packet.sequence,
@@ -628,7 +650,7 @@ impl super::TxBuilder {
         &self,
         client_id: &str,
         sequence: u64,
-        msg_payloads: &[PayloadMetadata],
+        msg_payloads: &[MsgPayload],
         proof_total_chunks: u8,
     ) -> Result<Vec<u8>> {
         let access_manager_program_id = self.resolve_access_manager_program_id()?;
@@ -637,11 +659,12 @@ impl super::TxBuilder {
 
         let mut remaining_accounts = Vec::new();
 
-        for (payload_idx, payload_metadata) in msg_payloads.iter().enumerate() {
+        for (payload_idx, payload) in msg_payloads.iter().enumerate() {
             let payload_index = u8::try_from(payload_idx)
                 .map_err(|_| anyhow::anyhow!("Payload index exceeds u8 max"))?;
 
-            for chunk_index in 0..payload_metadata.total_chunks {
+            let total = delivery_total_chunks(&payload.data);
+            for chunk_index in 0..total {
                 let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
                     &self.fee_payer,
                     client_id,
@@ -665,7 +688,7 @@ impl super::TxBuilder {
             remaining_accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
-        let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| p.total_chunks).collect();
+        let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| delivery_total_chunks(&p.data)).collect();
         let msg = MsgCleanupChunks {
             client_id: client_id.to_string(),
             sequence,

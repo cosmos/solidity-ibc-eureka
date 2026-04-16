@@ -7,6 +7,20 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey;
 
+/// Embedded access manager state for IBC programs.
+/// Each IBC program embeds this struct in its on-chain state account to track
+/// which access manager program governs its permissioned instructions and to
+/// support two-step access manager migration (propose/accept).
+/// Does not carry its own `_reserved` field — future fields can eat into the
+/// `_reserved` space of the higher-level state that embeds this struct.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
+    pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
+    pub pending_access_manager: Option<Pubkey>,
+}
+
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct ConsensusState {
     pub timestamp: u64,

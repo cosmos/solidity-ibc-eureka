@@ -15,6 +15,8 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 /// Input accounts for the `initialize` instruction.
 pub struct InitializeAccounts {
     pub payer: Pubkey,
+    pub program_data: Pubkey,
+    pub authority: Pubkey,
 }
 
 /// Instruction constants and PDA helpers for `initialize`.
@@ -22,7 +24,7 @@ pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
-    pub const COUNT: usize = 4;
+    pub const COUNT: usize = 6;
 
     /// Anchor instruction discriminator.
     pub const DISCRIMINATOR: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
@@ -35,6 +37,17 @@ impl Initialize {
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn program_data_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[&[
+                208, 86, 71, 216, 75, 138, 160, 89, 26, 70, 185, 39, 84, 230, 24, 13, 98, 77, 135,
+                100, 198, 119, 165, 142, 180, 93, 184, 94, 110, 209, 228, 187,
+            ]],
+            program_id,
+        )
     }
 
     /// Creates a builder for this instruction.
@@ -95,6 +108,8 @@ impl InitializeBuilder {
             AccountMeta::new(app_state, false),
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
+            AccountMeta::new_readonly(accounts.program_data, false),
+            AccountMeta::new_readonly(accounts.authority, true),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -105,21 +120,21 @@ impl InitializeBuilder {
     }
 }
 
-/// Input accounts for the `set_access_manager` instruction.
-pub struct SetAccessManagerAccounts {
+/// Input accounts for the `propose_access_manager_transfer` instruction.
+pub struct ProposeAccessManagerTransferAccounts {
     pub access_manager: Pubkey,
     pub admin: Pubkey,
 }
 
-/// Instruction constants and PDA helpers for `set_access_manager`.
-pub struct SetAccessManager;
+/// Instruction constants and PDA helpers for `propose_access_manager_transfer`.
+pub struct ProposeAccessManagerTransfer;
 
-impl SetAccessManager {
+impl ProposeAccessManagerTransfer {
     /// Total number of accounts (including fixed-address accounts).
     pub const COUNT: usize = 4;
 
     /// Anchor instruction discriminator.
-    pub const DISCRIMINATOR: [u8; 8] = [95, 209, 134, 89, 195, 69, 35, 122];
+    pub const DISCRIMINATOR: [u8; 8] = [96, 76, 46, 161, 93, 100, 32, 145];
 
     #[must_use]
     pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
@@ -128,8 +143,8 @@ impl SetAccessManager {
 
     /// Creates a builder for this instruction.
     #[must_use]
-    pub fn builder(program_id: &Pubkey) -> SetAccessManagerBuilder {
-        SetAccessManagerBuilder {
+    pub fn builder(program_id: &Pubkey) -> ProposeAccessManagerTransferBuilder {
+        ProposeAccessManagerTransferBuilder {
             program_id: *program_id,
             accounts: None,
             args_data: Self::DISCRIMINATOR.to_vec(),
@@ -139,27 +154,27 @@ impl SetAccessManager {
 }
 
 #[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
-pub struct SetAccessManagerArgs {
+pub struct ProposeAccessManagerTransferArgs {
     pub new_access_manager: Pubkey,
 }
 
-/// Builder for the `set_access_manager` instruction.
-pub struct SetAccessManagerBuilder {
+/// Builder for the `propose_access_manager_transfer` instruction.
+pub struct ProposeAccessManagerTransferBuilder {
     program_id: Pubkey,
-    accounts: Option<SetAccessManagerAccounts>,
+    accounts: Option<ProposeAccessManagerTransferAccounts>,
     args_data: Vec<u8>,
     remaining_accounts: Vec<AccountMeta>,
 }
 
-impl SetAccessManagerBuilder {
+impl ProposeAccessManagerTransferBuilder {
     #[must_use]
-    pub const fn accounts(mut self, accounts: SetAccessManagerAccounts) -> Self {
+    pub const fn accounts(mut self, accounts: ProposeAccessManagerTransferAccounts) -> Self {
         self.accounts = Some(accounts);
         self
     }
 
     #[must_use]
-    pub fn args(mut self, args: &SetAccessManagerArgs) -> Self {
+    pub fn args(mut self, args: &ProposeAccessManagerTransferArgs) -> Self {
         self.args_data
             .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
         self
@@ -175,10 +190,163 @@ impl SetAccessManagerBuilder {
     #[must_use]
     pub fn build(self) -> Instruction {
         let accounts = self.accounts.expect("accounts required");
-        let (app_state, _) = SetAccessManager::app_state_pda(&self.program_id);
+        let (app_state, _) = ProposeAccessManagerTransfer::app_state_pda(&self.program_id);
         let mut account_metas = vec![
             AccountMeta::new(app_state, false),
             AccountMeta::new_readonly(accounts.access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `accept_access_manager_transfer` instruction.
+pub struct AcceptAccessManagerTransferAccounts {
+    pub new_am_state: Pubkey,
+    pub admin: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `accept_access_manager_transfer`.
+pub struct AcceptAccessManagerTransfer;
+
+impl AcceptAccessManagerTransfer {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 4;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [61, 185, 143, 64, 16, 88, 106, 185];
+
+    #[must_use]
+    pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"app_state"], program_id)
+    }
+
+    #[must_use]
+    pub fn new_am_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> AcceptAccessManagerTransferBuilder {
+        AcceptAccessManagerTransferBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+/// Builder for the `accept_access_manager_transfer` instruction.
+pub struct AcceptAccessManagerTransferBuilder {
+    program_id: Pubkey,
+    accounts: Option<AcceptAccessManagerTransferAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl AcceptAccessManagerTransferBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: AcceptAccessManagerTransferAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (app_state, _) = AcceptAccessManagerTransfer::app_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(app_state, false),
+            AccountMeta::new_readonly(accounts.new_am_state, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `cancel_access_manager_transfer` instruction.
+pub struct CancelAccessManagerTransferAccounts {
+    pub am_state: Pubkey,
+    pub admin: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `cancel_access_manager_transfer`.
+pub struct CancelAccessManagerTransfer;
+
+impl CancelAccessManagerTransfer {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 4;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [181, 250, 216, 163, 132, 73, 23, 68];
+
+    #[must_use]
+    pub fn app_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"app_state"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> CancelAccessManagerTransferBuilder {
+        CancelAccessManagerTransferBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+/// Builder for the `cancel_access_manager_transfer` instruction.
+pub struct CancelAccessManagerTransferBuilder {
+    program_id: Pubkey,
+    accounts: Option<CancelAccessManagerTransferAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl CancelAccessManagerTransferBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: CancelAccessManagerTransferAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (app_state, _) = CancelAccessManagerTransfer::app_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(app_state, false),
+            AccountMeta::new_readonly(accounts.am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ];

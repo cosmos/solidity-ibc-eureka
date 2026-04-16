@@ -11,8 +11,8 @@ use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
 };
 use solana_ibc_sdk::ics26_router::events::{SendPacketEvent, WriteAcknowledgementEvent};
 use solana_ibc_sdk::ics26_router::types::{
-    MsgTimeoutPacket, Packet as SolanaPacket, Payload as SolanaPayload, PayloadMetadata,
-    ProofMetadata,
+    Delivery, MsgPacket, MsgPayload, MsgProof, MsgTimeoutPacket, Packet as SolanaPacket,
+    Payload as SolanaPayload,
 };
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
@@ -85,12 +85,18 @@ pub fn solana_timeout_packet_to_tm_timeout(
             .packet
             .payloads
             .into_iter()
-            .map(|p| ibc_proto_eureka::ibc::core::channel::v2::Payload {
-                source_port: p.source_port,
-                destination_port: p.dest_port,
-                version: p.version,
-                encoding: p.encoding,
-                value: p.value,
+            .map(|p| {
+                let value = match p.data {
+                    Delivery::Inline { data } => data,
+                    Delivery::Chunked { .. } => vec![],
+                };
+                ibc_proto_eureka::ibc::core::channel::v2::Payload {
+                    source_port: p.source_port,
+                    destination_port: p.dest_port,
+                    version: p.version,
+                    encoding: p.encoding,
+                    value,
+                }
             })
             .collect(),
     };
@@ -129,63 +135,56 @@ pub fn tm_timeout_to_solana_timeout_packet(
     let packet = msg.packet.context("packet field is required")?;
     let proof_height = msg.proof_height.context("proof_height field is required")?;
 
-    let solana_packet = SolanaPacket {
-        sequence: packet.sequence,
-        source_client: packet.source_client.clone(),
-        dest_client: packet.destination_client.clone(),
-        timeout_timestamp: packet.timeout_timestamp,
-        payloads: packet
-            .payloads
-            .iter()
-            .map(|p| SolanaPayload {
-                source_port: p.source_port.clone(),
-                dest_port: p.destination_port.clone(),
-                version: p.version.clone(),
-                encoding: p.encoding.clone(),
-                value: p.value.clone(),
-            })
-            .collect(),
-    };
+    let sequence = packet.sequence;
+    let source_client = packet.source_client;
+    let dest_client = packet.destination_client;
+    let timeout_timestamp = packet.timeout_timestamp;
 
-    let payload_metadata: Vec<PayloadMetadata> = packet
+    let msg_payloads: Vec<MsgPayload> = packet
         .payloads
         .into_iter()
         .map(|p| {
-            let total_chunks = if p.value.len() > CHUNK_DATA_SIZE {
-                u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE)).context("payload too big")?
+            let data = if p.value.len() > CHUNK_DATA_SIZE {
+                let total_chunks =
+                    u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE)).context("payload too big")?;
+                Delivery::Chunked { total_chunks }
             } else {
-                0
+                Delivery::Inline { data: p.value }
             };
 
-            anyhow::Ok(PayloadMetadata {
+            anyhow::Ok(MsgPayload {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
                 encoding: p.encoding,
-                total_chunks,
+                data,
             })
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let proof_total_chunks = if msg.proof_unreceived.len() > CHUNK_DATA_SIZE {
-        u8::try_from(msg.proof_unreceived.len().div_ceil(CHUNK_DATA_SIZE))
-            .context("proof too big")?
+    let proof_data = if msg.proof_unreceived.len() > CHUNK_DATA_SIZE {
+        let total_chunks = u8::try_from(msg.proof_unreceived.len().div_ceil(CHUNK_DATA_SIZE))
+            .context("proof too big")?;
+        Delivery::Chunked { total_chunks }
     } else {
-        0
+        Delivery::Inline {
+            data: msg.proof_unreceived,
+        }
     };
 
-    let proof_metadata = ProofMetadata {
-        height: proof_height.revision_height,
-        total_chunks: proof_total_chunks,
-    };
-
-    let msg = MsgTimeoutPacket {
-        packet: solana_packet,
-        payloads: payload_metadata,
-        proof: proof_metadata,
-    };
-
-    Ok(msg)
+    Ok(MsgTimeoutPacket {
+        packet: MsgPacket {
+            sequence,
+            source_client,
+            dest_client,
+            timeout_timestamp,
+            payloads: msg_payloads,
+        },
+        proof: MsgProof {
+            height: proof_height.revision_height,
+            data: proof_data,
+        },
+    })
 }
 
 fn to_sol_packet(value: SolanaPacket) -> SolPacket {

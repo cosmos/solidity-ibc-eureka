@@ -36,25 +36,6 @@ impl Client {
     pub const DISCRIMINATOR: [u8; 8] = [221, 237, 145, 143, 170, 194, 133, 115];
 }
 
-/// Per-client packet sequence counter.
-/// Tracks the next sequence number to assign when sending a packet
-/// through a given client. Each `send_packet` call reads and increments
-/// this value to guarantee unique, monotonically increasing sequence
-/// numbers for replay protection.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ClientSequence {
-    /// Schema version for upgrades
-    pub version: AccountVersion,
-    /// Next sequence number for sending packets
-    pub next_sequence_send: u64,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
-
-impl ClientSequence {
-    pub const DISCRIMINATOR: [u8; 8] = [18, 97, 143, 135, 107, 101, 53, 226];
-}
-
 /// IBC packet commitment, receipt, or acknowledgement hash.
 /// A generic 32-byte hash PDA used for three purposes depending on its
 /// seed prefix:
@@ -89,8 +70,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -154,8 +133,8 @@ impl ProofChunk {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields

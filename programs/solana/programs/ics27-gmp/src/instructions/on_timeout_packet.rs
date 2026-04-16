@@ -2,7 +2,7 @@ use crate::errors::GMPError;
 use crate::events::GMPCallTimeout;
 use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
 use anchor_lang::prelude::*;
-use solana_ibc_proto::{GmpPacketData, ProstMessage, RawGmpPacketData};
+use solana_ibc_proto::GmpPacketData;
 
 /// Processes an IBC packet timeout received from the router via CPI.
 /// Creates a `GMPCallResultAccount` PDA to record the timeout status.
@@ -52,10 +52,12 @@ pub fn on_timeout_packet(
     )
     .map_err(GMPError::from)?;
 
-    let raw_packet = RawGmpPacketData::decode(msg.payload.value.as_slice())
-        .map_err(|_| GMPError::InvalidPacketData)?;
-    let packet_data =
-        GmpPacketData::try_from(raw_packet).map_err(|_| GMPError::InvalidPacketData)?;
+    let raw_packet_data =
+        crate::encoding::decode_gmp_packet(&msg.payload.value, &msg.payload.encoding)?;
+    let packet_data = GmpPacketData::try_from(raw_packet_data).map_err(|e| {
+        msg!("GMP packet validation failed: {}", e);
+        GMPError::InvalidPacketData
+    })?;
 
     let clock = Clock::get()?;
     let sender: Pubkey = packet_data
@@ -80,16 +82,23 @@ pub fn on_timeout_packet(
 
 #[cfg(test)]
 mod tests {
-    use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
-    use crate::state::{GMPAppState, GMPCallResult};
+    use crate::constants::{
+        GMP_PORT_ID, ICS27_ENCODING_ABI, ICS27_ENCODING_PROTOBUF, ICS27_VERSION,
+    };
+    use crate::encoding::encode_gmp_packet;
+    use crate::state::{GMPAppState, GMPCallResult, GMPCallResultAccount};
     use crate::test_utils::{
         create_fake_instructions_sysvar_account, create_gmp_app_state_account,
-        create_instructions_sysvar_account_with_caller, create_payer_account,
-        create_system_program_account, create_uninitialized_account_for_pda, ANCHOR_ERROR_OFFSET,
+        create_gmp_packet_data, create_instructions_sysvar_account_with_caller,
+        create_payer_account, create_system_program_account, create_uninitialized_account_for_pda,
+        ANCHOR_ERROR_OFFSET,
     };
-    use anchor_lang::InstructionData;
+    use anchor_lang::{AnchorDeserialize, InstructionData};
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
+    use rstest::rstest;
+    use solana_ibc_proto::ProstMessage;
+    use solana_ibc_types::{CallResultStatus, GmpPacketData};
     use solana_sdk::program_error::ProgramError;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
@@ -108,7 +117,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -194,7 +203,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),
@@ -343,7 +352,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![], // Empty - will fail to decode
             },
             relayer: Pubkey::new_unique(),
@@ -378,14 +387,11 @@ mod tests {
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 
-    #[test]
-    fn test_on_timeout_packet_success() {
-        use crate::state::GMPCallResultAccount;
-        use crate::test_utils::create_gmp_packet_data;
-        use anchor_lang::AnchorDeserialize;
-        use solana_ibc_proto::ProstMessage;
-        use solana_ibc_types::CallResultStatus;
+    fn encode_test_packet(raw: solana_ibc_proto::RawGmpPacketData, encoding: &str) -> Vec<u8> {
+        encode_gmp_packet(GmpPacketData::try_from(raw).unwrap(), encoding).unwrap()
+    }
 
+    fn run_timeout_success_test(encoding: &str) {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let router_program = ics26_router::ID;
@@ -394,13 +400,13 @@ mod tests {
             Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
         let (result_pda, _) = derive_result_pda();
 
-        let packet_data = create_gmp_packet_data(
+        let raw_packet_data = create_gmp_packet_data(
             &payer.to_string(),
             "0x1234567890abcdef",
             vec![1, 2, 3],
             vec![4, 5, 6],
         );
-        let packet_bytes = packet_data.encode_to_vec();
+        let packet_bytes = encode_test_packet(raw_packet_data, encoding);
 
         let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
             source_client: TEST_SOURCE_CLIENT.to_string(),
@@ -410,7 +416,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: encoding.to_string(),
                 value: packet_bytes,
             },
             relayer: Pubkey::new_unique(),
@@ -441,7 +447,7 @@ mod tests {
         let result = mollusk.process_instruction(&instruction, &accounts);
         assert!(
             !result.program_result.is_err(),
-            "on_timeout_packet should succeed: {:?}",
+            "on_timeout_packet should succeed with {encoding} encoding: {:?}",
             result.program_result
         );
 
@@ -456,10 +462,15 @@ mod tests {
         assert_eq!(result_state.status, CallResultStatus::Timeout);
     }
 
+    #[rstest]
+    #[case::protobuf(ICS27_ENCODING_PROTOBUF)]
+    #[case::abi(ICS27_ENCODING_ABI)]
+    fn test_on_timeout_packet_success(#[case] encoding: &str) {
+        run_timeout_success_test(encoding);
+    }
+
     /// Helper to test timeout packet with invalid GMP packet data (expects `InvalidPacketData` error)
     fn assert_timeout_packet_invalid_gmp_data(packet_data: solana_ibc_proto::RawGmpPacketData) {
-        use solana_ibc_proto::ProstMessage;
-
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let router_program = ics26_router::ID;
@@ -476,7 +487,7 @@ mod tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: packet_data.encode_to_vec(),
             },
             relayer: Pubkey::new_unique(),
@@ -567,6 +578,67 @@ mod tests {
     }
 
     #[test]
+    fn test_on_timeout_packet_invalid_encoding() {
+        let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
+
+        let router_program = ics26_router::ID;
+        let payer = Pubkey::new_unique();
+        let (app_state_pda, app_state_bump) =
+            Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+        let (result_pda, _) = derive_result_pda();
+
+        let raw_packet_data = create_gmp_packet_data(
+            &payer.to_string(),
+            "0x1234567890abcdef",
+            vec![1, 2, 3],
+            vec![4, 5, 6],
+        );
+        let packet_bytes = raw_packet_data.encode_to_vec();
+
+        let timeout_msg = solana_ibc_types::OnTimeoutPacketMsg {
+            source_client: TEST_SOURCE_CLIENT.to_string(),
+            dest_client: "solana-1".to_string(),
+            sequence: TEST_SEQUENCE,
+            payload: solana_ibc_types::Payload {
+                source_port: GMP_PORT_ID.to_string(),
+                dest_port: GMP_PORT_ID.to_string(),
+                version: ICS27_VERSION.to_string(),
+                encoding: "application/json".to_string(),
+                value: packet_bytes,
+            },
+            relayer: Pubkey::new_unique(),
+        };
+
+        let instruction_data = crate::instruction::OnTimeoutPacket { msg: timeout_msg };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new_readonly(app_state_pda, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
+                AccountMeta::new(result_pda, false),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let accounts = vec![
+            create_gmp_app_state_account(app_state_pda, app_state_bump, false),
+            create_instructions_sysvar_account_with_caller(router_program),
+            create_payer_account(payer),
+            create_system_program_account(),
+            create_uninitialized_account_for_pda(result_pda),
+        ];
+
+        let checks = vec![Check::err(ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + crate::errors::GMPError::InvalidEncoding as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
     fn test_on_timeout_packet_salt_too_long() {
         assert_timeout_packet_invalid_gmp_data(solana_ibc_proto::RawGmpPacketData {
             sender: Pubkey::new_unique().to_string(),
@@ -609,7 +681,7 @@ mod integration_tests {
                 source_port: GMP_PORT_ID.to_string(),
                 dest_port: GMP_PORT_ID.to_string(),
                 version: ICS27_VERSION.to_string(),
-                encoding: ICS27_ENCODING.to_string(),
+                encoding: ICS27_ENCODING_PROTOBUF.to_string(),
                 value: vec![],
             },
             relayer: Pubkey::new_unique(),

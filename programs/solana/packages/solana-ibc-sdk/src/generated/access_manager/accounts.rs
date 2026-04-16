@@ -20,6 +20,17 @@ use super::types::*;
 pub struct AccessManager {
     pub roles: Vec<RoleData>,
     pub whitelisted_programs: Vec<Pubkey>,
+    /// Pending upgrade authority transfers, one per managed program.
+    /// Uses a bounded `Vec` rather than a single `Option` to support concurrent
+    /// transfers — with timelocked multisigs, a single `Option` would require
+    /// N sequential propose/accept cycles (N × timelock waits). With a `Vec`,
+    /// all proposes can be batched in one multisig vote.
+    /// A single shared upgrade authority PDA (without `target_program` in the
+    /// seed) was considered but rejected: `SetAuthority` must be called once
+    /// per program regardless, so a shared PDA saves no transactions, while
+    /// per-program PDAs limit the blast radius of bugs and let Anchor's seeds
+    /// constraint tie each signer to exactly one target program.
+    pub pending_authority_transfers: Vec<PendingAuthorityTransfer>,
 }
 
 impl AccessManager {

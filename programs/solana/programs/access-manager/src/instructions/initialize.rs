@@ -1,6 +1,7 @@
 use crate::errors::AccessManagerError;
 use crate::state::AccessManager;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 use solana_ibc_types::{reject_cpi, roles};
 
 /// Creates the global [`AccessManager`] PDA and assigns the first admin.
@@ -28,6 +29,19 @@ pub struct Initialize<'info> {
     /// CHECK: Address constraint verifies this is the instructions sysvar
     #[account(address = anchor_lang::solana_program::sysvar::instructions::ID)]
     pub instructions_sysvar: AccountInfo<'info>,
+
+    /// BPF Loader Upgradeable `ProgramData` account for this program.
+    #[account(
+        seeds = [crate::ID.as_ref()],
+        bump,
+        seeds::program = bpf_loader_upgradeable::ID,
+        constraint = program_data.upgrade_authority_address == Some(authority.key())
+            @ AccessManagerError::UnauthorizedDeployer
+    )]
+    pub program_data: Account<'info, ProgramData>,
+
+    /// The program's upgrade authority — must sign to prove deployer identity.
+    pub authority: Signer<'info>,
 }
 
 pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
@@ -36,6 +50,7 @@ pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {
     let access_manager = &mut ctx.accounts.access_manager;
     access_manager.roles = vec![];
     access_manager.whitelisted_programs = vec![];
+    access_manager.pending_authority_transfers = vec![];
 
     access_manager.grant_role(roles::ADMIN_ROLE, admin)?;
 
@@ -59,9 +74,12 @@ mod tests {
     fn test_initialize_happy_path() {
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         let (access_manager_pda, _) =
             Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize { admin };
 
@@ -72,6 +90,8 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -112,6 +132,17 @@ mod tests {
                 solana_sdk::sysvar::instructions::ID,
                 crate::test_utils::create_instructions_sysvar_account(),
             ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
@@ -145,9 +176,12 @@ mod tests {
     fn test_initialize_fake_sysvar_wormhole_attack() {
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         let (access_manager_pda, _) =
             Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize { admin };
 
@@ -158,6 +192,8 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -198,6 +234,17 @@ mod tests {
                 },
             ),
             fake_sysvar_account,
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
@@ -213,9 +260,12 @@ mod tests {
     fn test_initialize_cpi_rejection() {
         let payer = Pubkey::new_unique();
         let admin = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         let (access_manager_pda, _) =
             Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize { admin };
 
@@ -226,6 +276,8 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -267,6 +319,17 @@ mod tests {
                 },
             ),
             cpi_sysvar_account,
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
@@ -282,9 +345,12 @@ mod tests {
     fn test_initialize_cannot_reinitialize() {
         let admin = Pubkey::new_unique();
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
 
         // Use helper to create an already-initialized access manager
         let (access_manager_pda, access_manager_account) = create_initialized_access_manager(admin);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize { admin };
 
@@ -295,6 +361,8 @@ mod tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -326,6 +394,17 @@ mod tests {
                 solana_sdk::sysvar::instructions::ID,
                 create_instructions_sysvar_account(),
             ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
         ];
 
         let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
@@ -338,6 +417,259 @@ mod tests {
 
         mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
+
+    #[test]
+    fn test_initialize_wrong_authority_rejected() {
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let real_authority = Pubkey::new_unique();
+        let wrong_authority = Pubkey::new_unique();
+
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(real_authority));
+
+        let instruction_data = crate::instruction::Initialize { admin };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(wrong_authority, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                access_manager_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+            (program_data_pda, program_data_account),
+            (
+                wrong_authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
+
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + AccessManagerError::UnauthorizedDeployer as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_immutable_program_rejected() {
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, None);
+
+        let instruction_data = crate::instruction::Initialize { admin };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: instruction_data.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                access_manager_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+            (program_data_pda, program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
+
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            ANCHOR_ERROR_OFFSET + AccessManagerError::UnauthorizedDeployer as u32,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let admin = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+
+        let (access_manager_pda, _) =
+            Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+        // Derive ProgramData from a *different* program — should be rejected by the seeds constraint.
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(access_manager_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize { admin }.data(),
+        };
+
+        let payer_lamports = 10_000_000_000;
+        let accounts = vec![
+            (
+                access_manager_pda,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                payer,
+                Account {
+                    lamports: payer_lamports,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                system_program::ID,
+                Account {
+                    lamports: 0,
+                    data: vec![],
+                    owner: native_loader::ID,
+                    executable: true,
+                    rent_epoch: 0,
+                },
+            ),
+            (
+                solana_sdk::sysvar::instructions::ID,
+                create_instructions_sysvar_account(),
+            ),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (
+                authority,
+                Account {
+                    lamports: 1_000_000_000,
+                    data: vec![],
+                    owner: system_program::ID,
+                    executable: false,
+                    rent_epoch: 0,
+                },
+            ),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, crate::get_access_manager_program_path());
+
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            2006,
+        ))];
+
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
 }
 
 #[cfg(test)]
@@ -345,26 +677,52 @@ mod integration_tests {
     use crate::test_utils::*;
     use anchor_lang::InstructionData;
     use solana_sdk::{
+        bpf_loader_upgradeable::{self, UpgradeableLoaderState},
         instruction::{AccountMeta, Instruction},
         pubkey::Pubkey,
+        signature::Keypair,
         signer::Signer,
     };
 
-    fn setup_program_test_without_am() -> solana_program_test::ProgramTest {
+    fn setup_program_test_without_am(authority: &Keypair) -> solana_program_test::ProgramTest {
         if std::env::var("SBF_OUT_DIR").is_err() {
             let deploy_dir = std::path::Path::new("../../target/deploy");
             std::env::set_var("SBF_OUT_DIR", deploy_dir);
         }
 
-        let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+        let mut pt = solana_program_test::ProgramTest::new(
+            crate::test_config::PROGRAM_BINARY_NAME,
+            crate::ID,
+            None,
+        );
         pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
         pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
+
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[crate::ID.as_ref()], &bpf_loader_upgradeable::ID);
+        let state = UpgradeableLoaderState::ProgramData {
+            slot: 0,
+            upgrade_authority_address: Some(authority.pubkey()),
+        };
+        pt.add_account(
+            program_data_pda,
+            solana_sdk::account::Account {
+                lamports: 1_000_000,
+                data: bincode::serialize(&state).unwrap(),
+                owner: bpf_loader_upgradeable::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        );
+
         pt
     }
 
-    fn build_initialize_ix(payer: Pubkey, admin: Pubkey) -> Instruction {
+    fn build_initialize_ix(payer: Pubkey, admin: Pubkey, authority: Pubkey) -> Instruction {
         let (access_manager_pda, _) =
             Pubkey::find_program_address(&[crate::state::AccessManager::SEED], &crate::ID);
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[crate::ID.as_ref()], &bpf_loader_upgradeable::ID);
 
         Instruction {
             program_id: crate::ID,
@@ -373,6 +731,8 @@ mod integration_tests {
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
                 AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: crate::instruction::Initialize { admin }.data(),
         }
@@ -380,16 +740,17 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_direct_call_succeeds() {
-        let pt = setup_program_test_without_am();
+        let authority = Keypair::new();
+        let pt = setup_program_test_without_am(&authority);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let admin = Pubkey::new_unique();
-        let ix = build_initialize_ix(payer.pubkey(), admin);
+        let ix = build_initialize_ix(payer.pubkey(), admin, authority.pubkey());
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &authority],
             recent_blockhash,
         );
         let result = banks_client.process_transaction(tx).await;
@@ -398,17 +759,25 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_cpi_from_whitelisted_program_rejected() {
-        let pt = setup_program_test_without_am();
+        let authority = Keypair::new();
+        let pt = setup_program_test_without_am(&authority);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let admin = Pubkey::new_unique();
-        let inner_ix = build_initialize_ix(payer.pubkey(), admin);
-        let wrapped_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        let inner_ix = build_initialize_ix(payer.pubkey(), admin, authority.pubkey());
+        let mut wrapped_ix = wrap_in_test_cpi_target_proxy(payer.pubkey(), &inner_ix);
+        // Mark authority as signer in the outer instruction so the transaction
+        // can include it as a signer and the runtime propagates its status via CPI.
+        for meta in &mut wrapped_ix.accounts {
+            if meta.pubkey == authority.pubkey() {
+                meta.is_signer = true;
+            }
+        }
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &authority],
             recent_blockhash,
         );
         let err = banks_client.process_transaction(tx).await.unwrap_err();
@@ -420,17 +789,23 @@ mod integration_tests {
 
     #[tokio::test]
     async fn test_cpi_from_unauthorized_program_rejected() {
-        let pt = setup_program_test_without_am();
+        let authority = Keypair::new();
+        let pt = setup_program_test_without_am(&authority);
         let (banks_client, payer, recent_blockhash) = pt.start().await;
 
         let admin = Pubkey::new_unique();
-        let inner_ix = build_initialize_ix(payer.pubkey(), admin);
-        let wrapped_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+        let inner_ix = build_initialize_ix(payer.pubkey(), admin, authority.pubkey());
+        let mut wrapped_ix = wrap_in_test_cpi_proxy(payer.pubkey(), &inner_ix);
+        for meta in &mut wrapped_ix.accounts {
+            if meta.pubkey == authority.pubkey() {
+                meta.is_signer = true;
+            }
+        }
 
         let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
             &[wrapped_ix],
             Some(&payer.pubkey()),
-            &[&payer],
+            &[&payer, &authority],
             recent_blockhash,
         );
         let err = banks_client.process_transaction(tx).await.unwrap_err();

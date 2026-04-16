@@ -45,6 +45,39 @@ pub fn derive_alt_address(slot: u64, authority: Pubkey) -> (Pubkey, u8) {
 }
 
 impl super::TxBuilder {
+    /// Fetches the ICS07 Tendermint program's upgrade authority from its `ProgramData` account.
+    pub(crate) fn fetch_ics07_upgrade_authority(&self) -> Result<Pubkey> {
+        let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
+            .parse()
+            .expect("Invalid ICS07_TENDERMINT_ID constant");
+
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[solana_ics07_program_id.as_ref()],
+            &solana_sdk::bpf_loader_upgradeable::id(),
+        );
+
+        let account = self
+            .target_solana_client
+            .get_account_with_commitment(&program_data_pda, CommitmentConfig::confirmed())
+            .map_err(|e| anyhow::anyhow!("Failed to fetch ICS07 ProgramData account: {e}"))?
+            .value
+            .ok_or_else(|| anyhow::anyhow!("ICS07 ProgramData account not found"))?;
+
+        let loader_state: solana_sdk::bpf_loader_upgradeable::UpgradeableLoaderState =
+            bincode::deserialize(&account.data)
+                .map_err(|e| anyhow::anyhow!("Failed to deserialize ProgramData: {e}"))?;
+
+        match loader_state {
+            solana_sdk::bpf_loader_upgradeable::UpgradeableLoaderState::ProgramData {
+                upgrade_authority_address: Some(authority),
+                ..
+            } => Ok(authority),
+            _ => Err(anyhow::anyhow!(
+                "ICS07 program has no upgrade authority (immutable)"
+            )),
+        }
+    }
+
     /// Resolves the access manager program ID from the router state.
     pub(crate) fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
         let (router_state_pda, _) =
@@ -67,7 +100,7 @@ impl super::TxBuilder {
         let router_state = RouterState::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState account: {e}"))?;
 
-        Ok(router_state.access_manager)
+        Ok(router_state.am_state.access_manager)
     }
 
     /// Resolve the IBC app program ID for a given port

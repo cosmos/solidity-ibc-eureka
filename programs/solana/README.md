@@ -507,7 +507,7 @@ bin/solana-ibc upgrade program \
 **Access Control:**
 
 - Only accounts with `ADMIN_ROLE` can trigger upgrades
-- CPI calls to `upgrade_program` are blocked
+- CPI calls to `upgrade_program` are permitted only from whitelisted programs such as multisig wallets (via `require_admin`)
 - Instructions sysvar verification prevents fake sysvar attacks
 
 **Authority Verification:**

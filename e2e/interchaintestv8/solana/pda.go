@@ -48,6 +48,17 @@ func (accessManagerPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanag
 	return pda, bump
 }
 
+func (accessManagerPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0x36, 0x66, 0x8e, 0xef, 0x40, 0x96, 0x23, 0xb8, 0x3a, 0x37, 0xaf, 0x3e, 0xf6, 0xc8, 0x43, 0xfe, 0xeb, 0xb7, 0xbe, 0x8d, 0x42, 0xbd, 0x51, 0x30, 0x62, 0x54, 0x3b, 0x24, 0x92, 0xd1, 0x08, 0xaa}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AccessManager.ProgramDataPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (accessManagerPDAs) ProgramDataWithAccountSeedPDA(programID solanago.PublicKey, program []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{program},
@@ -59,6 +70,17 @@ func (accessManagerPDAs) ProgramDataWithAccountSeedPDA(programID solanago.Public
 	return pda, bump
 }
 
+func (accessManagerPDAs) ProgramDataWithArgSeedPDA(programID solanago.PublicKey, targetProgram []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{targetProgram},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive AccessManager.ProgramDataWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (accessManagerPDAs) UpgradeAuthorityWithArgSeedPDA(programID solanago.PublicKey, targetProgram []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("upgrade_authority"), targetProgram},
@@ -66,6 +88,17 @@ func (accessManagerPDAs) UpgradeAuthorityWithArgSeedPDA(programID solanago.Publi
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive AccessManager.UpgradeAuthorityWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (attestationPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.AccessManagerPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -114,6 +147,28 @@ func (attestationPDAs) ConsensusStateWithArgSeedPDA(programID solanago.PublicKey
 	return pda, bump
 }
 
+func (attestationPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0xd0, 0x56, 0x47, 0xd8, 0x4b, 0x8a, 0xa0, 0x59, 0x1a, 0x46, 0xb9, 0x27, 0x54, 0xe6, 0x18, 0x0d, 0x62, 0x4d, 0x87, 0x64, 0xc6, 0x77, 0xa5, 0x8e, 0xb4, 0x5d, 0xb8, 0x5e, 0x6e, 0xd1, 0xe4, 0xbb}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Attestation.ProgramDataPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics07TendermintPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.AccessManagerPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics07TendermintPDAs) AppStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("app_state")},
@@ -154,6 +209,28 @@ func (ics07TendermintPDAs) ConsensusStateWithArgSeedPDA(programID solanago.Publi
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ConsensusStateWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics07TendermintPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0xfa, 0x20, 0x6e, 0xca, 0x52, 0x0c, 0xa6, 0xbf, 0x0a, 0x8f, 0x5e, 0xed, 0x96, 0xd3, 0x95, 0x03, 0x78, 0xd0, 0x6b, 0x55, 0x71, 0x5a, 0xe6, 0x44, 0xa3, 0xfd, 0xf4, 0x4d, 0x84, 0x09, 0x08, 0xec}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics07Tendermint.ProgramDataPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics26RouterPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics26Router.AccessManagerPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -224,6 +301,17 @@ func (ics26RouterPDAs) PacketReceiptWithArgSeedPDA(programID solanago.PublicKey,
 	return pda, bump
 }
 
+func (ics26RouterPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0xd6, 0x3a, 0xca, 0xc6, 0xab, 0xa1, 0x94, 0xbd, 0xd0, 0x13, 0x25, 0x9f, 0xa3, 0x2c, 0xb4, 0x68, 0xa6, 0xa9, 0x70, 0x33, 0x64, 0xff, 0x0c, 0xa7, 0xee, 0x9e, 0xe6, 0x47, 0x8d, 0xf0, 0x3c, 0xcd}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics26Router.ProgramDataPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (ics26RouterPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("router_state")},
@@ -231,6 +319,17 @@ func (ics26RouterPDAs) RouterStatePDA(programID solanago.PublicKey) (solanago.Pu
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics26Router.RouterStatePDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) AccessManagerPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("access_manager")},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.AccessManagerPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -286,6 +385,28 @@ func (ics27GmpPDAs) IbcAppGmpportPDA(programID solanago.PublicKey) (solanago.Pub
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ics27Gmp.IbcAppGmpportPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) PacketCommitmentWithArgSeedPDA(programID solanago.PublicKey, sourceClient []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("packet_commitment"), sourceClient, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.PacketCommitmentWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (ics27GmpPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0x25, 0x28, 0x42, 0x7b, 0x8b, 0x00, 0x5b, 0x21, 0x2c, 0x37, 0xb4, 0xb0, 0xfd, 0x5e, 0x47, 0x71, 0x30, 0xe2, 0x61, 0xdb, 0xd4, 0xef, 0x22, 0xdb, 0x32, 0xf0, 0x48, 0xc1, 0x65, 0x40, 0xe5, 0x19}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ics27Gmp.ProgramDataPDA PDA: %v", err))
 	}
 	return pda, bump
 }
@@ -378,6 +499,17 @@ func (iftPDAs) IftMintAuthorityWithAccountSeedPDA(programID solanago.PublicKey, 
 	return pda, bump
 }
 
+func (iftPDAs) PacketCommitmentWithArgSeedPDA(programID solanago.PublicKey, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte("packet_commitment"), clientId, sequence},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.PacketCommitmentWithArgSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
 func (iftPDAs) PendingTransferWithArgAndAccountSeedPDA(programID solanago.PublicKey, mint []byte, clientId []byte, sequence []byte) (solanago.PublicKey, uint8) {
 	pda, bump, err := solanago.FindProgramAddress(
 		[][]byte{[]byte("pending_transfer"), mint, clientId, sequence},
@@ -385,6 +517,17 @@ func (iftPDAs) PendingTransferWithArgAndAccountSeedPDA(programID solanago.Public
 	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to derive Ift.PendingTransferWithArgAndAccountSeedPDA PDA: %v", err))
+	}
+	return pda, bump
+}
+
+func (iftPDAs) ProgramDataPDA(programID solanago.PublicKey) (solanago.PublicKey, uint8) {
+	pda, bump, err := solanago.FindProgramAddress(
+		[][]byte{[]byte{0xb8, 0x4f, 0x41, 0xf3, 0xa6, 0x2f, 0x4a, 0x01, 0x8f, 0x54, 0xa5, 0x49, 0x4f, 0xdf, 0x32, 0x3f, 0x96, 0xdb, 0xa0, 0xee, 0x5a, 0x7a, 0xfc, 0x0d, 0x96, 0x74, 0x18, 0xf9, 0xfe, 0x9d, 0x89, 0x1a}},
+		programID,
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to derive Ift.ProgramDataPDA PDA: %v", err))
 	}
 	return pda, bump
 }

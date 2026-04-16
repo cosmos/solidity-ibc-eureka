@@ -27,15 +27,23 @@ impl super::TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
         access_manager: Pubkey,
+        authority: Pubkey,
     ) -> Instruction {
         // For create_client, we use the default ICS07 Tendermint light client.
         let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
             .parse()
             .expect("Invalid ICS07_TENDERMINT_ID constant");
 
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[solana_ics07_program_id.as_ref()],
+            &solana_sdk::bpf_loader_upgradeable::id(),
+        );
+
         Initialize::builder(&solana_ics07_program_id)
             .accounts(InitializeAccounts {
                 payer: self.fee_payer,
+                program_data: program_data_pda,
+                authority,
                 revision_height: latest_height,
             })
             .args(&InitializeArgs {

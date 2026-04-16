@@ -22,8 +22,8 @@ pub struct GMPAppState {
     pub paused: bool,
     /// PDA bump seed
     pub bump: u8,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -46,7 +46,7 @@ pub struct GMPCallResultAccount {
     pub version: Ics27Gmp_State_AccountVersion,
     /// Original sender pubkey.
     pub sender: Pubkey,
-    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+    /// Caller-chosen IBC packet sequence number.
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
     pub source_client: String,

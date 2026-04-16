@@ -1,8 +1,11 @@
+use access_manager::AccessManagerState;
+
 pub const PROGRAM_BINARY_PATH: &str = "../../target/deploy/attestation";
 
 pub mod accounts {
     use crate::state::ConsensusStateStore;
     use crate::types::{AppState, ClientState};
+    use access_manager::AccessManagerState;
     use anchor_lang::AccountSerialize;
     use solana_sdk::account::Account;
     use solana_sdk::pubkey::Pubkey;
@@ -34,13 +37,15 @@ pub mod accounts {
     }
 
     pub fn create_app_state_account(access_manager: Pubkey) -> Account {
+        use anchor_lang::Space;
+
         let app_state = AppState {
             version: crate::types::AccountVersion::V1,
-            access_manager,
+            am_state: AccessManagerState::new(access_manager),
             _reserved: [0; 256],
         };
-        let mut data = vec![];
-        app_state.try_serialize(&mut data).unwrap();
+        let mut data = vec![0u8; 8 + AppState::INIT_SPACE];
+        app_state.try_serialize(&mut &mut data[..]).unwrap();
         Account {
             lamports: 1_000_000,
             data,
@@ -105,6 +110,34 @@ pub mod accounts {
                 lamports: 1_000_000,
                 data: ixs_data,
                 owner: solana_sdk::sysvar::ID,
+                executable: false,
+                rent_epoch: 0,
+            },
+        )
+    }
+
+    /// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+    pub fn create_program_data_account(
+        program_id: &Pubkey,
+        authority: Option<Pubkey>,
+    ) -> (Pubkey, Account) {
+        use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+        let (program_data_pda, _) =
+            Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+        let state = UpgradeableLoaderState::ProgramData {
+            slot: 0,
+            upgrade_authority_address: authority,
+        };
+        let data = bincode::serialize(&state).unwrap();
+
+        (
+            program_data_pda,
+            Account {
+                lamports: 1_000_000,
+                data,
+                owner: bpf_loader_upgradeable::ID,
                 executable: false,
                 rent_epoch: 0,
             },
@@ -249,7 +282,7 @@ pub fn setup_program_test_with_whitelist(
     admin: &solana_sdk::pubkey::Pubkey,
     whitelisted_programs: &[solana_sdk::pubkey::Pubkey],
 ) -> solana_program_test::ProgramTest {
-    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator};
+    use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 
     if std::env::var("SBF_OUT_DIR").is_err() {
         let deploy_dir = std::path::Path::new(DEPLOY_DIR);
@@ -265,11 +298,11 @@ pub fn setup_program_test_with_whitelist(
     let app_state_pda = crate::types::AppState::pda();
     let app_state = crate::types::AppState {
         version: crate::types::AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
-    let mut app_data = Vec::new();
-    app_state.try_serialize(&mut app_data).unwrap();
+    let mut app_data = vec![0u8; 8 + crate::types::AppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut app_data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -293,6 +326,7 @@ pub fn setup_program_test_with_whitelist(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
@@ -421,6 +455,7 @@ pub mod access_control {
         let access_manager = access_manager::state::AccessManager {
             roles,
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
 
         let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();

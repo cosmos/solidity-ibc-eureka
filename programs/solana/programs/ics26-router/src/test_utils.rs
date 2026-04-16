@@ -1,7 +1,6 @@
-use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::state::*;
-use access_manager::RoleData;
-use anchor_lang::{AccountDeserialize, AnchorSerialize, Discriminator};
+use access_manager::{AccessManagerState, RoleData};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, Space};
 use solana_ibc_types::roles;
 use solana_ibc_types::{ics24, Payload};
 use solana_sdk::pubkey::Pubkey;
@@ -56,24 +55,26 @@ pub fn setup_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn setup_paused_router_state() -> (Pubkey, Vec<u8>) {
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: true,
         _reserved: [0; 256],
     };
-    let router_state_data = create_account_data(&router_state);
-    (router_state_pda, router_state_data)
+    let mut data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state.try_serialize(&mut &mut data[..]).unwrap();
+    (router_state_pda, data)
 }
 
 pub fn create_initialized_paused_router_state() -> (Pubkey, solana_sdk::account::Account) {
@@ -115,18 +116,6 @@ pub fn setup_client(
     (client_pda, client_data)
 }
 
-pub fn setup_client_sequence(client_id: &str, next_sequence: u64) -> (Pubkey, Vec<u8>) {
-    let (client_sequence_pda, _) =
-        Pubkey::find_program_address(&[ClientSequence::SEED, client_id.as_bytes()], &crate::ID);
-    let client_sequence = ClientSequence {
-        next_sequence_send: next_sequence,
-        version: AccountVersion::V1,
-        _reserved: [0; 256],
-    };
-    let client_sequence_data = create_account_data(&client_sequence);
-    (client_sequence_pda, client_sequence_data)
-}
-
 pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>) {
     let (ibc_app_pda, _) =
         Pubkey::find_program_address(&[IBCApp::SEED, port_id.as_bytes()], &crate::ID);
@@ -134,7 +123,6 @@ pub fn setup_ibc_app(port_id: &str, app_program_id: Pubkey) -> (Pubkey, Vec<u8>)
         version: AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id,
-        authority: Pubkey::new_unique(),
         _reserved: [0; 256],
     };
     let ibc_app_data = create_account_data(&ibc_app);
@@ -168,6 +156,7 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, V
     let access_manager = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
@@ -508,57 +497,6 @@ pub fn get_account_data_from_mollusk<'a>(
         .iter()
         .find(|(key, _)| key == pubkey)
         .map(|(_, account)| &account.data[DISCRIMINATOR_SIZE..])
-}
-
-pub fn get_client_sequence_from_result(result: &mollusk_svm::result::InstructionResult) -> u64 {
-    use anchor_lang::{Discriminator, Space};
-
-    // ClientSequence discriminator to verify account type
-    let expected_discriminator = ClientSequence::DISCRIMINATOR;
-    let account_size = 8 + ClientSequence::INIT_SPACE;
-
-    // Find the client_sequence account by checking discriminator, size and owner
-    let (_, sequence_account) = result
-        .resulting_accounts
-        .iter()
-        .find(|(_, account)| {
-            account.data.len() == account_size
-                && account.owner == crate::ID
-                && account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == expected_discriminator
-        })
-        .expect("client_sequence account not found");
-
-    // Deserialize the account properly
-    let client_sequence: ClientSequence =
-        ClientSequence::try_deserialize(&mut &sequence_account.data[..])
-            .expect("Failed to deserialize ClientSequence");
-
-    client_sequence.next_sequence_send
-}
-
-pub fn get_client_sequence_from_result_by_pubkey(
-    result: &mollusk_svm::result::InstructionResult,
-    pubkey: &Pubkey,
-) -> Option<u64> {
-    use anchor_lang::Discriminator;
-
-    result
-        .resulting_accounts
-        .iter()
-        .find(|(key, _)| key == pubkey)
-        .and_then(|(_, account)| {
-            // Verify it's a ClientSequence account
-            if account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && &account.data[..ANCHOR_DISCRIMINATOR_SIZE] == ClientSequence::DISCRIMINATOR
-            {
-                let client_sequence: ClientSequence =
-                    ClientSequence::try_deserialize(&mut &account.data[..]).ok()?;
-                Some(client_sequence.next_sequence_send)
-            } else {
-                None
-            }
-        })
 }
 
 /// Setup mollusk with mock programs for testing
@@ -934,6 +872,34 @@ pub fn create_cpi_instructions_sysvar_account(
     }
 }
 
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, solana_sdk::account::Account) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        solana_sdk::account::Account {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
 /// Helper for testing CPI rejection
 /// Replaces the instructions sysvar with one that simulates a CPI call
 /// Returns (`modified_instruction`, `cpi_sysvar_account_tuple`)
@@ -1004,11 +970,14 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let (router_state_pda, _) = Pubkey::find_program_address(&[RouterState::SEED], &crate::ID);
     let router_state = RouterState {
         version: AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
-    let router_data = create_account_data(&router_state);
+    let mut router_data = vec![0u8; 8 + RouterState::INIT_SPACE];
+    router_state
+        .try_serialize(&mut &mut router_data[..])
+        .unwrap();
 
     pt.add_account(
         router_state_pda,
@@ -1036,6 +1005,7 @@ pub fn setup_program_test_with_roles_and_whitelist(
     let am = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();

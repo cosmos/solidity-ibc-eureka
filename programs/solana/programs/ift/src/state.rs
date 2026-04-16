@@ -97,6 +97,9 @@ pub struct IFTAppState {
     /// Whether IFT is paused (blocks mint and transfer, not refunds)
     pub paused: bool,
 
+    /// Pending admin for two-step transfer
+    pub pending_admin: Option<Pubkey>,
+
     pub _reserved: [u8; 128],
 }
 
@@ -240,6 +243,8 @@ pub struct IFTTransferMsg {
     pub amount: u64,
     /// Timeout timestamp (0 for default 15 minutes)
     pub timeout_timestamp: u64,
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
 }
 
 /// Message for minting IFT tokens (called by GMP)

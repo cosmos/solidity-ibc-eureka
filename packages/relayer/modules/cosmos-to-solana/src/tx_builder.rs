@@ -143,11 +143,16 @@ impl TxBuilder {
         let client_state = convert_client_state_to_sol(tm_client_state)?;
         let consensus_state = convert_consensus_state(&tm_consensus_state)?;
 
+        let authority = self
+            .fetch_ics07_upgrade_authority()
+            .context("Failed to fetch ICS07 upgrade authority")?;
+
         let instruction = self.build_create_client_instruction(
             latest_height,
             &client_state,
             &consensus_state,
             access_manager_program_id,
+            authority,
         );
 
         self.create_tx_bytes(&[instruction])
@@ -606,7 +611,9 @@ impl TxBuilder {
             .proof_height
             .as_ref()
             .map_or(0, |h| h.revision_height);
-        timeout_with_chunks.msg.proof.total_chunks = proof_total_chunks;
+        timeout_with_chunks.msg.proof.data = solana_ibc_sdk::ics26_router::types::Delivery::Chunked {
+            total_chunks: proof_total_chunks,
+        };
         timeout_with_chunks.proof_chunks.clone_from(proof_bytes);
     }
 

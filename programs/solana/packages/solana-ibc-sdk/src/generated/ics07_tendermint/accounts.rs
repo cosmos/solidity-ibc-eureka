@@ -11,12 +11,12 @@ use super::types::*;
 
 /// Global ICS07 Tendermint program configuration.
 /// Singleton PDA that links the light client program to its access manager
-/// for admin-gated operations (e.g. `set_access_manager`) and stores the
+/// for admin-gated operations (e.g. `access_manager_transfer`) and stores the
 /// chain ID for introspection by off-chain tooling.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct AppState {
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }

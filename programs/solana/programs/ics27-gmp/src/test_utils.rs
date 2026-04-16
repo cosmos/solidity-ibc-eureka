@@ -1,8 +1,9 @@
-use crate::constants::{GMP_PORT_ID, ICS27_ENCODING, ICS27_VERSION};
+use crate::constants::ICS27_ENCODING_PROTOBUF;
+use crate::constants::{GMP_PORT_ID, ICS27_VERSION};
 use crate::proto::RawGmpPacketData;
 use crate::state::{AccountVersion, GMPAppState};
-use access_manager::RoleData;
-use anchor_lang::{AnchorSerialize, Discriminator, InstructionData};
+use access_manager::{AccessManagerState, RoleData};
+use anchor_lang::{AccountSerialize, AnchorSerialize, Discriminator, InstructionData, Space};
 use mollusk_svm::Mollusk;
 use solana_ibc_types::roles;
 use solana_sdk::{
@@ -31,13 +32,12 @@ pub fn create_gmp_app_state_account(
         version: AccountVersion::V1,
         paused,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
 
-    let mut data = Vec::new();
-    data.extend_from_slice(GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     (
         pubkey,
@@ -74,6 +74,7 @@ pub fn setup_access_manager_with_roles(roles: &[(u64, &[Pubkey])]) -> (Pubkey, S
     let access_manager = access_manager::state::AccessManager {
         roles: role_data,
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     let mut data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
@@ -137,6 +138,34 @@ pub const fn create_payer_account(pubkey: Pubkey) -> (Pubkey, SolanaAccount) {
             lamports: 1_000_000_000,
             data: vec![],
             owner: system_program::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
             executable: false,
             rent_epoch: 0,
         },
@@ -337,7 +366,7 @@ pub fn create_recv_packet_msg(
             source_port: GMP_PORT_ID.to_string(),
             dest_port: GMP_PORT_ID.to_string(),
             version: ICS27_VERSION.to_string(),
-            encoding: ICS27_ENCODING.to_string(),
+            encoding: ICS27_ENCODING_PROTOBUF.to_string(),
             value: packet_data_bytes,
         },
         relayer: Pubkey::new_unique(),
@@ -529,34 +558,11 @@ pub fn create_router_state_pda() -> (Pubkey, SolanaAccount) {
         Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID);
     let state = ics26_router::state::RouterState {
         version: ics26_router::state::AccountVersion::V1,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         paused: false,
         _reserved: [0; 256],
     };
     let mut data = ics26_router::state::RouterState::DISCRIMINATOR.to_vec();
-    state.serialize(&mut data).unwrap();
-    (
-        pda,
-        SolanaAccount {
-            lamports: 1_000_000,
-            data,
-            owner: ics26_router::ID,
-            executable: false,
-            rent_epoch: 0,
-        },
-    )
-}
-
-pub fn create_client_sequence_pda(source_client: &str) -> (Pubkey, SolanaAccount) {
-    let (pda, _) = Pubkey::find_program_address(
-        &[
-            ics26_router::state::ClientSequence::SEED,
-            source_client.as_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let state = ics26_router::state::ClientSequence::default();
-    let mut data = ics26_router::state::ClientSequence::DISCRIMINATOR.to_vec();
     state.serialize(&mut data).unwrap();
     (
         pda,
@@ -579,7 +585,6 @@ pub fn create_ibc_app_pda(port_id: &str) -> (Pubkey, SolanaAccount) {
         version: ics26_router::state::AccountVersion::V1,
         port_id: port_id.to_string(),
         app_program_id: crate::ID,
-        authority: Pubkey::new_unique(),
         _reserved: [0; 256],
     };
     let mut data = ics26_router::state::IBCApp::DISCRIMINATOR.to_vec();
@@ -687,12 +692,11 @@ pub fn setup_program_test_with_access_manager(
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,
@@ -715,6 +719,7 @@ pub fn setup_program_test_with_access_manager(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
     am.serialize(&mut am_data).unwrap();
@@ -733,9 +738,6 @@ pub fn setup_program_test_with_access_manager(
     // Pre-create router PDA accounts for send_call tests
     let (router_state_pda, router_state_account) = create_router_state_pda();
     pt.add_account(router_state_pda, router_state_account);
-
-    let (client_seq_pda, client_seq_account) = create_client_sequence_pda(TEST_SOURCE_CLIENT);
-    pt.add_account(client_seq_pda, client_seq_account);
 
     let (ibc_app_pda, ibc_app_account) = create_ibc_app_pda(crate::constants::GMP_PORT_ID);
     pt.add_account(ibc_app_pda, ibc_app_account);
@@ -848,12 +850,11 @@ pub fn setup_program_test_with_router_proxy() -> solana_program_test::ProgramTes
         version: crate::state::AccountVersion::V1,
         paused: false,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
-    let mut data = Vec::new();
-    data.extend_from_slice(crate::state::GMPAppState::DISCRIMINATOR);
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + crate::state::GMPAppState::INIT_SPACE];
+    app_state.try_serialize(&mut &mut data[..]).unwrap();
 
     pt.add_account(
         app_state_pda,

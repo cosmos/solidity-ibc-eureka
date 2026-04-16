@@ -8,14 +8,6 @@ use super::accounts::*;
 use super::types::*;
 use anchor_lang::prelude::*;
 
-/// Event emitted when access manager is updated
-#[derive(Clone, Debug)]
-#[event]
-pub struct AccessManagerUpdated {
-    pub old_access_manager: Pubkey,
-    pub new_access_manager: Pubkey,
-}
-
 /// Event emitted when a packet is acknowledged
 #[derive(Clone, Debug)]
 #[event]

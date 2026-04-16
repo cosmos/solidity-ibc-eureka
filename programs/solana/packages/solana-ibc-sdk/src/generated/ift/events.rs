@@ -8,6 +8,18 @@ use super::accounts::*;
 use super::types::*;
 use anchor_lang::prelude::*;
 
+/// Event emitted when a proposed admin accepts the role
+#[derive(Clone, Debug)]
+#[event]
+pub struct AdminAccepted {
+    /// Previous admin
+    pub previous_admin: Pubkey,
+    /// New admin who accepted
+    pub new_admin: Pubkey,
+    /// Acceptance timestamp
+    pub timestamp: i64,
+}
+
 /// Event emitted when admin mints tokens
 #[derive(Clone, Debug)]
 #[event]
@@ -24,13 +36,27 @@ pub struct AdminMintExecuted {
     pub timestamp: i64,
 }
 
-/// Event emitted when the admin authority is updated
+/// Event emitted when a pending admin proposal is cancelled
 #[derive(Clone, Debug)]
 #[event]
-pub struct AdminUpdated {
-    /// New admin authority
-    pub new_admin: Pubkey,
-    /// Update timestamp
+pub struct AdminProposalCancelled {
+    /// Admin who cancelled the proposal
+    pub admin: Pubkey,
+    /// Proposed admin whose proposal was cancelled
+    pub cancelled_admin: Pubkey,
+    /// Cancellation timestamp
+    pub timestamp: i64,
+}
+
+/// Event emitted when a new admin is proposed
+#[derive(Clone, Debug)]
+#[event]
+pub struct AdminProposed {
+    /// Current admin who proposed the change
+    pub current_admin: Pubkey,
+    /// Proposed new admin
+    pub proposed_admin: Pubkey,
+    /// Proposal timestamp
     pub timestamp: i64,
 }
 

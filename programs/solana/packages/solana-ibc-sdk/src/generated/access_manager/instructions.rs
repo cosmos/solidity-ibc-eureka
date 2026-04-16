@@ -15,6 +15,8 @@ use anchor_lang::solana_program::pubkey::Pubkey;
 /// Input accounts for the `initialize` instruction.
 pub struct InitializeAccounts {
     pub payer: Pubkey,
+    pub program_data: Pubkey,
+    pub authority: Pubkey,
 }
 
 /// Instruction constants and PDA helpers for `initialize`.
@@ -22,7 +24,7 @@ pub struct Initialize;
 
 impl Initialize {
     /// Total number of accounts (including fixed-address accounts).
-    pub const COUNT: usize = 4;
+    pub const COUNT: usize = 6;
 
     /// Anchor instruction discriminator.
     pub const DISCRIMINATOR: [u8; 8] = [175, 175, 109, 31, 13, 152, 155, 237];
@@ -30,6 +32,17 @@ impl Initialize {
     #[must_use]
     pub fn access_manager_pda(program_id: &Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    #[must_use]
+    pub fn program_data_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(
+            &[&[
+                54, 102, 142, 239, 64, 150, 35, 184, 58, 55, 175, 62, 246, 200, 67, 254, 235, 183,
+                190, 141, 66, 189, 81, 48, 98, 84, 59, 36, 146, 209, 8, 170,
+            ]],
+            program_id,
+        )
     }
 
     /// Creates a builder for this instruction.
@@ -87,6 +100,8 @@ impl InitializeBuilder {
             AccountMeta::new(accounts.payer, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::system_program::ID, false),
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+            AccountMeta::new_readonly(accounts.program_data, false),
+            AccountMeta::new_readonly(accounts.authority, true),
         ];
         account_metas.extend(self.remaining_accounts);
         Instruction {
@@ -464,6 +479,278 @@ impl UpgradeProgramBuilder {
     }
 }
 
+/// Input accounts for the `propose_upgrade_authority_transfer` instruction.
+pub struct ProposeUpgradeAuthorityTransferAccounts {
+    pub admin: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `propose_upgrade_authority_transfer`.
+pub struct ProposeUpgradeAuthorityTransfer;
+
+impl ProposeUpgradeAuthorityTransfer {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 3;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [235, 222, 36, 145, 215, 244, 214, 152];
+
+    #[must_use]
+    pub fn access_manager_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> ProposeUpgradeAuthorityTransferBuilder {
+        ProposeUpgradeAuthorityTransferBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct ProposeUpgradeAuthorityTransferArgs {
+    pub target_program: Pubkey,
+    pub new_authority: Pubkey,
+}
+
+/// Builder for the `propose_upgrade_authority_transfer` instruction.
+pub struct ProposeUpgradeAuthorityTransferBuilder {
+    program_id: Pubkey,
+    accounts: Option<ProposeUpgradeAuthorityTransferAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl ProposeUpgradeAuthorityTransferBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: ProposeUpgradeAuthorityTransferAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &ProposeUpgradeAuthorityTransferArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) =
+            ProposeUpgradeAuthorityTransfer::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `accept_upgrade_authority_transfer` instruction.
+pub struct AcceptUpgradeAuthorityTransferAccounts {
+    pub program_data: Pubkey,
+    pub new_authority: Pubkey,
+    pub target_program: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `accept_upgrade_authority_transfer`.
+pub struct AcceptUpgradeAuthorityTransfer;
+
+impl AcceptUpgradeAuthorityTransfer {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 5;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [95, 41, 116, 54, 102, 173, 111, 17];
+
+    #[must_use]
+    pub fn access_manager_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    #[must_use]
+    pub fn upgrade_authority_pda(target_program: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"upgrade_authority", target_program.as_ref()], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> AcceptUpgradeAuthorityTransferBuilder {
+        AcceptUpgradeAuthorityTransferBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct AcceptUpgradeAuthorityTransferArgs {
+    pub target_program: Pubkey,
+}
+
+/// Builder for the `accept_upgrade_authority_transfer` instruction.
+pub struct AcceptUpgradeAuthorityTransferBuilder {
+    program_id: Pubkey,
+    accounts: Option<AcceptUpgradeAuthorityTransferAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl AcceptUpgradeAuthorityTransferBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: AcceptUpgradeAuthorityTransferAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &AcceptUpgradeAuthorityTransferArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) =
+            AcceptUpgradeAuthorityTransfer::access_manager_pda(&self.program_id);
+        let (upgrade_authority, _) = AcceptUpgradeAuthorityTransfer::upgrade_authority_pda(
+            &accounts.target_program,
+            &self.program_id,
+        );
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new(accounts.program_data, false),
+            AccountMeta::new_readonly(upgrade_authority, false),
+            AccountMeta::new_readonly(accounts.new_authority, true),
+            AccountMeta::new_readonly(
+                Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111"),
+                false,
+            ),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `cancel_upgrade_authority_transfer` instruction.
+pub struct CancelUpgradeAuthorityTransferAccounts {
+    pub admin: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `cancel_upgrade_authority_transfer`.
+pub struct CancelUpgradeAuthorityTransfer;
+
+impl CancelUpgradeAuthorityTransfer {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 3;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [114, 97, 59, 64, 250, 180, 192, 135];
+
+    #[must_use]
+    pub fn access_manager_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> CancelUpgradeAuthorityTransferBuilder {
+        CancelUpgradeAuthorityTransferBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct CancelUpgradeAuthorityTransferArgs {
+    pub target_program: Pubkey,
+}
+
+/// Builder for the `cancel_upgrade_authority_transfer` instruction.
+pub struct CancelUpgradeAuthorityTransferBuilder {
+    program_id: Pubkey,
+    accounts: Option<CancelUpgradeAuthorityTransferAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl CancelUpgradeAuthorityTransferBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: CancelUpgradeAuthorityTransferAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &CancelUpgradeAuthorityTransferArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (access_manager, _) =
+            CancelUpgradeAuthorityTransfer::access_manager_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
 /// Input accounts for the `set_whitelisted_programs` instruction.
 pub struct SetWhitelistedProgramsAccounts {
     pub admin: Pubkey,
@@ -536,6 +823,126 @@ impl SetWhitelistedProgramsBuilder {
         let (access_manager, _) = SetWhitelistedPrograms::access_manager_pda(&self.program_id);
         let mut account_metas = vec![
             AccountMeta::new(access_manager, false),
+            AccountMeta::new_readonly(accounts.admin, true),
+            AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
+        ];
+        account_metas.extend(self.remaining_accounts);
+        Instruction {
+            program_id: self.program_id,
+            accounts: account_metas,
+            data: self.args_data,
+        }
+    }
+}
+
+/// Input accounts for the `claim_upgrade_authority` instruction.
+pub struct ClaimUpgradeAuthorityAccounts {
+    pub source_access_manager_state: Pubkey,
+    pub target_program_data: Pubkey,
+    pub source_upgrade_authority: Pubkey,
+    pub source_access_manager_program: Pubkey,
+    pub admin: Pubkey,
+    pub target_program: Pubkey,
+}
+
+/// Instruction constants and PDA helpers for `claim_upgrade_authority`.
+pub struct ClaimUpgradeAuthority;
+
+impl ClaimUpgradeAuthority {
+    /// Total number of accounts (including fixed-address accounts).
+    pub const COUNT: usize = 9;
+
+    /// Anchor instruction discriminator.
+    pub const DISCRIMINATOR: [u8; 8] = [102, 75, 224, 204, 8, 193, 89, 137];
+
+    #[must_use]
+    pub fn new_upgrade_authority_pda(target_program: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"upgrade_authority", target_program.as_ref()], program_id)
+    }
+
+    #[must_use]
+    pub fn am_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    #[must_use]
+    pub fn source_access_manager_state_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"access_manager"], program_id)
+    }
+
+    #[must_use]
+    pub fn source_upgrade_authority_pda(
+        target_program: &Pubkey,
+        program_id: &Pubkey,
+    ) -> (Pubkey, u8) {
+        Pubkey::find_program_address(&[b"upgrade_authority", target_program.as_ref()], program_id)
+    }
+
+    /// Creates a builder for this instruction.
+    #[must_use]
+    pub fn builder(program_id: &Pubkey) -> ClaimUpgradeAuthorityBuilder {
+        ClaimUpgradeAuthorityBuilder {
+            program_id: *program_id,
+            accounts: None,
+            args_data: Self::DISCRIMINATOR.to_vec(),
+            remaining_accounts: Vec::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, BorshSerialize, BorshDeserialize)]
+pub struct ClaimUpgradeAuthorityArgs {
+    pub target_program: Pubkey,
+}
+
+/// Builder for the `claim_upgrade_authority` instruction.
+pub struct ClaimUpgradeAuthorityBuilder {
+    program_id: Pubkey,
+    accounts: Option<ClaimUpgradeAuthorityAccounts>,
+    args_data: Vec<u8>,
+    remaining_accounts: Vec<AccountMeta>,
+}
+
+impl ClaimUpgradeAuthorityBuilder {
+    #[must_use]
+    pub const fn accounts(mut self, accounts: ClaimUpgradeAuthorityAccounts) -> Self {
+        self.accounts = Some(accounts);
+        self
+    }
+
+    #[must_use]
+    pub fn args(mut self, args: &ClaimUpgradeAuthorityArgs) -> Self {
+        self.args_data
+            .extend_from_slice(&borsh::to_vec(args).expect("borsh serialize"));
+        self
+    }
+
+    #[must_use]
+    pub fn remaining_accounts(mut self, accounts: impl IntoIterator<Item = AccountMeta>) -> Self {
+        self.remaining_accounts.extend(accounts);
+        self
+    }
+
+    /// Builds the [`Instruction`], deriving PDA accounts and serializing args.
+    #[must_use]
+    pub fn build(self) -> Instruction {
+        let accounts = self.accounts.expect("accounts required");
+        let (new_upgrade_authority, _) = ClaimUpgradeAuthority::new_upgrade_authority_pda(
+            &accounts.target_program,
+            &self.program_id,
+        );
+        let (am_state, _) = ClaimUpgradeAuthority::am_state_pda(&self.program_id);
+        let mut account_metas = vec![
+            AccountMeta::new_readonly(new_upgrade_authority, false),
+            AccountMeta::new(accounts.source_access_manager_state, false),
+            AccountMeta::new(accounts.target_program_data, false),
+            AccountMeta::new_readonly(accounts.source_upgrade_authority, false),
+            AccountMeta::new_readonly(accounts.source_access_manager_program, false),
+            AccountMeta::new_readonly(
+                Pubkey::from_str_const("BPFLoaderUpgradeab1e11111111111111111111111"),
+                false,
+            ),
+            AccountMeta::new_readonly(am_state, false),
             AccountMeta::new_readonly(accounts.admin, true),
             AccountMeta::new_readonly(anchor_lang::solana_program::sysvar::instructions::ID, false),
         ];

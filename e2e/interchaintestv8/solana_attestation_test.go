@@ -188,20 +188,26 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	access_manager.ProgramID = deployResults["Deploy Access Manager"]
 
 	s.T().Log("Initializing Access Manager...")
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err)
+
 	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+	amProgramDataPDA, _ := solana.AccessManager.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initAccessManagerInstruction, err := access_manager.NewInitializeInstruction(
 		s.SolanaUser.PublicKey(),
 		accessControlAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
 		solanago.SysVarInstructionsPubkey,
+		amProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initAccessManagerInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 	s.T().Log("Access Manager initialized")
 
@@ -243,18 +249,21 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 
 	s.T().Log("Initializing ICS26 Router...")
 	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	routerProgramDataPDA, _ := solana.Ics26Router.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initInstruction, err := ics26_router.NewInitializeInstruction(
 		access_manager.ProgramID,
 		routerStateAccount,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
+		routerProgramDataPDA,
+		solana.DeployerPubkey,
 	)
 	s.Require().NoError(err)
 
 	tx, err = s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 
 	simd := s.Cosmos.Chains[0]
@@ -374,7 +383,6 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Adding attestation client to Router on Solana...")
 	routerStateAccount, _ = solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 	clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-	clientSequenceAccount, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 
 	counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
 		ClientId:     CosmosClientID,
@@ -388,7 +396,6 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 		routerStateAccount,
 		accessControlAccount,
 		clientAccount,
-		clientSequenceAccount,
 		attestation.ProgramID,
 		solanago.SystemProgramID,
 		solanago.SysVarInstructionsPubkey,
@@ -479,6 +486,7 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 	clientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
 	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
 
+	attestationProgramDataPDA, _ := solana.Attestation.ProgramDataPDA(solanago.BPFLoaderUpgradeableProgramID)
 	initInstruction, err := attestation.NewInitializeInstruction(
 		attestorAddresses,
 		minRequiredSigs,
@@ -487,13 +495,18 @@ func (s *IbcSolanaAttestationTestSuite) initializeAttestationLightClient(ctx con
 		appStatePDA,
 		s.SolanaUser.PublicKey(),
 		solanago.SystemProgramID,
+		attestationProgramDataPDA,
+		solana.DeployerPubkey,
 	)
+	s.Require().NoError(err)
+
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 	s.Require().NoError(err)
 
 	tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initInstruction)
 	s.Require().NoError(err)
 
-	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser)
+	sig, err := s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentFinalized, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err)
 	s.T().Logf("Attestation Light Client initialized - tx: %s", sig)
 }
@@ -554,8 +567,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 	s.SetupSuite(ctx)
 
 	var solanaTxSig solanago.Signature
-	var baseSequence uint64
-	var namespacedSequence uint64
+	var sequence uint64
 	var packetCommitmentPDA solanago.PublicKey
 	var slot uint64
 
@@ -588,22 +600,12 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-		clientSequence, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 
-		clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
-			Commitment: rpc.CommitmentFinalized,
-		})
-		s.Require().NoError(err)
+		sequence = 1
 
-		clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
-		s.Require().NoError(err)
-		baseSequence = clientSequenceData.NextSequenceSend
-
-		namespacedSequence = solana.CalculateNamespacedSequence(baseSequence, s.TestAppProgramID, s.SolanaUser.PublicKey())
-
-		namespacedSequenceBytes := make([]byte, 8)
-		binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-		packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), namespacedSequenceBytes)
+		sequenceBytes := make([]byte, 8)
+		binary.LittleEndian.PutUint64(sequenceBytes, sequence)
+		packetCommitmentPDA, _ = solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
 
 		timeoutTimestamp := uint64(time.Now().Add(1 * time.Hour).Unix())
 		packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
@@ -614,6 +616,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 			Encoding:         "application/json",
 			PacketData:       []byte(`{"test":"data"}`),
 			TimeoutTimestamp: timeoutTimestamp,
+			Sequence:         sequence,
 		}
 
 		attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -624,7 +627,6 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 			s.SolanaUser.PublicKey(),
 			routerState,
 			ibcApp,
-			clientSequence,
 			packetCommitmentPDA,
 			client,
 			attestation.ProgramID,
@@ -649,7 +651,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		slot, err = s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 		s.Require().NoError(err)
 
-		s.T().Logf("Sent packet - tx: %s, sequence: %d, slot: %d", solanaTxSig, namespacedSequence, slot)
+		s.T().Logf("Sent packet - tx: %s, sequence: %d, slot: %d", solanaTxSig, sequence, slot)
 	}))
 
 	var event *solana.SendPacketEvent
@@ -659,7 +661,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		s.Require().NoError(err)
 		s.Require().NotNil(event)
 		s.Require().Equal(s.AttestationClientID, event.ClientID)
-		s.Require().Equal(namespacedSequence, event.Sequence)
+		s.Require().Equal(sequence, event.Sequence)
 	}))
 
 	var onChainCommitment []byte
@@ -1092,29 +1094,20 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 	var solanaSendTxSig solanago.Signature
 	var sendPacketSlot uint64
 	var sendPacketEvent *solana.SendPacketEvent
-	var solanaBaseSequence uint64
+	var solanaSequence uint64
 
 	s.Require().True(s.Run("Phase 2: Solana to Cosmos transfer", func() {
 		routerState, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
 		ibcApp, _ := solana.Ics26Router.IbcAppWithArgSeedPDA(ics26_router.ProgramID, []byte(transfertypes.PortID))
 		client, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
-		clientSequence, _ := solana.Ics26Router.CseqWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID))
 		appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 		s.Require().True(s.Run("Send packet from Solana", func() {
-			clientSequenceAccountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, clientSequence, &rpc.GetAccountInfoOpts{
-				Commitment: rpc.CommitmentFinalized,
-			})
-			s.Require().NoError(err)
+			solanaSequence = 1
 
-			clientSequenceData, err := ics26_router.ParseAccount_Ics26RouterStateClientSequence(clientSequenceAccountInfo.Value.Data.GetBinary())
-			s.Require().NoError(err)
-			solanaBaseSequence = clientSequenceData.NextSequenceSend
-
-			namespacedSequence := solana.CalculateNamespacedSequence(solanaBaseSequence, s.TestAppProgramID, s.SolanaUser.PublicKey())
-			namespacedSequenceBytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), namespacedSequenceBytes)
+			sequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(sequenceBytes, solanaSequence)
+			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
 
 			timeoutTimestamp := uint64(time.Now().Add(1 * time.Hour).Unix())
 			packetMsg := test_ibc_app.TestIbcAppInstructionsSendPacketSendPacketMsg{
@@ -1125,6 +1118,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 				Encoding:         "application/json",
 				PacketData:       []byte(fmt.Sprintf(`{"denom":"%s","amount":"%d","sender":"%s","receiver":"%s","memo":"roundtrip-solana-to-cosmos"}`, transferCoin.Denom, TestTransferAmount, solanaUserAddress, cosmosUserAddress)),
 				TimeoutTimestamp: timeoutTimestamp,
+				Sequence:         solanaSequence,
 			}
 
 			attestationClientStatePDA, _ := solana.Attestation.ClientPDA(attestation.ProgramID)
@@ -1135,7 +1129,6 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 				s.SolanaUser.PublicKey(),
 				routerState,
 				ibcApp,
-				clientSequence,
 				packetCommitmentPDA,
 				client,
 				attestation.ProgramID,
@@ -1160,7 +1153,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 			sendPacketSlot, err = s.Solana.Chain.RPCClient.GetSlot(ctx, rpc.CommitmentFinalized)
 			s.Require().NoError(err)
 
-			s.T().Logf("Solana → Cosmos packet sent - tx: %s, base sequence: %d, slot: %d", solanaSendTxSig, solanaBaseSequence, sendPacketSlot)
+			s.T().Logf("Solana → Cosmos packet sent - tx: %s, sequence: %d, slot: %d", solanaSendTxSig, solanaSequence, sendPacketSlot)
 
 			sendPacketEvent, err = solana.GetSendPacketEventFromTransaction(ctx, s.Solana.Chain.RPCClient, solanaSendTxSig)
 			s.Require().NoError(err)
@@ -1168,17 +1161,16 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Verify packet commitment exists on Solana", func() {
-			namespacedSequence := solana.CalculateNamespacedSequence(solanaBaseSequence, s.TestAppProgramID, s.SolanaUser.PublicKey())
-			namespacedSequenceBytes := make([]byte, 8)
-			binary.LittleEndian.PutUint64(namespacedSequenceBytes, namespacedSequence)
-			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), namespacedSequenceBytes)
+			sequenceBytes := make([]byte, 8)
+			binary.LittleEndian.PutUint64(sequenceBytes, solanaSequence)
+			packetCommitmentPDA, _ := solana.Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(s.AttestationClientID), sequenceBytes)
 
 			accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 				Commitment: rpc.CommitmentFinalized,
 			})
 			s.Require().NoError(err)
 			s.Require().NotNil(accountInfo.Value)
-			s.T().Logf("Solana packet commitment verified for base sequence %d", solanaBaseSequence)
+			s.T().Logf("Solana packet commitment verified for sequence %d", solanaSequence)
 		}))
 
 		s.Require().True(s.Run("Verify Solana attestor can attest packet", func() {
@@ -1245,8 +1237,8 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Verify packet commitment deleted on Solana", func() {
-			s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), s.AttestationClientID, solanaBaseSequence, s.TestAppProgramID, s.SolanaUser.PublicKey())
-			s.T().Logf("Solana packet commitment deleted for base sequence %d", solanaBaseSequence)
+			s.Solana.Chain.VerifyPacketCommitmentDeleted(ctx, s.T(), s.Require(), s.AttestationClientID, solanaSequence)
+			s.T().Logf("Solana packet commitment deleted for sequence %d", solanaSequence)
 		}))
 	}))
 
@@ -1283,6 +1275,176 @@ func convertSolanaPacketToABI(packet solana.SolanaPacket) ics26router.IICS26Rout
 		TimeoutTimestamp: uint64(packet.TimeoutTimestamp),
 		Payloads:         payloads,
 	}
+}
+
+// Test_Attestation_AccessManagerTransfer tests propose/accept/cancel access manager
+// transfer on the attestation light client program.
+func (s *IbcSolanaAttestationTestSuite) Test_Attestation_AccessManagerTransfer() {
+	ctx := context.Background()
+	s.SetupSuite(ctx)
+
+	const keypairDir = "solana-keypairs/localnet"
+	const deployerPath = keypairDir + "/deployer_wallet.json"
+
+	// --- Deploy and initialize AM-B ---
+
+	var amBProgramID solanago.PublicKey
+
+	s.Require().True(s.Run("Deploy AM-B (test_access_manager)", func() {
+		var err error
+		amBKeypairPath := fmt.Sprintf("%s/test_access_manager-keypair.json", keypairDir)
+		amBProgramID, err = s.Solana.Chain.DeploySolanaProgramAsync(ctx, "test_access_manager", amBKeypairPath, deployerPath)
+		s.Require().NoError(err, "failed to deploy test_access_manager")
+	}))
+
+	s.Require().True(s.Run("Initialize AM-B with user as admin", func() {
+		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+		s.Require().NoError(err)
+
+		amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+		amBProgramDataPDA, err := solana.GetProgramDataAddress(amBProgramID)
+		s.Require().NoError(err)
+
+		savedProgramID := access_manager.ProgramID
+		access_manager.ProgramID = amBProgramID
+		defer func() { access_manager.ProgramID = savedProgramID }()
+
+		initIx, err := access_manager.NewInitializeInstruction(
+			s.SolanaUser.PublicKey(),
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SystemProgramID,
+			solanago.SysVarInstructionsPubkey,
+			amBProgramDataPDA,
+			solana.DeployerPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), initIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
+		s.Require().NoError(err, "failed to initialize AM-B")
+	}))
+
+	// --- Helper: read attestation app state ---
+
+	appStatePDA, _ := solana.Attestation.AppStatePDA(attestation.ProgramID)
+
+	readAppState := func() *attestation.AttestationTypesAppState {
+		s.T().Helper()
+		accountInfo, err := s.Solana.Chain.RPCClient.GetAccountInfoWithOpts(ctx, appStatePDA, &rpc.GetAccountInfoOpts{
+			Commitment: rpc.CommitmentConfirmed,
+		})
+		s.Require().NoError(err)
+		s.Require().NotNil(accountInfo.Value)
+		state, err := attestation.ParseAccount_AttestationTypesAppState(accountInfo.Value.Data.GetBinary())
+		s.Require().NoError(err)
+		return state
+	}
+
+	amAAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+
+	// --- Verify initial state ---
+
+	s.Require().True(s.Run("Verify initial state: AM-A is active, no pending", func() {
+		state := readAppState()
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "Attestation should point to AM-A")
+		s.Require().Nil(state.AmState.PendingAccessManager, "No pending transfer initially")
+	}))
+
+	// --- Propose transfer to AM-B ---
+
+	s.Require().True(s.Run("Propose access manager transfer to AM-B", func() {
+		proposeIx, err := attestation.NewProposeAccessManagerTransferInstruction(
+			amBProgramID,
+			appStatePDA,
+			amAAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "propose should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: pending set, AM unchanged", func() {
+		state := readAppState()
+		s.Require().Equal(access_manager.ProgramID, state.AmState.AccessManager, "AM should still be AM-A")
+		s.Require().NotNil(state.AmState.PendingAccessManager, "Pending should be set")
+		s.Require().Equal(amBProgramID, *state.AmState.PendingAccessManager, "Pending should be AM-B")
+	}))
+
+	// --- Accept transfer ---
+
+	amBAccessManagerPDA, _ := solana.AccessManager.AccessManagerPDA(amBProgramID)
+
+	s.Require().True(s.Run("Accept access manager transfer (AM-B admin)", func() {
+		acceptIx, err := attestation.NewAcceptAccessManagerTransferInstruction(
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), acceptIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "accept should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: AM is now AM-B, pending cleared", func() {
+		state := readAppState()
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should now be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after accept")
+	}))
+
+	// --- Propose back to AM-A and cancel ---
+
+	s.Require().True(s.Run("Propose transfer back to AM-A", func() {
+		proposeIx, err := attestation.NewProposeAccessManagerTransferInstruction(
+			access_manager.ProgramID,
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), proposeIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "propose back to AM-A should succeed")
+	}))
+
+	s.Require().True(s.Run("Cancel pending transfer", func() {
+		cancelIx, err := attestation.NewCancelAccessManagerTransferInstruction(
+			appStatePDA,
+			amBAccessManagerPDA,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.Solana.Chain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), cancelIx)
+		s.Require().NoError(err)
+
+		_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaUser)
+		s.Require().NoError(err, "cancel should succeed")
+	}))
+
+	s.Require().True(s.Run("Verify: pending cleared, AM still AM-B", func() {
+		state := readAppState()
+		s.Require().Equal(amBProgramID, state.AmState.AccessManager, "AM should still be AM-B")
+		s.Require().Nil(state.AmState.PendingAccessManager, "Pending should be cleared after cancel")
+	}))
 }
 
 // deriveAttestationConsensusStatePDA fetches the attestation client state to get the latest height,

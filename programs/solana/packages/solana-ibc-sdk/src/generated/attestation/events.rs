@@ -8,13 +8,6 @@ use super::accounts::*;
 use super::types::*;
 use anchor_lang::prelude::*;
 
-#[derive(Clone, Debug)]
-#[event]
-pub struct AccessManagerUpdated {
-    pub old_access_manager: Pubkey,
-    pub new_access_manager: Pubkey,
-}
-
 /// Emitted when conflicting timestamps are submitted for the same height.
 #[derive(Clone, Debug)]
 #[event]

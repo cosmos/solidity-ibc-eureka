@@ -20,6 +20,8 @@ func NewInitializeInstruction(
 	routerStateAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
+	programDataAccount solanago.PublicKey,
+	authorityAccount solanago.PublicKey,
 ) (solanago.Instruction, error) {
 	buf__ := new(bytes.Buffer)
 	enc__ := binary.NewBorshEncoder(buf__)
@@ -49,6 +51,12 @@ func NewInitializeInstruction(
 		// Account 2 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
+		// Account 3 "program_data": Read-only, Non-signer, Required
+		// BPF Loader Upgradeable `ProgramData` account for this program.
+		accounts__.Append(solanago.NewAccountMeta(programDataAccount, false, false))
+		// Account 4 "authority": Read-only, Signer, Required
+		// The program's upgrade authority — must sign to prove deployer identity.
+		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 	}
 
 	// Create the instruction.
@@ -109,7 +117,7 @@ func NewAddIbcAppInstruction(
 		// Pays for creating the `IBCApp` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
 		// Account 5 "authority": Read-only, Signer, Required
-		// Signer with the `ID_CUSTOMIZER_ROLE`; stored as the app authority.
+		// Signer with the `ID_CUSTOMIZER_ROLE`.
 		accounts__.Append(solanago.NewAccountMeta(authorityAccount, false, true))
 		// Account 6 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
@@ -135,7 +143,6 @@ func NewSendPacketInstruction(
 	// Accounts:
 	routerStateAccount solanago.PublicKey,
 	ibcAppAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	packetCommitmentAccount solanago.PublicKey,
 	appSignerAccount solanago.PublicKey,
 	payerAccount solanago.PublicKey,
@@ -170,32 +177,29 @@ func NewSendPacketInstruction(
 		// Account 1 "ibc_app": Read-only, Non-signer, Required
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
-		// Account 2 "client_sequence": Writable, Non-signer, Required
-		// Mutable sequence counter for this client; incremented on each send.
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Stores the packet commitment hash. Created manually because the
-		// sequence is computed at runtime via `calculate_namespaced_sequence`.
+		// Account 2 "packet_commitment": Writable, Non-signer, Required
+		// Stores the packet commitment hash. Anchor `init` rejects duplicate sequences —
+		// the PDA persists after ack/timeout (zeroed), so each sequence is single-use.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
-		// Account 4 "app_signer": Read-only, Signer, Required
+		// Account 3 "app_signer": Read-only, Signer, Required
 		// PDA signed by the calling IBC app program, proving it authorized this send.
 		accounts__.Append(solanago.NewAccountMeta(appSignerAccount, false, true))
-		// Account 5 "payer": Writable, Signer, Required
+		// Account 4 "payer": Writable, Signer, Required
 		// Pays rent for the new `packet_commitment` account.
 		accounts__.Append(solanago.NewAccountMeta(payerAccount, true, true))
-		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 7 "client": Read-only, Non-signer, Required
+		// Account 6 "client": Read-only, Non-signer, Required
 		// Client PDA for the source client; must be active.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, false, false))
-		// Account 8 "light_client_program": Read-only, Non-signer, Required
+		// Account 7 "light_client_program": Read-only, Non-signer, Required
 		// Light client program used to query client status before sending.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 9 "client_state": Read-only, Non-signer, Required
+		// Account 8 "client_state": Read-only, Non-signer, Required
 		// Client state account owned by the light client program.
 		accounts__.Append(solanago.NewAccountMeta(clientStateAccount, false, false))
-		// Account 10 "consensus_state": Read-only, Non-signer, Required
+		// Account 9 "consensus_state": Read-only, Non-signer, Required
 		// Consensus state account owned by the light client program (for expiry check).
 		accounts__.Append(solanago.NewAccountMeta(consensusStateAccount, false, false))
 	}
@@ -349,8 +353,7 @@ func NewAckPacketInstruction(
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment PDA; closed after successful acknowledgement and
-		// its rent is returned to the relayer.
+		// Packet commitment PDA; zeroed after successful acknowledgement.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		// IBC application program to notify via CPI.
@@ -439,8 +442,7 @@ func NewTimeoutPacketInstruction(
 		// PDA mapping the source port to its registered IBC application.
 		accounts__.Append(solanago.NewAccountMeta(ibcAppAccount, false, false))
 		// Account 3 "packet_commitment": Writable, Non-signer, Required
-		// Packet commitment PDA; closed after successful timeout and its rent
-		// is returned to the relayer.
+		// Packet commitment PDA; zeroed after successful timeout.
 		accounts__.Append(solanago.NewAccountMeta(packetCommitmentAccount, true, false))
 		// Account 4 "ibc_app_program": Read-only, Non-signer, Required
 		// IBC application program to notify via CPI.
@@ -491,7 +493,6 @@ func NewAddClientInstruction(
 	routerStateAccount solanago.PublicKey,
 	accessManagerAccount solanago.PublicKey,
 	clientAccount solanago.PublicKey,
-	clientSequenceAccount solanago.PublicKey,
 	lightClientProgramAccount solanago.PublicKey,
 	systemProgramAccount solanago.PublicKey,
 	instructionsSysvarAccount solanago.PublicKey,
@@ -532,16 +533,13 @@ func NewAddClientInstruction(
 		// Account 3 "client": Writable, Non-signer, Required
 		// PDA mapping `client_id` to its light client program and counterparty info.
 		accounts__.Append(solanago.NewAccountMeta(clientAccount, true, false))
-		// Account 4 "client_sequence": Writable, Non-signer, Required
-		// PDA tracking the next send-side packet sequence for this client.
-		accounts__.Append(solanago.NewAccountMeta(clientSequenceAccount, true, false))
-		// Account 5 "light_client_program": Read-only, Non-signer, Required
+		// Account 4 "light_client_program": Read-only, Non-signer, Required
 		// Light client program to associate with this client.
 		accounts__.Append(solanago.NewAccountMeta(lightClientProgramAccount, false, false))
-		// Account 6 "system_program": Read-only, Non-signer, Required
+		// Account 5 "system_program": Read-only, Non-signer, Required
 		// Solana system program used for account creation.
 		accounts__.Append(solanago.NewAccountMeta(systemProgramAccount, false, false))
-		// Account 7 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Account 6 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
 		// Instructions sysvar used for CPI detection.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
@@ -791,8 +789,8 @@ func NewCleanupChunksInstruction(
 	), nil
 }
 
-// Builds a "set_access_manager" instruction.
-func NewSetAccessManagerInstruction(
+// Builds a "propose_access_manager_transfer" instruction.
+func NewProposeAccessManagerTransferInstruction(
 	// Params:
 	newAccessManagerParam solanago.PublicKey,
 
@@ -806,7 +804,7 @@ func NewSetAccessManagerInstruction(
 	enc__ := binary.NewBorshEncoder(buf__)
 
 	// Encode the instruction discriminator.
-	err := enc__.WriteBytes(Instruction_SetAccessManager[:], false)
+	err := enc__.WriteBytes(Instruction_ProposeAccessManagerTransfer[:], false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
 	}
@@ -822,17 +820,98 @@ func NewSetAccessManagerInstruction(
 	// Add the accounts to the instruction.
 	{
 		// Account 0 "router_state": Writable, Non-signer, Required
-		// Mutable global router configuration PDA whose `access_manager` field
-		// will be updated.
+		// PDA holding router-level settings including the current `access_manager`.
 		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
 		// Account 1 "access_manager": Read-only, Non-signer, Required
-		// Current access control state used for admin verification.
+		// Current access-manager state PDA used to verify the caller holds the admin role.
 		accounts__.Append(solanago.NewAccountMeta(accessManagerAccount, false, false))
 		// Account 2 "admin": Read-only, Signer, Required
-		// Admin signer authorized to change the access manager.
+		// Admin signer authorized to propose the transfer.
 		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
 		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
-		// Instructions sysvar used for CPI detection.
+		// Instructions sysvar used by the access manager to inspect the transaction.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "accept_access_manager_transfer" instruction.
+func NewAcceptAccessManagerTransferInstruction(
+	routerStateAccount solanago.PublicKey,
+	newAmStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_AcceptAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// PDA holding router-level settings; the `access_manager` field is updated on success.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "new_am_state": Read-only, Non-signer, Required
+		// Proposed access-manager state PDA derived from the pending program ID.
+		accounts__.Append(solanago.NewAccountMeta(newAmStateAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized on the **new** access manager.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
+		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
+	}
+
+	// Create the instruction.
+	return solanago.NewInstruction(
+		ProgramID,
+		accounts__,
+		buf__.Bytes(),
+	), nil
+}
+
+// Builds a "cancel_access_manager_transfer" instruction.
+func NewCancelAccessManagerTransferInstruction(
+	routerStateAccount solanago.PublicKey,
+	amStateAccount solanago.PublicKey,
+	adminAccount solanago.PublicKey,
+	instructionsSysvarAccount solanago.PublicKey,
+) (solanago.Instruction, error) {
+	buf__ := new(bytes.Buffer)
+	enc__ := binary.NewBorshEncoder(buf__)
+
+	// Encode the instruction discriminator.
+	err := enc__.WriteBytes(Instruction_CancelAccessManagerTransfer[:], false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to write instruction discriminator: %w", err)
+	}
+	accounts__ := solanago.AccountMetaSlice{}
+
+	// Add the accounts to the instruction.
+	{
+		// Account 0 "router_state": Writable, Non-signer, Required
+		// PDA holding router-level settings; the pending transfer is cleared on success.
+		accounts__.Append(solanago.NewAccountMeta(routerStateAccount, true, false))
+		// Account 1 "am_state": Read-only, Non-signer, Required
+		// Current access-manager state PDA used to verify the caller holds the admin role.
+		accounts__.Append(solanago.NewAccountMeta(amStateAccount, false, false))
+		// Account 2 "admin": Read-only, Signer, Required
+		// Admin signer authorized to cancel the transfer.
+		accounts__.Append(solanago.NewAccountMeta(adminAccount, false, true))
+		// Account 3 "instructions_sysvar": Read-only, Non-signer, Required, Address: Sysvar1nstructions1111111111111111111111111
+		// Instructions sysvar used by the access manager to inspect the transaction.
 		accounts__.Append(solanago.NewAccountMeta(instructionsSysvarAccount, false, false))
 	}
 

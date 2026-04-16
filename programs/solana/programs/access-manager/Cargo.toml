@@ -19,6 +19,7 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+test-utils = []
 idl-build = ["anchor-lang/idl-build"]
 
 [dependencies]
@@ -27,6 +28,7 @@ solana-ibc-types.workspace = true
 
 
 [dev-dependencies]
+bincode.workspace = true
 mollusk-svm.workspace = true
 solana-sdk = { workspace = true, features = ["full"] }
 solana-program-test.workspace = true

@@ -204,6 +204,7 @@ impl Aggregator {
             let query = query.clone();
             async move {
                 let mut client = client.lock().await;
+
                 let response = timeout(timeout_duration, async {
                     match query {
                         AttestationQuery::Packet(packets, height, commitment_type) => {
@@ -228,14 +229,16 @@ impl Aggregator {
                 })
                 .await;
 
-                let result = match response {
-                    Ok(Ok(attestation)) => Ok(attestation),
-                    Ok(Err(status)) => Err(status),
-                    Err(_) => Err(Status::deadline_exceeded(format!(
-                        "Request timed out after {timeout_duration:?}"
-                    ))),
-                };
-                (endpoint, result)
+                match response {
+                    Ok(Ok(attestation)) => (endpoint, Ok(attestation)),
+                    Ok(Err(status)) => (endpoint, Err(status)),
+                    Err(_) => (
+                        endpoint,
+                        Err(Status::deadline_exceeded(format!(
+                            "Request timed out after {timeout_duration:?}"
+                        ))),
+                    ),
+                }
             }
         });
 

@@ -1,3 +1,4 @@
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use solana_ibc_types::{packet_acknowledgement_commitment_bytes32, MAX_CLIENT_ID_LENGTH};
 
@@ -25,8 +26,8 @@ pub struct GMPAppState {
     /// PDA bump seed
     pub bump: u8,
 
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
 
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
@@ -48,6 +49,9 @@ pub struct SendCallMsg {
     /// Source client identifier
     pub source_client: String,
 
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
+
     /// Timeout timestamp (unix seconds)
     pub timeout_timestamp: u64,
 
@@ -62,6 +66,9 @@ pub struct SendCallMsg {
 
     /// Optional memo
     pub memo: String,
+
+    /// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+    pub encoding: String,
 }
 
 // Re-export types from proto crate
@@ -88,7 +95,7 @@ pub struct GMPCallResultAccount {
     pub version: AccountVersion,
     /// Original sender pubkey.
     pub sender: Pubkey,
-    /// IBC packet sequence number (namespaced: `base_seq * 10000 + hash(app, sender) % 10000`).
+    /// Caller-chosen IBC packet sequence number.
     pub sequence: u64,
     /// Source client ID (light client on this chain tracking the destination).
     #[max_len(MAX_CLIENT_ID_LENGTH)]

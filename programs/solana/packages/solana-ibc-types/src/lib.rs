@@ -17,9 +17,9 @@ pub use app_msgs::{
 };
 
 pub use router::{
-    AccountVersion, Client, ClientAccount, ClientSequence, Commitment, CounterpartyInfo, IBCApp,
-    IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket,
-    MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata, ProofChunk, ProofMetadata, RouterState,
+    AccountVersion, Client, ClientAccount, Commitment, CounterpartyInfo, Delivery, IBCApp,
+    IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof, MsgRecvPacket,
+    MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, ProofChunk, RouterState,
 };
 
 pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;

@@ -57,7 +57,7 @@ func createComputeBudgetInstruction(computeUnits uint32) solanago.Instruction {
 	)
 }
 
-func sendTransaction(clusterURL string, wallet *solanago.Wallet, instructions []solanago.Instruction) solanago.Signature {
+func sendTransaction(clusterURL string, wallet *solanago.Wallet, instructions []solanago.Instruction, additionalSigners ...*solanago.Wallet) solanago.Signature {
 	client := rpc.New(clusterURL)
 	ctx := context.Background()
 
@@ -77,9 +77,14 @@ func sendTransaction(clusterURL string, wallet *solanago.Wallet, instructions []
 		os.Exit(1)
 	}
 
+	signers := []*solanago.Wallet{wallet}
+	signers = append(signers, additionalSigners...)
+
 	_, err = tx.Sign(func(key solanago.PublicKey) *solanago.PrivateKey {
-		if key.Equals(wallet.PublicKey()) {
-			return &wallet.PrivateKey
+		for _, s := range signers {
+			if key.Equals(s.PublicKey()) {
+				return &s.PrivateKey
+			}
 		}
 		return nil
 	})

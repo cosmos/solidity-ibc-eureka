@@ -67,16 +67,32 @@ pub fn create_ift_app_state_account_with_options(
     admin: Pubkey,
     paused: bool,
 ) -> SolanaAccount {
+    create_ift_app_state_account_full(bump, admin, paused, None)
+}
+
+/// Create a serialized global IFT app state account with all configurable fields.
+///
+/// The account buffer is always allocated to the maximum size
+/// (discriminator + `INIT_SPACE`) so that Anchor can write back
+/// `Option<Pubkey>` variants of any size without `AccountDidNotSerialize`.
+pub fn create_ift_app_state_account_full(
+    bump: u8,
+    admin: Pubkey,
+    paused: bool,
+    pending_admin: Option<Pubkey>,
+) -> SolanaAccount {
     let app_state = IFTAppState {
         version: AccountVersion::V1,
         bump,
         admin,
         paused,
+        pending_admin,
         _reserved: [0; 128],
     };
 
-    let mut data = IFTAppState::DISCRIMINATOR.to_vec();
-    app_state.serialize(&mut data).unwrap();
+    let mut data = vec![0u8; 8 + IFTAppState::INIT_SPACE];
+    data[0..8].copy_from_slice(IFTAppState::DISCRIMINATOR);
+    app_state.serialize(&mut &mut data[8..]).unwrap();
 
     SolanaAccount {
         lamports: 1_000_000,
@@ -255,6 +271,34 @@ pub fn create_clock_sysvar_account(unix_timestamp: i64) -> (Pubkey, SolanaAccoun
             lamports: 1,
             data: bincode::serialize(&clock).expect("Failed to serialize Clock sysvar"),
             owner: solana_sdk::sysvar::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, SolanaAccount) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        SolanaAccount {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
             executable: false,
             rent_epoch: 0,
         },

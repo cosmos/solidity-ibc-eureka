@@ -23,6 +23,26 @@ pub enum AccessManagerError {
     ZeroAccount,
     #[msg("Duplicate entry in whitelisted programs list")]
     DuplicateWhitelistedProgram,
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
+    #[msg("New authority account does not match instruction parameter")]
+    AuthorityMismatch,
+    #[msg("A pending transfer for this target program already exists")]
+    PendingTransferAlreadyExists,
+    #[msg("No pending transfer for this target program")]
+    NoPendingTransfer,
+    #[msg("Cannot transfer upgrade authority to the current authority PDA")]
+    SelfTransfer,
+    #[msg("Maximum number of concurrent pending transfers reached")]
+    TooManyPendingTransfers,
+    #[msg("No pending access manager transfer to accept or cancel")]
+    NoPendingAccessManagerTransfer,
+    #[msg("A pending access manager transfer already exists")]
+    PendingAccessManagerTransferAlreadyExists,
+    #[msg("Proposed access manager address is invalid")]
+    InvalidProposedAccessManager,
+    #[msg("Cannot transfer access manager to the current access manager")]
+    AccessManagerSelfTransfer,
 }
 
 impl From<CpiValidationError> for AccessManagerError {

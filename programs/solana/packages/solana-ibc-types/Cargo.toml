@@ -26,6 +26,7 @@ solana = []
 idl-build = ["anchor-lang/idl-build"]
 
 [dev-dependencies]
+bincode.workspace = true
 solana-sdk.workspace = true
 
 [lib]

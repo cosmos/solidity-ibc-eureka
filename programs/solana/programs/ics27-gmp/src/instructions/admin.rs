@@ -18,7 +18,7 @@ pub struct PauseApp<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -71,7 +71,7 @@ pub struct UnpauseApp<'info> {
     #[account(
         seeds = [access_manager::state::AccessManager::SEED],
         bump,
-        seeds::program = app_state.access_manager
+        seeds::program = app_state.am_state.access_manager
     )]
     pub access_manager: AccountInfo<'info>,
 
@@ -116,6 +116,7 @@ mod tests {
     use super::*;
     use crate::state::{AccountVersion, GMPAppState};
     use crate::test_utils::*;
+    use access_manager::AccessManagerState;
     use anchor_lang::InstructionData;
     use mollusk_svm::result::Check;
     use mollusk_svm::Mollusk;
@@ -133,7 +134,10 @@ mod tests {
         let mollusk = Mollusk::new(&crate::ID, crate::get_gmp_program_path());
 
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
         let (app_state_pda, _bump) = Pubkey::find_program_address(&[GMPAppState::SEED], &crate::ID);
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let instruction_data = crate::instruction::Initialize {
             access_manager: access_manager::ID,
@@ -145,7 +149,8 @@ mod tests {
                 AccountMeta::new(app_state_pda, false),
                 AccountMeta::new(payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
-                AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
             ],
             data: instruction_data.data(),
         };
@@ -154,7 +159,8 @@ mod tests {
             create_pda_for_init(app_state_pda),
             create_payer_account(payer),
             create_system_program_account(),
-            create_instructions_sysvar_account_with_caller(crate::ID),
+            (program_data_pda, program_data_account),
+            create_payer_account(authority),
         ];
 
         let result = mollusk.process_instruction(&instruction, &accounts);
@@ -203,8 +209,7 @@ mod tests {
         );
 
         let app_state_account = result.get_account(&app_state_pda).unwrap();
-        let app_state_data = &app_state_account.data[crate::constants::DISCRIMINATOR_SIZE..];
-        let app_state = GMPAppState::try_from_slice(app_state_data).unwrap();
+        let app_state = GMPAppState::try_deserialize(&mut &app_state_account.data[..]).unwrap();
         assert!(app_state.paused, "App should be paused");
     }
 
@@ -222,7 +227,7 @@ mod tests {
             version: AccountVersion::V1,
             paused: true,
             bump: app_state_bump,
-            access_manager: access_manager::ID,
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
 
@@ -267,8 +272,7 @@ mod tests {
         );
 
         let app_state_account = result.get_account(&app_state_pda).unwrap();
-        let app_state_data = &app_state_account.data[crate::constants::DISCRIMINATOR_SIZE..];
-        let app_state = GMPAppState::try_from_slice(app_state_data).unwrap();
+        let app_state = GMPAppState::try_deserialize(&mut &app_state_account.data[..]).unwrap();
         assert!(!app_state.paused, "App should be unpaused");
     }
 
@@ -526,6 +530,7 @@ mod tests {
 mod integration_tests {
     use crate::state::GMPAppState;
     use crate::test_utils::*;
+    use access_manager::AccessManagerState;
     use anchor_lang::InstructionData;
     use solana_sdk::{
         instruction::{AccountMeta, Instruction},
@@ -591,7 +596,7 @@ mod integration_tests {
             version: crate::state::AccountVersion::V1,
             paused: false,
             bump,
-            access_manager: access_manager::ID,
+            am_state: AccessManagerState::new(access_manager::ID),
             _reserved: [0; 256],
         };
         let mut data = Vec::new();
@@ -629,6 +634,7 @@ mod integration_tests {
                 },
             ],
             whitelisted_programs: vec![],
+            pending_authority_transfers: vec![],
         };
         let mut am_data = access_manager::state::AccessManager::DISCRIMINATOR.to_vec();
         am.serialize(&mut am_data).unwrap();

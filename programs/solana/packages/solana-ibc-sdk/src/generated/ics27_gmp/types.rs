@@ -7,6 +7,20 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey;
 
+/// Embedded access manager state for IBC programs.
+/// Each IBC program embeds this struct in its on-chain state account to track
+/// which access manager program governs its permissioned instructions and to
+/// support two-step access manager migration (propose/accept).
+/// Does not carry its own `_reserved` field — future fields can eat into the
+/// `_reserved` space of the higher-level state that embeds this struct.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
+    pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
+    pub pending_access_manager: Option<Pubkey>,
+}
+
 /// Status of a GMP call result.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub enum CallResultStatus {
@@ -37,21 +51,6 @@ pub struct Client {
     pub _reserved: [u8; 256],
 }
 
-/// Per-client packet sequence counter.
-/// Tracks the next sequence number to assign when sending a packet
-/// through a given client. Each `send_packet` call reads and increments
-/// this value to guarantee unique, monotonically increasing sequence
-/// numbers for replay protection.
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ClientSequence {
-    /// Schema version for upgrades
-    pub version: SolanaIbcTypes_Router_AccountVersion,
-    /// Next sequence number for sending packets
-    pub next_sequence_send: u64,
-    /// Reserved space for future fields
-    pub _reserved: [u8; 256],
-}
-
 /// Counterparty chain information
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct CounterpartyInfo {
@@ -74,8 +73,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -139,8 +136,8 @@ pub struct Payload {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: SolanaIbcTypes_Router_AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Access manager transfer state for two-step propose/accept
+    pub am_state: AccessManagerState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields
@@ -152,6 +149,8 @@ pub struct RouterState {
 pub struct SendCallMsg {
     /// Source client identifier
     pub source_client: String,
+    /// Caller-chosen packet sequence number
+    pub sequence: u64,
     /// Timeout timestamp (unix seconds)
     pub timeout_timestamp: u64,
     /// Receiver address (string format to support any destination chain)
@@ -162,6 +161,8 @@ pub struct SendCallMsg {
     pub payload: Vec<u8>,
     /// Optional memo
     pub memo: String,
+    /// Payload encoding format (e.g. `"application/x-protobuf"` or `"application/x-solidity-abi"`)
+    pub encoding: String,
 }
 
 /// Account schema version for upgradability

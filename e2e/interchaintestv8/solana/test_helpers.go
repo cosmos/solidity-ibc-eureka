@@ -330,6 +330,9 @@ func (s *Solana) SubmitChunkedRelayPackets(
 			totalDuration := time.Since(packetStart)
 
 			if err != nil {
+				if sig != (solana.Signature{}) {
+					s.LogTransactionDetails(ctx, t, sig, fmt.Sprintf("FAILED: Packet %d Final Tx", pktIdx+1))
+				}
 				packetResults <- packetResult{
 					packetIdx:      pktIdx,
 					err:            fmt.Errorf("packet %d failed to submit final tx: %w", pktIdx, err),
@@ -801,30 +804,45 @@ func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, re
 	t.Logf("  - TOTAL: %d CUs, %.9f SOL", totalComputeUnits, float64(totalFees)/1e9)
 }
 
-func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, baseSequence uint64, callingProgram, sender solana.PublicKey) {
+func (s *Solana) VerifyPacketCommitmentDeleted(ctx context.Context, t *testing.T, require *require.Assertions, clientID string, sequence uint64) {
 	t.Helper()
 
-	namespacedSequence := CalculateNamespacedSequence(baseSequence, callingProgram, sender)
-
 	sequenceBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(sequenceBytes, namespacedSequence)
+	binary.LittleEndian.PutUint64(sequenceBytes, sequence)
 	packetCommitmentPDA, _ := Ics26Router.PacketCommitmentWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID), sequenceBytes)
 
 	accountInfo, err := s.RPCClient.GetAccountInfoWithOpts(ctx, packetCommitmentPDA, &rpc.GetAccountInfoOpts{
 		Commitment: rpc.CommitmentConfirmed,
 	})
 	if err != nil {
-		t.Logf("Packet commitment deleted (account not found) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
+		t.Logf("Packet commitment cleared (account not found) for client %s, sequence %d", clientID, sequence)
 		return
 	}
 
 	if accountInfo.Value == nil || accountInfo.Value.Lamports == 0 {
-		t.Logf("Packet commitment deleted (account closed) for client %s, base sequence %d (namespaced: %d)", clientID, baseSequence, namespacedSequence)
+		t.Logf("Packet commitment cleared (account closed) for client %s, sequence %d", clientID, sequence)
 		return
 	}
 
-	require.Fail("Packet commitment should have been deleted after acknowledgment",
-		"Account %s still exists with %d lamports (base sequence: %d, namespaced: %d)", packetCommitmentPDA.String(), accountInfo.Value.Lamports, baseSequence, namespacedSequence)
+	// Account persists after ack/timeout but value (bytes 8..40, after discriminator) must be zeroed
+	data := accountInfo.Value.Data.GetBinary()
+	if len(data) >= 40 {
+		value := data[8:40]
+		allZeros := true
+		for _, b := range value {
+			if b != 0 {
+				allZeros = false
+				break
+			}
+		}
+		if allZeros {
+			t.Logf("Packet commitment zeroed for client %s, sequence %d", clientID, sequence)
+			return
+		}
+	}
+
+	require.Fail("Packet commitment should have been zeroed after acknowledgment",
+		"Account %s still has non-zero commitment value (sequence: %d)", packetCommitmentPDA.String(), sequence)
 }
 
 // VerifyPendingTransferExists verifies that an IFT PendingTransfer PDA exists (was created during transfer)

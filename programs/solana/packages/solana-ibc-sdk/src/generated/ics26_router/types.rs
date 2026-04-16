@@ -7,6 +7,20 @@
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::pubkey::Pubkey;
 
+/// Embedded access manager state for IBC programs.
+/// Each IBC program embeds this struct in its on-chain state account to track
+/// which access manager program governs its permissioned instructions and to
+/// support two-step access manager migration (propose/accept).
+/// Does not carry its own `_reserved` field — future fields can eat into the
+/// `_reserved` space of the higher-level state that embeds this struct.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct AccessManagerState {
+    /// Program ID of the access manager that governs this program's roles.
+    pub access_manager: Pubkey,
+    /// Proposed replacement access manager, set during a pending transfer.
+    pub pending_access_manager: Option<Pubkey>,
+}
+
 /// Account schema version for upgradability
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub enum AccountVersion {
@@ -39,6 +53,12 @@ pub struct CounterpartyInfo {
     pub merkle_prefix: Vec<Vec<u8>>,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub enum Delivery {
+    Inline { data: Vec<u8> },
+    Chunked { total_chunks: u8 },
+}
+
 /// Parameters for migrating a client
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MigrateClientParams {
@@ -53,10 +73,9 @@ pub struct MigrateClientParams {
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
+    pub packet: MsgPacket,
     pub acknowledgement: Vec<u8>,
-    pub proof: ProofMetadata,
+    pub proof: MsgProof,
 }
 
 /// Message for cleanup
@@ -68,18 +87,42 @@ pub struct MsgCleanupChunks {
     pub total_proof_chunks: u8,
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPacket {
+    pub sequence: u64,
+    pub source_client: String,
+    pub dest_client: String,
+    pub timeout_timestamp: u64,
+    pub payloads: Vec<MsgPayload>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPayload {
+    pub source_port: String,
+    pub dest_port: String,
+    pub version: String,
+    pub encoding: String,
+    pub data: Delivery,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgProof {
+    pub height: u64,
+    pub data: Delivery,
+}
+
 /// Message for receiving a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for sending a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
+    pub sequence: u64,
     pub timeout_timestamp: u64,
     pub payload: Payload,
 }
@@ -87,9 +130,8 @@ pub struct MsgSendPacket {
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for uploading chunks
@@ -120,21 +162,4 @@ pub struct Payload {
     pub version: String,
     pub encoding: String,
     pub value: Vec<u8>,
-}
-
-/// Payload metadata for chunked operations
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct PayloadMetadata {
-    pub source_port: String,
-    pub dest_port: String,
-    pub version: String,
-    pub encoding: String,
-    pub total_chunks: u8,
-}
-
-/// Proof metadata for chunked operations
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ProofMetadata {
-    pub height: u64,
-    pub total_chunks: u8,
 }

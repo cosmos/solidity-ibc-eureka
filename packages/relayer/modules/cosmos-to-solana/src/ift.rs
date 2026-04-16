@@ -16,8 +16,7 @@ use solana_ibc_sdk::ift::instructions::{
 use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
-use crate::constants::{ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
-use crate::proto::{GmpPacketData, Protobuf};
+use crate::constants::{ABI_ENCODING, ANCHOR_DISCRIMINATOR_SIZE, GMP_PORT_ID, PROTOBUF_ENCODING};
 
 /// Parameters for building IFT `finalize_transfer` instruction
 pub struct FinalizeTransferParams<'a> {
@@ -36,19 +35,22 @@ pub struct FinalizeTransferParams<'a> {
 pub fn build_finalize_transfer_instruction(
     params: &FinalizeTransferParams<'_>,
 ) -> Option<Instruction> {
-    // Only process GMP port packets - accept empty encoding for Cosmos compatibility
+    // Only process GMP port packets
     if params.source_port != GMP_PORT_ID
-        || !(params.encoding.is_empty() || params.encoding == PROTOBUF_ENCODING)
+        || !(params.encoding.is_empty()
+            || params.encoding == PROTOBUF_ENCODING
+            || params.encoding == ABI_ENCODING)
     {
         return None;
     }
 
-    let gmp_packet = match GmpPacketData::decode_vec(params.payload_value) {
-        Ok(packet) => packet,
-        Err(e) => {
-            tracing::warn!(error = ?e, "IFT: Failed to decode GMP packet");
-            return None;
-        }
+    let gmp_packet = match crate::gmp::decode_gmp_packet(
+        params.payload_value,
+        params.encoding,
+        params.source_port,
+    ) {
+        Some(packet) => packet,
+        None => return None,
     };
 
     // Parse sender as Pubkey (the IFT program ID).

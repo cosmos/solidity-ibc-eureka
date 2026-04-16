@@ -9,7 +9,7 @@ use anyhow::Result;
 use solana_ibc_gmp_types::{ClientId, GMPAccount};
 use solana_sdk::{instruction::AccountMeta, pubkey::Pubkey};
 
-use crate::constants::{GMP_PORT_ID, PROTOBUF_ENCODING};
+use crate::constants::{ABI_ENCODING, GMP_PORT_ID, PROTOBUF_ENCODING};
 use crate::proto::{GmpPacketData, GmpSolanaPayload, Protobuf};
 
 /// Extract GMP accounts from packet payload
@@ -44,7 +44,7 @@ pub fn extract_gmp_accounts(
     }
 
     // Decode and validate GMP packet
-    let Some(validated_packet) = decode_gmp_packet(payload_value, dest_port) else {
+    let Some(validated_packet) = decode_gmp_packet(payload_value, encoding, dest_port) else {
         return Ok(Vec::new());
     };
 
@@ -59,16 +59,66 @@ pub fn extract_gmp_accounts(
 
 /// Check if payload should be processed as GMP
 fn is_gmp_payload(dest_port: &str, encoding: &str) -> bool {
-    // Accept empty encoding for Cosmos compatibility
-    dest_port == GMP_PORT_ID && (encoding.is_empty() || encoding == PROTOBUF_ENCODING)
+    dest_port == GMP_PORT_ID
+        && (encoding.is_empty() || encoding == PROTOBUF_ENCODING || encoding == ABI_ENCODING)
 }
 
 /// Decode and validate GMP packet, returning None on failure
-fn decode_gmp_packet(payload_value: &[u8], dest_port: &str) -> Option<GmpPacketData> {
+pub(crate) fn decode_gmp_packet(
+    payload_value: &[u8],
+    encoding: &str,
+    dest_port: &str,
+) -> Option<GmpPacketData> {
+    if encoding == ABI_ENCODING {
+        decode_gmp_packet_abi(payload_value, dest_port)
+    } else {
+        decode_gmp_packet_protobuf(payload_value, dest_port)
+    }
+}
+
+fn decode_gmp_packet_protobuf(payload_value: &[u8], dest_port: &str) -> Option<GmpPacketData> {
     match GmpPacketData::decode_vec(payload_value) {
         Ok(packet) => Some(packet),
         Err(e) => {
-            tracing::warn!("Failed to decode GMP packet for port {}: {e:?}", dest_port);
+            tracing::warn!("Failed to decode protobuf GMP packet for port {dest_port}: {e:?}");
+            None
+        }
+    }
+}
+
+alloy::sol! {
+    struct GmpPacketDataAbi {
+        string sender;
+        string receiver;
+        bytes salt;
+        bytes payload;
+        string memo;
+    }
+}
+
+fn decode_gmp_packet_abi(payload_value: &[u8], dest_port: &str) -> Option<GmpPacketData> {
+    use alloy::sol_types::SolValue;
+    match GmpPacketDataAbi::abi_decode(payload_value) {
+        Ok(abi) => {
+            let raw = solana_ibc_proto::RawGmpPacketData {
+                sender: abi.sender,
+                receiver: abi.receiver,
+                salt: abi.salt.into(),
+                payload: abi.payload.into(),
+                memo: abi.memo,
+            };
+            match GmpPacketData::try_from(raw) {
+                Ok(packet) => Some(packet),
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to validate ABI-decoded GMP packet for port {dest_port}: {e}"
+                    );
+                    None
+                }
+            }
+        }
+        Err(e) => {
+            tracing::warn!("Failed to ABI-decode GMP packet for port {dest_port}: {e}");
             None
         }
     }
@@ -174,7 +224,7 @@ pub fn extract_gmp_prefund_lamports(
         return Ok(None);
     }
 
-    let Some(packet) = decode_gmp_packet(payload_value, dest_port) else {
+    let Some(packet) = decode_gmp_packet(payload_value, encoding, dest_port) else {
         return Ok(None);
     };
 
