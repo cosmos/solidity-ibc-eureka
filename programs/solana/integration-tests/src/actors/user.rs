@@ -56,6 +56,31 @@ impl User {
         Ok(result)
     }
 
+    /// Send a packet via `test_ibc_app` using explicit client IDs and LC accounts.
+    ///
+    /// Use when sending through a non-primary client (e.g. secondary connections
+    /// in multi-hop scenarios).
+    pub async fn send_packet_for_client(
+        &self,
+        chain: &mut Chain,
+        client_id: &str,
+        counterparty_client_id: &str,
+        lc: &crate::chain::LcAccounts,
+        params: SendPacketParams<'_>,
+    ) -> Result<SendResult, BanksClientError> {
+        let result = router::build_send_packet_ix(
+            self.pubkey(),
+            client_id,
+            counterparty_client_id,
+            chain.clock_time(),
+            lc,
+            params,
+        );
+        self.send_tx(chain, std::slice::from_ref(&result.ix))
+            .await?;
+        Ok(result)
+    }
+
     /// Send a GMP call (user pays fees).
     pub async fn send_call(
         &self,

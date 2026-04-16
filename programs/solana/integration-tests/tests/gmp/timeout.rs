@@ -24,7 +24,7 @@ async fn test_gmp_timeout() {
     let attestation_lc = AttestationLc::new(&attestors);
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
 
-    let mut chain_a = Chain::single_with_lc(&deployer, programs, attestation::ID);
+    let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Init ──
@@ -32,13 +32,14 @@ async fn test_gmp_timeout() {
     // `init_with_attestation` stores `clock_time` as the timestamp, which is
     // less than GMP_TIMEOUT (= clock_time + 86_000). We init manually and
     // submit `update_client` with a timestamp past the timeout instead.
-    chain_a
-        .init(&deployer, &admin, &relayer, programs)
-        .await;
+    chain_a.init(&deployer, &admin, &relayer, programs).await;
     let timeout_consensus_proof =
-        att_helpers::build_state_membership_proof(&attestors, PROOF_HEIGHT, GMP_TIMEOUT);
-    let update_ix =
-        att_helpers::build_update_client_ix(relayer.pubkey(), PROOF_HEIGHT, timeout_consensus_proof);
+        attestation::build_state_membership_proof(&attestors, PROOF_HEIGHT, GMP_TIMEOUT);
+    let update_ix = attestation::build_update_client_ix(
+        relayer.pubkey(),
+        PROOF_HEIGHT,
+        timeout_consensus_proof,
+    );
     relayer
         .send_tx(&mut chain_a, &[update_ix])
         .await
@@ -76,18 +77,23 @@ async fn test_gmp_timeout() {
 
     // ── Build attestation non-membership proof for timeout ──
     // Proves the receipt does NOT exist on the counterparty chain.
-    let timeout_entry = att_helpers::receipt_commitment_entry(
+    let timeout_entry = attestation::receipt_commitment_entry(
         chain_a.counterparty_client_id(),
         sequence,
         [0u8; 32],
     );
     let timeout_proof =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[timeout_entry]);
-    let timeout_proof_bytes = att_helpers::serialize_proof(&timeout_proof);
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[timeout_entry]);
+    let timeout_proof_bytes = attestation::serialize_proof(&timeout_proof);
 
     // ── Relayer uploads chunks and delivers timeout on Chain A ──
     let (timeout_payload, timeout_proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &timeout_proof_bytes)
+        .upload_chunks(
+            &mut chain_a,
+            sequence,
+            &gmp_packet_bytes,
+            &timeout_proof_bytes,
+        )
         .await
         .expect("upload timeout chunks on Chain A failed");
     let timeout_commitment_pda = relayer

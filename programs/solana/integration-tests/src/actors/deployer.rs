@@ -6,7 +6,7 @@
 
 use super::Actor;
 use crate::admin::Admin;
-use crate::chain::{Chain, ChainProgram, InitStepSigner, MOCK_LC_LATEST_HEIGHT};
+use crate::chain::{Chain, ChainProgram, InitStepSigner};
 use crate::relayer::Relayer;
 use anchor_lang::InstructionData;
 use solana_sdk::{
@@ -64,7 +64,6 @@ impl Deployer {
             relayer.pubkey(),
             chain.client_id(),
             chain.counterparty_client_id(),
-            chain.lc_program_id(),
             programs,
         );
 
@@ -115,27 +114,6 @@ impl Deployer {
     ///
     /// Initializes the mock light client and calls `add_client` on the
     /// router. Used for multi-hop tests (e.g. three-chain roundtrip).
-    pub async fn add_counterparty(
-        &self,
-        chain: &mut Chain,
-        admin: &Admin,
-        client_id: &str,
-        counterparty_client_id: &str,
-    ) {
-        let lc_ix = build_mock_lc_initialize_ix(self.keypair().pubkey(), client_id);
-        submit_tx(chain, &[lc_ix], &[self.keypair()]).await;
-
-        let add_ix = build_add_client_ix(
-            admin.pubkey(),
-            derive_router_state_pda(),
-            derive_access_manager_pda(),
-            client_id,
-            counterparty_client_id,
-            mock_light_client::ID,
-        );
-        submit_tx(chain, &[add_ix], &[self.keypair(), admin.keypair()]).await;
-    }
-
     /// Register an additional client/counterparty pair backed by an
     /// attestation LC instance.
     ///
@@ -208,7 +186,6 @@ fn build_init_steps(
     relayer_pubkey: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
-    lc_program_id: Pubkey,
     programs: &[&dyn ChainProgram],
 ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
     let deployer_pubkey = deployer.pubkey();
@@ -257,14 +234,6 @@ fn build_init_steps(
         ),
     ];
 
-    // Initialize mock LC if that's the configured light client
-    if lc_program_id == mock_light_client::ID {
-        steps.push((
-            vec![build_mock_lc_initialize_ix(deployer_pubkey, client_id)],
-            InitStepSigner::DeployerOnly,
-        ));
-    }
-
     // add_client + add_ibc_app (admin = ID_CUSTOMIZER_ROLE holder)
     steps.push((
         vec![
@@ -274,7 +243,7 @@ fn build_init_steps(
                 am_pda,
                 client_id,
                 counterparty_client_id,
-                lc_program_id,
+                attestation::ID,
             ),
             build_add_ibc_app_ix(
                 deployer_pubkey,
@@ -387,36 +356,6 @@ fn build_router_initialize_ix(
         ],
         data: ics26_router::instruction::Initialize {
             access_manager: access_manager_program,
-        }
-        .data(),
-    }
-}
-
-fn build_mock_lc_initialize_ix(payer: Pubkey, chain_id: &str) -> Instruction {
-    let (client_state_pda, _) =
-        Pubkey::find_program_address(&[b"client", chain_id.as_bytes()], &mock_light_client::ID);
-    let (consensus_state_pda, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_state_pda.as_ref(),
-            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
-        ],
-        &mock_light_client::ID,
-    );
-
-    Instruction {
-        program_id: mock_light_client::ID,
-        accounts: vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: mock_light_client::instruction::Initialize {
-            _chain_id: chain_id.to_string(),
-            _latest_height: MOCK_LC_LATEST_HEIGHT,
-            _client_state: vec![],
-            _consensus_state: vec![],
         }
         .data(),
     }

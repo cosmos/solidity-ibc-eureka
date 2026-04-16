@@ -1,6 +1,7 @@
 use super::*;
+use integration_tests::programs::ATTESTATION_PROGRAM_ID;
 
-/// Three-chain plain-router roundtrip: A→B then B→C, with independent IBC
+/// Three-chain plain-router roundtrip: A->B then B->C, with independent IBC
 /// packet lifecycles on each hop.
 ///
 /// Mirrors `tests/gmp/three_chain.rs` but exercises the bare router via
@@ -8,11 +9,16 @@ use super::*;
 /// in the middle of a multi-hop path can both receive on its primary client
 /// and dispatch a fresh send via a secondary client.
 ///
-/// Chain A: client `"a-to-b"` ↔ counterparty `"b-to-a"`
-/// Chain B: primary `"b-to-a"` ↔ `"a-to-b"`, additional `"b-to-c"` ↔ `"c-to-b"`
-/// Chain C: client `"c-to-b"` ↔ counterparty `"b-to-c"`
+/// Chain A: client `"a-to-b"` <-> counterparty `"b-to-a"`
+/// Chain B: primary `"b-to-a"` <-> `"a-to-b"`, additional `"b-to-c"` <-> `"c-to-b"`
+/// Chain C: client `"c-to-b"` <-> counterparty `"b-to-c"`
 #[tokio::test]
 async fn test_router_three_chain_roundtrip() {
+    // ── Attestors ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+    let attestors_c = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -25,13 +31,19 @@ async fn test_router_three_chain_roundtrip() {
     let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
 
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let attestation_lc_c = AttestationLc::new(&attestors_c);
+
+    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc_a];
+    let programs_b: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc_b];
+    let programs_c: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc_c];
+
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_a,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -39,8 +51,7 @@ async fn test_router_three_chain_roundtrip() {
         client_id: "b-to-a",
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_b,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -48,30 +59,46 @@ async fn test_router_three_chain_roundtrip() {
         client_id: "c-to-b",
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
-        programs,
-        lc_program_id: mock_light_client::ID,
+        programs: programs_c,
     });
     chain_c.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
 
     // Chain B needs the standard init plus a second client (`b-to-c`) wired
-    // up via `add_counterparty` before we hand off upgrade authority.
+    // up via `add_counterparty_with_attestation`.
     chain_b.start().await;
     deployer
-        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs)
+        .init_ibc_stack(&mut chain_b, &admin, &relayer, programs_b)
         .await;
     deployer
-        .add_counterparty(&mut chain_b, &admin, "b-to-c", "c-to-b")
+        .add_counterparty_with_attestation(
+            &mut chain_b,
+            &admin,
+            "b-to-c",
+            "c-to-b",
+            ATTESTATION_PROGRAM_ID,
+        )
         .await;
     deployer
-        .transfer_upgrade_authority(&mut chain_b, programs)
+        .transfer_upgrade_authority(&mut chain_b, programs_b)
+        .await;
+    relayer
+        .attestation_update_client(&mut chain_b, &attestors_b, PROOF_HEIGHT)
+        .await
+        .expect("update_client on chain B failed");
+
+    chain_c
+        .init_with_attestation(&deployer, &admin, &relayer, programs_c, &attestors_c)
         .await;
 
-    chain_c.init(&deployer, &admin, &relayer, programs).await;
+    // LC accounts for the secondary client on B (same attestation program)
+    let lc_b_secondary = attestation_lc_accounts(ATTESTATION_PROGRAM_ID, PROOF_HEIGHT);
 
-    // ── Leg 1: A → B ──
+    // ── Leg 1: A -> B ──
     let send_a = user
         .send_packet(
             &mut chain_a,
@@ -81,13 +108,22 @@ async fn test_router_three_chain_roundtrip() {
             },
         )
         .await
-        .expect("A→B send_packet failed");
+        .expect("A->B send_packet failed");
     assert_commitment_set(&chain_a, send_a.commitment_pda).await;
 
+    let recv_proof_ab_bytes = attestation::build_recv_proof_bytes(
+        &chain_a,
+        send_a.commitment_pda,
+        chain_b.counterparty_client_id(),
+        1,
+        &attestors_b,
+    )
+    .await;
+
     let (b_recv_payload, b_recv_proof) = relayer
-        .upload_chunks(&mut chain_b, 1, packet_data_ab, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, 1, packet_data_ab, &recv_proof_ab_bytes)
         .await
-        .expect("upload A→B recv chunks failed");
+        .expect("upload A->B recv chunks failed");
     let recv_on_b = relayer
         .recv_packet(
             &mut chain_b,
@@ -99,14 +135,23 @@ async fn test_router_three_chain_roundtrip() {
             },
         )
         .await
-        .expect("A→B recv_packet failed");
+        .expect("A->B recv_packet failed");
     assert_receipt_created(&chain_b, recv_on_b.receipt_pda).await;
     assert_commitment_set(&chain_b, recv_on_b.ack_pda).await;
 
+    let ack_proof_ab_bytes = attestation::build_ack_proof_bytes(
+        &chain_b,
+        recv_on_b.ack_pda,
+        chain_a.counterparty_client_id(),
+        1,
+        &attestors_a,
+    )
+    .await;
+
     let (a_ack_payload, a_ack_proof) = relayer
-        .upload_chunks(&mut chain_a, 1, packet_data_ab, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, 1, packet_data_ab, &ack_proof_ab_bytes)
         .await
-        .expect("upload A→B ack chunks failed");
+        .expect("upload A->B ack chunks failed");
     let ack_commitment_a = relayer
         .ack_packet(
             &mut chain_a,
@@ -119,40 +164,45 @@ async fn test_router_three_chain_roundtrip() {
             },
         )
         .await
-        .expect("A→B ack_packet failed");
+        .expect("A->B ack_packet failed");
     assert_commitment_zeroed(&chain_a, ack_commitment_a).await;
 
-    // ── Leg 2: B → C ──
-    // Send via the secondary `b-to-c` client on chain B (the relayer/user
-    // helpers default to the chain's primary `client_id`, so we build the
-    // instruction directly).
-    let send_bc = router::build_send_packet_ix(
-        user.pubkey(),
-        "b-to-c",
-        "c-to-b",
-        chain_b.clock_time(),
-        &mock_lc_accounts("b-to-c"),
-        SendPacketParams {
-            sequence: 1,
-            packet_data: packet_data_bc,
-        },
-    );
-    let tx = Transaction::new_signed_with_payer(
-        std::slice::from_ref(&send_bc.ix),
-        Some(&user.pubkey()),
-        &[user.keypair()],
-        chain_b.blockhash(),
-    );
-    chain_b
-        .process_transaction(tx)
+    // Chain A: 1 sent, 1 acked. Chain B: 1 received.
+    let a_state = read_app_state(&chain_a).await;
+    assert_eq!(a_state.packets_sent, 1);
+    assert_eq!(a_state.packets_acknowledged, 1);
+    let b_state = read_app_state(&chain_b).await;
+    assert_eq!(b_state.packets_received, 1);
+
+    // ── Leg 2: B -> C ──
+    let send_bc = user
+        .send_packet_for_client(
+            &mut chain_b,
+            "b-to-c",
+            "c-to-b",
+            &lc_b_secondary,
+            SendPacketParams {
+                sequence: 1,
+                packet_data: packet_data_bc,
+            },
+        )
         .await
-        .expect("B→C send_packet failed");
+        .expect("B->C send_packet failed");
     assert_commitment_set(&chain_b, send_bc.commitment_pda).await;
 
+    let recv_proof_bc_bytes = attestation::build_recv_proof_bytes(
+        &chain_b,
+        send_bc.commitment_pda,
+        chain_c.counterparty_client_id(),
+        1,
+        &attestors_c,
+    )
+    .await;
+
     let (c_recv_payload, c_recv_proof) = relayer
-        .upload_chunks(&mut chain_c, 1, packet_data_bc, DUMMY_PROOF)
+        .upload_chunks(&mut chain_c, 1, packet_data_bc, &recv_proof_bc_bytes)
         .await
-        .expect("upload B→C recv chunks failed");
+        .expect("upload B->C recv chunks failed");
     let recv_on_c = relayer
         .recv_packet(
             &mut chain_c,
@@ -164,40 +214,40 @@ async fn test_router_three_chain_roundtrip() {
             },
         )
         .await
-        .expect("B→C recv_packet failed");
+        .expect("B->C recv_packet failed");
     assert_receipt_created(&chain_c, recv_on_c.receipt_pda).await;
     assert_commitment_set(&chain_c, recv_on_c.ack_pda).await;
 
-    // Ack back C → B on the secondary client.
+    let ack_proof_bc_bytes =
+        attestation::build_ack_proof_bytes(&chain_c, recv_on_c.ack_pda, "c-to-b", 1, &attestors_b)
+            .await;
+
     let (b_ack_payload, b_ack_proof) = relayer
-        .upload_chunks_for_client(&mut chain_b, "b-to-c", 1, packet_data_bc, DUMMY_PROOF)
+        .upload_chunks_for_client(
+            &mut chain_b,
+            "b-to-c",
+            1,
+            packet_data_bc,
+            &ack_proof_bc_bytes,
+        )
         .await
-        .expect("upload B→C ack chunks failed");
-    let (ack_bc_ix, ack_commitment_b) = router::build_ack_packet_ix(
-        relayer.pubkey(),
-        "b-to-c",
-        "c-to-b",
-        chain_b.clock_time(),
-        &mock_lc_accounts("b-to-c"),
-        AckPacketParams {
-            sequence: 1,
-            acknowledgement: successful_ack,
-            payload_chunk_pda: b_ack_payload,
-            proof_chunk_pda: b_ack_proof,
-            ..Default::default()
-        },
-    );
-    assert_eq!(ack_commitment_b, send_bc.commitment_pda);
-    let tx = Transaction::new_signed_with_payer(
-        &[ack_bc_ix],
-        Some(&relayer.pubkey()),
-        &[relayer.keypair()],
-        chain_b.blockhash(),
-    );
-    chain_b
-        .process_transaction(tx)
+        .expect("upload B->C ack chunks failed");
+    let ack_commitment_b = relayer
+        .ack_packet_for_client(
+            &mut chain_b,
+            "b-to-c",
+            "c-to-b",
+            &lc_b_secondary,
+            AckPacketParams {
+                sequence: 1,
+                acknowledgement: successful_ack,
+                payload_chunk_pda: b_ack_payload,
+                proof_chunk_pda: b_ack_proof,
+                ..Default::default()
+            },
+        )
         .await
-        .expect("B→C ack_packet failed");
+        .expect("B->C ack_packet failed");
     assert_commitment_zeroed(&chain_b, ack_commitment_b).await;
 
     // ── Final assertions ──

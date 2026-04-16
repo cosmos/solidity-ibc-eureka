@@ -6,6 +6,9 @@ use super::*;
 /// and that a pending proposal can be cancelled by the current admin.
 #[tokio::test]
 async fn test_ift_admin_transfer() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -15,14 +18,21 @@ async fn test_ift_admin_transfer() {
     let another_admin_keypair = Keypair::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let mut chain = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc];
+    let mut chain = Chain::single(&deployer, all_programs);
     chain.prefund(&[&admin, &relayer, &ift_admin]);
     chain.prefund_lamports(new_admin_keypair.pubkey(), 10_000_000_000);
 
     // ── Init ──
     init_ift_chain(
-        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+        &mut chain,
+        &deployer,
+        &admin,
+        &ift_admin,
+        &relayer,
+        &attestors,
+        &attestation_lc,
     )
     .await;
 

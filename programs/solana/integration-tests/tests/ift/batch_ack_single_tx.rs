@@ -1,4 +1,5 @@
 use super::*;
+use solana_ibc_types::ics24;
 
 /// Two consecutive IFT transfers acked in a *single* router transaction.
 ///
@@ -10,6 +11,9 @@ use super::*;
 /// `PendingTransfer` and is not batched at the program level.
 #[tokio::test]
 async fn test_ift_batch_ack_single_tx() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -19,13 +23,20 @@ async fn test_ift_batch_ack_single_tx() {
     let mint_keypair = Keypair::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let mut chain = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc];
+    let mut chain = Chain::single(&deployer, all_programs);
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
     init_ift_chain(
-        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+        &mut chain,
+        &deployer,
+        &admin,
+        &ift_admin,
+        &relayer,
+        &attestors,
+        &attestation_lc,
     )
     .await;
 
@@ -75,18 +86,48 @@ async fn test_ift_batch_ack_single_tx() {
         INITIAL_BALANCE - 2 * TRANSFER_AMOUNT,
     );
 
+    // ── Build ack proofs ──
+    let ack_data = ift::success_ack();
+    let ack_commitment =
+        ics24::packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&ack_data))
+            .expect("compute ack commitment");
+
+    let ack_entry_1 = attestation::ack_commitment_entry(
+        chain.counterparty_client_id(),
+        1,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof_1 =
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry_1]);
+    let ack_proof_bytes_1 = attestation::serialize_proof(&ack_proof_1);
+
+    let ack_entry_2 = attestation::ack_commitment_entry(
+        chain.counterparty_client_id(),
+        2,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof_2 =
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry_2]);
+    let ack_proof_bytes_2 = attestation::serialize_proof(&ack_proof_2);
+
     // ── Upload chunks for both sequences (each in its own tx, as today) ──
     let mint_call_1 = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);
     let gmp_packet_1 = ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_1);
     let (payload_pda_1, proof_pda_1) = relayer
-        .upload_chunks(&mut chain, 1, &gmp_packet_1, DUMMY_PROOF)
+        .upload_chunks(&mut chain, 1, &gmp_packet_1, &ack_proof_bytes_1)
         .await
         .expect("upload chunks #1");
 
     let mint_call_2 = ift::encode_evm_mint_call(ift::EVM_RECEIVER, TRANSFER_AMOUNT);
     let gmp_packet_2 = ift::encode_ift_gmp_packet(ift::COUNTERPARTY_IFT_ADDRESS, mint_call_2);
     let (payload_pda_2, proof_pda_2) = relayer
-        .upload_chunks(&mut chain, 2, &gmp_packet_2, DUMMY_PROOF)
+        .upload_chunks(&mut chain, 2, &gmp_packet_2, &ack_proof_bytes_2)
         .await
         .expect("upload chunks #2");
 

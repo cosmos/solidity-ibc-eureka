@@ -1,10 +1,14 @@
 use super::*;
 
-/// Light client rejects proof: `mock_light_client` returns an error when the
-/// proof starts with `REJECT_PROOF`, causing the entire `recv_packet`
-/// transaction to revert.
+/// Light client rejects proof: the attestation LC returns an error when the
+/// proof bytes are invalid, causing the entire `recv_packet` transaction to
+/// revert.
 #[tokio::test]
 async fn test_proof_verification_failure() {
+    // ── Attestors ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -13,19 +17,26 @@ async fn test_proof_verification_failure() {
 
     // ── Test data ──
     let packet_data = b"proof will be rejected";
-    // Magic bytes that trigger mock_light_client rejection
-    let bad_proof = b"REJECT_PROOF_bad_data".to_vec();
+    // Garbage bytes that fail deserialization in the attestation LC
+    let bad_proof = vec![0u8; 32];
     let sequence = 1u64;
 
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
-    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let programs_a: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc_a];
+    let programs_b: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc_b];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs_a, programs_b);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain_a.init(&deployer, &admin, &relayer, programs).await;
-    chain_b.init(&deployer, &admin, &relayer, programs).await;
+    chain_a
+        .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a)
+        .await;
+    chain_b
+        .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b)
+        .await;
 
     // ── User sends on A ──
     user.send_packet(
@@ -38,7 +49,7 @@ async fn test_proof_verification_failure() {
     .await
     .expect("send_packet failed");
 
-    // Relayer uploads chunks with the "bad" proof that mock_light_client rejects
+    // Relayer uploads chunks with the bad proof
     let (b_payload, b_proof) = relayer
         .upload_chunks(&mut chain_b, sequence, packet_data, &bad_proof)
         .await

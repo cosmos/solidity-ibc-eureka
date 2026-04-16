@@ -1,11 +1,9 @@
 use alloy_sol_types::SolCall;
 use anchor_lang::prelude::*;
 use anchor_lang::InstructionData;
-use anchor_spl::associated_token::get_associated_token_address;
 use anchor_spl::token_interface::{self, Burn, Mint, TokenAccount, TokenInterface};
 use serde::Serialize;
-use solana_ibc_proto::{ProstMessage, RawGmpSolanaPayload, RawSolanaAccountMeta};
-use solana_ibc_types::ics27::{GMPAccount, Salt};
+use solana_ibc_proto::ProstMessage;
 
 use crate::constants::*;
 use crate::errors::IFTError;
@@ -338,15 +336,9 @@ fn construct_cosmos_mint_call(
 /// Construct a protobuf-encoded `GmpSolanaPayload` that dispatches the
 /// counterparty IFT program's `ift_mint` instruction.
 ///
-/// The source chain must commit to the exact destination account list in the
-/// GMP payload, so this helper pre-computes every destination PDA (`app_state`,
-/// `app_mint_state`, `ift_bridge`, `mint_authority`, receiver ATA,
-/// `gmp_account`) from the values stored in the `ChainOptions::Solana` bridge
-/// config. The account order mirrors `instructions::ift_mint::IFTMint<'info>`.
-///
-/// `receiver` is the base58 receiver pubkey string. The source IFT program
-/// (`crate::ID`) is used as the `sender` for the GMP account derivation,
-/// matching what the ICS27-GMP program writes into the packet at dispatch.
+/// Delegates PDA derivation and account-list construction to
+/// [`IftMintAccounts`](crate::helpers::IftMintAccounts), which centralizes
+/// the logic shared with the integration test helpers.
 ///
 /// Only the classic SPL Token program is supported for the receiver ATA.
 /// Token 2022 can be added later by threading a token-program field through
@@ -362,40 +354,13 @@ fn construct_solana_mint_call(
         .parse()
         .map_err(|_| error!(IFTError::InvalidReceiver))?;
 
-    let (app_state, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], ift_program_id);
-    let (app_mint_state, _) = Pubkey::find_program_address(
-        &[IFT_APP_MINT_STATE_SEED, counterparty_mint.as_ref()],
+    let accounts = crate::helpers::IftMintAccounts::derive(
         ift_program_id,
-    );
-    let (ift_bridge, _) = Pubkey::find_program_address(
-        &[
-            IFT_BRIDGE_SEED,
-            counterparty_mint.as_ref(),
-            counterparty_client_id.as_bytes(),
-        ],
-        ift_program_id,
-    );
-    let (mint_authority, _) = Pubkey::find_program_address(
-        &[MINT_AUTHORITY_SEED, counterparty_mint.as_ref()],
-        ift_program_id,
-    );
-    let receiver_ata = get_associated_token_address(&receiver_pubkey, counterparty_mint);
-
-    // GMP account PDA that signs the CPI on the destination side.
-    // Its derivation mirrors the ICS27-GMP on-recv path: the destination's
-    // local client_id plus the source IFT program ID as the sender string.
-    let gmp = GMPAccount::new(
-        counterparty_client_id
-            .to_string()
-            .try_into()
-            .map_err(|_| error!(IFTError::InvalidClientIdLength))?,
-        crate::ID
-            .to_string()
-            .try_into()
-            .map_err(|_| error!(IFTError::EmptyCounterpartyAddress))?,
-        Salt::empty(),
-        &ics27_gmp::ID,
-    );
+        counterparty_mint,
+        counterparty_client_id,
+        &crate::ID.to_string(),
+        &receiver_pubkey,
+    )?;
 
     let ix_data = crate::instruction::IftMint {
         msg: IFTMintMsg {
@@ -405,53 +370,7 @@ fn construct_solana_mint_call(
     }
     .data();
 
-    // Account order must exactly match `instructions::ift_mint::IFTMint<'info>`.
-    // `is_signer: true` entries are PDA-signed by the GMP program via
-    // `invoke_signed`; the corresponding outer `remaining_accounts` entries
-    // carry `is_signer: false` (the GMP `on_recv_packet` dispatch enforces
-    // `!account_info.is_signer` on every payload account).
-    let accounts = vec![
-        // 1. app_state (readonly)
-        raw_account_meta(&app_state, false, false),
-        // 2. app_mint_state (mut)
-        raw_account_meta(&app_mint_state, false, true),
-        // 3. ift_bridge (readonly)
-        raw_account_meta(&ift_bridge, false, false),
-        // 4. mint (mut)
-        raw_account_meta(counterparty_mint, false, true),
-        // 5. mint_authority PDA (readonly)
-        raw_account_meta(&mint_authority, false, false),
-        // 6. receiver_token_account / ATA (mut, init_if_needed)
-        raw_account_meta(&receiver_ata, false, true),
-        // 7. receiver_owner (readonly)
-        raw_account_meta(&receiver_pubkey, false, false),
-        // 8. gmp_account (signer)
-        raw_account_meta(&gmp.pda, true, false),
-        // 9. payer — same GMP PDA (signer + mut), pays for ATA init rent
-        raw_account_meta(&gmp.pda, true, true),
-        // 10. token_program
-        raw_account_meta(&anchor_spl::token::ID, false, false),
-        // 11. associated_token_program
-        raw_account_meta(&anchor_spl::associated_token::ID, false, false),
-        // 12. system_program
-        raw_account_meta(&anchor_lang::system_program::ID, false, false),
-    ];
-
-    let payload = RawGmpSolanaPayload {
-        data: ix_data,
-        accounts,
-        prefund_lamports: SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS,
-    };
-
-    Ok(payload.encode_to_vec())
-}
-
-fn raw_account_meta(pubkey: &Pubkey, is_signer: bool, is_writable: bool) -> RawSolanaAccountMeta {
-    RawSolanaAccountMeta {
-        pubkey: pubkey.to_bytes().to_vec(),
-        is_signer,
-        is_writable,
-    }
+    Ok(accounts.to_payload(ix_data).encode_to_vec())
 }
 
 #[cfg(test)]
@@ -544,9 +463,29 @@ mod tests {
         }
     }
 
+    /// Receiver must be base58-encoded — use a constant derived from a real keypair.
+    const SOLANA_RECEIVER: &str = "11111111111111111111111111111112";
+    const SOLANA_TEST_CLIENT_ID: &str = "07-tendermint-0";
+
+    fn solana_test_case() -> MintCallTestCase {
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        MintCallTestCase {
+            chain_options: ChainOptions::Solana {
+                ift_program_id,
+                counterparty_mint: mint,
+                counterparty_client_id: SOLANA_TEST_CLIENT_ID.to_string(),
+            },
+            receiver: SOLANA_RECEIVER,
+            expected_len: None,
+            expected_content: vec![],
+        }
+    }
+
     #[rstest]
     #[case::evm(evm_test_case())]
     #[case::cosmos(cosmos_test_case())]
+    #[case::solana(solana_test_case())]
     fn test_construct_mint_call(#[case] test_case: MintCallTestCase) {
         let result = construct_mint_call(&test_case.chain_options, test_case.receiver, 100);
         assert!(result.is_ok());
@@ -565,6 +504,122 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_construct_solana_mint_call_payload_structure() {
+        use solana_ibc_proto::RawGmpSolanaPayload;
+
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let receiver: Pubkey = SOLANA_RECEIVER.parse().unwrap();
+
+        let bytes = construct_solana_mint_call(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            SOLANA_RECEIVER,
+            1_000,
+        )
+        .unwrap();
+
+        let payload =
+            RawGmpSolanaPayload::decode(bytes.as_slice()).expect("valid protobuf payload");
+
+        // 12 accounts matching IFTMint<'info>
+        assert_eq!(payload.accounts.len(), 12);
+        assert_eq!(
+            payload.prefund_lamports,
+            crate::constants::SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS
+        );
+
+        // Verify each account pubkey is 32 bytes
+        for meta in &payload.accounts {
+            assert_eq!(meta.pubkey.len(), 32);
+        }
+
+        // Account 6 (index 5) is the receiver ATA
+        let receiver_ata =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        assert_eq!(payload.accounts[5].pubkey, receiver_ata.to_bytes());
+        assert!(payload.accounts[5].is_writable);
+
+        // Account 7 (index 6) is the receiver owner (readonly)
+        assert_eq!(payload.accounts[6].pubkey, receiver.to_bytes());
+        assert!(!payload.accounts[6].is_signer);
+        assert!(!payload.accounts[6].is_writable);
+
+        // Accounts 8 and 9 (indices 7, 8) are the GMP account (both signer)
+        assert_eq!(payload.accounts[7].pubkey, payload.accounts[8].pubkey);
+        assert!(payload.accounts[7].is_signer);
+        assert!(payload.accounts[8].is_signer);
+        assert!(payload.accounts[8].is_writable);
+    }
+
+    #[test]
+    fn test_construct_solana_mint_call_invalid_receiver() {
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+
+        let result = construct_solana_mint_call(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            "not-a-valid-pubkey",
+            100,
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_ift_mint_accounts_derive() {
+        use crate::helpers::IftMintAccounts;
+
+        let ift_program_id = Pubkey::new_unique();
+        let mint = Pubkey::new_unique();
+        let receiver: Pubkey = SOLANA_RECEIVER.parse().unwrap();
+        let source_address = crate::ID.to_string();
+
+        let accounts = IftMintAccounts::derive(
+            &ift_program_id,
+            &mint,
+            SOLANA_TEST_CLIENT_ID,
+            &source_address,
+            &receiver,
+        )
+        .unwrap();
+
+        // Verify PDAs match manual derivation
+        let (expected_app_state, _) =
+            Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
+        assert_eq!(accounts.app_state, expected_app_state);
+
+        let (expected_app_mint_state, _) = Pubkey::find_program_address(
+            &[IFT_APP_MINT_STATE_SEED, mint.as_ref()],
+            &ift_program_id,
+        );
+        assert_eq!(accounts.app_mint_state, expected_app_mint_state);
+
+        let (expected_bridge, _) = Pubkey::find_program_address(
+            &[
+                IFT_BRIDGE_SEED,
+                mint.as_ref(),
+                SOLANA_TEST_CLIENT_ID.as_bytes(),
+            ],
+            &ift_program_id,
+        );
+        assert_eq!(accounts.ift_bridge, expected_bridge);
+
+        let (expected_mint_authority, _) =
+            Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
+        assert_eq!(accounts.mint_authority, expected_mint_authority);
+
+        let expected_ata =
+            anchor_spl::associated_token::get_associated_token_address(&receiver, &mint);
+        assert_eq!(accounts.receiver_ata, expected_ata);
+
+        assert_eq!(accounts.mint, mint);
+        assert_eq!(accounts.receiver, receiver);
     }
 
     fn create_token_account(

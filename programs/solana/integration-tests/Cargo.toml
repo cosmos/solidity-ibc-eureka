@@ -29,7 +29,6 @@ alloy-sol-types = { workspace = true }
 test-ibc-app = { path = "../programs/test-ibc-app" }
 test-gmp-app = { path = "../programs/test-gmp-app" }
 mock-ibc-app = { path = "../programs/mock-ibc-app" }
-mock-light-client = { path = "../programs/mock-light-client" }
 test-cpi-proxy = { path = "../programs/test-cpi-proxy" }
 test-access-manager = { workspace = true, features = ["cpi"] }
 solana-ibc-types = { workspace = true }

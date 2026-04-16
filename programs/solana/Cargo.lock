@@ -3705,7 +3705,6 @@ dependencies = [
  "ics27-gmp",
  "ift",
  "mock-ibc-app",
- "mock-light-client",
  "prost",
  "sha2 0.10.9",
  "solana-ibc-proto",

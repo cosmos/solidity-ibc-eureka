@@ -25,14 +25,9 @@ const DEPLOY_DIR: &str = "../target/deploy";
 /// Deterministic Unix timestamp used for every test chain clock.
 pub const TEST_CLOCK_TIME: i64 = 1_700_000_000;
 const DEFAULT_PREFUND_LAMPORTS: u64 = 10_000_000_000;
-pub(crate) const MOCK_LC_LATEST_HEIGHT: u64 = 1;
-
 // ── Light-client account references ─────────────────────────────────────
 
 /// Light-client account references passed to router instruction builders.
-///
-/// Decouples instruction construction from the specific light client
-/// implementation (mock LC vs attestation LC).
 #[derive(Clone)]
 pub struct LcAccounts {
     pub program_id: Pubkey,
@@ -40,30 +35,11 @@ pub struct LcAccounts {
     pub consensus_state: Pubkey,
 }
 
-/// Derive mock light client [`LcAccounts`] for a given `client_id`.
-pub fn mock_lc_accounts(client_id: &str) -> LcAccounts {
-    let (client_state, _) =
-        Pubkey::find_program_address(&[b"client", client_id.as_bytes()], &mock_light_client::ID);
-    let (consensus_state, _) = Pubkey::find_program_address(
-        &[
-            b"consensus_state",
-            client_state.as_ref(),
-            &MOCK_LC_LATEST_HEIGHT.to_le_bytes(),
-        ],
-        &mock_light_client::ID,
-    );
-    LcAccounts {
-        program_id: mock_light_client::ID,
-        client_state,
-        consensus_state,
-    }
-}
-
 /// Derive attestation light client [`LcAccounts`] for a given program and proof height.
 ///
-/// Unlike mock LC, the attestation client state PDA is height-independent
-/// (seeds: `["client"]`), and the consensus state PDA depends on the proof
-/// height (seeds: `["consensus_state", height.to_le_bytes()]`).
+/// The client state PDA is height-independent (seeds: `["client"]`), and the
+/// consensus state PDA depends on the proof height
+/// (seeds: `["consensus_state", height.to_le_bytes()]`).
 pub fn attestation_lc_accounts(program_id: Pubkey, proof_height: u64) -> LcAccounts {
     let (client_state, _) = Pubkey::find_program_address(&[b"client"], &program_id);
     let (consensus_state, _) = Pubkey::find_program_address(
@@ -141,8 +117,6 @@ pub struct ChainConfig<'a> {
     pub deployer: &'a Deployer,
     /// Application programs to register alongside the core stack.
     pub programs: &'a [&'a dyn ChainProgram],
-    /// Light-client program ID used for `add_client`. Defaults to mock LC.
-    pub lc_program_id: Pubkey,
 }
 
 /// Simulated Solana validator for a single test.
@@ -157,13 +131,11 @@ pub struct Chain {
     clock_time: i64,
     banks: Option<BanksClient>,
     blockhash: Hash,
-    lc_program_id: Pubkey,
 }
 
 impl Chain {
     /// Create a new chain from the given config (setup phase).
     pub fn new(config: ChainConfig<'_>) -> Self {
-        let lc_program_id = config.lc_program_id;
         let pt = build_program_test(&config);
 
         Self {
@@ -173,72 +145,36 @@ impl Chain {
             clock_time: TEST_CLOCK_TIME,
             banks: None,
             blockhash: Hash::default(),
-            lc_program_id,
         }
     }
 
-    /// Create a single chain with the default `chain-a-client` /
-    /// `chain-b-client` client IDs and mock light client.
+    /// Create a single chain with default client IDs.
     pub fn single(deployer: &Deployer, programs: &[&dyn ChainProgram]) -> Self {
         Self::new(ChainConfig {
             client_id: "chain-a-client",
             counterparty_client_id: "chain-b-client",
             deployer,
             programs,
-            lc_program_id: mock_light_client::ID,
         })
     }
 
-    /// Create a single chain with a specific light-client program.
-    pub fn single_with_lc(
-        deployer: &Deployer,
-        programs: &[&dyn ChainProgram],
-        lc_program_id: Pubkey,
-    ) -> Self {
-        Self::new(ChainConfig {
-            client_id: "chain-a-client",
-            counterparty_client_id: "chain-b-client",
-            deployer,
-            programs,
-            lc_program_id,
-        })
-    }
-
-    /// Create two chains with mirrored client IDs and the same programs.
-    pub fn pair(deployer: &Deployer, programs: &[&dyn ChainProgram]) -> (Self, Self) {
-        Self::pair_with(deployer, programs, programs)
-    }
-
-    /// Create two chains with mirrored client IDs but different programs.
-    pub fn pair_with(
+    /// Create two chains with mirrored client IDs and different programs.
+    pub fn pair(
         deployer: &Deployer,
         programs_a: &[&dyn ChainProgram],
         programs_b: &[&dyn ChainProgram],
-    ) -> (Self, Self) {
-        Self::pair_with_lc(deployer, programs_a, programs_b, mock_light_client::ID)
-    }
-
-    /// Create two chains with mirrored client IDs, different programs and a
-    /// specific light-client program.
-    pub fn pair_with_lc(
-        deployer: &Deployer,
-        programs_a: &[&dyn ChainProgram],
-        programs_b: &[&dyn ChainProgram],
-        lc_program_id: Pubkey,
     ) -> (Self, Self) {
         let chain_a = Self::new(ChainConfig {
             client_id: "chain-a-client",
             counterparty_client_id: "chain-b-client",
             deployer,
             programs: programs_a,
-            lc_program_id,
         });
         let chain_b = Self::new(ChainConfig {
             client_id: "chain-b-client",
             counterparty_client_id: "chain-a-client",
             deployer,
             programs: programs_b,
-            lc_program_id,
         });
         (chain_a, chain_b)
     }
@@ -328,33 +264,15 @@ impl Chain {
         self.clock_time
     }
 
-    /// The light-client program ID registered on this chain.
-    pub const fn lc_program_id(&self) -> Pubkey {
-        self.lc_program_id
-    }
-
-    /// Default [`LcAccounts`] for this chain's primary client.
-    ///
-    /// For mock LC this is always valid. For attestation LC, the consensus
-    /// state PDA uses the latest height stored in the client — callers that
-    /// need a specific proof height should use [`lc_accounts_at_height`].
+    /// Default [`LcAccounts`] for this chain's primary attestation client at
+    /// [`PROOF_HEIGHT`](crate::router::PROOF_HEIGHT).
     pub fn lc_accounts(&self) -> LcAccounts {
-        if self.lc_program_id == mock_light_client::ID {
-            mock_lc_accounts(&self.client_id)
-        } else {
-            attestation_lc_accounts(self.lc_program_id, crate::router::PROOF_HEIGHT)
-        }
+        attestation_lc_accounts(attestation::ID, crate::router::PROOF_HEIGHT)
     }
 
-    /// [`LcAccounts`] for a specific proof height (attestation LC only).
-    ///
-    /// For mock LC this returns the same accounts regardless of height.
+    /// [`LcAccounts`] for a specific proof height on the primary attestation client.
     pub fn lc_accounts_at_height(&self, height: u64) -> LcAccounts {
-        if self.lc_program_id == mock_light_client::ID {
-            mock_lc_accounts(&self.client_id)
-        } else {
-            attestation_lc_accounts(self.lc_program_id, height)
-        }
+        attestation_lc_accounts(attestation::ID, height)
     }
 
     /// Derive the `test_gmp_app` `CounterAppState` PDA.
@@ -451,11 +369,6 @@ fn build_program_test(config: &ChainConfig<'_>) -> ProgramTest {
     // ProgramData accounts for programs that verify upgrade authority
     add_program_data(&mut pt, access_manager::ID, deployer_pubkey);
     add_program_data(&mut pt, ics26_router::ID, deployer_pubkey);
-
-    // Register mock LC by default; attestation LC is registered via ChainProgram
-    if config.lc_program_id == mock_light_client::ID {
-        pt.add_program("mock_light_client", mock_light_client::ID, None);
-    }
 
     for program in config.programs {
         program.register(&mut pt, deployer_pubkey);

@@ -34,14 +34,12 @@ pub fn build_update_client_ix_for_program(
     height: u64,
     proof: MembershipProof,
 ) -> Instruction {
-    let (client_state_pda, _) =
-        Pubkey::find_program_address(&[ClientState::SEED], &program_id);
+    let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &program_id);
     let (consensus_state_pda, _) = Pubkey::find_program_address(
         &[ConsensusStateStore::SEED, &height.to_le_bytes()],
         &program_id,
     );
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[AppState::SEED], &program_id);
+    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &program_id);
 
     let (access_manager_pda, _) = Pubkey::find_program_address(
         &[access_manager::state::AccessManager::SEED],
@@ -173,4 +171,41 @@ pub fn build_packet_membership_proof(
 /// the router's `MsgProof.proof` field.
 pub fn serialize_proof(proof: &MembershipProof) -> Vec<u8> {
     proof.try_to_vec().expect("MembershipProof serialization")
+}
+
+/// Build a serialized recv proof: read commitment from the source chain,
+/// construct the packet entry and sign with the verifying attestors.
+pub async fn build_recv_proof_bytes(
+    source_chain: &crate::chain::Chain,
+    commitment_pda: Pubkey,
+    counterparty_client_id: &str,
+    sequence: u64,
+    attestors: &Attestors,
+) -> Vec<u8> {
+    let commitment = crate::read_commitment(source_chain, commitment_pda).await;
+    let entry = packet_commitment_entry(counterparty_client_id, sequence, commitment);
+    let proof = build_packet_membership_proof(attestors, crate::router::PROOF_HEIGHT, &[entry]);
+    serialize_proof(&proof)
+}
+
+/// Build a serialized ack proof: read ack data from the dest chain,
+/// construct the ack entry and sign with the verifying attestors.
+pub async fn build_ack_proof_bytes(
+    dest_chain: &crate::chain::Chain,
+    ack_pda: Pubkey,
+    counterparty_client_id: &str,
+    sequence: u64,
+    attestors: &Attestors,
+) -> Vec<u8> {
+    let ack_data = crate::extract_ack_data(dest_chain, ack_pda).await;
+    let entry = ack_commitment_entry(
+        counterparty_client_id,
+        sequence,
+        ack_data
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let proof = build_packet_membership_proof(attestors, crate::router::PROOF_HEIGHT, &[entry]);
+    serialize_proof(&proof)
 }

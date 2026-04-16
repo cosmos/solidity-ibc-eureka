@@ -120,8 +120,14 @@ impl Relayer {
         proof_chunk_pda: Pubkey,
     ) -> Result<(), BanksClientError> {
         let client_id = chain.client_id().to_string();
-        self.cleanup_chunks_for_client(chain, &client_id, sequence, payload_chunk_pda, proof_chunk_pda)
-            .await
+        self.cleanup_chunks_for_client(
+            chain,
+            &client_id,
+            sequence,
+            payload_chunk_pda,
+            proof_chunk_pda,
+        )
+        .await
     }
 
     /// Like [`cleanup_chunks`](Self::cleanup_chunks) but for a specific
@@ -161,8 +167,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, std::slice::from_ref(&result.ix))
-            .await?;
+        let ixs = with_attestation_budget(result.ix.clone());
+        self.send_tx(chain, &ixs).await?;
         Ok(result)
     }
 
@@ -180,7 +186,33 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
+        Ok(commitment_pda)
+    }
+
+    /// Deliver an `ack_packet` using explicit client IDs and LC accounts.
+    ///
+    /// Use when acking through a non-primary client (e.g. secondary connections
+    /// in multi-hop scenarios).
+    pub async fn ack_packet_for_client(
+        &self,
+        chain: &mut Chain,
+        client_id: &str,
+        counterparty_client_id: &str,
+        lc: &crate::chain::LcAccounts,
+        params: AckPacketParams<'_>,
+    ) -> Result<Pubkey, BanksClientError> {
+        let (ix, commitment_pda) = router::build_ack_packet_ix(
+            self.pubkey(),
+            client_id,
+            counterparty_client_id,
+            chain.clock_time(),
+            lc,
+            params,
+        );
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -198,7 +230,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -254,8 +287,10 @@ impl Relayer {
                 )
             })
             .collect();
-        let ixs: Vec<_> = built.iter().map(|(ix, _)| ix.clone()).collect();
+        let ack_ixs: Vec<_> = built.iter().map(|(ix, _)| ix.clone()).collect();
         let commitment_pdas: Vec<_> = built.iter().map(|(_, pda)| *pda).collect();
+        let mut ixs = with_batched_attestation_budget(built.len());
+        ixs.extend(ack_ixs);
         self.send_tx(chain, &ixs).await?;
         Ok(commitment_pdas)
     }
@@ -276,8 +311,8 @@ impl Relayer {
             params,
             proof_chunk_pdas,
         );
-        self.send_tx(chain, std::slice::from_ref(&result.ix))
-            .await?;
+        let ixs = with_attestation_budget(result.ix.clone());
+        self.send_tx(chain, &ixs).await?;
         Ok(result)
     }
 
@@ -297,7 +332,8 @@ impl Relayer {
             params,
             proof_chunk_pdas,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -317,7 +353,7 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        let ixs = with_attestation_budget(chain, result.ix.clone());
+        let ixs = with_attestation_budget(result.ix.clone());
         self.send_tx(chain, &ixs).await?;
         Ok(result)
     }
@@ -336,7 +372,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -354,7 +391,7 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        let ixs = with_attestation_budget(chain, ix);
+        let ixs = with_attestation_budget(ix);
         self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
@@ -375,7 +412,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -393,7 +431,8 @@ impl Relayer {
             &chain.lc_accounts(),
             params,
         );
-        self.send_tx(chain, &[ix]).await?;
+        let ixs = with_attestation_budget(ix);
+        self.send_tx(chain, &ixs).await?;
         Ok(commitment_pda)
     }
 
@@ -408,13 +447,8 @@ impl Relayer {
         attestors: &crate::attestor::Attestors,
         height: u64,
     ) -> Result<(), BanksClientError> {
-        self.attestation_update_client_for_program(
-            chain,
-            attestors,
-            height,
-            attestation::ID,
-        )
-        .await
+        self.attestation_update_client_for_program(chain, attestors, height, attestation::ID)
+            .await
     }
 
     /// Like [`attestation_update_client`](Self::attestation_update_client)
@@ -541,10 +575,19 @@ const ATTESTATION_COMPUTE_BUDGET: u32 = 400_000;
 
 /// Prepend a `SetComputeUnitLimit` instruction when the chain uses an
 /// attestation light client, otherwise return the instruction as-is.
-fn with_attestation_budget(chain: &Chain, ix: solana_sdk::instruction::Instruction) -> Vec<solana_sdk::instruction::Instruction> {
-    if chain.lc_program_id() == ::mock_light_client::ID {
-        vec![ix]
-    } else {
-        vec![ComputeBudgetInstruction::set_compute_unit_limit(ATTESTATION_COMPUTE_BUDGET), ix]
-    }
+fn with_attestation_budget(
+    ix: solana_sdk::instruction::Instruction,
+) -> Vec<solana_sdk::instruction::Instruction> {
+    vec![
+        ComputeBudgetInstruction::set_compute_unit_limit(ATTESTATION_COMPUTE_BUDGET),
+        ix,
+    ]
+}
+
+/// Like [`with_attestation_budget`] but scales the budget for `n` proof-verifying
+/// instructions in a single transaction.
+fn with_batched_attestation_budget(n: usize) -> Vec<solana_sdk::instruction::Instruction> {
+    vec![ComputeBudgetInstruction::set_compute_unit_limit(
+        ATTESTATION_COMPUTE_BUDGET.saturating_mul(n as u32),
+    )]
 }

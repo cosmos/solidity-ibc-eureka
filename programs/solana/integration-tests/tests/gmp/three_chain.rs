@@ -1,6 +1,6 @@
 use super::*;
 use integration_tests::chain::attestation_lc_accounts as att_lc_accounts;
-use integration_tests::programs::TEST_ATTESTATION_ID;
+use integration_tests::programs::{ATTESTATION_PROGRAM_ID, TEST_ATTESTATION_ID};
 use solana_sdk::compute_budget::ComputeBudgetInstruction;
 use solana_sdk::transaction::Transaction;
 
@@ -14,7 +14,7 @@ use solana_sdk::transaction::Transaction;
 ///   Chain B: `"b-to-a"` ↔ `"a-to-b"`, `"b-to-c"` ↔ `"c-to-b"`
 ///   Chain C: `"c-to-b"` ↔ `"b-to-c"`, `"c-to-a"` ↔ `"a-to-c"`
 ///
-/// Each chain hosts two attestation LC instances (`attestation::ID` and
+/// Each chain hosts two attestation LC instances (`ATTESTATION_PROGRAM_ID` and
 /// `TEST_ATTESTATION_ID`) with independent attestor sets per directed
 /// client connection.
 #[tokio::test]
@@ -34,41 +34,43 @@ async fn test_gmp_three_chain_roundtrip() {
     let user = User::new();
 
     // ── Chains ──
-    // Each chain has two attestation LC instances: primary (attestation::ID)
+    // Each chain has two attestation LC instances: primary (ATTESTATION_PROGRAM_ID)
     // and secondary (TEST_ATTESTATION_ID) with independent attestor sets.
     let att_lc_a_primary = AttestationLc::new(&attestors_a_ab);
-    let att_lc_a_secondary = AttestationLc::with_program_id(
-        &attestors_a_ac,
-        TEST_ATTESTATION_ID,
-        "test_attestation",
-    );
-    let programs_a: &[&dyn ChainProgram] =
-        &[&Ics27Gmp, &TestGmpApp, &att_lc_a_primary, &att_lc_a_secondary];
+    let att_lc_a_secondary =
+        AttestationLc::with_program_id(&attestors_a_ac, TEST_ATTESTATION_ID, "test_attestation");
+    let programs_a: &[&dyn ChainProgram] = &[
+        &Ics27Gmp,
+        &TestGmpApp,
+        &att_lc_a_primary,
+        &att_lc_a_secondary,
+    ];
 
     let att_lc_b_primary = AttestationLc::new(&attestors_b_ba);
-    let att_lc_b_secondary = AttestationLc::with_program_id(
-        &attestors_b_bc,
-        TEST_ATTESTATION_ID,
-        "test_attestation",
-    );
-    let programs_b: &[&dyn ChainProgram] =
-        &[&Ics27Gmp, &TestGmpApp, &att_lc_b_primary, &att_lc_b_secondary];
+    let att_lc_b_secondary =
+        AttestationLc::with_program_id(&attestors_b_bc, TEST_ATTESTATION_ID, "test_attestation");
+    let programs_b: &[&dyn ChainProgram] = &[
+        &Ics27Gmp,
+        &TestGmpApp,
+        &att_lc_b_primary,
+        &att_lc_b_secondary,
+    ];
 
     let att_lc_c_primary = AttestationLc::new(&attestors_c_cb);
-    let att_lc_c_secondary = AttestationLc::with_program_id(
-        &attestors_c_ca,
-        TEST_ATTESTATION_ID,
-        "test_attestation",
-    );
-    let programs_c: &[&dyn ChainProgram] =
-        &[&Ics27Gmp, &TestGmpApp, &att_lc_c_primary, &att_lc_c_secondary];
+    let att_lc_c_secondary =
+        AttestationLc::with_program_id(&attestors_c_ca, TEST_ATTESTATION_ID, "test_attestation");
+    let programs_c: &[&dyn ChainProgram] = &[
+        &Ics27Gmp,
+        &TestGmpApp,
+        &att_lc_c_primary,
+        &att_lc_c_secondary,
+    ];
 
     let mut chain_a = Chain::new(ChainConfig {
         client_id: "a-to-b",
         counterparty_client_id: "b-to-a",
         deployer: &deployer,
         programs: programs_a,
-        lc_program_id: attestation::ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -77,7 +79,6 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "a-to-b",
         deployer: &deployer,
         programs: programs_b,
-        lc_program_id: attestation::ID,
     });
     chain_b.prefund(&[&admin, &relayer, &user]);
 
@@ -86,7 +87,6 @@ async fn test_gmp_three_chain_roundtrip() {
         counterparty_client_id: "b-to-c",
         deployer: &deployer,
         programs: programs_c,
-        lc_program_id: attestation::ID,
     });
     chain_c.prefund(&[&admin, &relayer, &user]);
 
@@ -109,7 +109,7 @@ async fn test_gmp_three_chain_roundtrip() {
     // Each chain: init primary client, add secondary client, update_client
     // on secondary LC.
 
-    // Chain A: primary "a-to-b" (attestation::ID), secondary "a-to-c" (TEST_ATTESTATION_ID)
+    // Chain A: primary "a-to-b" (ATTESTATION_PROGRAM_ID), secondary "a-to-c" (TEST_ATTESTATION_ID)
     chain_a
         .init_with_attestation(&deployer, &admin, &relayer, programs_a, &attestors_a_ab)
         .await;
@@ -132,7 +132,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("update secondary LC on A");
 
-    // Chain B: primary "b-to-a" (attestation::ID), secondary "b-to-c" (TEST_ATTESTATION_ID)
+    // Chain B: primary "b-to-a" (ATTESTATION_PROGRAM_ID), secondary "b-to-c" (TEST_ATTESTATION_ID)
     chain_b
         .init_with_attestation(&deployer, &admin, &relayer, programs_b, &attestors_b_ba)
         .await;
@@ -155,7 +155,7 @@ async fn test_gmp_three_chain_roundtrip() {
         .await
         .expect("update secondary LC on B");
 
-    // Chain C: primary "c-to-b" (attestation::ID), secondary "c-to-a" (TEST_ATTESTATION_ID)
+    // Chain C: primary "c-to-b" (ATTESTATION_PROGRAM_ID), secondary "c-to-a" (TEST_ATTESTATION_ID)
     chain_c
         .init_with_attestation(&deployer, &admin, &relayer, programs_c, &attestors_c_cb)
         .await;
@@ -180,7 +180,7 @@ async fn test_gmp_three_chain_roundtrip() {
 
     // ── Connection contexts ──
     let conn_a_ab = ConnCtx {
-        lc_program_id: attestation::ID,
+        lc_program_id: ATTESTATION_PROGRAM_ID,
         attestors: &attestors_a_ab,
     };
     let conn_a_ac = ConnCtx {
@@ -188,7 +188,7 @@ async fn test_gmp_three_chain_roundtrip() {
         attestors: &attestors_a_ac,
     };
     let conn_b_ba = ConnCtx {
-        lc_program_id: attestation::ID,
+        lc_program_id: ATTESTATION_PROGRAM_ID,
         attestors: &attestors_b_ba,
     };
     let conn_b_bc = ConnCtx {
@@ -196,7 +196,7 @@ async fn test_gmp_three_chain_roundtrip() {
         attestors: &attestors_b_bc,
     };
     let conn_c_cb = ConnCtx {
-        lc_program_id: attestation::ID,
+        lc_program_id: ATTESTATION_PROGRAM_ID,
         attestors: &attestors_c_cb,
     };
     let conn_c_ca = ConnCtx {
@@ -237,6 +237,9 @@ async fn test_gmp_three_chain_roundtrip() {
     )
     .await;
 
+    assert_eq!(read_user_counter(&chain_b, ctr_b_from_a).await.count, 10);
+    assert_gmp_result_exists(&chain_a, "a-to-b", 1).await;
+
     // ── Leg 2: B → C ──
     let l2 = run_gmp_leg(
         &user,
@@ -257,6 +260,9 @@ async fn test_gmp_three_chain_roundtrip() {
     )
     .await;
 
+    assert_eq!(read_user_counter(&chain_c, ctr_c_from_b).await.count, 20);
+    assert_gmp_result_exists(&chain_b, "b-to-c", 1).await;
+
     // ── Leg 3: C → A ──
     let l3 = run_gmp_leg(
         &user,
@@ -276,6 +282,9 @@ async fn test_gmp_three_chain_roundtrip() {
         None,
     )
     .await;
+
+    assert_eq!(read_user_counter(&chain_a, ctr_a_from_c).await.count, 30);
+    assert_gmp_result_exists(&chain_c, "c-to-a", 1).await;
 
     // ── Leg 4: A → C  (reuses C("c-to-a",1) and A("a-to-c",1) slots) ──
     let l4 = run_gmp_leg(
@@ -298,6 +307,9 @@ async fn test_gmp_three_chain_roundtrip() {
     .await;
     let _ = l4;
 
+    assert_eq!(read_user_counter(&chain_c, ctr_c_from_a).await.count, 40);
+    assert_gmp_result_exists(&chain_a, "a-to-c", 1).await;
+
     // ── Leg 5: C → B  (reuses B("b-to-c",1) and C("c-to-b",1) slots) ──
     let l5 = run_gmp_leg(
         &user,
@@ -318,6 +330,9 @@ async fn test_gmp_three_chain_roundtrip() {
     )
     .await;
     let _ = l5;
+
+    assert_eq!(read_user_counter(&chain_b, ctr_b_from_c).await.count, 50);
+    assert_gmp_result_exists(&chain_c, "c-to-b", 1).await;
 
     // ── Leg 6: B → A  (reuses A("a-to-b",1) and B("b-to-a",1) slots) ──
     run_gmp_leg(
@@ -440,28 +455,22 @@ async fn run_gmp_leg(
 
     // ── Build recv proof (signed by dest attestors) ──
     let packet_commitment = read_commitment(source, commitment_pda).await;
-    let recv_entry = att_helpers::packet_commitment_entry(
+    let recv_entry = attestation::packet_commitment_entry(
         source_client, // counterparty from dest's perspective
         sequence,
         packet_commitment,
     );
-    let recv_proof = att_helpers::build_packet_membership_proof(
+    let recv_proof = attestation::build_packet_membership_proof(
         dest_conn.attestors,
         PROOF_HEIGHT,
         &[recv_entry],
     );
-    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+    let recv_proof_bytes = attestation::serialize_proof(&recv_proof);
 
     // ── Recv on dest chain ──
     if let Some(stale) = stale_on_dest {
         relayer
-            .cleanup_chunks_for_client(
-                dest,
-                dest_client,
-                sequence,
-                stale.payload,
-                stale.proof,
-            )
+            .cleanup_chunks_for_client(dest, dest_client, sequence, stale.payload, stale.proof)
             .await
             .expect("cleanup stale dest chunks failed");
     }
@@ -471,8 +480,7 @@ async fn run_gmp_leg(
         .await
         .expect("upload recv chunks failed");
 
-    let remaining =
-        gmp::build_increment_remaining_accounts(gmp_pda, counter_state, counter_pda);
+    let remaining = gmp::build_increment_remaining_accounts(gmp_pda, counter_state, counter_pda);
     let dest_lc = att_lc_accounts(dest_conn.lc_program_id, PROOF_HEIGHT);
     let recv_result = gmp::build_gmp_recv_packet_ix(
         relayer.pubkey(),
@@ -500,7 +508,7 @@ async fn run_gmp_leg(
 
     // ── Build ack proof (signed by source attestors) ──
     let ack_commitment = extract_ack_data(dest, recv_result.ack_pda).await;
-    let ack_entry = att_helpers::ack_commitment_entry(
+    let ack_entry = attestation::ack_commitment_entry(
         dest_client, // counterparty from source's perspective
         sequence,
         ack_commitment
@@ -508,23 +516,17 @@ async fn run_gmp_leg(
             .try_into()
             .expect("ack should be 32 bytes"),
     );
-    let ack_proof = att_helpers::build_packet_membership_proof(
+    let ack_proof = attestation::build_packet_membership_proof(
         source_conn.attestors,
         PROOF_HEIGHT,
         &[ack_entry],
     );
-    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
 
     // ── Ack on source chain ──
     if let Some(stale) = stale_on_source {
         relayer
-            .cleanup_chunks_for_client(
-                source,
-                source_client,
-                sequence,
-                stale.payload,
-                stale.proof,
-            )
+            .cleanup_chunks_for_client(source, source_client, sequence, stale.payload, stale.proof)
             .await
             .expect("cleanup stale source chunks failed");
     }
@@ -534,11 +536,9 @@ async fn run_gmp_leg(
         .await
         .expect("upload ack chunks failed");
 
-    let raw_ack = ics27_gmp::encoding::encode_gmp_ack(
-        &amount.to_le_bytes(),
-        gmp::ICS27_ENCODING_PROTOBUF,
-    )
-    .expect("encode GMP ack");
+    let raw_ack =
+        ics27_gmp::encoding::encode_gmp_ack(&amount.to_le_bytes(), gmp::ICS27_ENCODING_PROTOBUF)
+            .expect("encode GMP ack");
 
     let (ack_ix, _) = gmp::build_gmp_ack_packet_ix(
         relayer.pubkey(),

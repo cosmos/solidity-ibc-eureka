@@ -23,8 +23,7 @@ async fn test_gmp_full_lifecycle() {
     let attestation_lc_b = AttestationLc::new(&attestors_b);
     let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
 
-    let (mut chain_a, mut chain_b) =
-        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs_a, programs_b);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -70,14 +69,14 @@ async fn test_gmp_full_lifecycle() {
 
     // ── Build attestation proof for recv on Chain B ──
     let packet_commitment = read_commitment(&chain_a, commitment_pda).await;
-    let recv_entry = att_helpers::packet_commitment_entry(
+    let recv_entry = attestation::packet_commitment_entry(
         chain_b.counterparty_client_id(),
         sequence,
         packet_commitment,
     );
     let recv_proof =
-        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry]);
-    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+        attestation::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = attestation::serialize_proof(&recv_proof);
 
     // ── Relayer uploads chunks and delivers recv_packet to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
@@ -117,7 +116,7 @@ async fn test_gmp_full_lifecycle() {
 
     // ── Build attestation proof for ack on Chain A ──
     let ack_commitment = extract_ack_data(&chain_b, recv.ack_pda).await;
-    let ack_entry = att_helpers::ack_commitment_entry(
+    let ack_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         sequence,
         ack_commitment
@@ -126,8 +125,8 @@ async fn test_gmp_full_lifecycle() {
             .expect("ack should be 32 bytes"),
     );
     let ack_proof =
-        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry]);
-    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+        attestation::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
 
     // ── Relayer uploads chunks and delivers ack_packet back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer

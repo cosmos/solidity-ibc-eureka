@@ -25,8 +25,7 @@ async fn test_multiple_gmp_calls() {
     let attestation_lc_b = AttestationLc::new(&attestors_b);
     let programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc_b];
 
-    let (mut chain_a, mut chain_b) =
-        Chain::pair_with_lc(&deployer, programs_a, programs_b, attestation::ID);
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs_a, programs_b);
     chain_a.prefund(&[&admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -67,14 +66,14 @@ async fn test_multiple_gmp_calls() {
 
     // ── Build attestation proof for first recv on Chain B ──
     let first_packet_commitment = read_commitment(&chain_a, first_commitment_pda).await;
-    let first_recv_entry = att_helpers::packet_commitment_entry(
+    let first_recv_entry = attestation::packet_commitment_entry(
         chain_b.counterparty_client_id(),
         1,
         first_packet_commitment,
     );
     let first_recv_proof =
-        att_helpers::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[first_recv_entry]);
-    let first_recv_proof_bytes = att_helpers::serialize_proof(&first_recv_proof);
+        attestation::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[first_recv_entry]);
+    let first_recv_proof_bytes = attestation::serialize_proof(&first_recv_proof);
 
     let (b_payload_1, b_proof_1) = relayer
         .upload_chunks(&mut chain_b, 1, &first_packet, &first_recv_proof_bytes)
@@ -102,7 +101,7 @@ async fn test_multiple_gmp_calls() {
 
     // ── Build attestation proof for first ack on Chain A ──
     let ack_1_commitment = extract_ack_data(&chain_b, recv_1.ack_pda).await;
-    let ack_1_entry = att_helpers::ack_commitment_entry(
+    let ack_1_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         1,
         ack_1_commitment
@@ -111,8 +110,8 @@ async fn test_multiple_gmp_calls() {
             .expect("ack should be 32 bytes"),
     );
     let ack_1_proof =
-        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_1_entry]);
-    let ack_1_proof_bytes = att_helpers::serialize_proof(&ack_1_proof);
+        attestation::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_1_entry]);
+    let ack_1_proof_bytes = attestation::serialize_proof(&ack_1_proof);
 
     let (a_payload_1, a_proof_1) = relayer
         .upload_chunks(&mut chain_a, 1, &first_packet, &ack_1_proof_bytes)
@@ -162,17 +161,17 @@ async fn test_multiple_gmp_calls() {
 
     // ── Build attestation proof for second recv on Chain B ──
     let second_packet_commitment = read_commitment(&chain_a, second_commitment_pda).await;
-    let second_recv_entry = att_helpers::packet_commitment_entry(
+    let second_recv_entry = attestation::packet_commitment_entry(
         chain_b.counterparty_client_id(),
         2,
         second_packet_commitment,
     );
-    let second_recv_proof = att_helpers::build_packet_membership_proof(
+    let second_recv_proof = attestation::build_packet_membership_proof(
         &attestors_b,
         PROOF_HEIGHT,
         &[second_recv_entry],
     );
-    let second_recv_proof_bytes = att_helpers::serialize_proof(&second_recv_proof);
+    let second_recv_proof_bytes = attestation::serialize_proof(&second_recv_proof);
 
     let (b_payload_2, b_proof_2) = relayer
         .upload_chunks(&mut chain_b, 2, &second_packet, &second_recv_proof_bytes)
@@ -194,7 +193,7 @@ async fn test_multiple_gmp_calls() {
 
     // ── Build attestation proof for second ack on Chain A ──
     let ack_2_commitment = extract_ack_data(&chain_b, recv_2.ack_pda).await;
-    let ack_2_entry = att_helpers::ack_commitment_entry(
+    let ack_2_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         2,
         ack_2_commitment
@@ -203,8 +202,8 @@ async fn test_multiple_gmp_calls() {
             .expect("ack should be 32 bytes"),
     );
     let ack_2_proof =
-        att_helpers::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_2_entry]);
-    let ack_2_proof_bytes = att_helpers::serialize_proof(&ack_2_proof);
+        attestation::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_2_entry]);
+    let ack_2_proof_bytes = attestation::serialize_proof(&ack_2_proof);
 
     let (a_payload_2, a_proof_2) = relayer
         .upload_chunks(&mut chain_a, 2, &second_packet, &ack_2_proof_bytes)

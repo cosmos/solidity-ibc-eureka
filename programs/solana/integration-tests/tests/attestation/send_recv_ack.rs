@@ -28,7 +28,6 @@ async fn test_attestation_send_recv_ack_roundtrip() {
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
         programs,
-        lc_program_id: ATTESTATION_PROGRAM_ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -37,7 +36,6 @@ async fn test_attestation_send_recv_ack_roundtrip() {
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
         programs,
-        lc_program_id: ATTESTATION_PROGRAM_ID,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -67,14 +65,14 @@ async fn test_attestation_send_recv_ack_roundtrip() {
     // The router verifies: path = prefixed(commitment_path(source_client, seq))
     // where source_client = packet.source_client = chain A's client_id
     let packet_commitment = ics24::packet_commitment_bytes32(&send.packet);
-    let recv_entry = att_helpers::packet_commitment_entry(
+    let recv_entry = attestation::packet_commitment_entry(
         chain_b.counterparty_client_id(),
         sequence,
         packet_commitment,
     );
     let recv_proof =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry]);
-    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = attestation::serialize_proof(&recv_proof);
 
     // ── Relayer uploads chunks and delivers to Chain B ──
     let (b_recv_payload, b_recv_proof) = relayer
@@ -102,7 +100,7 @@ async fn test_attestation_send_recv_ack_roundtrip() {
     // The router verifies: path = prefixed(ack_commitment_path(dest_client, seq))
     // where dest_client = chain A's counterparty_client_id
     let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
-    let ack_entry = att_helpers::ack_commitment_entry(
+    let ack_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         sequence,
         ack_data
@@ -111,8 +109,8 @@ async fn test_attestation_send_recv_ack_roundtrip() {
             .expect("ack should be 32 bytes"),
     );
     let ack_proof =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry]);
-    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
 
     // ── Relayer uploads chunks and delivers ack back to Chain A ──
     let (a_ack_payload, a_ack_proof) = relayer

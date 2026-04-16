@@ -15,7 +15,7 @@ async fn test_send_call_timeout_too_long() {
     let attestation_lc = AttestationLc::new(&attestors);
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
 
-    let mut chain_a = Chain::single_with_lc(&deployer, programs, attestation::ID);
+    let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
     // ── Init ──

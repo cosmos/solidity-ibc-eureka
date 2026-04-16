@@ -12,7 +12,7 @@ use ics27_gmp::errors::GMPError;
 use integration_tests::{
     admin::Admin,
     anchor_error_code, assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    attestation as att_helpers,
+    attestation,
     attestor::Attestors,
     chain::{Chain, ChainConfig, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,

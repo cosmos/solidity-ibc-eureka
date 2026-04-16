@@ -1,4 +1,5 @@
 use super::*;
+use solana_ibc_types::ics24;
 
 /// IFT full lifecycle using a Token 2022 mint instead of legacy SPL Token.
 ///
@@ -7,6 +8,9 @@ use super::*;
 /// support works end-to-end.
 #[tokio::test]
 async fn test_ift_token_2022_lifecycle() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -20,13 +24,20 @@ async fn test_ift_token_2022_lifecycle() {
     let token_kind = TokenKind::Token2022;
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let mut chain = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc];
+    let mut chain = Chain::single(&deployer, all_programs);
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
     init_ift_chain(
-        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+        &mut chain,
+        &deployer,
+        &admin,
+        &ift_admin,
+        &relayer,
+        &attestors,
+        &attestation_lc,
     )
     .await;
 
@@ -68,8 +79,24 @@ async fn test_ift_token_2022_lifecycle() {
     assert_eq!(balance, INITIAL_BALANCE - TRANSFER_AMOUNT);
 
     // ── Relayer uploads chunks and delivers success ack ──
+    let ack_data = ift::success_ack();
+    let ack_commitment =
+        ics24::packet_acknowledgement_commitment_bytes32(std::slice::from_ref(&ack_data))
+            .expect("compute ack commitment");
+    let ack_entry = attestation::ack_commitment_entry(
+        chain.counterparty_client_id(),
+        sequence,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof =
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
+
     let (ack_payload_pda, ack_proof_pda) = relayer
-        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, &ack_proof_bytes)
         .await
         .expect("upload ack chunks failed");
 

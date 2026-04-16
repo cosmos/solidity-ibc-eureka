@@ -2,27 +2,31 @@
 //!
 //! Two independent chains run as separate `ProgramTest` instances. The
 //! `Relayer` actor delivers packets between them while the `User` actor
-//! initiates sends.
-//!
-//! The mock light client always accepts proofs, so these tests exercise the
-//! full IBC router lifecycle (send -> recv -> ack) without real proof
-//! verification.
+//! initiates sends. All proofs are verified on-chain by the attestation
+//! light client.
 
 use anchor_lang::AccountDeserialize;
 use integration_tests::{
     admin::Admin,
-    assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    chain::{mock_ibc_app_state_pda, mock_lc_accounts, Chain, ChainConfig, ChainProgram},
+    assert_commitment_set, assert_commitment_zeroed, assert_receipt_created, attestation,
+    attestor::Attestors,
+    chain::{
+        attestation_lc_accounts, mock_ibc_app_state_pda, Chain, ChainConfig, ChainProgram,
+        TEST_CLOCK_TIME,
+    },
     deployer::Deployer,
     extract_ack_data, extract_custom_error,
-    programs::{MockIbcApp, TestIbcApp},
+    programs::{AttestationLc, MockIbcApp, TestIbcApp},
+    read_commitment,
     relayer::Relayer,
-    router::{self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams},
+    router::{
+        self, AckPacketParams, RecvPacketParams, SendPacketParams, TimeoutPacketParams,
+        PROOF_HEIGHT,
+    },
     user::User,
-    Actor, ASYNC_ACK_NOT_SUPPORTED, DUMMY_PROOF, PACKET_COMMITMENT_MISMATCH,
+    Actor, ASYNC_ACK_NOT_SUPPORTED, PACKET_COMMITMENT_MISMATCH,
 };
 use solana_ibc_types::ics24;
-use solana_sdk::transaction::Transaction;
 
 mod ack_after_timeout;
 mod bidirectional;

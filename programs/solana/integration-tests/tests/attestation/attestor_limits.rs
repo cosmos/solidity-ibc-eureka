@@ -43,7 +43,6 @@ async fn test_11_attestors_send_recv_ack() {
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
         programs,
-        lc_program_id: ATTESTATION_PROGRAM_ID,
     });
     chain_a.prefund(&[&admin, &relayer, &user]);
 
@@ -52,7 +51,6 @@ async fn test_11_attestors_send_recv_ack() {
         counterparty_client_id: "chain-a-client",
         deployer: &deployer,
         programs,
-        lc_program_id: ATTESTATION_PROGRAM_ID,
     });
     chain_b.prefund(&[&admin, &relayer]);
 
@@ -98,14 +96,14 @@ async fn test_11_attestors_send_recv_ack() {
 
     // ── Build attestation proof for recv on Chain B ──
     let packet_commitment = ics24::packet_commitment_bytes32(&send.packet);
-    let recv_entry = att_helpers::packet_commitment_entry(
+    let recv_entry = attestation::packet_commitment_entry(
         chain_b.counterparty_client_id(),
         sequence,
         packet_commitment,
     );
     let recv_proof =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry]);
-    let recv_proof_bytes = att_helpers::serialize_proof(&recv_proof);
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = attestation::serialize_proof(&recv_proof);
 
     // Proof with 11 signatures exceeds the 900-byte chunk limit.
     let recv_proof_chunks = router::split_into_chunks(&recv_proof_bytes);
@@ -135,7 +133,7 @@ async fn test_11_attestors_send_recv_ack() {
 
     // ── Build attestation proof for ack on Chain A ──
     let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
-    let ack_entry = att_helpers::ack_commitment_entry(
+    let ack_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         sequence,
         ack_data
@@ -144,8 +142,8 @@ async fn test_11_attestors_send_recv_ack() {
             .expect("ack should be 32 bytes"),
     );
     let ack_proof =
-        att_helpers::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry]);
-    let ack_proof_bytes = att_helpers::serialize_proof(&ack_proof);
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
 
     let ack_proof_chunks = router::split_into_chunks(&ack_proof_bytes);
 
@@ -206,7 +204,6 @@ async fn test_12_attestors_update_client_exceeds_tx_size() {
         counterparty_client_id: "chain-b-client",
         deployer: &deployer,
         programs,
-        lc_program_id: ATTESTATION_PROGRAM_ID,
     });
     chain.prefund(&[&admin, &relayer]);
     chain.init(&deployer, &admin, &relayer, programs).await;
@@ -225,12 +222,12 @@ async fn test_12_attestors_update_client_exceeds_tx_size() {
     // BanksClient processes transactions in-memory and does not enforce
     // the 1232-byte wire-format limit. On a real cluster the transaction
     // would be rejected before reaching the runtime.
-    let proof = att_helpers::build_state_membership_proof(
+    let proof = attestation::build_state_membership_proof(
         &attestors,
         PROOF_HEIGHT,
         chain.clock_time() as u64,
     );
-    let update_ix = att_helpers::build_update_client_ix(relayer.pubkey(), PROOF_HEIGHT, proof);
+    let update_ix = attestation::build_update_client_ix(relayer.pubkey(), PROOF_HEIGHT, proof);
     let tx = solana_sdk::transaction::Transaction::new_signed_with_payer(
         &[update_ix],
         Some(&relayer.pubkey()),

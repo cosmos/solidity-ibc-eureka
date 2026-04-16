@@ -3,6 +3,9 @@ use super::*;
 /// Timing out the same packet twice fails — the commitment is already zeroed.
 #[tokio::test]
 async fn test_double_timeout_fails() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -12,14 +15,27 @@ async fn test_double_timeout_fails() {
     // ── Test data ──
     let packet_data = b"double timeout";
     let sequence = 1u64;
+    let timeout_timestamp = router::test_timeout(TEST_CLOCK_TIME);
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&TestIbcApp];
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&TestIbcApp, &attestation_lc];
     let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer, &user]);
 
-    // ── Init ──
+    // ── Init (manual: need timeout-compatible consensus timestamp) ──
     chain_a.init(&deployer, &admin, &relayer, programs).await;
+    let timeout_consensus_proof =
+        attestation::build_state_membership_proof(&attestors, PROOF_HEIGHT, timeout_timestamp);
+    let update_ix = attestation::build_update_client_ix(
+        relayer.pubkey(),
+        PROOF_HEIGHT,
+        timeout_consensus_proof,
+    );
+    relayer
+        .send_tx(&mut chain_a, &[update_ix])
+        .await
+        .expect("update_client for timeout consensus failed");
 
     // ── Send ──
     user.send_packet(
@@ -32,8 +48,18 @@ async fn test_double_timeout_fails() {
     .await
     .expect("send failed");
 
+    // ── Build timeout proof ──
+    let timeout_entry = attestation::receipt_commitment_entry(
+        chain_a.counterparty_client_id(),
+        sequence,
+        [0u8; 32],
+    );
+    let timeout_proof =
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[timeout_entry]);
+    let timeout_proof_bytes = attestation::serialize_proof(&timeout_proof);
+
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, packet_data, &timeout_proof_bytes)
         .await
         .expect("upload timeout chunks failed");
 
@@ -56,7 +82,7 @@ async fn test_double_timeout_fails() {
         .await
         .expect("cleanup chunks failed");
     let (payload_pda, proof_pda) = relayer
-        .upload_chunks(&mut chain_a, sequence, packet_data, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, packet_data, &timeout_proof_bytes)
         .await
         .expect("re-upload timeout chunks failed");
 

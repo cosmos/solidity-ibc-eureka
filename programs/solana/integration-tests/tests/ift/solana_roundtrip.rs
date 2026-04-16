@@ -1,6 +1,6 @@
 use super::*;
 
-/// Solana↔Solana IFT roundtrip.
+/// Solana-to-Solana IFT roundtrip.
 ///
 /// Two independent `ProgramTest` chains each run the IFT + GMP stack. The
 /// source chain A burns the user's tokens and dispatches a `RawGmpSolanaPayload`
@@ -12,6 +12,10 @@ use super::*;
 /// `INITIAL_BALANCE - TRANSFER_AMOUNT` (tokens remain burned on success).
 #[tokio::test]
 async fn test_ift_solana_roundtrip() {
+    // ── Attestors ──
+    let attestors_a = Attestors::new(2);
+    let attestors_b = Attestors::new(3);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -25,16 +29,16 @@ async fn test_ift_solana_roundtrip() {
     let sequence = 1u64;
 
     // ── Chains ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, programs);
+    let attestation_lc_a = AttestationLc::new(&attestors_a);
+    let attestation_lc_b = AttestationLc::new(&attestors_b);
+    let all_programs_a: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc_a];
+    let all_programs_b: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc_b];
+    let (mut chain_a, mut chain_b) = Chain::pair(&deployer, all_programs_a, all_programs_b);
     chain_a.prefund(&[&admin, &ift_admin, &relayer, &user]);
     chain_b.prefund(&[&admin, &ift_admin, &relayer, &user]);
 
     // Prefund the destination-side GMP account PDA so it can pay ATA-init rent
-    // for the receiver during `ift_mint`. The PDA is derived with chain B's
-    // local client_id and the source IFT program ID as the sender string —
-    // matching both the program's `construct_solana_mint_call` and GMP's
-    // `on_recv_packet` dispatch PDA.
+    // for the receiver during `ift_mint`.
     let gmp_account_pda_on_b = gmp::derive_gmp_account_pda(chain_b.client_id(), &::ift::ID);
     chain_b.prefund_lamports(gmp_account_pda_on_b, GMP_ACCOUNT_PREFUND_LAMPORTS);
 
@@ -45,7 +49,8 @@ async fn test_ift_solana_roundtrip() {
         &admin,
         &ift_admin,
         &relayer,
-        programs,
+        &attestors_a,
+        &attestation_lc_a,
     )
     .await;
     init_ift_chain(
@@ -54,12 +59,12 @@ async fn test_ift_solana_roundtrip() {
         &admin,
         &ift_admin,
         &relayer,
-        programs,
+        &attestors_b,
+        &attestation_lc_b,
     )
     .await;
 
     // ── Setup tokens ──
-    // Chain A: create mint, register Solana-target bridge, admin-mint to user.
     let mint_a = mint_keypair_a.pubkey();
     let mint_b = mint_keypair_b.pubkey();
 
@@ -98,9 +103,6 @@ async fn test_ift_solana_roundtrip() {
     );
 
     // ── Build the Solana-targeted mint payload + GMP packet bytes ──
-    // The packet bytes are needed by the relayer for both `recv_packet` on B
-    // (as the uploaded chunk body) and `ack_packet` on A (same bytes — GMP
-    // reconstructs the packet hash from the ack payload).
     let solana_payload = ift::encode_ift_solana_mint_payload(
         ::ift::ID,
         mint_b,
@@ -134,9 +136,20 @@ async fn test_ift_solana_roundtrip() {
         "tokens must be burned on source after ift_transfer",
     );
 
+    // ── Build recv proof (signed by B's attestors, proving A's commitment) ──
+    let commitment_a = read_commitment(&chain_a, result.commitment_pda).await;
+    let recv_entry = attestation::packet_commitment_entry(
+        chain_b.counterparty_client_id(),
+        sequence,
+        commitment_a,
+    );
+    let recv_proof =
+        attestation::build_packet_membership_proof(&attestors_b, PROOF_HEIGHT, &[recv_entry]);
+    let recv_proof_bytes = attestation::serialize_proof(&recv_proof);
+
     // ── Relayer delivers recv_packet to chain B (mints tokens to user) ──
     let (b_recv_payload_chunk, b_recv_proof_chunk) = relayer
-        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain_b, sequence, &gmp_packet_bytes, &recv_proof_bytes)
         .await
         .expect("upload recv chunks on chain B failed");
 
@@ -164,10 +177,28 @@ async fn test_ift_solana_roundtrip() {
         "receiver should hold freshly-minted tokens on destination",
     );
 
+    // ── Build ack proof (signed by A's attestors, proving B's ack) ──
+    // `ift_mint` returns `Result<()>` (no return data), so GMP encodes an
+    // empty-result success ack. Reconstruct the same bytes the on-chain GMP
+    // program produced so the router's commitment check passes.
+    let raw_ack = ics27_gmp::encoding::encode_gmp_ack(&[], gmp::ICS27_ENCODING_PROTOBUF)
+        .expect("encode IFT GMP ack");
+    let ack_commitment = extract_ack_data(&chain_b, recv.ack_pda).await;
+    let ack_entry = attestation::ack_commitment_entry(
+        chain_a.counterparty_client_id(),
+        sequence,
+        ack_commitment
+            .as_slice()
+            .try_into()
+            .expect("ack should be 32 bytes"),
+    );
+    let ack_proof =
+        attestation::build_packet_membership_proof(&attestors_a, PROOF_HEIGHT, &[ack_entry]);
+    let ack_proof_bytes = attestation::serialize_proof(&ack_proof);
+
     // ── Relayer delivers success ack back to chain A ──
-    let ack_data = extract_ack_data(&chain_b, recv.ack_pda).await;
     let (a_ack_payload_chunk, a_ack_proof_chunk) = relayer
-        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(&mut chain_a, sequence, &gmp_packet_bytes, &ack_proof_bytes)
         .await
         .expect("upload ack chunks on chain A failed");
 
@@ -176,7 +207,7 @@ async fn test_ift_solana_roundtrip() {
             &mut chain_a,
             GmpAckPacketParams {
                 sequence,
-                acknowledgement: ack_data,
+                acknowledgement: raw_ack,
                 payload_chunk_pda: a_ack_payload_chunk,
                 proof_chunk_pda: a_ack_proof_chunk,
             },
@@ -211,81 +242,4 @@ async fn test_ift_solana_roundtrip() {
         TokenKind::Spl.read_balance(&chain_b, user_ata_b).await,
         TRANSFER_AMOUNT,
     );
-}
-
-/// Create an SPL Token mint under IFT control.
-async fn create_spl_token(chain: &mut Chain, ift_admin: &IftAdmin, mint_keypair: &Keypair) {
-    let admin_pubkey = ift_admin.pubkey();
-    let ix = ift::build_create_spl_token_ix(
-        admin_pubkey,
-        admin_pubkey,
-        mint_keypair.pubkey(),
-        MINT_DECIMALS,
-    );
-    let tx = Transaction::new_signed_with_payer(
-        &[ix],
-        Some(&admin_pubkey),
-        &[ift_admin.keypair(), mint_keypair],
-        chain.blockhash(),
-    );
-    chain
-        .process_transaction(tx)
-        .await
-        .expect("create SPL token");
-}
-
-/// Register an IFT bridge whose counterparty is another Solana IFT program.
-async fn register_solana_bridge(
-    chain: &mut Chain,
-    ift_admin: &IftAdmin,
-    mint: Pubkey,
-    client_id: String,
-    counterparty_mint: Pubkey,
-    counterparty_client_id: String,
-) {
-    let admin_pubkey = ift_admin.pubkey();
-    let ix = ift::build_register_bridge_solana_ix(
-        admin_pubkey,
-        admin_pubkey,
-        mint,
-        &client_id,
-        ::ift::ID,
-        counterparty_mint,
-        &counterparty_client_id,
-    );
-    let tx = Transaction::new_signed_with_payer(
-        &[ix],
-        Some(&admin_pubkey),
-        &[ift_admin.keypair()],
-        chain.blockhash(),
-    );
-    chain
-        .process_transaction(tx)
-        .await
-        .expect("register Solana IFT bridge");
-}
-
-/// Mint `INITIAL_BALANCE` tokens to the user's ATA via the IFT admin.
-async fn admin_mint_to_user(
-    chain: &mut Chain,
-    ift_admin: &IftAdmin,
-    mint: Pubkey,
-    user_pubkey: Pubkey,
-) {
-    let admin_pubkey = ift_admin.pubkey();
-    let ix = ift::build_admin_mint_ix(
-        admin_pubkey,
-        admin_pubkey,
-        mint,
-        user_pubkey,
-        INITIAL_BALANCE,
-        TokenKind::Spl,
-    );
-    let tx = Transaction::new_signed_with_payer(
-        &[ix],
-        Some(&admin_pubkey),
-        &[ift_admin.keypair()],
-        chain.blockhash(),
-    );
-    chain.process_transaction(tx).await.expect("admin mint");
 }

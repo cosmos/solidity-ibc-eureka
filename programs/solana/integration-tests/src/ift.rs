@@ -10,8 +10,7 @@ use anchor_lang::InstructionData;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
 use ics26_router::state::*;
 use prost::Message as ProstMessage;
-use solana_ibc_proto::{RawGmpSolanaPayload, RawSolanaAccountMeta};
-use solana_ibc_types::ics27::{GMPAccount, Salt};
+use solana_ibc_proto::RawGmpSolanaPayload;
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -627,19 +626,11 @@ pub fn encode_ift_gmp_packet(counterparty_addr: &str, mint_call_payload: Vec<u8>
 
 /// Mirror of `ift::instructions::ift_transfer::construct_solana_mint_call`.
 ///
-/// Builds the `GmpSolanaPayload` that an IFT program on a source Solana chain
-/// emits when dispatching a cross-chain mint to a counterparty IFT program on
-/// another Solana chain. The relayer uploads this payload as the chunk body
-/// on the destination chain and derives the `gmp_recv_packet` remaining
-/// accounts from its `accounts` list.
+/// Builds the `GmpSolanaPayload` for a cross-chain IFT mint to a
+/// counterparty Solana chain.
 ///
-/// The account order exactly matches `ift::instructions::ift_mint::IFTMint`
-/// and every destination-side PDA (`app_state`, `app_mint_state`, `ift_bridge`,
-/// `mint_authority`, receiver ATA, `gmp_account`) is pre-computed here.
-///
-/// `source_ift_program_id` is the IFT program on the sending chain — it is
-/// used as the GMP sender string when deriving the destination GMP account
-/// PDA, matching what the source program writes into the packet at dispatch.
+/// Delegates PDA derivation and account-list construction to
+/// [`ift::helpers::IftMintAccounts`].
 pub fn encode_ift_solana_mint_payload(
     counterparty_ift_program_id: Pubkey,
     counterparty_mint: Pubkey,
@@ -648,75 +639,21 @@ pub fn encode_ift_solana_mint_payload(
     receiver: Pubkey,
     amount: u64,
 ) -> RawGmpSolanaPayload {
-    let (app_state, _) = Pubkey::find_program_address(
-        &[ift::constants::IFT_APP_STATE_SEED],
+    let accounts = ift::helpers::IftMintAccounts::derive(
         &counterparty_ift_program_id,
-    );
-    let (app_mint_state, _) = Pubkey::find_program_address(
-        &[
-            ift::constants::IFT_APP_MINT_STATE_SEED,
-            counterparty_mint.as_ref(),
-        ],
-        &counterparty_ift_program_id,
-    );
-    let (ift_bridge, _) = Pubkey::find_program_address(
-        &[
-            ift::constants::IFT_BRIDGE_SEED,
-            counterparty_mint.as_ref(),
-            counterparty_client_id.as_bytes(),
-        ],
-        &counterparty_ift_program_id,
-    );
-    let (mint_authority, _) = Pubkey::find_program_address(
-        &[
-            ift::constants::MINT_AUTHORITY_SEED,
-            counterparty_mint.as_ref(),
-        ],
-        &counterparty_ift_program_id,
-    );
-    let receiver_ata = get_associated_token_address_with_program_id(
-        &receiver,
         &counterparty_mint,
-        &anchor_spl::token::ID,
-    );
-
-    let gmp = GMPAccount::new(
-        counterparty_client_id
-            .to_string()
-            .try_into()
-            .expect("valid client_id"),
-        source_ift_program_id
-            .to_string()
-            .try_into()
-            .expect("valid sender"),
-        Salt::empty(),
-        &ics27_gmp::ID,
-    );
-    let gmp_account_pda = gmp.pda;
+        counterparty_client_id,
+        &source_ift_program_id.to_string(),
+        &receiver,
+    )
+    .expect("IFT mint account derivation");
 
     let ix_data = ift::instruction::IftMint {
         msg: ift::state::IFTMintMsg { receiver, amount },
     }
     .data();
 
-    RawGmpSolanaPayload {
-        data: ix_data,
-        accounts: vec![
-            raw_account_meta(&app_state, false, false),
-            raw_account_meta(&app_mint_state, false, true),
-            raw_account_meta(&ift_bridge, false, false),
-            raw_account_meta(&counterparty_mint, false, true),
-            raw_account_meta(&mint_authority, false, false),
-            raw_account_meta(&receiver_ata, false, true),
-            raw_account_meta(&receiver, false, false),
-            raw_account_meta(&gmp_account_pda, true, false),
-            raw_account_meta(&gmp_account_pda, true, true),
-            raw_account_meta(&anchor_spl::token::ID, false, false),
-            raw_account_meta(&anchor_spl::associated_token::ID, false, false),
-            raw_account_meta(&anchor_lang::system_program::ID, false, false),
-        ],
-        prefund_lamports: ift::constants::SOLANA_MINT_PAYLOAD_PREFUND_LAMPORTS,
-    }
+    accounts.to_payload(ix_data)
 }
 
 /// Build the `remaining_accounts` list passed to `gmp_recv_packet` when
@@ -747,14 +684,6 @@ pub fn build_ift_solana_remaining_accounts(
         });
     }
     accounts
-}
-
-fn raw_account_meta(pubkey: &Pubkey, is_signer: bool, is_writable: bool) -> RawSolanaAccountMeta {
-    RawSolanaAccountMeta {
-        pubkey: pubkey.to_bytes().to_vec(),
-        is_signer,
-        is_writable,
-    }
 }
 
 /// Encode a full GMP packet for a Solana-targeted IFT mint, using protobuf

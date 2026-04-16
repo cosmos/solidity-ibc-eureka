@@ -6,8 +6,7 @@
 
 use integration_tests::{
     admin::Admin,
-    assert_commitment_set, assert_commitment_zeroed, assert_receipt_created,
-    attestation as att_helpers,
+    assert_commitment_set, assert_commitment_zeroed, assert_receipt_created, attestation,
     attestor::Attestors,
     chain::{Chain, ChainProgram},
     deployer::Deployer,
@@ -18,9 +17,6 @@ use integration_tests::{
     user::User,
 };
 use solana_ibc_types::ics24;
-
-/// Attestation program ID re-exported for chain construction.
-const ATTESTATION_PROGRAM_ID: solana_sdk::pubkey::Pubkey = attestation::ID;
 
 mod attestor_limits;
 mod send_recv_ack;

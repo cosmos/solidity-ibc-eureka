@@ -22,7 +22,7 @@ async fn test_gmp_direct_call_rejected() {
     let attestation_lc = AttestationLc::new(&attestors);
     let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestGmpApp, &attestation_lc];
 
-    let mut chain_a = Chain::single_with_lc(&deployer, programs, attestation::ID);
+    let mut chain_a = Chain::single(&deployer, programs);
     chain_a.prefund(&[&admin, &relayer]);
     let gmp_account_pda = gmp::derive_gmp_account_pda(chain_a.client_id(), &user.pubkey());
     chain_a.prefund_lamports(gmp_account_pda, GMP_ACCOUNT_PREFUND_LAMPORTS);

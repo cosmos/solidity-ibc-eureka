@@ -1,12 +1,9 @@
 //! Solana IFT (Inter-chain Fungible Token) integration tests.
 //!
-//! Each test spins up one or more `ProgramTest` chains with IFT + GMP. Most
-//! tests use a single chain that burns tokens locally and dispatches a GMP
-//! call to a simulated EVM counterparty; `solana_roundtrip` exercises a real
-//! Solana↔Solana transfer across a pair of chains.
-//!
-//! The mock light client always accepts proofs so these tests exercise the full
-//! IFT lifecycle without real proof verification.
+//! Each test spins up one or more `ProgramTest` chains with IFT + GMP and the
+//! attestation light client. Most tests use a single chain that burns tokens
+//! locally and dispatches a GMP call to a simulated EVM counterparty;
+//! `solana_roundtrip` exercises a real Solana-to-Solana transfer across a pair.
 //!
 //! ## Coverage gaps (not testable at integration level)
 //!
@@ -17,17 +14,20 @@
 use anchor_spl::token::spl_token::error::TokenError;
 use integration_tests::{
     admin::Admin,
-    assert_commitment_set, assert_commitment_zeroed,
+    assert_commitment_set, assert_commitment_zeroed, attestation,
+    attestor::Attestors,
     chain::{Chain, ChainProgram, TEST_CLOCK_TIME},
     deployer::Deployer,
     extract_ack_data, extract_custom_error,
     gmp::{self, GmpAckPacketParams, GmpRecvPacketParams},
     ift::{self, IftGmpAckPacketParams, IftGmpTimeoutPacketParams, IftTransferParams, TokenKind},
     ift_admin::IftAdmin,
-    programs::{Ics27Gmp, Ift},
+    programs::{AttestationLc, Ics27Gmp, Ift},
+    read_commitment,
     relayer::Relayer,
+    router::PROOF_HEIGHT,
     user::User,
-    Actor, DUMMY_PROOF,
+    Actor,
 };
 use solana_program_test::BanksClientError;
 use solana_sdk::{pubkey::Pubkey, signature::Keypair, signer::Signer, transaction::Transaction};
@@ -45,37 +45,47 @@ fn assert_spl_token_error(err: &BanksClientError, expected: TokenError) {
     );
 }
 
-/// Initialize a chain with the IFT+GMP stack.
+/// Initialize a chain with the IFT+GMP stack and attestation LC.
 ///
 /// `admin` controls the IBC router/client/GMP app; `ift_admin` controls the
 /// IFT program's own app state. Both sets of programs transfer their upgrade
-/// authority to the access manager PDA.
+/// authority to the access manager PDA. An `update_client` at `PROOF_HEIGHT`
+/// is submitted so the chain is ready for proof verification.
 async fn init_ift_chain(
     chain: &mut Chain,
     deployer: &Deployer,
     admin: &Admin,
     ift_admin: &IftAdmin,
     relayer: &Relayer,
-    programs: &[&dyn ChainProgram],
+    attestors: &Attestors,
+    attestation_lc: &AttestationLc,
 ) {
+    let ibc_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, attestation_lc];
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, attestation_lc];
     chain.start().await;
     deployer
-        .init_ibc_stack(chain, admin, relayer, &[&Ics27Gmp])
+        .init_ibc_stack(chain, admin, relayer, ibc_programs)
         .await;
     deployer
         .init_programs(chain, ift_admin.pubkey(), &[&Ift])
         .await;
-    deployer.transfer_upgrade_authority(chain, programs).await;
+    deployer
+        .transfer_upgrade_authority(chain, all_programs)
+        .await;
+    relayer
+        .attestation_update_client(chain, attestors, PROOF_HEIGHT)
+        .await
+        .expect("attestation update_client failed");
 }
 
 mod admin_transfer;
-mod attestation_lifecycle;
 mod batch_ack_single_tx;
 mod batch_transfers;
 mod error_ack_refund;
 mod full_lifecycle;
 mod pause;
 mod solana_roundtrip;
+mod three_chain;
 mod timeout_refund;
 mod token_2022_lifecycle;
 
@@ -273,4 +283,81 @@ async fn assert_mint_keypair_powerless(
         .await
         .expect_err("mint_to signed by mint_keypair must fail");
     assert_spl_token_error(&err, TokenError::OwnerMismatch);
+}
+
+/// Create an SPL Token mint under IFT control.
+async fn create_spl_token(chain: &mut Chain, ift_admin: &IftAdmin, mint_keypair: &Keypair) {
+    let admin_pubkey = ift_admin.pubkey();
+    let ix = ift::build_create_spl_token_ix(
+        admin_pubkey,
+        admin_pubkey,
+        mint_keypair.pubkey(),
+        MINT_DECIMALS,
+    );
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&admin_pubkey),
+        &[ift_admin.keypair(), mint_keypair],
+        chain.blockhash(),
+    );
+    chain
+        .process_transaction(tx)
+        .await
+        .expect("create SPL token");
+}
+
+/// Register an IFT bridge whose counterparty is another Solana IFT program.
+async fn register_solana_bridge(
+    chain: &mut Chain,
+    ift_admin: &IftAdmin,
+    mint: Pubkey,
+    client_id: String,
+    counterparty_mint: Pubkey,
+    counterparty_client_id: String,
+) {
+    let admin_pubkey = ift_admin.pubkey();
+    let ix = ift::build_register_bridge_solana_ix(
+        admin_pubkey,
+        admin_pubkey,
+        mint,
+        &client_id,
+        ::ift::ID,
+        counterparty_mint,
+        &counterparty_client_id,
+    );
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&admin_pubkey),
+        &[ift_admin.keypair()],
+        chain.blockhash(),
+    );
+    chain
+        .process_transaction(tx)
+        .await
+        .expect("register Solana IFT bridge");
+}
+
+/// Mint `INITIAL_BALANCE` tokens to the user's ATA via the IFT admin.
+async fn admin_mint_to_user(
+    chain: &mut Chain,
+    ift_admin: &IftAdmin,
+    mint: Pubkey,
+    user_pubkey: Pubkey,
+) {
+    let admin_pubkey = ift_admin.pubkey();
+    let ix = ift::build_admin_mint_ix(
+        admin_pubkey,
+        admin_pubkey,
+        mint,
+        user_pubkey,
+        INITIAL_BALANCE,
+        TokenKind::Spl,
+    );
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&admin_pubkey),
+        &[ift_admin.keypair()],
+        chain.blockhash(),
+    );
+    chain.process_transaction(tx).await.expect("admin mint");
 }

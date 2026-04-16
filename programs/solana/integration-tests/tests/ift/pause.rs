@@ -7,6 +7,9 @@ use integration_tests::extract_custom_error;
 /// should fail with `AppPaused`. Unpausing should restore normal operation.
 #[tokio::test]
 async fn test_ift_pause() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -16,13 +19,20 @@ async fn test_ift_pause() {
     let mint_keypair = Keypair::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let mut chain = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc];
+    let mut chain = Chain::single(&deployer, all_programs);
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
     // ── Init ──
     init_ift_chain(
-        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
+        &mut chain,
+        &deployer,
+        &admin,
+        &ift_admin,
+        &relayer,
+        &attestors,
+        &attestation_lc,
     )
     .await;
 

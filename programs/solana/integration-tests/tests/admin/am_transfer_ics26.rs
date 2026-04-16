@@ -8,18 +8,24 @@ use super::*;
 /// accepted. Verifies `RouterState.am_state` at each step.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_accept() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager, &attestation_lc];
     let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain.init(&deployer, &admin, &relayer, programs).await;
+    chain
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Verify initial state ──
     let state = router::read_router_state(&chain).await;
@@ -53,18 +59,24 @@ async fn test_ics26_am_transfer_propose_accept() {
 /// Propose then cancel AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_propose_cancel() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
     let relayer = Relayer::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager, &attestation_lc];
     let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer]);
 
     // ── Init ──
-    chain.init(&deployer, &admin, &relayer, programs).await;
+    chain
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Propose then cancel ──
     admin
@@ -91,6 +103,9 @@ async fn test_ics26_am_transfer_propose_cancel() {
 /// Non-admin cannot propose AM transfer on ICS26 Router.
 #[tokio::test]
 async fn test_ics26_am_transfer_unauthorized_propose() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -98,12 +113,15 @@ async fn test_ics26_am_transfer_unauthorized_propose() {
     let non_admin = Admin::new();
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager];
+    let attestation_lc = AttestationLc::new(&attestors);
+    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &TestAccessManager, &attestation_lc];
     let mut chain = Chain::single(&deployer, programs);
     chain.prefund(&[&admin, &relayer, &non_admin]);
 
     // ── Init ──
-    chain.init(&deployer, &admin, &relayer, programs).await;
+    chain
+        .init_with_attestation(&deployer, &admin, &relayer, programs, &attestors)
+        .await;
 
     // ── Unauthorized propose ──
     let err = non_admin

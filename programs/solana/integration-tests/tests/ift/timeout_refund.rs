@@ -7,6 +7,9 @@ use super::*;
 /// to the user.
 #[tokio::test]
 async fn test_ift_timeout_refund() {
+    // ── Attestors ──
+    let attestors = Attestors::new(2);
+
     // ── Actors ──
     let deployer = Deployer::new();
     let admin = Admin::new();
@@ -19,15 +22,34 @@ async fn test_ift_timeout_refund() {
     let sequence = 1u64;
 
     // ── Chain ──
-    let programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift];
-    let mut chain = Chain::single(&deployer, programs);
+    let attestation_lc = AttestationLc::new(&attestors);
+    let ibc_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &attestation_lc];
+    let all_programs: &[&dyn ChainProgram] = &[&Ics27Gmp, &Ift, &attestation_lc];
+    let mut chain = Chain::single(&deployer, all_programs);
     chain.prefund(&[&admin, &relayer, &user, &ift_admin]);
 
-    // ── Init ──
-    init_ift_chain(
-        &mut chain, &deployer, &admin, &ift_admin, &relayer, programs,
-    )
-    .await;
+    // ── Init (manual update_client with timeout-compatible timestamp) ──
+    chain.start().await;
+    deployer
+        .init_ibc_stack(&mut chain, &admin, &relayer, ibc_programs)
+        .await;
+    deployer
+        .init_programs(&mut chain, ift_admin.pubkey(), &[&Ift])
+        .await;
+    deployer
+        .transfer_upgrade_authority(&mut chain, all_programs)
+        .await;
+    let timeout_consensus_proof =
+        attestation::build_state_membership_proof(&attestors, PROOF_HEIGHT, IFT_TIMEOUT);
+    let update_ix = attestation::build_update_client_ix(
+        relayer.pubkey(),
+        PROOF_HEIGHT,
+        timeout_consensus_proof,
+    );
+    relayer
+        .send_tx(&mut chain, &[update_ix])
+        .await
+        .expect("update_client for timeout consensus failed");
 
     // ── Setup ──
     let (mint, user_ata) =
@@ -58,9 +80,21 @@ async fn test_ift_timeout_refund() {
     let balance = TokenKind::Spl.read_balance(&chain, user_ata).await;
     assert_eq!(balance, INITIAL_BALANCE - TRANSFER_AMOUNT);
 
+    // ── Build timeout proof (receipt non-membership) ──
+    let timeout_entry =
+        attestation::receipt_commitment_entry(chain.counterparty_client_id(), sequence, [0u8; 32]);
+    let timeout_proof =
+        attestation::build_packet_membership_proof(&attestors, PROOF_HEIGHT, &[timeout_entry]);
+    let timeout_proof_bytes = attestation::serialize_proof(&timeout_proof);
+
     // ── Relayer uploads chunks and delivers timeout ──
     let (timeout_payload_pda, timeout_proof_pda) = relayer
-        .upload_chunks(&mut chain, sequence, &gmp_packet_bytes, DUMMY_PROOF)
+        .upload_chunks(
+            &mut chain,
+            sequence,
+            &gmp_packet_bytes,
+            &timeout_proof_bytes,
+        )
         .await
         .expect("upload timeout chunks failed");
 
