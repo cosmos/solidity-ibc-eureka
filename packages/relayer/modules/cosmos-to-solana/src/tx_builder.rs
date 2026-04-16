@@ -611,9 +611,10 @@ impl TxBuilder {
             .proof_height
             .as_ref()
             .map_or(0, |h| h.revision_height);
-        timeout_with_chunks.msg.proof.data = solana_ibc_sdk::ics26_router::types::Delivery::Chunked {
-            total_chunks: proof_total_chunks,
-        };
+        timeout_with_chunks.msg.proof.data =
+            solana_ibc_sdk::ics26_router::types::Delivery::Chunked {
+                total_chunks: proof_total_chunks,
+            };
         timeout_with_chunks.proof_chunks.clone_from(proof_bytes);
     }
 

@@ -688,7 +688,10 @@ impl super::TxBuilder {
             remaining_accounts.push(AccountMeta::new(chunk_pda, false));
         }
 
-        let payload_chunks: Vec<u8> = msg_payloads.iter().map(|p| delivery_total_chunks(&p.data)).collect();
+        let payload_chunks: Vec<u8> = msg_payloads
+            .iter()
+            .map(|p| delivery_total_chunks(&p.data))
+            .collect();
         let msg = MsgCleanupChunks {
             client_id: client_id.to_string(),
             sequence,

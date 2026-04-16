@@ -145,8 +145,8 @@ pub fn tm_timeout_to_solana_timeout_packet(
         .into_iter()
         .map(|p| {
             let data = if p.value.len() > CHUNK_DATA_SIZE {
-                let total_chunks =
-                    u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE)).context("payload too big")?;
+                let total_chunks = u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE))
+                    .context("payload too big")?;
                 Delivery::Chunked { total_chunks }
             } else {
                 Delivery::Inline { data: p.value }
