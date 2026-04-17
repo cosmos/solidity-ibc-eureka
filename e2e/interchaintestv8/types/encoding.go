@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
@@ -21,11 +22,13 @@ func (et SupportedEncodingType) String() string {
 }
 
 // GetEnvEncodingType returns an encoding type based on the environment variable E2E_GMP_ENCODING.
-// If the variable is not set, it defaults to protobuf.
+// If the variable is not set, it returns a random encoding type.
 func GetEnvEncodingType() SupportedEncodingType {
 	envEncoding := os.Getenv(testvalues.EnvKeyE2EGmpEncoding)
 	switch envEncoding {
-	case "", testvalues.Ics27ProtobufEncoding:
+	case "":
+		return SupportedEncodingType(rand.Intn(2))
+	case testvalues.Ics27ProtobufEncoding:
 		return EncodingTypeProtobuf
 	case testvalues.Ics27AbiEncoding:
 		return EncodingTypeAbi
