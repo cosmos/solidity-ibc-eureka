@@ -45,7 +45,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.6
+          version: v2.11
           working-directory: e2e/interchaintestv8
 
   generate-matrix:
