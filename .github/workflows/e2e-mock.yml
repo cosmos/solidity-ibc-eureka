@@ -74,7 +74,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
-    name: ${{ matrix.entrypoint }}/${{ matrix.test }}${{ matrix.encoding && format(' ({0})', matrix.encoding) || '' }}
+    name: ${{ matrix.entrypoint }}/${{ matrix.test }}
     env:
         ETH_TESTNET_TYPE: anvil
         ETH_LC_ON_COSMOS: dummy
@@ -92,7 +92,6 @@ jobs:
       - name: Run Tests
         env:
           NETWORK_PRIVATE_KEY: ${{ secrets.SP1_PRIVATE_KEY }}
-          E2E_GMP_ENCODING: ${{ matrix.encoding }}
         run: |
           cd e2e/interchaintestv8
           go test -v -mod=readonly . -run "^${{ matrix.entrypoint }}$/${{ matrix.test }}$" -timeout 40m

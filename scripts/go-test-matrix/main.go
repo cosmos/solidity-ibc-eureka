@@ -34,7 +34,6 @@ type actionTestMatrix struct {
 type testSuitePair struct {
 	Test       string `json:"test"`
 	EntryPoint string `json:"entrypoint"`
-	Encoding   string `json:"encoding,omitempty"`
 }
 
 var (
@@ -122,11 +121,8 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 	gh := actionTestMatrix{
 		Include: []testSuitePair{},
 	}
-	gmpEncodings := []string{"application/x-protobuf", "application/x-solidity-abi"}
 
 	for testSuiteName, testCases := range testSuiteMapping {
-		isGMP := strings.Contains(testSuiteName, "GMP")
-
 		for _, testCaseName := range testCases {
 			// Check if this specific test is excluded
 			fullTestName := fmt.Sprintf("%s/%s", testSuiteName, testCaseName)
@@ -134,20 +130,10 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 				continue
 			}
 
-			if isGMP {
-				for _, enc := range gmpEncodings {
-					gh.Include = append(gh.Include, testSuitePair{
-						Test:       testCaseName,
-						EntryPoint: testSuiteName,
-						Encoding:   enc,
-					})
-				}
-			} else {
-				gh.Include = append(gh.Include, testSuitePair{
-					Test:       testCaseName,
-					EntryPoint: testSuiteName,
-				})
-			}
+			gh.Include = append(gh.Include, testSuitePair{
+				Test:       testCaseName,
+				EntryPoint: testSuiteName,
+			})
 		}
 	}
 
@@ -162,7 +148,7 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 		if gh.Include[i].Test != gh.Include[j].Test {
 			return gh.Include[i].Test < gh.Include[j].Test
 		}
-		return gh.Include[i].Encoding < gh.Include[j].Encoding
+		return false
 	})
 
 	return gh, nil
