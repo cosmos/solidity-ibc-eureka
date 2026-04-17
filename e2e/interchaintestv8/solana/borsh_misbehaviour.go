@@ -9,7 +9,7 @@ import (
 
 	"github.com/cosmos/gogoproto/proto"
 
-	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	tmclient "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 )
 
 // MisbehaviourToBorsh converts a Tendermint misbehaviour to Borsh format using the operator binary.
