@@ -6,6 +6,7 @@
 //! light client.
 
 use anchor_lang::AccountDeserialize;
+use ics26_router::ics24;
 use integration_tests::{
     admin::Admin,
     assert_commitment_set, assert_commitment_zeroed, assert_receipt_created, attestation,
@@ -26,7 +27,6 @@ use integration_tests::{
     user::User,
     Actor, ASYNC_ACK_NOT_SUPPORTED, PACKET_COMMITMENT_MISMATCH,
 };
-use solana_ibc_types::ics24;
 
 mod ack_after_timeout;
 mod bidirectional;

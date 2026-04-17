@@ -5,7 +5,7 @@ use crate::aggregator::Aggregator;
 use crate::utils::attestor::get_packet_attestation;
 use crate::utils::solana::TimeoutPacketWithChunks;
 use alloy::sol_types::SolValue;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use borsh::BorshSerialize;
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{Packet, Payload};
 use ibc_proto_eureka::ibc::core::{
@@ -13,6 +13,8 @@ use ibc_proto_eureka::ibc::core::{
     client::v1::Height,
 };
 use solana_ibc_constants::CHUNK_DATA_SIZE;
+use solana_ibc_sdk::attestation::accounts::ClientState as AttestationClientState;
+use solana_ibc_sdk::ics26_router::types::Delivery;
 use solana_sdk::{
     compute_budget::ComputeBudgetInstruction, instruction::Instruction, pubkey::Pubkey,
 };
@@ -38,10 +40,7 @@ pub trait SolanaAttestationTxBuilder: Sync {
     ///
     /// # Errors
     /// Returns an error if the account cannot be fetched or deserialized.
-    fn attestation_client_state(
-        &self,
-        program_id: Pubkey,
-    ) -> Result<solana_ibc_types::attestation::ClientState>;
+    fn attestation_client_state(&self, program_id: Pubkey) -> Result<AttestationClientState>;
     /// Resolves the access manager program ID from the router state.
     ///
     /// # Errors
@@ -84,7 +83,7 @@ pub struct SolanaMembershipProof {
 /// * `max_signatures` - Maximum number of signatures to include (Solana tx size limit)
 ///
 /// # Panics
-/// Panics if serialization fails (should not happen with valid data).
+/// Panics if Borsh serialization of `MembershipProof` fails (should not happen).
 #[must_use]
 pub fn build_solana_membership_proof(
     attested_data: Vec<u8>,
@@ -163,8 +162,10 @@ pub fn collect_timeout_packets_solana(timeout_msgs: &[TimeoutPacketWithChunks]) 
                     .iter()
                     .map(|p| {
                         let value = match &p.data {
-                            solana_ibc_types::Delivery::Inline { data } => data.clone(),
-                            solana_ibc_types::Delivery::Chunked { .. } => vec![],
+                            Delivery::Inline { data } => data.clone(),
+                            Delivery::Chunked { .. } => {
+                                vec![]
+                            }
                         };
                         Payload {
                             sourcePort: p.source_port.clone(),
@@ -273,7 +274,7 @@ pub async fn inject_solana_attestor_proofs(
         for timeout in timeout_msgs.iter_mut() {
             timeout.proof_chunks.clone_from(&proof_bytes);
             timeout.msg.proof.height = target_height.revision_height;
-            timeout.msg.proof.data = solana_ibc_types::Delivery::Chunked {
+            timeout.msg.proof.data = Delivery::Chunked {
                 total_chunks: u8::try_from(proof_bytes.len().div_ceil(CHUNK_DATA_SIZE).max(1))
                     .unwrap_or(u8::MAX),
             };
@@ -363,59 +364,27 @@ fn build_update_client_instruction_tx(
     proof: Vec<u8>,
     light_client_program_id: Pubkey,
 ) -> Result<Vec<u8>> {
-    use sha2::{Digest, Sha256};
-    use solana_ibc_types::attestation::{
-        AppState as AttestationAppState, ClientState as AttestationClientState,
-        ConsensusState as AttestationConsensusState,
+    use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
+    use solana_ibc_sdk::attestation::{
+        instructions::{UpdateClient, UpdateClientAccounts, UpdateClientArgs},
+        types::UpdateClientParams,
     };
-
-    #[derive(BorshSerialize)]
-    struct UpdateClientParams {
-        proof: Vec<u8>,
-    }
-
-    let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
-    let (new_consensus_state_pda, _) =
-        AttestationConsensusState::pda(new_height, light_client_program_id);
-    let (app_state_pda, _) = AttestationAppState::pda(light_client_program_id);
 
     let access_manager_program_id = tx_builder.resolve_access_manager_program_id()?;
-    let (access_manager_pda, _) = Pubkey::find_program_address(
-        &[solana_ibc_types::AccessManager::SEED],
-        &access_manager_program_id,
-    );
+    let (access_manager, _) =
+        access_manager_instructions::Initialize::access_manager_pda(&access_manager_program_id);
 
-    let discriminator = {
-        let mut hasher = Sha256::new();
-        hasher.update(b"global:update_client");
-        let result = hasher.finalize();
-        <[u8; 8]>::try_from(&result[..8]).expect("sha256 output is at least 8 bytes")
-    };
-
-    let mut data = discriminator.to_vec();
-    BorshSerialize::serialize(&new_height, &mut data).context("Failed to serialize new_height")?;
-    BorshSerialize::serialize(&UpdateClientParams { proof }, &mut data)
-        .context("Failed to serialize UpdateClientParams")?;
-
-    let instruction = Instruction {
-        program_id: light_client_program_id,
-        accounts: vec![
-            solana_sdk::instruction::AccountMeta::new(client_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new(new_consensus_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(app_state_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(access_manager_pda, false),
-            solana_sdk::instruction::AccountMeta::new_readonly(
-                solana_sdk::sysvar::instructions::ID,
-                false,
-            ),
-            solana_sdk::instruction::AccountMeta::new(tx_builder.fee_payer(), true),
-            solana_sdk::instruction::AccountMeta::new_readonly(
-                solana_sdk::system_program::ID,
-                false,
-            ),
-        ],
-        data,
-    };
+    let instruction = UpdateClient::builder(&light_client_program_id)
+        .accounts(UpdateClientAccounts {
+            access_manager,
+            submitter: tx_builder.fee_payer(),
+            new_height,
+        })
+        .args(&UpdateClientArgs {
+            new_height,
+            params: UpdateClientParams { proof },
+        })
+        .build();
 
     let instructions = vec![
         ComputeBudgetInstruction::set_compute_unit_limit(MAX_COMPUTE_UNIT_LIMIT),

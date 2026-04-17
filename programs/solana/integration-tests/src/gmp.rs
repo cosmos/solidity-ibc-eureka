@@ -8,11 +8,11 @@
 use crate::accounts::anchor_discriminator;
 use crate::chain::{Chain, LcAccounts};
 use crate::router::RecvResult;
-use anchor_lang::InstructionData;
-use ics26_router::state::*;
 use prost::Message as ProstMessage;
 use solana_ibc_proto::{RawGmpPacketData, RawGmpSolanaPayload, RawSolanaAccountMeta};
-use solana_ibc_types::Payload;
+use solana_ibc_sdk::access_manager::instructions as am_sdk;
+use solana_ibc_sdk::ics27_gmp::instructions as gmp_sdk;
+use solana_ibc_sdk::ics27_gmp::types::{OnRecvPacketMsg, Payload, SendCallMsg};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
@@ -50,24 +50,13 @@ pub fn build_gmp_send_call_ix(
     lc: &LcAccounts,
     params: GmpSendCallParams<'_>,
 ) -> (Instruction, Pubkey) {
-    let (gmp_app_state_pda, _) =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            client_id.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let (ibc_app_pda, _) =
-        Pubkey::find_program_address(&[IBCApp::SEED, GMP_PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
+    let (router_state, _) = gmp_sdk::SendCall::router_state_pda(&ics26_router::ID);
+    let (commitment_pda, _) =
+        gmp_sdk::SendCall::packet_commitment_pda(client_id, params.sequence, &ics26_router::ID);
+    let (ibc_app, _) = gmp_sdk::SendCall::ibc_app_pda(&ics26_router::ID);
+    let (client, _) = gmp_sdk::SendCall::client_pda(client_id, &ics26_router::ID);
 
-    let msg = ics27_gmp::state::SendCallMsg {
+    let msg = SendCallMsg {
         source_client: client_id.to_string(),
         sequence: params.sequence,
         timeout_timestamp: params.timeout_timestamp,
@@ -78,25 +67,20 @@ pub fn build_gmp_send_call_ix(
         encoding: ICS27_ENCODING_PROTOBUF.to_string(),
     };
 
-    let ix = Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: vec![
-            AccountMeta::new(gmp_app_state_pda, false),
-            AccountMeta::new_readonly(sender, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(ics26_router::ID, false),
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new(commitment_pda, false),
-            AccountMeta::new_readonly(ibc_app_pda, false),
-            AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(lc.program_id, false),
-            AccountMeta::new_readonly(lc.client_state, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(lc.consensus_state, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: ics27_gmp::instruction::SendCall { msg }.data(),
-    };
+    let ix = gmp_sdk::SendCall::builder(&ics27_gmp::ID)
+        .accounts(gmp_sdk::SendCallAccounts {
+            sender,
+            payer,
+            router_state,
+            packet_commitment: commitment_pda,
+            ibc_app,
+            client,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+        })
+        .args(&msg)
+        .build();
 
     (ix, commitment_pda)
 }
@@ -169,8 +153,11 @@ pub fn build_gmp_ack_packet_ix(
     lc: &LcAccounts,
     params: GmpAckPacketParams,
 ) -> (Instruction, Pubkey) {
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
+    let (result_pda, _) = gmp_sdk::OnAcknowledgementPacket::result_account_pda(
+        source_client,
+        params.sequence,
+        &ics27_gmp::ID,
+    );
 
     crate::router::build_ack_packet_ix(
         relayer,
@@ -216,8 +203,11 @@ pub fn build_gmp_timeout_packet_ix(
     lc: &LcAccounts,
     params: GmpTimeoutPacketParams,
 ) -> (Instruction, Pubkey) {
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
+    let (result_pda, _) = gmp_sdk::OnTimeoutPacket::result_account_pda(
+        source_client,
+        params.sequence,
+        &ics27_gmp::ID,
+    );
 
     crate::router::build_timeout_packet_ix(
         relayer,
@@ -306,7 +296,7 @@ pub fn encode_gmp_packet(
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         ICS27_ENCODING_PROTOBUF,
     )
     .expect("GMP packet encoding should succeed")
@@ -332,7 +322,7 @@ pub fn build_increment_remaining_accounts(
 
 /// Derive the GMP account PDA for a given sender and `client_id`.
 pub fn derive_gmp_account_pda(client_id: &str, sender: &Pubkey) -> Pubkey {
-    let gmp_account = solana_ibc_types::GMPAccount::new(
+    let gmp_account = solana_ibc_gmp_types::GMPAccount::new(
         client_id.to_string().try_into().expect("valid client_id"),
         sender.to_string().try_into().expect("valid sender"),
         vec![].try_into().expect("empty salt"),
@@ -363,10 +353,7 @@ pub fn build_raw_gmp_on_recv_packet_ix(
     packet_bytes: &[u8],
     remaining_accounts: Vec<AccountMeta>,
 ) -> Instruction {
-    let (gmp_app_state_pda, _) =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
-
-    let msg = solana_ibc_types::OnRecvPacketMsg {
+    let msg = OnRecvPacketMsg {
         source_client: source_client.to_string(),
         dest_client: dest_client.to_string(),
         sequence,
@@ -374,22 +361,14 @@ pub fn build_raw_gmp_on_recv_packet_ix(
         relayer,
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new(gmp_app_state_pda, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(solana_sdk::system_program::ID, false),
-    ];
-    account_metas.extend(remaining_accounts);
-
-    Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: account_metas,
-        data: ics27_gmp::instruction::OnRecvPacket { msg }.data(),
-    }
+    gmp_sdk::OnRecvPacket::builder(&ics27_gmp::ID)
+        .accounts(gmp_sdk::OnRecvPacketAccounts { payer: relayer })
+        .args(&msg)
+        .remaining_accounts(remaining_accounts)
+        .build()
 }
 
-/// Build IBC payload for GMP (used in `MsgPayload`).
+/// Build IBC payload for GMP (used in `OnRecvPacketMsg`).
 pub fn build_gmp_ibc_payload(packet_bytes: &[u8]) -> Payload {
     Payload {
         source_port: GMP_PORT_ID.to_string(),
@@ -403,53 +382,42 @@ pub fn build_gmp_ibc_payload(packet_bytes: &[u8]) -> Payload {
 // ── AM transfer instruction builders ────────────────────────────────────
 
 fn derive_gmp_app_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0
+    gmp_sdk::Initialize::app_state_pda(&ics27_gmp::ID).0
 }
 
 fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
-    solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
+    am_sdk::Initialize::access_manager_pda(&am_program_id).0
 }
 
 /// Build a GMP `propose_access_manager_transfer` instruction.
 pub fn build_gmp_propose_am_transfer_ix(admin: Pubkey, new_access_manager: Pubkey) -> Instruction {
-    Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: vec![
-            AccountMeta::new(derive_gmp_app_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics27_gmp::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
-    }
+    let am_pda = derive_am_pda(access_manager::ID);
+    gmp_sdk::ProposeAccessManagerTransfer::builder(&ics27_gmp::ID)
+        .accounts(gmp_sdk::ProposeAccessManagerTransferAccounts {
+            access_manager: am_pda,
+            admin,
+        })
+        .args(&gmp_sdk::ProposeAccessManagerTransferArgs { new_access_manager })
+        .build()
 }
 
 /// Build a GMP `accept_access_manager_transfer` instruction.
 pub fn build_gmp_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
-    Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: vec![
-            AccountMeta::new(derive_gmp_app_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(new_am_program_id), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics27_gmp::instruction::AcceptAccessManagerTransfer {}.data(),
-    }
+    let new_am_state = derive_am_pda(new_am_program_id);
+    gmp_sdk::AcceptAccessManagerTransfer::builder(&ics27_gmp::ID)
+        .accounts(gmp_sdk::AcceptAccessManagerTransferAccounts {
+            new_am_state,
+            admin,
+        })
+        .build()
 }
 
 /// Build a GMP `cancel_access_manager_transfer` instruction.
 pub fn build_gmp_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
-    Instruction {
-        program_id: ics27_gmp::ID,
-        accounts: vec![
-            AccountMeta::new(derive_gmp_app_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics27_gmp::instruction::CancelAccessManagerTransfer {}.data(),
-    }
+    let am_state = derive_am_pda(access_manager::ID);
+    gmp_sdk::CancelAccessManagerTransfer::builder(&ics27_gmp::ID)
+        .accounts(gmp_sdk::CancelAccessManagerTransferAccounts { am_state, admin })
+        .build()
 }
 
 // ── State readers ───────────────────────────────────────────────────────

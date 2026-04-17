@@ -88,7 +88,7 @@ pub fn find_gmp_result_pda(
     }
 
     let (pda, _bump) =
-        solana_ibc_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
+        solana_ibc_gmp_types::GMPCallResult::pda(source_client, sequence, &gmp_program_id);
     Some(pda)
 }
 
@@ -124,10 +124,14 @@ pub fn extract_gmp_prefund_lamports(
         return Ok(None);
     }
 
-    let client_id = solana_ibc_types::ClientId::new(dest_client)
+    let client_id = solana_ibc_gmp_types::ClientId::new(dest_client)
         .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
-    let gmp_account =
-        solana_ibc_types::GMPAccount::new(client_id, decoded.sender, decoded.salt, &gmp_program_id);
+    let gmp_account = solana_ibc_gmp_types::GMPAccount::new(
+        client_id,
+        decoded.sender,
+        decoded.salt,
+        &gmp_program_id,
+    );
     let (gmp_pda, _) = gmp_account.pda();
 
     Ok(Some((gmp_pda, decoded.prefund_lamports)))
@@ -263,12 +267,13 @@ fn build_gmp_account_list(
     let target_program = Pubkey::from_str(receiver)
         .map_err(|e| anyhow::anyhow!("Invalid target program pubkey: {e}"))?;
 
-    let client_id = solana_ibc_types::ClientId::new(dest_client)
+    let client_id = solana_ibc_gmp_types::ClientId::new(dest_client)
         .map_err(|e| anyhow::anyhow!("Invalid client ID: {e:?}"))?;
 
     tracing::info!(%sender, dest_client, "Building GMP account list");
 
-    let gmp_account = solana_ibc_types::GMPAccount::new(client_id, sender, salt, &gmp_program_id);
+    let gmp_account =
+        solana_ibc_gmp_types::GMPAccount::new(client_id, sender, salt, &gmp_program_id);
     let (gmp_pda, _) = gmp_account.pda();
 
     let mut accounts = vec![

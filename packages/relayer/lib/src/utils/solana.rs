@@ -1,8 +1,10 @@
 //! Relayer utilities for `solana-eureka` chains.
 use anyhow::Context;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
-use solana_ibc_types::{
-    Delivery, IbcHeight, MsgAckPacket as SolanaAckPacket, MsgPacket, MsgPayload, MsgProof,
+use solana_ibc_sdk::ics07_tendermint::accounts::ClientState;
+use solana_ibc_sdk::ics07_tendermint::types::{ConsensusState, IbcHeight};
+use solana_ibc_sdk::ics26_router::types::{
+    Delivery, MsgAckPacket as SolanaAckPacket, MsgPacket, MsgPayload, MsgProof,
     MsgRecvPacket as SolanaMsgRecvPacket, MsgTimeoutPacket,
 };
 
@@ -60,8 +62,8 @@ pub struct TimeoutPacketWithChunks {
 /// - Next validators hash is not exactly 32 bytes
 pub fn convert_consensus_state(
     tm_consensus_state: &ibc_client_tendermint_types::ConsensusState,
-) -> anyhow::Result<solana_ibc_types::ConsensusState> {
-    Ok(solana_ibc_types::ConsensusState {
+) -> anyhow::Result<ConsensusState> {
+    Ok(ConsensusState {
         timestamp: u64::try_from(tm_consensus_state.timestamp.unix_timestamp_nanos())
             .context("incorrect consensus timestamp")?,
         root: tm_consensus_state
@@ -100,7 +102,7 @@ pub fn convert_consensus_state(
 /// - Proof specs are not included in the conversion as Solana Tendemint client hardcodes them
 pub fn convert_client_state_to_sol(
     ibc_client: ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState,
-) -> anyhow::Result<solana_ibc_types::ClientState> {
+) -> anyhow::Result<ClientState> {
     let trust_level = ibc_client
         .trust_level
         .ok_or_else(|| anyhow::anyhow!("Missing trust level"))?;
@@ -132,7 +134,7 @@ pub fn convert_client_state_to_sol(
         .latest_height
         .ok_or_else(|| anyhow::anyhow!("Missing latest height"))?;
 
-    Ok(solana_ibc_types::ClientState {
+    Ok(ClientState {
         chain_id: ibc_client.chain_id,
         trust_level_numerator: trust_level.numerator,
         trust_level_denominator: trust_level.denominator,
@@ -166,7 +168,7 @@ pub fn convert_client_state_to_sol(
 /// - Proof specs are set to default ICS23 specs (IAVL and Tendermint)
 /// - Upgrade path is left empty as it's not used in Solana
 pub fn convert_client_state_to_ibc(
-    solana_client: solana_ibc_types::ClientState,
+    solana_client: ClientState,
 ) -> anyhow::Result<ibc_proto_eureka::ibc::lightclients::tendermint::v1::ClientState> {
     use ibc_proto_eureka::google::protobuf::Duration;
     use ibc_proto_eureka::ibc::core::client::v1::Height;

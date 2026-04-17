@@ -8,13 +8,17 @@ use crate::chain::{Chain, LcAccounts};
 use crate::gmp::{GMP_PORT_ID, ICS27_VERSION};
 use anchor_lang::InstructionData;
 use anchor_spl::associated_token::get_associated_token_address_with_program_id;
-use ics26_router::state::*;
 use prost::Message as ProstMessage;
 use solana_ibc_proto::RawGmpSolanaPayload;
+use solana_ibc_sdk::ics27_gmp::instructions as gmp_sdk;
+use solana_ibc_sdk::ift::instructions as ift_sdk;
+use solana_ibc_sdk::ift::types::{
+    AdminMintMsg, ChainOptions, CreateTokenParams, IFTTransferMsg, RegisterIFTBridgeMsg,
+    SetPausedMsg,
+};
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
     pubkey::Pubkey,
-    system_program,
 };
 
 /// ABI content-type used for IFT payload encoding towards EVM chains.
@@ -77,52 +81,27 @@ impl TokenKind {
 
 /// Derive the IFT `IFTAppState` PDA.
 pub fn derive_app_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID).0
+    ift_sdk::Initialize::app_state_pda(&ift::ID).0
 }
 
 /// Derive the IFT per-mint state PDA.
 pub fn derive_app_mint_state_pda(mint: &Pubkey) -> Pubkey {
-    Pubkey::find_program_address(
-        &[ift::constants::IFT_APP_MINT_STATE_SEED, mint.as_ref()],
-        &ift::ID,
-    )
-    .0
+    ift_sdk::CreateAndInitializeSplToken::app_mint_state_pda(mint, &ift::ID).0
 }
 
 /// Derive the IFT bridge PDA for a given `mint` and `client_id`.
 pub fn derive_bridge_pda(mint: &Pubkey, client_id: &str) -> Pubkey {
-    Pubkey::find_program_address(
-        &[
-            ift::constants::IFT_BRIDGE_SEED,
-            mint.as_ref(),
-            client_id.as_bytes(),
-        ],
-        &ift::ID,
-    )
-    .0
+    ift_sdk::RegisterIftBridge::ift_bridge_pda(mint, client_id, &ift::ID).0
 }
 
 /// Derive the pending-transfer PDA for a given `mint`, `client_id` and `sequence`.
 pub fn derive_pending_transfer_pda(mint: &Pubkey, client_id: &str, sequence: u64) -> Pubkey {
-    Pubkey::find_program_address(
-        &[
-            ift::constants::PENDING_TRANSFER_SEED,
-            mint.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &ift::ID,
-    )
-    .0
+    ift_sdk::IftTransfer::pending_transfer_pda(mint, client_id, sequence, &ift::ID).0
 }
 
 /// Derive the IFT mint-authority PDA for a given `mint`.
 pub fn derive_mint_authority_pda(mint: &Pubkey) -> Pubkey {
-    Pubkey::find_program_address(
-        &[ift::constants::MINT_AUTHORITY_SEED, mint.as_ref()],
-        &ift::ID,
-    )
-    .0
+    ift_sdk::CreateAndInitializeSplToken::mint_authority_pda(mint, &ift::ID).0
 }
 
 // ── Instruction builders ────────────────────────────────────────────────
@@ -139,7 +118,7 @@ pub fn build_create_spl_token_ix(
         payer,
         mint,
         anchor_spl::token::ID,
-        ift::state::CreateTokenParams::SplToken { decimals },
+        CreateTokenParams::SplToken { decimals },
     )
 }
 
@@ -158,7 +137,7 @@ pub fn build_create_token_2022_ix(
         payer,
         mint,
         anchor_spl::token_2022::ID,
-        ift::state::CreateTokenParams::Token2022 {
+        CreateTokenParams::Token2022 {
             decimals,
             name,
             symbol,
@@ -172,27 +151,17 @@ fn build_create_token_ix(
     payer: Pubkey,
     mint: Pubkey,
     token_program: Pubkey,
-    params: ift::state::CreateTokenParams,
+    params: CreateTokenParams,
 ) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let mint_authority_pda = derive_mint_authority_pda(&mint);
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new(app_mint_state_pda, false),
-            AccountMeta::new(mint, true),
-            AccountMeta::new_readonly(mint_authority_pda, false),
-            AccountMeta::new_readonly(authority, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(token_program, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::CreateAndInitializeSplToken { params }.data(),
-    }
+    ift_sdk::CreateAndInitializeSplToken::builder(&ift::ID)
+        .accounts(ift_sdk::CreateAndInitializeSplTokenAccounts {
+            mint,
+            admin: authority,
+            payer,
+            token_program,
+        })
+        .args(&params)
+        .build()
 }
 
 /// Build a `register_ift_bridge` instruction linking a mint to a counterparty.
@@ -203,33 +172,25 @@ pub fn build_register_bridge_ix(
     client_id: &str,
     counterparty_ift_address: &str,
 ) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let bridge_pda = derive_bridge_pda(&mint, client_id);
+    let app_mint_state = derive_app_mint_state_pda(&mint);
+    let ift_bridge = derive_bridge_pda(&mint, client_id);
 
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(app_mint_state_pda, false),
-            AccountMeta::new(bridge_pda, false),
-            AccountMeta::new_readonly(authority, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::RegisterIftBridge {
-            msg: ift::state::RegisterIFTBridgeMsg {
-                client_id: client_id.to_string(),
-                counterparty_ift_address: counterparty_ift_address.to_string(),
-                chain_options: ift::state::ChainOptions::Evm,
-            },
-        }
-        .data(),
-    }
+    ift_sdk::RegisterIftBridge::builder(&ift::ID)
+        .accounts(ift_sdk::RegisterIftBridgeAccounts {
+            app_mint_state,
+            ift_bridge,
+            admin: authority,
+            payer,
+        })
+        .args(&RegisterIFTBridgeMsg {
+            client_id: client_id.to_string(),
+            counterparty_ift_address: counterparty_ift_address.to_string(),
+            chain_options: ChainOptions::Evm,
+        })
+        .build()
 }
 
-/// Build a `register_ift_bridge` instruction for a Solana↔Solana bridge.
+/// Build a `register_ift_bridge` instruction for a Solana-to-Solana bridge.
 ///
 /// The `counterparty_ift_program_id` is the target IFT program on the
 /// destination chain (the CPI target for the `ift_mint` dispatch);
@@ -245,34 +206,26 @@ pub fn build_register_bridge_solana_ix(
     counterparty_mint: Pubkey,
     counterparty_client_id: &str,
 ) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let bridge_pda = derive_bridge_pda(&mint, client_id);
+    let app_mint_state = derive_app_mint_state_pda(&mint);
+    let ift_bridge = derive_bridge_pda(&mint, client_id);
 
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(app_mint_state_pda, false),
-            AccountMeta::new(bridge_pda, false),
-            AccountMeta::new_readonly(authority, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::RegisterIftBridge {
-            msg: ift::state::RegisterIFTBridgeMsg {
-                client_id: client_id.to_string(),
-                counterparty_ift_address: counterparty_ift_program_id.to_string(),
-                chain_options: ift::state::ChainOptions::Solana {
-                    ift_program_id: counterparty_ift_program_id,
-                    counterparty_mint,
-                    counterparty_client_id: counterparty_client_id.to_string(),
-                },
+    ift_sdk::RegisterIftBridge::builder(&ift::ID)
+        .accounts(ift_sdk::RegisterIftBridgeAccounts {
+            app_mint_state,
+            ift_bridge,
+            admin: authority,
+            payer,
+        })
+        .args(&RegisterIFTBridgeMsg {
+            client_id: client_id.to_string(),
+            counterparty_ift_address: counterparty_ift_program_id.to_string(),
+            chain_options: ChainOptions::Solana {
+                ift_program_id: counterparty_ift_program_id,
+                counterparty_mint,
+                counterparty_client_id: counterparty_client_id.to_string(),
             },
-        }
-        .data(),
-    }
+        })
+        .build()
 }
 
 /// Build an `admin_mint` instruction to mint tokens to a receiver.
@@ -284,32 +237,19 @@ pub fn build_admin_mint_ix(
     amount: u64,
     token_kind: TokenKind,
 ) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let mint_authority_pda = derive_mint_authority_pda(&mint);
     let receiver_ata = token_kind.get_ata(&receiver, &mint);
 
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new(app_mint_state_pda, false),
-            AccountMeta::new(mint, false),
-            AccountMeta::new_readonly(mint_authority_pda, false),
-            AccountMeta::new(receiver_ata, false),
-            AccountMeta::new_readonly(receiver, false),
-            AccountMeta::new_readonly(authority, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(token_kind.program_id(), false),
-            AccountMeta::new_readonly(anchor_spl::associated_token::ID, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::AdminMint {
-            msg: ift::state::AdminMintMsg { receiver, amount },
-        }
-        .data(),
-    }
+    ift_sdk::AdminMint::builder(&ift::ID)
+        .accounts(ift_sdk::AdminMintAccounts {
+            mint,
+            receiver_token_account: receiver_ata,
+            receiver_owner: receiver,
+            admin: authority,
+            payer,
+            token_program: token_kind.program_id(),
+        })
+        .args(&AdminMintMsg { receiver, amount })
+        .build()
 }
 
 // ── Transfer instruction ────────────────────────────────────────────────
@@ -347,30 +287,19 @@ pub fn build_ift_transfer_ix(
     lc: &LcAccounts,
     params: IftTransferParams,
 ) -> IftTransferResult {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let bridge_pda = derive_bridge_pda(&mint, client_id);
+    let app_mint_state = derive_app_mint_state_pda(&mint);
+    let ift_bridge = derive_bridge_pda(&mint, client_id);
     let sender_ata = token_kind.get_ata(&sender, &mint);
-
-    let (gmp_app_state_pda, _) =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID);
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            client_id.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let (ibc_app_pda, _) =
-        Pubkey::find_program_address(&[IBCApp::SEED, GMP_PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
     let pending_transfer_pda = derive_pending_transfer_pda(&mint, client_id, params.sequence);
 
-    let msg = ift::state::IFTTransferMsg {
+    let (gmp_app_state, _) = gmp_sdk::Initialize::app_state_pda(&ics27_gmp::ID);
+    let (router_state, _) = gmp_sdk::SendCall::router_state_pda(&ics26_router::ID);
+    let (commitment_pda, _) =
+        gmp_sdk::SendCall::packet_commitment_pda(client_id, params.sequence, &ics26_router::ID);
+    let (gmp_ibc_app, _) = gmp_sdk::SendCall::ibc_app_pda(&ics26_router::ID);
+    let (ibc_client, _) = gmp_sdk::SendCall::client_pda(client_id, &ics26_router::ID);
+
+    let msg = IFTTransferMsg {
         client_id: client_id.to_string(),
         receiver: params.receiver,
         amount: params.amount,
@@ -378,33 +307,27 @@ pub fn build_ift_transfer_ix(
         sequence: params.sequence,
     };
 
-    let ix = Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(app_mint_state_pda, false),
-            AccountMeta::new_readonly(bridge_pda, false),
-            AccountMeta::new(mint, false),
-            AccountMeta::new(sender_ata, false),
-            AccountMeta::new_readonly(sender, true),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(token_kind.program_id(), false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(ics27_gmp::ID, false),
-            AccountMeta::new(gmp_app_state_pda, false),
-            AccountMeta::new_readonly(ics26_router::ID, false),
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new(commitment_pda, false),
-            AccountMeta::new_readonly(ibc_app_pda, false),
-            AccountMeta::new_readonly(client_pda, false),
-            AccountMeta::new_readonly(lc.program_id, false),
-            AccountMeta::new_readonly(lc.client_state, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(lc.consensus_state, false),
-            AccountMeta::new(pending_transfer_pda, false),
-        ],
-        data: ift::instruction::IftTransfer { msg }.data(),
-    };
+    let ix = ift_sdk::IftTransfer::builder(&ift::ID)
+        .accounts(ift_sdk::IftTransferAccounts {
+            app_mint_state,
+            ift_bridge,
+            mint,
+            sender_token_account: sender_ata,
+            sender,
+            payer,
+            token_program: token_kind.program_id(),
+            gmp_app_state,
+            router_state,
+            packet_commitment: commitment_pda,
+            gmp_ibc_app,
+            ibc_client,
+            light_client_program: lc.program_id,
+            light_client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            pending_transfer: pending_transfer_pda,
+        })
+        .args(&msg)
+        .build();
 
     IftTransferResult {
         ix,
@@ -425,36 +348,24 @@ pub fn build_finalize_transfer_ix(
     sequence: u64,
     token_kind: TokenKind,
 ) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-    let app_mint_state_pda = derive_app_mint_state_pda(&mint);
-    let pending_transfer_pda = derive_pending_transfer_pda(&mint, client_id, sequence);
-    let mint_authority_pda = derive_mint_authority_pda(&mint);
+    let pending_transfer = derive_pending_transfer_pda(&mint, client_id, sequence);
     let sender_ata = token_kind.get_ata(&sender, &mint);
+    let (gmp_result, _) = ift_sdk::FinalizeTransfer::gmp_result_pda(client_id, sequence);
 
-    let (gmp_result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(client_id, sequence, &ics27_gmp::ID);
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new(app_mint_state_pda, false),
-            AccountMeta::new(pending_transfer_pda, false),
-            AccountMeta::new_readonly(gmp_result_pda, false),
-            AccountMeta::new(mint, false),
-            AccountMeta::new_readonly(mint_authority_pda, false),
-            AccountMeta::new(sender_ata, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(token_kind.program_id(), false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::FinalizeTransfer {
+    ift_sdk::FinalizeTransfer::builder(&ift::ID)
+        .accounts(ift_sdk::FinalizeTransferAccounts {
+            pending_transfer,
+            gmp_result,
+            mint,
+            sender_token_account: sender_ata,
+            payer,
+            token_program: token_kind.program_id(),
+        })
+        .args(&ift_sdk::FinalizeTransferArgs {
             client_id: client_id.to_string(),
             sequence,
-        }
-        .data(),
-    }
+        })
+        .build()
 }
 
 // ── GMP ack/timeout param structs ───────────────────────────────────────
@@ -493,10 +404,12 @@ pub fn build_ift_gmp_ack_packet_params(
     source_client: &str,
     params: IftGmpAckPacketParams,
 ) -> crate::router::AckPacketParams<'static> {
-    let gmp_app_state_pda =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0;
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
+    let gmp_app_state_pda = gmp_sdk::Initialize::app_state_pda(&ics27_gmp::ID).0;
+    let (result_pda, _) = gmp_sdk::OnAcknowledgementPacket::result_account_pda(
+        source_client,
+        params.sequence,
+        &ics27_gmp::ID,
+    );
 
     crate::router::AckPacketParams {
         sequence: params.sequence,
@@ -544,10 +457,12 @@ pub fn build_ift_gmp_timeout_packet_ix(
     lc: &LcAccounts,
     params: IftGmpTimeoutPacketParams,
 ) -> (Instruction, Pubkey) {
-    let gmp_app_state_pda =
-        Pubkey::find_program_address(&[ics27_gmp::state::GMPAppState::SEED], &ics27_gmp::ID).0;
-    let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(source_client, params.sequence, &ics27_gmp::ID);
+    let gmp_app_state_pda = gmp_sdk::Initialize::app_state_pda(&ics27_gmp::ID).0;
+    let (result_pda, _) = gmp_sdk::OnTimeoutPacket::result_account_pda(
+        source_client,
+        params.sequence,
+        &ics27_gmp::ID,
+    );
 
     crate::router::build_timeout_packet_ix(
         relayer,
@@ -578,7 +493,7 @@ pub fn success_ack() -> Vec<u8> {
 
 /// Universal error acknowledgement: `sha256("UNIVERSAL_ERROR_ACKNOWLEDGEMENT")`.
 pub fn universal_error_ack() -> Vec<u8> {
-    solana_ibc_types::UNIVERSAL_ERROR_ACK.to_vec()
+    solana_ibc_constants::UNIVERSAL_ERROR_ACK.to_vec()
 }
 
 // ── Payload encoding ────────────────────────────────────────────────────
@@ -616,7 +531,7 @@ pub fn encode_ift_gmp_packet(counterparty_addr: &str, mint_call_payload: Vec<u8>
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         ICS27_ENCODING_ABI,
     )
     .expect("GMP packet encoding should succeed")
@@ -705,7 +620,7 @@ pub fn encode_ift_solana_gmp_packet(
     };
 
     ics27_gmp::encoding::encode_gmp_packet(
-        solana_ibc_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
+        solana_ibc_gmp_types::GmpPacketData::try_from(raw_packet).expect("valid GMP packet data"),
         crate::gmp::ICS27_ENCODING_PROTOBUF,
     )
     .expect("GMP packet encoding should succeed")
@@ -758,63 +673,30 @@ pub async fn assert_pending_transfer_closed(chain: &Chain, pda: Pubkey) {
 
 /// Build an IFT `propose_admin` instruction.
 pub fn build_propose_admin_ix(admin: Pubkey, new_admin: Pubkey) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::ProposeAdmin { new_admin }.data(),
-    }
+    ift_sdk::ProposeAdmin::builder(&ift::ID)
+        .accounts(ift_sdk::ProposeAdminAccounts { admin })
+        .args(&ift_sdk::ProposeAdminArgs { new_admin })
+        .build()
 }
 
 /// Build an IFT `accept_admin` instruction.
 pub fn build_accept_admin_ix(pending_admin: Pubkey) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(pending_admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::AcceptAdmin {}.data(),
-    }
+    ift_sdk::AcceptAdmin::builder(&ift::ID)
+        .accounts(ift_sdk::AcceptAdminAccounts { pending_admin })
+        .build()
 }
 
 /// Build an IFT `cancel_admin_proposal` instruction.
 pub fn build_cancel_admin_proposal_ix(admin: Pubkey) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::CancelAdminProposal {}.data(),
-    }
+    ift_sdk::CancelAdminProposal::builder(&ift::ID)
+        .accounts(ift_sdk::CancelAdminProposalAccounts { admin })
+        .build()
 }
 
 /// Build an IFT `set_paused` instruction.
 pub fn build_set_paused_ix(admin: Pubkey, paused: bool) -> Instruction {
-    let app_state_pda = derive_app_state_pda();
-
-    Instruction {
-        program_id: ift::ID,
-        accounts: vec![
-            AccountMeta::new(app_state_pda, false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ift::instruction::SetPaused {
-            msg: ift::state::SetPausedMsg { paused },
-        }
-        .data(),
-    }
+    ift_sdk::SetPaused::builder(&ift::ID)
+        .accounts(ift_sdk::SetPausedAccounts { admin })
+        .args(&SetPausedMsg { paused })
+        .build()
 }
