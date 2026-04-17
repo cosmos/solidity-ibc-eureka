@@ -43,9 +43,9 @@ jobs:
           cache-dependency-path: e2e/interchaintestv8/go.sum
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.5
+          version: v2.6
           working-directory: e2e/interchaintestv8
 
   generate-matrix:

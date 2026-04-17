@@ -34,7 +34,7 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 
 			for _, method := range service.GetMethod() {
 				// trim the first character from input which is a dot
-				queryReqToPath[method.GetInputType()[1:]] = fileDescriptor.GetPackage() + "." + service.GetName() + "/" + method.GetName()
+				queryReqToPath[method.GetInputType()[1:]] = "/" + fileDescriptor.GetPackage() + "." + service.GetName() + "/" + method.GetName()
 			}
 		}
 	}

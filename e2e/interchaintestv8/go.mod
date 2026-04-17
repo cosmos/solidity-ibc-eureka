@@ -431,6 +431,4 @@ replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alp
 
 replace github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 
-replace github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 => github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10 v10.0.0-20251009124337-8b13a7f221a3
-
 // this line is used by go-codegen # suite/module
