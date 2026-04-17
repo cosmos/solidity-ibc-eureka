@@ -3,8 +3,8 @@ package e2esuite
 import (
 	"context"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v11/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/ibc"
 )
 
 func (s *TestSuite) setupCosmosChains(ctx context.Context, chains []ibc.Chain) {

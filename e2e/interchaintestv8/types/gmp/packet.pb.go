@@ -162,7 +162,7 @@ const file_gmp_packet_proto_rawDesc = "" +
 	"\x04memo\x18\x05 \x01(\tR\x04memo\")\n" +
 	"\x0fAcknowledgement\x12\x16\n" +
 	"\x06result\x18\x01 \x01(\fR\x06resultB\xe1\x01\n" +
-	"\x1bcom.ibc.applications.gmp.v1B\vPacketProtoP\x01Z6github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types\xa2\x02\x03IAG\xaa\x02\x17Ibc.Applications.Gmp.V1\xca\x02\x17Ibc\\Applications\\Gmp\\V1\xe2\x02#Ibc\\Applications\\Gmp\\V1\\GPBMetadata\xea\x02\x1aIbc::Applications::Gmp::V1b\x06proto3"
+	"\x1bcom.ibc.applications.gmp.v1B\vPacketProtoP\x01Z6github.com/cosmos/ibc-go/v11/modules/apps/27-gmp/types\xa2\x02\x03IAG\xaa\x02\x17Ibc.Applications.Gmp.V1\xca\x02\x17Ibc\\Applications\\Gmp\\V1\xe2\x02#Ibc\\Applications\\Gmp\\V1\\GPBMetadata\xea\x02\x1aIbc::Applications::Gmp::V1b\x06proto3"
 
 var (
 	file_gmp_packet_proto_rawDescOnce sync.Once
