@@ -44,7 +44,7 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 
 func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
 	// Create a connection to the gRPC server.
-	path := "cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
+	path := "/cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
