@@ -348,7 +348,7 @@ func (cg *CodeGenerator) generateTypes(programNames []string) string {
 	// Generate type definitions
 	for _, name := range programNames {
 		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
-		b.WriteString(fmt.Sprintf("type %s struct{}\n", typeName))
+		fmt.Fprintf(&b, "type %s struct{}\n", typeName)
 	}
 	b.WriteString("\n")
 
@@ -356,7 +356,7 @@ func (cg *CodeGenerator) generateTypes(programNames []string) string {
 	b.WriteString("var (\n")
 	for _, name := range programNames {
 		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
-		b.WriteString(fmt.Sprintf("\t%s = %s{}\n", name, typeName))
+		fmt.Fprintf(&b, "\t%s = %s{}\n", name, typeName)
 	}
 	b.WriteString(")\n")
 
