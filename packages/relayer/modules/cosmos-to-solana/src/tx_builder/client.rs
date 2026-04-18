@@ -99,15 +99,18 @@ impl super::TxBuilder {
             AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
         ];
 
-        accounts.extend((0..total_chunks).map(|chunk_index| {
-            let (chunk_pda, _) = derive_header_chunk(
-                self.fee_payer,
-                target_height,
-                chunk_index,
-                solana_ics07_program_id,
-            );
-            AccountMeta::new(chunk_pda, false)
-        }));
+        let (chunk_metas, chunk_bumps): (Vec<AccountMeta>, Vec<u8>) = (0..total_chunks)
+            .map(|chunk_index| {
+                let (chunk_pda, chunk_bump) = derive_header_chunk(
+                    self.fee_payer,
+                    target_height,
+                    chunk_index,
+                    solana_ics07_program_id,
+                );
+                (AccountMeta::new(chunk_pda, false), chunk_bump)
+            })
+            .unzip();
+        accounts.extend(chunk_metas);
 
         accounts.extend(signature_data.iter().map(|sig_data| {
             let (sig_verify_pda, _) = Pubkey::find_program_address(
@@ -122,6 +125,10 @@ impl super::TxBuilder {
         data.extend_from_slice(&target_height.to_le_bytes());
         data.extend_from_slice(&[total_chunks]);
         data.extend_from_slice(&trusted_height.to_le_bytes());
+        let bumps_len = u32::try_from(chunk_bumps.len())
+            .expect("chunk count fits in u32; bounded by u8 total_chunks");
+        data.extend_from_slice(&bumps_len.to_le_bytes());
+        data.extend_from_slice(&chunk_bumps);
 
         let ix = Instruction {
             program_id: solana_ics07_program_id,
@@ -479,5 +486,48 @@ impl super::TxBuilder {
         let tx_bytes = self.create_tx_bytes(&[ed25519_ix, pre_verify_ix])?;
 
         Ok(tx_bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use borsh::{BorshDeserialize, BorshSerialize};
+
+    /// Mirrors `instruction::AssembleAndUpdateClient`, field order must match.
+    #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq)]
+    struct AssembleAndUpdateClientArgs {
+        target_height: u64,
+        chunk_count: u8,
+        trusted_height: u64,
+        chunk_bumps: Vec<u8>,
+    }
+
+    #[test]
+    fn assemble_and_update_client_wire_format_matches_borsh() {
+        let args = AssembleAndUpdateClientArgs {
+            target_height: 100,
+            chunk_count: 3,
+            trusted_height: 90,
+            chunk_bumps: vec![254, 255, 250],
+        };
+
+        // Mirrors the encoder in `build_assemble_and_update_client_tx`.
+        let mut hand_rolled = Vec::new();
+        hand_rolled.extend_from_slice(&args.target_height.to_le_bytes());
+        hand_rolled.extend_from_slice(&[args.chunk_count]);
+        hand_rolled.extend_from_slice(&args.trusted_height.to_le_bytes());
+        let bumps_len = u32::try_from(args.chunk_bumps.len()).unwrap();
+        hand_rolled.extend_from_slice(&bumps_len.to_le_bytes());
+        hand_rolled.extend_from_slice(&args.chunk_bumps);
+
+        let borsh_encoded = borsh::to_vec(&args).expect("borsh serialization is infallible");
+        assert_eq!(
+            hand_rolled, borsh_encoded,
+            "hand-rolled encoder drifted from borsh layout"
+        );
+
+        let decoded =
+            AssembleAndUpdateClientArgs::try_from_slice(&borsh_encoded).expect("round trip");
+        assert_eq!(args, decoded);
     }
 }

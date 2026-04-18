@@ -382,6 +382,7 @@ func NewAssembleAndUpdateClientInstruction(
 	targetHeightParam uint64,
 	chunkCountParam uint8,
 	trustedHeightParam uint64,
+	chunkBumpsParam []byte,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -416,6 +417,11 @@ func NewAssembleAndUpdateClientInstruction(
 		err = enc__.Encode(trustedHeightParam)
 		if err != nil {
 			return nil, errors.NewField("trustedHeightParam", err)
+		}
+		// Serialize `chunkBumpsParam`:
+		err = enc__.Encode(chunkBumpsParam)
+		if err != nil {
+			return nil, errors.NewField("chunkBumpsParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}
@@ -558,6 +564,7 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 	chunkCountParam uint8,
 	trustedHeight1param uint64,
 	trustedHeight2param uint64,
+	chunkBumpsParam []byte,
 
 	// Accounts:
 	clientStateAccount solanago.PublicKey,
@@ -591,6 +598,11 @@ func NewAssembleAndSubmitMisbehaviourInstruction(
 		err = enc__.Encode(trustedHeight2param)
 		if err != nil {
 			return nil, errors.NewField("trustedHeight2param", err)
+		}
+		// Serialize `chunkBumpsParam`:
+		err = enc__.Encode(chunkBumpsParam)
+		if err != nil {
+			return nil, errors.NewField("chunkBumpsParam", err)
 		}
 	}
 	accounts__ := solanago.AccountMetaSlice{}

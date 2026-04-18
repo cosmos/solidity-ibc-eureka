@@ -1,6 +1,6 @@
 use crate::error::ErrorCode;
 use crate::helpers::deserialize_misbehaviour;
-use crate::state::{ConsensusStateStore, MisbehaviourChunk};
+use crate::state::{ConsensusStateStore, MisbehaviourChunk, SignatureVerification};
 use crate::types::{AppState, ClientState};
 use anchor_lang::prelude::*;
 use ibc_client_tendermint::types::ConsensusState as IbcConsensusState;
@@ -12,7 +12,7 @@ use tendermint_light_client_update_client::ClientState as TmClientState;
 /// Remaining accounts must contain misbehaviour chunk PDAs in order, optionally
 /// followed by `SignatureVerification` accounts for pre-verified Ed25519 signatures.
 #[derive(Accounts)]
-#[instruction(chunk_count: u8, trusted_height_1: u64, trusted_height_2: u64)]
+#[instruction(chunk_count: u8, trusted_height_1: u64, trusted_height_2: u64, chunk_bumps: Vec<u8>)]
 pub struct AssembleAndSubmitMisbehaviour<'info> {
     /// PDA holding the light client configuration; frozen when misbehaviour is confirmed.
     #[account(
@@ -68,6 +68,7 @@ pub fn assemble_and_submit_misbehaviour<'info>(
     chunk_count: u8,
     _trusted_height_1: u64,
     _trusted_height_2: u64,
+    chunk_bumps: Vec<u8>,
 ) -> Result<()> {
     access_manager::require_role(
         &ctx.accounts.access_manager,
@@ -83,9 +84,12 @@ pub fn assemble_and_submit_misbehaviour<'info>(
     );
 
     let chunk_count = chunk_count as usize;
+
+    require_eq!(chunk_bumps.len(), chunk_count, ErrorCode::InvalidChunkCount);
+
     let submitter = ctx.accounts.submitter.key();
 
-    let misbehaviour_bytes = assemble_chunks(&ctx, submitter, chunk_count)?;
+    let misbehaviour_bytes = assemble_chunks(&ctx, submitter, chunk_count, &chunk_bumps)?;
 
     let signature_verification_accounts = &ctx.remaining_accounts[chunk_count..];
 
@@ -95,7 +99,7 @@ pub fn assemble_and_submit_misbehaviour<'info>(
         signature_verification_accounts,
     )?;
 
-    cleanup_chunks(&ctx, submitter, chunk_count)?;
+    cleanup_chunks(&ctx, submitter, chunk_count, &chunk_bumps)?;
 
     Ok(())
 }
@@ -104,14 +108,16 @@ fn assemble_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
     submitter: Pubkey,
     chunk_count: usize,
+    chunk_bumps: &[u8],
 ) -> Result<Vec<u8>> {
-    let mut misbehaviour_bytes = Vec::new();
+    let mut misbehaviour_bytes = Vec::with_capacity(chunk_count * crate::state::CHUNK_DATA_SIZE);
 
     for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
         validate_and_load_chunk(
             chunk_account,
             submitter,
             index as u8,
+            chunk_bumps[index],
             &mut misbehaviour_bytes,
         )?;
     }
@@ -119,34 +125,49 @@ fn assemble_chunks(
     Ok(misbehaviour_bytes)
 }
 
-fn validate_and_load_chunk(
+/// Checks that a remaining-account is the expected `MisbehaviourChunk` PDA.
+/// Owner check runs first so unrelated accounts bail before the syscall.
+fn verify_misbehaviour_chunk_pda(
     chunk_account: &AccountInfo,
     submitter: Pubkey,
     index: u8,
-    misbehaviour_bytes: &mut Vec<u8>,
+    bump: u8,
 ) -> Result<()> {
-    let expected_seeds = &[
-        crate::state::MisbehaviourChunk::SEED,
-        submitter.as_ref(),
-        &[index],
-    ];
-    let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-    require_keys_eq!(
-        chunk_account.key(),
-        expected_pda,
-        ErrorCode::InvalidChunkAccount
-    );
-
     require_keys_eq!(
         *chunk_account.owner,
         crate::ID,
         ErrorCode::InvalidAccountOwner
     );
 
+    let index_byte = [index];
+    let bump_byte = [bump];
+    let expected_seeds: &[&[u8]] = &[
+        crate::state::MisbehaviourChunk::SEED,
+        submitter.as_ref(),
+        &index_byte,
+        &bump_byte,
+    ];
+    let expected_pda = Pubkey::create_program_address(expected_seeds, &crate::ID)
+        .map_err(|_| ErrorCode::InvalidBump)?;
+    require_keys_eq!(
+        chunk_account.key(),
+        expected_pda,
+        ErrorCode::InvalidChunkAccount
+    );
+    Ok(())
+}
+
+fn validate_and_load_chunk(
+    chunk_account: &AccountInfo,
+    submitter: Pubkey,
+    index: u8,
+    bump: u8,
+    misbehaviour_bytes: &mut Vec<u8>,
+) -> Result<()> {
+    verify_misbehaviour_chunk_pda(chunk_account, submitter, index, bump)?;
+
     let chunk_data = chunk_account.try_borrow_data()?;
-
     let chunk: MisbehaviourChunk = MisbehaviourChunk::try_deserialize(&mut &chunk_data[..])?;
-
     misbehaviour_bytes.extend_from_slice(&chunk.chunk_data);
     Ok(())
 }
@@ -184,6 +205,7 @@ fn process_misbehaviour<'info>(
         current_time,
         signature_verification_accounts,
         &crate::ID,
+        SignatureVerification::discriminator_array(),
     )
     .map_err(|_| error!(ErrorCode::MisbehaviourCheckFailed))?;
 
@@ -215,25 +237,10 @@ fn cleanup_chunks(
     ctx: &Context<AssembleAndSubmitMisbehaviour>,
     submitter: Pubkey,
     chunk_count: usize,
+    chunk_bumps: &[u8],
 ) -> Result<()> {
     for (index, chunk_account) in ctx.remaining_accounts[..chunk_count].iter().enumerate() {
-        let expected_seeds = &[
-            crate::state::MisbehaviourChunk::SEED,
-            submitter.as_ref(),
-            &[index as u8],
-        ];
-        let (expected_pda, _) = Pubkey::find_program_address(expected_seeds, &crate::ID);
-        require_keys_eq!(
-            chunk_account.key(),
-            expected_pda,
-            ErrorCode::InvalidChunkAccount
-        );
-
-        require_keys_eq!(
-            *chunk_account.owner,
-            crate::ID,
-            ErrorCode::InvalidAccountOwner
-        );
+        verify_misbehaviour_chunk_pda(chunk_account, submitter, index as u8, chunk_bumps[index])?;
 
         let mut data = chunk_account.try_borrow_mut_data()?;
         data.fill(0);

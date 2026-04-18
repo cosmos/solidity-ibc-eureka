@@ -13,6 +13,8 @@ import (
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
 
+	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
@@ -164,7 +166,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Initialize Access Control", func() {
-		const deployerPath = keypairDir + "/deployer_wallet.json"
+		const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
 		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
 
@@ -188,9 +190,10 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.T().Log("Access control initialized")
 	}))
 
-	s.Require().True(s.Run("Grant RELAYER_ROLE to SolanaUser", func() {
+	s.Require().True(s.Run("Grant RELAYER_ROLE and ID_CUSTOMIZER_ROLE to SolanaUser", func() {
 		accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
 		const RELAYER_ROLE = uint64(1)
+		const ID_CUSTOMIZER_ROLE = uint64(6)
 
 		grantRelayerRoleInstruction, err := access_manager.NewGrantRoleInstruction(
 			RELAYER_ROLE,
@@ -201,7 +204,16 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		)
 		s.Require().NoError(err)
 
-		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction)
+		grantCustomizerRoleInstruction, err := access_manager.NewGrantRoleInstruction(
+			ID_CUSTOMIZER_ROLE,
+			s.SolanaUser.PublicKey(),
+			accessControlAccount,
+			s.SolanaUser.PublicKey(),
+			solanago.SysVarInstructionsPubkey,
+		)
+		s.Require().NoError(err)
+
+		tx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), grantRelayerRoleInstruction, grantCustomizerRoleInstruction)
 		s.Require().NoError(err)
 		_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, tx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
 		s.Require().NoError(err)
@@ -210,7 +222,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 
 	s.Require().True(s.Run("Initialize ICS26 Router", func() {
 		s.T().Log("Initializing ICS26 Router...")
-		const deployerPath = keypairDir + "/deployer_wallet.json"
+		const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
 		deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
 		s.Require().NoError(err)
 
@@ -319,7 +331,11 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 	s.Require().NoError(err, "Failed to decode transaction")
 
-	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetry(ctx, unsignedSolanaTx, rpc.CommitmentConfirmed, s.SolanaUser)
+	const deployerPath = "solana-keypairs/localnet/deployer_wallet.json"
+	deployerWallet, err := solana.LoadDeployerWallet(deployerPath)
+	s.Require().NoError(err, "Failed to load deployer wallet")
+
+	sig, err := s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, unsignedSolanaTx, rpc.CommitmentConfirmed, 30, s.SolanaUser, deployerWallet)
 	s.Require().NoError(err, "Failed to broadcast create client transaction")
 
 	s.T().Logf("Successfully created Tendermint client on Solana")
@@ -336,6 +352,36 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	s.Require().NoError(err, "Failed to parse client state")
 
 	s.Require().Equal(s.ExternalCosmosChainID, clientState.ChainId, "Chain ID mismatch")
+
+	clientID := s.ExternalCosmosChainID
+	routerStateAccount, _ := solana.Ics26Router.RouterStatePDA(ics26_router.ProgramID)
+	accessControlAccount, _ := solana.AccessManager.AccessManagerPDA(access_manager.ProgramID)
+	clientAccount, _ := solana.Ics26Router.ClientWithArgSeedPDA(ics26_router.ProgramID, []byte(clientID))
+
+	counterpartyInfo := ics26_router.SolanaIbcTypesRouterCounterpartyInfo{
+		ClientId:     clientID,
+		MerklePrefix: [][]byte{[]byte(ibcexported.StoreKey), []byte("")},
+	}
+
+	addClientInstruction, err := ics26_router.NewAddClientInstruction(
+		clientID,
+		counterpartyInfo,
+		s.SolanaUser.PublicKey(),
+		routerStateAccount,
+		accessControlAccount,
+		clientAccount,
+		ics07_tendermint.ProgramID,
+		solanago.SystemProgramID,
+		solanago.SysVarInstructionsPubkey,
+	)
+	s.Require().NoError(err, "Failed to create add client instruction")
+
+	addClientTx, err := s.SolanaChain.NewTransactionFromInstructions(s.SolanaUser.PublicKey(), addClientInstruction)
+	s.Require().NoError(err)
+
+	_, err = s.SolanaChain.SignAndBroadcastTxWithRetryAndTimeout(ctx, addClientTx, rpc.CommitmentConfirmed, 30, s.SolanaUser)
+	s.Require().NoError(err, "Failed to add client to router")
+	s.T().Logf("Client %s registered with ICS26 router", clientID)
 }
 
 func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {

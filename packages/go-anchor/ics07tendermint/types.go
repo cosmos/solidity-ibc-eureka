@@ -309,6 +309,11 @@ type Ics07TendermintStateSignatureVerification struct {
 
 	// The submitter who created this verification
 	Submitter solanago.PublicKey `json:"submitter"`
+
+	// Hash of `pk || msg || signature` used to match verification accounts
+	// without re-deriving the PDA. Validated against the recomputed hash at
+	// account creation time in `pre_verify_signature`.
+	SigHash [32]uint8 `json:"sigHash"`
 }
 
 func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder *binary.Encoder) (err error) {
@@ -321,6 +326,11 @@ func (obj Ics07TendermintStateSignatureVerification) MarshalWithEncoder(encoder 
 	err = encoder.Encode(obj.Submitter)
 	if err != nil {
 		return errors.NewField("Submitter", err)
+	}
+	// Serialize `SigHash`:
+	err = encoder.Encode(obj.SigHash)
+	if err != nil {
+		return errors.NewField("SigHash", err)
 	}
 	return nil
 }
@@ -345,6 +355,11 @@ func (obj *Ics07TendermintStateSignatureVerification) UnmarshalWithDecoder(decod
 	err = decoder.Decode(&obj.Submitter)
 	if err != nil {
 		return errors.NewField("Submitter", err)
+	}
+	// Deserialize `SigHash`:
+	err = decoder.Decode(&obj.SigHash)
+	if err != nil {
+		return errors.NewField("SigHash", err)
 	}
 	return nil
 }

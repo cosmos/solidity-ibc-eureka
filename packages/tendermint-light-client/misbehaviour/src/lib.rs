@@ -107,6 +107,7 @@ pub fn check_for_misbehaviour<'a>(
     time: u128,
     verification_accounts: &'a [anchor_lang::prelude::AccountInfo<'a>],
     program_id: &'a anchor_lang::prelude::Pubkey,
+    sig_verification_discriminator: [u8; 8],
 ) -> Result<MisbehaviourOutput, MisbehaviourError> {
     let verifier = tendermint_light_client_solana::SolanaVerifier::new(
         tendermint_light_client_solana::SolanaPredicates,
@@ -114,6 +115,7 @@ pub fn check_for_misbehaviour<'a>(
             tendermint_light_client_solana::SolanaSignatureVerifier::new(
                 verification_accounts,
                 program_id,
+                sig_verification_discriminator,
             ),
         ),
         tendermint_light_client_verifier::operations::commit_validator::ProdCommitValidator,
