@@ -115,6 +115,16 @@ const (
 	EnvKeyE2EFacuetAddress = "E2E_FAUCET_ADDRESS"
 	// EnvKeyEthereumPosNetworkPreset The environment variable name to configure the Kurtosis network preset
 	EnvKeyEthereumPosNetworkPreset = "ETHEREUM_POS_NETWORK_PRESET"
+	// EnvKeyEthereumPosELType is the environment variable name to configure the Ethereum execution layer image for the kurtosis devnet. Only used if ETH_TESTNET_TYPE=pos.
+	EnvKeyEthereumPosELType = "ETHEREUM_EL_TYPE"
+	// EnvKeyEthereumPosCLType is the environment variable name to configure the Ethereum consensus layer image for the kurtosis devnet. Only used if ETH_TESTNET_TYPE=pos.
+	EnvKeyEthereumPosCLType = "ETHEREUM_CL_TYPE"
+
+	EnvValueEthereumELType_Geth = "geth"
+	EnvValueEthereumELType_Besu = "besu"
+
+	EnvValueEthereumCLType_Lodestar = "lodestar"
+
 	// EnvKeyE2EProofType is the environment variable name to configure the proof type. (groth16|plonk)
 	// A randomly selected proof type is used if not set.
 	EnvKeyE2EProofType = "E2E_PROOF_TYPE"
