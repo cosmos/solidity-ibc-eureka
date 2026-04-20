@@ -24,13 +24,13 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
-	gmptypes "github.com/cosmos/ibc-go/v10/modules/apps/27-gmp/types"
-	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	gmptypes "github.com/cosmos/ibc-go/v11/modules/apps/27-gmp/types"
+	transfertypes "github.com/cosmos/ibc-go/v11/modules/apps/transfer/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	clienttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/02-client/v2/types"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics27gmp"

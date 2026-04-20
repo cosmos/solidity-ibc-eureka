@@ -8,7 +8,7 @@ import (
 	dockerclient "github.com/moby/moby/client"
 	"go.uber.org/zap"
 
-	"github.com/cosmos/interchaintest/v10/ibc"
+	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"

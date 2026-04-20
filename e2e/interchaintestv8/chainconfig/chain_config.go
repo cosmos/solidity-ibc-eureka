@@ -1,8 +1,8 @@
 package chainconfig
 
 import (
-	interchaintest "github.com/cosmos/interchaintest/v10"
-	"github.com/cosmos/interchaintest/v10/ibc"
+	interchaintest "github.com/cosmos/interchaintest/v11"
+	"github.com/cosmos/interchaintest/v11/ibc"
 )
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{
@@ -19,7 +19,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
-					Version:    "main",                            // FOR LOCAL IMAGE USE: Docker Image Tag
+					Version:    "v11.0.0",                         // FOR LOCAL IMAGE USE: Docker Image Tag
 					UIDGID:     "1025:1025",
 				},
 			},
