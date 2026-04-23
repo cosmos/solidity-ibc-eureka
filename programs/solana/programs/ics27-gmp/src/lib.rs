@@ -1,12 +1,16 @@
 use anchor_lang::prelude::*;
 use solana_ibc_macros::ibc_app;
 
+pub mod abi;
 pub mod constants;
+pub mod encoding;
 pub mod errors;
 pub mod events;
+pub mod gmp_solana_payload;
 pub mod instructions;
 pub mod proto;
 pub mod router_cpi;
+mod sol_types;
 pub mod state;
 
 #[cfg(test)]
@@ -81,11 +85,21 @@ pub mod ics27_gmp {
         instructions::unpause_app(ctx)
     }
 
-    /// Set the access manager program (admin only)
-    pub fn set_access_manager(
-        ctx: Context<SetAccessManager>,
+    /// Propose transferring the access manager to a new program (admin only)
+    pub fn propose_access_manager_transfer(
+        ctx: Context<ProposeAccessManagerTransfer>,
         new_access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::set_access_manager(ctx, new_access_manager)
+        instructions::propose_access_manager_transfer(ctx, new_access_manager)
+    }
+
+    /// Accept a pending access manager transfer (new AM admin only)
+    pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
+        instructions::accept_access_manager_transfer(ctx)
+    }
+
+    /// Cancel a pending access manager transfer (current AM admin only)
+    pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
+        instructions::cancel_access_manager_transfer(ctx)
     }
 }

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"testing"
 	"time"
 	"unicode"
 
@@ -35,25 +36,24 @@ import (
 	comettypes "github.com/cometbft/cometbft/types"
 	comettime "github.com/cometbft/cometbft/types/time"
 
-	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v10/types"
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
-	tmclient "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
-	ibctesting "github.com/cosmos/ibc-go/v10/testing"
+	ibcwasmtypes "github.com/cosmos/ibc-go/modules/light-clients/08-wasm/v11/types"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
+	tmclient "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
+	ibctesting "github.com/cosmos/ibc-go/v11/testing"
 
-	"github.com/cosmos/interchaintest/v10"
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
-	"github.com/cosmos/interchaintest/v10/testutil"
+	"github.com/cosmos/interchaintest/v11"
+	"github.com/cosmos/interchaintest/v11/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/ibc"
+	"github.com/cosmos/interchaintest/v11/testutil"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
 )
 
-// BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
-// Once the broadcast response is returned, we wait for two blocks to be created on chain.
-func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+// broadcastMessages is the shared broadcast path. Pass waitBlocks=0 to skip the post-inclusion wait.
+func (s *TestSuite) broadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, waitBlocks int, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
 	sdk.GetConfig().SetBech32PrefixForAccount(chain.Config().Bech32Prefix, chain.Config().Bech32Prefix+sdk.PrefixPublic)
 	sdk.GetConfig().SetBech32PrefixForValidator(
 		chain.Config().Bech32Prefix+sdk.PrefixValidator+sdk.PrefixOperator,
@@ -79,14 +79,26 @@ func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosC
 		return nil, err
 	}
 
-	// wait for 2 blocks for the transaction to be included
-	s.Require().NoError(testutil.WaitForBlocks(ctx, 2, chain))
+	if waitBlocks > 0 {
+		s.Require().NoError(testutil.WaitForBlocks(ctx, waitBlocks, chain))
+	}
 
 	if resp.Code != 0 {
 		return nil, fmt.Errorf("tx failed with code %d: %s", resp.Code, resp.RawLog)
 	}
 
 	return &resp, nil
+}
+
+// BroadcastMessages broadcasts the provided messages to the given chain and signs them on behalf of the provided user.
+// Once the broadcast response is returned, we wait for two blocks to be created on chain.
+func (s *TestSuite) BroadcastMessages(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return s.broadcastMessages(ctx, chain, user, gas, 2, msgs...)
+}
+
+// BroadcastMessagesNoWait is like BroadcastMessages but skips the 2-block wait after inclusion.
+func (s *TestSuite) BroadcastMessagesNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, msgs ...sdk.Msg) (*sdk.TxResponse, error) {
+	return s.broadcastMessages(ctx, chain, user, gas, 0, msgs...)
 }
 
 // CreateAndFundCosmosUser returns a new cosmos user with the initial balance and funds it with the native chain denom.
@@ -409,6 +421,62 @@ func (s *TestSuite) BroadcastSdkTxBody(ctx context.Context, chain *cosmos.Cosmos
 	s.Require().NotZero(len(msgs))
 
 	return s.BroadcastMessages(ctx, chain, user, gas, msgs...)
+}
+
+func (s *TestSuite) BroadcastSdkTxBodyNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) (*sdk.TxResponse, error) {
+	var txBody txtypes.TxBody
+	err := proto.Unmarshal(txBodyBz, &txBody)
+	s.Require().NoError(err)
+
+	var msgs []sdk.Msg
+	for _, msg := range txBody.Messages {
+		var sdkMsg sdk.Msg
+		err = chain.Config().EncodingConfig.InterfaceRegistry.UnpackAny(msg, &sdkMsg)
+		s.Require().NoError(err)
+
+		msgs = append(msgs, sdkMsg)
+	}
+
+	s.Require().NotZero(len(msgs))
+
+	return s.BroadcastMessagesNoWait(ctx, chain, user, gas, msgs...)
+}
+
+func (s *TestSuite) MustBroadcastSdkTxBodyNoWait(ctx context.Context, chain *cosmos.CosmosChain, user ibc.Wallet, gas uint64, txBodyBz []byte) *sdk.TxResponse {
+	resp, err := s.BroadcastSdkTxBodyNoWait(ctx, chain, user, gas, txBodyBz)
+	s.Require().NoError(err)
+
+	return resp
+}
+
+// BlockTimeFetcher abstracts reading the latest block timestamp from any chain.
+type BlockTimeFetcher interface {
+	GetBlockTime(ctx context.Context) (int64, error)
+}
+
+// ProofStaleness is the extra time to wait after a timeout is reached on-chain
+// before relaying the timeout proof. The relayer builds proofs against recent
+// consensus states that may lag behind the actual chain clock by ~12s (attestor
+// update interval). Without this buffer the destination chain rejects the proof
+// because its counterparty timestamp is still below the timeout.
+const ProofStaleness = 15 * time.Second
+
+// WaitForBlockTime polls chain's block time every second until it exceeds
+// timeoutTimestamp, returning an error if 2 minutes elapse first.
+func WaitForBlockTime(ctx context.Context, t *testing.T, chain BlockTimeFetcher, timeoutTimestamp uint64) error {
+	t.Helper()
+	start := time.Now()
+	return testutil.WaitForCondition(2*time.Minute, time.Second, func() (bool, error) {
+		blockTime, err := chain.GetBlockTime(ctx)
+		if err != nil {
+			return false, nil
+		}
+		if uint64(blockTime) > timeoutTimestamp {
+			t.Logf("Timeout reached after %s (block time: %d > timeout: %d)", time.Since(start).Round(time.Second), blockTime, timeoutTimestamp)
+			return true, nil
+		}
+		return false, nil
+	})
 }
 
 // StripHTTPPrefix removes http:// or https:// prefix from an endpoint.

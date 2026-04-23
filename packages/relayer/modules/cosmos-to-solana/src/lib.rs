@@ -13,12 +13,14 @@ pub mod tx_builder;
 use std::collections::HashMap;
 
 use ibc_eureka_relayer_lib::aggregator::Config as AggregatorConfig;
+use ibc_eureka_relayer_lib::events::SolanaEurekaEvent;
 use ibc_eureka_relayer_lib::listener::cosmos_sdk;
 use ibc_eureka_relayer_lib::listener::solana;
 use ibc_eureka_relayer_lib::listener::ChainListenerService;
 use ibc_eureka_relayer_lib::service_utils::parse_cosmos_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::parse_solana_tx_hashes;
 use ibc_eureka_relayer_lib::service_utils::to_tonic_status;
+use ibc_eureka_relayer_lib::utils::wait_for_condition;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
@@ -65,6 +67,11 @@ pub struct CosmosToSolanaConfig {
     pub solana_fee_payer: String,
     /// Address Lookup Table address for reducing transaction size (optional).
     pub solana_alt_address: Option<String>,
+    /// Whitelisted Solana IFT program IDs. Only IFT instructions targeting
+    /// these programs are relayed (defense-in-depth against untrusted GMP
+    /// sender fields). Empty means IFT relay is disabled.
+    #[serde(default)]
+    pub solana_ift_program_ids: Vec<String>,
     /// Signature threshold below which pre-verification is skipped.
     /// None = always use pre-verification, Some(n) = skip when signatures ≤ n.
     /// Default: Some(50)
@@ -121,6 +128,13 @@ impl CosmosToSolanaRelayerModuleService {
             .transpose()
             .map_err(|e| anyhow::anyhow!("Invalid ALT address: {e}"))?;
 
+        let ift_program_ids = config
+            .solana_ift_program_ids
+            .iter()
+            .map(|addr| addr.parse())
+            .collect::<std::result::Result<Vec<_>, _>>()
+            .map_err(|e| anyhow::anyhow!("Invalid IFT program ID: {e}"))?;
+
         let tx_builder = match &config.mode {
             SolanaTxBuilderMode::Ics07Tendermint => {
                 let builder = tx_builder::TxBuilder::new(
@@ -130,6 +144,7 @@ impl CosmosToSolanaRelayerModuleService {
                     fee_payer,
                     alt_address,
                     config.skip_pre_verify_threshold,
+                    ift_program_ids,
                 )?;
                 CosmosToSolanaTxBuilder::Ics07Tendermint(builder)
             }
@@ -141,6 +156,7 @@ impl CosmosToSolanaRelayerModuleService {
                     fee_payer,
                     alt_address,
                     config.skip_pre_verify_threshold,
+                    ift_program_ids,
                 )?;
                 let attested_builder =
                     tx_builder::AttestedTxBuilder::new(aggregator_config.clone(), base_builder)
@@ -219,6 +235,55 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 
         tracing::debug!("Fetched {} target events", target_events.len());
 
+        // For timeouts in attested mode, find a source chain height whose
+        // block time is past the packet timeout. ICS07 Tendermint does not
+        // use this value.
+        let timeout_relay_height = if self.tx_builder.is_attested() {
+            let max_timeout = target_events
+                .iter()
+                .filter_map(|e| match &e.event {
+                    SolanaEurekaEvent::SendPacket(event) => Some(event.timeout_timestamp),
+                    SolanaEurekaEvent::WriteAcknowledgement(_) => None,
+                })
+                .max();
+
+            if let Some(max_timeout) = max_timeout {
+                let now = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .expect("system clock before UNIX epoch")
+                    .as_secs();
+                let cutoff = now.min(max_timeout);
+                let src_listener = &self.src_listener;
+                wait_for_condition(
+                    std::time::Duration::from_secs(24),
+                    std::time::Duration::from_secs(1),
+                    || async {
+                        let (_, block_time) = src_listener.get_block_height_with_time().await?;
+                        if block_time >= cutoff {
+                            Ok(true)
+                        } else {
+                            tracing::debug!(
+                                "Cosmos block time ({block_time}) < cutoff ({cutoff}), waiting"
+                            );
+                            Ok(false)
+                        }
+                    },
+                )
+                .await
+                .map_err(to_tonic_status)?;
+                let (height, _) = self
+                    .src_listener
+                    .get_block_height_with_time()
+                    .await
+                    .map_err(to_tonic_status)?;
+                Some(height)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
         let (packet_txs, update_client) = self
             .tx_builder
             .relay_events(
@@ -228,6 +293,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
                 &inner_req.dst_client_id,
                 &inner_req.src_packet_sequences,
                 &inner_req.dst_packet_sequences,
+                timeout_relay_height,
             )
             .await
             .map_err(to_tonic_status)?;
@@ -318,6 +384,7 @@ impl RelayerModule for CosmosToSolanaRelayerModule {
 
 // Implement dispatch methods on the enum
 impl CosmosToSolanaTxBuilder {
+    #[allow(clippy::too_many_arguments)]
     async fn relay_events(
         &self,
         src_events: Vec<ibc_eureka_relayer_lib::events::EurekaEventWithHeight>,
@@ -326,6 +393,7 @@ impl CosmosToSolanaTxBuilder {
         dst_client_id: &str,
         src_packet_seqs: &[u64],
         dst_packet_seqs: &[u64],
+        timeout_relay_height: Option<u64>,
     ) -> anyhow::Result<(
         Vec<ibc_eureka_relayer_core::api::SolanaPacketTxs>,
         Option<ibc_eureka_relayer_core::api::SolanaUpdateClient>,
@@ -339,6 +407,7 @@ impl CosmosToSolanaTxBuilder {
                     dst_client_id: dst_client_id.to_string(),
                     src_packet_seqs: src_packet_seqs.to_vec(),
                     dst_packet_seqs: dst_packet_seqs.to_vec(),
+                    timeout_relay_height,
                 })
                 .await
             }
@@ -350,6 +419,7 @@ impl CosmosToSolanaTxBuilder {
                     dst_client_id: dst_client_id.to_string(),
                     src_packet_seqs: src_packet_seqs.to_vec(),
                     dst_packet_seqs: dst_packet_seqs.to_vec(),
+                    timeout_relay_height,
                 })
                 .await
             }
@@ -371,5 +441,9 @@ impl CosmosToSolanaTxBuilder {
             Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(dst_client_id).await,
         }
+    }
+
+    const fn is_attested(&self) -> bool {
+        matches!(self, Self::Attested(_))
     }
 }

@@ -45,8 +45,8 @@ pub enum GMPError {
     #[msg("Insufficient account permissions")]
     InsufficientAccountPermissions,
 
-    #[msg("Unauthorized signer")]
-    UnauthorizedSigner,
+    #[msg("Account must not be a signer")]
+    UnexpectedSigner,
 
     #[msg("Execution too expensive")]
     ExecutionTooExpensive,
@@ -132,6 +132,9 @@ pub enum GMPError {
     #[msg("Result account PDA mismatch")]
     ResultAccountPDAMismatch,
 
+    #[msg("Invalid ABI encoding")]
+    InvalidAbiEncoding,
+
     #[msg("Light client program does not match client registry")]
     InvalidLightClientProgram,
 
@@ -140,6 +143,9 @@ pub enum GMPError {
 
     #[msg("Invalid access manager")]
     InvalidAccessManager,
+
+    #[msg("Only the program's upgrade authority can call initialize")]
+    UnauthorizedDeployer,
 }
 
 /// Convert GMP validation errors to GMP errors

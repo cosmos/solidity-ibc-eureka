@@ -3,6 +3,7 @@
 /// This example demonstrates how to migrate `GMPAppState` from V1 to a hypothetical V2
 /// with additional fields. This pattern shows how the `version` field and `_reserved`
 /// space enable seamless upgrades without breaking existing deployments.
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
 use anchor_lang::{AnchorSerialize, Discriminator};
 use ics27_gmp::state::{AccountVersion, GMPAppState};
@@ -22,7 +23,7 @@ fn setup_gmp_app_state(paused: bool) -> (Pubkey, Vec<u8>) {
         version: AccountVersion::V1,
         paused,
         bump,
-        access_manager: access_manager::ID,
+        am_state: AccessManagerState::new(access_manager::ID),
         _reserved: [0; 256],
     };
     let app_state_data = create_account_data(&app_state);
@@ -47,8 +48,8 @@ pub struct GMPAppStateV2Example {
     pub paused: bool,
     /// PDA bump seed (existing V1 field)
     pub bump: u8,
-    /// Access manager program ID (existing V1 field)
-    pub access_manager: Pubkey,
+    /// Access manager transfer state (existing V1 field)
+    pub am_state: AccessManagerState,
 
     // ========== NEW V2 FIELDS ==========
     /// Fee collector account for GMP operations (NEW in V2)
@@ -57,9 +58,9 @@ pub struct GMPAppStateV2Example {
     pub global_rate_limit: u64, // 8 bytes
     /// Total number of packets processed (NEW in V2)
     pub total_packets_processed: u64, // 8 bytes
-    // Total new fields: 33 + 8 + 8 = 49 bytes (plus access_manager: 32 bytes = 81 bytes total)
-    /// Reserved space for future fields (reduced from 256 to 175)
-    pub _reserved: [u8; 175],
+    // Total new fields: 33 + 8 + 8 = 49 bytes
+    /// Reserved space for future fields (reduced from 256 to 207)
+    pub _reserved: [u8; 207],
 }
 
 #[test]
@@ -89,7 +90,7 @@ fn test_gmp_app_state_migration_v1_to_v2() {
     assert!(state.fee_collector.is_some());
     assert_eq!(state.global_rate_limit, 1000);
     assert_eq!(state.total_packets_processed, 0);
-    assert_eq!(state._reserved.len(), 175); // 256 - 49 (V2 fields) - 32 (access_manager) = 175
+    assert_eq!(state._reserved.len(), 207); // 256 - 49 (V2 fields) = 207
 }
 
 #[test]
@@ -130,11 +131,10 @@ fn test_gmp_app_state_reserved_space_sufficient() {
     let state: GMPAppStateV2Example = AnchorDeserialize::deserialize(&mut cursor).unwrap();
 
     // Verify we can add fields and still have reserved space
-    // V1 added access_manager: 32 bytes
     // V2 adds 49 bytes of new fields (fee_collector + global_rate_limit + total_packets_processed)
     // Original reserved: 256 bytes
-    // Remaining reserved: 175 bytes (still plenty for future upgrades)
-    assert_eq!(state._reserved.len(), 175);
+    // Remaining reserved: 207 bytes (still plenty for future upgrades)
+    assert_eq!(state._reserved.len(), 207);
 }
 
 #[test]

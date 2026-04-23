@@ -121,6 +121,7 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 	gh := actionTestMatrix{
 		Include: []testSuitePair{},
 	}
+
 	for testSuiteName, testCases := range testSuiteMapping {
 		for _, testCaseName := range testCases {
 			// Check if this specific test is excluded
@@ -141,10 +142,13 @@ func getGitHubActionMatrixForTests(e2eRootDirectory, suite string, excludedItems
 	}
 
 	sort.Slice(gh.Include, func(i, j int) bool {
-		if gh.Include[i].EntryPoint == gh.Include[j].EntryPoint {
+		if gh.Include[i].EntryPoint != gh.Include[j].EntryPoint {
+			return gh.Include[i].EntryPoint < gh.Include[j].EntryPoint
+		}
+		if gh.Include[i].Test != gh.Include[j].Test {
 			return gh.Include[i].Test < gh.Include[j].Test
 		}
-		return gh.Include[i].EntryPoint < gh.Include[j].EntryPoint
+		return false
 	})
 
 	return gh, nil

@@ -11,6 +11,9 @@ use solana_sdk::{
 use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
+use ibc_eureka_relayer_lib::utils::solana_v0_tx::{
+    derive_alt_address, extend_compute_ix, extend_compute_ix_with_heap,
+};
 use solana_ibc_types::ics07::{ics07_instructions, ClientState, ConsensusState, SignatureData};
 use solana_ibc_types::AccessManager;
 
@@ -23,6 +26,7 @@ impl super::TxBuilder {
         client_state: &ClientState,
         consensus_state: &ConsensusState,
         access_manager: Pubkey,
+        authority: Pubkey,
     ) -> Result<Instruction> {
         // For create_client, we use the default ICS07 Tendermint light client.
         let solana_ics07_program_id: Pubkey = solana_ibc_constants::ICS07_TENDERMINT_ID
@@ -33,12 +37,19 @@ impl super::TxBuilder {
         let (consensus_state_pda, _) = ConsensusState::pda(latest_height, solana_ics07_program_id);
         let (app_state_pda, _) = solana_ibc_types::ics07::AppState::pda(solana_ics07_program_id);
 
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[solana_ics07_program_id.as_ref()],
+            &solana_sdk::bpf_loader_upgradeable::id(),
+        );
+
         let accounts = vec![
             AccountMeta::new(client_state_pda, false),
             AccountMeta::new(consensus_state_pda, false),
             AccountMeta::new(app_state_pda, false),
             AccountMeta::new(self.fee_payer, true),
             AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
+            AccountMeta::new_readonly(program_data_pda, false),
+            AccountMeta::new_readonly(authority, true),
         ];
 
         let discriminator = ics07_instructions::initialize_discriminator();
@@ -67,8 +78,6 @@ impl super::TxBuilder {
         alt_config: Option<(u64, Vec<Pubkey>)>,
         solana_ics07_program_id: Pubkey,
     ) -> Result<Vec<u8>> {
-        use super::transaction::derive_alt_address;
-
         let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
         let (trusted_consensus_state, _) =
             ConsensusState::pda(trusted_height, solana_ics07_program_id);
@@ -120,7 +129,7 @@ impl super::TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix_with_heap();
+        let mut instructions = extend_compute_ix_with_heap();
         instructions.push(ix);
 
         match alt_config {
@@ -167,7 +176,7 @@ impl super::TxBuilder {
             data,
         };
 
-        let mut instructions = Self::extend_compute_ix();
+        let mut instructions = extend_compute_ix();
         instructions.push(instruction);
 
         self.create_tx_bytes(&instructions)

@@ -145,14 +145,12 @@ pub fn finalize_transfer(
             mint_to_account(
                 &mut ctx.accounts.app_mint_state,
                 &clock,
-                &ctx.accounts.mint,
-                &ctx.accounts.sender_token_account,
+                &mut ctx.accounts.mint,
+                &mut ctx.accounts.sender_token_account,
                 &ctx.accounts.mint_authority,
                 &ctx.accounts.token_program,
                 pending.amount,
             )?;
-            ctx.accounts.mint.reload()?;
-            ctx.accounts.sender_token_account.reload()?;
 
             emit!(IFTTransferRefunded {
                 mint: ctx.accounts.app_mint_state.mint,
@@ -169,8 +167,8 @@ pub fn finalize_transfer(
                 mint_to_account(
                     &mut ctx.accounts.app_mint_state,
                     &clock,
-                    &ctx.accounts.mint,
-                    &ctx.accounts.sender_token_account,
+                    &mut ctx.accounts.mint,
+                    &mut ctx.accounts.sender_token_account,
                     &ctx.accounts.mint_authority,
                     &ctx.accounts.token_program,
                     pending.amount,

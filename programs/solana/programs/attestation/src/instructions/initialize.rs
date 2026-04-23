@@ -1,7 +1,9 @@
 use crate::error::ErrorCode;
 use crate::types::{AccountVersion, AppState, ClientState};
 use crate::ETH_ADDRESS_LEN;
+use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
+use anchor_lang::solana_program::bpf_loader_upgradeable;
 
 /// Creates the attestation [`ClientState`] and [`AppState`] PDAs with the initial attestor set.
 #[derive(Accounts)]
@@ -31,6 +33,19 @@ pub struct Initialize<'info> {
 
     /// Required for PDA account creation.
     pub system_program: Program<'info, System>,
+
+    /// BPF Loader Upgradeable `ProgramData` account for this program.
+    #[account(
+        seeds = [crate::ID.as_ref()],
+        bump,
+        seeds::program = bpf_loader_upgradeable::ID,
+        constraint = program_data.upgrade_authority_address == Some(authority.key())
+            @ ErrorCode::UnauthorizedDeployer
+    )]
+    pub program_data: Account<'info, ProgramData>,
+
+    /// The program's upgrade authority — must sign to prove deployer identity.
+    pub authority: Signer<'info>,
 }
 
 pub fn initialize(
@@ -43,6 +58,7 @@ pub fn initialize(
         access_manager != Pubkey::default(),
         ErrorCode::InvalidAccessManager
     );
+
     require!(!attestor_addresses.is_empty(), ErrorCode::NoAttestors);
     require!(
         min_required_sigs > 0 && (min_required_sigs as usize) <= attestor_addresses.len(),
@@ -67,7 +83,7 @@ pub fn initialize(
 
     let app_state = &mut ctx.accounts.app_state;
     app_state.version = AccountVersion::V1;
-    app_state.access_manager = access_manager;
+    app_state.am_state = AccessManagerState::new(access_manager);
     app_state._reserved = [0; 256];
 
     Ok(())
@@ -77,7 +93,8 @@ pub fn initialize(
 mod tests {
     use super::*;
     use crate::test_helpers::accounts::{
-        create_empty_account, create_payer_account, create_system_program_account,
+        create_empty_account, create_payer_account, create_program_data_account,
+        create_system_program_account,
     };
     use crate::test_helpers::PROGRAM_BINARY_PATH;
     use crate::types::{AppState, ClientState};
@@ -91,6 +108,7 @@ mod tests {
 
     struct TestAccounts {
         payer: Pubkey,
+        authority: Pubkey,
         client_state_pda: Pubkey,
         app_state_pda: Pubkey,
         accounts: Vec<(Pubkey, Account)>,
@@ -98,18 +116,24 @@ mod tests {
 
     fn setup_test_accounts() -> TestAccounts {
         let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
         let client_state_pda = ClientState::pda();
         let app_state_pda = AppState::pda();
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
 
         let accounts = vec![
             (client_state_pda, create_empty_account()),
             (app_state_pda, create_empty_account()),
             (payer, create_payer_account()),
             (system_program::ID, create_system_program_account()),
+            (program_data_pda, program_data_account),
+            (authority, create_payer_account()),
         ];
 
         TestAccounts {
             payer,
+            authority,
             client_state_pda,
             app_state_pda,
             accounts,
@@ -121,6 +145,11 @@ mod tests {
         attestor_addresses: Vec<[u8; ETH_ADDRESS_LEN]>,
         min_required_sigs: u8,
     ) -> Instruction {
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[crate::ID.as_ref()],
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+        );
+
         let instruction_data = crate::instruction::Initialize {
             attestor_addresses,
             min_required_sigs,
@@ -134,6 +163,8 @@ mod tests {
                 AccountMeta::new(test_accounts.app_state_pda, false),
                 AccountMeta::new(test_accounts.payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(test_accounts.authority, true),
             ],
             data: instruction_data.data(),
         }
@@ -208,6 +239,11 @@ mod tests {
     fn test_initialize_rejects_default_access_manager() {
         let test_accounts = setup_test_accounts();
 
+        let (program_data_pda, _) = Pubkey::find_program_address(
+            &[crate::ID.as_ref()],
+            &anchor_lang::solana_program::bpf_loader_upgradeable::ID,
+        );
+
         let instruction_data = crate::instruction::Initialize {
             attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
             min_required_sigs: 2,
@@ -221,10 +257,205 @@ mod tests {
                 AccountMeta::new(test_accounts.app_state_pda, false),
                 AccountMeta::new(test_accounts.payer, true),
                 AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(test_accounts.authority, true),
             ],
             data: instruction_data.data(),
         };
 
         expect_error(&test_accounts, instruction, ErrorCode::InvalidAccessManager);
+    }
+
+    #[test]
+    fn test_initialize_cannot_reinitialize() {
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let client_state_pda = ClientState::pda();
+        let app_state_pda = AppState::pda();
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(authority));
+
+        let client_state = ClientState {
+            version: crate::types::AccountVersion::V1,
+            attestor_addresses: vec![[1u8; 20]],
+            min_required_sigs: 1,
+            latest_height: 0,
+            is_frozen: false,
+        };
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                attestor_addresses: vec![[1u8; 20], [2u8; 20]],
+                min_required_sigs: 1,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (
+                client_state_pda,
+                crate::test_helpers::accounts::create_client_state_account(&client_state),
+            ),
+            (
+                app_state_pda,
+                crate::test_helpers::accounts::create_app_state_account(access_manager::ID),
+            ),
+            (payer, create_payer_account()),
+            (system_program::ID, create_system_program_account()),
+            (program_data_pda, program_data_account),
+            (authority, create_payer_account()),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        // Anchor's `init` constraint fails when account already exists (Custom(0))
+        mollusk.process_and_validate_instruction(
+            &instruction,
+            &accounts,
+            &[Check::err(solana_sdk::program_error::ProgramError::Custom(
+                0,
+            ))],
+        );
+    }
+
+    #[test]
+    fn test_initialize_wrong_authority_rejected() {
+        let payer = Pubkey::new_unique();
+        let real_authority = Pubkey::new_unique();
+        let wrong_authority = Pubkey::new_unique();
+        let client_state_pda = ClientState::pda();
+        let app_state_pda = AppState::pda();
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, Some(real_authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(wrong_authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+                min_required_sigs: 2,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, create_empty_account()),
+            (app_state_pda, create_empty_account()),
+            (payer, create_payer_account()),
+            (system_program::ID, create_system_program_account()),
+            (program_data_pda, program_data_account),
+            (wrong_authority, create_payer_account()),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(ErrorCode::UnauthorizedDeployer).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_immutable_program_rejected() {
+        let payer = Pubkey::new_unique();
+        let authority = Pubkey::new_unique();
+        let client_state_pda = ClientState::pda();
+        let app_state_pda = AppState::pda();
+        let (program_data_pda, program_data_account) =
+            create_program_data_account(&crate::ID, None);
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+                min_required_sigs: 2,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, create_empty_account()),
+            (app_state_pda, create_empty_account()),
+            (payer, create_payer_account()),
+            (system_program::ID, create_system_program_account()),
+            (program_data_pda, program_data_account),
+            (authority, create_payer_account()),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        let checks = vec![Check::err(
+            anchor_lang::error::Error::from(ErrorCode::UnauthorizedDeployer).into(),
+        )];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
+    }
+
+    #[test]
+    fn test_initialize_cross_program_data_rejected() {
+        let authority = Pubkey::new_unique();
+        let other_program_id = Pubkey::new_unique();
+        let payer = Pubkey::new_unique();
+        let client_state_pda = ClientState::pda();
+        let app_state_pda = AppState::pda();
+        let (wrong_program_data_pda, wrong_program_data_account) =
+            create_program_data_account(&other_program_id, Some(authority));
+
+        let instruction = Instruction {
+            program_id: crate::ID,
+            accounts: vec![
+                AccountMeta::new(client_state_pda, false),
+                AccountMeta::new(app_state_pda, false),
+                AccountMeta::new(payer, true),
+                AccountMeta::new_readonly(system_program::ID, false),
+                AccountMeta::new_readonly(wrong_program_data_pda, false),
+                AccountMeta::new_readonly(authority, true),
+            ],
+            data: crate::instruction::Initialize {
+                attestor_addresses: vec![[1u8; 20], [2u8; 20], [3u8; 20]],
+                min_required_sigs: 2,
+                access_manager: access_manager::ID,
+            }
+            .data(),
+        };
+
+        let accounts = vec![
+            (client_state_pda, create_empty_account()),
+            (app_state_pda, create_empty_account()),
+            (payer, create_payer_account()),
+            (system_program::ID, create_system_program_account()),
+            (wrong_program_data_pda, wrong_program_data_account),
+            (authority, create_payer_account()),
+        ];
+
+        let mollusk = Mollusk::new(&crate::ID, PROGRAM_BINARY_PATH);
+        // Anchor ConstraintSeeds = 2006
+        let checks = vec![Check::err(solana_sdk::program_error::ProgramError::Custom(
+            2006,
+        ))];
+        mollusk.process_and_validate_instruction(&instruction, &accounts, &checks);
     }
 }

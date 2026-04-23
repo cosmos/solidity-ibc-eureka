@@ -22,10 +22,10 @@ pub use app_msgs::{
 };
 
 pub use router::{
-    router_instructions, AccountVersion, Client, ClientAccount, ClientSequence, Commitment,
-    CounterpartyInfo, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgRecvPacket,
-    MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk, PayloadMetadata,
-    ProofChunk, ProofMetadata, RouterState,
+    router_instructions, AccountVersion, Client, ClientAccount, Commitment, CounterpartyInfo,
+    Delivery, IBCApp, IBCAppState, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof,
+    MsgRecvPacket, MsgSendPacket, MsgTimeoutPacket, MsgUploadChunk, Packet, PayloadChunk,
+    ProofChunk, RouterState,
 };
 
 pub use solana_ibc_proto::MAX_CLIENT_ID_LENGTH;
@@ -42,11 +42,11 @@ pub use ics27::{
 };
 
 pub use events::{
-    AccessManagerUpdated, AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded,
-    NoopEvent, SendPacketEvent, TimeoutPacketEvent, WriteAcknowledgementEvent,
+    AckPacketEvent, ClientAddedEvent, ClientUpdatedEvent, IBCAppAdded, NoopEvent, SendPacketEvent,
+    TimeoutPacketEvent, WriteAcknowledgementEvent,
 };
 
-pub use access_manager::{roles, AccessManager};
+pub use access_manager::{roles, AccessManager, AccessManagerState};
 pub use cpi::{
     is_cpi, reject_cpi, reject_direct_calls, reject_nested_cpi,
     require_direct_call_or_whitelisted_caller, validate_cpi_caller, CpiValidationError,

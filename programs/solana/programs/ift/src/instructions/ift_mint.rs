@@ -106,14 +106,12 @@ pub fn ift_mint(ctx: Context<IFTMint>, msg: IFTMintMsg) -> Result<()> {
     mint_to_account(
         &mut ctx.accounts.app_mint_state,
         &clock,
-        &ctx.accounts.mint,
-        &ctx.accounts.receiver_token_account,
+        &mut ctx.accounts.mint,
+        &mut ctx.accounts.receiver_token_account,
         &ctx.accounts.mint_authority,
         &ctx.accounts.token_program,
         msg.amount,
     )?;
-    ctx.accounts.mint.reload()?;
-    ctx.accounts.receiver_token_account.reload()?;
 
     emit!(IFTMintReceived {
         mint: ctx.accounts.mint.key(),

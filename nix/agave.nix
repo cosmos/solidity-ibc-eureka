@@ -291,24 +291,41 @@
             fi
           done
 
-          # Check for -p flag to determine specific package
+          # Check for -p or --manifest-path flags
+          local manifest_path=""
           for ((i=0; i<''${#cargo_args[@]}; i++)); do
             if [[ "''${cargo_args[$i]}" == "-p" && $((i+1)) -lt ''${#cargo_args[@]} ]]; then
               specific_package="''${cargo_args[$((i+1))]}"
               echo "🎯 Building package: $specific_package"
               break
+            elif [[ "''${cargo_args[$i]}" == "--manifest-path" && $((i+1)) -lt ''${#cargo_args[@]} ]]; then
+              manifest_path="''${cargo_args[$((i+1))]}"
+              # Derive specific_package from manifest path for IDL filtering
+              local manifest_dir
+              manifest_dir="$(dirname "$manifest_path")"
+              specific_package="$(basename "$manifest_dir")"
+              echo "🎯 Building from manifest: $manifest_path"
+              break
             fi
           done
 
           # Build the program(s)
-          if [ -n "$specific_package" ]; then
-            # Build specific package directly with cargo-build-sbf to avoid building all programs
+          if [ -n "$manifest_path" ]; then
+            # Build using the provided manifest path directly
+            if ! cargo build-sbf --manifest-path "$manifest_path" --no-rustup-override --skip-tools-install; then
+              echo "❌ Program build failed"
+              return 1
+            fi
+          elif [ -n "$specific_package" ]; then
+            # Build specific package by finding its directory
             echo "   Building only $specific_package (skipping other programs)..."
 
-            # Find the program directory
             local program_dir=""
+            local hyphenated="''${specific_package//_/-}"
             for dir in programs/*/; do
-              if [ "$(basename "$dir")" = "$specific_package" ]; then
+              local dirname
+              dirname="$(basename "$dir")"
+              if [ "$dirname" = "$specific_package" ] || [ "$dirname" = "$hyphenated" ]; then
                 program_dir="$dir"
                 break
               fi
@@ -319,8 +336,6 @@
               return 1
             fi
 
-            # Build using cargo-build-sbf directly
-            # Use the same flags as anchor to skip tool installation
             if ! cargo build-sbf --manifest-path "''${program_dir}Cargo.toml" --no-rustup-override --skip-tools-install; then
               echo "❌ Program build failed"
               return 1

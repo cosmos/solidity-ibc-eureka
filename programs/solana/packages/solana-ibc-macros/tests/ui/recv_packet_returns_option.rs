@@ -1,0 +1,19 @@
+use solana_ibc_macros::ibc_app;
+
+// on_recv_packet returning Option instead of Result
+#[ibc_app]
+pub mod my_app {
+    pub fn on_recv_packet(ctx: Ctx, msg: OnRecvPacketMsg) -> Option<Vec<u8>> {
+        None
+    }
+
+    pub fn on_acknowledgement_packet(ctx: Ctx, msg: OnAcknowledgementPacketMsg) -> Result<()> {
+        Ok(())
+    }
+
+    pub fn on_timeout_packet(ctx: Ctx, msg: OnTimeoutPacketMsg) -> Result<()> {
+        Ok(())
+    }
+}
+
+fn main() {}

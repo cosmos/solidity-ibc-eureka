@@ -2,6 +2,7 @@
 //!
 //! These types define the messages for packet handling in the ICS26 router.
 
+use crate::access_manager::AccessManagerState;
 use crate::Payload;
 use anchor_lang::prelude::*;
 
@@ -124,27 +125,50 @@ impl Packet {
     }
 }
 
-/// Payload metadata for chunked operations
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct PayloadMetadata {
+pub enum Delivery {
+    Inline { data: Vec<u8> },
+    Chunked { total_chunks: u8 },
+}
+
+impl Delivery {
+    pub const fn total_chunks(&self) -> u8 {
+        match self {
+            Self::Inline { .. } => 0,
+            Self::Chunked { total_chunks } => *total_chunks,
+        }
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPayload {
     pub source_port: String,
     pub dest_port: String,
     pub version: String,
     pub encoding: String,
-    pub total_chunks: u8,
+    pub data: Delivery,
 }
 
-/// Proof metadata for chunked operations
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
-pub struct ProofMetadata {
+pub struct MsgProof {
     pub height: u64,
-    pub total_chunks: u8,
+    pub data: Delivery,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct MsgPacket {
+    pub sequence: u64,
+    pub source_client: String,
+    pub dest_client: String,
+    pub timeout_timestamp: u64,
+    pub payloads: Vec<MsgPayload>,
 }
 
 /// Message for sending a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgSendPacket {
     pub source_client: String,
+    pub sequence: u64,
     pub timeout_timestamp: u64,
     pub payload: Payload,
 }
@@ -152,26 +176,23 @@ pub struct MsgSendPacket {
 /// Message for receiving a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgRecvPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for acknowledging a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgAckPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub acknowledgement: Vec<u8>, // Not chunked
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub acknowledgement: Vec<u8>,
+    pub proof: MsgProof,
 }
 
 /// Message for timing out a packet
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct MsgTimeoutPacket {
-    pub packet: Packet,
-    pub payloads: Vec<PayloadMetadata>,
-    pub proof: ProofMetadata,
+    pub packet: MsgPacket,
+    pub proof: MsgProof,
 }
 
 /// Message for uploading chunks
@@ -203,8 +224,6 @@ pub struct IBCApp {
     pub port_id: String,
     /// The program ID of the IBC application
     pub app_program_id: Pubkey,
-    /// Authority that registered this port
-    pub authority: Pubkey,
     /// Reserved space for future fields
     pub _reserved: [u8; 256],
 }
@@ -223,8 +242,8 @@ impl IBCApp {
 pub struct RouterState {
     /// Schema version for upgrades
     pub version: AccountVersion,
-    /// Access manager program ID for role-based access control
-    pub access_manager: Pubkey,
+    /// Embedded access manager state for role checks and two-step migration
+    pub am_state: AccessManagerState,
     /// Whether the router is paused (emergency brake for all IBC traffic)
     pub paused: bool,
     /// Reserved space for future fields
@@ -246,17 +265,6 @@ impl Client {
     pub const SEED: &'static [u8] = b"client";
 
     /// Get client PDA
-    pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
-        Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
-    }
-}
-
-pub struct ClientSequence;
-
-impl ClientSequence {
-    pub const SEED: &'static [u8] = b"cseq";
-
-    /// Get client sequence PDA
     pub fn pda(client_id: &str, program_id: Pubkey) -> (Pubkey, u8) {
         Pubkey::find_program_address(&[Self::SEED, client_id.as_bytes()], &program_id)
     }

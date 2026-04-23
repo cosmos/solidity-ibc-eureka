@@ -14,7 +14,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/chain/cosmos"
 )
 
 var queryReqToPath = make(map[string]string)
@@ -34,7 +34,7 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 
 			for _, method := range service.GetMethod() {
 				// trim the first character from input which is a dot
-				queryReqToPath[method.GetInputType()[1:]] = fileDescriptor.GetPackage() + "." + service.GetName() + "/" + method.GetName()
+				queryReqToPath[method.GetInputType()[1:]] = "/" + fileDescriptor.GetPackage() + "." + service.GetName() + "/" + method.GetName()
 			}
 		}
 	}
@@ -44,7 +44,7 @@ func populateQueryReqToPath(ctx context.Context, chain *cosmos.CosmosChain) erro
 
 func ABCIQuery(ctx context.Context, chain *cosmos.CosmosChain, req *abci.RequestQuery) (*abci.ResponseQuery, error) {
 	// Create a connection to the gRPC server.
-	path := "cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
+	path := "/cosmos.base.tendermint.v1beta1.Service/ABCIQuery"
 	grpcConn, err := grpc.Dial(
 		chain.GetHostGRPCAddress(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),

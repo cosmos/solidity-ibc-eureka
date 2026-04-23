@@ -77,9 +77,20 @@ pub mod ift {
         instructions::finalize_transfer(ctx, client_id, sequence)
     }
 
-    /// Set the admin authority (admin only)
-    pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
-        instructions::set_admin(ctx, new_admin)
+    /// Propose a new admin (current admin only). The proposed admin must call
+    /// `accept_admin` to finalize the transfer.
+    pub fn propose_admin(ctx: Context<ProposeAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::propose_admin(ctx, new_admin)
+    }
+
+    /// Accept a pending admin proposal. Must be signed by the proposed admin.
+    pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
+        instructions::accept_admin(ctx)
+    }
+
+    /// Cancel a pending admin proposal. Must be signed by the current admin.
+    pub fn cancel_admin_proposal(ctx: Context<CancelAdminProposal>) -> Result<()> {
+        instructions::cancel_admin_proposal(ctx)
     }
 
     /// Revoke mint authority from IFT and transfer it to a new authority.

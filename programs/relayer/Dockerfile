@@ -1,4 +1,4 @@
-FROM rust:1.91-bookworm AS builder
+FROM rust:1.92-bookworm AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \

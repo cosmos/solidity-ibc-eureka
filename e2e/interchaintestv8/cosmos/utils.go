@@ -12,7 +12,7 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/chain/cosmos"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )
@@ -47,6 +47,20 @@ func GetEventValue(events []abcitypes.Event, eventType, attrKey string) (string,
 	}
 
 	return "", fmt.Errorf("event type %s with attribute key %s not found", eventType, attrKey)
+}
+
+// Chain wraps a CosmosChain to implement e2esuite.BlockTimeFetcher.
+type Chain struct {
+	Cosmos *cosmos.CosmosChain
+}
+
+// GetBlockTime returns the latest block timestamp as Unix seconds.
+func (c *Chain) GetBlockTime(ctx context.Context) (int64, error) {
+	header, err := FetchCosmosHeader(ctx, c.Cosmos)
+	if err != nil {
+		return 0, err
+	}
+	return header.Time.Unix(), nil
 }
 
 // FetchCosmosHeader fetches the latest header from the given chain.

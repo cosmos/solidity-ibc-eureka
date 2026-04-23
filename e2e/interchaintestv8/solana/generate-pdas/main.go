@@ -106,6 +106,7 @@ func (g *Generator) extractPatterns() error {
 
 	patterns := make([]PDAPattern, 0)
 	seenSignatures := make(map[string]bool)
+	seenFuncNames := make(map[string]bool)
 
 	for _, file := range files {
 		filePatterns, err := g.extractFromFile(file)
@@ -115,11 +116,24 @@ func (g *Generator) extractPatterns() error {
 
 		for _, pattern := range filePatterns {
 			signature := pattern.buildSignature()
-			if !seenSignatures[signature] {
-				seenSignatures[signature] = true
-				pattern.FuncName = pattern.buildFuncName()
-				patterns = append(patterns, pattern)
+			if seenSignatures[signature] {
+				continue
 			}
+			seenSignatures[signature] = true
+
+			pattern.FuncName = pattern.buildFuncName()
+			// Skip patterns that would produce duplicate Go method names.
+			// This handles IDLs with the same module name but different
+			// program addresses (e.g. access_manager vs test_access_manager)
+			// where program-address-derived const seeds differ but the
+			// generated method name is identical. The method takes programID
+			// as a runtime parameter so a single helper suffices.
+			if seenFuncNames[pattern.FuncName] {
+				continue
+			}
+			seenFuncNames[pattern.FuncName] = true
+
+			patterns = append(patterns, pattern)
 		}
 	}
 
@@ -334,7 +348,7 @@ func (cg *CodeGenerator) generateTypes(programNames []string) string {
 	// Generate type definitions
 	for _, name := range programNames {
 		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
-		b.WriteString(fmt.Sprintf("type %s struct{}\n", typeName))
+		fmt.Fprintf(&b, "type %s struct{}\n", typeName)
 	}
 	b.WriteString("\n")
 
@@ -342,7 +356,7 @@ func (cg *CodeGenerator) generateTypes(programNames []string) string {
 	b.WriteString("var (\n")
 	for _, name := range programNames {
 		typeName := strings.ToLower(name[:1]) + name[1:] + "PDAs"
-		b.WriteString(fmt.Sprintf("\t%s = %s{}\n", name, typeName))
+		fmt.Fprintf(&b, "\t%s = %s{}\n", name, typeName)
 	}
 	b.WriteString(")\n")
 

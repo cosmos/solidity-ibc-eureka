@@ -22,13 +22,13 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	clienttypesv2 "github.com/cosmos/ibc-go/v10/modules/core/02-client/v2/types"
-	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	clienttypesv2 "github.com/cosmos/ibc-go/v11/modules/core/02-client/v2/types"
+	ibcexported "github.com/cosmos/ibc-go/v11/modules/core/exported"
 
-	interchaintest "github.com/cosmos/interchaintest/v10"
-	interchaintestcosmos "github.com/cosmos/interchaintest/v10/chain/cosmos"
-	"github.com/cosmos/interchaintest/v10/ibc"
+	interchaintest "github.com/cosmos/interchaintest/v11"
+	interchaintestcosmos "github.com/cosmos/interchaintest/v11/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
 

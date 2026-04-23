@@ -90,11 +90,19 @@ pub mod ics26_router {
         instructions::cleanup_chunks(ctx, msg)
     }
 
-    pub fn set_access_manager(
-        ctx: Context<SetAccessManager>,
+    pub fn propose_access_manager_transfer(
+        ctx: Context<ProposeAccessManagerTransfer>,
         new_access_manager: Pubkey,
     ) -> Result<()> {
-        instructions::set_access_manager(ctx, new_access_manager)
+        instructions::propose_access_manager_transfer(ctx, new_access_manager)
+    }
+
+    pub fn accept_access_manager_transfer(ctx: Context<AcceptAccessManagerTransfer>) -> Result<()> {
+        instructions::accept_access_manager_transfer(ctx)
+    }
+
+    pub fn cancel_access_manager_transfer(ctx: Context<CancelAccessManagerTransfer>) -> Result<()> {
+        instructions::cancel_access_manager_transfer(ctx)
     }
 
     pub fn pause(ctx: Context<Pause>) -> Result<()> {

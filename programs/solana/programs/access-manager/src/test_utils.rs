@@ -1,5 +1,5 @@
 use crate::state::AccessManager;
-use crate::types::RoleData;
+use crate::types::{PendingAuthorityTransfer, RoleData};
 use anchor_lang::prelude::*;
 use mollusk_svm::{result::InstructionResult, Mollusk};
 use solana_ibc_types::roles;
@@ -25,6 +25,7 @@ pub fn create_initialized_access_manager(admin: Pubkey) -> (Pubkey, Account) {
             members: vec![admin],
         }],
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -73,6 +74,7 @@ pub fn create_access_manager_with_role(
     let access_manager = AccessManager {
         roles: roles_vec,
         whitelisted_programs: vec![],
+        pending_authority_transfers: vec![],
     };
 
     // Use INIT_SPACE to ensure account has enough space for max roles
@@ -358,7 +360,11 @@ pub fn setup_program_test_with_whitelist(
         std::env::set_var("SBF_OUT_DIR", deploy_dir);
     }
 
-    let mut pt = solana_program_test::ProgramTest::new("access_manager", crate::ID, None);
+    let mut pt = solana_program_test::ProgramTest::new(
+        crate::test_config::PROGRAM_BINARY_NAME,
+        crate::ID,
+        None,
+    );
     pt.add_program("test_cpi_proxy", TEST_CPI_PROXY_ID, None);
     pt.add_program("test_cpi_target", TEST_CPI_TARGET_ID, None);
 
@@ -371,6 +377,7 @@ pub fn setup_program_test_with_whitelist(
             members: vec![*admin],
         }],
         whitelisted_programs: whitelisted_programs.to_vec(),
+        pending_authority_transfers: vec![],
     };
     let mut am_data = vec![0u8; 8 + AccessManager::INIT_SPACE];
     am_data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
@@ -507,4 +514,202 @@ pub fn create_clock_sysvar_account() -> (Pubkey, Account) {
             rent_epoch: 0,
         },
     )
+}
+
+/// Create a BPF Loader Upgradeable `ProgramData` account for testing.
+///
+/// The account is placed at the correct PDA derived from the program ID
+/// and owned by `bpf_loader_upgradeable::ID`.
+pub fn create_program_data_account(
+    program_id: &Pubkey,
+    authority: Option<Pubkey>,
+) -> (Pubkey, Account) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[program_id.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let state = UpgradeableLoaderState::ProgramData {
+        slot: 0,
+        upgrade_authority_address: authority,
+    };
+    let data = bincode::serialize(&state).unwrap();
+
+    (
+        program_data_pda,
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: bpf_loader_upgradeable::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+// ── Mollusk helpers for upgrade authority transfer tests ──
+
+/// Creates an `AccessManager` Mollusk account with pre-populated pending transfers.
+pub fn create_access_manager_with_transfers(
+    admin: Pubkey,
+    transfers: Vec<PendingAuthorityTransfer>,
+) -> (Pubkey, Account) {
+    let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let am = AccessManager {
+        roles: vec![RoleData {
+            role_id: roles::ADMIN_ROLE,
+            members: vec![admin],
+        }],
+        whitelisted_programs: vec![],
+        pending_authority_transfers: transfers,
+    };
+    let mut data = vec![0u8; 8 + AccessManager::INIT_SPACE];
+    data[0..8].copy_from_slice(AccessManager::DISCRIMINATOR);
+    am.serialize(&mut &mut data[8..]).unwrap();
+    (
+        pda,
+        Account {
+            lamports: 1_000_000,
+            data,
+            owner: crate::ID,
+            executable: false,
+            rent_epoch: 0,
+        },
+    )
+}
+
+// ── ProgramTest helpers for upgrade authority transfer tests ──
+
+/// Adds a target program's `ProgramData` and upgrade authority PDA accounts
+/// to a `ProgramTest`, with this access manager's PDA as upgrade authority.
+pub fn add_target_program_accounts(
+    pt: &mut solana_program_test::ProgramTest,
+    target_program: &Pubkey,
+) {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (upgrade_authority_pda, _) =
+        AccessManager::upgrade_authority_pda(target_program, &crate::ID);
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
+
+    let pd_account = Account::new_data_with_space(
+        10_000_000_000,
+        &UpgradeableLoaderState::ProgramData {
+            slot: 0,
+            upgrade_authority_address: Some(upgrade_authority_pda),
+        },
+        UpgradeableLoaderState::size_of_programdata_metadata(),
+        &bpf_loader_upgradeable::ID,
+    )
+    .unwrap();
+    pt.add_account(program_data_pda, pd_account);
+
+    pt.add_account(
+        upgrade_authority_pda,
+        Account {
+            lamports: 1_000_000,
+            owner: system_program::ID,
+            ..Default::default()
+        },
+    );
+}
+
+pub fn build_propose_ix(
+    admin: Pubkey,
+    target_program: Pubkey,
+    new_authority: Pubkey,
+) -> Instruction {
+    use anchor_lang::InstructionData;
+
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(access_manager_pda, false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: crate::instruction::ProposeUpgradeAuthorityTransfer {
+            target_program,
+            new_authority,
+        }
+        .data(),
+    }
+}
+
+pub fn build_accept_ix(target_program: Pubkey, new_authority: Pubkey) -> Instruction {
+    use anchor_lang::InstructionData;
+    use solana_sdk::bpf_loader_upgradeable;
+
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let (program_data, _) =
+        Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
+    let (upgrade_authority_pda, _) =
+        AccessManager::upgrade_authority_pda(&target_program, &crate::ID);
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(access_manager_pda, false),
+            AccountMeta::new(program_data, false),
+            AccountMeta::new_readonly(upgrade_authority_pda, false),
+            AccountMeta::new_readonly(new_authority, true),
+            AccountMeta::new_readonly(bpf_loader_upgradeable::ID, false),
+        ],
+        data: crate::instruction::AcceptUpgradeAuthorityTransfer { target_program }.data(),
+    }
+}
+
+pub fn build_cancel_ix(admin: Pubkey, target_program: Pubkey) -> Instruction {
+    use anchor_lang::InstructionData;
+
+    let (access_manager_pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+
+    Instruction {
+        program_id: crate::ID,
+        accounts: vec![
+            AccountMeta::new(access_manager_pda, false),
+            AccountMeta::new_readonly(admin, true),
+            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+        ],
+        data: crate::instruction::CancelUpgradeAuthorityTransfer { target_program }.data(),
+    }
+}
+
+/// Reads the upgrade authority from a target program's `ProgramData` account.
+pub async fn get_program_data_authority(
+    banks_client: &solana_program_test::BanksClient,
+    target_program: Pubkey,
+) -> Option<Pubkey> {
+    use solana_sdk::bpf_loader_upgradeable::{self, UpgradeableLoaderState};
+
+    let (program_data_pda, _) =
+        Pubkey::find_program_address(&[target_program.as_ref()], &bpf_loader_upgradeable::ID);
+    let account = banks_client
+        .get_account(program_data_pda)
+        .await
+        .unwrap()
+        .unwrap();
+    let state: UpgradeableLoaderState = bincode::deserialize(&account.data).unwrap();
+    match state {
+        UpgradeableLoaderState::ProgramData {
+            upgrade_authority_address,
+            ..
+        } => upgrade_authority_address,
+        _ => panic!("unexpected state"),
+    }
+}
+
+/// Reads pending authority transfers from this crate's `AccessManager` state.
+pub async fn get_pending_transfers(
+    banks_client: &solana_program_test::BanksClient,
+) -> Vec<PendingAuthorityTransfer> {
+    let (pda, _) = Pubkey::find_program_address(&[AccessManager::SEED], &crate::ID);
+    let account = banks_client.get_account(pda).await.unwrap().unwrap();
+    let am: AccessManager =
+        anchor_lang::AccountDeserialize::try_deserialize(&mut &account.data[..]).unwrap();
+    am.pending_authority_transfers
 }

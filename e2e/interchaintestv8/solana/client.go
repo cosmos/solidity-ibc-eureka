@@ -15,7 +15,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/gagliardetto/solana-go/rpc/ws"
 
-	"github.com/cosmos/interchaintest/v10/testutil"
+	"github.com/cosmos/interchaintest/v11/testutil"
 
 	ics26router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
@@ -403,6 +403,11 @@ func (s *Solana) GetSolanaClockTime(ctx context.Context) (int64, error) {
 
 	unixTimestamp := int64(binary.LittleEndian.Uint64(data[32:40]))
 	return unixTimestamp, nil
+}
+
+// GetBlockTime returns the latest block timestamp as Unix seconds from the Solana clock sysvar.
+func (s *Solana) GetBlockTime(ctx context.Context) (int64, error) {
+	return s.GetSolanaClockTime(ctx)
 }
 
 // GetProgramDataAddress derives the ProgramData account address for an upgradeable program

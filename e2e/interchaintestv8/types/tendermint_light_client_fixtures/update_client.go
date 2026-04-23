@@ -15,10 +15,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 
-	clienttypes "github.com/cosmos/ibc-go/v10/modules/core/02-client/types"
-	ibctmtypes "github.com/cosmos/ibc-go/v10/modules/light-clients/07-tendermint"
+	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
+	ibctmtypes "github.com/cosmos/ibc-go/v11/modules/light-clients/07-tendermint"
 
-	"github.com/cosmos/interchaintest/v10/chain/cosmos"
+	"github.com/cosmos/interchaintest/v11/chain/cosmos"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 )

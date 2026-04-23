@@ -22,3 +22,9 @@ tendermint-light-client-update-client = { workspace = true }
 thiserror                             = { workspace = true }
 tendermint                            = { workspace = true }
 
+[dev-dependencies]
+tendermint-testgen        = { workspace = true }
+tendermint                = { workspace = true }
+ibc-core-commitment-types = { workspace = true }
+ibc-core-client-types     = { workspace = true }
+
