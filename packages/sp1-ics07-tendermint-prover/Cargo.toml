@@ -6,7 +6,7 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-sp1-sdk  = { workspace = true }
+sp1-sdk  = { workspace = true, features = ["cuda"] }
 sp1-cuda = { workspace = true }
 
 ibc-eureka-solidity-types = { workspace = true }

@@ -8529,7 +8529,7 @@ version = "0.13.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "be769465445e8c1474e9c5dac2018218498557af32d9ed057325ec9a41ae81bf"
 dependencies = [
- "heck 0.5.0",
+ "heck 0.4.1",
  "itertools 0.14.0",
  "log",
  "multimap",
@@ -13698,6 +13698,7 @@ dependencies = [
  "sp1-core-executor 6.1.0",
  "sp1-core-executor-runner",
  "sp1-core-machine 6.1.0",
+ "sp1-cuda 6.1.0",
  "sp1-hypercube",
  "sp1-primitives 6.1.0",
  "sp1-prover 6.1.0",
