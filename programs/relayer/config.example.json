@@ -148,6 +148,19 @@
       }
     },
     {
+      "name": "besu_to_besu",
+      "src_chain": "besu-a",
+      "dst_chain": "besu-b",
+      "config": {
+        "src_chain_id": "besu-a",
+        "src_rpc_url": "http://127.0.0.1:8545",
+        "src_ics26_address": "0x4242424242424242424242424242424242424242",
+        "dst_rpc_url": "http://127.0.0.1:9545",
+        "dst_ics26_address": "0x4242424242424242424242424242424242424242",
+        "consensus_type": "qbft"
+      }
+    },
+    {
       "name": "cosmos_to_cosmos",
       "src_chain": "cosmoshub-4",
       "dst_chain": "osmosis-1",

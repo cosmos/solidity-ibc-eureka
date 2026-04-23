@@ -5570,6 +5570,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
+ "ibc-eureka-relayer-besu-to-besu",
  "ibc-eureka-relayer-core 0.1.0",
  "ibc-eureka-relayer-cosmos-to-cosmos",
  "ibc-eureka-relayer-cosmos-to-eth",
@@ -5593,6 +5594,25 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "warp",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-besu-to-besu"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "alloy-rlp",
+ "anyhow",
+ "ethereum-apis 0.1.0",
+ "ethereum-light-client 0.1.0",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "rlp 0.6.1",
+ "serde",
+ "serde_json",
+ "tonic 0.13.1",
+ "tracing",
 ]
 
 [[package]]

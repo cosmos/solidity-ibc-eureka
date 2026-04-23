@@ -19,6 +19,7 @@ members = [
     "packages/relayer/modules/eth-to-cosmos",
     "packages/relayer/modules/cosmos-to-eth",
     "packages/relayer/modules/eth-to-eth",
+    "packages/relayer/modules/besu-to-besu",
     "packages/relayer/modules/cosmos-to-cosmos",
     "packages/relayer/modules/eth-to-cosmos-compat",
     "packages/relayer/modules/solana-to-cosmos",
@@ -51,6 +52,7 @@ ibc-eureka-relayer-eth-to-cosmos        = { path = "packages/relayer/modules/eth
 ibc-eureka-relayer-eth-to-cosmos-compat = { path = "packages/relayer/modules/eth-to-cosmos-compat", default-features = false }
 ibc-eureka-relayer-cosmos-to-eth        = { path = "packages/relayer/modules/cosmos-to-eth", default-features = false }
 ibc-eureka-relayer-eth-to-eth           = { path = "packages/relayer/modules/eth-to-eth", default-features = false }
+ibc-eureka-relayer-besu-to-besu         = { path = "packages/relayer/modules/besu-to-besu", default-features = false }
 ibc-eureka-relayer-cosmos-to-cosmos     = { path = "packages/relayer/modules/cosmos-to-cosmos", default-features = false }
 ibc-eureka-relayer-solana-to-cosmos     = { path = "packages/relayer/modules/solana-to-cosmos", default-features = false }
 ibc-eureka-relayer-cosmos-to-solana     = { path = "packages/relayer/modules/cosmos-to-solana", default-features = false }

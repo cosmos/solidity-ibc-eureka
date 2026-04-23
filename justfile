@@ -797,6 +797,8 @@ generate-abi: build-contracts
 	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
+	jq '.abi' out/BesuIBFT2LightClient.sol/BesuIBFT2LightClient.json > abi/BesuIBFT2LightClient.json
+	jq '.abi' out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json > abi/BesuQBFTLightClient.json
 	jq '.abi' out/TestIFT.sol/TestIFT.json > abi/TestIFT.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/TestIFT.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
@@ -814,6 +816,8 @@ generate-abi: build-contracts
 generate-abi-bytecode: build-contracts
 	cp out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json abi/bytecode
 	cp out/AttestationLightClient.sol/AttestationLightClient.json abi/bytecode
+	cp out/BesuIBFT2LightClient.sol/BesuIBFT2LightClient.json abi/bytecode
+	cp out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json abi/bytecode
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
