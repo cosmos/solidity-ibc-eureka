@@ -9997,6 +9997,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "test_attestation"
+version = "0.1.0"
+dependencies = [
+ "access-manager",
+ "alloy-primitives",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-sol-types",
+ "anchor-lang",
+ "bincode",
+ "borsh 0.10.4",
+ "hex",
+ "ics25-handler",
+ "mollusk-svm",
+ "mollusk-svm-bencher",
+ "rstest",
+ "serde",
+ "sha2 0.10.9",
+ "solana-ibc-types",
+ "solana-keccak-hasher",
+ "solana-program-test",
+ "solana-sdk",
+ "solana-secp256k1-recover",
+ "solana-sha256-hasher",
+ "tokio",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
