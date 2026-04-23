@@ -223,7 +223,7 @@ solana transfer <DEPLOYER_PUBKEY> <AMOUNT> --from <YOUR_WALLET> --url mainnet
 #### 2. Build Programs
 
 ```bash
-just build-solana
+just build-solana-programs
 ```
 
 This compiles all programs and generates their IDLs.
@@ -269,7 +269,7 @@ anchor deploy -p ics26-router --provider.cluster devnet
 
 ```bash
 # Build new version
-just build-solana
+just build-solana-programs
 
 # Deploy upgrade
 anchor upgrade target/deploy/ics26_router.so \
@@ -471,7 +471,7 @@ This command:
 **Step 1: Build new program version**
 
 ```bash
-just build-solana
+just build-solana-programs
 ```
 
 **Step 2: Write new bytecode to a buffer**
@@ -596,10 +596,10 @@ bin/solana-ibc access-manager revoke \
 
 ```bash
 # Build all programs (generates all IDLs)
-just build-solana
+just build-solana-programs
 
 # Build specific program only (generates only its IDL)
-just build-solana ics26-router
+just build-solana-programs ics26-router
 
 # Using anchor directly (from programs/solana directory)
 cd programs/solana
@@ -610,8 +610,11 @@ anchor build -p ics26-router
 ### Running Tests
 
 ```bash
-# All Solana tests (unit + integration)
+# Solana unit tests
 just test-solana
+
+# Solana integration tests (builds required test artifacts first)
+just test-solana-integration
 
 # Specific program tests (requires the app being built)
 cargo test --manifest-path programs/solana/programs/ics26-router/Cargo.toml
@@ -638,10 +641,10 @@ IDL (Interface Definition Language) files are automatically generated during bui
 
 ```bash
 # Generate IDLs for all programs
-just build-solana
+just build-solana-programs
 
 # Generate IDL for specific program only
-just build-solana ics26-router
+just build-solana-programs ics26-router
 ```
 
 IDL files are written to `target/idl/` and contain the program's interface definition for client libraries and tools.
