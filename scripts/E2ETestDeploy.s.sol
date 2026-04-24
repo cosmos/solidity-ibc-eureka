@@ -26,8 +26,8 @@ import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
 import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
 
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v6.1.0/SP1VerifierGroth16.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
 

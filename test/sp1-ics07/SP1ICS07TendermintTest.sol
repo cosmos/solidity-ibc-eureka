@@ -20,8 +20,8 @@ import {
     ISP1ICS07TendermintErrors
 } from "../../contracts/light-clients/sp1-ics07/errors/ISP1ICS07TendermintErrors.sol";
 import { SP1MockVerifier } from "@sp1-contracts/SP1MockVerifier.sol";
-import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v5.0.0/SP1VerifierPlonk.sol";
-import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v5.0.0/SP1VerifierGroth16.sol";
+import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
+import { SP1Verifier as SP1VerifierGroth16 } from "@sp1-contracts/v6.1.0/SP1VerifierGroth16.sol";
 
 struct SP1ICS07GenesisFixtureJson {
     bytes trustedClientState;
