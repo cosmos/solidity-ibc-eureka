@@ -4,57 +4,20 @@
 //! the relayer calls IFT's `finalize_transfer` to process refunds.
 
 use std::str::FromStr;
-use std::sync::{Arc, LazyLock};
+use std::sync::Arc;
 
 use anchor_lang::prelude::*;
 use anyhow::Result;
-use sha2::{Digest, Sha256};
 use solana_client::rpc_client::RpcClient;
-use solana_sdk::{
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
+use solana_ibc_sdk::ift::accounts::PendingTransfer;
+use solana_ibc_sdk::ift::instructions::{
+    FinalizeTransfer, FinalizeTransferAccounts, FinalizeTransferArgs,
 };
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 use spl_associated_token_account::get_associated_token_address_with_program_id;
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::gmp::{ABI_ENCODING, GMP_PORT_ID, PROTOBUF_ENCODING};
-
-/// IFT PDA seeds (must match ift program)
-const IFT_APP_STATE_SEED: &[u8] = b"ift_app_state";
-const IFT_APP_MINT_STATE_SEED: &[u8] = b"ift_app_mint_state";
-const PENDING_TRANSFER_SEED: &[u8] = b"pending_transfer";
-const MINT_AUTHORITY_SEED: &[u8] = b"ift_mint_authority";
-
-/// GMP result PDA seed (must match ics27-gmp program)
-const GMP_RESULT_SEED: &[u8] = b"gmp_result";
-
-static PENDING_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
-    let mut hasher = Sha256::new();
-    hasher.update(b"account:PendingTransfer");
-    let result = hasher.finalize();
-    result[..8].try_into().expect("sha256 produces 32 bytes")
-});
-
-static FINALIZE_TRANSFER_DISCRIMINATOR: LazyLock<[u8; 8]> = LazyLock::new(|| {
-    let mut hasher = Sha256::new();
-    hasher.update(b"global:finalize_transfer");
-    let result = hasher.finalize();
-    result[..8].try_into().expect("sha256 produces 32 bytes")
-});
-
-/// Deserialized `PendingTransfer` account data
-#[derive(AnchorSerialize, AnchorDeserialize, Debug)]
-struct PendingTransfer {
-    pub version: u8,
-    pub bump: u8,
-    pub mint: Pubkey,
-    pub client_id: String,
-    pub sequence: u64,
-    pub sender: Pubkey,
-    pub amount: u64,
-    pub timestamp: i64,
-    pub _reserved: [u8; 32],
-}
 
 /// Parameters for building IFT `finalize_transfer` instruction
 pub struct FinalizeTransferParams<'a> {
@@ -64,7 +27,6 @@ pub struct FinalizeTransferParams<'a> {
     pub source_client: &'a str,
     pub sequence: u64,
     pub solana_client: &'a Arc<RpcClient>,
-    pub gmp_program_id: Pubkey,
     pub fee_payer: Pubkey,
 }
 
@@ -133,7 +95,6 @@ pub fn build_finalize_transfer_instruction(
 
     Some(build_finalize_transfer_ix(
         ift_program_id,
-        params.gmp_program_id,
         &pending_transfer,
         params.source_client,
         params.sequence,
@@ -156,7 +117,7 @@ fn find_pending_transfer(
         .into_iter()
         .filter(|(_, account)| {
             account.data.len() >= ANCHOR_DISCRIMINATOR_SIZE
-                && account.data[..ANCHOR_DISCRIMINATOR_SIZE] == *PENDING_TRANSFER_DISCRIMINATOR
+                && account.data[..ANCHOR_DISCRIMINATOR_SIZE] == PendingTransfer::DISCRIMINATOR
         })
         .collect();
 
@@ -180,7 +141,6 @@ fn find_pending_transfer(
 
 fn build_finalize_transfer_ix(
     ift_program_id: Pubkey,
-    gmp_program_id: Pubkey,
     pending_transfer: &PendingTransfer,
     client_id: &str,
     sequence: u64,
@@ -189,34 +149,9 @@ fn build_finalize_transfer_ix(
 ) -> Instruction {
     let mint = pending_transfer.mint;
 
-    // Derive PDAs
-    let (app_state_pda, _) = Pubkey::find_program_address(&[IFT_APP_STATE_SEED], &ift_program_id);
-
-    let (app_mint_state_pda, _) =
-        Pubkey::find_program_address(&[IFT_APP_MINT_STATE_SEED, mint.as_ref()], &ift_program_id);
-
-    let (pending_transfer_pda, _) = Pubkey::find_program_address(
-        &[
-            PENDING_TRANSFER_SEED,
-            mint.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &ift_program_id,
-    );
-
-    // GMP result PDA - owned by GMP program
-    let (gmp_result_pda, _) = Pubkey::find_program_address(
-        &[
-            GMP_RESULT_SEED,
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &gmp_program_id,
-    );
-
-    let (mint_authority_pda, _) =
-        Pubkey::find_program_address(&[MINT_AUTHORITY_SEED, mint.as_ref()], &ift_program_id);
+    let (pending_transfer_pda, _) =
+        FinalizeTransfer::pending_transfer_pda(&mint, client_id, sequence, &ift_program_id);
+    let (gmp_result_pda, _) = FinalizeTransfer::gmp_result_pda(client_id, sequence);
 
     let sender_token_account = get_associated_token_address_with_program_id(
         &pending_transfer.sender,
@@ -224,35 +159,18 @@ fn build_finalize_transfer_ix(
         &token_program_id,
     );
 
-    // Account order must match IFT's FinalizeTransfer struct
-    let accounts = vec![
-        AccountMeta::new_readonly(app_state_pda, false),
-        AccountMeta::new(app_mint_state_pda, false),
-        AccountMeta::new(pending_transfer_pda, false),
-        AccountMeta::new_readonly(gmp_result_pda, false),
-        AccountMeta::new(mint, false),
-        AccountMeta::new_readonly(mint_authority_pda, false),
-        AccountMeta::new(sender_token_account, false),
-        AccountMeta::new(fee_payer, true),
-        AccountMeta::new_readonly(token_program_id, false),
-        AccountMeta::new_readonly(solana_sdk::system_program::id(), false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::id(), false),
-    ];
-
-    // Build instruction data: discriminator + client_id (string) + sequence (u64)
-    let mut data = FINALIZE_TRANSFER_DISCRIMINATOR.to_vec();
-    // Anchor serializes String as length-prefixed (u32 + bytes)
-    let client_id_bytes = client_id.as_bytes();
-    #[allow(clippy::cast_possible_truncation)]
-    // client_id is a short identifier, never exceeds u32::MAX
-    let client_id_len = client_id_bytes.len() as u32;
-    data.extend_from_slice(&client_id_len.to_le_bytes());
-    data.extend_from_slice(client_id_bytes);
-    data.extend_from_slice(&sequence.to_le_bytes());
-
-    Instruction {
-        program_id: ift_program_id,
-        accounts,
-        data,
-    }
+    FinalizeTransfer::builder(&ift_program_id)
+        .accounts(FinalizeTransferAccounts {
+            pending_transfer: pending_transfer_pda,
+            gmp_result: gmp_result_pda,
+            mint,
+            sender_token_account,
+            payer: fee_payer,
+            token_program: token_program_id,
+        })
+        .args(&FinalizeTransferArgs {
+            client_id: client_id.to_string(),
+            sequence,
+        })
+        .build()
 }

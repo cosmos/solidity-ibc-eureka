@@ -10,6 +10,8 @@ pub mod state;
 pub mod test_utils;
 pub mod utils;
 
+pub use solana_ibc_types::ics24;
+
 use instructions::client::MigrateClientParams;
 use instructions::*;
 use state::{

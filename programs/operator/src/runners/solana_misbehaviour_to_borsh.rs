@@ -7,7 +7,7 @@ use borsh_0_10::BorshSerialize;
 use ibc_client_tendermint::types::Misbehaviour;
 use ibc_proto::ibc::lightclients::tendermint::v1::Misbehaviour as RawMisbehaviour;
 use prost::Message;
-use solana_ibc_types::borsh_header::conversions::misbehaviour_to_borsh;
+use solana_ibc_borsh_header::conversions::misbehaviour_to_borsh;
 
 /// Run the misbehaviour to borsh conversion.
 ///

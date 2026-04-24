@@ -79,7 +79,7 @@ async fn read_counter_app_state(
 }
 
 async fn assert_gmp_result_exists(chain: &Chain, client_id: &str, sequence: u64) {
-    let (pda, _) = solana_ibc_types::GMPCallResult::pda(client_id, sequence, &ics27_gmp::ID);
+    let (pda, _) = solana_ibc_gmp_types::GMPCallResult::pda(client_id, sequence, &ics27_gmp::ID);
     let account = chain
         .get_account(pda)
         .await

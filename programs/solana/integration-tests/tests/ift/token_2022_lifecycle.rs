@@ -1,5 +1,5 @@
 use super::*;
-use solana_ibc_types::ics24;
+use ics26_router::ics24;
 
 /// IFT full lifecycle using a Token 2022 mint instead of legacy SPL Token.
 ///

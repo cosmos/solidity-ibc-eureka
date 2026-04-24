@@ -9,9 +9,10 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{
     Packet as SolPacket, Payload as SolPayload,
 };
-use solana_ibc_types::{
-    events::{SendPacketEvent, WriteAcknowledgementEvent},
-    Packet as SolanaPacket, Payload as SolanaPayload,
+use solana_ibc_sdk::ics26_router::events::{SendPacketEvent, WriteAcknowledgementEvent};
+use solana_ibc_sdk::ics26_router::types::{
+    Delivery, MsgPacket, MsgPayload, MsgProof, MsgTimeoutPacket, Packet as SolanaPacket,
+    Payload as SolanaPayload,
 };
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
@@ -72,7 +73,7 @@ impl From<SolanaEurekaEventWithHeight> for EurekaEventWithHeight {
 /// # Errors
 /// * this function will return error if timeout timestamp is 0 or negative
 pub fn solana_timeout_packet_to_tm_timeout(
-    msg: solana_ibc_types::MsgTimeoutPacket,
+    msg: MsgTimeoutPacket,
     signer: String,
 ) -> anyhow::Result<ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout> {
     let packet = ibc_proto_eureka::ibc::core::channel::v2::Packet {
@@ -86,8 +87,8 @@ pub fn solana_timeout_packet_to_tm_timeout(
             .into_iter()
             .map(|p| {
                 let value = match p.data {
-                    solana_ibc_types::Delivery::Inline { data } => data,
-                    solana_ibc_types::Delivery::Chunked { .. } => vec![],
+                    Delivery::Inline { data } => data,
+                    Delivery::Chunked { .. } => vec![],
                 };
                 ibc_proto_eureka::ibc::core::channel::v2::Payload {
                     source_port: p.source_port,
@@ -130,24 +131,28 @@ pub fn solana_timeout_packet_to_tm_timeout(
 /// * Returns error if the `proof_height` field is missing
 pub fn tm_timeout_to_solana_timeout_packet(
     msg: ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
-) -> anyhow::Result<solana_ibc_types::MsgTimeoutPacket> {
+) -> anyhow::Result<MsgTimeoutPacket> {
     let packet = msg.packet.context("packet field is required")?;
     let proof_height = msg.proof_height.context("proof_height field is required")?;
 
-    let msg_payloads: Vec<solana_ibc_types::MsgPayload> = packet
+    let sequence = packet.sequence;
+    let source_client = packet.source_client;
+    let dest_client = packet.destination_client;
+    let timeout_timestamp = packet.timeout_timestamp;
+
+    let msg_payloads: Vec<MsgPayload> = packet
         .payloads
         .into_iter()
         .map(|p| {
-            let is_chunked = p.value.len() > CHUNK_DATA_SIZE;
-            let data = if is_chunked {
+            let data = if p.value.len() > CHUNK_DATA_SIZE {
                 let total_chunks = u8::try_from(p.value.len().div_ceil(CHUNK_DATA_SIZE))
                     .context("payload too big")?;
-                solana_ibc_types::Delivery::Chunked { total_chunks }
+                Delivery::Chunked { total_chunks }
             } else {
-                solana_ibc_types::Delivery::Inline { data: p.value }
+                Delivery::Inline { data: p.value }
             };
 
-            anyhow::Ok(solana_ibc_types::MsgPayload {
+            anyhow::Ok(MsgPayload {
                 source_port: p.source_port,
                 dest_port: p.destination_port,
                 version: p.version,
@@ -160,29 +165,25 @@ pub fn tm_timeout_to_solana_timeout_packet(
     let proof_data = if msg.proof_unreceived.len() > CHUNK_DATA_SIZE {
         let total_chunks = u8::try_from(msg.proof_unreceived.len().div_ceil(CHUNK_DATA_SIZE))
             .context("proof too big")?;
-        solana_ibc_types::Delivery::Chunked { total_chunks }
+        Delivery::Chunked { total_chunks }
     } else {
-        solana_ibc_types::Delivery::Inline {
+        Delivery::Inline {
             data: msg.proof_unreceived,
         }
     };
 
-    let proof = solana_ibc_types::MsgProof {
-        height: proof_height.revision_height,
-        data: proof_data,
-    };
-
-    let solana_packet = solana_ibc_types::MsgPacket {
-        sequence: packet.sequence,
-        source_client: packet.source_client,
-        dest_client: packet.destination_client,
-        timeout_timestamp: packet.timeout_timestamp,
-        payloads: msg_payloads,
-    };
-
-    Ok(solana_ibc_types::MsgTimeoutPacket {
-        packet: solana_packet,
-        proof,
+    Ok(MsgTimeoutPacket {
+        packet: MsgPacket {
+            sequence,
+            source_client,
+            dest_client,
+            timeout_timestamp,
+            payloads: msg_payloads,
+        },
+        proof: MsgProof {
+            height: proof_height.revision_height,
+            data: proof_data,
+        },
     })
 }
 
@@ -259,7 +260,7 @@ fn try_parse_event_from_log(
     Ok(Some(event))
 }
 
-fn log_payload_list(payloads: &[solana_ibc_types::Payload]) {
+fn log_payload_list(payloads: &[SolanaPayload]) {
     for (i, payload) in payloads.iter().enumerate() {
         tracing::debug!(
             "  Payload {}: source_port={}, dest_port={}, value_len={}",

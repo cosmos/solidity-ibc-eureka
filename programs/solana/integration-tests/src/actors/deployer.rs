@@ -8,15 +8,12 @@ use super::Actor;
 use crate::admin::Admin;
 use crate::chain::{Chain, ChainProgram, InitStepSigner};
 use crate::relayer::Relayer;
-use anchor_lang::InstructionData;
+use solana_ibc_sdk::access_manager::instructions as am_sdk;
+use solana_ibc_sdk::ics26_router::instructions as router_sdk;
+use solana_ibc_sdk::ics26_router::types::CounterpartyInfo;
 use solana_sdk::{
-    bpf_loader_upgradeable,
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
-    signature::Keypair,
-    signer::Signer,
-    system_program,
-    transaction::Transaction,
+    bpf_loader_upgradeable, instruction::Instruction, pubkey::Pubkey, signature::Keypair,
+    signer::Signer, transaction::Transaction,
 };
 
 /// Deployer / upgrade-authority actor.
@@ -131,7 +128,6 @@ impl Deployer {
     ) {
         let add_ix = build_add_client_ix(
             admin.pubkey(),
-            derive_router_state_pda(),
             derive_access_manager_pda(),
             client_id,
             counterparty_client_id,
@@ -156,11 +152,7 @@ async fn submit_tx(chain: &mut Chain, ixs: &[Instruction], signers: &[&Keypair])
 // ── PDA derivation ──────────────────────────────────────────────────────
 
 fn derive_access_manager_pda() -> Pubkey {
-    solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID).0
-}
-
-fn derive_router_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[ics26_router::state::RouterState::SEED], &ics26_router::ID).0
+    am_sdk::Initialize::access_manager_pda(&access_manager::ID).0
 }
 
 // ── Init step builder ───────────────────────────────────────────────────
@@ -190,7 +182,6 @@ fn build_init_steps(
 ) -> Vec<(Vec<Instruction>, InitStepSigner)> {
     let deployer_pubkey = deployer.pubkey();
     let am_pda = derive_access_manager_pda();
-    let router_state_pda = derive_router_state_pda();
     let (port_id, app_program_id) = get_port_and_app(programs);
 
     let mut steps = vec![
@@ -199,7 +190,6 @@ fn build_init_steps(
             vec![build_am_initialize_ix(
                 deployer_pubkey,
                 deployer,
-                am_pda,
                 admin_pubkey,
             )],
             InitStepSigner::DeployerOnly,
@@ -208,15 +198,13 @@ fn build_init_steps(
         (
             vec![
                 build_am_grant_role_ix(
-                    am_pda,
                     admin_pubkey,
-                    solana_ibc_types::roles::RELAYER_ROLE,
+                    solana_ibc_constants::roles::RELAYER_ROLE,
                     relayer_pubkey,
                 ),
                 build_am_grant_role_ix(
-                    am_pda,
                     admin_pubkey,
-                    solana_ibc_types::roles::ID_CUSTOMIZER_ROLE,
+                    solana_ibc_constants::roles::ID_CUSTOMIZER_ROLE,
                     admin_pubkey,
                 ),
             ],
@@ -227,7 +215,6 @@ fn build_init_steps(
             vec![build_router_initialize_ix(
                 deployer_pubkey,
                 deployer,
-                router_state_pda,
                 access_manager::ID,
             )],
             InitStepSigner::DeployerOnly,
@@ -239,7 +226,6 @@ fn build_init_steps(
         vec![
             build_add_client_ix(
                 admin_pubkey,
-                router_state_pda,
                 am_pda,
                 client_id,
                 counterparty_client_id,
@@ -248,7 +234,6 @@ fn build_init_steps(
             build_add_ibc_app_ix(
                 deployer_pubkey,
                 admin_pubkey,
-                router_state_pda,
                 am_pda,
                 port_id,
                 app_program_id,
@@ -296,134 +281,82 @@ fn build_transfer_upgrade_authority_ixs(
 
 // ── Instruction builders for initialization ─────────────────────────────
 
-fn build_am_initialize_ix(
-    payer: Pubkey,
-    deployer: &Keypair,
-    am_pda: Pubkey,
-    admin: Pubkey,
-) -> Instruction {
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[access_manager::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
-    Instruction {
-        program_id: access_manager::ID,
-        accounts: vec![
-            AccountMeta::new(am_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new_readonly(program_data_pda, false),
-            AccountMeta::new_readonly(deployer.pubkey(), true),
-        ],
-        data: access_manager::instruction::Initialize { admin }.data(),
-    }
+fn build_am_initialize_ix(payer: Pubkey, deployer: &Keypair, admin: Pubkey) -> Instruction {
+    am_sdk::Initialize::builder(&access_manager::ID)
+        .accounts(am_sdk::InitializeAccounts {
+            payer,
+            program_data: am_sdk::Initialize::program_data_pda().0,
+            authority: deployer.pubkey(),
+        })
+        .args(&am_sdk::InitializeArgs { admin })
+        .build()
 }
 
-fn build_am_grant_role_ix(
-    am_pda: Pubkey,
-    admin: Pubkey,
-    role_id: u64,
-    account: Pubkey,
-) -> Instruction {
-    Instruction {
-        program_id: access_manager::ID,
-        accounts: vec![
-            AccountMeta::new(am_pda, false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: access_manager::instruction::GrantRole { role_id, account }.data(),
-    }
+fn build_am_grant_role_ix(admin: Pubkey, role_id: u64, account: Pubkey) -> Instruction {
+    am_sdk::GrantRole::builder(&access_manager::ID)
+        .accounts(am_sdk::GrantRoleAccounts { admin })
+        .args(&am_sdk::GrantRoleArgs { role_id, account })
+        .build()
 }
 
 fn build_router_initialize_ix(
     payer: Pubkey,
     deployer: &Keypair,
-    router_state_pda: Pubkey,
     access_manager_program: Pubkey,
 ) -> Instruction {
-    let (program_data_pda, _) =
-        Pubkey::find_program_address(&[ics26_router::ID.as_ref()], &bpf_loader_upgradeable::ID);
-
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new(router_state_pda, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(program_data_pda, false),
-            AccountMeta::new_readonly(deployer.pubkey(), true),
-        ],
-        data: ics26_router::instruction::Initialize {
+    router_sdk::Initialize::builder(&ics26_router::ID)
+        .accounts(router_sdk::InitializeAccounts {
+            payer,
+            program_data: router_sdk::Initialize::program_data_pda().0,
+            authority: deployer.pubkey(),
+        })
+        .args(&router_sdk::InitializeArgs {
             access_manager: access_manager_program,
-        }
-        .data(),
-    }
+        })
+        .build()
 }
 
 fn build_add_client_ix(
     admin: Pubkey,
-    router_state_pda: Pubkey,
     am_pda: Pubkey,
     client_id: &str,
     counterparty_client_id: &str,
     lc_program_id: Pubkey,
 ) -> Instruction {
-    let (client_pda, _) = Pubkey::find_program_address(
-        &[ics26_router::state::Client::SEED, client_id.as_bytes()],
-        &ics26_router::ID,
-    );
-
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new(admin, true),
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new_readonly(am_pda, false),
-            AccountMeta::new(client_pda, false),
-            AccountMeta::new_readonly(lc_program_id, false),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::AddClient {
+    router_sdk::AddClient::builder(&ics26_router::ID)
+        .accounts(router_sdk::AddClientAccounts {
+            authority: admin,
+            access_manager: am_pda,
+            light_client_program: lc_program_id,
+            client_id,
+        })
+        .args(&router_sdk::AddClientArgs {
             client_id: client_id.to_string(),
-            counterparty_info: ics26_router::state::CounterpartyInfo {
+            counterparty_info: CounterpartyInfo {
                 client_id: counterparty_client_id.to_string(),
                 merkle_prefix: vec![vec![0x01, 0x02, 0x03]],
             },
-        }
-        .data(),
-    }
+        })
+        .build()
 }
 
 fn build_add_ibc_app_ix(
     payer: Pubkey,
     admin: Pubkey,
-    router_state_pda: Pubkey,
     am_pda: Pubkey,
     port_id: &str,
     app_program_id: Pubkey,
 ) -> Instruction {
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[ics26_router::state::IBCApp::SEED, port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new_readonly(am_pda, false),
-            AccountMeta::new(ibc_app_pda, false),
-            AccountMeta::new_readonly(app_program_id, false),
-            AccountMeta::new(payer, true),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::AddIbcApp {
+    router_sdk::AddIbcApp::builder(&ics26_router::ID)
+        .accounts(router_sdk::AddIbcAppAccounts {
+            access_manager: am_pda,
+            app_program: app_program_id,
+            payer,
+            authority: admin,
+            port_id,
+        })
+        .args(&router_sdk::AddIbcAppArgs {
             port_id: port_id.to_string(),
-        }
-        .data(),
-    }
+        })
+        .build()
 }

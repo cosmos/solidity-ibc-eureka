@@ -101,7 +101,7 @@ runs:
     - name: Build Solana Programs
       if: steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
-      run: just build-solana
+      run: just build-solana-programs
 
     - name: Package artifacts
       shell: bash

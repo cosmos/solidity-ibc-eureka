@@ -65,7 +65,12 @@ jobs:
           protoc --version
 
       - name: Build Solana programs
-        run: just build-solana
+        run: just build-solana-programs
+
+      - name: Run Solana integration tests
+        run: just test-solana-integration
+        env:
+          RUST_BACKTRACE: 1
 
       - name: Run Solana unit tests
         run: just test-solana
@@ -74,4 +79,3 @@ jobs:
 
       - name: Run Solana linting
         run: just lint-solana
-

@@ -5,22 +5,17 @@
 
 use crate::attestor::Attestors;
 use alloy_sol_types::SolValue;
-use anchor_lang::InstructionData;
 use attestation::crypto::AttestationType;
-use attestation::state::ConsensusStateStore;
-use attestation::types::{
-    AppState, ClientState, MembershipProof, PacketAttestation, PacketCompact, StateAttestation,
-};
+use attestation::types::{MembershipProof, PacketAttestation, PacketCompact, StateAttestation};
 use borsh::BorshSerialize;
-use solana_ibc_types::ics24::{
+use ics26_router::ics24::{
     packet_acknowledgement_commitment_path, packet_commitment_path, packet_receipt_commitment_path,
 };
+use solana_ibc_sdk::access_manager::instructions as am_sdk;
+use solana_ibc_sdk::attestation::instructions as attestation_sdk;
+use solana_ibc_sdk::attestation::types::UpdateClientParams;
 use solana_keccak_hasher::hash as keccak256;
-use solana_sdk::{
-    instruction::{AccountMeta, Instruction},
-    pubkey::Pubkey,
-    system_program,
-};
+use solana_sdk::{instruction::Instruction, pubkey::Pubkey};
 
 /// Build an `update_client` instruction for the default attestation LC instance.
 pub fn build_update_client_ix(relayer: Pubkey, height: u64, proof: MembershipProof) -> Instruction {
@@ -34,37 +29,21 @@ pub fn build_update_client_ix_for_program(
     height: u64,
     proof: MembershipProof,
 ) -> Instruction {
-    let (client_state_pda, _) = Pubkey::find_program_address(&[ClientState::SEED], &program_id);
-    let (consensus_state_pda, _) = Pubkey::find_program_address(
-        &[ConsensusStateStore::SEED, &height.to_le_bytes()],
-        &program_id,
-    );
-    let (app_state_pda, _) = Pubkey::find_program_address(&[AppState::SEED], &program_id);
+    let am_pda = am_sdk::Initialize::access_manager_pda(&access_manager::ID).0;
 
-    let (access_manager_pda, _) = Pubkey::find_program_address(
-        &[access_manager::state::AccessManager::SEED],
-        &access_manager::ID,
-    );
-
-    Instruction {
-        program_id,
-        accounts: vec![
-            AccountMeta::new(client_state_pda, false),
-            AccountMeta::new(consensus_state_pda, false),
-            AccountMeta::new_readonly(app_state_pda, false),
-            AccountMeta::new_readonly(access_manager_pda, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-            AccountMeta::new(relayer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-        ],
-        data: attestation::instruction::UpdateClient {
+    attestation_sdk::UpdateClient::builder(&program_id)
+        .accounts(attestation_sdk::UpdateClientAccounts {
+            access_manager: am_pda,
+            submitter: relayer,
             new_height: height,
-            params: attestation::instructions::UpdateClientParams {
+        })
+        .args(&attestation_sdk::UpdateClientArgs {
+            new_height: height,
+            params: UpdateClientParams {
                 proof: proof.try_to_vec().expect("MembershipProof serialization"),
             },
-        }
-        .data(),
-    }
+        })
+        .build()
 }
 
 /// Build a signed `MembershipProof` for a state attestation (used by `update_client`).
