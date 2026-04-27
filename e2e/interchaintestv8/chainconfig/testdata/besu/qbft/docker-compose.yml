@@ -6,9 +6,6 @@ services:
       - --identity=validator1
       - --p2p-host=10.42.0.2
       - --p2p-port=30303
-      - --metrics-enabled
-      - --metrics-host=0.0.0.0
-      - --metrics-port=9545
     volumes:
       - ./config.toml:/opt/besu/config.toml:ro
       - ./genesis.json:/opt/besu/genesis.json:ro
@@ -16,7 +13,6 @@ services:
       - validator1-data:/opt/besu/data
     ports:
       - "8545"
-      - "9545:9545"
     networks:
       qbft_testnet:
         ipv4_address: 10.42.0.2
