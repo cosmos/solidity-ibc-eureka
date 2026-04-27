@@ -3,7 +3,18 @@ pragma solidity ^0.8.28;
 
 import { BesuLightClientBase } from "./BesuLightClientBase.sol";
 
+/// @title Besu QBFT Light Client
+/// @notice Verifies Besu QBFT headers and ICS26 router storage proofs.
 contract BesuQBFTLightClient is BesuLightClientBase {
+    /// @notice Creates a Besu QBFT light client from an initial trusted consensus state.
+    /// @param ibcRouter Counterparty ICS26 router address whose storage is proven.
+    /// @param initialTrustedHeight Initial trusted Besu height.
+    /// @param initialTrustedTimestamp Initial trusted header timestamp in seconds.
+    /// @param initialTrustedStorageRoot Initial trusted storage root of `ibcRouter`.
+    /// @param initialTrustedValidators Initial trusted validator set.
+    /// @param trustingPeriod Maximum age in seconds for trusted consensus states.
+    /// @param maxClockDrift Maximum allowed future drift in seconds for submitted headers.
+    /// @param roleManager Address that administers proof submission; if zero, proof submission is open.
     constructor(
         address ibcRouter,
         uint64 initialTrustedHeight,
@@ -26,6 +37,7 @@ contract BesuQBFTLightClient is BesuLightClientBase {
         )
     { }
 
+    /// @inheritdoc BesuLightClientBase
     function _commitSealDigest(ParsedHeader memory header) internal pure override returns (bytes32) {
         bytes[] memory extraItems = new bytes[](5);
         extraItems[0] = _rlpItemBytes(header.extraDataItems[0]);

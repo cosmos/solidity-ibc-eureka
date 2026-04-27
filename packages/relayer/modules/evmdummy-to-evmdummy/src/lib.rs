@@ -1,4 +1,4 @@
-//! One-sided Besu-to-Besu relayer module.
+//! Local/dev/testing-only one-sided relayer module from EVM dummy to EVM dummy.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs)]
@@ -17,17 +17,24 @@ use ibc_eureka_relayer_core::{
 };
 use ibc_eureka_relayer_lib::{
     listener::{eth_eureka, ChainListenerService},
-    service_utils::{parse_eth_tx_hashes, to_tonic_status},
     utils::RelayEventsParams,
 };
 use tonic::{Request, Response};
-use tracing as _;
 use tx_builder::TxBuilder;
 
-#[derive(Clone, Copy, Debug)]
-pub struct BesuToBesuRelayerModule;
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct EvmDummyToEvmDummyConfig {
+    pub src_chain_id: String,
+    pub src_rpc_url: String,
+    pub src_ics26_address: Address,
+    pub dst_rpc_url: String,
+    pub dst_ics26_address: Address,
+}
 
-struct BesuToBesuRelayerModuleService {
+#[derive(Clone, Copy, Debug)]
+pub struct EvmDummyToEvmDummyRelayerModule;
+
+struct EvmDummyToEvmDummyRelayerModuleService {
     src_chain_id: String,
     src_ics26_address: Address,
     src_listener: eth_eureka::ChainListener<RootProvider>,
@@ -35,25 +42,8 @@ struct BesuToBesuRelayerModuleService {
     tx_builder: TxBuilder,
 }
 
-#[derive(Clone, Copy, Debug, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum BesuConsensusType {
-    Qbft,
-    Ibft2,
-}
-
-#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-pub struct BesuToBesuConfig {
-    pub src_chain_id: String,
-    pub src_rpc_url: String,
-    pub src_ics26_address: Address,
-    pub dst_rpc_url: String,
-    pub dst_ics26_address: Address,
-    pub consensus_type: BesuConsensusType,
-}
-
-impl BesuToBesuRelayerModuleService {
-    async fn new(config: BesuToBesuConfig) -> anyhow::Result<Self> {
+impl EvmDummyToEvmDummyRelayerModuleService {
+    async fn new(config: EvmDummyToEvmDummyConfig) -> anyhow::Result<Self> {
         let src_provider = RootProvider::builder()
             .connect(&config.src_rpc_url)
             .await
@@ -67,13 +57,7 @@ impl BesuToBesuRelayerModuleService {
             eth_eureka::ChainListener::new(config.src_ics26_address, src_provider.clone());
         let dst_listener =
             eth_eureka::ChainListener::new(config.dst_ics26_address, dst_provider.clone());
-        let tx_builder = TxBuilder::new(
-            src_provider,
-            dst_provider,
-            config.src_ics26_address,
-            config.dst_ics26_address,
-            config.consensus_type,
-        );
+        let tx_builder = TxBuilder::new(src_provider, dst_provider, config.dst_ics26_address);
 
         Ok(Self {
             src_chain_id: config.src_chain_id,
@@ -85,8 +69,22 @@ impl BesuToBesuRelayerModuleService {
     }
 }
 
+fn to_tonic_status(e: anyhow::Error) -> tonic::Status {
+    tonic::Status::from_error(e.into())
+}
+
+#[allow(clippy::result_large_err)]
+fn parse_eth_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<TxHash>, tonic::Status> {
+    tx_ids
+        .into_iter()
+        .map(TryInto::<[u8; 32]>::try_into)
+        .map(|tx_hash| tx_hash.map(TxHash::from))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|tx| tonic::Status::from_error(format!("invalid tx hash: {tx:?}").into()))
+}
+
 #[tonic::async_trait]
-impl RelayerService for BesuToBesuRelayerModuleService {
+impl RelayerService for EvmDummyToEvmDummyRelayerModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -110,76 +108,12 @@ impl RelayerService for BesuToBesuRelayerModuleService {
         }))
     }
 
-    async fn relay_by_tx(
-        &self,
-        request: Request<api::RelayByTxRequest>,
-    ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
-        let inner_req = request.into_inner();
-
-        let src_txs = parse_eth_tx_hashes(inner_req.source_tx_ids)?
-            .into_iter()
-            .map(TxHash::from)
-            .collect();
-        let timeout_txs = parse_eth_tx_hashes(inner_req.timeout_tx_ids)?
-            .into_iter()
-            .map(TxHash::from)
-            .collect();
-
-        let src_events = self
-            .src_listener
-            .fetch_tx_events(src_txs)
-            .await
-            .map_err(to_tonic_status)?;
-        let timeout_events = self
-            .dst_listener
-            .fetch_tx_events(timeout_txs)
-            .await
-            .map_err(to_tonic_status)?;
-
-        let timeout_relay_height = if timeout_events.is_empty() {
-            None
-        } else {
-            Some(
-                self.src_listener
-                    .get_block_number()
-                    .await
-                    .map_err(to_tonic_status)?,
-            )
-        };
-
-        let tx = self
-            .tx_builder
-            .relay_events(RelayEventsParams {
-                src_events,
-                target_events: timeout_events,
-                timeout_relay_height,
-                src_client_id: inner_req.src_client_id,
-                dst_client_id: inner_req.dst_client_id,
-                src_packet_seqs: inner_req.src_packet_sequences,
-                dst_packet_seqs: inner_req.dst_packet_sequences,
-            })
-            .await
-            .map_err(to_tonic_status)?;
-
-        Ok(Response::new(api::RelayByTxResponse {
-            tx,
-            address: self.tx_builder.ics26_router_address().to_string(),
-        }))
-    }
-
     async fn create_client(
         &self,
-        request: Request<api::CreateClientRequest>,
+        _request: Request<api::CreateClientRequest>,
     ) -> Result<Response<api::CreateClientResponse>, tonic::Status> {
-        let inner_req = request.into_inner();
-        let tx = self
-            .tx_builder
-            .create_client(&inner_req.parameters)
-            .await
-            .map_err(to_tonic_status)?;
-
         Ok(Response::new(api::CreateClientResponse {
-            tx,
+            tx: self.tx_builder.create_client(),
             address: String::new(),
         }))
     }
@@ -188,14 +122,49 @@ impl RelayerService for BesuToBesuRelayerModuleService {
         &self,
         request: Request<api::UpdateClientRequest>,
     ) -> Result<Response<api::UpdateClientResponse>, tonic::Status> {
-        let inner_req = request.into_inner();
+        let inner = request.into_inner();
         let tx = self
             .tx_builder
-            .update_client(&inner_req.dst_client_id)
+            .update_client(&inner.dst_client_id)
             .await
             .map_err(to_tonic_status)?;
-
         Ok(Response::new(api::UpdateClientResponse {
+            tx,
+            address: self.tx_builder.ics26_router_address().to_string(),
+        }))
+    }
+
+    async fn relay_by_tx(
+        &self,
+        request: Request<api::RelayByTxRequest>,
+    ) -> Result<Response<api::RelayByTxResponse>, tonic::Status> {
+        let inner = request.into_inner();
+        let src_txs = parse_eth_tx_hashes(inner.source_tx_ids)?;
+        let timeout_txs = parse_eth_tx_hashes(inner.timeout_tx_ids)?;
+        let src_events = self
+            .src_listener
+            .fetch_tx_events(src_txs)
+            .await
+            .map_err(to_tonic_status)?;
+        let target_events = self
+            .dst_listener
+            .fetch_tx_events(timeout_txs)
+            .await
+            .map_err(to_tonic_status)?;
+        let tx = self
+            .tx_builder
+            .relay_events(RelayEventsParams {
+                src_events,
+                target_events,
+                timeout_relay_height: None,
+                src_client_id: inner.src_client_id,
+                dst_client_id: inner.dst_client_id,
+                src_packet_seqs: inner.src_packet_sequences,
+                dst_packet_seqs: inner.dst_packet_sequences,
+            })
+            .await
+            .map_err(to_tonic_status)?;
+        Ok(Response::new(api::RelayByTxResponse {
             tx,
             address: self.tx_builder.ics26_router_address().to_string(),
         }))
@@ -203,17 +172,18 @@ impl RelayerService for BesuToBesuRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for BesuToBesuRelayerModule {
+impl RelayerModule for EvmDummyToEvmDummyRelayerModule {
     fn name(&self) -> &'static str {
-        "besu_to_besu"
+        "evmdummy_to_evmdummy"
     }
 
     async fn create_service(
         &self,
         config: serde_json::Value,
     ) -> anyhow::Result<Box<dyn RelayerService>> {
-        let config: BesuToBesuConfig = serde_json::from_value(config)?;
-        let service = BesuToBesuRelayerModuleService::new(config).await?;
-        Ok(Box::new(service))
+        let config: EvmDummyToEvmDummyConfig = serde_json::from_value(config)?;
+        Ok(Box::new(
+            EvmDummyToEvmDummyRelayerModuleService::new(config).await?,
+        ))
     }
 }

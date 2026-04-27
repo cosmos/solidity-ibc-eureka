@@ -73,7 +73,9 @@ abstract contract BesuLightClientTestBase is Test {
 
         assertEq(uint8(result), uint8(ILightClientMsgs.UpdateResult.Update));
         _assertClientState(
-            fixture.updateHeight11.expectedTimestamp, fixture.updateHeight11.expectedStorageRoot, fixture.updateHeight11.height
+            fixture.updateHeight11.expectedTimestamp,
+            fixture.updateHeight11.expectedStorageRoot,
+            fixture.updateHeight11.height
         );
     }
 
@@ -84,7 +86,9 @@ abstract contract BesuLightClientTestBase is Test {
 
         assertEq(uint8(result), uint8(ILightClientMsgs.UpdateResult.Update));
         _assertClientState(
-            fixture.updateHeight12.expectedTimestamp, fixture.updateHeight12.expectedStorageRoot, fixture.updateHeight12.height
+            fixture.updateHeight12.expectedTimestamp,
+            fixture.updateHeight12.expectedStorageRoot,
+            fixture.updateHeight12.height
         );
     }
 
@@ -231,7 +235,9 @@ abstract contract BesuLightClientTestBase is Test {
         client.updateClient(_encodeUpdate(fixture.updateHeight12));
 
         vm.expectRevert(
-            abi.encodeWithSelector(IBesuLightClientErrors.ConflictingConsensusState.selector, fixture.conflictingHeight12.height)
+            abi.encodeWithSelector(
+                IBesuLightClientErrors.ConflictingConsensusState.selector, fixture.conflictingHeight12.height
+            )
         );
         client.updateClient(_encodeUpdate(fixture.conflictingHeight12));
     }

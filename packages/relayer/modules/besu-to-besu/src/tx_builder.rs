@@ -30,7 +30,7 @@ use rlp::Rlp;
 
 use crate::BesuConsensusType;
 
-pub(crate) struct TxBuilder {
+pub struct TxBuilder {
     src_provider: RootProvider,
     dst_provider: RootProvider,
     src_ics26_router: routerInstance<RootProvider, Ethereum>,
@@ -46,7 +46,7 @@ struct CreateClientParams {
 }
 
 impl TxBuilder {
-    pub(crate) fn new(
+    pub fn new(
         src_provider: RootProvider,
         dst_provider: RootProvider,
         src_ics26_address: Address,
@@ -62,14 +62,11 @@ impl TxBuilder {
         }
     }
 
-    pub(crate) fn ics26_router_address(&self) -> &Address {
+    pub const fn ics26_router_address(&self) -> &Address {
         self.dst_ics26_router.address()
     }
 
-    pub(crate) async fn create_client(
-        &self,
-        parameters: &HashMap<String, String>,
-    ) -> Result<Vec<u8>> {
+    pub async fn create_client(&self, parameters: &HashMap<String, String>) -> Result<Vec<u8>> {
         let params = parse_create_client_params(parameters)?;
         let trusted_height = match params.trusted_height {
             Some(height) => height,
@@ -86,8 +83,10 @@ impl TxBuilder {
             .with_context(|| format!("failed to fetch source block at height {trusted_height}"))?;
         let header = block.into_consensus_header();
         let header_rlp = alloy_rlp::encode(&header);
-        let validators = extract_validators_from_header_extra_data(&header_rlp)
-            .with_context(|| format!("failed to extract validators from source block {trusted_height}"))?;
+        let validators =
+            extract_validators_from_header_extra_data(&header_rlp).with_context(|| {
+                format!("failed to extract validators from source block {trusted_height}")
+            })?;
         let (storage_root, _) = self
             .fetch_source_account_proof(trusted_height)
             .await
@@ -111,32 +110,32 @@ impl TxBuilder {
             )
             .calldata()
             .to_vec(),
-            BesuConsensusType::Ibft2 => besu_ibft2_light_client::BesuIBFT2LightClient::deploy_builder(
-                self.dst_provider.clone(),
-                *self.src_ics26_router.address(),
-                trusted_height,
-                header.timestamp,
-                storage_root,
-                validators,
-                params.trusting_period,
-                params.max_clock_drift,
-                params.role_manager,
-            )
-            .calldata()
-            .to_vec(),
+            BesuConsensusType::Ibft2 => {
+                besu_ibft2_light_client::BesuIBFT2LightClient::deploy_builder(
+                    self.dst_provider.clone(),
+                    *self.src_ics26_router.address(),
+                    trusted_height,
+                    header.timestamp,
+                    storage_root,
+                    validators,
+                    params.trusting_period,
+                    params.max_clock_drift,
+                    params.role_manager,
+                )
+                .calldata()
+                .to_vec()
+            }
         };
 
         Ok(calldata)
     }
 
-    pub(crate) async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
+    pub async fn update_client(&self, dst_client_id: &str) -> Result<Vec<u8>> {
         let client_state = self
             .fetch_destination_client_state(dst_client_id)
             .await
             .with_context(|| {
-                format!(
-                    "failed to decode destination Besu client state for client {dst_client_id}"
-                )
+                format!("failed to decode destination Besu client state for client {dst_client_id}")
             })?;
         let trusted_height = client_state.latestHeight.revisionHeight;
         let target_height = self
@@ -148,13 +147,11 @@ impl TxBuilder {
         self.build_update_client_calldata(dst_client_id, trusted_height, target_height)
             .await
             .with_context(|| {
-                format!(
-                    "failed to build destination updateClient call for client {dst_client_id}"
-                )
+                format!("failed to build destination updateClient call for client {dst_client_id}")
             })
     }
 
-    pub(crate) async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
+    pub async fn relay_events(&self, params: RelayEventsParams) -> Result<Vec<u8>> {
         let proof_height = select_proof_height(&params.src_events, params.timeout_relay_height)?;
         let now = std::time::SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -211,7 +208,68 @@ impl TxBuilder {
                 )
             })?;
 
-        for call in &mut packet_calls {
+        self.attach_packet_proofs(&mut packet_calls, proof_height)
+            .await?;
+
+        let all_calls: Vec<Bytes> = std::iter::once(update_call.into())
+            .chain(packet_calls.into_iter().map(|call| match call {
+                routerCalls::ackPacket(call) => call.abi_encode().into(),
+                routerCalls::recvPacket(call) => call.abi_encode().into(),
+                routerCalls::timeoutPacket(call) => call.abi_encode().into(),
+                _ => unreachable!("only recv, ack, and timeout calls are constructed"),
+            }))
+            .collect();
+
+        Ok(multicallCall { data: all_calls }.abi_encode())
+    }
+
+    async fn build_update_client_calldata(
+        &self,
+        dst_client_id: &str,
+        trusted_height: u64,
+        target_height: u64,
+    ) -> Result<Vec<u8>> {
+        let header_rlp = self
+            .fetch_source_header_rlp(target_height)
+            .await
+            .with_context(|| format!("failed to fetch source block at height {target_height}"))?;
+        let (_, account_proof) = self
+            .fetch_source_account_proof(target_height)
+            .await
+            .with_context(|| {
+                format!("failed to fetch account proof for source router at height {target_height}")
+            })?;
+
+        let update_msg = IBesuLightClientMsgs::MsgUpdateClient {
+            headerRlp: header_rlp.into(),
+            trustedHeight: MsgHeight {
+                revisionNumber: 0,
+                revisionHeight: trusted_height,
+            },
+            accountProof: account_proof.into(),
+        };
+
+        Ok(updateClientCall {
+            clientId: dst_client_id.to_string(),
+            updateMsg: update_msg.abi_encode().into(),
+        }
+        .abi_encode())
+    }
+
+    async fn fetch_source_header_rlp(&self, block_height: u64) -> Result<Vec<u8>> {
+        let block = EthApiClient::new(self.src_provider.clone())
+            .get_block(block_height)
+            .await
+            .with_context(|| format!("failed to fetch source block at height {block_height}"))?;
+        Ok(alloy_rlp::encode(block.into_consensus_header()))
+    }
+
+    async fn attach_packet_proofs(
+        &self,
+        packet_calls: &mut [routerCalls],
+        proof_height: u64,
+    ) -> Result<()> {
+        for call in packet_calls {
             match call {
                 routerCalls::recvPacket(call) => {
                     let path = call.msg_.packet.commitment_path();
@@ -256,59 +314,7 @@ impl TxBuilder {
             }
         }
 
-        let all_calls: Vec<Bytes> = std::iter::once(update_call.into())
-            .chain(packet_calls.into_iter().map(|call| match call {
-                routerCalls::ackPacket(call) => call.abi_encode().into(),
-                routerCalls::recvPacket(call) => call.abi_encode().into(),
-                routerCalls::timeoutPacket(call) => call.abi_encode().into(),
-                _ => unreachable!("only recv, ack, and timeout calls are constructed"),
-            }))
-            .collect();
-
-        Ok(multicallCall { data: all_calls }.abi_encode())
-    }
-
-    async fn build_update_client_calldata(
-        &self,
-        dst_client_id: &str,
-        trusted_height: u64,
-        target_height: u64,
-    ) -> Result<Vec<u8>> {
-        let header_rlp = self
-            .fetch_source_header_rlp(target_height)
-            .await
-            .with_context(|| format!("failed to fetch source block at height {target_height}"))?;
-        let (_, account_proof) = self
-            .fetch_source_account_proof(target_height)
-            .await
-            .with_context(|| {
-                format!(
-                    "failed to fetch account proof for source router at height {target_height}"
-                )
-            })?;
-
-        let update_msg = IBesuLightClientMsgs::MsgUpdateClient {
-            headerRlp: header_rlp.into(),
-            trustedHeight: MsgHeight {
-                revisionNumber: 0,
-                revisionHeight: trusted_height,
-            },
-            accountProof: account_proof.into(),
-        };
-
-        Ok(updateClientCall {
-            clientId: dst_client_id.to_string(),
-            updateMsg: update_msg.abi_encode().into(),
-        }
-        .abi_encode())
-    }
-
-    async fn fetch_source_header_rlp(&self, block_height: u64) -> Result<Vec<u8>> {
-        let block = EthApiClient::new(self.src_provider.clone())
-            .get_block(block_height)
-            .await
-            .with_context(|| format!("failed to fetch source block at height {block_height}"))?;
-        Ok(alloy_rlp::encode(&block.into_consensus_header()))
+        Ok(())
     }
 
     async fn fetch_source_account_proof(&self, block_height: u64) -> Result<(B256, Vec<u8>)> {
@@ -320,27 +326,30 @@ impl TxBuilder {
             )
             .await
             .with_context(|| {
-                format!(
-                    "failed to fetch account proof for source router at height {block_height}"
-                )
+                format!("failed to fetch account proof for source router at height {block_height}")
             })?;
 
-        Ok((proof.storage_hash, encode_rlp_node_list(&proof.account_proof)))
+        Ok((
+            proof.storage_hash,
+            encode_rlp_node_list(&proof.account_proof),
+        ))
     }
 
     async fn fetch_source_storage_proof(&self, block_height: u64, path: &[u8]) -> Result<Vec<u8>> {
-        let storage_key = evm_ics26_commitment_path(path, U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT));
+        let storage_key =
+            evm_ics26_commitment_path(path, U256::from_be_slice(&ICS26_IBC_STORAGE_SLOT));
         let proof = EthApiClient::new(self.src_provider.clone())
             .get_proof(
                 &self.src_ics26_router.address().to_string(),
-                vec![format!("0x{}", hex::encode(storage_key.to_be_bytes::<32>()))],
+                vec![format!(
+                    "0x{}",
+                    hex::encode(storage_key.to_be_bytes::<32>())
+                )],
                 format!("0x{block_height:x}"),
             )
             .await
             .with_context(|| {
-                format!(
-                    "failed to fetch storage proof for source router at height {block_height}"
-                )
+                format!("failed to fetch storage proof for source router at height {block_height}")
             })?;
         let storage_proof = proof
             .storage_proof
@@ -359,18 +368,21 @@ impl TxBuilder {
             .getClient(dst_client_id.to_string())
             .call()
             .await
-            .with_context(|| format!("failed to fetch destination client address for {dst_client_id}"))?;
+            .with_context(|| {
+                format!("failed to fetch destination client address for {dst_client_id}")
+            })?;
         let client_state_bz: Bytes = besu_qbft_light_client::BesuQBFTLightClient::new(
             client_address,
             self.dst_provider.clone(),
         )
-            .getClientState()
-            .call()
-            .await
-            .with_context(|| format!("failed to fetch destination client state for {dst_client_id}"))?;
+        .getClientState()
+        .call()
+        .await
+        .with_context(|| format!("failed to fetch destination client state for {dst_client_id}"))?;
 
-        IBesuLightClientMsgs::ClientState::abi_decode(client_state_bz.as_ref())
-            .with_context(|| format!("failed to decode destination client state for {dst_client_id}"))
+        IBesuLightClientMsgs::ClientState::abi_decode(client_state_bz.as_ref()).with_context(|| {
+            format!("failed to decode destination client state for {dst_client_id}")
+        })
     }
 }
 
@@ -405,9 +417,11 @@ fn parse_create_client_params(parameters: &HashMap<String, String>) -> Result<Cr
                     .context("failed to parse `trusted_height` as decimal block height")
             })
             .transpose()?,
-        role_manager: parameters.get("role_manager").map_or(Ok(Address::ZERO), |value| {
-            Address::from_str(value).context("failed to parse `role_manager` as hex address")
-        })?,
+        role_manager: parameters
+            .get("role_manager")
+            .map_or(Ok(Address::ZERO), |value| {
+                Address::from_str(value).context("failed to parse `role_manager` as hex address")
+            })?,
     })
 }
 
@@ -442,8 +456,10 @@ fn extract_validators_from_header_extra_data(header_rlp: &[u8]) -> Result<Vec<Ad
             .item_count()
             .context("failed to read validator count")?,
     );
-    for validator in validators.iter() {
-        let validator = validator.data().context("failed to decode validator address")?;
+    for validator in &validators {
+        let validator = validator
+            .data()
+            .context("failed to decode validator address")?;
         if validator.len() != 20 {
             bail!("invalid validator address length: {}", validator.len());
         }
@@ -469,12 +485,14 @@ fn select_proof_height(
 
 #[cfg(test)]
 mod tests {
-    use super::{encode_rlp_node_list, extract_validators_from_header_extra_data, select_proof_height};
+    use super::{
+        encode_rlp_node_list, extract_validators_from_header_extra_data, select_proof_height,
+    };
     use alloy::primitives::{hex, Address, Bytes};
-    use std::str::FromStr;
     use ibc_eureka_relayer_lib::events::{EurekaEvent, EurekaEventWithHeight};
     use ibc_eureka_solidity_types::ics26::IICS26RouterMsgs::{Packet, Payload};
     use serde::Deserialize;
+    use std::str::FromStr;
 
     #[derive(Debug, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -568,7 +586,10 @@ mod tests {
         let non_membership_nodes = decode_proof_nodes(&non_membership_proof);
 
         assert_eq!(encode_rlp_node_list(&membership_nodes), membership_proof);
-        assert_eq!(encode_rlp_node_list(&non_membership_nodes), non_membership_proof);
+        assert_eq!(
+            encode_rlp_node_list(&non_membership_nodes),
+            non_membership_proof
+        );
     }
 
     #[test]
@@ -579,7 +600,10 @@ mod tests {
                 height: 10,
             },
             EurekaEventWithHeight {
-                event: EurekaEvent::WriteAcknowledgement(packet(4), vec![Bytes::from(vec![b'a', b'c', b'k'])]),
+                event: EurekaEvent::WriteAcknowledgement(
+                    packet(4),
+                    vec![Bytes::from(vec![b'a', b'c', b'k'])],
+                ),
                 height: 12,
             },
         ];

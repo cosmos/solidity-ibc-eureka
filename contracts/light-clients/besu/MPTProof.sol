@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-/**
- * This file is copied from solidity-mpt library.
- * https://github.com/ibc-solidity/solidity-mpt/blob/d157b5fd0aafb0b1c23bc3a3eb5f5bc04b3fd0a3/src/MPTProof.sol
- */
+// This file is copied from solidity-mpt library.
+// https://github.com/ibc-solidity/solidity-mpt/blob/d157b5fd0aafb0b1c23bc3a3eb5f5bc04b3fd0a3/src/MPTProof.sol
 pragma solidity ^0.8.28;
 
 /* solhint-disable no-inline-assembly, function-max-lines, code-complexity, reason-string, gas-custom-errors,
@@ -10,15 +8,14 @@ gas-increment-by-one, gas-strict-inequalities */
 
 import { RLPReader } from "./RLPReader.sol";
 
+/// @title Merkle Patricia Trie Proof
+/// @notice Verifies Ethereum Merkle Patricia Trie inclusion and exclusion proofs.
 library MPTProof {
     using RLPReader for RLPReader.RLPItem;
     using RLPReader for bytes;
 
-    /// @dev Verifies a Merkle-Patricia-Trie proof.
-    ///      If the proof proves the inclusion of some key-value pair in the
-    ///      trie, the value is returned. Otherwise, i.e. if the proof proves
-    ///      the exclusion of a key from the trie, an empty byte array is
-    ///      returned.
+    /// @notice Verifies an RLP-encoded Merkle Patricia Trie proof.
+    /// @dev If the proof proves inclusion, the value is returned; for exclusion, an empty byte array is returned.
     /// @param rlpProof is the stack of MPT nodes (starting with the root) that
     ///        need to be traversed during verification. It's encoded with RLP.
     /// @param rootHash is the Keccak-256 hash of the root node of the MPT.
@@ -42,11 +39,8 @@ library MPTProof {
         return verify(rlpProof.toRlpItem().toList(), rootHash, decodeNibbles(key, 0));
     }
 
-    /// @dev Verifies a Merkle-Patricia-Trie proof.
-    ///      If the proof proves the inclusion of some key-value pair in the
-    ///      trie, the value is returned. Otherwise, i.e. if the proof proves
-    ///      the exclusion of a key from the trie, an empty byte array is
-    ///      returned.
+    /// @notice Verifies a decoded Merkle Patricia Trie proof.
+    /// @dev If the proof proves inclusion, the value is returned; for exclusion, an empty byte array is returned.
     /// @param proof is the stack of MPT nodes (starting with the root) that
     ///        need to be traversed during verification.
     /// @param rootHash is the Keccak-256 hash of the root node of the MPT.
@@ -195,6 +189,9 @@ library MPTProof {
         revert();
     }
 
+    /// @notice Checks whether an RLP item is the empty byte sequence.
+    /// @param item The RLP item to check.
+    /// @return True if the item encodes an empty byte sequence.
     function isEmptyBytesequence(RLPReader.RLPItem memory item) internal pure returns (bool) {
         if (item.len != 1) {
             return false;
@@ -207,6 +204,10 @@ library MPTProof {
         return b == 0x80; /* empty byte string */
     }
 
+    /// @notice Expands bytes into nibbles starting at an offset.
+    /// @param bz The bytes to expand.
+    /// @param offset The nibble offset.
+    /// @return nibbles The expanded nibbles.
     function decodeNibbles(bytes memory bz, uint256 offset) internal pure returns (bytes memory nibbles) {
         uint256 length = bz.length * 2;
         require(bz.length > 0 && offset <= length);
@@ -225,6 +226,10 @@ library MPTProof {
         }
     }
 
+    /// @notice Decodes compact Merkle Patricia Trie path encoding.
+    /// @param bz The compact encoded path bytes.
+    /// @return isLeaf True if the compact path marks a leaf node.
+    /// @return nibbles The decoded path nibbles.
     function merklePatriciaCompactDecode(bytes memory bz) internal pure returns (bool isLeaf, bytes memory nibbles) {
         require(bz.length > 0);
         uint256 firstNibble = uint8(bz[0]) >> 4 & 0xF;
@@ -248,6 +253,11 @@ library MPTProof {
         return (isLeaf, decodeNibbles(bz, offset));
     }
 
+    /// @notice Computes the shared prefix length between two nibble arrays.
+    /// @param xsOffset Offset into `xs` where comparison starts.
+    /// @param xs The first nibble array.
+    /// @param ys The second nibble array.
+    /// @return The number of matching nibbles.
     function sharedPrefixLength(uint256 xsOffset, bytes memory xs, bytes memory ys) internal pure returns (uint256) {
         uint256 i = 0;
         for (; i + xsOffset < xs.length && i < ys.length; i++) {
@@ -258,13 +268,8 @@ library MPTProof {
         return i;
     }
 
-    /// @dev Computes the hash of the Merkle-Patricia-Trie hash of the input.
-    ///      Merkle-Patricia-Tries use a weird "hash function" that outputs
-    ///      *variable-length* hashes: If the input is shorter than 32 bytes,
-    ///      the MPT hash is the input. Otherwise, the MPT hash is the
-    ///      Keccak-256 hash of the input.
-    ///      The easiest way to compare variable-length byte sequences is
-    ///      to compare their Keccak-256 hashes.
+    /// @notice Computes the keccak256 hash of the Merkle Patricia Trie hash of an item.
+    /// @dev MPT hashes are variable length: short inputs are inlined, long inputs are keccak256-hashed.
     /// @param input The byte sequence to be hashed.
     /// @return Keccak-256(MPT-hash(input))
     function mptHashHash(RLPReader.RLPItem memory input) internal pure returns (bytes32) {

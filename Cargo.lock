@@ -5579,6 +5579,7 @@ dependencies = [
  "ibc-eureka-relayer-eth-to-cosmos-compat",
  "ibc-eureka-relayer-eth-to-eth",
  "ibc-eureka-relayer-eth-to-solana",
+ "ibc-eureka-relayer-evmdummy-to-evmdummy",
  "ibc-eureka-relayer-solana-to-cosmos",
  "ibc-eureka-relayer-solana-to-eth",
  "opentelemetry",
@@ -5845,6 +5846,20 @@ dependencies = [
  "spl-token",
  "tonic 0.13.1",
  "tracing",
+]
+
+[[package]]
+name = "ibc-eureka-relayer-evmdummy-to-evmdummy"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "ibc-eureka-relayer-core 0.1.0",
+ "ibc-eureka-relayer-lib 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "serde",
+ "serde_json",
+ "tonic 0.13.1",
 ]
 
 [[package]]

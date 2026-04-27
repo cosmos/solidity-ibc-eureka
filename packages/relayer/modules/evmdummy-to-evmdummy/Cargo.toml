@@ -1,0 +1,16 @@
+[package]
+name = "ibc-eureka-relayer-evmdummy-to-evmdummy"
+version.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+alloy = { workspace = true, features = ["full", "node-bindings"] }
+anyhow = { workspace = true, features = ["std"] }
+ibc-eureka-relayer-core = { workspace = true, default-features = false }
+ibc-eureka-relayer-lib = { workspace = true, default-features = false }
+ibc-eureka-solidity-types = { workspace = true, features = ["rpc"] }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tonic = { workspace = true, default-features = true }

@@ -799,6 +799,7 @@ generate-abi: build-contracts
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
 	jq '.abi' out/BesuIBFT2LightClient.sol/BesuIBFT2LightClient.json > abi/BesuIBFT2LightClient.json
 	jq '.abi' out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json > abi/BesuQBFTLightClient.json
+	jq '.abi' out/DummyLightClient.sol/DummyLightClient.json > abi/DummyLightClient.json
 	jq '.abi' out/TestIFT.sol/TestIFT.json > abi/TestIFT.json
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
 	abigen --abi abi/TestIFT.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
@@ -810,6 +811,8 @@ generate-abi: build-contracts
 	abigen --abi abi/ICS27GMP.json --pkg ics27gmp --type Contract --out packages/go-abigen/ics27gmp/contract.go
 	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
 	abigen --abi abi/AttestationLightClient.json --pkg attestation --type Contract --out packages/go-abigen/attestation/contract.go
+	mkdir -p packages/go-abigen/dummy
+	abigen --abi abi/DummyLightClient.json --pkg dummy --type Contract --out packages/go-abigen/dummy/contract.go
 
 # Generate the ABI files with bytecode for the required contracts
 [group('generate')]
@@ -818,6 +821,7 @@ generate-abi-bytecode: build-contracts
 	cp out/AttestationLightClient.sol/AttestationLightClient.json abi/bytecode
 	cp out/BesuIBFT2LightClient.sol/BesuIBFT2LightClient.json abi/bytecode
 	cp out/BesuQBFTLightClient.sol/BesuQBFTLightClient.json abi/bytecode
+	cp out/DummyLightClient.sol/DummyLightClient.json abi/bytecode
 
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
