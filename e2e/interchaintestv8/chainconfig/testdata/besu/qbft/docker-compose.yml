@@ -1,6 +1,6 @@
 services:
   validator1:
-    image: hyperledger/besu:25.4.1
+    image: hyperledger/besu:26.4.0
     command:
       - --config-file=/opt/besu/config.toml
       - --identity=validator1
@@ -18,7 +18,7 @@ services:
         ipv4_address: 10.42.0.2
 
   validator2:
-    image: hyperledger/besu:25.4.1
+    image: hyperledger/besu:26.4.0
     command:
       - --config-file=/opt/besu/config.toml
       - --identity=validator2
@@ -35,7 +35,7 @@ services:
         ipv4_address: 10.42.0.3
 
   validator3:
-    image: hyperledger/besu:25.4.1
+    image: hyperledger/besu:26.4.0
     command:
       - --config-file=/opt/besu/config.toml
       - --identity=validator3
@@ -52,7 +52,7 @@ services:
         ipv4_address: 10.42.0.4
 
   validator4:
-    image: hyperledger/besu:25.4.1
+    image: hyperledger/besu:26.4.0
     command:
       - --config-file=/opt/besu/config.toml
       - --identity=validator4

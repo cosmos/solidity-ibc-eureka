@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,6 +18,7 @@ import (
 	dockerclient "github.com/moby/moby/client"
 
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/testcontainers/testcontainers-go/modules/compose"
@@ -33,6 +35,9 @@ const (
 
 	defaultBesuQBFTSubnet  = "10.42.0.0/16"
 	defaultBesuQBFTGateway = "10.42.0.1"
+
+	besuQBFTReadyStableBlocks     = 6
+	besuQBFTTxProbeReceiptTimeout = 30 * time.Second
 )
 
 var defaultBesuQBFTValidatorIPs = [4]string{"10.42.0.2", "10.42.0.3", "10.42.0.4", "10.42.0.5"}
@@ -131,6 +136,10 @@ func SpinUpBesuQBFT(ctx context.Context, params BesuQBFTParams) (chain BesuQBFTC
 
 	if err := waitForBesuQBFTReady(ctx, chain.RPC); err != nil {
 		return BesuQBFTChain{}, fmt.Errorf("wait for besu qbft readiness: %w", err)
+	}
+
+	if err := waitForBesuQBFTTransactionHandling(ctx, chain.RPC, faucet); err != nil {
+		return BesuQBFTChain{}, fmt.Errorf("wait for besu qbft transaction handling: %w", err)
 	}
 
 	return chain, nil
@@ -270,23 +279,158 @@ func connectBesuQBFTToInterchainNetwork(ctx context.Context, interchainNetworkID
 }
 
 func waitForBesuQBFTReady(ctx context.Context, rpcURL string) error {
-	return testutil.WaitForCondition(2*time.Minute, 2*time.Second, func() (bool, error) {
+	var (
+		stableStartBlock uint64
+		lastErr          error
+	)
+
+	err := testutil.WaitForCondition(3*time.Minute, 2*time.Second, func() (bool, error) {
 		client, err := ethclient.DialContext(ctx, rpcURL)
 		if err != nil {
+			lastErr = err
 			return false, nil
 		}
 		defer client.Close()
 
+		syncProgress, err := client.SyncProgress(ctx)
+		if err != nil {
+			lastErr = err
+			stableStartBlock = 0
+			return false, nil
+		}
+		if syncProgress != nil {
+			stableStartBlock = 0
+			return false, nil
+		}
+
+		peerCount, err := client.PeerCount(ctx)
+		if err != nil {
+			lastErr = err
+			stableStartBlock = 0
+			return false, nil
+		}
+		if peerCount < uint64(len(besuQBFTServices)-1) {
+			stableStartBlock = 0
+			return false, nil
+		}
+
 		blockNumber, err := client.BlockNumber(ctx)
 		if err != nil || blockNumber == 0 {
+			lastErr = err
+			stableStartBlock = 0
 			return false, nil
 		}
 
 		var validators []common.Address
 		if err := client.Client().CallContext(ctx, &validators, "qbft_getValidatorsByBlockNumber", "latest"); err != nil {
+			lastErr = err
+			stableStartBlock = 0
 			return false, nil
 		}
 
-		return len(validators) == 4, nil
+		if len(validators) != len(besuQBFTServices) {
+			stableStartBlock = 0
+			return false, nil
+		}
+
+		if stableStartBlock == 0 {
+			stableStartBlock = blockNumber
+			return false, nil
+		}
+
+		return blockNumber >= stableStartBlock+besuQBFTReadyStableBlocks, nil
 	})
+	if err != nil && lastErr != nil {
+		return fmt.Errorf("%w (last readiness observation: %v)", err, lastErr)
+	}
+	return err
+}
+
+func waitForBesuQBFTTransactionHandling(ctx context.Context, rpcURL string, key *ecdsa.PrivateKey) error {
+	var lastErr error
+
+	err := testutil.WaitForCondition(2*time.Minute, 2*time.Second, func() (bool, error) {
+		client, err := ethclient.DialContext(ctx, rpcURL)
+		if err != nil {
+			lastErr = err
+			return false, nil
+		}
+		defer client.Close()
+
+		txHash, err := sendBesuQBFTProbeTx(ctx, client, key)
+		if err != nil {
+			lastErr = err
+			return false, nil
+		}
+
+		receipt, err := waitForBesuQBFTProbeReceipt(ctx, client, txHash)
+		if err != nil {
+			lastErr = err
+			return false, nil
+		}
+		if receipt.Status != ethtypes.ReceiptStatusSuccessful {
+			return false, fmt.Errorf("besu qbft transaction probe failed on-chain with status %d", receipt.Status)
+		}
+
+		return true, nil
+	})
+	if err != nil && lastErr != nil {
+		return fmt.Errorf("%w (last transaction probe error: %v)", err, lastErr)
+	}
+	return err
+}
+
+func sendBesuQBFTProbeTx(ctx context.Context, client *ethclient.Client, key *ecdsa.PrivateKey) (common.Hash, error) {
+	from := crypto.PubkeyToAddress(key.PublicKey)
+
+	chainID, err := client.ChainID(ctx)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	nonce, err := client.PendingNonceAt(ctx, from)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	tx := ethtypes.NewTx(&ethtypes.DynamicFeeTx{
+		ChainID:   chainID,
+		Nonce:     nonce,
+		To:        &from,
+		Value:     big.NewInt(0),
+		Gas:       21_000,
+		GasFeeCap: big.NewInt(1),
+		GasTipCap: big.NewInt(1),
+	})
+
+	signedTx, err := ethtypes.SignTx(tx, ethtypes.LatestSignerForChainID(chainID), key)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	if err := client.SendTransaction(ctx, signedTx); err != nil {
+		return common.Hash{}, err
+	}
+
+	return signedTx.Hash(), nil
+}
+
+func waitForBesuQBFTProbeReceipt(ctx context.Context, client *ethclient.Client, txHash common.Hash) (*ethtypes.Receipt, error) {
+	receiptCtx, cancel := context.WithTimeout(ctx, besuQBFTTxProbeReceiptTimeout)
+	defer cancel()
+
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		receipt, err := client.TransactionReceipt(receiptCtx, txHash)
+		if err == nil && receipt != nil {
+			return receipt, nil
+		}
+
+		select {
+		case <-receiptCtx.Done():
+			return nil, receiptCtx.Err()
+		case <-ticker.C:
+		}
+	}
 }

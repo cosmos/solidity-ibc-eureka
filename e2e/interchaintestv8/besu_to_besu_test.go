@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	sdkmath "cosmossdk.io/math"
+
+	"github.com/cosmos/interchaintest/v11/testutil"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -41,6 +44,9 @@ const (
 	besuToBesuClientOnB = "besu-chain-a"
 
 	besuToBesuConsensusTypeQBFT = "qbft"
+
+	besuToBesuForgeDeployAttempts = 3
+	besuToBesuDeployStableBlocks  = 3
 )
 
 var (
@@ -333,7 +339,7 @@ func (s *BesuToBesuTestSuite) createUsers(chain *besuToBesuChainState) {
 func (s *BesuToBesuTestSuite) deployContracts(chain *besuToBesuChainState) {
 	os.Setenv(testvalues.EnvKeyEthRPC, chain.eth.RPC)
 
-	stdout, err := chain.eth.ForgeScript(chain.deployer, testvalues.E2EDeployScriptPath)
+	stdout, err := s.runBesuForgeDeploy(chain)
 	s.Require().NoError(err)
 
 	chain.contractAddresses, err = ethereum.GetEthContractsFromDeployOutput(string(stdout))
@@ -345,6 +351,102 @@ func (s *BesuToBesuTestSuite) deployContracts(chain *besuToBesuChainState) {
 	s.Require().NoError(err)
 	chain.erc20, err = erc20.NewContract(ethcommon.HexToAddress(chain.contractAddresses.Erc20), chain.eth.RPCClient)
 	s.Require().NoError(err)
+}
+
+func (s *BesuToBesuTestSuite) runBesuForgeDeploy(chain *besuToBesuChainState) ([]byte, error) {
+	var (
+		stdout []byte
+		err    error
+	)
+
+	for attempt := 1; attempt <= besuToBesuForgeDeployAttempts; attempt++ {
+		if err := waitForBesuDeployReady(context.Background(), &chain.eth); err != nil {
+			return stdout, err
+		}
+
+		stdout, err = chain.eth.ForgeScript(chain.deployer, testvalues.E2EDeployScriptPath)
+		if err == nil {
+			return stdout, nil
+		}
+
+		if attempt == besuToBesuForgeDeployAttempts || !isRetriableBesuForgeDeployError(stdout, err) {
+			return stdout, err
+		}
+
+		fmt.Printf("Besu forge deploy attempt %d/%d hit a transient RPC/txpool error; retrying after chain stability check: %v\n", attempt, besuToBesuForgeDeployAttempts, err)
+		time.Sleep(10 * time.Second)
+	}
+
+	return stdout, err
+}
+
+func waitForBesuDeployReady(ctx context.Context, ethChain *ethereum.Ethereum) error {
+	faucetAddress := crypto.PubkeyToAddress(ethChain.Faucet.PublicKey)
+	var (
+		stableStartBlock uint64
+		lastErr          error
+	)
+
+	err := testutil.WaitForCondition(2*time.Minute, 2*time.Second, func() (bool, error) {
+		syncProgress, err := ethChain.RPCClient.SyncProgress(ctx)
+		if err != nil {
+			lastErr = err
+			stableStartBlock = 0
+			return false, nil
+		}
+		if syncProgress != nil {
+			stableStartBlock = 0
+			return false, nil
+		}
+
+		blockNumber, err := ethChain.RPCClient.BlockNumber(ctx)
+		if err != nil || blockNumber == 0 {
+			lastErr = err
+			stableStartBlock = 0
+			return false, nil
+		}
+
+		if stableStartBlock == 0 {
+			stableStartBlock = blockNumber
+			return false, nil
+		}
+		if blockNumber < stableStartBlock+besuToBesuDeployStableBlocks {
+			return false, nil
+		}
+
+		if err := ethChain.SendEth(ethChain.Faucet, faucetAddress, sdkmath.ZeroInt()); err != nil {
+			lastErr = err
+			stableStartBlock = 0
+			return false, nil
+		}
+
+		return true, nil
+	})
+	if err != nil && lastErr != nil {
+		return fmt.Errorf("%w (last deploy readiness probe error: %v)", err, lastErr)
+	}
+	return err
+}
+
+func isRetriableBesuForgeDeployError(stdout []byte, err error) bool {
+	if err == nil {
+		return false
+	}
+
+	output := string(stdout) + "\n" + err.Error()
+	retriableMessages := []string{
+		"Some transactions were discarded by the RPC node",
+		"tx is still known to the node",
+		"attempt to divide by zero",
+		"forge script timed out",
+	}
+	for _, message := range retriableMessages {
+		if strings.Contains(output, message) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (s *BesuToBesuTestSuite) startRelayer() {
