@@ -8,7 +8,7 @@
     "@uniswap/permit2": "github:Uniswap/permit2#cc56ad0f3439c502c246fc5cfcc3db92bb8b7219"
   },
   "devDependencies": {
-    "sp1-contracts": "github:srdtrk/test-sp1-contracts#63c1efb55f30cdfa434846fd9f7cf759a3ea2efa",
+    "sp1-contracts": "github:succinctlabs/sp1-contracts#d3629729c3216eb51bd4859d027a8eb729399fa4",
     "forge-std": "github:foundry-rs/forge-std#v1.15.0",
     "solhint": "^6.2.1",
     "quicktype": "^23.2.6"

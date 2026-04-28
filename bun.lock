@@ -13,7 +13,7 @@
         "forge-std": "github:foundry-rs/forge-std#v1.15.0",
         "quicktype": "^23.2.6",
         "solhint": "^6.2.1",
-        "sp1-contracts": "github:srdtrk/test-sp1-contracts#63c1efb55f30cdfa434846fd9f7cf759a3ea2efa",
+        "sp1-contracts": "github:succinctlabs/sp1-contracts#d3629729c3216eb51bd4859d027a8eb729399fa4",
       },
     },
   },
@@ -324,7 +324,7 @@
 
     "solhint": ["solhint@6.2.1", "", { "dependencies": { "@solidity-parser/parser": "^0.20.2", "ajv": "^8.18.0", "ajv-errors": "^3.0.0", "ast-parents": "^0.0.1", "better-ajv-errors": "^2.0.2", "chalk": "^4.1.2", "commander": "^10.0.0", "cosmiconfig": "^8.0.0", "fast-diff": "^1.2.0", "glob": "^13.0.6", "ignore": "^5.2.4", "js-yaml": "^4.1.0", "latest-version": "^7.0.0", "lodash": "^4.17.21", "pluralize": "^8.0.0", "semver": "^7.5.2", "table": "^6.8.1", "text-table": "^0.2.0" }, "optionalDependencies": { "prettier": "^3.0.0" }, "bin": { "solhint": "solhint.js" } }, "sha512-+VHSa84CRjm2s+KZWYxIDnI+NokcLsZHOSpRtg5nBFmnVfh6RPmPaFd5TN922Cfrm2i85kNoQtLiapALe26b5w=="],
 
-    "sp1-contracts": ["test-sp1-contracts@github:srdtrk/test-sp1-contracts#63c1efb", {}, "srdtrk-test-sp1-contracts-63c1efb", "sha512-RTQqH/L5H71S8h2dsaAD8XLrEvFhs7mgRFrWfOSGPtt6kQGjbZrKmrrMEF0oXuxHRBuEyPyNJIwkXy1qlN3eAA=="],
+    "sp1-contracts": ["sp1-contracts@github:succinctlabs/sp1-contracts#d362972", {}, "succinctlabs-sp1-contracts-d362972", "sha512-K8RvwZiIZxqsEgAlEE5u2CqOKBHsjekHh28u+h/EIZG1AumbC58r21JjwGK7CgQcE/Y3T6xPibtUg6ttVyaZyA=="],
 
     "stream-chain": ["stream-chain@2.2.5", "", {}, "sha512-1TJmBx6aSWqZ4tx7aTpBDXK0/e2hhcNSTV8+CbFJtDjbb+I1mZ8lHit0Grw9GRT+6JbIrrDd8esncgBi8aBXGA=="],
 
