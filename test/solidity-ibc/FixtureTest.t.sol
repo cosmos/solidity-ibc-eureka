@@ -54,6 +54,10 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
     }
 
     function setUp() public {
+        // Set a timestamp before the fixture timestamps to avoid issues with access manager role granting
+        // (which uses block.timestamp for role checks)
+        vm.warp(1);
+
         // ============ Step 1: Deploy the logic contracts ==============
         address escrowLogic = address(new Escrow());
         address ibcERC20Logic = address(new IBCERC20());
