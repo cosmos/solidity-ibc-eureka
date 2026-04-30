@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/cosmos/cosmos-sdk v0.53.5
-	github.com/ethereum/go-ethereum v1.16.8
+	github.com/ethereum/go-ethereum v1.17.0
 )
 
 require (
@@ -12,6 +12,5 @@ require (
 	github.com/cosmos/btcutil v1.0.5 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/holiman/uint256 v1.3.2 // indirect
-	golang.org/x/crypto v0.41.0 // indirect
-	golang.org/x/sys v0.36.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 )
