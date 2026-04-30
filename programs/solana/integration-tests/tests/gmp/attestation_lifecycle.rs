@@ -124,7 +124,7 @@ async fn test_gmp_attestation_full_lifecycle() {
 
     // The ack PDA stores the commitment hash — verify consistency.
     let ack_commitment = extract_ack_data(&chain_b, recv.ack_pda).await;
-    let expected_commitment = solana_ibc_types::ics24::packet_acknowledgement_commitment_bytes32(
+    let expected_commitment = ics26_router::ics24::packet_acknowledgement_commitment_bytes32(
         std::slice::from_ref(&raw_gmp_ack),
     )
     .expect("compute ack commitment");

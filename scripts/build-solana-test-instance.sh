@@ -41,6 +41,8 @@ KEYPAIR_DEST="$SOLANA_DIR/target/deploy/${INSTANCE_UNDERSCORE}-keypair.json"
 
 WORKSPACE_TOML="$SOLANA_DIR/Cargo.toml"
 ANCHOR_TOML="$SOLANA_DIR/Anchor.toml"
+LOCKFILE="$SOLANA_DIR/Cargo.lock"
+LOCKFILE_BACKUP=""
 
 if [ ! -d "$SOURCE_DIR" ]; then
   echo "❌ Source program not found: $SOURCE_DIR"
@@ -56,9 +58,17 @@ fi
 PUBKEY="$(solana-keygen pubkey "$KEYPAIR_SOURCE")"
 echo "🔑 Instance: $INSTANCE (ID: $PUBKEY)"
 
+if [ -f "$LOCKFILE" ]; then
+  LOCKFILE_BACKUP="$(mktemp "$SOLANA_DIR/.Cargo.lock.backup.XXXXXX")"
+  cp "$LOCKFILE" "$LOCKFILE_BACKUP"
+fi
+
 cleanup() {
   echo "🧹 Cleaning up..."
   rm -rf "$INSTANCE_DIR"
+  if [ -n "$LOCKFILE_BACKUP" ] && [ -f "$LOCKFILE_BACKUP" ]; then
+    mv "$LOCKFILE_BACKUP" "$LOCKFILE"
+  fi
   cd "$SOLANA_DIR"
   git checkout -- Cargo.toml Anchor.toml 2>/dev/null || true
   # Restore original source declare_id! if anchor keys sync modified it

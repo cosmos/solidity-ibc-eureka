@@ -147,7 +147,7 @@ Upgrade authority PDAs include the target program ID in their seeds, preventing 
 ### Unit and Integration Tests
 
 ```bash
-just build-solana access-manager
+just build-solana-programs access-manager
 cargo test -p access-manager --lib --tests
 ```
 

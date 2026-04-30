@@ -1,6 +1,11 @@
 use access_manager::AccessManagerState;
 use anchor_lang::prelude::*;
-pub use solana_ibc_types::attestation::AccountVersion;
+
+/// Account schema version for upgrades
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, Debug, InitSpace)]
+pub enum AccountVersion {
+    V1,
+}
 
 mod sol_types {
     alloy_sol_types::sol!(

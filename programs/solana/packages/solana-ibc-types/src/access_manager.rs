@@ -1,23 +1,6 @@
 use anchor_lang::prelude::*;
 
-/// Role IDs used by consuming programs (ICS26 router, IFT, GMP, etc.).
-///
-/// The access manager itself does not interpret these IDs — it simply stores
-/// role assignments. Consuming programs define and enforce role semantics.
-///
-/// Commented-out IDs are not used on Solana but kept to stay consistent with
-/// Ethereum-side numbering.
-pub mod roles {
-    pub const ADMIN_ROLE: u64 = 0;
-    pub const PUBLIC_ROLE: u64 = u64::MAX;
-    pub const RELAYER_ROLE: u64 = 1;
-    pub const PAUSER_ROLE: u64 = 2;
-    pub const UNPAUSER_ROLE: u64 = 3;
-    // pub const DELEGATE_SENDER_ROLE: u64 = 4;
-    // pub const RATE_LIMITER_ROLE: u64 = 5;
-    pub const ID_CUSTOMIZER_ROLE: u64 = 6;
-    // pub const ERC20_CUSTOMIZER_ROLE: u64 = 7;
-}
+pub use solana_ibc_constants::roles;
 
 /// Embedded access manager state for IBC programs.
 ///

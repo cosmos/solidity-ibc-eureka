@@ -1709,6 +1709,7 @@ func UnmarshalSolanaIbcTypesRouterCounterpartyInfo(buf []byte) (*SolanaIbcTypesR
 	return obj, nil
 }
 
+// Payload metadata for chunked operations
 // The "isSolanaIbcTypesRouterDelivery" interface for the "SolanaIbcTypesRouterDelivery" complex enum.
 type SolanaIbcTypesRouterDelivery interface {
 	isSolanaIbcTypesRouterDelivery()
