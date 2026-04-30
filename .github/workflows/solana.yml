@@ -64,6 +64,9 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           protoc --version
 
+      - name: Sync Solana localnet keys
+        run: just sync-solana-keys localnet
+
       - name: Build Solana programs
         run: just build-solana-programs
 
