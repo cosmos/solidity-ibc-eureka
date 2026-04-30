@@ -1098,8 +1098,6 @@ test-solana *ARGS:
 [group('test')]
 test-solana-integration *ARGS:
 	@echo "Building and running Solana integration tests..."
-	just build-solana-programs
-	just build-solana-test-programs
 	(cd programs/solana && cargo test -p integration-tests {{ARGS}})
 
 # Clean up the foundry cache and out directories

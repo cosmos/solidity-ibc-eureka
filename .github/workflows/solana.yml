@@ -67,6 +67,12 @@ jobs:
       - name: Build Solana programs
         run: just build-solana-programs
 
+      - name: Build Solana programs
+        run: just build-solana-test-programs
+
+      - name: Run Solana linting
+        run: just lint-solana
+
       - name: Run Solana integration tests
         run: just test-solana-integration
         env:
@@ -76,6 +82,3 @@ jobs:
         run: just test-solana
         env:
           RUST_BACKTRACE: 1
-
-      - name: Run Solana linting
-        run: just lint-solana
