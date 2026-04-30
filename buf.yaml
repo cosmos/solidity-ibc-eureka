@@ -14,5 +14,8 @@ lint:
     - FILE_LOWER_SNAKE_CASE
   except:
     - PACKAGE_VERSION_SUFFIX
+  ignore_only:
+    ENUM_ZERO_VALUE_SUFFIX:
+      - proto/ibc_attestor/ibc_attestor.proto
   ignore:
     - node_modules
