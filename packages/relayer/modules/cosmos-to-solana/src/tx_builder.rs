@@ -788,7 +788,7 @@ impl AttestedTxBuilder {
                 needs_timestamp_update
             );
 
-            wait_for_condition(Duration::from_mins(10), Duration::from_secs(1), || async {
+            wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
                 let finalized_height = self.aggregator.get_latest_height().await?;
                 Ok(finalized_height >= target)
             })
