@@ -17,7 +17,6 @@ const (
 	ModuleCosmosToCosmos = "cosmos_to_cosmos"
 	ModuleCosmosToEth    = "cosmos_to_eth"
 	ModuleEthToCosmos    = "eth_to_cosmos"
-	// ModuleEthToCosmosCompat = "eth_to_cosmos_compat"
 	ModuleEthToEth       = "eth_to_eth"
 	ModuleSolanaToCosmos = "solana_to_cosmos"
 	ModuleCosmosToSolana = "cosmos_to_solana"
@@ -184,16 +183,6 @@ func ModulesToJSON(modules []ModuleConfig) (string, error) {
 
 	return string(jsonBytes), nil
 }
-
-// ethToCosmosCompatConfig represents the configuration for eth_to_cosmos_compat module (beacon chain based)
-// type ethToCosmosCompatConfig struct {
-// 	TmRpcUrl        string        `json:"tm_rpc_url"`
-// 	Ics26Address    string        `json:"ics26_address"`
-// 	EthRpcUrl       string        `json:"eth_rpc_url"`
-// 	EthBeaconApiUrl string        `json:"eth_beacon_api_url"`
-// 	SignerAddress   string        `json:"signer_address"`
-// 	Mode            TxBuilderMode `json:"mode"`
-// }
 
 // EthToCosmosModuleConfig represents the configuration for eth_to_cosmos module
 type EthToCosmosModuleConfig struct {
