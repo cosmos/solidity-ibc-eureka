@@ -22,8 +22,16 @@
     ["x86_64-linux" "aarch64-linux" "aarch64-darwin"]
     (
       system: let
+        isLinux = builtins.match ".*-linux" system != null;
+
         pkgs = import inputs.nixpkgs {
           inherit system;
+          config =
+            if isLinux
+            then {
+              replaceStdenv = {pkgs}: pkgs.gcc14Stdenv;
+            }
+            else {};
           overlays = [
             (import inputs.rust-overlay)
             inputs.foundry.overlay
