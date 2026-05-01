@@ -26,7 +26,7 @@ pub use types::RoleData;
 declare_id!("9dvkqiBj6G1fNZjNXEet88HSxy14dFBA3tCMaiSns9a3");
 
 #[program]
-pub mod access_manager {
+pub mod test_access_manager {
     use super::*;
 
     pub fn initialize(ctx: Context<Initialize>, admin: Pubkey) -> Result<()> {

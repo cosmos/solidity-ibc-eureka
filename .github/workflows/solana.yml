@@ -73,30 +73,6 @@ jobs:
       - name: Build Solana programs
         run: just build-solana-test-programs
 
-      - name: Debug Solana generated IDs
-        run: |
-          cd programs/solana
-
-          echo "Anchor version:"
-          anchor --version
-
-          echo "Access manager keypair:"
-          solana-keygen pubkey target/deploy/access_manager-keypair.json
-
-          echo "Anchor keys:"
-          anchor keys list | grep access_manager || true
-
-          echo "IDL program_data PDA metadata:"
-          jq '.instructions[] | select(.name == "initialize") | .accounts[] | select(.name == "program_data") | .pda' \
-            target/idl/access_manager.json
-
-          echo "Force SDK generation:"
-          cargo check -p solana-ibc-sdk
-
-          echo "Generated SDK program_data_pda:"
-          grep -A12 'pub fn program_data_pda' \
-            packages/solana-ibc-sdk/src/generated/access_manager/instructions.rs
-
       - name: Run Solana linting
         run: just lint-solana
 
