@@ -4,7 +4,7 @@
   fetchFromGitHub,
   symlinkJoin,
   fetchurl,
-  makeRustPlatform,
+  rustPlatform,
   pkg-config,
   openssl,
   zlib,
@@ -154,14 +154,12 @@
     then gcc14Stdenv
     else stdenv;
 
-  rustPlatformForAgave = makeRustPlatform {
-    stdenv = agaveStdenv;
-    rustc = rustForAgave;
-    cargo = rustForAgave;
-  };
-
   agave =
-    rustPlatformForAgave.buildRustPackage {
+    rustPlatform.buildRustPackage.override {
+      stdenv = agaveStdenv;
+      rustc = rustForAgave;
+      cargo = rustForAgave;
+    } {
       pname = "agave";
       version = versions.agave;
 
@@ -196,9 +194,6 @@
         ];
 
       LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
-
-      CC = "${agaveStdenv.cc}/bin/${agaveStdenv.cc.targetPrefix}cc";
-      CXX = "${agaveStdenv.cc}/bin/${agaveStdenv.cc.targetPrefix}c++";
 
       BINDGEN_EXTRA_CLANG_ARGS = toString (
         [
