@@ -10,6 +10,7 @@
   zlib,
   protobuf,
   perl,
+  gcc14Stdenv,
   hidapi,
   udev,
   llvmPackages,
@@ -146,8 +147,16 @@
     extensions = ["rust-src"];
   };
 
+  # Agave 2.3.13's bundled RocksDB fails to compile with GCC 15, which is the
+  # default Linux stdenv in newer nixpkgs. Keep Linux on the previous compiler.
+  agaveStdenv =
+    if isLinux
+    then gcc14Stdenv
+    else stdenv;
+
   agave =
     rustPlatform.buildRustPackage.override {
+      stdenv = agaveStdenv;
       rustc = rustForAgave;
       cargo = rustForAgave;
     } {
