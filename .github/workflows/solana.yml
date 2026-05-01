@@ -70,7 +70,7 @@ jobs:
       - name: Build Solana programs
         run: just build-solana-programs
 
-      - name: Build Solana programs
+      - name: Build Solana test programs
         run: just build-solana-test-programs
 
       - name: Run Solana linting
