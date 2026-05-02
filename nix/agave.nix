@@ -186,6 +186,9 @@
 
       LIBCLANG_PATH = "${llvmPackages.libclang.lib}/lib";
 
+      # TODO: This can be removed once https://github.com/facebook/rocksdb/issues/13365 is resolved
+      CXXFLAGS = lib.optionalString isLinux "-include cstdint";
+
       BINDGEN_EXTRA_CLANG_ARGS = toString (
         [
           "-isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion llvmPackages.clang}/include"
