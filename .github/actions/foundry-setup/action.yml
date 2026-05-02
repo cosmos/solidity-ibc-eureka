@@ -6,7 +6,7 @@ runs:
     - name: Set up Rust
       uses: dtolnay/rust-toolchain@stable
       with:
-        toolchain: 1.93.0
+        toolchain: stable
         components: rustfmt, clippy
     - name: Install Foundry
       uses: foundry-rs/foundry-toolchain@v1

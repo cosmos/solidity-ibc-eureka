@@ -51,10 +51,10 @@ func (b *ConfigBuilder) EthToCosmos(p EthToCosmosParams) *ConfigBuilder {
 	}
 
 	module := ModuleConfig{
-		Name:     ModuleEthToCosmosCompat,
+		Name:     ModuleEthToCosmos,
 		SrcChain: p.EthChainID,
 		DstChain: p.CosmosChainID,
-		Config: ethToCosmosCompatConfig{
+		Config: EthToCosmosModuleConfig{
 			TmRpcUrl:        p.TmRPC,
 			Ics26Address:    p.ICS26Address,
 			EthRpcUrl:       p.EthRPC,

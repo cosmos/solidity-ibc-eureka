@@ -486,7 +486,7 @@ impl TxBuilder {
             max_timeout_ts,
         ) {
             Some(_) => Some(self.update_client(&params.dst_client_id).await?),
-            None => None,
+            Option::None => None,
         };
 
         let proof_height = update_client
@@ -788,14 +788,10 @@ impl AttestedTxBuilder {
                 needs_timestamp_update
             );
 
-            wait_for_condition(
-                Duration::from_secs(25 * 60),
-                Duration::from_secs(1),
-                || async {
-                    let finalized_height = self.aggregator.get_latest_height().await?;
-                    Ok(finalized_height >= target)
-                },
-            )
+            wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
+                let finalized_height = self.aggregator.get_latest_height().await?;
+                Ok(finalized_height >= target)
+            })
             .await
             .context("Timeout waiting for aggregator to finalize height")?;
 

@@ -182,7 +182,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
                 .iter()
                 .filter_map(|e| match &e.event {
                     EurekaEvent::SendPacket(packet) => Some(packet.timeoutTimestamp),
-                    _ => None,
+                    EurekaEvent::WriteAcknowledgement(..) => None,
                 })
                 .max()
                 .unwrap_or(now);

@@ -117,7 +117,7 @@ impl super::TxBuilder {
             .target_solana_client
             .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
             .map_err(|e| {
-                anyhow::anyhow!("Failed to fetch Client account for client '{client_id}': {e}",)
+                anyhow::anyhow!("Failed to fetch Client account for client '{client_id}': {e}")
             })?
             .value
             .ok_or_else(|| anyhow::anyhow!("Client account not found for client '{client_id}'"))?;
@@ -278,8 +278,7 @@ impl super::TxBuilder {
     pub(crate) fn account_exists(&self, pubkey: &Pubkey) -> bool {
         self.target_solana_client
             .get_account_with_commitment(pubkey, CommitmentConfig::confirmed())
-            .map(|response| response.value.is_some())
-            .unwrap_or(false)
+            .is_ok_and(|response| response.value.is_some())
     }
 }
 

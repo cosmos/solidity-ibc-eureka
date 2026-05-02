@@ -64,8 +64,17 @@ jobs:
           sudo apt-get install -y protobuf-compiler
           protoc --version
 
+      - name: Sync Solana localnet keys
+        run: just sync-solana-keys localnet
+
       - name: Build Solana programs
         run: just build-solana-programs
+
+      - name: Build Solana test programs
+        run: just build-solana-test-programs
+
+      - name: Run Solana linting
+        run: just lint-solana
 
       - name: Run Solana integration tests
         run: just test-solana-integration
@@ -76,6 +85,3 @@ jobs:
         run: just test-solana
         env:
           RUST_BACKTRACE: 1
-
-      - name: Run Solana linting
-        run: just lint-solana

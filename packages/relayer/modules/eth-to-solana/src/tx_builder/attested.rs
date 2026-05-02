@@ -168,14 +168,10 @@ impl AttestedTxBuilder {
                 target
             );
 
-            wait_for_condition(
-                Duration::from_secs(25 * 60),
-                Duration::from_secs(1),
-                || async {
-                    let finalized_height = self.aggregator.get_latest_height().await?;
-                    Ok(finalized_height >= target)
-                },
-            )
+            wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
+                let finalized_height = self.aggregator.get_latest_height().await?;
+                Ok(finalized_height >= target)
+            })
             .await
             .context("Timeout waiting for aggregator to finalize height")?;
 
