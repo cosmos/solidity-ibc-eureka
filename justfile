@@ -120,12 +120,20 @@ sync-solana-keys cluster="localnet": (_validate-cluster cluster)
 build-solana-test-instance SOURCE INSTANCE:
   ./scripts/build-solana-test-instance.sh {{SOURCE}} {{INSTANCE}} {{anchor_cmd}}
 
-# Build Solana Anchor programs
-# Usage: just build-solana [program]
-# Example: just build-solana              (builds all programs)
-# Example: just build-solana ics26-router (builds only ics26-router)
+# Build Solana test-only program artifacts
+# Usage: just build-solana-test-programs
 [group('solana')]
-build-solana program="":
+build-solana-test-programs:
+  echo "Building Solana test-only programs..."
+  just build-solana-test-instance attestation test-attestation
+  echo "✅ Solana test program build complete"
+
+# Build Solana Anchor programs
+# Usage: just build-solana-programs [program]
+# Example: just build-solana-programs              (builds all programs)
+# Example: just build-solana-programs ics26-router (builds only ics26-router)
+[group('solana')]
+build-solana-programs program="":
   #!/usr/bin/env bash
   set -euo pipefail
 
@@ -133,13 +141,11 @@ build-solana program="":
     echo "Building all programs..."
     echo "🦀 Using {{anchor_cmd}}"
     (cd programs/solana && {{anchor_cmd}} build)
-    echo "Building test attestation instance..."
-    just build-solana-test-instance attestation test-attestation
     echo "✅ Build complete"
   else
-    # Test instances are built via build-solana-test-instance, not anchor directly
+    # Test instances are built via build-solana-test-programs, not anchor directly
     if [ "{{program}}" = "test-attestation" ]; then
-      just build-solana-test-instance attestation test-attestation
+      just build-solana-test-programs
       exit 0
     fi
 
@@ -457,7 +463,7 @@ revoke-solana-role role_id account="" cluster="localnet": (_validate-cluster clu
 # Example: just prepare-solana-upgrade ics26_router GzT...xyz
 # Note: Requires deployer wallet funded with SOL
 [group('solana')]
-prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-solana
+prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-solana-programs
   #!/usr/bin/env bash
   set -euo pipefail
 
@@ -468,7 +474,7 @@ prepare-solana-upgrade program upgrade_authority_pda cluster="localnet": build-s
   # Validate inputs
   if [ ! -f "$PROGRAM_SO" ]; then
     echo "❌ Program binary not found: $PROGRAM_SO"
-    echo "   Run 'just build-solana' first"
+    echo "   Run 'just build-solana-programs' first"
     exit 1
   fi
 
@@ -666,7 +672,7 @@ generate-solana-keypairs cluster="localnet": (_validate-cluster cluster)
     printf "   %-35s %s\n" "$(basename $keypair):" "$(solana-keygen pubkey $keypair)"
   done
   echo ""
-  echo "Next step: just build-solana"
+  echo "Next step: just build-solana-programs"
 
 # Get cluster URL from Anchor.toml
 [group('solana')]
@@ -821,7 +827,7 @@ generate-abi-bytecode: build-contracts
 # Generate the types for interacting with SVM contracts using 'anchor-go'
 [group('generate')]
 generate-solana-types build="true":
-	@if [ "{{build}}" = "true" ]; then just build-solana; fi
+	@if [ "{{build}}" = "true" ]; then just build-solana-programs; fi
 	just generate-pda
 	@echo "Generating SVM types..."
 	# Core IBC apps
@@ -1087,9 +1093,15 @@ test-solana *ARGS:
 		(cd programs/solana && anchor-nix unit-test {{ARGS}}); \
 	else \
 		(cd programs/solana && anchor build) && \
-		echo "✅ Build successful, running cargo tests" && \
-		(cd programs/solana && cargo test {{ARGS}}); \
+		echo "✅ Build successful, running unit tests" && \
+		(cd programs/solana && cargo test --workspace --exclude integration-tests {{ARGS}}); \
 	fi
+
+# Run Solana integration tests
+[group('test')]
+test-solana-integration *ARGS:
+	@echo "Building and running Solana integration tests..."
+	(cd programs/solana && cargo test -p integration-tests {{ARGS}})
 
 # Clean up the foundry cache and out directories
 [group('clean')]

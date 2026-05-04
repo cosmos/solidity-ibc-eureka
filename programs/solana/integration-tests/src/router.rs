@@ -6,11 +6,13 @@
 
 use crate::accounts::anchor_discriminator;
 use crate::chain::{Chain, LcAccounts};
-use anchor_lang::{AnchorSerialize, InstructionData};
-use ics26_router::state::*;
-use solana_ibc_types::{
-    Delivery, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof, MsgTimeoutPacket,
-    MsgUploadChunk, Payload,
+use anchor_lang::AnchorSerialize;
+use ics26_router::state::{Packet, Payload, RouterState, CHUNK_DATA_SIZE};
+use solana_ibc_sdk::access_manager::instructions as am_sdk;
+use solana_ibc_sdk::ics26_router::instructions as router_sdk;
+use solana_ibc_sdk::ics26_router::types::{
+    Delivery, MsgAckPacket, MsgCleanupChunks, MsgPacket, MsgPayload, MsgProof, MsgRecvPacket,
+    MsgTimeoutPacket, MsgUploadChunk,
 };
 use solana_sdk::{
     instruction::{AccountMeta, Instruction},
@@ -32,20 +34,12 @@ pub const fn test_timeout(clock_time: i64) -> u64 {
 
 /// Derive the `test_ibc_app` state PDA.
 pub fn test_ibc_app_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID).0
+    solana_ibc_sdk::pda::ibc_app::app_state_pda(&test_ibc_app::ID).0
 }
 
 /// Derive the packet receipt PDA for a given `dest_client` and `sequence`.
 pub fn derive_receipt_pda(dest_client: &str, sequence: u64) -> Pubkey {
-    let (pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_RECEIPT_SEED,
-            dest_client.as_bytes(),
-            &sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    pda
+    router_sdk::RecvPacket::packet_receipt_pda(dest_client, sequence, &ics26_router::ID).0
 }
 
 // ── Send ────────────────────────────────────────────────────────────────
@@ -80,20 +74,13 @@ pub fn build_send_packet_ix(
 ) -> SendResult {
     let timeout = test_timeout(clock_time);
 
-    let (app_state_pda, _) =
-        Pubkey::find_program_address(&[solana_ibc_types::IBCAppState::SEED], &test_ibc_app::ID);
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (ibc_app_pda, _) =
-        Pubkey::find_program_address(&[IBCApp::SEED, PORT_ID.as_bytes()], &ics26_router::ID);
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, client_id.as_bytes()], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            client_id.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
+    let (app_state_pda, _) = solana_ibc_sdk::pda::ibc_app::app_state_pda(&test_ibc_app::ID);
+    let (router_state_pda, _) = router_sdk::Initialize::router_state_pda(&ics26_router::ID);
+    let (ibc_app_pda, _) = router_sdk::AddIbcApp::ibc_app_pda(PORT_ID, &ics26_router::ID);
+    let (client_pda, _) = router_sdk::AddClient::client_pda(client_id, &ics26_router::ID);
+    let (commitment_pda, _) = router_sdk::SendPacket::packet_commitment_pda(
+        client_id,
+        params.sequence,
         &ics26_router::ID,
     );
 
@@ -210,33 +197,12 @@ pub fn build_recv_packet_ix(
     params: RecvPacketParams<'_>,
 ) -> RecvResult {
     let timeout = test_timeout(clock_time);
+    let am_pda = derive_am_pda(access_manager::ID);
 
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, params.port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, dest_client.as_bytes()], &ics26_router::ID);
-    let (receipt_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_RECEIPT_SEED,
-            dest_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let (ack_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_ACK_SEED,
-            dest_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
+    let (receipt_pda, _) =
+        router_sdk::RecvPacket::packet_receipt_pda(dest_client, params.sequence, &ics26_router::ID);
+    let (ack_pda, _) =
+        router_sdk::RecvPacket::packet_ack_pda(dest_client, params.sequence, &ics26_router::ID);
 
     let msg = MsgRecvPacket {
         packet: MsgPacket {
@@ -258,31 +224,28 @@ pub fn build_recv_packet_ix(
         },
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(router_state_pda, false),
-        AccountMeta::new_readonly(access_manager_pda, false),
-        AccountMeta::new_readonly(ibc_app_pda, false),
-        AccountMeta::new(receipt_pda, false),
-        AccountMeta::new(ack_pda, false),
-        AccountMeta::new_readonly(params.app_program, false),
-        AccountMeta::new(params.app_state_pda, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(lc.program_id, false),
-        AccountMeta::new_readonly(lc.client_state, false),
-        AccountMeta::new_readonly(lc.consensus_state, false),
+    let mut remaining = vec![
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
-    account_metas.extend(params.extra_remaining_accounts);
+    remaining.extend(params.extra_remaining_accounts);
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: account_metas,
-        data: ics26_router::instruction::RecvPacket { msg }.data(),
-    };
+    let ix = router_sdk::RecvPacket::builder(&ics26_router::ID)
+        .accounts(router_sdk::RecvPacketAccounts {
+            access_manager: am_pda,
+            ibc_app_program: params.app_program,
+            ibc_app_state: params.app_state_pda,
+            relayer,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            dest_port: params.port_id.as_bytes(),
+            dest_client,
+            sequence: params.sequence,
+        })
+        .args(&msg)
+        .remaining_accounts(remaining)
+        .build();
 
     RecvResult {
         ix,
@@ -303,33 +266,12 @@ pub fn build_recv_packet_ix_multi_proof(
 ) -> RecvResult {
     let total_proof_chunks = proof_chunk_pdas.len() as u8;
     let timeout = test_timeout(clock_time);
+    let am_pda = derive_am_pda(access_manager::ID);
 
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, params.port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, dest_client.as_bytes()], &ics26_router::ID);
-    let (receipt_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_RECEIPT_SEED,
-            dest_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
-    let (ack_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_ACK_SEED,
-            dest_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
-        &ics26_router::ID,
-    );
+    let (receipt_pda, _) =
+        router_sdk::RecvPacket::packet_receipt_pda(dest_client, params.sequence, &ics26_router::ID);
+    let (ack_pda, _) =
+        router_sdk::RecvPacket::packet_ack_pda(dest_client, params.sequence, &ics26_router::ID);
 
     let msg = MsgRecvPacket {
         packet: MsgPacket {
@@ -353,33 +295,30 @@ pub fn build_recv_packet_ix_multi_proof(
         },
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(router_state_pda, false),
-        AccountMeta::new_readonly(access_manager_pda, false),
-        AccountMeta::new_readonly(ibc_app_pda, false),
-        AccountMeta::new(receipt_pda, false),
-        AccountMeta::new(ack_pda, false),
-        AccountMeta::new_readonly(params.app_program, false),
-        AccountMeta::new(params.app_state_pda, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(lc.program_id, false),
-        AccountMeta::new_readonly(lc.client_state, false),
-        AccountMeta::new_readonly(lc.consensus_state, false),
-        AccountMeta::new(params.payload_chunk_pda, false),
-    ];
-    for pda in proof_chunk_pdas {
-        account_metas.push(AccountMeta::new(*pda, false));
-    }
-    account_metas.extend(params.extra_remaining_accounts);
+    let mut remaining = vec![AccountMeta::new(params.payload_chunk_pda, false)];
+    remaining.extend(
+        proof_chunk_pdas
+            .iter()
+            .map(|pda| AccountMeta::new(*pda, false)),
+    );
+    remaining.extend(params.extra_remaining_accounts);
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: account_metas,
-        data: ics26_router::instruction::RecvPacket { msg }.data(),
-    };
+    let ix = router_sdk::RecvPacket::builder(&ics26_router::ID)
+        .accounts(router_sdk::RecvPacketAccounts {
+            access_manager: am_pda,
+            ibc_app_program: params.app_program,
+            ibc_app_state: params.app_state_pda,
+            relayer,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            dest_port: params.port_id.as_bytes(),
+            dest_client,
+            sequence: params.sequence,
+        })
+        .args(&msg)
+        .remaining_accounts(remaining)
+        .build();
 
     RecvResult {
         ix,
@@ -443,23 +382,11 @@ pub fn build_ack_packet_ix(
     params: AckPacketParams<'_>,
 ) -> (Instruction, Pubkey) {
     let timeout = test_timeout(clock_time);
+    let am_pda = derive_am_pda(access_manager::ID);
 
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, params.port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            source_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
+    let (commitment_pda, _) = router_sdk::AckPacket::packet_commitment_pda(
+        source_client,
+        params.sequence,
         &ics26_router::ID,
     );
 
@@ -484,30 +411,28 @@ pub fn build_ack_packet_ix(
         },
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(router_state_pda, false),
-        AccountMeta::new_readonly(access_manager_pda, false),
-        AccountMeta::new_readonly(ibc_app_pda, false),
-        AccountMeta::new(commitment_pda, false),
-        AccountMeta::new_readonly(params.app_program, false),
-        AccountMeta::new(params.app_state_pda, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(lc.program_id, false),
-        AccountMeta::new_readonly(lc.client_state, false),
-        AccountMeta::new_readonly(lc.consensus_state, false),
+    let mut remaining = vec![
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
-    account_metas.extend(params.extra_remaining_accounts);
+    remaining.extend(params.extra_remaining_accounts);
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: account_metas,
-        data: ics26_router::instruction::AckPacket { msg }.data(),
-    };
+    let ix = router_sdk::AckPacket::builder(&ics26_router::ID)
+        .accounts(router_sdk::AckPacketAccounts {
+            access_manager: am_pda,
+            ibc_app_program: params.app_program,
+            ibc_app_state: params.app_state_pda,
+            relayer,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            source_port: params.port_id.as_bytes(),
+            source_client,
+            sequence: params.sequence,
+        })
+        .args(&msg)
+        .remaining_accounts(remaining)
+        .build();
 
     (ix, commitment_pda)
 }
@@ -524,23 +449,11 @@ pub fn build_ack_packet_ix_multi_proof(
 ) -> (Instruction, Pubkey) {
     let total_proof_chunks = proof_chunk_pdas.len() as u8;
     let timeout = test_timeout(clock_time);
+    let am_pda = derive_am_pda(access_manager::ID);
 
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, params.port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            source_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
+    let (commitment_pda, _) = router_sdk::AckPacket::packet_commitment_pda(
+        source_client,
+        params.sequence,
         &ics26_router::ID,
     );
 
@@ -567,32 +480,30 @@ pub fn build_ack_packet_ix_multi_proof(
         },
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(router_state_pda, false),
-        AccountMeta::new_readonly(access_manager_pda, false),
-        AccountMeta::new_readonly(ibc_app_pda, false),
-        AccountMeta::new(commitment_pda, false),
-        AccountMeta::new_readonly(params.app_program, false),
-        AccountMeta::new(params.app_state_pda, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(lc.program_id, false),
-        AccountMeta::new_readonly(lc.client_state, false),
-        AccountMeta::new_readonly(lc.consensus_state, false),
-        AccountMeta::new(params.payload_chunk_pda, false),
-    ];
-    for pda in proof_chunk_pdas {
-        account_metas.push(AccountMeta::new(*pda, false));
-    }
-    account_metas.extend(params.extra_remaining_accounts);
+    let mut remaining = vec![AccountMeta::new(params.payload_chunk_pda, false)];
+    remaining.extend(
+        proof_chunk_pdas
+            .iter()
+            .map(|pda| AccountMeta::new(*pda, false)),
+    );
+    remaining.extend(params.extra_remaining_accounts);
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: account_metas,
-        data: ics26_router::instruction::AckPacket { msg }.data(),
-    };
+    let ix = router_sdk::AckPacket::builder(&ics26_router::ID)
+        .accounts(router_sdk::AckPacketAccounts {
+            access_manager: am_pda,
+            ibc_app_program: params.app_program,
+            ibc_app_state: params.app_state_pda,
+            relayer,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            source_port: params.port_id.as_bytes(),
+            source_client,
+            sequence: params.sequence,
+        })
+        .args(&msg)
+        .remaining_accounts(remaining)
+        .build();
 
     (ix, commitment_pda)
 }
@@ -649,23 +560,11 @@ pub fn build_timeout_packet_ix(
     params: TimeoutPacketParams<'_>,
 ) -> (Instruction, Pubkey) {
     let timeout = test_timeout(clock_time);
+    let am_pda = derive_am_pda(access_manager::ID);
 
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (ibc_app_pda, _) = Pubkey::find_program_address(
-        &[IBCApp::SEED, params.port_id.as_bytes()],
-        &ics26_router::ID,
-    );
-    let (client_pda, _) =
-        Pubkey::find_program_address(&[Client::SEED, source_client.as_bytes()], &ics26_router::ID);
-    let (commitment_pda, _) = Pubkey::find_program_address(
-        &[
-            Commitment::PACKET_COMMITMENT_SEED,
-            source_client.as_bytes(),
-            &params.sequence.to_le_bytes(),
-        ],
+    let (commitment_pda, _) = router_sdk::TimeoutPacket::packet_commitment_pda(
+        source_client,
+        params.sequence,
         &ics26_router::ID,
     );
 
@@ -689,30 +588,28 @@ pub fn build_timeout_packet_ix(
         },
     };
 
-    let mut account_metas = vec![
-        AccountMeta::new_readonly(router_state_pda, false),
-        AccountMeta::new_readonly(access_manager_pda, false),
-        AccountMeta::new_readonly(ibc_app_pda, false),
-        AccountMeta::new(commitment_pda, false),
-        AccountMeta::new_readonly(params.app_program, false),
-        AccountMeta::new(params.app_state_pda, false),
-        AccountMeta::new(relayer, true),
-        AccountMeta::new_readonly(system_program::ID, false),
-        AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        AccountMeta::new_readonly(client_pda, false),
-        AccountMeta::new_readonly(lc.program_id, false),
-        AccountMeta::new_readonly(lc.client_state, false),
-        AccountMeta::new_readonly(lc.consensus_state, false),
+    let mut remaining = vec![
         AccountMeta::new(params.payload_chunk_pda, false),
         AccountMeta::new(params.proof_chunk_pda, false),
     ];
-    account_metas.extend(params.extra_remaining_accounts);
+    remaining.extend(params.extra_remaining_accounts);
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: account_metas,
-        data: ics26_router::instruction::TimeoutPacket { msg }.data(),
-    };
+    let ix = router_sdk::TimeoutPacket::builder(&ics26_router::ID)
+        .accounts(router_sdk::TimeoutPacketAccounts {
+            access_manager: am_pda,
+            ibc_app_program: params.app_program,
+            ibc_app_state: params.app_state_pda,
+            relayer,
+            light_client_program: lc.program_id,
+            client_state: lc.client_state,
+            consensus_state: lc.consensus_state,
+            source_port: params.port_id.as_bytes(),
+            source_client,
+            sequence: params.sequence,
+        })
+        .args(&msg)
+        .remaining_accounts(remaining)
+        .build();
 
     (ix, commitment_pda)
 }
@@ -728,19 +625,13 @@ pub fn build_upload_payload_chunk_ix(
     sequence: u64,
     payload_data: Vec<u8>,
 ) -> (Instruction, Pubkey) {
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (chunk_pda, _) = Pubkey::find_program_address(
-        &[
-            PayloadChunk::SEED,
-            relayer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[0], // payload_index
-            &[0], // chunk_index
-        ],
+    let am_pda = derive_am_pda(access_manager::ID);
+    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::payload_chunk_pda(
+        &relayer,
+        client_id,
+        sequence,
+        0,
+        0,
         &ics26_router::ID,
     );
 
@@ -752,18 +643,14 @@ pub fn build_upload_payload_chunk_ix(
         chunk_data: payload_data,
     };
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new_readonly(access_manager_pda, false),
-            AccountMeta::new(chunk_pda, false),
-            AccountMeta::new(relayer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::UploadPayloadChunk { msg }.data(),
-    };
+    let ix = router_sdk::UploadPayloadChunk::builder(&ics26_router::ID)
+        .accounts(router_sdk::UploadPayloadChunkAccounts {
+            access_manager: am_pda,
+            chunk: chunk_pda,
+            relayer,
+        })
+        .args(&msg)
+        .build();
 
     (ix, chunk_pda)
 }
@@ -790,18 +677,12 @@ pub fn build_upload_proof_chunk_ix_at(
     chunk_index: u8,
     proof_data: Vec<u8>,
 ) -> (Instruction, Pubkey) {
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
-    let (chunk_pda, _) = Pubkey::find_program_address(
-        &[
-            ProofChunk::SEED,
-            relayer.as_ref(),
-            client_id.as_bytes(),
-            &sequence.to_le_bytes(),
-            &[chunk_index],
-        ],
+    let am_pda = derive_am_pda(access_manager::ID);
+    let (chunk_pda, _) = solana_ibc_sdk::pda::ics26_router::proof_chunk_pda(
+        &relayer,
+        client_id,
+        sequence,
+        chunk_index,
         &ics26_router::ID,
     );
 
@@ -813,18 +694,14 @@ pub fn build_upload_proof_chunk_ix_at(
         chunk_data: proof_data,
     };
 
-    let ix = Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new_readonly(access_manager_pda, false),
-            AccountMeta::new(chunk_pda, false),
-            AccountMeta::new(relayer, true),
-            AccountMeta::new_readonly(system_program::ID, false),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::UploadProofChunk { msg }.data(),
-    };
+    let ix = router_sdk::UploadProofChunk::builder(&ics26_router::ID)
+        .accounts(router_sdk::UploadProofChunkAccounts {
+            access_manager: am_pda,
+            chunk: chunk_pda,
+            relayer,
+        })
+        .args(&msg)
+        .build();
 
     (ix, chunk_pda)
 }
@@ -839,10 +716,7 @@ pub fn build_cleanup_chunks_ix(
     payload_chunk_pda: Pubkey,
     proof_chunk_pda: Pubkey,
 ) -> Instruction {
-    let (router_state_pda, _) =
-        Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID);
-    let (access_manager_pda, _) =
-        solana_ibc_types::access_manager::AccessManager::pda(access_manager::ID);
+    let am_pda = derive_am_pda(access_manager::ID);
 
     let msg = MsgCleanupChunks {
         client_id: client_id.to_string(),
@@ -851,28 +725,27 @@ pub fn build_cleanup_chunks_ix(
         total_proof_chunks: 1,
     };
 
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new_readonly(router_state_pda, false),
-            AccountMeta::new_readonly(access_manager_pda, false),
-            AccountMeta::new(relayer, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
+    router_sdk::CleanupChunks::builder(&ics26_router::ID)
+        .accounts(router_sdk::CleanupChunksAccounts {
+            access_manager: am_pda,
+            relayer,
+        })
+        .args(&msg)
+        .remaining_accounts([
             AccountMeta::new(payload_chunk_pda, false),
             AccountMeta::new(proof_chunk_pda, false),
-        ],
-        data: ics26_router::instruction::CleanupChunks { msg }.data(),
-    }
+        ])
+        .build()
 }
 
 // ── AM transfer instruction builders ────────────────────────────────────
 
 fn derive_router_state_pda() -> Pubkey {
-    Pubkey::find_program_address(&[RouterState::SEED], &ics26_router::ID).0
+    router_sdk::Initialize::router_state_pda(&ics26_router::ID).0
 }
 
 fn derive_am_pda(am_program_id: Pubkey) -> Pubkey {
-    solana_ibc_types::access_manager::AccessManager::pda(am_program_id).0
+    am_sdk::Initialize::access_manager_pda(&am_program_id).0
 }
 
 /// Build an ICS26 `propose_access_manager_transfer` instruction.
@@ -880,44 +753,39 @@ pub fn build_ics26_propose_am_transfer_ix(
     admin: Pubkey,
     new_access_manager: Pubkey,
 ) -> Instruction {
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new(derive_router_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::ProposeAccessManagerTransfer { new_access_manager }.data(),
-    }
+    let am_pda = derive_am_pda(access_manager::ID);
+
+    router_sdk::ProposeAccessManagerTransfer::builder(&ics26_router::ID)
+        .accounts(router_sdk::ProposeAccessManagerTransferAccounts {
+            access_manager: am_pda,
+            admin,
+        })
+        .args(&router_sdk::ProposeAccessManagerTransferArgs { new_access_manager })
+        .build()
 }
 
 /// Build an ICS26 `accept_access_manager_transfer` instruction.
 pub fn build_ics26_accept_am_transfer_ix(admin: Pubkey, new_am_program_id: Pubkey) -> Instruction {
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new(derive_router_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(new_am_program_id), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::AcceptAccessManagerTransfer {}.data(),
-    }
+    let new_am_pda = derive_am_pda(new_am_program_id);
+
+    router_sdk::AcceptAccessManagerTransfer::builder(&ics26_router::ID)
+        .accounts(router_sdk::AcceptAccessManagerTransferAccounts {
+            new_am_state: new_am_pda,
+            admin,
+        })
+        .build()
 }
 
 /// Build an ICS26 `cancel_access_manager_transfer` instruction.
 pub fn build_ics26_cancel_am_transfer_ix(admin: Pubkey) -> Instruction {
-    Instruction {
-        program_id: ics26_router::ID,
-        accounts: vec![
-            AccountMeta::new(derive_router_state_pda(), false),
-            AccountMeta::new_readonly(derive_am_pda(access_manager::ID), false),
-            AccountMeta::new_readonly(admin, true),
-            AccountMeta::new_readonly(solana_sdk::sysvar::instructions::ID, false),
-        ],
-        data: ics26_router::instruction::CancelAccessManagerTransfer {}.data(),
-    }
+    let am_pda = derive_am_pda(access_manager::ID);
+
+    router_sdk::CancelAccessManagerTransfer::builder(&ics26_router::ID)
+        .accounts(router_sdk::CancelAccessManagerTransferAccounts {
+            am_state: am_pda,
+            admin,
+        })
+        .build()
 }
 
 // ── Chunk helpers ────────────────────────────────────────────────────────

@@ -41,11 +41,10 @@ pub struct LcAccounts {
 /// consensus state PDA depends on the proof height
 /// (seeds: `["consensus_state", height.to_le_bytes()]`).
 pub fn attestation_lc_accounts(program_id: Pubkey, proof_height: u64) -> LcAccounts {
-    let (client_state, _) = Pubkey::find_program_address(&[b"client"], &program_id);
-    let (consensus_state, _) = Pubkey::find_program_address(
-        &[b"consensus_state", &proof_height.to_le_bytes()],
-        &program_id,
-    );
+    use solana_ibc_sdk::attestation::instructions as att_sdk;
+    let (client_state, _) = att_sdk::Initialize::client_state_pda(&program_id);
+    let (consensus_state, _) =
+        att_sdk::VerifyMembership::consensus_state_at_height_pda(proof_height, &program_id);
     LcAccounts {
         program_id,
         client_state,
@@ -286,7 +285,7 @@ impl Chain {
 
     /// Derive the IFT `IFTAppState` PDA.
     pub fn ift_app_state_pda(&self) -> Pubkey {
-        Pubkey::find_program_address(&[ift::constants::IFT_APP_STATE_SEED], &ift::ID).0
+        solana_ibc_sdk::ift::instructions::Initialize::app_state_pda(&ift::ID).0
     }
 
     /// Latest blockhash, refreshed after every transaction.

@@ -159,7 +159,7 @@ where
         // Wait until we find a finality update that meets our criteria and capture it
         // This way we avoid making an extra call at the end
         wait_for_condition(
-            Duration::from_secs(45 * 60),
+            Duration::from_mins(45),
             Duration::from_secs(10),
             || async {
                 tracing::debug!(
@@ -286,22 +286,18 @@ where
         ethereum_client_state: &ClientState,
         latest_signature_slot: u64,
     ) -> Result<(), anyhow::Error> {
-        wait_for_condition(
-            Duration::from_secs(15 * 60),
-            Duration::from_secs(5),
-            || async {
-                let latests_tm_block = self.tm_client.latest_block().await?;
-                let latest_onchain_timestamp = latests_tm_block.block.header.time.unix_timestamp();
-                let calculated_slot = ethereum_client_state
-                    .compute_slot_at_timestamp(latest_onchain_timestamp.try_into().unwrap())
-                    .unwrap();
-                tracing::debug!(
-                    "Waiting for target chain to catch up to slot {}",
-                    calculated_slot
-                );
-                Ok(calculated_slot > latest_signature_slot)
-            },
-        )
+        wait_for_condition(Duration::from_mins(15), Duration::from_secs(5), || async {
+            let latests_tm_block = self.tm_client.latest_block().await?;
+            let latest_onchain_timestamp = latests_tm_block.block.header.time.unix_timestamp();
+            let calculated_slot = ethereum_client_state
+                .compute_slot_at_timestamp(latest_onchain_timestamp.try_into().unwrap())
+                .unwrap();
+            tracing::debug!(
+                "Waiting for target chain to catch up to slot {}",
+                calculated_slot
+            );
+            Ok(calculated_slot > latest_signature_slot)
+        })
         .await?;
         Ok(())
     }

@@ -54,8 +54,7 @@ abstract contract FixtureTest is Test, IICS07TendermintMsgs, DeployAccessManager
     }
 
     function setUp() public {
-        // Set a timestamp before the fixture timestamps to avoid issues with access manager role granting
-        // (which uses block.timestamp for role checks)
+        // Warp to a timestamp before the fixture's timestamp to ensure the test starts in a clean state.
         vm.warp(1);
 
         // ============ Step 1: Deploy the logic contracts ==============

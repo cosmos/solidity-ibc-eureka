@@ -6,9 +6,20 @@ use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, 
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_lib::utils::solana_v0_tx;
-use solana_ibc_types::{
-    router::{IBCApp, RouterState},
-    Client,
+use solana_ibc_sdk::attestation::{
+    accounts::{
+        ClientState as AttestationClientState,
+        ConsensusStateStore as AttestationConsensusStateStore,
+    },
+    instructions as attestation_instructions,
+};
+use solana_ibc_sdk::ics07_tendermint::{
+    accounts::ClientState, instructions as ics07_tendermint_instructions,
+};
+use solana_ibc_sdk::ics26_router::{
+    accounts::{IBCApp, RouterState},
+    instructions as router_instructions,
+    types::ClientAccount,
 };
 
 impl super::TxBuilder {
@@ -47,7 +58,8 @@ impl super::TxBuilder {
 
     /// Resolves the access manager program ID from the router state.
     pub(crate) fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
-        let (router_state_pda, _) = RouterState::pda(self.solana_ics26_program_id);
+        let (router_state_pda, _) =
+            router_instructions::Initialize::router_state_pda(&self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -63,7 +75,7 @@ impl super::TxBuilder {
         }
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let router_state = solana_ibc_types::RouterState::deserialize(&mut data)
+        let router_state = RouterState::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState account: {e}"))?;
 
         Ok(router_state.am_state.access_manager)
@@ -71,7 +83,8 @@ impl super::TxBuilder {
 
     /// Resolve the IBC app program ID for a given port
     pub(crate) fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
-        let (ibc_app_account, _) = IBCApp::pda(port_id, self.solana_ics26_program_id);
+        let (ibc_app_account, _) =
+            router_instructions::AddIbcApp::ibc_app_pda(port_id, &self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -87,7 +100,7 @@ impl super::TxBuilder {
         }
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
+        let ibc_app = IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp account: {e}"))?;
 
         tracing::debug!("Resolved port '{}' → {}", port_id, ibc_app.app_program_id);
@@ -97,13 +110,14 @@ impl super::TxBuilder {
 
     /// Resolve the light client program id.
     pub(crate) fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
-        let (client_account, _) = Client::pda(client_id, self.solana_ics26_program_id);
+        let (client_account, _) =
+            router_instructions::SendPacket::client_pda(client_id, &self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
             .get_account_with_commitment(&client_account, CommitmentConfig::confirmed())
             .map_err(|e| {
-                anyhow::anyhow!("Failed to fetch Client account for client '{client_id}': {e}",)
+                anyhow::anyhow!("Failed to fetch Client account for client '{client_id}': {e}")
             })?
             .value
             .ok_or_else(|| anyhow::anyhow!("Client account not found for client '{client_id}'"))?;
@@ -114,7 +128,7 @@ impl super::TxBuilder {
 
         // Deserialize Client account using borsh (skip discriminator)
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
+        let client = ClientAccount::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize Client account: {e}"))?;
 
         tracing::debug!(
@@ -143,10 +157,11 @@ impl super::TxBuilder {
     pub(crate) fn cosmos_client_state(
         &self,
         solana_ics07_program_id: Pubkey,
-    ) -> Result<solana_ibc_types::ics07::ClientState> {
-        use solana_ibc_types::ics07::ClientState;
-
-        let (client_state_pda, _) = ClientState::pda(solana_ics07_program_id);
+    ) -> Result<ClientState> {
+        let (client_state_pda, _) =
+            ics07_tendermint_instructions::Initialize::client_state_account_pda(
+                &solana_ics07_program_id,
+            );
 
         let account = self
             .target_solana_client
@@ -166,10 +181,9 @@ impl super::TxBuilder {
     pub(crate) fn attestation_client_state(
         &self,
         light_client_program_id: Pubkey,
-    ) -> Result<solana_ibc_types::attestation::ClientState> {
-        use solana_ibc_types::attestation::ClientState as AttestationClientState;
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
+    ) -> Result<AttestationClientState> {
+        let (client_state_pda, _) =
+            attestation_instructions::Initialize::client_state_pda(&light_client_program_id);
 
         let account = self
             .target_solana_client
@@ -191,10 +205,11 @@ impl super::TxBuilder {
         height: u64,
         light_client_program_id: Pubkey,
     ) -> Result<u64> {
-        use solana_ibc_types::attestation::ConsensusState as AttestationConsensusState;
-
         let (consensus_state_pda, _) =
-            AttestationConsensusState::pda(height, light_client_program_id);
+            attestation_instructions::VerifyMembership::consensus_state_at_height_pda(
+                height,
+                &light_client_program_id,
+            );
 
         let account = self
             .target_solana_client
@@ -204,7 +219,7 @@ impl super::TxBuilder {
             .ok_or_else(|| anyhow::anyhow!("Attestation consensus state account not found"))?;
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let consensus_state = AttestationConsensusState::deserialize(&mut data)
+        let consensus_state = AttestationConsensusStateStore::deserialize(&mut data)
             .context("Failed to deserialize attestation consensus state")?;
 
         // Attestation consensus state stores timestamp in seconds (not nanoseconds)
@@ -263,8 +278,7 @@ impl super::TxBuilder {
     pub(crate) fn account_exists(&self, pubkey: &Pubkey) -> bool {
         self.target_solana_client
             .get_account_with_commitment(pubkey, CommitmentConfig::confirmed())
-            .map(|response| response.value.is_some())
-            .unwrap_or(false)
+            .is_ok_and(|response| response.value.is_some())
     }
 }
 
@@ -275,10 +289,7 @@ impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
         self.resolve_client_program_id(client_id)
     }
 
-    fn attestation_client_state(
-        &self,
-        program_id: Pubkey,
-    ) -> Result<solana_ibc_types::attestation::ClientState> {
+    fn attestation_client_state(&self, program_id: Pubkey) -> Result<AttestationClientState> {
         self.attestation_client_state(program_id)
     }
 

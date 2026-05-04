@@ -135,7 +135,7 @@ just install-relayer
 If you have Anchor installed locally, you can use the standard commands:
 
 ```sh
-just build-solana
+just build-solana-programs
 just test-solana
 ```
 

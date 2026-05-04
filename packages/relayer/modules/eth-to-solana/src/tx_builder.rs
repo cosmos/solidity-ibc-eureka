@@ -15,7 +15,15 @@ use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use ibc_eureka_relayer_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 use ibc_eureka_relayer_lib::utils::solana_v0_tx;
-use solana_ibc_types::router::{IBCApp, RouterState};
+use solana_ibc_sdk::attestation::{
+    accounts::{ClientState as AttestationClientState, ConsensusStateStore},
+    instructions as attestation_instructions,
+};
+use solana_ibc_sdk::ics26_router::{
+    accounts::{IBCApp, RouterState},
+    instructions as router_instructions,
+    types::ClientAccount,
+};
 
 pub use attested::AttestedTxBuilder;
 
@@ -82,7 +90,8 @@ impl SolanaTxBuilder {
 
     /// Resolves the access manager program ID from the router state.
     pub(crate) fn resolve_access_manager_program_id(&self) -> Result<Pubkey> {
-        let (router_state_pda, _) = RouterState::pda(self.solana_ics26_program_id);
+        let (router_state_pda, _) =
+            router_instructions::Initialize::router_state_pda(&self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -96,7 +105,7 @@ impl SolanaTxBuilder {
         }
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let router_state = solana_ibc_types::RouterState::deserialize(&mut data)
+        let router_state = RouterState::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize RouterState: {e}"))?;
 
         Ok(router_state.am_state.access_manager)
@@ -104,7 +113,8 @@ impl SolanaTxBuilder {
 
     /// Resolve the IBC app program ID for a given port.
     pub(crate) fn resolve_port_program_id(&self, port_id: &str) -> Result<Pubkey> {
-        let (ibc_app_account, _) = IBCApp::pda(port_id, self.solana_ics26_program_id);
+        let (ibc_app_account, _) =
+            router_instructions::AddIbcApp::ibc_app_pda(port_id, &self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -120,7 +130,7 @@ impl SolanaTxBuilder {
         }
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let ibc_app = solana_ibc_types::IBCApp::deserialize(&mut data)
+        let ibc_app = IBCApp::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize IBCApp: {e}"))?;
 
         Ok(ibc_app.app_program_id)
@@ -129,7 +139,7 @@ impl SolanaTxBuilder {
     /// Resolve the light client program ID.
     pub(crate) fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
         let (client_account, _) =
-            solana_ibc_types::Client::pda(client_id, self.solana_ics26_program_id);
+            router_instructions::SendPacket::client_pda(client_id, &self.solana_ics26_program_id);
 
         let account = self
             .target_solana_client
@@ -143,7 +153,7 @@ impl SolanaTxBuilder {
         }
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let client = solana_ibc_types::ClientAccount::deserialize(&mut data)
+        let client = ClientAccount::deserialize(&mut data)
             .map_err(|e| anyhow::anyhow!("Failed to deserialize Client: {e}"))?;
 
         Ok(client.client_program_id)
@@ -153,10 +163,9 @@ impl SolanaTxBuilder {
     pub(crate) fn attestation_client_state(
         &self,
         light_client_program_id: Pubkey,
-    ) -> Result<solana_ibc_types::attestation::ClientState> {
-        use solana_ibc_types::attestation::ClientState as AttestationClientState;
-
-        let (client_state_pda, _) = AttestationClientState::pda(light_client_program_id);
+    ) -> Result<AttestationClientState> {
+        let (client_state_pda, _) =
+            attestation_instructions::Initialize::client_state_pda(&light_client_program_id);
 
         let account = self
             .target_solana_client
@@ -178,9 +187,11 @@ impl SolanaTxBuilder {
         height: u64,
         light_client_program_id: Pubkey,
     ) -> Result<u64> {
-        use solana_ibc_types::attestation::ConsensusState as AttestationConsensusState;
         let (consensus_state_pda, _) =
-            AttestationConsensusState::pda(height, light_client_program_id);
+            attestation_instructions::VerifyMembership::consensus_state_at_height_pda(
+                height,
+                &light_client_program_id,
+            );
 
         let account = self
             .target_solana_client
@@ -190,7 +201,7 @@ impl SolanaTxBuilder {
             .ok_or_else(|| anyhow::anyhow!("Attestation consensus state account not found"))?;
 
         let mut data = &account.data[ANCHOR_DISCRIMINATOR_SIZE..];
-        let consensus_state = AttestationConsensusState::deserialize(&mut data)
+        let consensus_state = ConsensusStateStore::deserialize(&mut data)
             .context("Failed to deserialize attestation consensus state")?;
 
         Ok(consensus_state.timestamp)
@@ -264,10 +275,7 @@ impl ibc_eureka_relayer_lib::utils::solana_attested::SolanaAttestationTxBuilder
         self.resolve_client_program_id(client_id)
     }
 
-    fn attestation_client_state(
-        &self,
-        program_id: Pubkey,
-    ) -> Result<solana_ibc_types::attestation::ClientState> {
+    fn attestation_client_state(&self, program_id: Pubkey) -> Result<AttestationClientState> {
         self.attestation_client_state(program_id)
     }
 

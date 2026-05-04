@@ -19,7 +19,7 @@ Both `--idl-dir` and `--output` flags are required.
 ## When to Regenerate
 
 - After modifying Anchor programs
-- After `just build-solana`
+- After `just build-solana-programs`
 - When adding new programs
 - When IDL structure changes
 

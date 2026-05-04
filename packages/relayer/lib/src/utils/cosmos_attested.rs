@@ -354,14 +354,10 @@ async fn build_attestor_relay_events_tx_with(
 
     let relay_height = relay_height.ok_or_else(|| anyhow::anyhow!("No packets collected"))?;
 
-    wait_for_condition(
-        Duration::from_secs(25 * 60),
-        Duration::from_secs(1),
-        || async {
-            let finalized_height = aggregator.get_latest_height().await?;
-            Ok(finalized_height >= relay_height)
-        },
-    )
+    wait_for_condition(Duration::from_mins(15), Duration::from_secs(1), || async {
+        let finalized_height = aggregator.get_latest_height().await?;
+        Ok(finalized_height >= relay_height)
+    })
     .await?;
 
     let attestations = fetch_attestations(

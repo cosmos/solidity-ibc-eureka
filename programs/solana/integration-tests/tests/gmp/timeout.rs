@@ -112,7 +112,7 @@ async fn test_gmp_timeout() {
 
     // Verify GMPCallResultAccount was created with timeout status
     let (result_pda, _) =
-        solana_ibc_types::GMPCallResult::pda(chain_a.client_id(), sequence, &ics27_gmp::ID);
+        solana_ibc_gmp_types::GMPCallResult::pda(chain_a.client_id(), sequence, &ics27_gmp::ID);
     let result_account = chain_a
         .get_account(result_pda)
         .await
@@ -122,6 +122,6 @@ async fn test_gmp_timeout() {
             .expect("failed to deserialize GMPCallResultAccount");
     assert_eq!(
         result_state.status,
-        solana_ibc_types::CallResultStatus::Timeout
+        solana_ibc_gmp_types::CallResultStatus::Timeout
     );
 }

@@ -8,7 +8,7 @@
       url = "github:hellwolf/solc.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    foundry.url = "github:shazow/foundry.nix/main";
+    foundry.url = "github:shazow/foundry.nix/stable";
     rust-overlay.url = "github:oxalica/rust-overlay";
     natlint.url = "github:srdtrk/natlint";
     sp1 = {
