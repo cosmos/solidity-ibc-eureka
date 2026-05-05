@@ -126,7 +126,8 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
             now_since_unix.as_nanos(),
         )
         .await;
-    if proof_data.public_values.is_empty() {
+    let public_values = proof_data.public_values.to_vec();
+    if public_values.is_empty() {
         anyhow::bail!("misbehaviour is not detected: proof produced empty public values");
     }
 
@@ -134,7 +135,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         sp1Proof: SP1Proof::new(
             &verify_misbehaviour_prover.vkey.bytes32(),
             proof_data.bytes(),
-            proof_data.public_values.to_vec(),
+            public_values,
         ),
     };
     let fixture = SP1ICS07SubmitMisbehaviourFixture {
