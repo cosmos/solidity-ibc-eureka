@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 env:
-  SP1_VERSION: "6.0.2"
+  SP1_VERSION: "6.1.0"
 
 
 jobs:
