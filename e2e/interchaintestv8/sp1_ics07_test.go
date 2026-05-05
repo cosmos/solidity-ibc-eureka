@@ -570,12 +570,8 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 		},
 			proofType.ToOperatorArgs()...,
 		)
-		output, err := operator.MisbehaviourProof(simd.GetCodec(), invalidMisbehaviour, "", args...)
-		if err != nil {
-			s.Require().ErrorContains(err, "misbehaviour is not detected")
-		} else {
-			s.Require().Contains(string(output), "misbehaviour is not detected")
-		}
+		_, err := operator.MisbehaviourProof(simd.GetCodec(), invalidMisbehaviour, "", args...)
+		s.Require().ErrorContains(err, "misbehaviour is not detected")
 	}))
 
 	s.Require().True(s.Run("Valid misbehaviour", func() {
