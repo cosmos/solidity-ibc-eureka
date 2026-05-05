@@ -6,7 +6,7 @@ repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-sp1-sdk = { workspace = true, default-features = true }
+sp1-sdk = { workspace = true, default-features = true, features = ["network"] }
 
 serde_json      = { workspace = true }
 serde           = { workspace = true }
