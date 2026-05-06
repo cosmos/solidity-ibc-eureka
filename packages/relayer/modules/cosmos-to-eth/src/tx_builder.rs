@@ -31,8 +31,6 @@ use sp1_ics07_tendermint_prover::{
 use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
 
-use sp1_prover::components::SP1ProverComponents;
-
 use ibc_eureka_relayer_lib::{
     aggregator::Aggregator,
     chain::{CosmosSdk, EthEureka},
@@ -50,38 +48,36 @@ use ibc_eureka_relayer_lib::{
 
 /// The `TxBuilder` produces txs to [`EthEureka`] based on events from [`CosmosSdk`].
 #[allow(dead_code)]
-pub struct TxBuilder<P, C>
+pub struct TxBuilder<P>
 where
     P: Provider + Clone,
-    C: SP1ProverComponents,
 {
     /// The IBC Eureka router instance.
     pub ics26_router: routerInstance<P, Ethereum>,
     /// The HTTP client for the Cosmos SDK.
     pub tm_client: HttpClient,
     /// SP1 prover for generating proofs.
-    pub sp1_prover: Sp1Prover<C>,
+    pub sp1_prover: Sp1Prover,
     /// The SP1 programs for ICS07 Tendermint.
     pub sp1_programs: SP1ICS07TendermintPrograms,
 }
 
-impl<P, C> TxBuilder<P, C>
+impl<P> TxBuilder<P>
 where
     P: Provider + Clone,
-    C: SP1ProverComponents,
 {
     /// Create a new [`TxBuilder`] instance.
-    pub fn new(
+    pub const fn new(
         ics26_address: Address,
         provider: P,
         tm_client: HttpClient,
-        sp1_prover: impl Into<Sp1Prover<C>>,
+        sp1_prover: Sp1Prover,
         sp1_programs: SP1ICS07TendermintPrograms,
     ) -> Self {
         Self {
             ics26_router: routerInstance::new(ics26_address, provider),
             tm_client,
-            sp1_prover: sp1_prover.into(),
+            sp1_prover,
             sp1_programs,
         }
     }
@@ -134,10 +130,9 @@ const ZK_ALGORITHM: &str = "zk_algorithm";
 const ROLE_MANAGER: &str = "role_manager";
 
 #[async_trait::async_trait]
-impl<P, C> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P, C>
+impl<P> TxBuilderService<EthEureka, CosmosSdk> for TxBuilder<P>
 where
     P: Provider + Clone,
-    C: SP1ProverComponents,
 {
     #[tracing::instrument(skip_all, err(Debug))]
     async fn relay_events(
@@ -326,15 +321,18 @@ where
             client_state.zkAlgorithm,
             &self.sp1_prover,
             &self.sp1_programs.update_client,
-        );
+        )
+        .await;
 
         let trusted_consensus_state = trusted_light_block.to_consensus_state().into();
-        let proof_data = update_client_prover.generate_proof(
-            &client_state,
-            &trusted_consensus_state,
-            &proposed_header,
-            now_since_unix.as_nanos(),
-        );
+        let proof_data = update_client_prover
+            .generate_proof(
+                &client_state,
+                &trusted_consensus_state,
+                &proposed_header,
+                now_since_unix.as_nanos(),
+            )
+            .await;
 
         let update_msg = MsgUpdateClient {
             sp1Proof: SP1Proof::new(

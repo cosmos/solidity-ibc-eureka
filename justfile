@@ -3,6 +3,9 @@ set dotenv-load
 # Detect which anchor command is available
 anchor_cmd := `command -v anchor-nix >/dev/null 2>&1 && echo "anchor-nix" || echo "anchor"`
 
+# Detect which cargo-prove command is available for building SP1 programs
+prove_cmd := `command -v cargo-prove >/dev/null 2>&1 && echo "cargo-prove" || echo "~/.sp1/bin/cargo-prove"`
+
 # Helper function to run solana-ibc CLI tool
 solana_ibc := '''
   (cd tools/solana-ibc && go run . "$@")
@@ -35,11 +38,11 @@ build-solana-ibc:
 # Build riscv elf files using `~/.sp1/bin/cargo-prove`
 [group('build')]
 build-sp1-programs:
-  @echo "Building SP1 programs in 'programs/sp1-programs/target/elf-compilation/riscv32im-succinct-zkvm-elf/release/'"
-  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-update-client --locked
-  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-membership --locked
-  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-uc-and-membership --locked
-  cd programs/sp1-programs && ~/.sp1/bin/cargo-prove prove build -p sp1-ics07-tendermint-misbehaviour --locked
+  @echo "Building SP1 programs in 'programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/'"
+  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-update-client --locked
+  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-membership --locked
+  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-uc-and-membership --locked
+  cd programs/sp1-programs && {{prove_cmd}} prove build -p sp1-ics07-tendermint-misbehaviour --locked
 
 # Sync Solana program keypairs and update declare_id! macros
 # Usage: just sync-solana-keys [cluster]

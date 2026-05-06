@@ -21,6 +21,8 @@ in
       pkgs.jq
     ];
 
+    dontPatchShebangs = true;
+
     buildPhase = ''
       export HOME=$TMPDIR
       export BUN_INSTALL_CACHE_DIR=$TMPDIR/bun-cache
@@ -34,5 +36,5 @@ in
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
-    outputHash = "sha256-Z2VGXqC6n3TzDK5b4D1FfLuTSy9TNeFA+QdOhWJIWUc=";
+    outputHash = "sha256-yVgjaDQkaau/fFwP1OBlOBNJXpLFQ+dvVcbTeR0gvEY=";
   }

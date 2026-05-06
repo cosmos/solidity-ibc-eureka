@@ -209,6 +209,9 @@ func MisbehaviourProof(cdc codec.Codec, misbehaviour tmclient.Misbehaviour, writ
 	if err != nil {
 		return nil, err
 	}
+	if strings.Contains(string(output), "misbehaviour is not detected") {
+		return nil, errors.New("misbehaviour is not detected")
+	}
 
 	// eliminate non-json characters
 	jsonStartIdx := strings.Index(string(output), "{")
