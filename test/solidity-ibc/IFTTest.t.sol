@@ -87,11 +87,10 @@ contract IFTTest is Test {
         assertTrue(isAdmin);
     }
 
-    function test_Ownable_authorityCanMint() public {
+    function testFuzz_Ownable_authorityCanMint(uint256 amount) public {
         setUpOwnable();
 
         address receiver = makeAddr("receiver");
-        uint256 amount = 100;
 
         vm.prank(admin);
         IFTOwnable(address(ift)).mint(receiver, amount);
@@ -100,51 +99,48 @@ contract IFTTest is Test {
         assertEq(IERC20(address(ift)).totalSupply(), amount);
     }
 
-    function test_Ownable_unauthorizedCannotMint() public {
+    function testFuzz_Ownable_unauthorizedCannotMint(uint256 amount) public {
         setUpOwnable();
 
         address unauthorized = makeAddr("unauthorized");
 
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
         vm.prank(unauthorized);
-        IFTOwnable(address(ift)).mint(makeAddr("receiver"), 100);
+        IFTOwnable(address(ift)).mint(makeAddr("receiver"), amount);
     }
 
-    function test_Ownable_authorityCanBurn() public {
+    function testFuzz_Ownable_authorityCanBurn(uint256 amount) public {
         setUpOwnable();
 
         address holder = makeAddr("holder");
-        uint256 initialBalance = 100;
-        uint256 burnAmount = 40;
 
         vm.startPrank(admin);
-        IFTOwnable(address(ift)).mint(holder, initialBalance);
-        IFTOwnable(address(ift)).burn(holder, burnAmount);
+        IFTOwnable(address(ift)).mint(holder, amount);
+        IFTOwnable(address(ift)).burn(holder, amount);
         vm.stopPrank();
 
-        assertEq(IERC20(address(ift)).balanceOf(holder), initialBalance - burnAmount);
-        assertEq(IERC20(address(ift)).totalSupply(), initialBalance - burnAmount);
+        assertEq(IERC20(address(ift)).balanceOf(holder), 0);
+        assertEq(IERC20(address(ift)).totalSupply(), 0);
     }
 
-    function test_Ownable_unauthorizedCannotBurn() public {
+    function testFuzz_Ownable_unauthorizedCannotBurn(uint256 amount) public {
         setUpOwnable();
 
         address holder = makeAddr("holder");
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(admin);
-        IFTOwnable(address(ift)).mint(holder, 100);
+        IFTOwnable(address(ift)).mint(holder, amount);
 
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
         vm.prank(unauthorized);
-        IFTOwnable(address(ift)).burn(holder, 40);
+        IFTOwnable(address(ift)).burn(holder, amount);
     }
 
-    function test_AccessManaged_authorityCanMint() public {
+    function testFuzz_AccessManaged_authorityCanMint(uint256 amount) public {
         setUpAccessManaged();
 
         address receiver = makeAddr("receiver");
-        uint256 amount = 100;
 
         vm.prank(admin);
         IFTAccessManaged(address(ift)).mint(receiver, amount);
@@ -153,44 +149,42 @@ contract IFTTest is Test {
         assertEq(IERC20(address(ift)).totalSupply(), amount);
     }
 
-    function test_AccessManaged_unauthorizedCannotMint() public {
+    function testFuzz_AccessManaged_unauthorizedCannotMint(uint256 amount) public {
         setUpAccessManaged();
 
         address unauthorized = makeAddr("unauthorized");
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vm.prank(unauthorized);
-        IFTAccessManaged(address(ift)).mint(makeAddr("receiver"), 100);
+        IFTAccessManaged(address(ift)).mint(makeAddr("receiver"), amount);
     }
 
-    function test_AccessManaged_authorityCanBurn() public {
+    function testFuzz_AccessManaged_authorityCanBurn(uint256 amount) public {
         setUpAccessManaged();
 
         address holder = makeAddr("holder");
-        uint256 initialBalance = 100;
-        uint256 burnAmount = 40;
 
         vm.startPrank(admin);
-        IFTAccessManaged(address(ift)).mint(holder, initialBalance);
-        IFTAccessManaged(address(ift)).burn(holder, burnAmount);
+        IFTAccessManaged(address(ift)).mint(holder, amount);
+        IFTAccessManaged(address(ift)).burn(holder, amount);
         vm.stopPrank();
 
-        assertEq(IERC20(address(ift)).balanceOf(holder), initialBalance - burnAmount);
-        assertEq(IERC20(address(ift)).totalSupply(), initialBalance - burnAmount);
+        assertEq(IERC20(address(ift)).balanceOf(holder), 0);
+        assertEq(IERC20(address(ift)).totalSupply(), 0);
     }
 
-    function test_AccessManaged_unauthorizedCannotBurn() public {
+    function testFuzz_AccessManaged_unauthorizedCannotBurn(uint256 amount) public {
         setUpAccessManaged();
 
         address holder = makeAddr("holder");
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(admin);
-        IFTAccessManaged(address(ift)).mint(holder, 100);
+        IFTAccessManaged(address(ift)).mint(holder, amount);
 
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
         vm.prank(unauthorized);
-        IFTAccessManaged(address(ift)).burn(holder, 40);
+        IFTAccessManaged(address(ift)).burn(holder, amount);
     }
 
     function fixtureregisterBridgeTC() public returns (RegisterIFTBridgeTestCase[] memory) {
