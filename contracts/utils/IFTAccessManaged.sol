@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import { IFTBaseUpgradeable } from "./IFTBaseUpgradeable.sol";
+import { IMintableAndBurnable } from "../interfaces/IMintableAndBurnable.sol";
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
@@ -9,7 +10,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @notice This is the access managed and upgradable implementation of IFT
 /// @dev If you need a custom IFT implementation, then inherit from IFTBaseUpgradeable instead of deploying this
 /// contract directly @dev WARNING: This contract is experimental
-contract IFTAccessManaged is IFTBaseUpgradeable, AccessManagedUpgradeable, UUPSUpgradeable {
+contract IFTAccessManaged is IFTBaseUpgradeable, IMintableAndBurnable, AccessManagedUpgradeable, UUPSUpgradeable {
     // natlint-disable-next-line MissingNotice
     constructor() {
         _disableInitializers();
@@ -34,20 +35,14 @@ contract IFTAccessManaged is IFTBaseUpgradeable, AccessManagedUpgradeable, UUPSU
         __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
     }
 
-    /// @notice Mints tokens to an account
-    /// @dev Only callable by the configured authority
-    /// @param to The account receiving minted tokens
-    /// @param amount The amount of tokens to mint
-    function mint(address to, uint256 amount) external restricted {
-        _mint(to, amount);
+    /// @inheritdoc IMintableAndBurnable
+    function mint(address mintAddress, uint256 amount) external override(IMintableAndBurnable) restricted {
+        _mint(mintAddress, amount);
     }
 
-    /// @notice Burns tokens from an account
-    /// @dev Only callable by the configured authority
-    /// @param from The account whose tokens are burned
-    /// @param amount The amount of tokens to burn
-    function burn(address from, uint256 amount) external restricted {
-        _burn(from, amount);
+    /// @inheritdoc IMintableAndBurnable
+    function burn(address burnAddress, uint256 amount) external override(IMintableAndBurnable) restricted {
+        _burn(burnAddress, amount);
     }
 
     /// @inheritdoc IFTBaseUpgradeable
