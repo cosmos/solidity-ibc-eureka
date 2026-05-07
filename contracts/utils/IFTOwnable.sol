@@ -34,6 +34,22 @@ contract IFTOwnable is IFTBaseUpgradeable, OwnableUpgradeable, UUPSUpgradeable {
         __IFTBase_init(erc20Name, erc20Symbol, ics27Gmp);
     }
 
+    /// @notice Mints tokens to an account
+    /// @dev Only callable by the owner authority
+    /// @param to The account receiving minted tokens
+    /// @param amount The amount of tokens to mint
+    function mint(address to, uint256 amount) external onlyOwner {
+        _mint(to, amount);
+    }
+
+    /// @notice Burns tokens from an account
+    /// @dev Only callable by the owner authority
+    /// @param from The account whose tokens are burned
+    /// @param amount The amount of tokens to burn
+    function burn(address from, uint256 amount) external onlyOwner {
+        _burn(from, amount);
+    }
+
     /// @inheritdoc IFTBaseUpgradeable
     function _onlyAuthority() internal view override(IFTBaseUpgradeable) onlyOwner { }
     // solhint-disable-previous-line no-empty-blocks

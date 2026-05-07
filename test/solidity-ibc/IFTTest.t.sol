@@ -87,6 +87,112 @@ contract IFTTest is Test {
         assertTrue(isAdmin);
     }
 
+    function test_Ownable_authorityCanMint() public {
+        setUpOwnable();
+
+        address receiver = makeAddr("receiver");
+        uint256 amount = 100;
+
+        vm.prank(admin);
+        IFTOwnable(address(ift)).mint(receiver, amount);
+
+        assertEq(IERC20(address(ift)).balanceOf(receiver), amount);
+        assertEq(IERC20(address(ift)).totalSupply(), amount);
+    }
+
+    function test_Ownable_unauthorizedCannotMint() public {
+        setUpOwnable();
+
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
+        vm.prank(unauthorized);
+        IFTOwnable(address(ift)).mint(makeAddr("receiver"), 100);
+    }
+
+    function test_Ownable_authorityCanBurn() public {
+        setUpOwnable();
+
+        address holder = makeAddr("holder");
+        uint256 initialBalance = 100;
+        uint256 burnAmount = 40;
+
+        vm.startPrank(admin);
+        IFTOwnable(address(ift)).mint(holder, initialBalance);
+        IFTOwnable(address(ift)).burn(holder, burnAmount);
+        vm.stopPrank();
+
+        assertEq(IERC20(address(ift)).balanceOf(holder), initialBalance - burnAmount);
+        assertEq(IERC20(address(ift)).totalSupply(), initialBalance - burnAmount);
+    }
+
+    function test_Ownable_unauthorizedCannotBurn() public {
+        setUpOwnable();
+
+        address holder = makeAddr("holder");
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(admin);
+        IFTOwnable(address(ift)).mint(holder, 100);
+
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
+        vm.prank(unauthorized);
+        IFTOwnable(address(ift)).burn(holder, 40);
+    }
+
+    function test_AccessManaged_authorityCanMint() public {
+        setUpAccessManaged();
+
+        address receiver = makeAddr("receiver");
+        uint256 amount = 100;
+
+        vm.prank(admin);
+        IFTAccessManaged(address(ift)).mint(receiver, amount);
+
+        assertEq(IERC20(address(ift)).balanceOf(receiver), amount);
+        assertEq(IERC20(address(ift)).totalSupply(), amount);
+    }
+
+    function test_AccessManaged_unauthorizedCannotMint() public {
+        setUpAccessManaged();
+
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        vm.prank(unauthorized);
+        IFTAccessManaged(address(ift)).mint(makeAddr("receiver"), 100);
+    }
+
+    function test_AccessManaged_authorityCanBurn() public {
+        setUpAccessManaged();
+
+        address holder = makeAddr("holder");
+        uint256 initialBalance = 100;
+        uint256 burnAmount = 40;
+
+        vm.startPrank(admin);
+        IFTAccessManaged(address(ift)).mint(holder, initialBalance);
+        IFTAccessManaged(address(ift)).burn(holder, burnAmount);
+        vm.stopPrank();
+
+        assertEq(IERC20(address(ift)).balanceOf(holder), initialBalance - burnAmount);
+        assertEq(IERC20(address(ift)).totalSupply(), initialBalance - burnAmount);
+    }
+
+    function test_AccessManaged_unauthorizedCannotBurn() public {
+        setUpAccessManaged();
+
+        address holder = makeAddr("holder");
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(admin);
+        IFTAccessManaged(address(ift)).mint(holder, 100);
+
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        vm.prank(unauthorized);
+        IFTAccessManaged(address(ift)).burn(holder, 40);
+    }
+
     function fixtureregisterBridgeTC() public returns (RegisterIFTBridgeTestCase[] memory) {
         address unauthorized = makeAddr("unauthorized");
 
