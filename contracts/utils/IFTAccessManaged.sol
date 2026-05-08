@@ -9,7 +9,7 @@ import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgrade
 /// @title IFT Access Managed
 /// @notice This is the access managed and upgradable implementation of IFT
 /// @dev If you need a custom IFT implementation, then inherit from IFTBaseUpgradeable instead of deploying this
-/// contract directly @dev WARNING: This contract is experimental
+/// contract directly
 contract IFTAccessManaged is IFTBaseUpgradeable, IMintableAndBurnable, AccessManagedUpgradeable, UUPSUpgradeable {
     // natlint-disable-next-line MissingNotice
     constructor() {
