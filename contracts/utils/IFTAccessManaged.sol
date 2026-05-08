@@ -36,12 +36,12 @@ contract IFTAccessManaged is IFTBaseUpgradeable, IMintableAndBurnable, AccessMan
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function mint(address mintAddress, uint256 amount) external override(IMintableAndBurnable) restricted {
+    function mint(address mintAddress, uint256 amount) external restricted {
         _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function burn(address burnAddress, uint256 amount) external override(IMintableAndBurnable) restricted {
+    function burn(address burnAddress, uint256 amount) external restricted {
         _burn(burnAddress, amount);
     }
 

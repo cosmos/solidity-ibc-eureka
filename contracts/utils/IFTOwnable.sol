@@ -36,12 +36,12 @@ contract IFTOwnable is IFTBaseUpgradeable, IMintableAndBurnable, OwnableUpgradea
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function mint(address mintAddress, uint256 amount) external override(IMintableAndBurnable) onlyOwner {
+    function mint(address mintAddress, uint256 amount) external onlyOwner {
         _mint(mintAddress, amount);
     }
 
     /// @inheritdoc IMintableAndBurnable
-    function burn(address burnAddress, uint256 amount) external override(IMintableAndBurnable) onlyOwner {
+    function burn(address burnAddress, uint256 amount) external onlyOwner {
         _burn(burnAddress, amount);
     }
 
