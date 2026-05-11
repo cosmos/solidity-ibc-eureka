@@ -39,12 +39,12 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/gmphelpers"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // IbcEurekaGmpTestSuite is a suite of tests that wraps TestSuite
@@ -154,8 +154,8 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		config := relayer.NewConfigBuilder().
-			EthToCosmos(relayer.EthToCosmosParams{
+		config := proofapi.NewConfigBuilder().
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simd.Config().ChainID,
 				TmRPC:         simd.GetHostRPCAddress(),
@@ -165,27 +165,27 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 				SignerAddress: s.SimdRelayerSubmitter.FormattedAddress(),
 				MockClient:    os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simd.Config().ChainID,
 				TmRPC:         simd.GetHostRPCAddress(),
 				ICS26Address:  s.contractAddresses.Ics26Router,
 				EthRPC:        eth.RPC,
-				Prover: relayer.SP1ProverConfig{
+				Prover: proofapi.SP1ProverConfig{
 					Type:           prover,
 					PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 				},
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -193,7 +193,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 		if relayerProcess != nil {
 			err := relayerProcess.Kill()
 			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
+				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
@@ -202,7 +202,7 @@ func (s *IbcEurekaGmpTestSuite) SetupSuite(ctx context.Context, proofType types.
 		time.Sleep(5 * time.Second) // wait for the relayer to start
 
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 

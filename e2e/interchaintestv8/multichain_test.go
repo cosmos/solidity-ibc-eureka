@@ -42,11 +42,11 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 type MultichainTestSuite struct {
@@ -159,7 +159,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		sp1Config := relayer.SP1ProverConfig{
+		sp1Config := proofapi.SP1ProverConfig{
 			Type: prover,
 		}
 		if prover == testvalues.EnvValueSp1Prover_Network {
@@ -169,9 +169,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		mockClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil
 
 		// Eth↔ChainA, Eth↔ChainB, ChainA↔ChainB
-		config := relayer.NewConfigBuilder().
+		config := proofapi.NewConfigBuilder().
 			// Eth ↔ ChainA
-			EthToCosmos(relayer.EthToCosmosParams{
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simdA.Config().ChainID,
 				TmRPC:         simdA.GetHostRPCAddress(),
@@ -181,7 +181,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
 				MockClient:    mockClient,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: simdA.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         simdA.GetHostRPCAddress(),
@@ -190,7 +190,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				Prover:        sp1Config,
 			}).
 			// Eth ↔ ChainB
-			EthToCosmos(relayer.EthToCosmosParams{
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simdB.Config().ChainID,
 				TmRPC:         simdB.GetHostRPCAddress(),
@@ -200,7 +200,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
 				MockClient:    mockClient,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: simdB.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         simdB.GetHostRPCAddress(),
@@ -209,14 +209,14 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				Prover:        sp1Config,
 			}).
 			// ChainA ↔ ChainB (signer must exist on destination chain)
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    simdA.Config().ChainID,
 				DstChainID:    simdB.Config().ChainID,
 				SrcRPC:        simdA.GetHostRPCAddress(),
 				DstRPC:        simdB.GetHostRPCAddress(),
 				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
 			}).
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    simdB.Config().ChainID,
 				DstChainID:    simdA.Config().ChainID,
 				SrcRPC:        simdB.GetHostRPCAddress(),
@@ -225,14 +225,14 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -240,7 +240,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		if relayerProcess != nil {
 			err := relayerProcess.Kill()
 			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
+				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
@@ -249,7 +249,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		time.Sleep(5 * time.Second) // wait for the relayer to start
 
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 

@@ -19,10 +19,10 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // ExternalCosmosTestSuite tests Solana light client with real Cosmos chain
@@ -248,12 +248,12 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 	s.Require().True(s.Run("Start Relayer with External Cosmos", func() {
 		s.T().Log("Starting relayer with external Cosmos configuration...")
 
-		modules := []relayer.ModuleConfig{
+		modules := []proofapi.ModuleConfig{
 			{
-				Name:     relayer.ModuleCosmosToSolana,
+				Name:     proofapi.ModuleCosmosToSolana,
 				SrcChain: s.ExternalCosmosChainID,
 				DstChain: testvalues.SolanaChainID,
-				Config: relayer.CosmosToSolanaModuleConfig{
+				Config: proofapi.CosmosToSolanaModuleConfig{
 					SourceRpcUrl:         s.ExternalCosmosRPC,
 					TargetRpcUrl:         testvalues.SolanaLocalnetRPC,
 					SolanaIcs26ProgramId: ics26_router.ProgramID.String(),
@@ -262,7 +262,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 				},
 			},
 		}
-		config := relayer.NewConfig(modules)
+		config := proofapi.NewConfig(modules)
 
 		configPath := "test-relayer-config.json"
 		err := config.GenerateConfigFile(configPath)
@@ -272,7 +272,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 			os.Remove(configPath)
 		})
 
-		process, err := relayer.StartRelayer(configPath)
+		process, err := proofapi.StartProofAPI(configPath)
 		s.Require().NoError(err, "Failed to start relayer")
 		s.RelayerProcess = process
 		s.T().Logf("Relayer process started with PID: %d", process.Pid)
@@ -280,7 +280,7 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.T().Log("Waiting for relayer to initialize...")
 		time.Sleep(5 * time.Second)
 
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err, "Failed to create relayer client")
 
 		s.T().Logf("Relayer started successfully with external Cosmos chain: %s", s.ExternalCosmosChainID)
@@ -289,10 +289,10 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 
 func (s *ExternalCosmosTestSuite) TearDownSuite() {
 	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
 		err := s.RelayerProcess.Kill()
 		if err != nil {
-			s.T().Logf("Failed to kill relayer process: %v", err)
+			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
 }

@@ -41,10 +41,10 @@ import (
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -91,12 +91,12 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 }
 
 func (s *IbcEurekaSolanaTestSuite) TearDownSuite() {
-	// Clean up relayer process if it's running
+	// Clean up proof API process if it's running
 	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
 		err := s.RelayerProcess.Kill()
 		if err != nil {
-			s.T().Logf("Failed to kill relayer process: %v", err)
+			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
 }
@@ -283,8 +283,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer", func() {
-		config := relayer.NewConfigBuilder().
-			SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+		config := proofapi.NewConfigBuilder().
+			SolanaToCosmosAttested(proofapi.SolanaToCosmosAttestedParams{
 				SolanaChainID:     testvalues.SolanaChainID,
 				CosmosChainID:     simd.Config().ChainID,
 				SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -295,7 +295,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 				AttestorTimeout:   30000,
 				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
-			CosmosToSolana(relayer.CosmosToSolanaParams{
+			CosmosToSolana(proofapi.CosmosToSolanaParams{
 				CosmosChainID:          simd.Config().ChainID,
 				SolanaChainID:          testvalues.SolanaChainID,
 				SolanaRPC:              testvalues.SolanaLocalnetRPC,
@@ -309,10 +309,10 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		if s.SolanaAltAddress != "" {
@@ -320,7 +320,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		}
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -328,7 +328,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		if relayerProcess != nil {
 			err := relayerProcess.Kill()
 			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
+				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
@@ -337,7 +337,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Wait for Relayer and Create Client", func() {
 		// Create relayer gRPC client
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err, "Relayer must be running and accessible")
 		s.T().Log("Relayer client created successfully")
 	}))

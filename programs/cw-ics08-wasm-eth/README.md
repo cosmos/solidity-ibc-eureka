@@ -39,7 +39,7 @@ Once built, the wasm binary needs to be stored on the Cosmos chain. This can be 
 
 ### Creating the Light Client
 
-The relayer-api can be used to get a transaction that creates the light client on the Cosmos chain where the bytecode is stored via [`CreateClientRequest`](https://github.com/cosmos/solidity-ibc-eureka/blob/98d1aa429d15e49a6986679604002000c070d7fe/proto/relayer/relayer.proto#L55). The `checksum_hex` field must be passed as a parameter in this request, which is the checksum of the wasm bytecode in hex format.
+The proof API can be used to get a transaction that creates the light client on the Cosmos chain where the bytecode is stored via `CreateClientRequest`. The `checksum_hex` field must be passed as a parameter in this request, which is the checksum of the wasm bytecode in hex format.
 
 
 ## Acknowledgements

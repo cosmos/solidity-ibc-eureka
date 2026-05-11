@@ -54,7 +54,7 @@ This project is structured as a [foundry](https://getfoundry.sh/) project with t
 - `abi/`: Contains the ABIs of the contracts needed for end-to-end tests.
 - `e2e/`: Contains the end-to-end tests, powered by [interchaintest](https://github.com/strangelove-ventures/interchaintest).
 - `programs/`: Contains the Rust programs for the project.
-    - `relayer/`: Contains the relayer implementation.
+    - `proof-api/`: Contains the proof API implementation.
     - `operator/`: Contains the fixture generator for the SP1 light client.
     - `sp1-programs/`: Contains the SP1 programs for the light client.
     - `cw-ics08-wasm-eth/`: Contains the `CosmWasm` light client for Ethereum
@@ -111,11 +111,11 @@ Foundry typically uses git submodules to manage contract dependencies, but this 
 bun install
 ```
 
-You also need to have the operator and relayer binaries installed on your machine to run some of the end-to-end tests. You can install them by running the following commands:
+You also need to have the operator and proof API binaries installed on your machine to run some of the end-to-end tests. You can install them by running the following commands:
 
 ```sh
 just install-operator
-just install-relayer
+just install-proof-api
 ```
 
 > [!TIP]
@@ -216,25 +216,25 @@ To prepare for running the e2e tests, you need to make sure you have done the fo
 
 There are five test suites in the `e2e/interchaintestv8` directory:
 
-- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the relayer (requires the operator and the relayer to be installed).
+- `TestWithIbcEurekaTestSuite`: This test suite tests the IBC contracts via the proof API (requires the operator and the proof API to be installed).
   - To run any of the tests, run the following command:
 
         ```sh
         just test-e2e-eureka $TEST_NAME
         ```
 
-- `TestWithRelayerTestSuite`: This test suite tests the relayer via the IBC contracts (requires the relayer and operator to be installed).
+- `TestWithProofAPITestSuite`: This test suite tests the proof API via the IBC contracts (requires the proof API and operator to be installed).
   - To run any of the tests, run the following command:
 
         ```sh
-        just test-e2e-relayer $TEST_NAME
+        just test-e2e-proof-api $TEST_NAME
         ```
 
-- `TestWithCosmosRelayerTestSuite`: This test suite tests the relayer via Cosmos to Cosmos connections (requires the relayer and operator to be installed).
+- `TestWithCosmosProofAPITestSuite`: This test suite tests the proof API via Cosmos to Cosmos connections (requires the proof API and operator to be installed).
   - To run any of the tests, run the following command:
 
         ```sh
-        just test-e2e-cosmos-relayer $TEST_NAME
+        just test-e2e-cosmos-proof-api $TEST_NAME
         ```
 
 - `TestWithSP1ICS07TendermintTestSuite`: This test suite tests the SP1 ICS07 Tendermint light client (requires the operator to be installed).
@@ -244,7 +244,7 @@ There are five test suites in the `e2e/interchaintestv8` directory:
         just test-e2e-sp1-ics07 $TEST_NAME
         ```
 
-- `TestWithMultichainTestSuite`: This test suite tests multi-chain transfers with Ethereum and multiple Cosmos chains (requires the relayer and operator to be installed).
+- `TestWithMultichainTestSuite`: This test suite tests multi-chain transfers with Ethereum and multiple Cosmos chains (requires the proof API and operator to be installed).
   - To run any of the tests, run the following command:
 
         ```sh
@@ -366,7 +366,7 @@ The IBC solidity contracts use [`AccessManager`](https://github.com/OpenZeppelin
 
 ## Releases
 
-The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `relayer-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
+The release lines currently supported are: `solidity-v2.0.x`, `cw-ics08-wasm-eth-v1.3.x`, and `proof-api-v0.7.x`. Please refer to our [versioning guide](./RELEASES.md) for more information on how to understand our release versioning.
 
 ## License
 

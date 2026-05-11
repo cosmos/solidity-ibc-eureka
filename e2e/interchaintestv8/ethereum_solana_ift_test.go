@@ -38,11 +38,11 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -156,9 +156,9 @@ func (s *EthereumSolanaIFTTestSuite) TearDownSuite() {
 	attestor.CleanupContainers(ctx, s.T(), s.solanaAttestorResult.Containers)
 
 	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
 		if err := s.RelayerProcess.Kill(); err != nil {
-			s.T().Logf("Failed to kill relayer process: %v", err)
+			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
 }
@@ -453,8 +453,8 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.Require().True(s.Run("Start Relayer", func() {
-		config := relayer.NewConfigBuilder().
-			EthToSolanaAttested(relayer.EthToSolanaAttestedParams{
+		config := proofapi.NewConfigBuilder().
+			EthToSolanaAttested(proofapi.EthToSolanaAttestedParams{
 				EthChainID:        eth.ChainID.String(),
 				SolanaChainID:     testvalues.SolanaChainID,
 				EthRPC:            eth.RPC,
@@ -468,7 +468,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 				AttestorTimeout:   30000,
 				QuorumThreshold:   numEthAttestors,
 			}).
-			SolanaToEthAttested(relayer.SolanaToEthAttestedParams{
+			SolanaToEthAttested(proofapi.SolanaToEthAttestedParams{
 				SolanaChainID:     testvalues.SolanaChainID,
 				EthChainID:        eth.ChainID.String(),
 				SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -481,19 +481,19 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		s.RelayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		s.RelayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 

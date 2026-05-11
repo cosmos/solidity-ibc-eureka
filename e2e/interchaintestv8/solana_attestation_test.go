@@ -40,12 +40,12 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -102,9 +102,9 @@ func (s *IbcSolanaAttestationTestSuite) TearDownSuite() {
 	attestor.CleanupContainers(ctx, s.T(), s.SolanaAttestorContainers)
 
 	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
 		if err := s.RelayerProcess.Kill(); err != nil {
-			s.T().Logf("Failed to kill relayer process: %v", err)
+			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
 }
@@ -320,9 +320,9 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Initializing Attestation Light Client on Solana...")
 	s.initializeAttestationLightClient(ctx)
 
-	s.T().Log("Starting relayer...")
-	config := relayer.NewConfigBuilder().
-		SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+	s.T().Log("Starting proofapi...")
+	config := proofapi.NewConfigBuilder().
+		SolanaToCosmosAttested(proofapi.SolanaToCosmosAttestedParams{
 			SolanaChainID:     testvalues.SolanaChainID,
 			CosmosChainID:     simd.Config().ChainID,
 			SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -333,7 +333,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 			AttestorTimeout:   30000,
 			QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 		}).
-		CosmosToSolanaAttested(relayer.CosmosToSolanaAttestedParams{
+		CosmosToSolanaAttested(proofapi.CosmosToSolanaAttestedParams{
 			CosmosChainID:     simd.Config().ChainID,
 			SolanaChainID:     testvalues.SolanaChainID,
 			SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -345,17 +345,17 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 		}).
 		Build()
 
-	err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+	err = config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 	s.Require().NoError(err)
 
-	s.RelayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+	s.RelayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 	s.Require().NoError(err)
 
 	s.T().Cleanup(func() {
-		os.Remove(testvalues.RelayerConfigFilePath)
+		os.Remove(testvalues.ProofAPIConfigFilePath)
 	})
 
-	s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+	s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 	s.Require().NoError(err)
 
 	s.T().Log("Creating attestor client on Cosmos...")

@@ -29,9 +29,9 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
 	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
@@ -74,15 +74,15 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
-		config := relayer.NewConfigBuilder().
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+		config := proofapi.NewConfigBuilder().
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    s.ChainA.Config().ChainID,
 				DstChainID:    s.ChainB.Config().ChainID,
 				SrcRPC:        s.ChainA.GetHostRPCAddress(),
 				DstRPC:        s.ChainB.GetHostRPCAddress(),
 				SignerAddress: s.ChainBSubmitter.FormattedAddress(),
 			}).
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    s.ChainB.Config().ChainID,
 				DstChainID:    s.ChainA.Config().ChainID,
 				SrcRPC:        s.ChainB.GetHostRPCAddress(),
@@ -91,14 +91,14 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 			}).
 			Build()
 
-		err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err = config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -110,7 +110,7 @@ func (s *CosmosIFTTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 

@@ -38,10 +38,10 @@ import (
 	cosmoshelper "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -244,9 +244,9 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	// Start relayer with multi-attestor config
 	var relayerProcess *os.Process
 	s.Require().True(s.Run("Start Relayer with multi-attestor config", func() {
-		config := relayer.NewConfigBuilder().
+		config := proofapi.NewConfigBuilder().
 			// Eth → Cosmos direction (uses Eth attestors)
-			EthToCosmosAttested(relayer.EthToCosmosAttestedParams{
+			EthToCosmosAttested(proofapi.EthToCosmosAttestedParams{
 				EthChainID:        eth.ChainID.String(),
 				CosmosChainID:     simd.Config().ChainID,
 				TmRPC:             simd.GetHostRPCAddress(),
@@ -258,7 +258,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 				QuorumThreshold:   s.quorumThreshold,
 			}).
 			// Cosmos → Eth direction (uses Cosmos attestors)
-			CosmosToEthAttested(relayer.CosmosToEthAttestedParams{
+			CosmosToEthAttested(proofapi.CosmosToEthAttestedParams{
 				CosmosChainID:     simd.Config().ChainID,
 				EthChainID:        eth.ChainID.String(),
 				TmRPC:             simd.GetHostRPCAddress(),
@@ -272,14 +272,14 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 		s.T().Logf("Relayer config with quorum threshold %d", s.quorumThreshold)
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -290,11 +290,11 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	})
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
-		grpcAddr := relayer.DefaultRelayerGRPCAddress()
+		grpcAddr := proofapi.DefaultProofAPIGRPCAddress()
 		s.T().Logf("Connecting to relayer at: %s", grpcAddr)
 
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(grpcAddr)
+		s.RelayerClient, err = proofapi.GetGRPCClient(grpcAddr)
 		s.Require().NoError(err)
 
 		// Retry connecting to relayer

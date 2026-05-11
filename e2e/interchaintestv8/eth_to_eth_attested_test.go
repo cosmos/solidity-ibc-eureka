@@ -25,10 +25,10 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -222,8 +222,8 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 		s.T().Logf("[relayer-config] Attestor B endpoint: %s", attestorBEndpoint)
 
 		// Create custom aggregator configs for each chain
-		config := relayer.NewConfigBuilder().
-			EthToEthAttested(relayer.EthToEthAttestedParams{
+		config := proofapi.NewConfigBuilder().
+			EthToEthAttested(proofapi.EthToEthAttestedParams{
 				SrcChainID:        s.EthChainA().ChainID.String(),
 				DstChainID:        s.EthChainB().ChainID.String(),
 				SrcRPC:            s.EthChainA().RPC,
@@ -233,7 +233,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 				AttestorEndpoints: []string{attestorAEndpoint},
 				AttestorTimeout:   30000,
 			}).
-			EthToEthAttested(relayer.EthToEthAttestedParams{
+			EthToEthAttested(proofapi.EthToEthAttestedParams{
 				SrcChainID:        s.EthChainB().ChainID.String(),
 				DstChainID:        s.EthChainA().ChainID.String(),
 				SrcRPC:            s.EthChainB().RPC,
@@ -247,22 +247,22 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 		s.T().Logf("Relayer config: %+v", config)
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		// Log the generated config file for debugging
-		configContent, readErr := os.ReadFile(testvalues.RelayerConfigFilePath)
+		configContent, readErr := os.ReadFile(testvalues.ProofAPIConfigFilePath)
 		if readErr == nil {
 			s.T().Logf("[relayer-config] Generated config file:\n%s", string(configContent))
 		}
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Logf("[relayer] Process started with PID: %d", relayerProcess.Pid)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
@@ -274,11 +274,11 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 	})
 
 	s.Require().True(s.Run("Create Relayer Client", func() {
-		grpcAddr := relayer.DefaultRelayerGRPCAddress()
+		grpcAddr := proofapi.DefaultProofAPIGRPCAddress()
 		s.T().Logf("Connecting to relayer at: %s", grpcAddr)
 
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(grpcAddr)
+		s.RelayerClient, err = proofapi.GetGRPCClient(grpcAddr)
 		s.Require().NoError(err)
 
 		// Retry connecting to relayer with backoff
