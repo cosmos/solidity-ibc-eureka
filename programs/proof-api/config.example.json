@@ -7,7 +7,7 @@
   "observability": {
     "level": "info",
     "use_otel": false,
-    "service_name": "ibc-eureka-proof-api",
+    "service_name": "ibc-proof-api",
     "otel_endpoint": null
   },
   "modules": [
