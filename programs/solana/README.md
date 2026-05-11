@@ -36,10 +36,10 @@ graph LR
         it_setup["programs + actors"]
     end
 
-    subgraph relayer["Relayer"]
+    subgraph proof_api["Proof API"]
         c2s["cosmos-to-solana"]
         e2s["eth-to-solana"]
-        lib["relayer-lib"]
+        lib["proof-api-lib"]
     end
 
     subgraph operator["Operator"]
@@ -125,7 +125,7 @@ graph LR
     style shared fill:#e0e7ff,stroke:#4f46e5,color:#1e1b4b
     style programs fill:#d1fae5,stroke:#059669,color:#064e3b
     style tests fill:#fef3c7,stroke:#d97706,color:#78350f
-    style relayer fill:#ffedd5,stroke:#ea580c,color:#7c2d12
+    style proof_api fill:#ffedd5,stroke:#ea580c,color:#7c2d12
     style operator fill:#e2e8f0,stroke:#475569,color:#1e293b
     style tm fill:#fce7f3,stroke:#db2777,color:#831843
     style idls fill:#fef9c3,stroke:#ca8a04,color:#713f12
@@ -133,7 +133,7 @@ graph LR
     classDef sharedNode fill:#c7d2fe,stroke:#4f46e5,color:#1e1b4b
     classDef programNode fill:#a7f3d0,stroke:#059669,color:#064e3b
     classDef testNode fill:#fde68a,stroke:#d97706,color:#78350f
-    classDef relayerNode fill:#fed7aa,stroke:#ea580c,color:#7c2d12
+    classDef proofApiNode fill:#fed7aa,stroke:#ea580c,color:#7c2d12
     classDef operatorNode fill:#cbd5e1,stroke:#475569,color:#1e293b
     classDef tmNode fill:#fbcfe8,stroke:#db2777,color:#831843
     classDef idlNode fill:#fef08a,stroke:#ca8a04,color:#713f12
@@ -141,7 +141,7 @@ graph LR
     class types,sdk,constants,proto,borsh,ics25,gmp_types,macros sharedNode
     class am,ics07,ics26,ics27,ift_prog,att programNode
     class it_router,it_gmp,it_ift,it_att,it_setup testNode
-    class c2s,e2s,lib relayerNode
+    class c2s,e2s,lib proofApiNode
     class op operatorNode
     class tm_update,tm_membership,tm_misbehaviour tmNode
     class idls idlNode

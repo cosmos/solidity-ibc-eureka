@@ -63,7 +63,7 @@ type SP1ICS07TendermintTestSuite struct {
 	// The ICS26 router contract, needed for the proof API to pass proofs
 	ics26Contract *ics26router.Contract
 
-	// The relayer API (only used for deployment at the moment)
+	// The proof API (only used for deployment at the moment)
 	ProofApiClient proofapitypes.ProofApiServiceClient
 }
 

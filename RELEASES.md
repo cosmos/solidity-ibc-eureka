@@ -30,11 +30,11 @@ The Solana programs releases are tagged with the `solana` prefix. For example, `
 
 ## Off-chain components
 
-### Relayer
+### Proof API
 
-The relayer releases are tagged with the `relayer` prefix. For example, `relayer-v0.7.0`. Relayer releases follow semantic versioning.
+The proof API releases are tagged with the `proof-api` prefix. For example, `proof-api-v0.7.0`. Proof API releases follow semantic versioning.
 
-The relayer does not have a major release yet, since we want to reserve the right to make breaking changes to the relayer's API until we have a stable API that we are confident will not require breaking changes in the future.
+The proof API does not have a major release yet, since we want to reserve the right to make breaking changes to the proof API until we have a stable API that we are confident will not require breaking changes in the future.
 
-- **Minor version bump**: A minor version bump indicates that there are new features or improvements in the relayer.
-- **Patch version bump**: A patch version bump indicates that there are bug fixes or minor improvements in the relayer.
+- **Minor version bump**: A minor version bump indicates that there are new features or improvements in the proof API.
+- **Patch version bump**: A patch version bump indicates that there are bug fixes or minor improvements in the proof API.

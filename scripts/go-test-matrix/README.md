@@ -12,7 +12,7 @@ go run main.go
 TEST_ENTRYPOINT=TestWithIbcEurekaTestSuite go run main.go
 
 # Exclude specific test suites
-TEST_EXCLUSIONS=TestWithCosmosRelayerTestSuite,TestWithMultichainTestSuite go run main.go
+TEST_EXCLUSIONS=TestWithCosmosProofAPITestSuite,TestWithMultichainTestSuite go run main.go
 ```
 
 ## Environment Variables
@@ -28,7 +28,7 @@ The tool outputs a JSON object compatible with GitHub Actions matrix strategy:
 {
   "include": [
     {"test": "Test_Deploy", "entrypoint": "TestWithIbcEurekaTestSuite"},
-    {"test": "Test_2_ConcurrentRecvPacketToEth", "entrypoint": "TestWithRelayerTestSuite"}
+    {"test": "Test_2_ConcurrentRecvPacketToEth", "entrypoint": "TestWithProofAPITestSuite"}
   ]
 }
 ```
