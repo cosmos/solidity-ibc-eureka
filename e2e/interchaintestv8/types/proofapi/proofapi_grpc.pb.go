@@ -19,231 +19,231 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RelayerService_RelayByTx_FullMethodName    = "/proofapi.RelayerService/RelayByTx"
-	RelayerService_CreateClient_FullMethodName = "/proofapi.RelayerService/CreateClient"
-	RelayerService_UpdateClient_FullMethodName = "/proofapi.RelayerService/UpdateClient"
-	RelayerService_Info_FullMethodName         = "/proofapi.RelayerService/Info"
+	ProofApiService_RelayByTx_FullMethodName    = "/proofapi.ProofApiService/RelayByTx"
+	ProofApiService_CreateClient_FullMethodName = "/proofapi.ProofApiService/CreateClient"
+	ProofApiService_UpdateClient_FullMethodName = "/proofapi.ProofApiService/UpdateClient"
+	ProofApiService_Info_FullMethodName         = "/proofapi.ProofApiService/Info"
 )
 
-// RelayerServiceClient is the client API for RelayerService service.
+// ProofApiServiceClient is the client API for ProofApiService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // The proof API service definition.
 // Each proof API service is defined between two chains.
 // One chain is the source chain, and the other chain is the target chain.
-type RelayerServiceClient interface {
+type ProofApiServiceClient interface {
 	// Relay the ibc packets produced by the results of transactions
 	RelayByTx(ctx context.Context, in *RelayByTxRequest, opts ...grpc.CallOption) (*RelayByTxResponse, error)
 	// Create a new ibc client on the target (destination) chain
 	CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error)
 	// Update the ibc client on the target (destination) chain
 	UpdateClient(ctx context.Context, in *UpdateClientRequest, opts ...grpc.CallOption) (*UpdateClientResponse, error)
-	// Request relayer information
+	// Request proof API information
 	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
 }
 
-type relayerServiceClient struct {
+type proofApiServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewRelayerServiceClient(cc grpc.ClientConnInterface) RelayerServiceClient {
-	return &relayerServiceClient{cc}
+func NewProofApiServiceClient(cc grpc.ClientConnInterface) ProofApiServiceClient {
+	return &proofApiServiceClient{cc}
 }
 
-func (c *relayerServiceClient) RelayByTx(ctx context.Context, in *RelayByTxRequest, opts ...grpc.CallOption) (*RelayByTxResponse, error) {
+func (c *proofApiServiceClient) RelayByTx(ctx context.Context, in *RelayByTxRequest, opts ...grpc.CallOption) (*RelayByTxResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RelayByTxResponse)
-	err := c.cc.Invoke(ctx, RelayerService_RelayByTx_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ProofApiService_RelayByTx_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *relayerServiceClient) CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error) {
+func (c *proofApiServiceClient) CreateClient(ctx context.Context, in *CreateClientRequest, opts ...grpc.CallOption) (*CreateClientResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateClientResponse)
-	err := c.cc.Invoke(ctx, RelayerService_CreateClient_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ProofApiService_CreateClient_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *relayerServiceClient) UpdateClient(ctx context.Context, in *UpdateClientRequest, opts ...grpc.CallOption) (*UpdateClientResponse, error) {
+func (c *proofApiServiceClient) UpdateClient(ctx context.Context, in *UpdateClientRequest, opts ...grpc.CallOption) (*UpdateClientResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(UpdateClientResponse)
-	err := c.cc.Invoke(ctx, RelayerService_UpdateClient_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ProofApiService_UpdateClient_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *relayerServiceClient) Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
+func (c *proofApiServiceClient) Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(InfoResponse)
-	err := c.cc.Invoke(ctx, RelayerService_Info_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, ProofApiService_Info_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// RelayerServiceServer is the server API for RelayerService service.
-// All implementations must embed UnimplementedRelayerServiceServer
+// ProofApiServiceServer is the server API for ProofApiService service.
+// All implementations must embed UnimplementedProofApiServiceServer
 // for forward compatibility.
 //
 // The proof API service definition.
 // Each proof API service is defined between two chains.
 // One chain is the source chain, and the other chain is the target chain.
-type RelayerServiceServer interface {
+type ProofApiServiceServer interface {
 	// Relay the ibc packets produced by the results of transactions
 	RelayByTx(context.Context, *RelayByTxRequest) (*RelayByTxResponse, error)
 	// Create a new ibc client on the target (destination) chain
 	CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error)
 	// Update the ibc client on the target (destination) chain
 	UpdateClient(context.Context, *UpdateClientRequest) (*UpdateClientResponse, error)
-	// Request relayer information
+	// Request proof API information
 	Info(context.Context, *InfoRequest) (*InfoResponse, error)
-	mustEmbedUnimplementedRelayerServiceServer()
+	mustEmbedUnimplementedProofApiServiceServer()
 }
 
-// UnimplementedRelayerServiceServer must be embedded to have
+// UnimplementedProofApiServiceServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedRelayerServiceServer struct{}
+type UnimplementedProofApiServiceServer struct{}
 
-func (UnimplementedRelayerServiceServer) RelayByTx(context.Context, *RelayByTxRequest) (*RelayByTxResponse, error) {
+func (UnimplementedProofApiServiceServer) RelayByTx(context.Context, *RelayByTxRequest) (*RelayByTxResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RelayByTx not implemented")
 }
-func (UnimplementedRelayerServiceServer) CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error) {
+func (UnimplementedProofApiServiceServer) CreateClient(context.Context, *CreateClientRequest) (*CreateClientResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateClient not implemented")
 }
-func (UnimplementedRelayerServiceServer) UpdateClient(context.Context, *UpdateClientRequest) (*UpdateClientResponse, error) {
+func (UnimplementedProofApiServiceServer) UpdateClient(context.Context, *UpdateClientRequest) (*UpdateClientResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateClient not implemented")
 }
-func (UnimplementedRelayerServiceServer) Info(context.Context, *InfoRequest) (*InfoResponse, error) {
+func (UnimplementedProofApiServiceServer) Info(context.Context, *InfoRequest) (*InfoResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Info not implemented")
 }
-func (UnimplementedRelayerServiceServer) mustEmbedUnimplementedRelayerServiceServer() {}
-func (UnimplementedRelayerServiceServer) testEmbeddedByValue()                        {}
+func (UnimplementedProofApiServiceServer) mustEmbedUnimplementedProofApiServiceServer() {}
+func (UnimplementedProofApiServiceServer) testEmbeddedByValue()                         {}
 
-// UnsafeRelayerServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to RelayerServiceServer will
+// UnsafeProofApiServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ProofApiServiceServer will
 // result in compilation errors.
-type UnsafeRelayerServiceServer interface {
-	mustEmbedUnimplementedRelayerServiceServer()
+type UnsafeProofApiServiceServer interface {
+	mustEmbedUnimplementedProofApiServiceServer()
 }
 
-func RegisterRelayerServiceServer(s grpc.ServiceRegistrar, srv RelayerServiceServer) {
-	// If the following call panics, it indicates UnimplementedRelayerServiceServer was
+func RegisterProofApiServiceServer(s grpc.ServiceRegistrar, srv ProofApiServiceServer) {
+	// If the following call panics, it indicates UnimplementedProofApiServiceServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&RelayerService_ServiceDesc, srv)
+	s.RegisterService(&ProofApiService_ServiceDesc, srv)
 }
 
-func _RelayerService_RelayByTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ProofApiService_RelayByTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(RelayByTxRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServiceServer).RelayByTx(ctx, in)
+		return srv.(ProofApiServiceServer).RelayByTx(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RelayerService_RelayByTx_FullMethodName,
+		FullMethod: ProofApiService_RelayByTx_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServiceServer).RelayByTx(ctx, req.(*RelayByTxRequest))
+		return srv.(ProofApiServiceServer).RelayByTx(ctx, req.(*RelayByTxRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RelayerService_CreateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ProofApiService_CreateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateClientRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServiceServer).CreateClient(ctx, in)
+		return srv.(ProofApiServiceServer).CreateClient(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RelayerService_CreateClient_FullMethodName,
+		FullMethod: ProofApiService_CreateClient_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServiceServer).CreateClient(ctx, req.(*CreateClientRequest))
+		return srv.(ProofApiServiceServer).CreateClient(ctx, req.(*CreateClientRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RelayerService_UpdateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ProofApiService_UpdateClient_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateClientRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServiceServer).UpdateClient(ctx, in)
+		return srv.(ProofApiServiceServer).UpdateClient(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RelayerService_UpdateClient_FullMethodName,
+		FullMethod: ProofApiService_UpdateClient_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServiceServer).UpdateClient(ctx, req.(*UpdateClientRequest))
+		return srv.(ProofApiServiceServer).UpdateClient(ctx, req.(*UpdateClientRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _RelayerService_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _ProofApiService_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(InfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServiceServer).Info(ctx, in)
+		return srv.(ProofApiServiceServer).Info(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: RelayerService_Info_FullMethodName,
+		FullMethod: ProofApiService_Info_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServiceServer).Info(ctx, req.(*InfoRequest))
+		return srv.(ProofApiServiceServer).Info(ctx, req.(*InfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// RelayerService_ServiceDesc is the grpc.ServiceDesc for RelayerService service.
+// ProofApiService_ServiceDesc is the grpc.ServiceDesc for ProofApiService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var RelayerService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "proofapi.RelayerService",
-	HandlerType: (*RelayerServiceServer)(nil),
+var ProofApiService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "proofapi.ProofApiService",
+	HandlerType: (*ProofApiServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "RelayByTx",
-			Handler:    _RelayerService_RelayByTx_Handler,
+			Handler:    _ProofApiService_RelayByTx_Handler,
 		},
 		{
 			MethodName: "CreateClient",
-			Handler:    _RelayerService_CreateClient_Handler,
+			Handler:    _ProofApiService_CreateClient_Handler,
 		},
 		{
 			MethodName: "UpdateClient",
-			Handler:    _RelayerService_UpdateClient_Handler,
+			Handler:    _ProofApiService_UpdateClient_Handler,
 		},
 		{
 			MethodName: "Info",
-			Handler:    _RelayerService_Info_Handler,
+			Handler:    _ProofApiService_Info_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

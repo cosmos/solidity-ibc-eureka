@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from Ethereum to Ethereum.
+//! This is a one-sided proof API module from Ethereum to Ethereum.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(unused_crate_dependencies, missing_docs)]
@@ -23,16 +23,16 @@ use ibc_eureka_proof_api_lib::{
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
-/// The `EthToEthRelayerModule` struct defines the Ethereum to Ethereum relayer module.
+/// The `EthToEthProofApiModule` struct defines the Ethereum to Ethereum proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct EthToEthRelayerModule;
+pub struct EthToEthProofApiModule;
 
-/// The `EthToEthRelayerModuleService` defines the relayer service from Ethereum to Ethereum.
-struct EthToEthRelayerModuleService {
+/// The `EthToEthProofApiModuleService` defines the proof API service from Ethereum to Ethereum.
+struct EthToEthProofApiModuleService {
     /// The source chain ID.
     src_chain_id: String,
     /// The source ICS26 address.
@@ -56,7 +56,7 @@ struct AttestedTxBuilder {
     provider: RootProvider,
 }
 
-/// The configuration for the Ethereum to Ethereum relayer module.
+/// The configuration for the Ethereum to Ethereum proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct EthToEthConfig {
     /// The source chain ID.
@@ -81,7 +81,7 @@ pub enum TxBuilderMode {
     Attested(AggregatorConfig),
 }
 
-impl EthToEthRelayerModuleService {
+impl EthToEthProofApiModuleService {
     async fn new(config: EthToEthConfig) -> anyhow::Result<Self> {
         let src_provider = RootProvider::builder()
             .connect(&config.src_rpc_url)
@@ -135,7 +135,7 @@ fn parse_eth_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<TxHash>, tonic::Statu
 }
 
 #[tonic::async_trait]
-impl RelayerService for EthToEthRelayerModuleService {
+impl ProofApiService for EthToEthProofApiModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -276,7 +276,7 @@ impl RelayerService for EthToEthRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for EthToEthRelayerModule {
+impl ProofApiModule for EthToEthProofApiModule {
     fn name(&self) -> &'static str {
         "eth_to_eth"
     }
@@ -284,9 +284,9 @@ impl RelayerModule for EthToEthRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config: EthToEthConfig = serde_json::from_value(config)?;
-        let service = EthToEthRelayerModuleService::new(config).await?;
+        let service = EthToEthProofApiModuleService::new(config).await?;
         Ok(Box::new(service))
     }
 }

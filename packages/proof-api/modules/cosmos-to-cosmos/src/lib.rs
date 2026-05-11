@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from a Cosmos SDK chain to a Cosmos SDK chain.
+//! This is a one-sided proof API module from a Cosmos SDK chain to a Cosmos SDK chain.
 
 #![deny(
     clippy::nursery,
@@ -25,17 +25,17 @@ use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
-/// The `CosmosToCosmosRelayerModule` struct defines the Cosmos to Cosmos relayer module.
+/// The `CosmosToCosmosProofApiModule` struct defines the Cosmos to Cosmos proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct CosmosToCosmosRelayerModule;
+pub struct CosmosToCosmosProofApiModule;
 
-/// The `CosmosToCosmosRelayerModuleService` defines the relayer service from Cosmos to Cosmos.
+/// The `CosmosToCosmosProofApiModuleService` defines the proof API service from Cosmos to Cosmos.
 #[allow(dead_code)]
-struct CosmosToCosmosRelayerModuleService {
+struct CosmosToCosmosProofApiModuleService {
     /// The souce chain listener for Cosmos SDK.
     pub src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Cosmos SDK.
@@ -44,7 +44,7 @@ struct CosmosToCosmosRelayerModuleService {
     pub tx_builder: tx_builder::TxBuilder,
 }
 
-/// The configuration for the Cosmos to Cosmos relayer module.
+/// The configuration for the Cosmos to Cosmos proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct CosmosToCosmosConfig {
     /// The source tendermint RPC URL.
@@ -56,7 +56,7 @@ pub struct CosmosToCosmosConfig {
     pub signer_address: String,
 }
 
-impl CosmosToCosmosRelayerModuleService {
+impl CosmosToCosmosProofApiModuleService {
     fn new(config: CosmosToCosmosConfig) -> Self {
         let src_client = HttpClient::from_rpc_url(&config.src_rpc_url);
         let src_listener = cosmos_sdk::ChainListener::new(src_client.clone());
@@ -75,7 +75,7 @@ impl CosmosToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToCosmosRelayerModuleService {
+impl ProofApiService for CosmosToCosmosProofApiModuleService {
     #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
@@ -210,7 +210,7 @@ impl RelayerService for CosmosToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for CosmosToCosmosRelayerModule {
+impl ProofApiModule for CosmosToCosmosProofApiModule {
     fn name(&self) -> &'static str {
         "cosmos_to_cosmos"
     }
@@ -219,11 +219,11 @@ impl RelayerModule for CosmosToCosmosRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config = serde_json::from_value::<CosmosToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Cosmos to Cosmos relayer server.");
-        Ok(Box::new(CosmosToCosmosRelayerModuleService::new(config)))
+        tracing::info!("Starting Cosmos to Cosmos proof API server.");
+        Ok(Box::new(CosmosToCosmosProofApiModuleService::new(config)))
     }
 }

@@ -42,7 +42,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -73,8 +73,8 @@ type EthereumSolanaIFTTestSuite struct {
 
 	contractAddresses ethereum.DeployedContracts
 
-	RelayerClient  relayertypes.RelayerServiceClient
-	RelayerProcess *os.Process
+	ProofApiClient  proofapitypes.ProofApiServiceClient
+	ProofApiProcess *os.Process
 
 	SolanaAltAddress string
 
@@ -155,9 +155,9 @@ func (s *EthereumSolanaIFTTestSuite) TearDownSuite() {
 	attestor.CleanupContainers(ctx, s.T(), s.ethAttestorResult.Containers)
 	attestor.CleanupContainers(ctx, s.T(), s.solanaAttestorResult.Containers)
 
-	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
-		if err := s.RelayerProcess.Kill(); err != nil {
+	if s.ProofApiProcess != nil {
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.ProofApiProcess.Pid)
+		if err := s.ProofApiProcess.Kill(); err != nil {
 			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
@@ -452,7 +452,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		s.initializeAttestationLightClientOnSolana(ctx, EthClientIDOnSolana)
 	}))
 
-	s.Require().True(s.Run("Start Relayer", func() {
+	s.Require().True(s.Run("Start Proof API", func() {
 		config := proofapi.NewConfigBuilder().
 			EthToSolanaAttested(proofapi.EthToSolanaAttestedParams{
 				EthChainID:        eth.ChainID.String(),
@@ -484,7 +484,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		s.RelayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
+		s.ProofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
@@ -492,8 +492,8 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 		})
 	}))
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
-		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
+	s.Require().True(s.Run("Create Proof API Client", func() {
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
@@ -509,7 +509,7 @@ func (s *EthereumSolanaIFTTestSuite) SetupSuite(ctx context.Context) {
 			checksummedAddrs[i] = ethcommon.HexToAddress(addr).Hex()
 		}
 
-		resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+		resp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 			SrcChain: testvalues.SolanaChainID,
 			DstChain: eth.ChainID.String(),
 			Parameters: map[string]string{
@@ -802,8 +802,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_Deploy() {
 		s.T().Logf("Solana slot: %d", slot)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info Eth->Solana", func() {
-		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info Eth->Solana", func() {
+		info, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: eth.ChainID.String(),
 			DstChain: testvalues.SolanaChainID,
 		})
@@ -811,8 +811,8 @@ func (s *EthereumSolanaIFTTestSuite) Test_Deploy() {
 		s.Require().NotNil(info)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info Solana->Eth", func() {
-		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info Solana->Eth", func() {
+		info, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: testvalues.SolanaChainID,
 			DstChain: eth.ChainID.String(),
 		})
@@ -888,7 +888,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 
 		var recvSig solanago.Signature
 		s.Require().True(s.Run("Relay packet to Solana", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{ethSendTxHash},
@@ -913,7 +913,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().True(s.Run("Relay ack to Ethereum", func() {
 			ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 
-			ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			ackResp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{[]byte(recvSig.String())},
@@ -993,7 +993,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		s.Require().True(s.Run("Relay packet to Ethereum", func() {
 			ics26Address := ethcommon.HexToAddress(s.contractAddresses.Ics26Router)
 
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{[]byte(solanaTransferTxSig.String())},
@@ -1020,7 +1020,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Relay ack to Solana", func() {
-			ackResp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			ackResp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{ethRecvTxHash},
@@ -1225,7 +1225,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 		}))
 
 		s.Require().True(s.Run("Relay to Solana", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{txHash},
@@ -1270,7 +1270,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TwoTokens() {
 		}))
 
 		s.Require().True(s.Run("Relay to Solana", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{txHash},
@@ -1405,7 +1405,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromEth() {
 	}))
 
 	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     testvalues.SolanaChainID,
 			DstChain:     eth.ChainID.String(),
 			TimeoutTxIds: [][]byte{ethSendTxHash},
@@ -1524,7 +1524,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_TimeoutFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Relay timeout back to Solana", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     eth.ChainID.String(),
 			DstChain:     testvalues.SolanaChainID,
 			TimeoutTxIds: [][]byte{solanaPacketTxHash},
@@ -1638,7 +1638,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 
 	var ethRecvTxHash []byte
 	s.Require().True(s.Run("Relay packet to Ethereum (execution fails)", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    testvalues.SolanaChainID,
 			DstChain:    eth.ChainID.String(),
 			SourceTxIds: [][]byte{[]byte(solanaTransferTxSig.String())},
@@ -1664,7 +1664,7 @@ func (s *EthereumSolanaIFTTestSuite) Test_EthSolana_IFT_FailedReceiveOnEth() {
 	}))
 
 	s.Require().True(s.Run("Relay error ack to Solana", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    eth.ChainID.String(),
 			DstChain:    testvalues.SolanaChainID,
 			SourceTxIds: [][]byte{ethRecvTxHash},
@@ -1711,7 +1711,7 @@ func (s *EthereumSolanaIFTTestSuite) deriveAttestationConsensusStatePDA(ctx cont
 }
 
 func (s *EthereumSolanaIFTTestSuite) updateAttestationClientOnSolana(ctx context.Context, ethChainID string) {
-	resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+	resp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 		SrcChain:    ethChainID,
 		DstChain:    testvalues.SolanaChainID,
 		DstClientId: EthClientIDOnSolana,
@@ -1719,7 +1719,7 @@ func (s *EthereumSolanaIFTTestSuite) updateAttestationClientOnSolana(ctx context
 	s.Require().NoError(err)
 	s.Require().NotEmpty(resp.Tx)
 
-	var solanaUpdateClient relayertypes.SolanaUpdateClient
+	var solanaUpdateClient proofapitypes.SolanaUpdateClient
 	err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 	s.Require().NoError(err)
 	s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)

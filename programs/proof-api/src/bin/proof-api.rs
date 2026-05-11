@@ -3,15 +3,15 @@ use std::path::PathBuf;
 use clap::Parser;
 use ibc_eureka_proof_api::cli::{Commands, ProofApiCli};
 use ibc_eureka_proof_api::observability::init_observability;
-use ibc_eureka_proof_api_core::{builder::RelayerBuilder, config::RelayerConfig};
-use ibc_eureka_proof_api_cosmos_to_cosmos::CosmosToCosmosRelayerModule;
-use ibc_eureka_proof_api_cosmos_to_eth::CosmosToEthRelayerModule;
-use ibc_eureka_proof_api_cosmos_to_solana::CosmosToSolanaRelayerModule;
-use ibc_eureka_proof_api_eth_to_cosmos::EthToCosmosRelayerModule;
-use ibc_eureka_proof_api_eth_to_eth::EthToEthRelayerModule;
-use ibc_eureka_proof_api_eth_to_solana::EthToSolanaRelayerModule;
-use ibc_eureka_proof_api_solana_to_cosmos::SolanaToCosmosRelayerModule;
-use ibc_eureka_proof_api_solana_to_eth::SolanaToEthRelayerModule;
+use ibc_eureka_proof_api_core::{builder::ProofApiBuilder, config::ProofApiConfig};
+use ibc_eureka_proof_api_cosmos_to_cosmos::CosmosToCosmosProofApiModule;
+use ibc_eureka_proof_api_cosmos_to_eth::CosmosToEthProofApiModule;
+use ibc_eureka_proof_api_cosmos_to_solana::CosmosToSolanaProofApiModule;
+use ibc_eureka_proof_api_eth_to_cosmos::EthToCosmosProofApiModule;
+use ibc_eureka_proof_api_eth_to_eth::EthToEthProofApiModule;
+use ibc_eureka_proof_api_eth_to_solana::EthToSolanaProofApiModule;
+use ibc_eureka_proof_api_solana_to_cosmos::SolanaToCosmosProofApiModule;
+use ibc_eureka_proof_api_solana_to_eth::SolanaToEthProofApiModule;
 
 use prometheus::{Encoder, TextEncoder};
 use tracing::info;
@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
         Commands::Start(args) => {
             let config_path = PathBuf::from(args.config);
             let config_bz = std::fs::read(config_path)?;
-            let config: RelayerConfig = serde_json::from_slice(&config_bz)?;
+            let config: ProofApiConfig = serde_json::from_slice(&config_bz)?;
 
             let _guard = init_observability(&config.observability)?;
 
@@ -34,15 +34,15 @@ async fn main() -> anyhow::Result<()> {
             );
 
             // Build the proof API server.
-            let mut relayer_builder = RelayerBuilder::default();
-            relayer_builder.add_module(CosmosToEthRelayerModule);
-            relayer_builder.add_module(CosmosToCosmosRelayerModule);
-            relayer_builder.add_module(EthToCosmosRelayerModule);
-            relayer_builder.add_module(EthToEthRelayerModule);
-            relayer_builder.add_module(SolanaToCosmosRelayerModule);
-            relayer_builder.add_module(CosmosToSolanaRelayerModule);
-            relayer_builder.add_module(EthToSolanaRelayerModule);
-            relayer_builder.add_module(SolanaToEthRelayerModule);
+            let mut proof_api_builder = ProofApiBuilder::default();
+            proof_api_builder.add_module(CosmosToEthProofApiModule);
+            proof_api_builder.add_module(CosmosToCosmosProofApiModule);
+            proof_api_builder.add_module(EthToCosmosProofApiModule);
+            proof_api_builder.add_module(EthToEthProofApiModule);
+            proof_api_builder.add_module(SolanaToCosmosProofApiModule);
+            proof_api_builder.add_module(CosmosToSolanaProofApiModule);
+            proof_api_builder.add_module(EthToSolanaProofApiModule);
+            proof_api_builder.add_module(SolanaToEthProofApiModule);
 
             // Start the metrics server.
             tokio::spawn(async {
@@ -59,7 +59,7 @@ async fn main() -> anyhow::Result<()> {
             });
 
             // Start the proof API server.
-            relayer_builder.start(config).await?;
+            proof_api_builder.start(config).await?;
 
             Ok(())
         }

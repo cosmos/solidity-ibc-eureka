@@ -22,7 +22,7 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // ExternalCosmosTestSuite tests Solana light client with real Cosmos chain
@@ -40,8 +40,8 @@ type ExternalCosmosTestSuite struct {
 	SolanaLocalnet chainconfig.SolanaLocalnetChain
 
 	// Relayer components
-	RelayerClient  relayertypes.RelayerServiceClient
-	RelayerProcess *os.Process
+	ProofApiClient  proofapitypes.ProofApiServiceClient
+	ProofApiProcess *os.Process
 
 	// ALT configuration
 	SolanaAltAddress string
@@ -245,8 +245,8 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		s.T().Logf("Created Address Lookup Table: %s", s.SolanaAltAddress)
 	}))
 
-	s.Require().True(s.Run("Start Relayer with External Cosmos", func() {
-		s.T().Log("Starting relayer with external Cosmos configuration...")
+	s.Require().True(s.Run("Start Proof API with External Cosmos", func() {
+		s.T().Log("Starting proof API with external Cosmos configuration...")
 
 		modules := []proofapi.ModuleConfig{
 			{
@@ -264,33 +264,33 @@ func (s *ExternalCosmosTestSuite) setupExternalCosmosTest(ctx context.Context) {
 		}
 		config := proofapi.NewConfig(modules)
 
-		configPath := "test-relayer-config.json"
+		configPath := "test-proofapi-config.json"
 		err := config.GenerateConfigFile(configPath)
-		s.Require().NoError(err, "Failed to generate relayer config")
+		s.Require().NoError(err, "Failed to generate proof API config")
 
 		s.T().Cleanup(func() {
 			os.Remove(configPath)
 		})
 
 		process, err := proofapi.StartProofAPI(configPath)
-		s.Require().NoError(err, "Failed to start relayer")
-		s.RelayerProcess = process
-		s.T().Logf("Relayer process started with PID: %d", process.Pid)
+		s.Require().NoError(err, "Failed to start proof API")
+		s.ProofApiProcess = process
+		s.T().Logf("Proof API process started with PID: %d", process.Pid)
 
-		s.T().Log("Waiting for relayer to initialize...")
+		s.T().Log("Waiting for proof API to initialize...")
 		time.Sleep(5 * time.Second)
 
-		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
-		s.Require().NoError(err, "Failed to create relayer client")
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
+		s.Require().NoError(err, "Failed to create proof API client")
 
-		s.T().Logf("Relayer started successfully with external Cosmos chain: %s", s.ExternalCosmosChainID)
+		s.T().Logf("Proof API started successfully with external Cosmos chain: %s", s.ExternalCosmosChainID)
 	}))
 }
 
 func (s *ExternalCosmosTestSuite) TearDownSuite() {
-	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
-		err := s.RelayerProcess.Kill()
+	if s.ProofApiProcess != nil {
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.ProofApiProcess.Pid)
+		err := s.ProofApiProcess.Kill()
 		if err != nil {
 			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
@@ -303,7 +303,7 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	s.T().Logf("Creating Tendermint client for external Cosmos chain: %s", s.ExternalCosmosChainID)
 	s.T().Logf("Using RPC endpoint: %s", s.ExternalCosmosRPC)
 
-	createClientReq := &relayertypes.CreateClientRequest{
+	createClientReq := &proofapitypes.CreateClientRequest{
 		SrcChain: s.ExternalCosmosChainID,
 		DstChain: testvalues.SolanaChainID,
 		Parameters: map[string]string{
@@ -312,9 +312,9 @@ func (s *ExternalCosmosTestSuite) createClient() {
 	}
 	s.T().Logf("CreateClient request: SrcChain=%s, DstChain=%s", createClientReq.SrcChain, createClientReq.DstChain)
 
-	resp, err := s.RelayerClient.CreateClient(ctx, createClientReq)
+	resp, err := s.ProofApiClient.CreateClient(ctx, createClientReq)
 	s.Require().NoError(err, "Failed to create client transaction")
-	s.Require().NotEmpty(resp.Tx, "Relayer returned empty transaction")
+	s.Require().NotEmpty(resp.Tx, "Proof API returned empty transaction")
 
 	unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 	s.Require().NoError(err, "Failed to decode transaction")
@@ -349,13 +349,13 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_UpdateClient() {
 
 	s.T().Logf("Updating Tendermint client with new headers from %s", s.ExternalCosmosChainID)
 
-	updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+	updateResp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 		SrcChain:    s.ExternalCosmosChainID,
 		DstChain:    testvalues.SolanaChainID,
 		DstClientId: s.ExternalCosmosChainID,
 	})
 	s.Require().NoError(err, "Failed to create update client transaction")
-	s.Require().NotEmpty(updateResp.Tx, "Relayer returned empty transaction")
+	s.Require().NotEmpty(updateResp.Tx, "Proof API returned empty transaction")
 
 	s.T().Log("Submitting chunked update client transactions...")
 	s.SolanaChain.SubmitChunkedUpdateClientSkipCleanup(ctx, s.T(), s.Require(), updateResp, s.SolanaUser)
@@ -393,7 +393,7 @@ func (s *ExternalCosmosTestSuite) Test_ExternalCosmos_MultipleUpdates() {
 		// Wait for new blocks
 		time.Sleep(7 * time.Second)
 
-		updateResp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+		updateResp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 			SrcChain:    s.ExternalCosmosChainID,
 			DstChain:    testvalues.SolanaChainID,
 			DstClientId: s.ExternalCosmosChainID,

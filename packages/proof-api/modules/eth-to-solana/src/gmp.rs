@@ -1,4 +1,4 @@
-//! GMP re-exports from the shared relayer library.
+//! GMP re-exports from the shared proof API library.
 
 pub use ibc_eureka_proof_api_lib::utils::solana_gmp::{
     extract_gmp_accounts, extract_gmp_prefund_lamports, find_gmp_result_pda, AbiGmpPacketData,

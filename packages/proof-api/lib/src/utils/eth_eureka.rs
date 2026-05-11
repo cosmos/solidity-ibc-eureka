@@ -1,4 +1,4 @@
-//! Relayer utilities for `solidity-ibc-eureka` chains.
+//! Proof API utilities for `solidity-ibc-eureka` chains.
 
 use crate::events::{EurekaEvent, EurekaEventWithHeight};
 use alloy::{primitives::Bytes, sol_types::SolValue};

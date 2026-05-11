@@ -1,78 +1,77 @@
-//! Defines the [`RelayerBuilder`] struct that is used to build the relayer server.
+//! Defines the [`ProofApiBuilder`] struct that is used to build the proof API server.
 
 use std::collections::HashMap;
 
-use super::modules::RelayerModule;
+use super::modules::ProofApiModule;
 use crate::{
     api::{
         self,
-        relayer_service_server::{RelayerService, RelayerServiceServer},
+        proof_api_service_server::{ProofApiService, ProofApiServiceServer},
     },
-    config::RelayerConfig,
+    config::ProofApiConfig,
 };
 use ibc_eureka_proof_api_lib::utils::tracing_layer::tracing_interceptor;
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
 
-/// The `RelayerBuilder` struct is used to build the relayer.
+/// The `ProofApiBuilder` struct is used to build the proof API server.
 #[derive(Default)]
 #[allow(clippy::module_name_repetitions)]
-pub struct RelayerBuilder {
-    /// The relayer modules that can be used by the relayer to create services from configuration.
-    modules: HashMap<String, Box<dyn RelayerModule>>,
+pub struct ProofApiBuilder {
+    /// The proof API modules that can create services from configuration.
+    modules: HashMap<String, Box<dyn ProofApiModule>>,
 }
 
-/// The `Relayer` is a router that implements the [`RelayerService`] trait.
+/// The `ProofApiRouter` routes requests to the service configured for each chain pair.
 #[derive(Default)]
-struct Relayer {
-    /// Mapping of (`src_chain`, `dst_chain`) to the relayer service.
-    services: HashMap<(String, String), Box<dyn RelayerService>>,
+struct ProofApiRouter {
+    /// Mapping of (`src_chain`, `dst_chain`) to the proof API service.
+    services: HashMap<(String, String), Box<dyn ProofApiService>>,
 }
 
-impl RelayerBuilder {
-    /// Create a new `RelayerBuilder` instance.
+impl ProofApiBuilder {
+    /// Create a new `ProofApiBuilder` instance.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Add a relayer module to the proof API binary.
+    /// Add a proof API module to the proof API binary.
     /// # Panics
     /// Panics if the module has already been added.
     #[allow(clippy::missing_errors_doc)]
     #[instrument(skip(self, module), fields(module_name = %module.name()))]
-    pub fn add_module<T: RelayerModule>(&mut self, module: T) {
+    pub fn add_module<T: ProofApiModule>(&mut self, module: T) {
         assert!(
             !self.modules.contains_key(module.name()),
-            "Relayer module already added"
+            "Proof API module already added"
         );
 
         self.modules
             .insert(module.name().to_string(), Box::new(module));
     }
 
-    /// Start the relayer server.
+    /// Start the proof API server.
     /// # Errors
     /// Returns an error if the server fails to start.
-    #[instrument(skip(self, config), name = "relayer_start", err(Debug))]
-    pub async fn start(&self, config: RelayerConfig) -> anyhow::Result<()> {
+    #[instrument(skip(self, config), name = "proof_api_start", err(Debug))]
+    pub async fn start(&self, config: ProofApiConfig) -> anyhow::Result<()> {
         let socket_addr = format!("{}:{}", config.server.address, config.server.port);
-        info!(%socket_addr, "Starting relayer server...");
+        info!(%socket_addr, "Starting proof API server...");
         let socket_addr = socket_addr.parse::<std::net::SocketAddr>()?;
 
         let reflection_service = tonic_reflection::server::Builder::configure()
             .register_encoded_file_descriptor_set(api::FILE_DESCRIPTOR_SET)
             .build_v1()?;
 
-        let mut relayer = Relayer::default();
+        let mut proof_api_router = ProofApiRouter::default();
 
         for c in config.modules.into_iter().filter(|c| c.enabled) {
-            let module =
-                self.modules.get(&c.name).map(|v| &**v).ok_or_else(|| {
-                    anyhow::anyhow!("Module {} not found in relayer builder", c.name)
-                })?;
+            let module = self.modules.get(&c.name).map(|v| &**v).ok_or_else(|| {
+                anyhow::anyhow!("Module {} not found in proof API builder", c.name)
+            })?;
 
-            relayer.add_module(
+            proof_api_router.add_module(
                 c.src_chain,
                 c.dst_chain,
                 module.create_service(c.config).await?,
@@ -83,26 +82,26 @@ impl RelayerBuilder {
         // Start the gRPC server
         info!(%socket_addr, "Starting gRPC server");
         Server::builder()
-            .add_service(RelayerServiceServer::with_interceptor(
-                relayer,
+            .add_service(ProofApiServiceServer::with_interceptor(
+                proof_api_router,
                 tracing_interceptor,
             ))
             .add_service(reflection_service)
             .serve(socket_addr)
             .await?;
 
-        info!("Relayer server stopped");
+        info!("Proof API server stopped");
         Ok(())
     }
 }
 
-impl Relayer {
+impl ProofApiRouter {
     #[allow(clippy::result_large_err)]
     fn get_module(
         &self,
         src_chain: &str,
         dst_chain: &str,
-    ) -> Result<&dyn RelayerService, tonic::Status> {
+    ) -> Result<&dyn ProofApiService, tonic::Status> {
         self.services
             .get(&(src_chain.to_string(), dst_chain.to_string()))
             .map(|v| &**v)
@@ -117,14 +116,14 @@ impl Relayer {
         &mut self,
         src_chain: String,
         dst_chain: String,
-        module: Box<dyn RelayerService>,
+        module: Box<dyn ProofApiService>,
     ) {
         self.services.insert((src_chain, dst_chain), module);
     }
 }
 
 #[tonic::async_trait]
-impl RelayerService for Relayer {
+impl ProofApiService for ProofApiRouter {
     #[instrument(
         skip(self, request),
         fields(

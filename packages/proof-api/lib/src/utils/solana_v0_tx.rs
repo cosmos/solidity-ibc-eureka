@@ -2,7 +2,7 @@
 //!
 //! These free functions encapsulate the common logic for building, compiling and
 //! serializing Solana versioned (v0) transactions. Both `eth-to-solana` and
-//! `cosmos-to-solana` relayer modules delegate to these helpers.
+//! `cosmos-to-solana` proof API modules delegate to these helpers.
 
 use anyhow::Result;
 use solana_client::rpc_client::RpcClient;

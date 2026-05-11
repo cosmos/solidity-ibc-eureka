@@ -41,7 +41,7 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -86,7 +86,7 @@ type MultiAttestorTestSuite struct {
 	EthRelayerSubmitter  *ecdsa.PrivateKey
 	SimdRelayerSubmitter ibc.Wallet
 
-	RelayerClient relayertypes.RelayerServiceClient
+	ProofApiClient proofapitypes.ProofApiServiceClient
 
 	// Test configuration
 	totalAttestors  int
@@ -241,9 +241,9 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 	// Note: Docker containers cleanup automatically via t.Cleanup() registered in SetupAttestors
 
-	// Start relayer with multi-attestor config
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer with multi-attestor config", func() {
+	// Start proof API with multi-attestor config
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API with multi-attestor config", func() {
 		config := proofapi.NewConfigBuilder().
 			// Eth → Cosmos direction (uses Eth attestors)
 			EthToCosmosAttested(proofapi.EthToCosmosAttestedParams{
@@ -270,12 +270,12 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 			}).
 			Build()
 
-		s.T().Logf("Relayer config with quorum threshold %d", s.quorumThreshold)
+		s.T().Logf("Proof API config with quorum threshold %d", s.quorumThreshold)
 
 		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
@@ -284,34 +284,34 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			_ = relayerProcess.Kill()
+		if proofApiProcess != nil {
+			_ = proofApiProcess.Kill()
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	s.Require().True(s.Run("Create Proof API Client", func() {
 		grpcAddr := proofapi.DefaultProofAPIGRPCAddress()
-		s.T().Logf("Connecting to relayer at: %s", grpcAddr)
+		s.T().Logf("Connecting to proof API at: %s", grpcAddr)
 
 		var err error
-		s.RelayerClient, err = proofapi.GetGRPCClient(grpcAddr)
+		s.ProofApiClient, err = proofapi.GetGRPCClient(grpcAddr)
 		s.Require().NoError(err)
 
-		// Retry connecting to relayer
-		var info *relayertypes.InfoResponse
+		// Retry connecting to proof API
+		var info *proofapitypes.InfoResponse
 		for i := 0; i < 10; i++ {
-			info, err = s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			info, err = s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: simd.Config().ChainID,
 			})
 			if err == nil {
 				break
 			}
-			s.T().Logf("Attempt %d: Relayer not ready yet: %v", i+1, err)
+			s.T().Logf("Attempt %d: proof API not ready yet: %v", i+1, err)
 			time.Sleep(1 * time.Second)
 		}
-		s.Require().NoError(err, "Relayer Info call failed after retries")
-		s.T().Logf("Relayer Info response: src=%s, dst=%s", info.SourceChain.ChainId, info.TargetChain.ChainId)
+		s.Require().NoError(err, "Proof API Info call failed after retries")
+		s.T().Logf("Proof API Info response: src=%s, dst=%s", info.SourceChain.ChainId, info.TargetChain.ChainId)
 	}))
 
 	// Deploy Cosmos attestor light client on Ethereum (for Cosmos→Eth direction)
@@ -324,7 +324,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
@@ -396,7 +396,7 @@ func (s *MultiAttestorTestSuite) SetupSuite(ctx context.Context) {
 				testvalues.ParameterKey_timestamp:         strconv.FormatUint(blockHeader.Time, 10),
 			}
 
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain:   eth.ChainID.String(),
 				DstChain:   simd.Config().ChainID,
 				Parameters: parameters,
@@ -523,7 +523,7 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 			s.T().Logf("Requesting relay with %d attestors and quorum %d",
 				len(s.ethAttestorResult.Endpoints), s.quorumThreshold)
 
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{sendTxHashEthToCosmos},
@@ -582,7 +582,7 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 	s.Require().True(s.Run("(Eth -> Cosmos): Relay acknowledgement with multi-attestor aggregation", func() {
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve ack relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{recvTxHashOnCosmos},
@@ -671,7 +671,7 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 	s.Require().True(s.Run("(Cosmos -> Eth): Relay packet with multi-attestor aggregation", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{cosmosSendTxHash},
@@ -726,7 +726,7 @@ func (s *MultiAttestorTestSuite) Test_MultiAttestorTransferWithAggregation() {
 	s.Require().True(s.Run("(Cosmos -> Eth): Relay final acknowledgement", func() {
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve ack relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				SrcClientId: MultiAttestorClientOnEth,
@@ -767,7 +767,7 @@ func (s *MultiAttestorTestSuite) Test_UpdateClientCosmosToEth() {
 	eth := s.EthChain()
 
 	s.Require().True(s.Run("Update client on Ethereum", func() {
-		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+		resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 			SrcChain:    s.CosmosChain().Config().ChainID,
 			DstChain:    eth.ChainID.String(),
 			DstClientId: MultiAttestorClientOnEth,

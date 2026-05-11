@@ -1,5 +1,5 @@
-//! Common service patterns and utilities for relayer modules
-//! This module provides shared functionality for `RelayerService` implementations
+//! Common service patterns and utilities for proof API modules
+//! This module provides shared functionality for `ProofApiService` implementations
 
 use solana_sdk::signature::Signature;
 use tendermint::Hash;

@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from Solana to a Cosmos SDK chain.
+//! This is a one-sided proof API module from Solana to a Cosmos SDK chain.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(unused_crate_dependencies, missing_docs)]
@@ -24,8 +24,8 @@ use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
 enum SolanaToCosmosTxBuilder {
@@ -33,12 +33,12 @@ enum SolanaToCosmosTxBuilder {
     Attested(tx_builder::AttestedTxBuilder),
 }
 
-/// The `SolanaToCosmosRelayerModule` struct defines the Solana to Cosmos relayer module.
+/// The `SolanaToCosmosProofApiModule` struct defines the Solana to Cosmos proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct SolanaToCosmosRelayerModule;
+pub struct SolanaToCosmosProofApiModule;
 
-/// The `SolanaToCosmosRelayerModuleService` defines the relayer service from Solana to Cosmos.
-struct SolanaToCosmosRelayerModuleService {
+/// The `SolanaToCosmosProofApiModuleService` defines the proof API service from Solana to Cosmos.
+struct SolanaToCosmosProofApiModuleService {
     /// The souce chain listener for Solana.
     pub src_listener: solana::ChainListener,
     /// The target chain listener for Cosmos SDK.
@@ -47,7 +47,7 @@ struct SolanaToCosmosRelayerModuleService {
     pub tx_builder: SolanaToCosmosTxBuilder,
 }
 
-/// The configuration for the Solana to Cosmos relayer module.
+/// The configuration for the Solana to Cosmos proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct SolanaToCosmosConfig {
     /// The Solana chain ID for identification.
@@ -75,7 +75,7 @@ pub enum TxBuilderMode {
     Attested(AggregatorConfig),
 }
 
-impl SolanaToCosmosRelayerModuleService {
+impl SolanaToCosmosProofApiModuleService {
     async fn new(config: SolanaToCosmosConfig) -> anyhow::Result<Self> {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
@@ -115,7 +115,7 @@ impl SolanaToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for SolanaToCosmosRelayerModuleService {
+impl ProofApiService for SolanaToCosmosProofApiModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -274,7 +274,7 @@ impl RelayerService for SolanaToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for SolanaToCosmosRelayerModule {
+impl ProofApiModule for SolanaToCosmosProofApiModule {
     fn name(&self) -> &'static str {
         "solana_to_cosmos"
     }
@@ -282,9 +282,9 @@ impl RelayerModule for SolanaToCosmosRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config: SolanaToCosmosConfig = serde_json::from_value(config)?;
-        let service = SolanaToCosmosRelayerModuleService::new(config).await?;
+        let service = SolanaToCosmosProofApiModuleService::new(config).await?;
         Ok(Box::new(service))
     }
 }

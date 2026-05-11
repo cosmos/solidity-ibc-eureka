@@ -1,4 +1,4 @@
-//! Define the events that can be retrieved by the relayer.
+//! Define the events that can be retrieved by the proof API.
 
 use super::cosmos_sdk;
 use alloy::{
@@ -14,7 +14,7 @@ use ibc_proto_eureka::ibc::core::channel::v2::{Acknowledgement, Packet};
 use prost::Message;
 use tendermint::abci::Event as TmEvent;
 
-/// Events emitted by IBC Eureka implementations that the relayer is interested in.
+/// Events emitted by IBC Eureka implementations that the proof API is interested in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(clippy::module_name_repetitions)]
 pub struct EurekaEventWithHeight {

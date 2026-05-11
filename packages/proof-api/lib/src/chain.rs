@@ -10,7 +10,7 @@ use crate::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
 /// The `Chain` trait defines the interface for a chain.
 pub trait Chain {
     /// The event type that the listener will return.
-    /// These should be the events that the relayer is interested in.
+    /// These should be the events that the proof API is interested in.
     type Event: Clone + Debug;
     /// The transaction identifier type that the listener will ask for.
     /// This is often a hash of the transaction.

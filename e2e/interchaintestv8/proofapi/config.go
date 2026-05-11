@@ -24,7 +24,7 @@ const (
 	ModuleSolanaToEth    = "solana_to_eth"
 )
 
-// Config represents the proof API configuration structure aligned with the Rust RelayerConfig
+// Config represents the proof API configuration structure aligned with the Rust ProofApiConfig
 // and serves as template data for generation in e2e.
 type Config struct {
 	Modules       []ModuleConfig      `json:"modules"`

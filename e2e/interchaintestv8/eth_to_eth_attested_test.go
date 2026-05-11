@@ -28,7 +28,7 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -69,7 +69,7 @@ type EthToEthAttestedTestSuite struct {
 	EthRelayerSubmitterA *ecdsa.PrivateKey
 	EthRelayerSubmitterB *ecdsa.PrivateKey
 
-	RelayerClient relayertypes.RelayerServiceClient
+	ProofApiClient proofapitypes.ProofApiServiceClient
 }
 
 func TestWithEthToEthAttestedTestSuite(t *testing.T) {
@@ -201,25 +201,25 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 	attestorBEndpoint = attestorResultB.Endpoints[0]
 	attestorBAddress = attestorResultB.Addresses[0]
 
-	// Final verification that attestors are accessible before starting relayer
-	s.Require().True(s.Run("Verify attestors before relayer start", func() {
-		s.T().Logf("[pre-relayer] Verifying attestor A at %s", attestorAEndpoint)
+	// Final verification that attestors are accessible before starting proof API
+	s.Require().True(s.Run("Verify attestors before proof API start", func() {
+		s.T().Logf("[pre-proof-api] Verifying attestor A at %s", attestorAEndpoint)
 		err := attestor.CheckAttestorHealth(ctx, attestorAEndpoint)
-		s.Require().NoError(err, "Attestor A health check failed before relayer start")
+		s.Require().NoError(err, "Attestor A health check failed before proof API start")
 
-		s.T().Logf("[pre-relayer] Verifying attestor B at %s", attestorBEndpoint)
+		s.T().Logf("[pre-proof-api] Verifying attestor B at %s", attestorBEndpoint)
 		err = attestor.CheckAttestorHealth(ctx, attestorBEndpoint)
-		s.Require().NoError(err, "Attestor B health check failed before relayer start")
+		s.Require().NoError(err, "Attestor B health check failed before proof API start")
 
-		s.T().Log("[pre-relayer] Both attestors verified healthy before starting relayer")
+		s.T().Log("[pre-proof-api] Both attestors verified healthy before starting proof API")
 	}))
 
-	// Start relayer with eth-to-eth-attested modules
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
+	// Start proof API with eth-to-eth-attested modules
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
 		// Log the exact endpoints being used
-		s.T().Logf("[relayer-config] Attestor A endpoint: %s", attestorAEndpoint)
-		s.T().Logf("[relayer-config] Attestor B endpoint: %s", attestorBEndpoint)
+		s.T().Logf("[proofapi-config] Attestor A endpoint: %s", attestorAEndpoint)
+		s.T().Logf("[proofapi-config] Attestor B endpoint: %s", attestorBEndpoint)
 
 		// Create custom aggregator configs for each chain
 		config := proofapi.NewConfigBuilder().
@@ -245,7 +245,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 			}).
 			Build()
 
-		s.T().Logf("Relayer config: %+v", config)
+		s.T().Logf("Proof API config: %+v", config)
 
 		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
@@ -253,49 +253,49 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 		// Log the generated config file for debugging
 		configContent, readErr := os.ReadFile(testvalues.ProofAPIConfigFilePath)
 		if readErr == nil {
-			s.T().Logf("[relayer-config] Generated config file:\n%s", string(configContent))
+			s.T().Logf("[proofapi-config] Generated config file:\n%s", string(configContent))
 		}
 
-		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		s.T().Logf("[relayer] Process started with PID: %d", relayerProcess.Pid)
+		s.T().Logf("[proof-api] Process started with PID: %d", proofApiProcess.Pid)
 
 		s.T().Cleanup(func() {
 			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
-	// Move relayer cleanup outside the subtest so it doesn't run immediately after subtest completion
+	// Move proof API cleanup outside the subtest so it doesn't run immediately after subtest completion
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			_ = relayerProcess.Kill()
+		if proofApiProcess != nil {
+			_ = proofApiProcess.Kill()
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	s.Require().True(s.Run("Create Proof API Client", func() {
 		grpcAddr := proofapi.DefaultProofAPIGRPCAddress()
-		s.T().Logf("Connecting to relayer at: %s", grpcAddr)
+		s.T().Logf("Connecting to proof API at: %s", grpcAddr)
 
 		var err error
-		s.RelayerClient, err = proofapi.GetGRPCClient(grpcAddr)
+		s.ProofApiClient, err = proofapi.GetGRPCClient(grpcAddr)
 		s.Require().NoError(err)
 
-		// Retry connecting to relayer with backoff
-		var info *relayertypes.InfoResponse
+		// Retry connecting to proof API with backoff
+		var info *proofapitypes.InfoResponse
 		for i := range 10 {
-			info, err = s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+			info, err = s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 				SrcChain: s.EthChainA().ChainID.String(),
 				DstChain: s.EthChainB().ChainID.String(),
 			})
 			if err == nil {
 				break
 			}
-			s.T().Logf("Attempt %d: Relayer not ready yet: %v", i+1, err)
+			s.T().Logf("Attempt %d: proof API not ready yet: %v", i+1, err)
 			time.Sleep(1 * time.Second)
 		}
-		s.Require().NoError(err, "Relayer Info call failed after retries - relayer may have crashed")
-		s.T().Logf("Relayer Info response: src=%s, dst=%s", info.SourceChain.ChainId, info.TargetChain.ChainId)
+		s.Require().NoError(err, "Proof API Info call failed after retries - proof API may have crashed")
+		s.T().Logf("Proof API Info response: src=%s, dst=%s", info.SourceChain.ChainId, info.TargetChain.ChainId)
 	}))
 
 	// Deploy attestor light client on Chain A (for Chain B's state)
@@ -308,7 +308,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().True(s.Run("Retrieve create client tx", func() {
 			attestorAddrForClient := ethcommon.HexToAddress(attestorBAddress).Hex()
 
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: s.EthChainB().ChainID.String(),
 				DstChain: s.EthChainA().ChainID.String(),
 				Parameters: map[string]string{
@@ -354,7 +354,7 @@ func (s *EthToEthAttestedTestSuite) SetupSuite(ctx context.Context) {
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: s.EthChainA().ChainID.String(),
 				DstChain: s.EthChainB().ChainID.String(),
 				Parameters: map[string]string{
@@ -424,8 +424,8 @@ func (s *EthToEthAttestedTestSuite) Test_Deploy() {
 		s.Require().Equal(strings.ToLower(s.contractAddressesB.Ics20Transfer), strings.ToLower(transferAddress.Hex()))
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info A->B", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info A->B", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: s.EthChainA().ChainID.String(),
 			DstChain: s.EthChainB().ChainID.String(),
 		})
@@ -435,8 +435,8 @@ func (s *EthToEthAttestedTestSuite) Test_Deploy() {
 		s.Require().Equal(s.EthChainB().ChainID.String(), info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info B->A", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info B->A", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: s.EthChainB().ChainID.String(),
 			DstChain: s.EthChainA().ChainID.String(),
 		})
@@ -523,7 +523,7 @@ func (s *EthToEthAttestedTestSuite) Test_TransferERC20FromChainAToChainBAndBack(
 	s.Require().True(s.Run("(A -> B): Relay packet to Chain B and receive", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.EthChainA().ChainID.String(),
 				DstChain:    s.EthChainB().ChainID.String(),
 				SourceTxIds: [][]byte{sendTxHashAtoB},
@@ -574,7 +574,7 @@ func (s *EthToEthAttestedTestSuite) Test_TransferERC20FromChainAToChainBAndBack(
 	s.Require().True(s.Run("(A -> B): Relay acknowledgement to Chain A", func() {
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve ack relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.EthChainB().ChainID.String(),
 				DstChain:    s.EthChainA().ChainID.String(),
 				SourceTxIds: [][]byte{recvTxHashOnB},
@@ -645,7 +645,7 @@ func (s *EthToEthAttestedTestSuite) Test_TransferERC20FromChainAToChainBAndBack(
 	s.Require().True(s.Run("(B -> A): Relay packet to Chain A and receive", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.EthChainB().ChainID.String(),
 				DstChain:    s.EthChainA().ChainID.String(),
 				SourceTxIds: [][]byte{sendTxHashBtoA},
@@ -692,7 +692,7 @@ func (s *EthToEthAttestedTestSuite) Test_TransferERC20FromChainAToChainBAndBack(
 	s.Require().True(s.Run("(B -> A): Relay final acknowledgement to Chain B", func() {
 		var ackRelayTx []byte
 		s.Require().True(s.Run("Retrieve ack relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.EthChainA().ChainID.String(),
 				DstChain:    s.EthChainB().ChainID.String(),
 				SourceTxIds: [][]byte{recvTxHashOnA},
@@ -795,14 +795,14 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacketFromChainA() {
 
 	var timeoutRelayTx []byte
 	s.Require().True(s.Run("Retrieve timeout relay tx", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:     s.EthChainB().ChainID.String(),
 			DstChain:     s.EthChainA().ChainID.String(),
 			TimeoutTxIds: [][]byte{sendTxHash},
 			SrcClientId:  ClientB,
 			DstClientId:  ClientA,
 		})
-		s.Require().NoError(err, "Failed to get timeout relay tx from relayer")
+		s.Require().NoError(err, "Failed to get timeout relay tx from proof API")
 		s.Require().NotEmpty(resp.Tx, "Timeout relay tx should not be empty")
 		timeoutRelayTx = resp.Tx
 	}))
@@ -842,7 +842,7 @@ func (s *EthToEthAttestedTestSuite) Test_UpdateClient() {
 	s.SetupSuite(ctx)
 
 	s.Require().True(s.Run("Update client on Chain B", func() {
-		resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+		resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 			SrcChain:    s.EthChainA().ChainID.String(),
 			DstChain:    s.EthChainB().ChainID.String(),
 			DstClientId: ClientB,
@@ -944,7 +944,7 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacket_AsymmetricHeight() {
 		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
-		resp, err := s.RelayerClient.RelayByTx(ctxWithTimeout, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctxWithTimeout, &proofapitypes.RelayByTxRequest{
 			SrcChain:     s.EthChainB().ChainID.String(),
 			DstChain:     s.EthChainA().ChainID.String(),
 			TimeoutTxIds: [][]byte{sendTxHash},
@@ -1003,7 +1003,7 @@ func (s *EthToEthAttestedTestSuite) Test_TimeoutPacket_AsymmetricHeight() {
 		ctxWithTimeout, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 
-		resp, err := s.RelayerClient.RelayByTx(ctxWithTimeout, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctxWithTimeout, &proofapitypes.RelayByTxRequest{
 			SrcChain:     s.EthChainB().ChainID.String(),
 			DstChain:     s.EthChainA().ChainID.String(),
 			TimeoutTxIds: [][]byte{sendTxHash},

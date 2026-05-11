@@ -144,7 +144,7 @@ pub fn tracing_interceptor<T>(request: Request<T>) -> Result<Request<T>, Status>
 // Apply interceptor automatically to all gRPC methods
 Server::builder()
     .add_service(
-        RelayerServiceServer::with_interceptor(relayer, tracing_interceptor)
+        ProofApiServiceServer::with_interceptor(proof_api_router, tracing_interceptor)
     )
     .serve(socket_addr)
     .await?;

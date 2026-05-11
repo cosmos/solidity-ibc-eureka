@@ -10,7 +10,7 @@ The proof API:
 
 ## Overview
 
-The service is composed of one-sided modules, each responsible for a specific source and target chain combination. Each module is a Rust struct that implements the `RelayerModule` trait.
+The service is composed of one-sided modules, each responsible for a specific source and target chain combination. Each module is a Rust struct that implements the `ProofApiModule` trait.
 
 The gRPC service definition is in [`proto/proofapi/proofapi.proto`](../../proto/proofapi/proofapi.proto).
 

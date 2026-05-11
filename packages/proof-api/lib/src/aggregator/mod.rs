@@ -1,4 +1,4 @@
-//! Reusable aggregator for attester relayer modules
+//! Reusable aggregator for attester proof API modules
 
 #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 /// RPC definitions for the attestor

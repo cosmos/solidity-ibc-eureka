@@ -44,7 +44,7 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -71,16 +71,16 @@ type IbcEurekaSolanaTestSuite struct {
 
 	SolanaRelayer *solanago.Wallet
 
-	RelayerClient         relayertypes.RelayerServiceClient
+	ProofApiClient        proofapitypes.ProofApiServiceClient
 	ICS27GMPProgramID     solanago.PublicKey
 	IFTProgramID          solanago.PublicKey
 	GMPCounterProgramID   solanago.PublicKey
 	TestAppProgramID      solanago.PublicKey
 	TestCpiProxyProgramID solanago.PublicKey
 
-	// ALT configuration - if set, will be used when starting relayer
+	// ALT configuration - if set, will be used when starting the proof API
 	SolanaAltAddress string
-	RelayerProcess   *os.Process
+	ProofApiProcess  *os.Process
 
 	// Signature threshold for skipping pre-verification (nil = use default 50)
 	SkipPreVerifyThreshold *int
@@ -92,9 +92,9 @@ func TestWithIbcEurekaSolanaTestSuite(t *testing.T) {
 
 func (s *IbcEurekaSolanaTestSuite) TearDownSuite() {
 	// Clean up proof API process if it's running
-	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up proof API process (PID: %d)", s.RelayerProcess.Pid)
-		err := s.RelayerProcess.Kill()
+	if s.ProofApiProcess != nil {
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.ProofApiProcess.Pid)
+		err := s.ProofApiProcess.Kill()
 		if err != nil {
 			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
@@ -281,8 +281,8 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		s.Require().NoError(err)
 	}
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
 		config := proofapi.NewConfigBuilder().
 			SolanaToCosmosAttested(proofapi.SolanaToCosmosAttestedParams{
 				SolanaChainID:     testvalues.SolanaChainID,
@@ -312,11 +312,11 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		if s.SolanaAltAddress != "" {
-			s.T().Logf("Started relayer with ALT address: %s", s.SolanaAltAddress)
+			s.T().Logf("Started proof API with ALT address: %s", s.SolanaAltAddress)
 		}
 
 		s.T().Cleanup(func() {
@@ -325,21 +325,21 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
+		if proofApiProcess != nil {
+			err := proofApiProcess.Kill()
 			if err != nil {
 				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
 
-	// Wait for relayer to be ready and create client
-	s.Require().True(s.Run("Wait for Relayer and Create Client", func() {
-		// Create relayer gRPC client
+	// Wait for proof API to be ready and create client
+	s.Require().True(s.Run("Wait for Proof API and Create Client", func() {
+		// Create proof API gRPC client
 		var err error
-		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
-		s.Require().NoError(err, "Relayer must be running and accessible")
-		s.T().Log("Relayer client created successfully")
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
+		s.Require().NoError(err, "proof API must be running and accessible")
+		s.T().Log("Proof API client created successfully")
 	}))
 
 	// Create clients and setup IBC infrastructure
@@ -357,7 +357,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 						return fmt.Errorf("failed to load deployer wallet: %w", err)
 					}
 
-					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+					resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 						SrcChain:   simd.Config().ChainID,
 						DstChain:   testvalues.SolanaChainID,
 						Parameters: map[string]string{},
@@ -366,9 +366,9 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 						return fmt.Errorf("failed to create client tx: %w", err)
 					}
 					if len(resp.Tx) == 0 {
-						return fmt.Errorf("relayer returned empty tx")
+						return fmt.Errorf("proof API returned empty tx")
 					}
-					s.T().Logf("Relayer created client transaction")
+					s.T().Logf("proof API created client transaction")
 
 					unsignedSolanaTx, err := solanago.TransactionFromDecoder(bin.NewBinDecoder(resp.Tx))
 					if err != nil {
@@ -391,7 +391,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					s.Require().NoError(err)
 					solanaTimestamp, err := s.Solana.Chain.RPCClient.GetBlockTime(ctx, currentFinalizedSlot)
 					s.Require().NoError(err)
-					resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+					resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 						SrcChain: testvalues.SolanaChainID,
 						DstChain: simd.Config().ChainID,
 						Parameters: map[string]string{
@@ -405,7 +405,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 						return fmt.Errorf("failed to create client tx: %w", err)
 					}
 					if len(resp.Tx) == 0 {
-						return fmt.Errorf("relayer returned empty tx")
+						return fmt.Errorf("proof API returned empty tx")
 					}
 
 					txResp := s.MustBroadcastSdkTxBody(ctx, simd, s.Cosmos.Users[0], CosmosCreateClientGasLimit, resp.Tx)
@@ -466,7 +466,7 @@ func (s *IbcEurekaSolanaTestSuite) SetupSuite(ctx context.Context) {
 					return fmt.Errorf("failed to create transaction: %w", err)
 				}
 
-				// Use confirmed commitment - relayer reads Solana state with confirmed commitment
+				// Use confirmed commitment - proof API reads Solana state with confirmed commitment
 				_, err = s.Solana.Chain.SignAndBroadcastTxWithRetry(ctx, tx, rpc.CommitmentConfirmed, s.SolanaRelayer)
 				if err != nil {
 					return fmt.Errorf("failed to broadcast tx: %w", err)
@@ -509,22 +509,22 @@ func (s *IbcEurekaSolanaTestSuite) Test_Deploy() {
 		s.Require().Equal(uint64(0), clientState.FrozenHeight.RevisionHeight)
 	}))
 
-	s.Require().True(s.Run("Test Relayer Info", func() {
-		if s.RelayerClient == nil {
-			s.T().Skip("Relayer client not available, skipping info test")
+	s.Require().True(s.Run("Test Proof API Info", func() {
+		if s.ProofApiClient == nil {
+			s.T().Skip("Proof API client not available, skipping info test")
 			return
 		}
 
-		resp, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+		resp, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: testvalues.SolanaChainID,
 			DstChain: simd.Config().ChainID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotNil(resp)
 
-		s.T().Logf("Relayer Info - Source Chain: %+v", resp.SourceChain)
-		s.T().Logf("Relayer Info - Target Chain: %+v", resp.TargetChain)
-		s.T().Logf("Relayer Info - Metadata: %+v", resp.Metadata)
+		s.T().Logf("Proof API Info - Source Chain: %+v", resp.SourceChain)
+		s.T().Logf("Proof API Info - Target Chain: %+v", resp.TargetChain)
+		s.T().Logf("Proof API Info - Metadata: %+v", resp.Metadata)
 
 		s.Require().NotNil(resp.SourceChain, "Source chain info must be present")
 		s.Require().Equal(testvalues.SolanaChainID, resp.SourceChain.ChainId)
@@ -675,7 +675,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())},
@@ -734,7 +734,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendPacket() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			SourceTxIds: [][]byte{cosmosPacketRelayTxHash},
@@ -860,7 +860,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	s.Require().True(s.Run("Relay transfer to Cosmos", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaTxSig.String())},
@@ -902,7 +902,7 @@ func (s *IbcEurekaSolanaTestSuite) Test_SolanaToCosmosTransfer_SendTransfer() {
 	}))
 
 	s.Require().True(s.Run("Acknowledge transfer on Solana", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			SourceTxIds: [][]byte{cosmosRelayTxHash},
@@ -1015,7 +1015,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 	}))
 
 	s.Require().True(s.Run("Acknowledge packet on Solana", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
@@ -1057,7 +1057,7 @@ func (s *IbcEurekaSolanaTestSuite) runCosmosToSolanaTransfer(skipPreVerifyThresh
 	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
 		var ackRelayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},

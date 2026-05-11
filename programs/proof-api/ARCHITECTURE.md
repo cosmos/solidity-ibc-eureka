@@ -1,24 +1,24 @@
-# IBC Relayer API Architecture
+# IBC Proof API Architecture
 
 **Location**: [`programs/proof-api/`](programs/proof-api/) (entry point) | [`packages/proof-api/`](packages/proof-api/) (implementation) | [`proto/proofapi/`](proto/proofapi/) (API definition)
 
-The IBC Relayer is a stateless gRPC API service that provides Inter-Blockchain Communication (IBC) relaying functionality. It serves as a transaction generation service, creating unsigned transactions for IBC operations while delegating monitoring, submission, and orchestration responsibilities to callers.
+The IBC Proof API is a stateless gRPC API service that provides Inter-Blockchain Communication (IBC) relaying functionality. It serves as a transaction generation service, creating unsigned transactions for IBC operations while delegating monitoring, submission, and orchestration responsibilities to callers.
 
 ## Architectural Principles
 
 ### Separation of Concerns
 The architecture deliberately separates transaction generation from operational concerns:
 
-**What the Relayer Does**:
+**What the Proof API Does**:
 - Generate unsigned transactions for IBC packet life cycle operations
 - Generate unsigned transactions for IBC client creation
 - Generate unsigned transactions for IBC client updates
 
-**What the Relayer Does NOT Do**:
+**What the Proof API Does NOT Do**:
 - Monitor blockchains for new events in the background
 - Submit transactions
 - Manage private keys or signing
-- Maintain relayer state or persistence
+- Maintain proof API state or persistence
 
 ### Modular Architecture
 The system uses a plugin-based architecture where different modules handle specific blockchain combinations. This allows:

@@ -1,7 +1,7 @@
 //! IFT `claim_refund` instruction builder for ack/timeout packets.
 //!
 //! After GMP processes ack/timeout and creates `GMPCallResultAccount`,
-//! the relayer calls IFT's `finalize_transfer` to process refunds.
+//! the proof API calls IFT's `finalize_transfer` to process refunds.
 
 use std::str::FromStr;
 use std::sync::Arc;

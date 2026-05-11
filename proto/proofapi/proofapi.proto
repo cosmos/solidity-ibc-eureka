@@ -7,14 +7,14 @@ option go_package = "types/proofapi";
 // The proof API service definition.
 // Each proof API service is defined between two chains.
 // One chain is the source chain, and the other chain is the target chain.
-service RelayerService {
+service ProofApiService {
     // Relay the ibc packets produced by the results of transactions
     rpc RelayByTx (RelayByTxRequest) returns (RelayByTxResponse);
     // Create a new ibc client on the target (destination) chain
     rpc CreateClient (CreateClientRequest) returns (CreateClientResponse);
     // Update the ibc client on the target (destination) chain
     rpc UpdateClient (UpdateClientRequest) returns (UpdateClientResponse);
-    // Request relayer information
+    // Request proof API information
     rpc Info (InfoRequest) returns (InfoResponse);
 }
 

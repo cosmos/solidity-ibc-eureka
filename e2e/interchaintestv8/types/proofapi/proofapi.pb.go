@@ -939,8 +939,8 @@ const file_proofapi_proofapi_proto_rawDesc = "" +
 	"\bchain_id\x18\x01 \x01(\tR\achainId\x12\x1f\n" +
 	"\vibc_version\x18\x02 \x01(\tR\n" +
 	"ibcVersion\x12!\n" +
-	"\fibc_contract\x18\x03 \x01(\tR\vibcContract2\xab\x02\n" +
-	"\x0eRelayerService\x12D\n" +
+	"\fibc_contract\x18\x03 \x01(\tR\vibcContract2\xac\x02\n" +
+	"\x0fProofApiService\x12D\n" +
 	"\tRelayByTx\x12\x1a.proofapi.RelayByTxRequest\x1a\x1b.proofapi.RelayByTxResponse\x12M\n" +
 	"\fCreateClient\x12\x1d.proofapi.CreateClientRequest\x1a\x1e.proofapi.CreateClientResponse\x12M\n" +
 	"\fUpdateClient\x12\x1d.proofapi.UpdateClientRequest\x1a\x1e.proofapi.UpdateClientResponse\x125\n" +
@@ -983,14 +983,14 @@ var file_proofapi_proofapi_proto_depIdxs = []int32{
 	11, // 3: proofapi.InfoResponse.target_chain:type_name -> proofapi.Chain
 	11, // 4: proofapi.InfoResponse.source_chain:type_name -> proofapi.Chain
 	13, // 5: proofapi.InfoResponse.metadata:type_name -> proofapi.InfoResponse.MetadataEntry
-	0,  // 6: proofapi.RelayerService.RelayByTx:input_type -> proofapi.RelayByTxRequest
-	5,  // 7: proofapi.RelayerService.CreateClient:input_type -> proofapi.CreateClientRequest
-	7,  // 8: proofapi.RelayerService.UpdateClient:input_type -> proofapi.UpdateClientRequest
-	9,  // 9: proofapi.RelayerService.Info:input_type -> proofapi.InfoRequest
-	4,  // 10: proofapi.RelayerService.RelayByTx:output_type -> proofapi.RelayByTxResponse
-	6,  // 11: proofapi.RelayerService.CreateClient:output_type -> proofapi.CreateClientResponse
-	8,  // 12: proofapi.RelayerService.UpdateClient:output_type -> proofapi.UpdateClientResponse
-	10, // 13: proofapi.RelayerService.Info:output_type -> proofapi.InfoResponse
+	0,  // 6: proofapi.ProofApiService.RelayByTx:input_type -> proofapi.RelayByTxRequest
+	5,  // 7: proofapi.ProofApiService.CreateClient:input_type -> proofapi.CreateClientRequest
+	7,  // 8: proofapi.ProofApiService.UpdateClient:input_type -> proofapi.UpdateClientRequest
+	9,  // 9: proofapi.ProofApiService.Info:input_type -> proofapi.InfoRequest
+	4,  // 10: proofapi.ProofApiService.RelayByTx:output_type -> proofapi.RelayByTxResponse
+	6,  // 11: proofapi.ProofApiService.CreateClient:output_type -> proofapi.CreateClientResponse
+	8,  // 12: proofapi.ProofApiService.UpdateClient:output_type -> proofapi.UpdateClientResponse
+	10, // 13: proofapi.ProofApiService.Info:output_type -> proofapi.InfoResponse
 	10, // [10:14] is the sub-list for method output_type
 	6,  // [6:10] is the sub-list for method input_type
 	6,  // [6:6] is the sub-list for extension type_name

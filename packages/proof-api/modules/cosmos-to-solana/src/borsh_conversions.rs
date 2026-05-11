@@ -1,6 +1,6 @@
 //! Conversion functions from ibc-rs types to `BorshHeader` types
 //!
-//! These conversions are used by the relayer to convert `Header` to `BorshHeader`
+//! These conversions are used by the proof API to convert `Header` to `BorshHeader`
 //! for efficient serialization before uploading to Solana.
 //!
 //! The actual implementation is in `solana-ibc-borsh-header`

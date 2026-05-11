@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from a Cosmos SDK chain to Solana.
+//! This is a one-sided proof API module from a Cosmos SDK chain to Solana.
 
 #![deny(clippy::nursery, clippy::pedantic, warnings, unused_crate_dependencies)]
 #![allow(missing_docs, unused_crate_dependencies)]
@@ -26,17 +26,17 @@ use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
-/// The `CosmosToSolanaRelayerModule` struct defines the Cosmos to Solana relayer module.
+/// The `CosmosToSolanaProofApiModule` struct defines the Cosmos to Solana proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct CosmosToSolanaRelayerModule;
+pub struct CosmosToSolanaProofApiModule;
 
-/// The `CosmosToSolanaRelayerModuleService` defines the relayer service from Cosmos to Solana.
+/// The `CosmosToSolanaProofApiModuleService` defines the proof API service from Cosmos to Solana.
 #[allow(dead_code)]
-struct CosmosToSolanaRelayerModuleService {
+struct CosmosToSolanaProofApiModuleService {
     /// The souce chain listener for Cosmos.
     src_listener: cosmos_sdk::ChainListener,
     /// The target chain listener for Solana.
@@ -54,7 +54,7 @@ enum CosmosToSolanaTxBuilder {
     Attested(tx_builder::AttestedTxBuilder),
 }
 
-/// The configuration for the Cosmos to Solana relayer module.
+/// The configuration for the Cosmos to Solana proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct CosmosToSolanaConfig {
     /// The source tendermint RPC URL.
@@ -103,7 +103,7 @@ const fn default_skip_pre_verify_threshold() -> Option<usize> {
     Some(50)
 }
 
-impl CosmosToSolanaRelayerModuleService {
+impl CosmosToSolanaProofApiModuleService {
     async fn new(config: &CosmosToSolanaConfig) -> anyhow::Result<Self> {
         let src_listener =
             cosmos_sdk::ChainListener::new(HttpClient::from_rpc_url(&config.source_rpc_url));
@@ -177,7 +177,7 @@ impl CosmosToSolanaRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for CosmosToSolanaRelayerModuleService {
+impl ProofApiService for CosmosToSolanaProofApiModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -367,7 +367,7 @@ impl RelayerService for CosmosToSolanaRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for CosmosToSolanaRelayerModule {
+impl ProofApiModule for CosmosToSolanaProofApiModule {
     fn name(&self) -> &'static str {
         "cosmos_to_solana"
     }
@@ -375,9 +375,9 @@ impl RelayerModule for CosmosToSolanaRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config: CosmosToSolanaConfig = serde_json::from_value(config)?;
-        let service = CosmosToSolanaRelayerModuleService::new(&config).await?;
+        let service = CosmosToSolanaProofApiModuleService::new(&config).await?;
         Ok(Box::new(service))
     }
 }

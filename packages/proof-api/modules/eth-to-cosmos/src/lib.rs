@@ -1,4 +1,4 @@
-//! This is a one-sided relayer module from Ethereum to a Cosmos SDK chain.
+//! This is a one-sided proof API module from Ethereum to a Cosmos SDK chain.
 
 #![deny(
     clippy::nursery,
@@ -30,16 +30,16 @@ use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
-/// The `EthToCosmosRelayerModule` struct defines the Ethereum to Cosmos relayer module.
+/// The `EthToCosmosProofApiModule` struct defines the Ethereum to Cosmos proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct EthToCosmosRelayerModule;
+pub struct EthToCosmosProofApiModule;
 
-/// The `EthereumToCosmosRelayerModuleService` defines the relayer service from Ethereum to Cosmos.
-struct EthToCosmosRelayerModuleService {
+/// The `EthereumToCosmosProofApiModuleService` defines the proof API service from Ethereum to Cosmos.
+struct EthToCosmosProofApiModuleService {
     /// The chain listener for `EthEureka`.
     pub eth_listener: eth_eureka::ChainListener<RootProvider>,
     /// The chain listener for Cosmos SDK.
@@ -54,7 +54,7 @@ enum EthToCosmosTxBuilder {
     Attested(tx_builder::AttestedTxBuilder),
 }
 
-/// The configuration for the Ethereum to Cosmos relayer module.
+/// The configuration for the Ethereum to Cosmos proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct EthToCosmosConfig {
     /// The ICS26 address.
@@ -85,7 +85,7 @@ pub enum TxBuilderMode {
     Attested(AggregatorConfig),
 }
 
-impl EthToCosmosRelayerModuleService {
+impl EthToCosmosProofApiModuleService {
     async fn new(config: EthToCosmosConfig) -> anyhow::Result<Self> {
         let provider = RootProvider::builder()
             .connect(&config.eth_rpc_url)
@@ -130,7 +130,7 @@ impl EthToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for EthToCosmosRelayerModuleService {
+impl ProofApiService for EthToCosmosProofApiModuleService {
     #[tracing::instrument(skip_all, err(Debug))]
     async fn info(
         &self,
@@ -273,7 +273,7 @@ impl RelayerService for EthToCosmosRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for EthToCosmosRelayerModule {
+impl ProofApiModule for EthToCosmosProofApiModule {
     fn name(&self) -> &'static str {
         "eth_to_cosmos"
     }
@@ -282,13 +282,13 @@ impl RelayerModule for EthToCosmosRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config = serde_json::from_value::<EthToCosmosConfig>(config)
             .map_err(|e| anyhow::anyhow!("failed to parse config: {e}"))?;
 
-        tracing::info!("Starting Ethereum to Cosmos relayer server.");
+        tracing::info!("Starting Ethereum to Cosmos proof API server.");
         Ok(Box::new(
-            EthToCosmosRelayerModuleService::new(config).await?,
+            EthToCosmosProofApiModuleService::new(config).await?,
         ))
     }
 }

@@ -1,4 +1,4 @@
-//! Metrics module for the relayer.
+//! Metrics module for the proof API.
 
 #![allow(missing_docs)]
 
@@ -10,13 +10,13 @@ use std::{sync::LazyLock, time::Instant};
 
 /// Prometheus metric for total number of requests
 pub static REQUEST_COUNTER: LazyLock<Counter> = LazyLock::new(|| {
-    register_counter!("eureka_relayer_request_total", "Total number of requests").unwrap()
+    register_counter!("eureka_proof_api_request_total", "Total number of requests").unwrap()
 });
 
 /// Prometheus metric for response time in seconds, distinguished by method, `src_chain`, and `dst_chain`
 pub static RESPONSE_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
     register_histogram_vec!(
-        "eureka_relayer_response_time_seconds",
+        "eureka_proof_api_response_time_seconds",
         "Response time in seconds",
         &["method", "src_chain", "dst_chain"]
     )
@@ -26,7 +26,7 @@ pub static RESPONSE_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
 /// Prometheus metric for response codes, distinguished by method, `src_chain`, `dst_chain`, and `status_code`
 pub static RESPONSE_CODE: LazyLock<IntCounterVec> = LazyLock::new(|| {
     register_int_counter_vec!(
-        "eureka_relayer_response_codes",
+        "eureka_proof_api_response_codes",
         "Response Codes",
         &["method", "src_chain", "dst_chain", "status_code"]
     )
@@ -35,7 +35,7 @@ pub static RESPONSE_CODE: LazyLock<IntCounterVec> = LazyLock::new(|| {
 
 /// Prometheus metric for number of connected clients, or concurrent requests
 pub static CONNECTED_CLIENTS: LazyLock<IntGauge> = LazyLock::new(|| {
-    register_int_gauge!("eureka_relayer_connected_clients", "Connected clients").unwrap()
+    register_int_gauge!("eureka_proof_api_connected_clients", "Connected clients").unwrap()
 });
 
 /// Generic metrics tracking middleware for service calls

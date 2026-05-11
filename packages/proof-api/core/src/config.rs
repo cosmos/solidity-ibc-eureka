@@ -1,4 +1,4 @@
-//! Defines the top level configuration for the relayer.
+//! Defines the top level configuration for the proof API.
 
 use std::str::FromStr;
 
@@ -6,19 +6,19 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::Level;
 
-/// The top level configuration for the relayer.
+/// The top level configuration for the proof API.
 #[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct RelayerConfig {
-    /// The configuration for the relayer modules.
+pub struct ProofApiConfig {
+    /// The configuration for the proof API modules.
     pub modules: Vec<ModuleConfig>,
-    /// The configuration for the relayer server.
+    /// The configuration for the proof API server.
     pub server: ServerConfig,
     /// The configuration for observability.
     #[serde(default)]
     pub observability: ObservabilityConfig,
 }
 
-/// The configuration for the relayer modules.
+/// The configuration for the proof API modules.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ModuleConfig {
     /// The name of the module.
@@ -36,7 +36,7 @@ pub struct ModuleConfig {
     pub enabled: bool,
 }
 
-/// The configuration for the relayer server.
+/// The configuration for the proof API server.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ServerConfig {
     /// The address to bind the server to.

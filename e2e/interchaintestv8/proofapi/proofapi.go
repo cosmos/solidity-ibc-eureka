@@ -20,7 +20,7 @@ import (
 	clienttypes "github.com/cosmos/ibc-go/v11/modules/core/02-client/types"
 
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // DefaultProofAPIGRPCAddress returns the default gRPC address for the proof API.
@@ -62,13 +62,13 @@ func StartProofAPI(configPath string) (*os.Process, error) {
 }
 
 // GetGRPCClient returns a gRPC client for the proof API.
-func GetGRPCClient(addr string) (relayertypes.RelayerServiceClient, error) {
+func GetGRPCClient(addr string) (proofapitypes.ProofApiServiceClient, error) {
 	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return nil, err
 	}
 
-	return relayertypes.NewRelayerServiceClient(conn), nil
+	return proofapitypes.NewProofApiServiceClient(conn), nil
 }
 
 // GetRelayUpdateSlot extracts the latest update slot from the relay body's update messages.

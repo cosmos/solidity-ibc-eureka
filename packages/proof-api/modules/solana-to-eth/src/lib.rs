@@ -1,4 +1,4 @@
-//! One-sided relayer module from Solana to Ethereum.
+//! One-sided proof API module from Solana to Ethereum.
 //!
 //! Listens for IBC events on Solana, and builds ABI-encoded EVM multicall
 //! transactions with attestation proofs. Payloads from Solana are already
@@ -26,16 +26,16 @@ use solana_sdk::commitment_config::CommitmentConfig;
 use tonic::{Request, Response};
 
 use ibc_eureka_proof_api_core::{
-    api::{self, relayer_service_server::RelayerService},
-    modules::RelayerModule,
+    api::{self, proof_api_service_server::ProofApiService},
+    modules::ProofApiModule,
 };
 
-/// The `SolanaToEthRelayerModule` defines the Solana to Ethereum relayer module.
+/// The `SolanaToEthProofApiModule` defines the Solana to Ethereum proof API module.
 #[derive(Clone, Copy, Debug)]
-pub struct SolanaToEthRelayerModule;
+pub struct SolanaToEthProofApiModule;
 
-/// The relayer service from Solana to Ethereum.
-struct SolanaToEthRelayerModuleService {
+/// The proof API service from Solana to Ethereum.
+struct SolanaToEthProofApiModuleService {
     /// Source chain listener for Solana.
     src_listener: solana::ChainListener,
     /// Target chain listener for Ethereum (for timeout events).
@@ -52,7 +52,7 @@ enum SolanaToEthTxBuilder {
     Attested(tx_builder::AttestedTxBuilder),
 }
 
-/// Configuration for the Solana to Ethereum relayer module.
+/// Configuration for the Solana to Ethereum proof API module.
 #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
 pub struct SolanaToEthConfig {
     /// The Solana RPC URL.
@@ -75,7 +75,7 @@ pub enum SolanaToEthTxBuilderMode {
     Attested(AggregatorConfig),
 }
 
-impl SolanaToEthRelayerModuleService {
+impl SolanaToEthProofApiModuleService {
     async fn new(config: SolanaToEthConfig) -> anyhow::Result<Self> {
         let solana_ics26_program_id = config
             .solana_ics26_program_id
@@ -111,7 +111,7 @@ impl SolanaToEthRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerService for SolanaToEthRelayerModuleService {
+impl ProofApiService for SolanaToEthProofApiModuleService {
     async fn info(
         &self,
         _request: Request<api::InfoRequest>,
@@ -251,7 +251,7 @@ impl RelayerService for SolanaToEthRelayerModuleService {
 }
 
 #[tonic::async_trait]
-impl RelayerModule for SolanaToEthRelayerModule {
+impl ProofApiModule for SolanaToEthProofApiModule {
     fn name(&self) -> &'static str {
         "solana_to_eth"
     }
@@ -259,9 +259,9 @@ impl RelayerModule for SolanaToEthRelayerModule {
     async fn create_service(
         &self,
         config: serde_json::Value,
-    ) -> anyhow::Result<Box<dyn RelayerService>> {
+    ) -> anyhow::Result<Box<dyn ProofApiService>> {
         let config: SolanaToEthConfig = serde_json::from_value(config)?;
-        let service = SolanaToEthRelayerModuleService::new(config).await?;
+        let service = SolanaToEthProofApiModuleService::new(config).await?;
         Ok(Box::new(service))
     }
 }

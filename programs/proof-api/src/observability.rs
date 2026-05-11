@@ -1,4 +1,4 @@
-//! Observability configuration for the relayer.
+//! Observability configuration for the proof API.
 //!
 //! Stdout logging + optional OpenTelemetry OTLP export.
 
@@ -166,7 +166,7 @@ mod tests {
         let config = ObservabilityConfig {
             level: "info".to_string(),
             use_otel: false,
-            service_name: "test-relayer".to_string(),
+            service_name: "test-proof-api".to_string(),
             otel_endpoint: None,
         };
 
@@ -184,7 +184,7 @@ mod tests {
         let config = ObservabilityConfig {
             level: "info".to_string(),
             use_otel: true,
-            service_name: "test-relayer".to_string(),
+            service_name: "test-proof-api".to_string(),
             otel_endpoint: Some("http://127.0.0.1:4317".to_string()),
         };
 
@@ -197,7 +197,7 @@ mod tests {
         let config = ObservabilityConfig {
             level: "info".to_string(),
             use_otel: true,
-            service_name: "test-relayer".to_string(),
+            service_name: "test-proof-api".to_string(),
             otel_endpoint: Some("http://127.0.0.1:4317".to_string()),
         };
 
@@ -210,7 +210,7 @@ mod tests {
         let config = ObservabilityConfig {
             level: "debug".to_string(),
             use_otel: true,
-            service_name: "test-relayer".to_string(),
+            service_name: "test-proof-api".to_string(),
             otel_endpoint: None,
         };
 

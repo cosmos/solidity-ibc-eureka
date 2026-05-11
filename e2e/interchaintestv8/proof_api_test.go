@@ -45,7 +45,7 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	ethereumtypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/ethereum"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // ProofAPITestSuite is a suite of tests that wraps IbcEurekaTestSuite
@@ -163,7 +163,7 @@ func (s *ProofAPITestSuite) FilteredRecvPacketToEthTest(
 	s.Require().True(s.Run("Receive packets on Ethereum", func() {
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           simd.Config().ChainID,
 				DstChain:           eth.ChainID.String(),
 				SourceTxIds:        sendTxHashes,
@@ -284,11 +284,11 @@ func (s *ProofAPITestSuite) ConcurrentRecvPacketToEthTest(
 	}))
 
 	s.Require().True(s.Run("Install circuit artifacts on machine", func() {
-		// When running multiple instances of the relayer, the circuit artifacts need to be installed on the machine
-		// to avoid the overhead of installing the artifacts for each relayer instance (which also panics).
+		// When running multiple proof API instances, the circuit artifacts need to be installed on the machine
+		// to avoid the overhead of installing the artifacts for each proof API instance (which also panics).
 		// This is why we make a single request which installs the artifacts on the machine, and discard the response.
 
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    s.Eth.Chains[0].ChainID.String(),
 			SourceTxIds: sendTxHashes,
@@ -309,7 +309,7 @@ func (s *ProofAPITestSuite) ConcurrentRecvPacketToEthTest(
 			time.Sleep(3 * time.Second)
 			go func() {
 				defer wg.Done() // decrement the counter when the request completes
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    simd.Config().ChainID,
 					DstChain:    s.Eth.Chains[0].ChainID.String(),
 					SourceTxIds: [][]byte{txHash},
@@ -438,7 +438,7 @@ func (s *ProofAPITestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: sendTxHashes,
@@ -491,7 +491,7 @@ func (s *ProofAPITestSuite) ICS20TransferERC20TokenBatchedAckToEthTest(
 
 		var relayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           simd.Config().ChainID,
 				DstChain:           s.Eth.Chains[0].ChainID.String(),
 				SourceTxIds:        [][]byte{ackTxHash},
@@ -622,7 +622,7 @@ func (s *ProofAPITestSuite) Test_MultiPeriodClientUpdateToCosmos() {
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{sendTxHash},
@@ -790,7 +790,7 @@ func (s *IbcEurekaTestSuite) ICS20FinalizedTimeoutPacketFromEthTest(
 
 		var timeoutRelayTx []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:     simd.Config().ChainID,
 				DstChain:     eth.ChainID.String(),
 				TimeoutTxIds: [][]byte{ethSendTxHash},
@@ -951,7 +951,7 @@ func (s *ProofAPITestSuite) FilteredRecvPacketToCosmosTest(ctx context.Context, 
 	s.Require().True(s.Run("Receive packets on Cosmos chain", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           eth.ChainID.String(),
 				DstChain:           simd.Config().ChainID,
 				SourceTxIds:        sendTxHashes,
@@ -1091,7 +1091,7 @@ func (s *ProofAPITestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTes
 	s.Require().True(s.Run("Receive packets on Ethereum", func() {
 		var multicallTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    s.Eth.Chains[0].ChainID.String(),
 				SourceTxIds: sendTxHashes,
@@ -1128,7 +1128,7 @@ func (s *ProofAPITestSuite) ICS20TransferERC20TokenBatchedFilteredAckToCosmosTes
 
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           s.Eth.Chains[0].ChainID.String(),
 				DstChain:           simd.Config().ChainID,
 				SourceTxIds:        [][]byte{ackTxHash},
@@ -1232,7 +1232,7 @@ func (s *ProofAPITestSuite) Test_UpdateClientToCosmos() {
 	s.Require().True(s.Run("Update the client on Cosmos", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				DstClientId: testvalues.FirstWasmClientID,
@@ -1326,13 +1326,13 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 	}))
 
 	var relayTxBodyBz []byte
-	var relayerUpdateSlot uint64
+	var proofApiUpdateSlot uint64
 
 	s.Require().True(s.Run("Retrieve relay tx", func() {
-		// We need to make sure that the update slot for the relay tx is a period change, because then the update client will have to include it when it updates the client. We want the update slot for the relayer to _not_ be included in the update client message, so we wait for the non-period change update slot.
+		// We need to make sure that the update slot for the relay tx is a period change, because then the update client will have to include it when it updates the client. We want the update slot for the proof API to _not_ be included in the update client message, so we wait for the non-period change update slot.
 		_, ethClientState := s.GetEthereumClientState(ctx, simd, testvalues.FirstWasmClientID)
 		err := testutil.WaitForCondition(30*time.Minute, 15*time.Second, func() (bool, error) {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{sendTxHash},
@@ -1348,14 +1348,14 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 
 			relayTxBodyBz = resp.Tx
 
-			relayerUpdateSlot, err = proofapi.GetRelayUpdateSlotForWasmClient(resp.Tx)
+			proofApiUpdateSlot, err = proofapi.GetRelayUpdateSlotForWasmClient(resp.Tx)
 			if err != nil {
-				return false, fmt.Errorf("failed to get relayer update slot: %w", err)
+				return false, fmt.Errorf("failed to get proof API update slot: %w", err)
 			}
-			isPeriodChange := relayerUpdateSlot%(ethClientState.EpochsPerSyncCommitteePeriod*ethClientState.SlotsPerEpoch) == 0
+			isPeriodChange := proofApiUpdateSlot%(ethClientState.EpochsPerSyncCommitteePeriod*ethClientState.SlotsPerEpoch) == 0
 
 			if isPeriodChange {
-				s.T().Logf("Relayer update slot %d is a period change, waiting to update past it", relayerUpdateSlot)
+				s.T().Logf("Proof API update slot %d is a period change, waiting to update past it", proofApiUpdateSlot)
 				return false, nil
 			}
 
@@ -1384,7 +1384,7 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 				return false, err
 			}
 
-			return finalizedSlot > relayerUpdateSlot, nil
+			return finalizedSlot > proofApiUpdateSlot, nil
 		})
 		s.Require().NoError(err)
 	}))
@@ -1396,7 +1396,7 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 	s.Require().True(s.Run("Update the client on Cosmos", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simd.Config().ChainID,
 				DstClientId: testvalues.FirstWasmClientID,
@@ -1424,7 +1424,7 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 			s.Require().NoError(err)
 
 			latestHeight = wasmClientState.LatestHeight.RevisionHeight
-			s.Require().Greater(latestHeight, relayerUpdateSlot)
+			s.Require().Greater(latestHeight, proofApiUpdateSlot)
 		}))
 	}))
 
@@ -1434,7 +1434,7 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
 				ClientId:       testvalues.FirstWasmClientID,
 				RevisionNumber: 0,
-				RevisionHeight: relayerUpdateSlot,
+				RevisionHeight: proofApiUpdateSlot,
 				LatestHeight:   false,
 			})
 			s.Require().ErrorContains(err, "consensus state not found")
@@ -1467,7 +1467,7 @@ func (s *ProofAPITestSuite) Test_HistoricalUpdateClientToCosmos() {
 			_, err := e2esuite.GRPCQuery[clienttypes.QueryConsensusStateResponse](ctx, simd, &clienttypes.QueryConsensusStateRequest{
 				ClientId:       testvalues.FirstWasmClientID,
 				RevisionNumber: 0,
-				RevisionHeight: relayerUpdateSlot,
+				RevisionHeight: proofApiUpdateSlot,
 				LatestHeight:   false,
 			})
 			s.Require().NoError(err)
@@ -1517,7 +1517,7 @@ func (s *ProofAPITestSuite) UpdateClientToEthTest(ctx context.Context, proofType
 	s.Require().True(s.Run("Update the client on Ethereum", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				DstClientId: testvalues.CustomClientID,
@@ -1631,7 +1631,7 @@ func (s *ProofAPITestSuite) ConcurrentRecvPacketToCosmos(
 	}))
 
 	s.Require().True(s.Run("Relay the last packet", func() {
-		relayResp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		relayResp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    eth.ChainID.String(),
 			DstChain:    simd.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHashes[len(sendTxHashes)-1]},
@@ -1663,7 +1663,7 @@ func (s *ProofAPITestSuite) ConcurrentRecvPacketToCosmos(
 		for _, txHash := range sendTxHashes {
 			txHash := txHash
 			eg.Go(func() error {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    eth.ChainID.String(),
 					DstChain:    simd.Config().ChainID,
 					SourceTxIds: [][]byte{txHash},

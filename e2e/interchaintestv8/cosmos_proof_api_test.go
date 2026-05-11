@@ -34,7 +34,7 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	e2etypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // CosmosProofAPITestSuite is a struct that holds the test suite for two Cosmos chains.
@@ -47,7 +47,7 @@ type CosmosProofAPITestSuite struct {
 	SimdASubmitter ibc.Wallet
 	SimdBSubmitter ibc.Wallet
 
-	RelayerClient relayertypes.RelayerServiceClient
+	ProofApiClient proofapitypes.ProofApiServiceClient
 
 	// Fixture generation
 	TendermintLightClientFixtures *e2etypes.TendermintLightClientFixtureGenerator
@@ -74,8 +74,8 @@ func (s *CosmosProofAPITestSuite) SetupSuite(ctx context.Context) {
 	s.SimdASubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdA)
 	s.SimdBSubmitter = s.CreateAndFundCosmosUser(ctx, s.SimdB)
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
 		err := os.Chdir("../..")
 		s.Require().NoError(err)
 
@@ -99,7 +99,7 @@ func (s *CosmosProofAPITestSuite) SetupSuite(ctx context.Context) {
 		err = config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
@@ -108,24 +108,24 @@ func (s *CosmosProofAPITestSuite) SetupSuite(ctx context.Context) {
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
+		if proofApiProcess != nil {
+			err := proofApiProcess.Kill()
 			if err != nil {
 				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	s.Require().True(s.Run("Create Proof API Client", func() {
 		var err error
-		s.RelayerClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
 	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: s.SimdA.Config().ChainID,
 				DstChain: s.SimdB.Config().ChainID,
 			})
@@ -147,7 +147,7 @@ func (s *CosmosProofAPITestSuite) SetupSuite(ctx context.Context) {
 	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: s.SimdB.Config().ChainID,
 				DstChain: s.SimdA.Config().ChainID,
 			})
@@ -197,8 +197,8 @@ func (s *CosmosProofAPITestSuite) Test_ProofAPIInfo() {
 	ctx := context.Background()
 	s.SetupSuite(ctx)
 
-	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Chain A to Chain B Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: s.SimdA.Config().ChainID,
 			DstChain: s.SimdB.Config().ChainID,
 		})
@@ -208,8 +208,8 @@ func (s *CosmosProofAPITestSuite) Test_ProofAPIInfo() {
 		s.Require().Equal(s.SimdB.Config().ChainID, info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Chain B to Chain A Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: s.SimdB.Config().ChainID,
 			DstChain: s.SimdA.Config().ChainID,
 		})
@@ -307,7 +307,7 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 	s.Require().True(s.Run("Receive packets on Chain B", func() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           s.SimdA.Config().ChainID,
 				DstChain:           s.SimdB.Config().ChainID,
 				SourceTxIds:        txHashes,
@@ -359,7 +359,7 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 
 		var ackTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve ack tx to Chain A", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           s.SimdB.Config().ChainID,
 				DstChain:           s.SimdA.Config().ChainID,
 				SourceTxIds:        [][]byte{ackTxHash},
@@ -475,7 +475,7 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 	// Prefetching the relay tx before the timeout
 	var txBodyBz []byte
 	s.Require().True(s.Run("Retrieve relay tx", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:    s.SimdA.Config().ChainID,
 			DstChain:    s.SimdB.Config().ChainID,
 			SourceTxIds: txHashes,
@@ -495,7 +495,7 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 	s.Require().True(s.Run("Timeout packet on Chain A", func() {
 		var timeoutTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve timeout tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:           s.SimdB.Config().ChainID,
 				DstChain:           s.SimdA.Config().ChainID,
 				TimeoutTxIds:       txHashes,
@@ -526,7 +526,7 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 	}))
 
 	s.Require().True(s.Run("Constructing relay packet after timeout should fail", func() {
-		resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 			SrcChain:     s.SimdA.Config().ChainID,
 			DstChain:     s.SimdB.Config().ChainID,
 			TimeoutTxIds: txHashes,
@@ -567,7 +567,7 @@ func (s *CosmosProofAPITestSuite) Test_UpdateClient() {
 	s.Require().True(s.Run("Update client on Chain A", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve update client tx", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 				SrcChain:    s.SimdB.Config().ChainID,
 				DstChain:    s.SimdA.Config().ChainID,
 				DstClientId: ibctesting.FirstClientID,

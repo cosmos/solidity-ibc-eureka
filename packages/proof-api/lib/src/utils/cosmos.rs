@@ -1,4 +1,4 @@
-//! Relayer utilities for `CosmosSDK` chains.
+//! Proof API utilities for `CosmosSDK` chains.
 
 use std::collections::HashMap;
 use std::hash::BuildHasher;
@@ -210,7 +210,7 @@ pub async fn tm_update_client_params(
             let mut cumulative_power = 0u64;
             let mut validators_needed = 0usize;
 
-            tracing::debug!("=== RELAYER: Starting validator selection for threshold ===");
+            tracing::debug!("=== PROOF_API: Starting validator selection for threshold ===");
             for (validator, signature) in validator_set
                 .validators
                 .iter()
@@ -222,7 +222,7 @@ pub async fn tm_update_client_params(
                         .expect("voting power must be non-negative");
                     validators_needed += 1;
                     tracing::debug!(
-                        "RELAYER: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
+                        "PROOF_API: Validator #{}: addr={:?}, power={}, cumulative={}/{} ({}%)",
                         validators_needed,
                         validator.address,
                         validator.voting_power,
@@ -232,7 +232,7 @@ pub async fn tm_update_client_params(
                     );
                     if cumulative_power >= required_voting_power {
                         tracing::debug!(
-                            "RELAYER: Threshold reached! Selected {} validators",
+                            "PROOF_API: Threshold reached! Selected {} validators",
                             validators_needed
                         );
                         break;
@@ -255,13 +255,13 @@ pub async fn tm_update_client_params(
         &proposed_header.signed_header,
     ) {
         if let Some(commit) = &signed_header.commit {
-            tracing::debug!("=== RELAYER: Analyzing dual verification sets ===");
+            tracing::debug!("=== PROOF_API: Analyzing dual verification sets ===");
             tracing::debug!(
-                "RELAYER: Trusted next validator set has {} validators",
+                "PROOF_API: Trusted next validator set has {} validators",
                 trusted_next_vs.validators.len()
             );
             tracing::debug!(
-                "RELAYER: Target validator set has {} validators",
+                "PROOF_API: Target validator set has {} validators",
                 target_vs.validators.len()
             );
 
@@ -285,11 +285,11 @@ pub async fn tm_update_client_params(
                 .count();
 
             tracing::debug!(
-                "RELAYER: {} validators with signatures in target are also in trusted_next",
+                "PROOF_API: {} validators with signatures in target are also in trusted_next",
                 overlap_count
             );
             tracing::debug!(
-                "RELAYER: {} validators with signatures are ONLY in target (not in trusted_next)",
+                "PROOF_API: {} validators with signatures are ONLY in target (not in trusted_next)",
                 target_addrs_with_sigs.len() - overlap_count
             );
 
@@ -310,7 +310,7 @@ pub async fn tm_update_client_params(
                         .expect("voting power must be non-negative");
                     trusted_next_needed += 1;
                     if trusted_next_cumulative >= trusted_next_required {
-                        tracing::debug!("RELAYER: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
+                        tracing::debug!("PROOF_API: Would need {} validators from trusted_next to reach 1/3 threshold", trusted_next_needed);
                         break;
                     }
                 }

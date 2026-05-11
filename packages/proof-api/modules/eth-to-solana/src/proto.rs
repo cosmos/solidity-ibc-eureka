@@ -1,4 +1,4 @@
-//! Protobuf types for GMP relayer
+//! Protobuf types for GMP proof API
 //!
 //! Re-exports from the shared solana-ibc-proto crate.
 
