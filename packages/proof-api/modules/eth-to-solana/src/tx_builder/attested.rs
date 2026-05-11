@@ -4,7 +4,11 @@ use std::time::Duration;
 
 use alloy::primitives::Address;
 use anyhow::{Context, Result};
-use ibc_eureka_proof_api_lib::{
+use ibc_proto_eureka::ibc::core::{
+    channel::v2::{MsgAcknowledgement, MsgRecvPacket},
+    client::v1::Height,
+};
+use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
     events::{solana::SolanaEurekaEvent, SolanaEurekaEventWithHeight},
     utils::{
@@ -16,13 +20,9 @@ use ibc_eureka_proof_api_lib::{
         solana_attested, wait_for_condition,
     },
 };
-use ibc_proto_eureka::ibc::core::{
-    channel::v2::{MsgAcknowledgement, MsgRecvPacket},
-    client::v1::Height,
-};
 use solana_sdk::commitment_config::CommitmentConfig;
 
-use ibc_eureka_proof_api_core::api::{self, SolanaPacketTxs};
+use proof_api_core::api::{self, SolanaPacketTxs};
 
 use super::{RelayParams, SolanaTxBuilder};
 

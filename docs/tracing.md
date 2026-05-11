@@ -436,7 +436,7 @@ Config snippet:
   "observability": {
     "level": "info",
     "use_otel": true,
-    "service_name": "ibc-eureka-proof-api",
+    "service_name": "proof-api",
     "otel_endpoint": "http://localhost:4317"
   }
 }
@@ -474,7 +474,7 @@ Behavior when enabled:
   "observability": {
     "level": "<from RUST_LOG or 'info' if unset>",
     "use_otel": true,
-    "service_name": "ibc-eureka-proof-api",
+    "service_name": "proof-api",
     "otel_endpoint": "http://127.0.0.1:4317"
   }
 }
@@ -492,7 +492,7 @@ export RUST_LOG=debug
 
 1. Open Grafana at http://localhost:3002
 2. Go to the Tempo datasource and run a trace search for recent activity.
-3. Generate e2e traffic (run tests). You should see spans with `service.name = ibc-eureka-proof-api`.
+3. Generate e2e traffic (run tests). You should see spans with `service.name = proof-api`.
 
 ### Notes
 

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use alloy::providers::RootProvider;
 use anyhow::Result;
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
     utils::{
         eth_attested::{

@@ -1,17 +1,17 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use ibc_eureka_proof_api::cli::{Commands, ProofApiCli};
-use ibc_eureka_proof_api::observability::init_observability;
-use ibc_eureka_proof_api_core::{builder::ProofApiBuilder, config::ProofApiConfig};
-use ibc_eureka_proof_api_cosmos_to_cosmos::CosmosToCosmosProofApiModule;
-use ibc_eureka_proof_api_cosmos_to_eth::CosmosToEthProofApiModule;
-use ibc_eureka_proof_api_cosmos_to_solana::CosmosToSolanaProofApiModule;
-use ibc_eureka_proof_api_eth_to_cosmos::EthToCosmosProofApiModule;
-use ibc_eureka_proof_api_eth_to_eth::EthToEthProofApiModule;
-use ibc_eureka_proof_api_eth_to_solana::EthToSolanaProofApiModule;
-use ibc_eureka_proof_api_solana_to_cosmos::SolanaToCosmosProofApiModule;
-use ibc_eureka_proof_api_solana_to_eth::SolanaToEthProofApiModule;
+use proof_api::cli::{Commands, ProofApiCli};
+use proof_api::observability::init_observability;
+use proof_api_core::{builder::ProofApiBuilder, config::ProofApiConfig};
+use proof_api_cosmos_to_cosmos::CosmosToCosmosProofApiModule;
+use proof_api_cosmos_to_eth::CosmosToEthProofApiModule;
+use proof_api_cosmos_to_solana::CosmosToSolanaProofApiModule;
+use proof_api_eth_to_cosmos::EthToCosmosProofApiModule;
+use proof_api_eth_to_eth::EthToEthProofApiModule;
+use proof_api_eth_to_solana::EthToSolanaProofApiModule;
+use proof_api_solana_to_cosmos::SolanaToCosmosProofApiModule;
+use proof_api_solana_to_eth::SolanaToEthProofApiModule;
 
 use prometheus::{Encoder, TextEncoder};
 use tracing::info;

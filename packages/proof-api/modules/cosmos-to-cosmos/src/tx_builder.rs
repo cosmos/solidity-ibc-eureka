@@ -18,7 +18,7 @@ use ics23;
 use prost::Message;
 use tendermint_rpc::HttpClient;
 
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     chain::CosmosSdk, events::EurekaEventWithHeight,
     tendermint_client::build_tendermint_client_state, tx_builder::TxBuilderService, utils::cosmos,
 };

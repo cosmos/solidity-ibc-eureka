@@ -15,16 +15,16 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
-use ibc_eureka_proof_api_lib::{
+use ibc_eureka_utils::rpc::TendermintRpcExt;
+use proof_api_lib::{
     listener::{cosmos_sdk, ChainListenerService},
     service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
 };
-use ibc_eureka_utils::rpc::TendermintRpcExt;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };

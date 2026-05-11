@@ -4985,18 +4985,18 @@ name = "ibc-eureka-constrained-types"
 version = "0.1.0"
 
 [[package]]
-name = "ibc-eureka-proof-api"
+name = "proof-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-cosmos-to-cosmos",
- "ibc-eureka-proof-api-cosmos-to-eth",
- "ibc-eureka-proof-api-cosmos-to-solana",
- "ibc-eureka-proof-api-eth-to-cosmos 0.1.0",
- "ibc-eureka-proof-api-eth-to-cosmos-compat",
- "ibc-eureka-proof-api-solana-to-cosmos",
+ "proof-api-core 0.1.0",
+ "proof-api-cosmos-to-cosmos",
+ "proof-api-cosmos-to-eth",
+ "proof-api-cosmos-to-solana",
+ "proof-api-eth-to-cosmos 0.1.0",
+ "proof-api-eth-to-cosmos-compat",
+ "proof-api-solana-to-cosmos",
  "prometheus",
  "serde_json",
  "tokio",
@@ -5006,7 +5006,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-core"
+name = "proof-api-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -5021,7 +5021,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-core"
+name = "proof-api-core"
 version = "0.1.0"
 source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
 dependencies = [
@@ -5037,14 +5037,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-cosmos-to-cosmos"
+name = "proof-api-cosmos-to-cosmos"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
  "ibc-core-host-types",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "ics23",
@@ -5058,15 +5058,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-cosmos-to-eth"
+name = "proof-api-cosmos-to-eth"
 version = "0.1.0"
 dependencies = [
  "alloy",
  "anyhow",
  "async-trait",
  "ibc-core-host-types",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "serde",
@@ -5081,7 +5081,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-cosmos-to-solana"
+name = "proof-api-cosmos-to-solana"
 version = "0.1.0"
 dependencies = [
  "anchor-client",
@@ -5091,8 +5091,8 @@ dependencies = [
  "borsh 1.5.7",
  "hex",
  "ibc-client-tendermint",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
@@ -5114,7 +5114,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-eth-to-cosmos"
+name = "proof-api-eth-to-cosmos"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -5123,8 +5123,8 @@ dependencies = [
  "ethereum-apis 0.1.0",
  "ethereum-light-client 0.1.0",
  "ethereum-types 0.1.0",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-solidity-types 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
@@ -5138,7 +5138,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-eth-to-cosmos"
+name = "proof-api-eth-to-cosmos"
 version = "0.1.0"
 source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
 dependencies = [
@@ -5148,8 +5148,8 @@ dependencies = [
  "ethereum-apis 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ethereum-light-client 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ethereum-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
- "ibc-eureka-proof-api-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
- "ibc-eureka-proof-api-lib 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "proof-api-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "proof-api-lib 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-eureka-solidity-types 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-eureka-utils 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
@@ -5163,16 +5163,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-eth-to-cosmos-compat"
+name = "proof-api-eth-to-cosmos-compat"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "hex",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
- "ibc-eureka-proof-api-eth-to-cosmos 0.1.0",
- "ibc-eureka-proof-api-eth-to-cosmos 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-core 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "proof-api-eth-to-cosmos 0.1.0",
+ "proof-api-eth-to-cosmos 0.1.0 (git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8)",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",
@@ -5183,7 +5183,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-lib"
+name = "proof-api-lib"
 version = "0.1.0"
 dependencies = [
  "alloy",
@@ -5221,7 +5221,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-lib"
+name = "proof-api-lib"
 version = "0.1.0"
 source = "git+https://github.com/cosmos/solidity-ibc-eureka?rev=d9f58589bee5881561cd8c769750a35448e5ebc8#d9f58589bee5881561cd8c769750a35448e5ebc8"
 dependencies = [
@@ -5250,7 +5250,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ibc-eureka-proof-api-solana-to-cosmos"
+name = "proof-api-solana-to-cosmos"
 version = "0.1.0"
 dependencies = [
  "anchor-client",
@@ -5260,8 +5260,8 @@ dependencies = [
  "base64 0.22.1",
  "borsh 1.5.7",
  "hex",
- "ibc-eureka-proof-api-core 0.1.0",
- "ibc-eureka-proof-api-lib 0.1.0",
+ "proof-api-core 0.1.0",
+ "proof-api-lib 0.1.0",
  "ibc-eureka-utils 0.1.0",
  "ibc-proto 0.51.1 (git+https://github.com/srdtrk/ibc-proto-rs?rev=7074fb20c3a654e945e5ca46627c5a971d785e04)",
  "prost",

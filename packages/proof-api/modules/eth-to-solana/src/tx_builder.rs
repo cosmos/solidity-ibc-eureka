@@ -13,8 +13,8 @@ use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, instruction::Instruction, pubkey::Pubkey};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
-use ibc_eureka_proof_api_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
-use ibc_eureka_proof_api_lib::utils::solana_v0_tx;
+use proof_api_lib::events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight};
+use proof_api_lib::utils::solana_v0_tx;
 use solana_ibc_sdk::attestation::{
     accounts::{ClientState as AttestationClientState, ConsensusStateStore},
     instructions as attestation_instructions,
@@ -268,9 +268,7 @@ impl SolanaTxBuilder {
     }
 }
 
-impl ibc_eureka_proof_api_lib::utils::solana_attested::SolanaAttestationTxBuilder
-    for SolanaTxBuilder
-{
+impl proof_api_lib::utils::solana_attested::SolanaAttestationTxBuilder for SolanaTxBuilder {
     fn resolve_client_program_id(&self, client_id: &str) -> Result<Pubkey> {
         self.resolve_client_program_id(client_id)
     }

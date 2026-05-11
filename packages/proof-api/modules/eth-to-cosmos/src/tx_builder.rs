@@ -35,7 +35,7 @@ use ibc_proto_eureka::{
 use prost::Message;
 use tendermint_rpc::{Client, HttpClient};
 
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     aggregator::Aggregator,
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,

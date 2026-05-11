@@ -25,7 +25,7 @@ jobs:
       contents: read
       packages: write
     env:
-      registry_url: ghcr.io/cosmos/eureka-proof-api
+      registry_url: ghcr.io/cosmos/proof-api
     steps:
       - uses: actions/checkout@v5
       - name: Login to GitHub Container Registry

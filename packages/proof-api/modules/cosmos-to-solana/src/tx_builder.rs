@@ -11,8 +11,13 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 use anchor_lang::prelude::*;
 use anyhow::{Context, Result};
 use ibc_client_tendermint::types::Header as TmHeader;
-use ibc_eureka_proof_api_lib::utils::solana::convert_client_state_to_sol;
-use ibc_eureka_proof_api_lib::{
+use ibc_proto_eureka::ibc::core::{
+    channel::v2::{MsgAcknowledgement, MsgRecvPacket},
+    client::v1::Height,
+};
+use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
+use proof_api_lib::utils::solana::convert_client_state_to_sol;
+use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
     events::{
         solana::solana_timeout_packet_to_tm_timeout, EurekaEventWithHeight, SolanaEurekaEvent,
@@ -30,16 +35,11 @@ use ibc_eureka_proof_api_lib::{
         solana_attested, wait_for_condition,
     },
 };
-use ibc_proto_eureka::ibc::core::{
-    channel::v2::{MsgAcknowledgement, MsgRecvPacket},
-    client::v1::Height,
-};
-use ibc_proto_eureka::ibc::lightclients::tendermint::v1::Fraction;
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::{commitment_config::CommitmentConfig, pubkey::Pubkey};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
-use ibc_eureka_proof_api_core::api::{self, SolanaPacketTxs};
+use proof_api_core::api::{self, SolanaPacketTxs};
 
 use solana_ibc_sdk::ics07_tendermint::{
     instructions::{self as ics07_tendermint_instructions, AssembleAndUpdateClient},
@@ -597,7 +597,7 @@ impl TxBuilder {
 
     #[allow(clippy::cast_possible_truncation)]
     fn update_timeout_proof_chunks(
-        timeout_with_chunks: &mut ibc_eureka_proof_api_lib::utils::solana::TimeoutPacketWithChunks,
+        timeout_with_chunks: &mut proof_api_lib::utils::solana::TimeoutPacketWithChunks,
         tm_msg: &ibc_proto_eureka::ibc::core::channel::v2::MsgTimeout,
     ) {
         use solana_ibc_constants::CHUNK_DATA_SIZE;

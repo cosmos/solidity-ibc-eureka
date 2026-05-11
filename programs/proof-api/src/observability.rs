@@ -3,7 +3,6 @@
 //! Stdout logging + optional OpenTelemetry OTLP export.
 
 use anyhow::{Context, Result};
-use ibc_eureka_proof_api_core::config::ObservabilityConfig;
 use opentelemetry::{global, trace::TracerProvider as _, KeyValue};
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::WithExportConfig;
@@ -13,6 +12,7 @@ use opentelemetry_sdk::{
     resource::Resource,
     trace::{Sampler, SdkTracerProvider, SpanExporter, Tracer},
 };
+use proof_api_core::config::ObservabilityConfig;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Registry};
 
 /// Guard that shuts down OpenTelemetry on drop (if enabled).

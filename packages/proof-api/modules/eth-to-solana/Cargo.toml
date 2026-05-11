@@ -1,13 +1,13 @@
 [package]
-name                 = "ibc-eureka-proof-api-eth-to-solana"
+name                 = "proof-api-eth-to-solana"
 version.workspace    = true
 edition.workspace    = true
 repository.workspace = true
 license.workspace    = true
 
 [dependencies]
-ibc-eureka-proof-api-core          = { workspace = true, default-features = false }
-ibc-eureka-proof-api-lib.workspace = true
+proof-api-core          = { workspace = true, default-features = false }
+proof-api-lib.workspace = true
 ibc-eureka-utils.workspace       = true
 ibc-eureka-solidity-types        = { workspace = true, features = ["rpc"] }
 

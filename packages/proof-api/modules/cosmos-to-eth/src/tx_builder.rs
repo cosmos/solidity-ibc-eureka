@@ -31,7 +31,7 @@ use sp1_ics07_tendermint_prover::{
 use sp1_sdk::HashableKey;
 use tendermint_rpc::HttpClient;
 
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     aggregator::Aggregator,
     chain::{CosmosSdk, EthEureka},
     events::EurekaEventWithHeight,

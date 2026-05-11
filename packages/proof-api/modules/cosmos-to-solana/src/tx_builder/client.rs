@@ -10,7 +10,7 @@ use solana_sdk::{
 use tendermint::{chain::Id as ChainId, vote::CanonicalVote};
 use tendermint_proto::Protobuf;
 
-use ibc_eureka_proof_api_lib::utils::solana_v0_tx::{
+use proof_api_lib::utils::solana_v0_tx::{
     derive_alt_address, extend_compute_ix, extend_compute_ix_with_heap,
 };
 use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;

@@ -131,7 +131,7 @@ func NewConfig(modules []ModuleConfig) Config {
 	observability := ObservabilityConfig{
 		Level:        tracingLevel,
 		UseOtel:      useOtel,
-		ServiceName:  "ibc-eureka-proof-api",
+		ServiceName:  "proof-api",
 		OTelEndpoint: otlpEndpoint,
 	}
 

@@ -1,5 +1,5 @@
 [package]
-name = "ibc-eureka-proof-api-eth-to-eth"
+name = "proof-api-eth-to-eth"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -9,8 +9,8 @@ license.workspace = true
 alloy = { workspace = true, features = ["full", "node-bindings"] }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
-ibc-eureka-proof-api-core = { workspace = true }
-ibc-eureka-proof-api-lib = { workspace = true }
+proof-api-core = { workspace = true }
+proof-api-lib = { workspace = true }
 ibc-eureka-solidity-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

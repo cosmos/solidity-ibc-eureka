@@ -15,7 +15,7 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
 };
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     aggregator::Config as AggregatorConfig,
     events::EurekaEventWithHeight,
     listener::{eth_eureka, solana, ChainListenerService},
@@ -25,7 +25,7 @@ use ibc_eureka_proof_api_lib::{
 use solana_sdk::commitment_config::CommitmentConfig;
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };

@@ -10,7 +10,7 @@ use crate::{
     },
     config::ProofApiConfig,
 };
-use ibc_eureka_proof_api_lib::utils::tracing_layer::tracing_interceptor;
+use proof_api_lib::utils::tracing_layer::tracing_interceptor;
 use tonic::{transport::Server, Request, Response};
 use tracing::{error, info, instrument};
 

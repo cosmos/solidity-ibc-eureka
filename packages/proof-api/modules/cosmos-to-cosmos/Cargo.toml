@@ -1,13 +1,13 @@
 [package]
-name       = "ibc-eureka-proof-api-cosmos-to-cosmos"
+name       = "proof-api-cosmos-to-cosmos"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-proof-api-lib    = { workspace = true, default-features = false }
-ibc-eureka-proof-api-core   = { workspace = true, default-features = false }
+proof-api-lib    = { workspace = true, default-features = false }
+proof-api-core   = { workspace = true, default-features = false }
 ibc-eureka-utils          = { workspace = true }
 
 serde      = { workspace = true, features = ["derive"] }

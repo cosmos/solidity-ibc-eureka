@@ -12,20 +12,20 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
-use ibc_eureka_proof_api_lib::aggregator::Config as AggregatorConfig;
-use ibc_eureka_proof_api_lib::events::SolanaEurekaEvent;
-use ibc_eureka_proof_api_lib::listener::cosmos_sdk;
-use ibc_eureka_proof_api_lib::listener::solana;
-use ibc_eureka_proof_api_lib::listener::ChainListenerService;
-use ibc_eureka_proof_api_lib::service_utils::parse_cosmos_tx_hashes;
-use ibc_eureka_proof_api_lib::service_utils::parse_solana_tx_hashes;
-use ibc_eureka_proof_api_lib::service_utils::to_tonic_status;
-use ibc_eureka_proof_api_lib::utils::wait_for_condition;
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use proof_api_lib::aggregator::Config as AggregatorConfig;
+use proof_api_lib::events::SolanaEurekaEvent;
+use proof_api_lib::listener::cosmos_sdk;
+use proof_api_lib::listener::solana;
+use proof_api_lib::listener::ChainListenerService;
+use proof_api_lib::service_utils::parse_cosmos_tx_hashes;
+use proof_api_lib::service_utils::parse_solana_tx_hashes;
+use proof_api_lib::service_utils::to_tonic_status;
+use proof_api_lib::utils::wait_for_condition;
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };
@@ -387,16 +387,16 @@ impl CosmosToSolanaTxBuilder {
     #[allow(clippy::too_many_arguments)]
     async fn relay_events(
         &self,
-        src_events: Vec<ibc_eureka_proof_api_lib::events::EurekaEventWithHeight>,
-        target_events: Vec<ibc_eureka_proof_api_lib::events::SolanaEurekaEventWithHeight>,
+        src_events: Vec<proof_api_lib::events::EurekaEventWithHeight>,
+        target_events: Vec<proof_api_lib::events::SolanaEurekaEventWithHeight>,
         src_client_id: &str,
         dst_client_id: &str,
         src_packet_seqs: &[u64],
         dst_packet_seqs: &[u64],
         timeout_relay_height: Option<u64>,
     ) -> anyhow::Result<(
-        Vec<ibc_eureka_proof_api_core::api::SolanaPacketTxs>,
-        Option<ibc_eureka_proof_api_core::api::SolanaUpdateClient>,
+        Vec<proof_api_core::api::SolanaPacketTxs>,
+        Option<proof_api_core::api::SolanaUpdateClient>,
     )> {
         match self {
             Self::Ics07Tendermint(tb) => {
@@ -436,7 +436,7 @@ impl CosmosToSolanaTxBuilder {
     async fn update_client(
         &self,
         dst_client_id: &str,
-    ) -> anyhow::Result<ibc_eureka_proof_api_core::api::SolanaUpdateClient> {
+    ) -> anyhow::Result<proof_api_core::api::SolanaUpdateClient> {
         match self {
             Self::Ics07Tendermint(tb) => tb.update_client(dst_client_id).await,
             Self::Attested(tb) => tb.update_client(dst_client_id).await,

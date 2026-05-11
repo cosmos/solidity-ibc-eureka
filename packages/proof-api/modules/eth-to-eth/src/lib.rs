@@ -9,7 +9,7 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
 };
-use ibc_eureka_proof_api_lib::{
+use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
     listener::{eth_eureka, ChainListenerService},
     utils::{
@@ -22,7 +22,7 @@ use ibc_eureka_proof_api_lib::{
 };
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };

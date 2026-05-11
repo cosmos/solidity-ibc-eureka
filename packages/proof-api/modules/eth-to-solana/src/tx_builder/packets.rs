@@ -10,7 +10,7 @@ use solana_sdk::{
     pubkey::Pubkey,
 };
 
-use ibc_eureka_proof_api_core::api::SolanaPacketTxs;
+use proof_api_core::api::SolanaPacketTxs;
 use solana_ibc_constants::CHUNK_DATA_SIZE;
 use solana_ibc_sdk::access_manager::instructions as access_manager_instructions;
 use solana_ibc_sdk::attestation::instructions as attestation_instructions;
@@ -31,7 +31,7 @@ use solana_ibc_sdk::pda::{
     ics26_router::{payload_chunk_pda, proof_chunk_pda},
 };
 
-use ibc_eureka_proof_api_lib::utils::solana_v0_tx::{derive_alt_address, extend_compute_ix};
+use proof_api_lib::utils::solana_v0_tx::{derive_alt_address, extend_compute_ix};
 
 use crate::constants::ANCHOR_DISCRIMINATOR_SIZE;
 use crate::{gmp, ift};

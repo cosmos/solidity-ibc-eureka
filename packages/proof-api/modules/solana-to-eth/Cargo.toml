@@ -1,13 +1,13 @@
 [package]
-name = "ibc-eureka-proof-api-solana-to-eth"
+name = "proof-api-solana-to-eth"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
 license.workspace = true
 
 [dependencies]
-ibc-eureka-proof-api-core = { workspace = true, default-features = false }
-ibc-eureka-proof-api-lib = { workspace = true }
+proof-api-core = { workspace = true, default-features = false }
+proof-api-lib = { workspace = true }
 
 serde = { workspace = true, features = ["derive"] }
 serde_json.workspace = true

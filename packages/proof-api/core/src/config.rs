@@ -69,7 +69,7 @@ impl Default for ObservabilityConfig {
         Self {
             level: "info".to_string(),
             use_otel: false,
-            service_name: "ibc-eureka-proof-api".to_string(),
+            service_name: "proof-api".to_string(),
             otel_endpoint: None,
         }
     }

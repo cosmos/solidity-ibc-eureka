@@ -18,14 +18,12 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
 };
-use ibc_eureka_proof_api_lib::aggregator::Config as AggregatorConfig;
-use ibc_eureka_proof_api_lib::listener::{eth_eureka, solana, ChainListenerService};
-use ibc_eureka_proof_api_lib::service_utils::{
-    parse_eth_tx_hashes, parse_solana_tx_hashes, to_tonic_status,
-};
+use proof_api_lib::aggregator::Config as AggregatorConfig;
+use proof_api_lib::listener::{eth_eureka, solana, ChainListenerService};
+use proof_api_lib::service_utils::{parse_eth_tx_hashes, parse_solana_tx_hashes, to_tonic_status};
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };
@@ -314,16 +312,16 @@ impl EthToSolanaTxBuilder {
     #[allow(clippy::too_many_arguments)]
     async fn relay_events(
         &self,
-        src_events: Vec<ibc_eureka_proof_api_lib::events::EurekaEventWithHeight>,
-        target_events: Vec<ibc_eureka_proof_api_lib::events::SolanaEurekaEventWithHeight>,
+        src_events: Vec<proof_api_lib::events::EurekaEventWithHeight>,
+        target_events: Vec<proof_api_lib::events::SolanaEurekaEventWithHeight>,
         src_client_id: &str,
         dst_client_id: &str,
         src_packet_seqs: &[u64],
         dst_packet_seqs: &[u64],
         timeout_relay_height: Option<u64>,
     ) -> anyhow::Result<(
-        Vec<ibc_eureka_proof_api_core::api::SolanaPacketTxs>,
-        Option<ibc_eureka_proof_api_core::api::SolanaUpdateClient>,
+        Vec<proof_api_core::api::SolanaPacketTxs>,
+        Option<proof_api_core::api::SolanaUpdateClient>,
     )> {
         match self {
             Self::Attested(tb) => {
@@ -350,7 +348,7 @@ impl EthToSolanaTxBuilder {
     async fn update_client(
         &self,
         dst_client_id: &str,
-    ) -> anyhow::Result<ibc_eureka_proof_api_core::api::SolanaUpdateClient> {
+    ) -> anyhow::Result<proof_api_core::api::SolanaUpdateClient> {
         match self {
             Self::Attested(tb) => tb.update_client(dst_client_id).await,
         }

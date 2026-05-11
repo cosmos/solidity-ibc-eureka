@@ -1,12 +1,12 @@
 [package]
-name       = "ibc-eureka-proof-api-core"
+name       = "proof-api-core"
 version    = { workspace = true }
 edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
 [dependencies]
-ibc-eureka-proof-api-lib = { workspace = true, default-features = false }
+proof-api-lib = { workspace = true, default-features = false }
 
 tonic            = { workspace = true, default-features = true }
 tonic-reflection = { workspace = true, default-features = true }

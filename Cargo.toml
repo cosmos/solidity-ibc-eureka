@@ -44,16 +44,16 @@ keywords   = ["cosmos", "ibc", "sp1", "tendermint", "ethereum", "bridge", "solid
 
 [workspace.dependencies]
 ibc-eureka-solidity-types               = { path = "packages/solidity", default-features = false }
-ibc-eureka-proof-api-lib                  = { path = "packages/proof-api/lib", default-features = false }
-ibc-eureka-proof-api-core                 = { path = "packages/proof-api/core", default-features = false }
-ibc-eureka-proof-api-eth-to-cosmos        = { path = "packages/proof-api/modules/eth-to-cosmos", default-features = false }
-ibc-eureka-proof-api-cosmos-to-eth        = { path = "packages/proof-api/modules/cosmos-to-eth", default-features = false }
-ibc-eureka-proof-api-eth-to-eth           = { path = "packages/proof-api/modules/eth-to-eth", default-features = false }
-ibc-eureka-proof-api-cosmos-to-cosmos     = { path = "packages/proof-api/modules/cosmos-to-cosmos", default-features = false }
-ibc-eureka-proof-api-solana-to-cosmos     = { path = "packages/proof-api/modules/solana-to-cosmos", default-features = false }
-ibc-eureka-proof-api-cosmos-to-solana     = { path = "packages/proof-api/modules/cosmos-to-solana", default-features = false }
-ibc-eureka-proof-api-eth-to-solana        = { path = "packages/proof-api/modules/eth-to-solana", default-features = false }
-ibc-eureka-proof-api-solana-to-eth        = { path = "packages/proof-api/modules/solana-to-eth", default-features = false }
+proof-api-lib                  = { path = "packages/proof-api/lib", default-features = false }
+proof-api-core                 = { path = "packages/proof-api/core", default-features = false }
+proof-api-eth-to-cosmos        = { path = "packages/proof-api/modules/eth-to-cosmos", default-features = false }
+proof-api-cosmos-to-eth        = { path = "packages/proof-api/modules/cosmos-to-eth", default-features = false }
+proof-api-eth-to-eth           = { path = "packages/proof-api/modules/eth-to-eth", default-features = false }
+proof-api-cosmos-to-cosmos     = { path = "packages/proof-api/modules/cosmos-to-cosmos", default-features = false }
+proof-api-solana-to-cosmos     = { path = "packages/proof-api/modules/solana-to-cosmos", default-features = false }
+proof-api-cosmos-to-solana     = { path = "packages/proof-api/modules/cosmos-to-solana", default-features = false }
+proof-api-eth-to-solana        = { path = "packages/proof-api/modules/eth-to-solana", default-features = false }
+proof-api-solana-to-eth        = { path = "packages/proof-api/modules/solana-to-eth", default-features = false }
 ibc-eureka-utils                        = { path = "packages/utils", default-features = false }
 ibc-eureka-constrained-types            = { path = "packages/constrained_types", default-features = false }
 sp1-ics07-tendermint-prover             = { path = "packages/sp1-ics07-tendermint-prover", default-features = false }

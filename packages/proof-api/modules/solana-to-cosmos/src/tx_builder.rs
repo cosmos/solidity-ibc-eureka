@@ -6,7 +6,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Result;
-use ibc_eureka_proof_api_lib::{
+use ibc_proto_eureka::{
+    cosmos::tx::v1beta1::TxBody,
+    google::protobuf::Any,
+    ibc::{core::client::v1::Height, lightclients::wasm::v1::ConsensusState as WasmConsensusState},
+};
+use proof_api_lib::{
     aggregator::Aggregator,
     chain::{CosmosSdk, SolanaEureka},
     events::{EurekaEventWithHeight, SolanaEurekaEventWithHeight},
@@ -19,11 +24,6 @@ use ibc_eureka_proof_api_lib::{
         },
         RelayEventsParams,
     },
-};
-use ibc_proto_eureka::{
-    cosmos::tx::v1beta1::TxBody,
-    google::protobuf::Any,
-    ibc::{core::client::v1::Height, lightclients::wasm::v1::ConsensusState as WasmConsensusState},
 };
 use solana_client::rpc_client::RpcClient;
 use solana_sdk::pubkey::Pubkey;

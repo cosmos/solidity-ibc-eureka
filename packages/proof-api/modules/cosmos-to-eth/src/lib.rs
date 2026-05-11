@@ -18,14 +18,14 @@ use alloy::{
     primitives::{Address, TxHash},
     providers::{Provider, RootProvider},
 };
-use ibc_eureka_proof_api_lib::{
+use ibc_eureka_utils::rpc::TendermintRpcExt;
+use proof_api_lib::{
     aggregator::{Aggregator, Config as AggregatorConfig},
     listener::{cosmos_sdk, eth_eureka, ChainListenerService},
     service_utils::{parse_cosmos_tx_hashes, to_tonic_status},
     tx_builder::TxBuilderService,
     utils::RelayEventsParams,
 };
-use ibc_eureka_utils::rpc::TendermintRpcExt;
 use sp1_ics07_tendermint_prover::programs::{
     MembershipProgram, MisbehaviourProgram, SP1ICS07TendermintPrograms,
     UpdateClientAndMembershipProgram, UpdateClientProgram,
@@ -39,7 +39,7 @@ use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 use tx_builder::TxBuilder;
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };

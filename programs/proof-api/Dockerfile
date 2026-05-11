@@ -27,7 +27,7 @@ ARG BUILD_DATE
 ARG VCS_REF
 ARG VERSION
 ARG COMMIT
-LABEL org.opencontainers.image.title="solidity-ibc-eureka-proof-api" \
+LABEL org.opencontainers.image.title="proof-api" \
       org.opencontainers.image.description="Solidity IBC Eureka Proof API" \
       org.opencontainers.image.source="https://github.com/cosmos/solidity-ibc-eureka" \
       org.opencontainers.image.revision=$VCS_REF \

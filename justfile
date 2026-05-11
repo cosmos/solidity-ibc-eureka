@@ -728,7 +728,7 @@ build-cw-ics08-wasm-eth:
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
 build-proof-api-image:
-    docker build -t eureka-proof-api:latest -f programs/proof-api/Dockerfile .
+    docker build -t proof-api:latest -f programs/proof-api/Dockerfile .
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]

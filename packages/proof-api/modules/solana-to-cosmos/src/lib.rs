@@ -7,23 +7,21 @@ pub mod tx_builder;
 
 use std::collections::HashMap;
 
-use ibc_eureka_proof_api_lib::aggregator::{Aggregator, Config as AggregatorConfig};
-use ibc_eureka_proof_api_lib::events::{
-    EurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight,
-};
-use ibc_eureka_proof_api_lib::listener::cosmos_sdk;
-use ibc_eureka_proof_api_lib::listener::solana;
-use ibc_eureka_proof_api_lib::listener::ChainListenerService;
-use ibc_eureka_proof_api_lib::service_utils::parse_cosmos_tx_hashes;
-use ibc_eureka_proof_api_lib::service_utils::parse_solana_tx_hashes;
-use ibc_eureka_proof_api_lib::service_utils::to_tonic_status;
-use ibc_eureka_proof_api_lib::tx_builder::TxBuilderService;
-use ibc_eureka_proof_api_lib::utils::{wait_for_condition, RelayEventsParams};
 use ibc_eureka_utils::rpc::TendermintRpcExt;
+use proof_api_lib::aggregator::{Aggregator, Config as AggregatorConfig};
+use proof_api_lib::events::{EurekaEvent, EurekaEventWithHeight, SolanaEurekaEventWithHeight};
+use proof_api_lib::listener::cosmos_sdk;
+use proof_api_lib::listener::solana;
+use proof_api_lib::listener::ChainListenerService;
+use proof_api_lib::service_utils::parse_cosmos_tx_hashes;
+use proof_api_lib::service_utils::parse_solana_tx_hashes;
+use proof_api_lib::service_utils::to_tonic_status;
+use proof_api_lib::tx_builder::TxBuilderService;
+use proof_api_lib::utils::{wait_for_condition, RelayEventsParams};
 use tendermint_rpc::HttpClient;
 use tonic::{Request, Response};
 
-use ibc_eureka_proof_api_core::{
+use proof_api_core::{
     api::{self, proof_api_service_server::ProofApiService},
     modules::ProofApiModule,
 };
