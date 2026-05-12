@@ -29,31 +29,23 @@ package-contracts version="dev": build-contracts
   #!/usr/bin/env bash
   set -euo pipefail
 
-  # Contracts to ship as stripped ABI-only files (mirrors abi/*.json)
-  abi_contracts=(
-    ICS26Router
-    ICS27Account
-    ICS27GMP
-    AttestationLightClient
-    TestIFT
-  )
-
   # Contracts to ship as full forge JSON (ABI + bytecode + metadata)
   bytecode_contracts=(
     ICS26Router
+    ICS20Transfer
     ICS27Account
     ICS27GMP
+    SP1ICS07Tendermint
     AttestationLightClient
+    ERC20
+    IBCERC20
+    RelayerHelper
     TestIFT
   )
 
   staging="release-artifacts/solidity-contracts"
   rm -rf "$staging"
   mkdir -p "$staging/abi" "$staging/bytecode"
-
-  for c in "${abi_contracts[@]}"; do
-    jq '.abi' "out/${c}.sol/${c}.json" > "$staging/abi/${c}.json"
-  done
 
   for c in "${bytecode_contracts[@]}"; do
     cp "out/${c}.sol/${c}.json" "$staging/bytecode/${c}.json"
