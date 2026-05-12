@@ -41,6 +41,7 @@ contracts=(
 
   # IFT contracts
   IFTOwnable
+  IFTAccessManaged
   CosmosIFTSendCallConstructor
   EVMIFTSendCallConstructor
   SolanaIFTSendCallConstructor
