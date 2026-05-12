@@ -70,13 +70,10 @@ jobs:
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
 
-      - name: Install just
-        uses: extractions/setup-just@v3
-
       - name: Build and package the contracts
         env:
           TAG_NAME: ${{ github.ref_name }}
-        run: just package-contracts "$TAG_NAME"
+        run: ./scripts/package-contracts.sh "$TAG_NAME"
 
       - name: Upload solidity contract artifacts to release
         uses: svenstaro/upload-release-action@v2

@@ -21,41 +21,6 @@ build-contracts: clean-foundry
 	bun install --frozen-lockfile
 	forge build
 
-# Package pre-compiled solidity contract artifacts as a release tarball
-# Usage: just package-contracts [version]
-# Example: just package-contracts solidity-v2.0.1
-[group('build')]
-package-contracts version="dev": build-contracts
-  #!/usr/bin/env bash
-  set -euo pipefail
-
-  # Contracts to ship as full forge JSON (ABI + bytecode + metadata)
-  bytecode_contracts=(
-    ICS26Router
-    ICS20Transfer
-    ICS27Account
-    ICS27GMP
-    SP1ICS07Tendermint
-    AttestationLightClient
-    ERC20
-    IBCERC20
-    RelayerHelper
-    TestIFT
-  )
-
-  staging="release-artifacts/solidity-contracts"
-  rm -rf "$staging"
-  mkdir -p "$staging/abi" "$staging/bytecode"
-
-  for c in "${bytecode_contracts[@]}"; do
-    cp "out/${c}.sol/${c}.json" "$staging/bytecode/${c}.json"
-  done
-
-  cp LICENSE.md "$staging/"
-  echo "{{version}}" > "$staging/VERSION"
-
-  tar -czvf "solidity-contracts-{{version}}.tar.gz" -C release-artifacts solidity-contracts
-
 # Build the proof API using `cargo build`
 [group('build')]
 build-proof-api:
