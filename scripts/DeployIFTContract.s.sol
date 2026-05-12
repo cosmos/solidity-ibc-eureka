@@ -8,9 +8,9 @@ import { Script } from "forge-std/Script.sol";
 import { Strings } from "@openzeppelin-contracts/utils/Strings.sol";
 import { ERC1967Proxy } from "@openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
+import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
 
-/// @notice Deploys a new TestIFT proxy for E2E testing.
+/// @notice Deploys a new IFTOwnable proxy for E2E testing.
 /// @dev Required env vars: ICS27_GMP_ADDRESS, IFT_TOKEN_NAME, IFT_TOKEN_SYMBOL
 contract DeployIFTContract is Script {
     using stdJson for string;
@@ -22,10 +22,10 @@ contract DeployIFTContract is Script {
 
         vm.startBroadcast();
 
-        address iftLogic = address(new TestIFT());
+        address iftLogic = address(new IFTOwnable());
         address deployed = address(
             new ERC1967Proxy(
-                iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, tokenName, tokenSymbol, ics27Gmp))
+                iftLogic, abi.encodeCall(IFTOwnable.initialize, (msg.sender, tokenName, tokenSymbol, ics27Gmp))
             )
         );
 
