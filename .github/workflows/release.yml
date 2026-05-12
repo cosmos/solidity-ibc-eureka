@@ -57,3 +57,29 @@ jobs:
           file: e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm.gz
           tag: ${{ github.ref }}
           overwrite: true
+
+  release-solidity-contracts:
+    runs-on: depot-ubuntu-24.04-4
+    if: startsWith(github.ref_name, 'solidity-')
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install just
+        uses: extractions/setup-just@v3
+
+      - name: Build and package the contracts
+        run: just package-contracts ${{ github.ref_name }}
+
+      - name: Upload solidity contract artifacts to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: solidity-contracts-${{ github.ref_name }}.tar.gz
+          tag: ${{ github.ref }}
+          overwrite: true
