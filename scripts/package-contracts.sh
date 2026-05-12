@@ -9,15 +9,21 @@
 #
 # Requires `bun` and `forge` on PATH.
 #
-# Usage:   ./scripts/package-contracts.sh [version]
-# Example: ./scripts/package-contracts.sh solidity-v2.0.1
+# Reads the release tag from the TAG_NAME environment variable (default: "dev").
+# Usage:   TAG_NAME=solidity-v2.0.1 ./scripts/package-contracts.sh
+# Example: ./scripts/package-contracts.sh                          # → dev
+#          TAG_NAME=solidity-v2.0.1 ./scripts/package-contracts.sh # → tagged release
 
 set -euo pipefail
 
-VERSION="${1:-dev}"
+TAG_NAME="${TAG_NAME:-dev}"
+echo "📌 Version: $TAG_NAME"
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# Always clean up the staging tree on exit (success or failure)
+trap 'rm -rf release-artifacts' EXIT
 
 # Contracts to ship as full forge JSON (ABI + bytecode + metadata).
 # Only concrete, deployable contracts are listed — interfaces, libraries,
@@ -74,9 +80,9 @@ for c in "${contracts[@]}"; do
 done
 
 cp LICENSE.md "$staging/"
-echo "$VERSION" > "$staging/VERSION"
+echo "$TAG_NAME" > "$staging/TAG_NAME"
 
-tarball="solidity-contracts-${VERSION}.tar.gz"
+tarball="solidity-contracts-${TAG_NAME}.tar.gz"
 tar -czvf "$tarball" -C release-artifacts solidity-contracts
 
 echo "✅ Packaged: $tarball"

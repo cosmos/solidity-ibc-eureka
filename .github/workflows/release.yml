@@ -73,7 +73,7 @@ jobs:
       - name: Build and package the contracts
         env:
           TAG_NAME: ${{ github.ref_name }}
-        run: ./scripts/package-contracts.sh "$TAG_NAME"
+        run: ./scripts/package-contracts.sh
 
       - name: Upload solidity contract artifacts to release
         uses: svenstaro/upload-release-action@v2
