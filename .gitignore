@@ -55,5 +55,3 @@ solana-keypairs/**/*
 !solana-keypairs/localnet/
 !solana-keypairs/localnet/**
 !solana-keypairs/**/.gitkeep
-release-artifacts
-solidity-contracts-*.tar.gz
