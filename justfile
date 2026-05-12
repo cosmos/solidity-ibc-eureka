@@ -17,7 +17,8 @@ default:
 
 # Build the contracts using `forge build`
 [group('build')]
-build-contracts: clean-foundry install-contracts
+build-contracts: clean-foundry
+	bun install --frozen-lockfile
 	forge build
 
 # Package pre-compiled solidity contract artifacts as a release tarball
