@@ -15,11 +15,6 @@ solana_ibc := '''
 default:
   just --list
 
-# Install Solidity contract dependencies (OpenZeppelin, forge-std, sp1-contracts, permit2) via bun
-[group('install')]
-install-contracts:
-	bun install --frozen-lockfile
-
 # Build the contracts using `forge build`
 [group('build')]
 build-contracts: clean-foundry install-contracts
