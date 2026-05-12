@@ -19,17 +19,34 @@ VERSION="${1:-dev}"
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# Contracts to ship as full forge JSON (ABI + bytecode + metadata)
+# Contracts to ship as full forge JSON (ABI + bytecode + metadata).
+# Only concrete, deployable contracts are listed — interfaces, libraries,
+# and abstract bases produce empty bytecode and are excluded.
 contracts=(
+  # Core IBC contracts
   ICS26Router
   ICS20Transfer
-  ICS27Account
   ICS27GMP
-  SP1ICS07Tendermint
+  ICS27Account
+
+  # Light clients
   AttestationLightClient
-  ERC20
+  SP1ICS07Tendermint
+  ICS02PrecompileWrapper
+
+  # IBC utilities
   IBCERC20
+  Escrow
   RelayerHelper
+
+  # IFT contracts
+  IFTOwnable
+  CosmosIFTSendCallConstructor
+  EVMIFTSendCallConstructor
+  SolanaIFTSendCallConstructor
+
+  # Reference / test
+  ERC20
   TestIFT
 )
 
