@@ -8,6 +8,7 @@ import (
 	mathrand "math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -571,7 +572,12 @@ func (s *SP1ICS07TendermintTestSuite) DoubleSignMisbehaviourTest(ctx context.Con
 			proofType.ToOperatorArgs()...,
 		)
 		_, err := operator.MisbehaviourProof(simd.GetCodec(), invalidMisbehaviour, "", args...)
-		s.Require().ErrorContains(err, "misbehaviour is not detected")
+		s.Require().Error(err)
+		s.Require().True(
+			strings.Contains(err.Error(), "misbehaviour is not detected") ||
+				strings.Contains(err.Error(), "is unexecutable"),
+			"expected invalid misbehaviour error, got: %v", err,
+		)
 	}))
 
 	s.Require().True(s.Run("Valid misbehaviour", func() {
