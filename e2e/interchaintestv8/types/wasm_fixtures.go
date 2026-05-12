@@ -54,7 +54,7 @@ func (g *WasmFixtureGenerator) AddFixtureStep(stepName string, jsonMarshalble in
 	})
 }
 
-// AddInitialStateStep creates the initial step from the create client tx body (relayer response)
+// AddInitialStateStep creates the initial step from the create client tx body (proof API response)
 func (g *WasmFixtureGenerator) AddInitialStateStep(createClientTxBodyBz []byte) error {
 	if !g.shouldGenerateFixture {
 		return nil

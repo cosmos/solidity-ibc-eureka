@@ -144,7 +144,7 @@ pub fn tracing_interceptor<T>(request: Request<T>) -> Result<Request<T>, Status>
 // Apply interceptor automatically to all gRPC methods
 Server::builder()
     .add_service(
-        RelayerServiceServer::with_interceptor(relayer, tracing_interceptor)
+        ProofApiServiceServer::with_interceptor(proof_api_router, tracing_interceptor)
     )
     .serve(socket_addr)
     .await?;
@@ -421,13 +421,13 @@ async fn my_test() {
 
 For a complete example of production-ready tracing setup, see:
 
-- `programs/relayer/src/observability.rs` - Production subscriber configuration (traces + OTLP logs)
-- `packages/relayer/lib/src/utils/tracing_layer.rs` - gRPC trace propagation
-- `packages/relayer/core/src/builder.rs` - Automatic interceptor integration
+- `programs/proof-api/src/observability.rs` - Production subscriber configuration (traces + OTLP logs)
+- `packages/proof-api/lib/src/utils/tracing_layer.rs` - gRPC trace propagation
+- `packages/proof-api/core/src/builder.rs` - Automatic interceptor integration
 
 ### OTEL logs export
 
-When `use_otel` is true in the relayer config, logs are exported via OTLP gRPC to the same `otel_endpoint` as traces. The relayer bridges `tracing` events to OpenTelemetry logs using an appender layer, while retaining pretty-printed console output.
+When `use_otel` is true in the proof-api config, logs are exported via OTLP gRPC to the same `otel_endpoint` as traces. The proof-api bridges `tracing` events to OpenTelemetry logs using an appender layer, while retaining pretty-printed console output.
 
 Config snippet:
 
@@ -436,7 +436,7 @@ Config snippet:
   "observability": {
     "level": "info",
     "use_otel": true,
-    "service_name": "ibc-eureka-relayer",
+    "service_name": "proof-api",
     "otel_endpoint": "http://localhost:4317"
   }
 }
@@ -458,7 +458,7 @@ docker compose up -d
 - Prometheus: http://localhost:9090
 - Alloy (collector): OTLP gRPC on `0.0.0.0:4317` and HTTP on `4318`
 
-### Enable relayer tracing to local stack in e2e
+### Enable proof-api tracing to local stack in e2e
 
 Set the environment variable before running the e2e tests:
 
@@ -467,35 +467,35 @@ export ENABLE_LOCAL_OBSERVABILITY=true
 ```
 
 Behavior when enabled:
-- Observability config in the generated relayer `config.json` will be set to:
+- Observability config in the generated proof-api `config.json` will be set to:
 
 ```json
 {
   "observability": {
     "level": "<from RUST_LOG or 'info' if unset>",
     "use_otel": true,
-    "service_name": "ibc-eureka-relayer",
+    "service_name": "proof-api",
     "otel_endpoint": "http://127.0.0.1:4317"
   }
 }
 ```
 
-- The relayer respects `RUST_LOG` for log level; set it if you want a different level:
+- The proof-api respects `RUST_LOG` for log level; set it if you want a different level:
 
 ```bash
 export RUST_LOG=debug
 ```
 
-- Prometheus metrics are served at `http://0.0.0.0:9000/metrics` by the relayer and scraped by Prometheus if you configure it. The local stack already includes Prometheus; you can add a scrape config there if desired.
+- Prometheus metrics are served at `http://0.0.0.0:9000/metrics` by the proof-api and scraped by Prometheus if you configure it. The local stack already includes Prometheus; you can add a scrape config there if desired.
 
 ### Validate traces in Grafana
 
 1. Open Grafana at http://localhost:3002
 2. Go to the Tempo datasource and run a trace search for recent activity.
-3. Generate e2e traffic (run tests). You should see spans with `service.name = ibc-eureka-relayer`.
+3. Generate e2e traffic (run tests). You should see spans with `service.name = proof-api`.
 
 ### Notes
 
-- e2e relayer runs on the host, so `http://127.0.0.1:4317` reaches the Alloy collector in Docker.
+- e2e proof-api runs on the host, so `http://127.0.0.1:4317` reaches the Alloy collector in Docker.
 - The OTLP transport is gRPC on 4317 as configured in `scripts/local-grafana-stack/config.alloy`.
-- If you need HTTP instead, switch the endpoint to `http://127.0.0.1:4318` and ensure the relayer exporter supports HTTP.
+- If you need HTTP instead, switch the endpoint to `http://127.0.0.1:4318` and ensure the proof-api exporter supports HTTP.

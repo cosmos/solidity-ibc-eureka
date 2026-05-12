@@ -49,8 +49,8 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-  build-relayer:
-    name: build-relayer
+  build-proof-api:
+    name: build-proof-api
     runs-on: depot-ubuntu-24.04-4
     continue-on-error: true
     steps:
@@ -61,7 +61,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --bin relayer --release --locked
+          args: --bin proof-api --release --locked
 
   build-operator:
     name: build-operator

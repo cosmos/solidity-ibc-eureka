@@ -42,11 +42,11 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/erc20"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 type MultichainTestSuite struct {
@@ -67,7 +67,7 @@ type MultichainTestSuite struct {
 	ics20Contract          *ics20transfer.Contract
 	erc20Contract          *erc20.Contract
 
-	RelayerClient relayertypes.RelayerServiceClient
+	ProofApiClient proofapitypes.ProofApiServiceClient
 
 	SimdARelayerSubmitter ibc.Wallet
 	SimdBRelayerSubmitter ibc.Wallet
@@ -151,15 +151,15 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		s.Require().NoError(err)
 	}))
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
 		beaconAPI := ""
 		// The BeaconAPIClient is nil when the testnet is `pow`
 		if eth.BeaconAPIClient != nil {
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		sp1Config := relayer.SP1ProverConfig{
+		sp1Config := proofapi.SP1ProverConfig{
 			Type: prover,
 		}
 		if prover == testvalues.EnvValueSp1Prover_Network {
@@ -169,9 +169,9 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		mockClient := os.Getenv(testvalues.EnvKeyEthTestnetType) == testvalues.EthTestnetTypeAnvil
 
 		// Eth↔ChainA, Eth↔ChainB, ChainA↔ChainB
-		config := relayer.NewConfigBuilder().
+		config := proofapi.NewConfigBuilder().
 			// Eth ↔ ChainA
-			EthToCosmos(relayer.EthToCosmosParams{
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simdA.Config().ChainID,
 				TmRPC:         simdA.GetHostRPCAddress(),
@@ -181,7 +181,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SignerAddress: s.SimdARelayerSubmitter.FormattedAddress(),
 				MockClient:    mockClient,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: simdA.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         simdA.GetHostRPCAddress(),
@@ -190,7 +190,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				Prover:        sp1Config,
 			}).
 			// Eth ↔ ChainB
-			EthToCosmos(relayer.EthToCosmosParams{
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simdB.Config().ChainID,
 				TmRPC:         simdB.GetHostRPCAddress(),
@@ -200,7 +200,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
 				MockClient:    mockClient,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: simdB.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         simdB.GetHostRPCAddress(),
@@ -209,14 +209,14 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 				Prover:        sp1Config,
 			}).
 			// ChainA ↔ ChainB (signer must exist on destination chain)
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    simdA.Config().ChainID,
 				DstChainID:    simdB.Config().ChainID,
 				SrcRPC:        simdA.GetHostRPCAddress(),
 				DstRPC:        simdB.GetHostRPCAddress(),
 				SignerAddress: s.SimdBRelayerSubmitter.FormattedAddress(),
 			}).
-			CosmosToCosmos(relayer.CosmosToCosmosParams{
+			CosmosToCosmos(proofapi.CosmosToCosmosParams{
 				SrcChainID:    simdB.Config().ChainID,
 				DstChainID:    simdA.Config().ChainID,
 				SrcRPC:        simdB.GetHostRPCAddress(),
@@ -225,31 +225,31 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
+		if proofApiProcess != nil {
+			err := proofApiProcess.Kill()
 			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
+				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
-		time.Sleep(5 * time.Second) // wait for the relayer to start
+	s.Require().True(s.Run("Create Proof API Client", func() {
+		time.Sleep(5 * time.Second) // wait for the proof API to start
 
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
@@ -259,7 +259,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx for ChainA's client", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simdA.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
@@ -285,7 +285,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 		}))
 
 		s.Require().True(s.Run("Retrieve create client tx for ChainB's client", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simdB.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
@@ -325,7 +325,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: simdA.Config().ChainID,
 				Parameters: map[string]string{
@@ -370,7 +370,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: simdB.Config().ChainID,
 				Parameters: map[string]string{
@@ -436,7 +436,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	s.Require().True(s.Run("Create Light Client of Chain A on Chain B", func() {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simdA.Config().ChainID,
 				DstChain: simdB.Config().ChainID,
 			})
@@ -458,7 +458,7 @@ func (s *MultichainTestSuite) SetupSuite(ctx context.Context, proofType types.Su
 	s.Require().True(s.Run("Create Light Client of Chain B on Chain A", func() {
 		var createClientTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simdB.Config().ChainID,
 				DstChain: simdA.Config().ChainID,
 			})
@@ -627,10 +627,10 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(simdB.Config().ChainID, clientState.ChainId)
 	}))
 
-	time.Sleep(5 * time.Second) // wait for the relayer to start
+	time.Sleep(5 * time.Second) // wait for the proof API to start
 
-	s.Require().True(s.Run("Verify SimdA to Eth Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify SimdA to Eth Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: simdA.Config().ChainID,
 			DstChain: eth.ChainID.String(),
 		})
@@ -640,8 +640,8 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Eth to SimdA Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Eth to SimdA Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: eth.ChainID.String(),
 			DstChain: simdA.Config().ChainID,
 		})
@@ -651,8 +651,8 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(simdA.Config().ChainID, info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify SimdB to Eth Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify SimdB to Eth Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: simdB.Config().ChainID,
 			DstChain: eth.ChainID.String(),
 		})
@@ -662,8 +662,8 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(eth.ChainID.String(), info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Eth to SimdB Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Eth to SimdB Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: eth.ChainID.String(),
 			DstChain: simdB.Config().ChainID,
 		})
@@ -673,8 +673,8 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(simdB.Config().ChainID, info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Chain A to Chain B Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Chain A to Chain B Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: simdA.Config().ChainID,
 			DstChain: simdB.Config().ChainID,
 		})
@@ -684,8 +684,8 @@ func (s *MultichainTestSuite) Test_Deploy() {
 		s.Require().Equal(simdB.Config().ChainID, info.TargetChain.ChainId)
 	}))
 
-	s.Require().True(s.Run("Verify Chain B to Chain A Relayer Info", func() {
-		info, err := s.RelayerClient.Info(context.Background(), &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Chain B to Chain A Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(context.Background(), &proofapitypes.InfoRequest{
 			SrcChain: simdB.Config().ChainID,
 			DstChain: simdA.Config().ChainID,
 		})
@@ -767,7 +767,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packet on Ethereum", func() {
 		var recvRelayTx []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simdA.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{simdASendTxHash},
@@ -874,7 +874,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packet on SimdB", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simdB.Config().ChainID,
 				SourceTxIds: [][]byte{ethSendTxHash},
@@ -950,7 +950,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 		s.Require().True(s.Run("Receive packet on Ethereum", func() {
 			var relayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    simdB.Config().ChainID,
 					DstChain:    eth.ChainID.String(),
 					SourceTxIds: [][]byte{simdBSendTxHash},
@@ -1021,7 +1021,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToEthToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packet on SimdA", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simdA.Config().ChainID,
 				SourceTxIds: [][]byte{ethSendTxHash},
@@ -1124,7 +1124,7 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packets on SimdA", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    simdA.Config().ChainID,
 				SourceTxIds: [][]byte{ethSendTxHash},
@@ -1200,7 +1200,7 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packet on SimdB", func() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simdA.Config().ChainID,
 				DstChain:    simdB.Config().ChainID,
 				SourceTxIds: [][]byte{simdASendTxHash},
@@ -1276,7 +1276,7 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 	s.Require().True(s.Run("Receive packet on SimdA", func() {
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simdB.Config().ChainID,
 				DstChain:    simdA.Config().ChainID,
 				SourceTxIds: [][]byte{simdBTransferTxHash},
@@ -1345,7 +1345,7 @@ func (s *MultichainTestSuite) Test_TransferEthToCosmosToCosmosAndBack() {
 
 			var relayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    simdA.Config().ChainID,
 					DstChain:    eth.ChainID.String(),
 					SourceTxIds: [][]byte{simdASendTxHash},
@@ -1433,7 +1433,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 	s.Require().True(s.Run("Receive packet on SimdB", func() {
 		var txBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx to SimdB", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simdA.Config().ChainID,
 				DstChain:    simdB.Config().ChainID,
 				SourceTxIds: [][]byte{simdASendTxHash},
@@ -1506,7 +1506,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 
 		var relayTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 				SrcChain:    simdB.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{simdBTransferTxHash},
@@ -1586,7 +1586,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 		s.Require().True(s.Run("Receive packet on SimdB", func() {
 			var returnRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    eth.ChainID.String(),
 					DstChain:    simdB.Config().ChainID,
 					SourceTxIds: [][]byte{ethReturnSendTxHash},
@@ -1657,7 +1657,7 @@ func (s *MultichainTestSuite) Test_TransferCosmosToCosmosToEth() {
 		s.Require().True(s.Run("Receive packet on SimdA", func() {
 			var returnRelayTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve relay tx", func() {
-				resp, err := s.RelayerClient.RelayByTx(context.Background(), &relayertypes.RelayByTxRequest{
+				resp, err := s.ProofApiClient.RelayByTx(context.Background(), &proofapitypes.RelayByTxRequest{
 					SrcChain:    simdB.Config().ChainID,
 					DstChain:    simdA.Config().ChainID,
 					SourceTxIds: [][]byte{simdBTransferTxHash},

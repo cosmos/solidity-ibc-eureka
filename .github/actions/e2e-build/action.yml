@@ -47,19 +47,19 @@ runs:
       shell: bash
       run: just build-sp1-programs
 
-    - name: Cache Relayer
-      id: cache-relayer
+    - name: Cache Proof API
+      id: cache-proof-api
       uses: actions/cache@v4
       with:
-        path: ~/.cargo/bin/relayer
-        key: ${{ runner.os }}-relayer-${{ hashFiles('programs/relayer/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'abi/bytecode/**', 'Cargo.lock') }}
+        path: ~/.cargo/bin/proof-api
+        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'abi/bytecode/**', 'Cargo.lock') }}
 
-    - name: Install relayer
-      if: steps.cache-relayer.outputs.cache-hit != 'true'
+    - name: Install proof API
+      if: steps.cache-proof-api.outputs.cache-hit != 'true'
       uses: actions-rs/cargo@v1
       with:
         command: install
-        args: --bin relayer --path programs/relayer --locked
+        args: --bin proof-api --path programs/proof-api --locked
 
     - name: Cache Operator
       id: cache-operator
@@ -109,7 +109,7 @@ runs:
         mkdir -p e2e-artifacts/bin
         mkdir -p e2e-artifacts/sp1-programs
         mkdir -p e2e-artifacts/solana-programs
-        cp ~/.cargo/bin/relayer e2e-artifacts/bin/
+        cp ~/.cargo/bin/proof-api e2e-artifacts/bin/
         cp ~/.cargo/bin/operator e2e-artifacts/bin/
         cp -r programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
         cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/

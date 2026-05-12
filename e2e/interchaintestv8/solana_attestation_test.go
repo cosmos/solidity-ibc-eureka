@@ -40,12 +40,12 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	cosmosutils "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	attestortypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/attestor"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 const (
@@ -88,8 +88,8 @@ type IbcSolanaAttestationTestSuite struct {
 	SolanaAttestorAddresses  []string
 	SolanaAttestorClient     attestortypes.AttestationServiceClient
 
-	RelayerClient  relayertypes.RelayerServiceClient
-	RelayerProcess *os.Process
+	ProofApiClient  proofapitypes.ProofApiServiceClient
+	ProofApiProcess *os.Process
 }
 
 func TestWithIbcSolanaAttestationTestSuite(t *testing.T) {
@@ -101,10 +101,10 @@ func (s *IbcSolanaAttestationTestSuite) TearDownSuite() {
 	attestor.CleanupContainers(ctx, s.T(), s.CosmosAttestorContainers)
 	attestor.CleanupContainers(ctx, s.T(), s.SolanaAttestorContainers)
 
-	if s.RelayerProcess != nil {
-		s.T().Logf("Cleaning up relayer process (PID: %d)", s.RelayerProcess.Pid)
-		if err := s.RelayerProcess.Kill(); err != nil {
-			s.T().Logf("Failed to kill relayer process: %v", err)
+	if s.ProofApiProcess != nil {
+		s.T().Logf("Cleaning up proof API process (PID: %d)", s.ProofApiProcess.Pid)
+		if err := s.ProofApiProcess.Kill(); err != nil {
+			s.T().Logf("Failed to kill proof API process: %v", err)
 		}
 	}
 }
@@ -320,9 +320,9 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 	s.T().Log("Initializing Attestation Light Client on Solana...")
 	s.initializeAttestationLightClient(ctx)
 
-	s.T().Log("Starting relayer...")
-	config := relayer.NewConfigBuilder().
-		SolanaToCosmosAttested(relayer.SolanaToCosmosAttestedParams{
+	s.T().Log("Starting proofapi...")
+	config := proofapi.NewConfigBuilder().
+		SolanaToCosmosAttested(proofapi.SolanaToCosmosAttestedParams{
 			SolanaChainID:     testvalues.SolanaChainID,
 			CosmosChainID:     simd.Config().ChainID,
 			SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -333,7 +333,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 			AttestorTimeout:   30000,
 			QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 		}).
-		CosmosToSolanaAttested(relayer.CosmosToSolanaAttestedParams{
+		CosmosToSolanaAttested(proofapi.CosmosToSolanaAttestedParams{
 			CosmosChainID:     simd.Config().ChainID,
 			SolanaChainID:     testvalues.SolanaChainID,
 			SolanaRPC:         testvalues.SolanaLocalnetRPC,
@@ -345,17 +345,17 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 		}).
 		Build()
 
-	err = config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+	err = config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 	s.Require().NoError(err)
 
-	s.RelayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+	s.ProofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 	s.Require().NoError(err)
 
 	s.T().Cleanup(func() {
-		os.Remove(testvalues.RelayerConfigFilePath)
+		os.Remove(testvalues.ProofAPIConfigFilePath)
 	})
 
-	s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+	s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 	s.Require().NoError(err)
 
 	s.T().Log("Creating attestor client on Cosmos...")
@@ -366,7 +366,7 @@ func (s *IbcSolanaAttestationTestSuite) SetupSuite(ctx context.Context) {
 
 	s.Require().NotEmpty(s.SolanaAttestorAddresses, "No Solana attestor addresses available")
 
-	clientResp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+	clientResp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 		SrcChain: testvalues.SolanaChainID,
 		DstChain: simd.Config().ChainID,
 		Parameters: map[string]string{
@@ -550,16 +550,16 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Deploy() {
 		s.T().Logf("Solana attestor working - attested slot: %d", slot)
 	}))
 
-	s.Require().True(s.Run("Verify relayer connection", func() {
+	s.Require().True(s.Run("Verify proof API connection", func() {
 		simd := s.Cosmos.Chains[0]
 
-		resp, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+		resp, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: simd.Config().ChainID,
 			DstChain: testvalues.SolanaChainID,
 		})
 		s.Require().NoError(err)
 		s.Require().NotNil(resp)
-		s.T().Logf("Relayer: %s <-> %s", resp.SourceChain.ChainId, resp.TargetChain.ChainId)
+		s.T().Logf("Proof API: %s <-> %s", resp.SourceChain.ChainId, resp.TargetChain.ChainId)
 	}))
 }
 
@@ -575,7 +575,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 	simd := s.Cosmos.Chains[0]
 
 	s.Require().True(s.Run("Update attestation client on Solana", func() {
-		resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+		resp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			DstClientId: s.AttestationClientID,
@@ -583,7 +583,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_SolanaAttestorVerifyPac
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
-		var solanaUpdateClient relayertypes.SolanaUpdateClient
+		var solanaUpdateClient proofapitypes.SolanaUpdateClient
 		err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
@@ -770,7 +770,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 
 	s.Require().True(s.Run("Relay packet to Solana using attestation LC", func() {
 		s.Require().True(s.Run("Update attestation client on Solana", func() {
-			resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				DstClientId: s.AttestationClientID,
@@ -779,7 +779,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 			s.Require().NotEmpty(resp.Tx)
 
 			// Unmarshal the protobuf-encoded SolanaUpdateClient
-			var solanaUpdateClient relayertypes.SolanaUpdateClient
+			var solanaUpdateClient proofapitypes.SolanaUpdateClient
 			err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 			s.Require().NoError(err, "Failed to unmarshal SolanaUpdateClient")
 			s.Require().NotEmpty(solanaUpdateClient.AssemblyTx, "AssemblyTx is empty")
@@ -793,7 +793,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 		}))
 
 		s.Require().True(s.Run("Relay packet", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
@@ -888,7 +888,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_CosmosToSolanaTransfer(
 	}))
 
 	s.Require().True(s.Run("Relay acknowledgment back to Cosmos", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    testvalues.SolanaChainID,
 			DstChain:    simd.Config().ChainID,
 			SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
@@ -1013,7 +1013,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Update attestation client on Solana", func() {
-			resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				DstClientId: s.AttestationClientID,
@@ -1022,7 +1022,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 			s.Require().NotEmpty(resp.Tx)
 
 			// Unmarshal the protobuf-encoded SolanaUpdateClient
-			var solanaUpdateClient relayertypes.SolanaUpdateClient
+			var solanaUpdateClient proofapitypes.SolanaUpdateClient
 			err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 			s.Require().NoError(err, "Failed to unmarshal SolanaUpdateClient")
 			s.Require().NotEmpty(solanaUpdateClient.AssemblyTx, "AssemblyTx is empty")
@@ -1036,7 +1036,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Relay packet to Solana", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{cosmosRelayPacketTxHash},
@@ -1068,7 +1068,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Relay ACK to Cosmos", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaRelayTxSig.String())},
@@ -1193,7 +1193,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 		var cosmosRecvTxHash string
 
 		s.Require().True(s.Run("Relay packet to Cosmos", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    testvalues.SolanaChainID,
 				DstChain:    simd.Config().ChainID,
 				SourceTxIds: [][]byte{[]byte(solanaSendTxSig.String())},
@@ -1222,7 +1222,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_Roundtrip() {
 			cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxHash)
 			s.Require().NoError(err)
 
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    testvalues.SolanaChainID,
 				SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
@@ -1296,7 +1296,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 	appState, _ := solana.TestIbcApp.AppStatePDA(s.TestAppProgramID)
 
 	s.Require().True(s.Run("Update attestation client on Solana", func() {
-		resp, err := s.RelayerClient.UpdateClient(ctx, &relayertypes.UpdateClientRequest{
+		resp, err := s.ProofApiClient.UpdateClient(ctx, &proofapitypes.UpdateClientRequest{
 			SrcChain:    simd.Config().ChainID,
 			DstChain:    testvalues.SolanaChainID,
 			DstClientId: s.AttestationClientID,
@@ -1304,7 +1304,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 		s.Require().NoError(err)
 		s.Require().NotEmpty(resp.Tx)
 
-		var solanaUpdateClient relayertypes.SolanaUpdateClient
+		var solanaUpdateClient proofapitypes.SolanaUpdateClient
 		err = proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 		s.Require().NoError(err)
 		s.Require().NotEmpty(solanaUpdateClient.AssemblyTx)
@@ -1397,7 +1397,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromSolana() {
 	}))
 
 	s.Require().True(s.Run("Relay timeout from Cosmos to Solana via attested path", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     simd.Config().ChainID,
 			DstChain:     testvalues.SolanaChainID,
 			TimeoutTxIds: [][]byte{[]byte(solanaSendTxSig.String())},
@@ -1503,7 +1503,7 @@ func (s *IbcSolanaAttestationTestSuite) Test_Attestation_TimeoutFromCosmos() {
 	}))
 
 	s.Require().True(s.Run("Relay timeout from Solana to Cosmos via attested path", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     testvalues.SolanaChainID,
 			DstChain:     simd.Config().ChainID,
 			TimeoutTxIds: [][]byte{cosmosPacketTxHash},

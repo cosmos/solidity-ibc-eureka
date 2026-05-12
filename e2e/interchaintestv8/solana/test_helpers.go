@@ -19,18 +19,18 @@ import (
 	ics07_tendermint "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics07tendermint"
 	ics26_router "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/ics26router"
 
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 func (s *Solana) SubmitChunkedRelayPackets(
 	ctx context.Context,
 	t *testing.T,
-	resp *relayertypes.RelayByTxResponse,
+	resp *proofapitypes.RelayByTxResponse,
 	user *solana.Wallet,
 ) (solana.Signature, error) {
 	t.Helper()
 
-	var batch relayertypes.SolanaRelayPacketBatch
+	var batch proofapitypes.SolanaRelayPacketBatch
 	err := proto.Unmarshal(resp.Tx, &batch)
 	if err != nil {
 		return solana.Signature{}, fmt.Errorf("failed to unmarshal SolanaRelayPacketBatch: %w", err)
@@ -51,7 +51,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 		if err != nil {
 			return solana.Signature{}, fmt.Errorf("failed to marshal update client: %w", err)
 		}
-		updateResp := &relayertypes.UpdateClientResponse{
+		updateResp := &proofapitypes.UpdateClientResponse{
 			Tx: updateClientBytes,
 		}
 
@@ -107,7 +107,7 @@ func (s *Solana) SubmitChunkedRelayPackets(
 	var finalizeTransferWg sync.WaitGroup
 
 	for packetIdx, packet := range batch.Packets {
-		go func(pktIdx int, pkt *relayertypes.SolanaPacketTxs) {
+		go func(pktIdx int, pkt *proofapitypes.SolanaPacketTxs) {
 			packetStart := time.Now()
 			hasAlt := len(pkt.AltCreateTx) > 0
 			t.Logf("--- Packet %d: Starting (%d chunks + 1 final tx, ALT: %v) ---", pktIdx+1, len(pkt.Chunks), hasAlt)
@@ -462,20 +462,20 @@ func (s *Solana) DeploySolanaProgramAsync(ctx context.Context, programName, keyp
 	return programID, nil
 }
 
-func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+func (s *Solana) SubmitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *proofapitypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
 	s.submitChunkedUpdateClient(ctx, t, require, resp, user, false)
 }
 
-func (s *Solana) SubmitChunkedUpdateClientSkipCleanup(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet) {
+func (s *Solana) SubmitChunkedUpdateClientSkipCleanup(ctx context.Context, t *testing.T, require *require.Assertions, resp *proofapitypes.UpdateClientResponse, user *solana.Wallet) {
 	t.Helper()
 	s.submitChunkedUpdateClient(ctx, t, require, resp, user, true)
 }
 
-func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *relayertypes.UpdateClientResponse, user *solana.Wallet, skipCleanup bool) {
+func (s *Solana) submitChunkedUpdateClient(ctx context.Context, t *testing.T, require *require.Assertions, resp *proofapitypes.UpdateClientResponse, user *solana.Wallet, skipCleanup bool) {
 	t.Helper()
 
-	var solanaUpdateClient relayertypes.SolanaUpdateClient
+	var solanaUpdateClient proofapitypes.SolanaUpdateClient
 	err := proto.Unmarshal(resp.Tx, &solanaUpdateClient)
 	require.NoError(err, "Failed to unmarshal SolanaUpdateClient")
 	require.NotEmpty(solanaUpdateClient.ChunkTxs, "no chunked transactions provided")

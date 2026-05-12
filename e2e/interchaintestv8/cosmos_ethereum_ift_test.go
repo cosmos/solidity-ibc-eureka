@@ -37,11 +37,11 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/cosmos"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
 )
@@ -66,7 +66,7 @@ type CosmosEthereumIFTTestSuite struct {
 	CosmosUser             ibc.Wallet
 
 	// Relayer
-	RelayerClient relayertypes.RelayerServiceClient
+	ProofApiClient proofapitypes.ProofApiServiceClient
 
 	// Prover config
 	prover    string
@@ -187,22 +187,22 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 	s.T().Logf("Started %d attestors with endpoints: %v, addresses: %v",
 		len(s.ethAttestorResult.Endpoints), s.ethAttestorResult.Endpoints, s.ethAttestorResult.Addresses)
 
-	// Verify attestors are reachable before starting relayer
+	// Verify attestors are reachable before starting proof API
 	for i, endpoint := range s.ethAttestorResult.Endpoints {
 		err := attestor.CheckAttestorHealth(ctx, endpoint)
 		s.Require().NoError(err, "attestor %d at %s is not healthy", i, endpoint)
 		s.T().Logf("Attestor %d at %s is healthy", i, endpoint)
 	}
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
-		sp1Config := relayer.SP1ProverConfig{
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
+		sp1Config := proofapi.SP1ProverConfig{
 			Type:           s.prover,
 			PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 		}
 
-		config := relayer.NewConfigBuilder().
-			EthToCosmosAttested(relayer.EthToCosmosAttestedParams{
+		config := proofapi.NewConfigBuilder().
+			EthToCosmosAttested(proofapi.EthToCosmosAttestedParams{
 				EthChainID:        eth.ChainID.String(),
 				CosmosChainID:     s.Wfchain.Config().ChainID,
 				TmRPC:             s.Wfchain.GetHostRPCAddress(),
@@ -213,7 +213,7 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 				AttestorTimeout:   30000,
 				QuorumThreshold:   testvalues.DefaultMinRequiredSigs,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: s.Wfchain.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         s.Wfchain.GetHostRPCAddress(),
@@ -223,31 +223,31 @@ func (s *CosmosEthereumIFTTestSuite) SetupSuite(ctx context.Context, proofType t
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			_ = relayerProcess.Kill()
+		if proofApiProcess != nil {
+			_ = proofApiProcess.Kill()
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	s.Require().True(s.Run("Create Proof API Client", func() {
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info", func() {
-		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info", func() {
+		info, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: s.Wfchain.Config().ChainID,
 			DstChain: eth.ChainID.String(),
 		})
@@ -276,8 +276,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 		s.T().Logf("Ethereum block: %d", blockNum)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info Cosmos->Eth", func() {
-		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info Cosmos->Eth", func() {
+		info, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: s.Wfchain.Config().ChainID,
 			DstChain: s.Eth.Chains[0].ChainID.String(),
 		})
@@ -285,8 +285,8 @@ func (s *CosmosEthereumIFTTestSuite) Test_Deploy() {
 		s.Require().NotNil(info)
 	}))
 
-	s.Require().True(s.Run("Verify Relayer Info Eth->Cosmos", func() {
-		info, err := s.RelayerClient.Info(ctx, &relayertypes.InfoRequest{
+	s.Require().True(s.Run("Verify Proof API Info Eth->Cosmos", func() {
+		info, err := s.ProofApiClient.Info(ctx, &proofapitypes.InfoRequest{
 			SrcChain: s.Eth.Chains[0].ChainID.String(),
 			DstChain: s.Wfchain.Config().ChainID,
 		})
@@ -330,7 +330,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 
 			var createClientTxBodyBz []byte
 			s.Require().True(s.Run("Retrieve create client tx", func() {
-				resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+				resp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 					SrcChain: s.Wfchain.Config().ChainID,
 					DstChain: eth.ChainID.String(),
 					Parameters: map[string]string{
@@ -377,7 +377,7 @@ func (s *CosmosEthereumIFTTestSuite) setupIFTInfrastructure(ctx context.Context,
 					testvalues.ParameterKey_timestamp:         strconv.FormatUint(blockHeader.Time, 10),
 				}
 
-				resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+				resp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 					SrcChain:   eth.ChainID.String(),
 					DstChain:   s.Wfchain.Config().ChainID,
 					Parameters: parameters,
@@ -528,7 +528,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 			sendTxHashBytes, err := hex.DecodeString(cosmosSendTxHash)
 			s.Require().NoError(err)
 
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.Wfchain.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{sendTxHashBytes},
@@ -554,7 +554,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Relay ack to Cosmos", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    s.Wfchain.Config().ChainID,
 				SourceTxIds: [][]byte{cosmosRecvTxHash},
@@ -604,7 +604,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 		}))
 
 		s.Require().True(s.Run("Relay packet to Cosmos", func() {
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    eth.ChainID.String(),
 				DstChain:    s.Wfchain.Config().ChainID,
 				SourceTxIds: [][]byte{ethSendTxHash},
@@ -627,7 +627,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_Roundtrip() {
 			cosmosRecvTxHashBytes, err := hex.DecodeString(cosmosRecvTxResponse.TxHash)
 			s.Require().NoError(err)
 
-			resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+			resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 				SrcChain:    s.Wfchain.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				SourceTxIds: [][]byte{cosmosRecvTxHashBytes},
@@ -724,7 +724,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutCosmosToEthereum() 
 		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
 		s.Require().NoError(err)
 
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     eth.ChainID.String(),
 			DstChain:     s.Wfchain.Config().ChainID,
 			TimeoutTxIds: [][]byte{sendTxHashBytes},
@@ -831,7 +831,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_TimeoutEthereumToCosmos() 
 	}))
 
 	s.Require().True(s.Run("Relay timeout packet to Ethereum", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:     s.Wfchain.Config().ChainID,
 			DstChain:     eth.ChainID.String(),
 			TimeoutTxIds: [][]byte{sendTxHash},
@@ -938,7 +938,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 
 	var recvTxHash string
 	s.Require().True(s.Run("Relay packet to Cosmos (execution fails)", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    eth.ChainID.String(),
 			DstChain:    s.Wfchain.Config().ChainID,
 			SourceTxIds: [][]byte{sendTxHash},
@@ -962,7 +962,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnCosmos() {
 		recvTxHashBytes, err := hex.DecodeString(recvTxHash)
 		s.Require().NoError(err)
 
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    s.Wfchain.Config().ChainID,
 			DstChain:    eth.ChainID.String(),
 			SourceTxIds: [][]byte{recvTxHashBytes},
@@ -1019,7 +1019,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 			verifierAddress, err := s.contractAddresses.GetVerifierAddress(s.prover, s.proofType.String())
 			s.Require().NoError(err)
 
-			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 				SrcChain: s.Wfchain.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
@@ -1051,7 +1051,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 				attestorAddresses += "," + s.ethAttestorResult.Addresses[i]
 			}
 
-			resp, err := s.RelayerClient.CreateClient(ctx, &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(ctx, &proofapitypes.CreateClientRequest{
 				SrcChain: eth.ChainID.String(),
 				DstChain: s.Wfchain.Config().ChainID,
 				Parameters: map[string]string{
@@ -1161,7 +1161,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 		sendTxHashBytes, err := hex.DecodeString(sendTxHash)
 		s.Require().NoError(err)
 
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    s.Wfchain.Config().ChainID,
 			DstChain:    eth.ChainID.String(),
 			SourceTxIds: [][]byte{sendTxHashBytes},
@@ -1187,7 +1187,7 @@ func (s *CosmosEthereumIFTTestSuite) Test_IFTTransfer_FailedReceiveOnEthereum() 
 	}))
 
 	s.Require().True(s.Run("Relay error ack to Cosmos", func() {
-		resp, err := s.RelayerClient.RelayByTx(ctx, &relayertypes.RelayByTxRequest{
+		resp, err := s.ProofApiClient.RelayByTx(ctx, &proofapitypes.RelayByTxRequest{
 			SrcChain:    eth.ChainID.String(),
 			DstChain:    s.Wfchain.Config().ChainID,
 			SourceTxIds: [][]byte{recvTxHash},

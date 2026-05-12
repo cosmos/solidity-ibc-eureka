@@ -38,10 +38,10 @@ import (
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/e2esuite"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/ethereum"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/operator"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/relayer"
+	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	relayertypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/relayer"
+	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 
 // SP1ICS07TendermintTestSuite is a suite of tests that wraps TestSuite
@@ -60,11 +60,11 @@ type SP1ICS07TendermintTestSuite struct {
 	key *ecdsa.PrivateKey
 	// The SP1ICS07Tendermint contract
 	contract *sp1ics07tendermint.Contract
-	// The ICS26 router contract, needed for the relayer to pass proofs
+	// The ICS26 router contract, needed for the proof API to pass proofs
 	ics26Contract *ics26router.Contract
 
-	// The relayer API (only used for deployment at the moment)
-	RelayerClient relayertypes.RelayerServiceClient
+	// The proof API (only used for deployment at the moment)
+	ProofApiClient proofapitypes.ProofApiServiceClient
 }
 
 // SetupSuite calls the underlying SP1ICS07TendermintTestSuite's SetupSuite method
@@ -126,15 +126,15 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 		s.Require().NoError(err)
 	}))
 
-	var relayerProcess *os.Process
-	s.Require().True(s.Run("Start Relayer", func() {
+	var proofApiProcess *os.Process
+	s.Require().True(s.Run("Start Proof API", func() {
 		beaconAPI := ""
 		if eth.BeaconAPIClient != nil {
 			beaconAPI = eth.BeaconAPIClient.GetBeaconAPIURL()
 		}
 
-		config := relayer.NewConfigBuilder().
-			EthToCosmos(relayer.EthToCosmosParams{
+		config := proofapi.NewConfigBuilder().
+			EthToCosmos(proofapi.EthToCosmosParams{
 				EthChainID:    eth.ChainID.String(),
 				CosmosChainID: simd.Config().ChainID,
 				TmRPC:         simd.GetHostRPCAddress(),
@@ -142,42 +142,42 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 				EthRPC:        eth.RPC,
 				BeaconAPI:     beaconAPI,
 			}).
-			CosmosToEthSP1(relayer.CosmosToEthSP1Params{
+			CosmosToEthSP1(proofapi.CosmosToEthSP1Params{
 				CosmosChainID: simd.Config().ChainID,
 				EthChainID:    eth.ChainID.String(),
 				TmRPC:         simd.GetHostRPCAddress(),
 				ICS26Address:  s.ics26Address.Hex(),
 				EthRPC:        eth.RPC,
-				Prover: relayer.SP1ProverConfig{
+				Prover: proofapi.SP1ProverConfig{
 					Type:           prover,
 					PrivateCluster: os.Getenv(testvalues.EnvKeyNetworkPrivateCluster) == testvalues.EnvValueSp1Prover_PrivateCluster,
 				},
 			}).
 			Build()
 
-		err := config.GenerateConfigFile(testvalues.RelayerConfigFilePath)
+		err := config.GenerateConfigFile(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
-		relayerProcess, err = relayer.StartRelayer(testvalues.RelayerConfigFilePath)
+		proofApiProcess, err = proofapi.StartProofAPI(testvalues.ProofAPIConfigFilePath)
 		s.Require().NoError(err)
 
 		s.T().Cleanup(func() {
-			os.Remove(testvalues.RelayerConfigFilePath)
+			os.Remove(testvalues.ProofAPIConfigFilePath)
 		})
 	}))
 
 	s.T().Cleanup(func() {
-		if relayerProcess != nil {
-			err := relayerProcess.Kill()
+		if proofApiProcess != nil {
+			err := proofApiProcess.Kill()
 			if err != nil {
-				s.T().Logf("Failed to kill the relayer process: %v", err)
+				s.T().Logf("Failed to kill the proof API process: %v", err)
 			}
 		}
 	})
 
-	s.Require().True(s.Run("Create Relayer Client", func() {
+	s.Require().True(s.Run("Create Proof API Client", func() {
 		var err error
-		s.RelayerClient, err = relayer.GetGRPCClient(relayer.DefaultRelayerGRPCAddress())
+		s.ProofApiClient, err = proofapi.GetGRPCClient(proofapi.DefaultProofAPIGRPCAddress())
 		s.Require().NoError(err)
 	}))
 
@@ -193,7 +193,7 @@ func (s *SP1ICS07TendermintTestSuite) SetupSuite(ctx context.Context, proofType 
 
 		var createClientTxBz []byte
 		s.Require().True(s.Run("Retrieve create client tx", func() {
-			resp, err := s.RelayerClient.CreateClient(context.Background(), &relayertypes.CreateClientRequest{
+			resp, err := s.ProofApiClient.CreateClient(context.Background(), &proofapitypes.CreateClientRequest{
 				SrcChain: simd.Config().ChainID,
 				DstChain: eth.ChainID.String(),
 				Parameters: map[string]string{
@@ -822,7 +822,7 @@ func (s *SP1ICS07TendermintTestSuite) UpdateClient(ctx context.Context) clientty
 	s.Require().True(s.Run("Update the client on Ethereum", func() {
 		var updateTxBodyBz []byte
 		s.Require().True(s.Run("Retrieve relay tx", func() {
-			resp, err := s.RelayerClient.UpdateClient(context.Background(), &relayertypes.UpdateClientRequest{
+			resp, err := s.ProofApiClient.UpdateClient(context.Background(), &proofapitypes.UpdateClientRequest{
 				SrcChain:    simd.Config().ChainID,
 				DstChain:    eth.ChainID.String(),
 				DstClientId: testvalues.CustomClientID,

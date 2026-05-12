@@ -146,7 +146,7 @@ const (
 	SolanaTestnetType_Localnet = "localnet"
 	// SolanaTestnetType_None is the Solana testnet type for using no chain.
 	SolanaTestnetType_None = "none"
-	// SolanaChainID is the chain identifier for Solana localnet used in relayer config.
+	// SolanaChainID is the chain identifier for Solana localnet used in proof API config.
 	SolanaChainID = "solana-localnet"
 	// SolanaLocalnetRPC is the default RPC URL for Solana localnet.
 	SolanaLocalnetRPC = "http://localhost:8899"
@@ -169,8 +169,8 @@ const (
 	SP1ICS07FixturesDir = "test/sp1-ics07/fixtures"
 	// WasmFixturesDir is the directory where the Rust fixtures are stored.
 	WasmFixturesDir = "packages/ethereum/light-client/src/test_utils/fixtures"
-	// RelayerConfigFilePath is the path to generate the relayer config file.
-	RelayerConfigFilePath = "programs/relayer/config.json"
+	// ProofAPIConfigFilePath is the path to generate the proof API config file.
+	ProofAPIConfigFilePath = "programs/proof-api/config.json"
 	// E2EDeployScriptPath is the path to the E2E deploy script.
 	E2EDeployScriptPath = "scripts/E2ETestDeploy.s.sol:E2ETestDeploy"
 
@@ -220,13 +220,13 @@ const (
 	// IFTModuleName is the IFT module name.
 	IFTModuleName = "ift"
 
-	// Sp1 verifier address parameter key for the relayer's sp1 light client creation.
+	// Sp1 verifier address parameter key for the proof API's sp1 light client creation.
 	ParameterKey_Sp1Verifier = "sp1_verifier"
-	// Zk algorithm parameter key for the relayer's sp1 light client creation.
+	// Zk algorithm parameter key for the proof API's sp1 light client creation.
 	ParameterKey_ZkAlgorithm = "zk_algorithm"
-	// The role manager address parameter key for the relayer's sp1 light client creation.
+	// The role manager address parameter key for the proof API's sp1 light client creation.
 	ParameterKey_RoleManager = "role_manager"
-	// Checksum hex parameter key for the relayer's ethereum light client creation.
+	// Checksum hex parameter key for the proof API's ethereum light client creation.
 	ParameterKey_ChecksumHex = "checksum_hex"
 
 	// Min sigs parameter for the attestor light client creation.

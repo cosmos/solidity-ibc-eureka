@@ -20,10 +20,10 @@ default:
 build-contracts: clean-foundry
 	forge build
 
-# Build the relayer using `cargo build`
+# Build the proof API using `cargo build`
 [group('build')]
-build-relayer:
-	cargo build --bin relayer --release --locked
+build-proof-api:
+	cargo build --bin proof-api --release --locked
 
 # Build the operator using `cargo build`
 [group('build')]
@@ -724,21 +724,21 @@ build-cw-ics08-wasm-eth:
   cp artifacts/cw_ics08_wasm_eth.wasm e2e/interchaintestv8/wasm
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
-# Build the relayer docker image
+# Build the proof API docker image
 # Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
-build-relayer-image:
-    docker build -t eureka-relayer:latest -f programs/relayer/Dockerfile .
+build-proof-api-image:
+    docker build -t proof-api:latest -f programs/proof-api/Dockerfile .
 
 # Install the sp1-ics07-tendermint operator for use in the e2e tests
 [group('install')]
 install-operator:
 	cargo install --bin operator --path programs/operator --locked --force
 
-# Install the relayer using `cargo install`
+# Install the proof API using `cargo install`
 [group('install')]
-install-relayer:
-	cargo install --bin relayer --path programs/relayer --locked --force
+install-proof-api:
+	cargo install --bin proof-api --path programs/proof-api --locked --force
 
 # Run all linters
 [group('lint')]
@@ -865,7 +865,7 @@ generate-pda:
 
 # Generate the fixtures for the wasm tests using the e2e tests
 [group('generate')]
-generate-fixtures-wasm: clean-foundry install-relayer
+generate-fixtures-wasm: clean-foundry install-proof-api
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack$' -timeout 60m
@@ -874,14 +874,14 @@ generate-fixtures-wasm: clean-foundry install-relayer
 	@echo "Generating timeoutPacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_TimeoutPacketFromCosmos$' -timeout 60m
 	@echo "Generating multi-period client update fixtures..."
-	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithRelayerTestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
+	cd e2e/interchaintestv8 && ETH_TESTNET_TYPE=pos GENERATE_WASM_FIXTURES=true go test -v -run '^TestWithProofAPITestSuite/Test_MultiPeriodClientUpdateToCosmos$' -timeout 60m
 
 # Generate the fixtures for the Tendermint light client tests using the e2e tests
 [group('generate')]
-generate-fixtures-tendermint-light-client: install-relayer
+generate-fixtures-tendermint-light-client: install-proof-api
 	@echo "Generating Tendermint light client fixtures... This may take a while."
 	@echo "Generating basic membership and update client fixtures..."
-	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosRelayerTestSuite/Test_UpdateClient$' -timeout 40m
+	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosProofAPITestSuite/Test_UpdateClient$' -timeout 40m
 
 # Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
@@ -895,7 +895,7 @@ generate-ethereum-types:
 
 # Generate the fixtures for the Solidity tests using the e2e tests
 [group('generate')]
-generate-fixtures-solidity: clean-foundry install-operator install-relayer
+generate-fixtures-solidity: clean-foundry install-operator install-proof-api
 	@echo "Generating fixtures... This may take a while."
 	@echo "Generating recvPacket and acknowledgePacket groth16 fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_SOLIDITY_FIXTURES=true SP1_PROVER=network E2E_PROOF_TYPE=groth16 go test -v -run '^TestWithIbcEurekaTestSuite/Test_ICS20TransferERC20TokenfromEthereumToCosmosAndBack$' -timeout 40m
@@ -920,7 +920,7 @@ private_cluster := if env("E2E_PRIVATE_CLUSTER", "") == "true" { "--private-clus
 
 # Generate the fixture files for `TENDERMINT_RPC_URL` using the prover parameter.
 [group('generate')]
-generate-fixtures-sp1-ics07: clean-foundry install-operator install-relayer
+generate-fixtures-sp1-ics07: clean-foundry install-operator install-proof-api
   @echo "Generating fixtures... This may take a while (up to 20 minutes)"
   TENDERMINT_RPC_URL="${TENDERMINT_RPC_URL%/}" && \
   CURRENT_HEIGHT=$(curl "$TENDERMINT_RPC_URL"/block | jq -r ".result.block.header.height") && \
@@ -972,7 +972,7 @@ test-abigen:
 
 # Run any e2e test using the test's full name. For example, `just test-e2e TestWithIbcEurekaTestSuite/Test_Deploy`
 [group('test')]
-test-e2e testname: clean-foundry install-relayer
+test-e2e testname: clean-foundry install-proof-api
 	@echo "Running {{testname}} test..."
 	cd e2e/interchaintestv8 && go test -v -run '^{{testname}}$' -timeout 120m
 
@@ -982,17 +982,17 @@ test-e2e-eureka testname:
 	@echo "Running {{testname}} test..."
 	just test-e2e TestWithIbcEurekaTestSuite/{{testname}}
 
-# Run any e2e test in the RelayerTestSuite. For example, `just test-e2e-relayer Test_RelayerInfo`
+# Run any e2e test in the ProofAPITestSuite. For example, `just test-e2e-proof-api Test_ProofAPIInfo`
 [group('test')]
-test-e2e-relayer testname:
+test-e2e-proof-api testname:
 	@echo "Running {{testname}} test..."
-	just test-e2e TestWithRelayerTestSuite/{{testname}}
+	just test-e2e TestWithProofAPITestSuite/{{testname}}
 
-# Run any e2e test in the CosmosRelayerTestSuite. For example, `just test-e2e-cosmos-relayer Test_RelayerInfo`
+# Run any e2e test in the CosmosProofAPITestSuite. For example, `just test-e2e-cosmos-proof-api Test_ProofAPIInfo`
 [group('test')]
-test-e2e-cosmos-relayer testname:
+test-e2e-cosmos-proof-api testname:
 	@echo "Running {{testname}} test..."
-	just test-e2e TestWithCosmosRelayerTestSuite/{{testname}}
+	just test-e2e TestWithCosmosProofAPITestSuite/{{testname}}
 
 # Run anu e2e test in the SP1ICS07TendermintTestSuite. For example, `just test-e2e-sp1-ics07 Test_Deploy`
 [group('test')]
