@@ -109,32 +109,53 @@ contract IFTTest is Test {
         IFTOwnable(address(ift)).mint(makeAddr("receiver"), amount);
     }
 
-    function testFuzz_Ownable_authorityCanBurn(uint256 amount) public {
+    function testFuzz_Ownable_holderCanBurn(uint256 amount) public {
         setUpOwnable();
 
         address holder = makeAddr("holder");
 
-        vm.startPrank(admin);
+        vm.prank(admin);
         IFTOwnable(address(ift)).mint(holder, amount);
-        IFTOwnable(address(ift)).burn(holder, amount);
-        vm.stopPrank();
+
+        vm.prank(holder);
+        IFTOwnable(address(ift)).burn(amount);
 
         assertEq(IERC20(address(ift)).balanceOf(holder), 0);
         assertEq(IERC20(address(ift)).totalSupply(), 0);
     }
 
-    function testFuzz_Ownable_unauthorizedCannotBurn(uint256 amount) public {
+    function testFuzz_Ownable_approvedSpenderCanBurnFrom(uint256 amount) public {
         setUpOwnable();
 
         address holder = makeAddr("holder");
-        address unauthorized = makeAddr("unauthorized");
+        address spender = makeAddr("spender");
 
         vm.prank(admin);
         IFTOwnable(address(ift)).mint(holder, amount);
 
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, unauthorized));
-        vm.prank(unauthorized);
-        IFTOwnable(address(ift)).burn(holder, amount);
+        vm.prank(holder);
+        IERC20(address(ift)).approve(spender, amount);
+
+        vm.prank(spender);
+        IFTOwnable(address(ift)).burnFrom(holder, amount);
+
+        assertEq(IERC20(address(ift)).balanceOf(holder), 0);
+        assertEq(IERC20(address(ift)).totalSupply(), 0);
+    }
+
+    function testFuzz_Ownable_unapprovedSpenderCannotBurnFrom(uint256 amount) public {
+        vm.assume(amount > 0);
+        setUpOwnable();
+
+        address holder = makeAddr("holder");
+        address spender = makeAddr("spender");
+
+        vm.prank(admin);
+        IFTOwnable(address(ift)).mint(holder, amount);
+
+        vm.expectRevert();
+        vm.prank(spender);
+        IFTOwnable(address(ift)).burnFrom(holder, amount);
     }
 
     function testFuzz_AccessManaged_authorityCanMint(uint256 amount) public {
@@ -159,32 +180,53 @@ contract IFTTest is Test {
         IFTAccessManaged(address(ift)).mint(makeAddr("receiver"), amount);
     }
 
-    function testFuzz_AccessManaged_authorityCanBurn(uint256 amount) public {
+    function testFuzz_AccessManaged_holderCanBurn(uint256 amount) public {
         setUpAccessManaged();
 
         address holder = makeAddr("holder");
 
-        vm.startPrank(admin);
+        vm.prank(admin);
         IFTAccessManaged(address(ift)).mint(holder, amount);
-        IFTAccessManaged(address(ift)).burn(holder, amount);
-        vm.stopPrank();
+
+        vm.prank(holder);
+        IFTAccessManaged(address(ift)).burn(amount);
 
         assertEq(IERC20(address(ift)).balanceOf(holder), 0);
         assertEq(IERC20(address(ift)).totalSupply(), 0);
     }
 
-    function testFuzz_AccessManaged_unauthorizedCannotBurn(uint256 amount) public {
+    function testFuzz_AccessManaged_approvedSpenderCanBurnFrom(uint256 amount) public {
         setUpAccessManaged();
 
         address holder = makeAddr("holder");
-        address unauthorized = makeAddr("unauthorized");
+        address spender = makeAddr("spender");
 
         vm.prank(admin);
         IFTAccessManaged(address(ift)).mint(holder, amount);
 
-        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
-        vm.prank(unauthorized);
-        IFTAccessManaged(address(ift)).burn(holder, amount);
+        vm.prank(holder);
+        IERC20(address(ift)).approve(spender, amount);
+
+        vm.prank(spender);
+        IFTAccessManaged(address(ift)).burnFrom(holder, amount);
+
+        assertEq(IERC20(address(ift)).balanceOf(holder), 0);
+        assertEq(IERC20(address(ift)).totalSupply(), 0);
+    }
+
+    function testFuzz_AccessManaged_unapprovedSpenderCannotBurnFrom(uint256 amount) public {
+        vm.assume(amount > 0);
+        setUpAccessManaged();
+
+        address holder = makeAddr("holder");
+        address spender = makeAddr("spender");
+
+        vm.prank(admin);
+        IFTAccessManaged(address(ift)).mint(holder, amount);
+
+        vm.expectRevert();
+        vm.prank(spender);
+        IFTAccessManaged(address(ift)).burnFrom(holder, amount);
     }
 
     function fixtureregisterBridgeTC() public returns (RegisterIFTBridgeTestCase[] memory) {
