@@ -12,7 +12,7 @@ In the repo root:
 
 ```
 cp .env.example .env
-just install-relayer && just install-operator
+just install-proof-api && just install-operator
 ```
 
 ### Run tests
