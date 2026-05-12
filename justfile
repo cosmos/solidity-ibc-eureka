@@ -18,7 +18,6 @@ default:
 # Build the contracts using `forge build`
 [group('build')]
 build-contracts: clean-foundry
-	bun install --frozen-lockfile
 	forge build
 
 # Build the proof API using `cargo build`
