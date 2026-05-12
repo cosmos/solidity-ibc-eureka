@@ -74,7 +74,9 @@ jobs:
         uses: extractions/setup-just@v3
 
       - name: Build and package the contracts
-        run: just package-contracts ${{ github.ref_name }}
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: just package-contracts "$TAG_NAME"
 
       - name: Upload solidity contract artifacts to release
         uses: svenstaro/upload-release-action@v2
