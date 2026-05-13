@@ -23,7 +23,7 @@ import { DeployAccessManagerWithRoles } from "./deployments/DeployAccessManagerW
 import { IBCERC20 } from "../contracts/utils/IBCERC20.sol";
 import { Escrow } from "../contracts/utils/Escrow.sol";
 import { ICS27Account } from "../contracts/utils/ICS27Account.sol";
-import { TestIFT } from "../test/solidity-ibc/mocks/TestIFT.sol";
+import { IFTOwnable } from "../contracts/utils/IFTOwnable.sol";
 import { CosmosIFTSendCallConstructor } from "../contracts/utils/CosmosIFTSendCallConstructor.sol";
 
 import { SP1Verifier as SP1VerifierPlonk } from "@sp1-contracts/v6.1.0/SP1VerifierPlonk.sol";
@@ -103,10 +103,11 @@ contract E2ETestDeploy is Script, IICS07TendermintMsgs, DeployAccessManagerWithR
         );
 
         // Deploy IFT
-        address iftLogic = address(new TestIFT());
+        address iftLogic = address(new IFTOwnable());
         d.ift = address(
             new ERC1967Proxy(
-                iftLogic, abi.encodeCall(TestIFT.initialize, (msg.sender, IFT_TOKEN_NAME, IFT_TOKEN_SYMBOL, d.ics27Gmp))
+                iftLogic,
+                abi.encodeCall(IFTOwnable.initialize, (msg.sender, IFT_TOKEN_NAME, IFT_TOKEN_SYMBOL, d.ics27Gmp))
             )
         );
 

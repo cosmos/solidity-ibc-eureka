@@ -54,7 +54,6 @@ contracts=(
 
   # Reference / test
   ERC20
-  TestIFT
 )
 
 echo "🧹 Cleaning previous build output"
