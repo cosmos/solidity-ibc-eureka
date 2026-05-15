@@ -162,6 +162,10 @@ Out of scope for this version. The function exists but MUST revert with a clear 
 
 This version does not embed domain separation fields in the signed attestation bytes. This introduces potential replay risk across different clients or contexts if the same `attestationData` can be reused elsewhere.
 
+> [!WARNING]
+>
+> Same attestor addresses must never be re-used for multiple clients or contexts.
+
 Recommended future hardening (non-breaking if added to the signed payload definition):
 - Include a typed domain in the attested bytes such as one or more of:
   - counterparty chain-id, IBC `client-id`, this light client contract address, local chain-id, and a protocol tag/version.
