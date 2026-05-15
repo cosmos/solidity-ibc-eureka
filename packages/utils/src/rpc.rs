@@ -259,6 +259,14 @@ impl TendermintRpcExt for HttpClient {
             )
             .await?;
 
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /ibc.core.channel.v2.Query/PacketCommitment returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
+
         // V1 & V2 share the same response type
         QueryPacketCommitmentResponse::decode(res.value.as_slice())
             .map_err(|e| anyhow::anyhow!("Failed to decode QueryPacketCommitmentResponse: {e}"))
@@ -285,6 +293,14 @@ impl TendermintRpcExt for HttpClient {
             )
             .await?;
 
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /ibc.core.channel.v2.Query/PacketReceipt returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
+
         QueryPacketReceiptResponse::decode(res.value.as_slice())
             .map_err(|e| anyhow::anyhow!("Failed to decode QueryPacketReceiptResponse: {e}"))
     }
@@ -309,6 +325,14 @@ impl TendermintRpcExt for HttpClient {
                 false,
             )
             .await?;
+
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /ibc.core.channel.v2.Query/PacketAcknowledgement returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
 
         QueryPacketAcknowledgementResponse::decode(res.value.as_slice()).map_err(|e| {
             anyhow::anyhow!("Failed to decode QueryPacketAcknowledgementResponse: {e}")
