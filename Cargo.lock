@@ -5819,300 +5819,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proof-api"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "proof-api-core",
- "proof-api-cosmos-to-cosmos",
- "proof-api-cosmos-to-eth",
- "proof-api-cosmos-to-solana",
- "proof-api-eth-to-cosmos",
- "proof-api-eth-to-eth",
- "proof-api-eth-to-solana",
- "proof-api-solana-to-cosmos",
- "proof-api-solana-to-eth",
- "opentelemetry 0.30.0",
- "opentelemetry-appender-tracing",
- "opentelemetry-otlp",
- "opentelemetry_sdk",
- "prometheus",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-log",
- "tracing-opentelemetry",
- "tracing-subscriber",
- "uuid",
- "warp",
-]
-
-[[package]]
-name = "proof-api-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "proof-api-lib",
- "prometheus",
- "prost",
- "serde",
- "serde_json",
- "tonic 0.13.1",
- "tonic-build 0.13.1",
- "tonic-reflection",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-cosmos-to-cosmos"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "ibc-core-host-types",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-utils",
- "ibc-proto 0.52.0",
- "ics23",
- "prost",
- "serde",
- "serde_json",
- "tendermint",
- "tendermint-rpc",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-cosmos-to-eth"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "async-trait",
- "ibc-core-host-types",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
- "serde",
- "serde_json",
- "sp1-ics07-tendermint-prover",
- "sp1-sdk",
- "tendermint",
- "tendermint-rpc",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-cosmos-to-solana"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anchor-client",
- "anchor-lang",
- "anyhow",
- "base64 0.22.1",
- "bincode",
- "borsh 0.10.4",
- "ed25519-consensus",
- "hex",
- "ibc-client-tendermint",
- "ibc-core-client-types",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ibc-proto 0.52.0",
- "prost",
- "serde",
- "serde_json",
- "solana-client",
- "solana-ibc-borsh-header",
- "solana-ibc-constants",
- "solana-ibc-gmp-types",
- "solana-ibc-proto",
- "solana-ibc-sdk",
- "solana-sdk",
- "solana-transaction-status",
- "spl-associated-token-account",
- "spl-token",
- "tendermint",
- "tendermint-proto",
- "tendermint-rpc",
- "tokio",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-eth-to-cosmos"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "async-trait",
- "ethereum-apis",
- "ethereum-light-client 0.1.0",
- "ethereum-types 0.1.0",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
- "ibc-proto 0.52.0",
- "prost",
- "serde",
- "serde_json",
- "tendermint",
- "tendermint-rpc",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-eth-to-eth"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "async-trait",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-solidity-types 0.1.0",
- "serde",
- "serde_json",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-eth-to-solana"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anchor-lang",
- "anyhow",
- "bincode",
- "borsh 1.6.1",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
- "ibc-proto 0.52.0",
- "prost",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-ibc-constants",
- "solana-ibc-gmp-types",
- "solana-ibc-proto",
- "solana-ibc-sdk",
- "solana-sdk",
- "solana-transaction-status",
- "spl-associated-token-account",
- "spl-token",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-lib"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anchor-lang",
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "bincode",
- "borsh 1.6.1",
- "ethereum-apis",
- "ethereum-light-client 0.1.0",
- "ethereum-types 0.1.0",
- "futures",
- "futures-timer",
- "ibc-client-tendermint-types",
- "ibc-core-commitment-types",
- "ibc-eureka-solidity-types 0.1.0",
- "ibc-eureka-utils",
- "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "ibc-proto 0.52.0",
- "ics23",
- "moka",
- "opentelemetry 0.30.0",
- "prost",
- "serde",
- "serde_json",
- "sha2 0.10.9",
- "solana-client",
- "solana-ibc-constants",
- "solana-ibc-gmp-types",
- "solana-ibc-proto",
- "solana-ibc-sdk",
- "solana-sdk",
- "solana-transaction-status",
- "sp1-ics07-tendermint-prover",
- "sp1-sdk",
- "tendermint",
- "tendermint-light-client-verifier",
- "tendermint-rpc",
- "thiserror 2.0.18",
- "tokio",
- "tonic 0.13.1",
- "tonic-build 0.13.1",
- "tracing",
- "tracing-opentelemetry",
-]
-
-[[package]]
-name = "proof-api-solana-to-cosmos"
-version = "0.1.0"
-dependencies = [
- "anchor-client",
- "anchor-lang",
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "borsh 1.6.1",
- "hex",
- "proof-api-core",
- "proof-api-lib",
- "ibc-eureka-utils",
- "ibc-proto 0.52.0",
- "prost",
- "serde",
- "serde_json",
- "solana-client",
- "solana-sdk",
- "solana-transaction-status",
- "tendermint",
- "tendermint-rpc",
- "tokio",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
-name = "proof-api-solana-to-eth"
-version = "0.1.0"
-dependencies = [
- "alloy",
- "anyhow",
- "proof-api-core",
- "proof-api-lib",
- "serde",
- "serde_json",
- "solana-sdk",
- "tonic 0.13.1",
- "tracing",
-]
-
-[[package]]
 name = "ibc-eureka-solidity-types"
 version = "0.1.0"
 dependencies = [
@@ -8237,6 +7943,300 @@ dependencies = [
  "parking_lot",
  "protobuf",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "proof-api"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "opentelemetry 0.30.0",
+ "opentelemetry-appender-tracing",
+ "opentelemetry-otlp",
+ "opentelemetry_sdk",
+ "prometheus",
+ "proof-api-core",
+ "proof-api-cosmos-to-cosmos",
+ "proof-api-cosmos-to-eth",
+ "proof-api-cosmos-to-solana",
+ "proof-api-eth-to-cosmos",
+ "proof-api-eth-to-eth",
+ "proof-api-eth-to-solana",
+ "proof-api-solana-to-cosmos",
+ "proof-api-solana-to-eth",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-log",
+ "tracing-opentelemetry",
+ "tracing-subscriber",
+ "uuid",
+ "warp",
+]
+
+[[package]]
+name = "proof-api-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "prometheus",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "tonic 0.13.1",
+ "tonic-build 0.13.1",
+ "tonic-reflection",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-cosmos-to-cosmos"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "ibc-core-host-types",
+ "ibc-eureka-utils",
+ "ibc-proto 0.52.0",
+ "ics23",
+ "proof-api-core",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-cosmos-to-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ibc-core-host-types",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "proof-api-core",
+ "proof-api-lib",
+ "serde",
+ "serde_json",
+ "sp1-ics07-tendermint-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-cosmos-to-solana"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anchor-client",
+ "anchor-lang",
+ "anyhow",
+ "base64 0.22.1",
+ "bincode",
+ "borsh 0.10.4",
+ "ed25519-consensus",
+ "hex",
+ "ibc-client-tendermint",
+ "ibc-core-client-types",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.52.0",
+ "proof-api-core",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "solana-client",
+ "solana-ibc-borsh-header",
+ "solana-ibc-constants",
+ "solana-ibc-gmp-types",
+ "solana-ibc-proto",
+ "solana-ibc-sdk",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-associated-token-account",
+ "spl-token",
+ "tendermint",
+ "tendermint-proto",
+ "tendermint-rpc",
+ "tokio",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-eth-to-cosmos"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ethereum-apis",
+ "ethereum-light-client 0.1.0",
+ "ethereum-types 0.1.0",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "ibc-proto 0.52.0",
+ "proof-api-core",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "tendermint",
+ "tendermint-rpc",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-eth-to-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "async-trait",
+ "ibc-eureka-solidity-types 0.1.0",
+ "proof-api-core",
+ "proof-api-lib",
+ "serde",
+ "serde_json",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-eth-to-solana"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anchor-lang",
+ "anyhow",
+ "bincode",
+ "borsh 1.6.1",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "ibc-proto 0.52.0",
+ "proof-api-core",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-client",
+ "solana-ibc-constants",
+ "solana-ibc-gmp-types",
+ "solana-ibc-proto",
+ "solana-ibc-sdk",
+ "solana-sdk",
+ "solana-transaction-status",
+ "spl-associated-token-account",
+ "spl-token",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-lib"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anchor-lang",
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "bincode",
+ "borsh 1.6.1",
+ "ethereum-apis",
+ "ethereum-light-client 0.1.0",
+ "ethereum-types 0.1.0",
+ "futures",
+ "futures-timer",
+ "ibc-client-tendermint-types",
+ "ibc-core-commitment-types",
+ "ibc-eureka-solidity-types 0.1.0",
+ "ibc-eureka-utils",
+ "ibc-proto 0.51.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ibc-proto 0.52.0",
+ "ics23",
+ "moka",
+ "opentelemetry 0.30.0",
+ "prost",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "solana-client",
+ "solana-ibc-constants",
+ "solana-ibc-gmp-types",
+ "solana-ibc-proto",
+ "solana-ibc-sdk",
+ "solana-sdk",
+ "solana-transaction-status",
+ "sp1-ics07-tendermint-prover",
+ "sp1-sdk",
+ "tendermint",
+ "tendermint-light-client-verifier",
+ "tendermint-rpc",
+ "thiserror 2.0.18",
+ "tokio",
+ "tonic 0.13.1",
+ "tonic-build 0.13.1",
+ "tracing",
+ "tracing-opentelemetry",
+]
+
+[[package]]
+name = "proof-api-solana-to-cosmos"
+version = "0.1.0"
+dependencies = [
+ "anchor-client",
+ "anchor-lang",
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "borsh 1.6.1",
+ "hex",
+ "ibc-eureka-utils",
+ "ibc-proto 0.52.0",
+ "proof-api-core",
+ "proof-api-lib",
+ "prost",
+ "serde",
+ "serde_json",
+ "solana-client",
+ "solana-sdk",
+ "solana-transaction-status",
+ "tendermint",
+ "tendermint-rpc",
+ "tokio",
+ "tonic 0.13.1",
+ "tracing",
+]
+
+[[package]]
+name = "proof-api-solana-to-eth"
+version = "0.1.0"
+dependencies = [
+ "alloy",
+ "anyhow",
+ "proof-api-core",
+ "proof-api-lib",
+ "serde",
+ "serde_json",
+ "solana-sdk",
+ "tonic 0.13.1",
+ "tracing",
 ]
 
 [[package]]

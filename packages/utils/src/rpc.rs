@@ -158,7 +158,7 @@ impl TendermintRpcExt for HttpClient {
     }
 
     async fn sdk_staking_params(&self) -> Result<Params> {
-        let abci_resp = self
+        let res = self
             .abci_query(
                 Some("/cosmos.staking.v1beta1.Query/Params".to_string()),
                 QueryParamsRequest::default().to_bytes()?,
@@ -166,13 +166,22 @@ impl TendermintRpcExt for HttpClient {
                 false,
             )
             .await?;
-        QueryParamsResponse::decode(abci_resp.value.as_slice())?
+
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /cosmos.staking.v1beta1.Query/Params returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
+
+        QueryParamsResponse::decode(res.value.as_slice())?
             .params
             .ok_or_else(|| anyhow::anyhow!("No staking params found"))
     }
 
     async fn client_state(&self, client_id: String) -> Result<Any> {
-        let abci_resp = self
+        let res = self
             .abci_query(
                 Some("/ibc.core.client.v1.Query/ClientState".to_string()),
                 QueryClientStateRequest { client_id }.to_bytes()?,
@@ -181,13 +190,21 @@ impl TendermintRpcExt for HttpClient {
             )
             .await?;
 
-        QueryClientStateResponse::decode(abci_resp.value.as_slice())?
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /ibc.core.client.v1.Query/ClientState returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
+
+        QueryClientStateResponse::decode(res.value.as_slice())?
             .client_state
             .ok_or_else(|| anyhow::anyhow!("No client state found"))
     }
 
     async fn consensus_state(&self, client_id: String, revision_height: u64) -> Result<Any> {
-        let abci_resp = self
+        let res = self
             .abci_query(
                 Some("/ibc.core.client.v1.Query/ConsensusState".to_string()),
                 QueryConsensusStateRequest {
@@ -202,7 +219,15 @@ impl TendermintRpcExt for HttpClient {
             )
             .await?;
 
-        QueryConsensusStateResponse::decode(abci_resp.value.as_slice())?
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI /ibc.core.client.v1.Query/ConsensusState returned non-zero code {}: {}",
+                res.code.value(),
+                res.log,
+            );
+        }
+
+        QueryConsensusStateResponse::decode(res.value.as_slice())?
             .consensus_state
             .ok_or_else(|| anyhow::anyhow!("No consensus state found"))
     }
@@ -217,6 +242,15 @@ impl TendermintRpcExt for HttpClient {
                 true,
             )
             .await?;
+
+        if res.code.is_err() {
+            anyhow::bail!(
+                "ABCI store/{} query returned non-zero code {}: {}",
+                std::str::from_utf8(&path[0])?,
+                res.code.value(),
+                res.log,
+            );
+        }
 
         if res.height.value() + 1 != height {
             anyhow::bail!("Proof height mismatch");
