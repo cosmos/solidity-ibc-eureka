@@ -275,6 +275,17 @@ impl ProofApiService for EthToEthProofApiModuleService {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use alloy::providers::{Provider, RootProvider};
+
+    #[test]
+    fn can_build_https_provider() {
+        let _provider: RootProvider = RootProvider::builder()
+            .connect_http("https://example.com".parse().expect("valid HTTPS URL"));
+    }
+}
+
 #[tonic::async_trait]
 impl ProofApiModule for EthToEthProofApiModule {
     fn name(&self) -> &'static str {
