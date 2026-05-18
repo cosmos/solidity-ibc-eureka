@@ -16,3 +16,9 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+
+[dev-dependencies]
+reqwest_0_13 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls"] }
+rustls-pemfile = "2.2"
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread"] }
+tokio-rustls = "0.26"

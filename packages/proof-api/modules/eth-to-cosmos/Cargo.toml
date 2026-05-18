@@ -30,3 +30,9 @@ tendermint     = { workspace = true, features = ["std"] }
 tendermint-rpc = { workspace = true, features = ["http-client"] }
 
 alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
+
+[dev-dependencies]
+reqwest_0_13 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls"] }
+rustls-pemfile = "2.2"
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread"] }
+tokio-rustls = "0.26"

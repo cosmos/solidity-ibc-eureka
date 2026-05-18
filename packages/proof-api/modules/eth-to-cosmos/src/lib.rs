@@ -274,13 +274,7 @@ impl ProofApiService for EthToCosmosProofApiModuleService {
 
 #[cfg(test)]
 mod tests {
-    use alloy::providers::{Provider, RootProvider};
-
-    #[test]
-    fn can_build_https_provider() {
-        let _provider: RootProvider = RootProvider::builder()
-            .connect_http("https://example.com".parse().expect("valid HTTPS URL"));
-    }
+    include!("../../../https_provider_test.rs");
 }
 
 #[tonic::async_trait]

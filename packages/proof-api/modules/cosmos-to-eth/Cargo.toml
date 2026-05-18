@@ -29,3 +29,9 @@ ibc-core-host-types = { workspace = true }
 alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
 
 sp1-sdk = { workspace = true, default-features = true, features = ["network"] }
+
+[dev-dependencies]
+reqwest_0_13 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls"] }
+rustls-pemfile = "2.2"
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread"] }
+tokio-rustls = "0.26"
