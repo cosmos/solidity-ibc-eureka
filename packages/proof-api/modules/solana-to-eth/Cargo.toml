@@ -16,7 +16,7 @@ tonic = { workspace = true, default-features = true }
 anyhow = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
 
-alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
 
 # Solana specific dependencies
 solana-sdk.workspace = true

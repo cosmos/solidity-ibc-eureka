@@ -26,6 +26,6 @@ tendermint-rpc = { workspace = true, features = ["http-client"] }
 
 ibc-core-host-types = { workspace = true }
 
-alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
 
 sp1-sdk = { workspace = true, default-features = true, features = ["network"] }
