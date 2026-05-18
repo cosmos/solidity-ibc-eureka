@@ -18,6 +18,11 @@ on:
         options:
           - groth16
           - plonk
+      ibc-go-docker-tag:
+        description: 'ibc-go Docker image tag'
+        type: string
+        required: false
+        default: 'v11.0.0'
   push:
     branches:
       - main
@@ -39,6 +44,7 @@ env:
   SP1_VERSION: "6.1.0"
   SOLANA_VERSION: "2.3.13"
   ANCHOR_VERSION: "0.32.1"
+  E2E_IBC_GO_DOCKER_TAG: ${{ inputs.ibc-go-docker-tag || 'v11.0.0' }}
 permissions:
   contents: read
   packages: read

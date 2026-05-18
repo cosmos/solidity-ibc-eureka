@@ -1,9 +1,13 @@
 package chainconfig
 
 import (
+	"os"
+
 	interchaintest "github.com/cosmos/interchaintest/v11"
 	"github.com/cosmos/interchaintest/v11/ibc"
 )
+
+const defaultIbcGoDockerTag = "v11.0.0"
 
 var DefaultChainSpecs = []*interchaintest.ChainSpec{
 	// -- IBC-Go --
@@ -11,6 +15,11 @@ var DefaultChainSpecs = []*interchaintest.ChainSpec{
 }
 
 func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
+	ibcGoDockerTag := os.Getenv("E2E_IBC_GO_DOCKER_TAG")
+	if ibcGoDockerTag == "" {
+		ibcGoDockerTag = defaultIbcGoDockerTag
+	}
+
 	return &interchaintest.ChainSpec{
 		ChainConfig: ibc.ChainConfig{
 			Type:    "cosmos",
@@ -19,7 +28,7 @@ func IbcGoChainSpec(name, chainId string) *interchaintest.ChainSpec {
 			Images: []ibc.DockerImage{
 				{
 					Repository: "ghcr.io/cosmos/ibc-go-wasm-simd", // FOR LOCAL IMAGE USE: Docker Image Name
-					Version:    "v11.0.0",                         // FOR LOCAL IMAGE USE: Docker Image Tag
+					Version:    ibcGoDockerTag,                    // FOR LOCAL IMAGE USE: Docker Image Tag
 					UIDGID:     "1025:1025",
 				},
 			},
