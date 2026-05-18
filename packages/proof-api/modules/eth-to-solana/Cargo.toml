@@ -19,7 +19,7 @@ anyhow  = { workspace = true, features = ["std"] }
 tracing = { workspace = true, default-features = true }
 
 # EVM dependencies
-alloy = { workspace = true, features = ["full", "node-bindings"] }
+alloy = { workspace = true, features = ["full", "node-bindings", "reqwest-rustls-tls"] }
 
 # Solana dependencies
 solana-client.workspace             = true
@@ -40,3 +40,6 @@ solana-ibc-proto                    = { path = "../../../../programs/solana/pack
 # SPL Token dependencies
 spl-token                    = "8.0"
 spl-associated-token-account = "7.0"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

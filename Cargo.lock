@@ -8030,6 +8030,7 @@ dependencies = [
  "sp1-sdk",
  "tendermint",
  "tendermint-rpc",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -8096,6 +8097,7 @@ dependencies = [
  "serde_json",
  "tendermint",
  "tendermint-rpc",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -8112,6 +8114,7 @@ dependencies = [
  "proof-api-lib",
  "serde",
  "serde_json",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -8143,6 +8146,7 @@ dependencies = [
  "solana-transaction-status",
  "spl-associated-token-account",
  "spl-token",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -8235,6 +8239,7 @@ dependencies = [
  "serde",
  "serde_json",
  "solana-sdk",
+ "tokio",
  "tonic 0.13.1",
  "tracing",
 ]
@@ -8397,6 +8402,7 @@ version = "0.11.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "434b42fec591c96ef50e21e886936e66d3cc3f737104fdb9b737c40ffb94c098"
 dependencies = [
+ "aws-lc-rs",
  "bytes",
  "fastbloom",
  "getrandom 0.3.4",
@@ -8809,15 +8815,21 @@ dependencies = [
  "http-body 1.0.1",
  "http-body-util",
  "hyper 1.9.0",
+ "hyper-rustls 0.27.9",
  "hyper-util",
  "js-sys",
  "log",
  "percent-encoding",
  "pin-project-lite",
+ "quinn",
+ "rustls 0.23.40",
+ "rustls-pki-types",
+ "rustls-platform-verifier",
  "serde",
  "serde_json",
  "sync_wrapper 1.0.2",
  "tokio",
+ "tokio-rustls 0.26.4",
  "tower 0.5.3",
  "tower-http",
  "tower-service",
