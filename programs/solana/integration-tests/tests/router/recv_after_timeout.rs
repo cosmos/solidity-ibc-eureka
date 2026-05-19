@@ -126,7 +126,7 @@ async fn test_recv_after_source_timeout() {
 
     // ── Step 4: Relayer attempts ack on A — fails (commitment already zeroed) ──
     // `test_ibc_app` returns a JSON success ack.
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
     let ack_entry = attestation::ack_commitment_entry(
         chain_a.counterparty_client_id(),
         sequence,

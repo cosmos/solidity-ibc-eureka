@@ -14,7 +14,7 @@ async fn test_multiple_sequential_packets() {
     let user = User::new();
 
     // ── Test data ──
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
     let packets: [(u64, &[u8]); 3] = [(1, b"packet one"), (2, b"packet two"), (3, b"packet three")];
 
     // ── Chains ──

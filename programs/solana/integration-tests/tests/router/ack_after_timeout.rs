@@ -15,7 +15,7 @@ async fn test_ack_after_timeout_fails() {
     // ── Test data ──
     let packet_data = b"timeout then ack";
     let sequence = 1u64;
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
     let timeout_timestamp = router::test_timeout(TEST_CLOCK_TIME);
 
     // ── Chain ──

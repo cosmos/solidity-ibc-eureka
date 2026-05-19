@@ -15,7 +15,7 @@ async fn test_bidirectional_packets() {
     let user_b = User::new();
 
     // ── Test data ──
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
     let data_a_to_b = b"A says hello to B";
     let data_b_to_a = b"B says hello to A";
     let seq_a_to_b = 1u64;

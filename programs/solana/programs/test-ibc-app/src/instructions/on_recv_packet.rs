@@ -1,7 +1,8 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
-const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result": "AQ=="}"#;
+/// JSON acknowledgement indicating successful packet processing in ICS-20
+pub const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result":"AQ=="}"#;
 
 /// Accounts for handling an incoming IBC packet.
 #[derive(Accounts)]
@@ -47,7 +48,7 @@ pub fn on_recv_packet(ctx: Context<OnRecvPacket>, msg: OnRecvPacketMsg) -> Resul
     // Increment packet received counter
     app_state.packets_received = app_state.packets_received.saturating_add(1);
 
-    // Create acknowledgement in ICS-20 format: {"result": "AQ=="} where "AQ==" is base64 for []byte{1}
+    // Create acknowledgement in ICS-20 format: {"result":"AQ=="} where "AQ==" is base64 for []byte{1}
     // This indicates successful packet processing
     let acknowledgement = SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
 

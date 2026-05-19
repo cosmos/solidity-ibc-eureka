@@ -32,7 +32,7 @@ async fn test_11_attestors_send_recv_ack() {
     // ── Test data ──
     let packet_data = b"11 attestors roundtrip";
     let sequence = 1u64;
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
 
     // ── Chains ──
     let attestation_lc = AttestationLc::new(&attestors);
