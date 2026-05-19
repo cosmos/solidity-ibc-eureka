@@ -1,6 +1,7 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
+/// JSON acknowledgement indicating successful packet processing in ICS-20
 pub const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result":"AQ=="}"#;
 
 /// Accounts for handling an incoming IBC packet.
