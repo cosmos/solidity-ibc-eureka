@@ -28,7 +28,7 @@ async fn test_router_three_chain_roundtrip() {
     // ── Test data ──
     let packet_data_ab = b"hello from chain A";
     let packet_data_bc = b"hello from chain B";
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
 
     // ── Chains ──
     let attestation_lc_a = AttestationLc::new(&attestors_a);

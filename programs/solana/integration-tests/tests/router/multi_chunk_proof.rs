@@ -19,7 +19,7 @@ async fn test_multi_chunk_proof_lifecycle() {
     // ── Test data ──
     let packet_data = b"multi-chunk proof test";
     let sequence = 1u64;
-    let successful_ack = br#"{"result": "AQ=="}"#.to_vec();
+    let successful_ack = test_ibc_app::instructions::SUCCESSFUL_ACKNOWLEDGEMENT_JSON.to_vec();
 
     // ── Chains ──
     let attestation_lc_a = AttestationLc::new(&attestors_a);
