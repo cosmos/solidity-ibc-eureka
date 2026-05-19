@@ -1,7 +1,7 @@
 use crate::{state::*, ICS26_ROUTER_ID};
 use anchor_lang::prelude::*;
 
-const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result": "AQ=="}"#;
+const SUCCESSFUL_ACKNOWLEDGEMENT_JSON: &[u8] = br#"{"result":"AQ=="}"#;
 
 /// Accounts for handling an incoming IBC packet.
 #[derive(Accounts)]
