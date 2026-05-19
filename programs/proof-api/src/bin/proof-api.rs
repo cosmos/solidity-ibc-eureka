@@ -51,12 +51,12 @@ async fn main() -> anyhow::Result<()> {
             // Start the metrics server.
             tokio::spawn(async move {
                 let healthz_route = warp::get()
-                    .and(warp::path("healthz".to_string()))
+                    .and(warp::path("healthz"))
                     .and(warp::path::end())
                     .map(move || grpc_addr)
                     .then(check_grpc);
 
-                let metrics_route = warp::path("metrics".to_string()).map(|| {
+                let metrics_route = warp::path("metrics").map(|| {
                     let encoder = TextEncoder::new();
                     let metric_families = prometheus::gather();
                     let mut buffer = Vec::new();
@@ -81,10 +81,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn check_grpc(grpc_addr: SocketAddr) -> StatusCode {
     match TcpStream::connect(grpc_addr).await {
-        Ok(_) => {
-            info!(%grpc_addr, "health check passed: gRPC server is accepting connections");
-            StatusCode::OK
-        }
+        Ok(_) => StatusCode::OK,
         Err(e) => {
             error!(%grpc_addr, error = %e, "health check failed: gRPC server not ready");
             StatusCode::SERVICE_UNAVAILABLE
