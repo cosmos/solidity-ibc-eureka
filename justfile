@@ -794,31 +794,48 @@ lint-sp1:
 	cd programs/sp1-programs && cargo fmt --all -- --check
 	cd programs/sp1-programs && cargo clippy --all-targets --all-features -- -D warnings
 
-# Generate the (non-bytecode) ABI files for the contracts
+# Generate ABI/bin artifacts and Go abigen bindings
 [group('generate')]
 generate-abi: build-contracts
-	jq '.abi' out/ICS26Router.sol/ICS26Router.json > abi/ICS26Router.json
-	jq '.abi' out/ICS20Transfer.sol/ICS20Transfer.json > abi/ICS20Transfer.json
-	jq '.abi' out/SP1ICS07Tendermint.sol/SP1ICS07Tendermint.json > abi/SP1ICS07Tendermint.json
-	jq '.abi' out/ERC20.sol/ERC20.json > abi/ERC20.json
-	jq '.abi' out/IBCERC20.sol/IBCERC20.json > abi/IBCERC20.json
-	jq '.abi' out/ICS27Account.sol/ICS27Account.json > abi/ICS27Account.json
-	jq '.abi' out/ICS27GMP.sol/ICS27GMP.json > abi/ICS27GMP.json
-	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
-	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
-	jq '.abi' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.json
-	jq -r '.bytecode.object' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.bin
-	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
-	abigen --abi abi/IFTOwnable.json --bin abi/IFTOwnable.bin --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
-	abigen --abi abi/IFTOwnable.json --bin abi/IFTOwnable.bin --pkg ift --type Contract --out packages/go-abigen/ift/contract.go
-	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
-	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
-	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
-	abigen --abi abi/IBCERC20.json --pkg ibcerc20 --type Contract --out packages/go-abigen/ibcerc20/contract.go
-	abigen --abi abi/ICS27Account.json --pkg ics27account --type Contract --out packages/go-abigen/ics27account/contract.go
-	abigen --abi abi/ICS27GMP.json --pkg ics27gmp --type Contract --out packages/go-abigen/ics27gmp/contract.go
-	abigen --abi abi/RelayerHelper.json --pkg relayerhelper --type Contract --out packages/go-abigen/relayerhelper/contract.go
-	abigen --abi abi/AttestationLightClient.json --pkg attestation --type Contract --out packages/go-abigen/attestation/contract.go
+	#!/usr/bin/env bash
+	set -euo pipefail
+
+	contracts=(
+		"ICS26Router"
+		"ICS20Transfer"
+		"SP1ICS07Tendermint"
+		"ERC20"
+		"IBCERC20"
+		"ICS27Account"
+		"ICS27GMP"
+		"RelayerHelper"
+		"AttestationLightClient"
+		"IFTOwnable"
+	)
+
+	for contract in "${contracts[@]}"; do
+		jq '.abi' "out/${contract}.sol/${contract}.json" > "abi/${contract}.json"
+		jq -r '.bytecode.object' "out/${contract}.sol/${contract}.json" > "abi/${contract}.bin"
+	done
+
+	bindings=(
+		"ERC20|erc20|e2e/interchaintestv8/types/erc20/contract.go"
+		"IFTOwnable|evmift|e2e/interchaintestv8/types/evmift/contract.go"
+		"IFTOwnable|ift|packages/go-abigen/ift/contract.go"
+		"SP1ICS07Tendermint|sp1ics07tendermint|packages/go-abigen/sp1ics07tendermint/contract.go"
+		"ICS20Transfer|ics20transfer|packages/go-abigen/ics20transfer/contract.go"
+		"ICS26Router|ics26router|packages/go-abigen/ics26router/contract.go"
+		"IBCERC20|ibcerc20|packages/go-abigen/ibcerc20/contract.go"
+		"ICS27Account|ics27account|packages/go-abigen/ics27account/contract.go"
+		"ICS27GMP|ics27gmp|packages/go-abigen/ics27gmp/contract.go"
+		"RelayerHelper|relayerhelper|packages/go-abigen/relayerhelper/contract.go"
+		"AttestationLightClient|attestation|packages/go-abigen/attestation/contract.go"
+	)
+
+	for binding in "${bindings[@]}"; do
+		IFS='|' read -r contract pkg output <<< "$binding"
+		abigen --abi "abi/${contract}.json" --bin "abi/${contract}.bin" --pkg "$pkg" --type Contract --out "$output"
+	done
 
 # Generate the ABI files with bytecode for the required contracts
 [group('generate')]
