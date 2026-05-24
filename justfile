@@ -807,8 +807,11 @@ generate-abi: build-contracts
 	jq '.abi' out/RelayerHelper.sol/RelayerHelper.json > abi/RelayerHelper.json
 	jq '.abi' out/AttestationLightClient.sol/AttestationLightClient.json > abi/AttestationLightClient.json
 	jq '.abi' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.json
+	jq -r '.bytecode.object | if startswith("0x") then . else "0x"+. end' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.bin
+	mkdir -p packages/go-abigen/ift
 	abigen --abi abi/ERC20.json --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
-	abigen --abi abi/IFTOwnable.json --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
+	abigen --abi abi/IFTOwnable.json --bin abi/IFTOwnable.bin --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
+	abigen --abi abi/IFTOwnable.json --bin abi/IFTOwnable.bin --pkg ift --type Contract --out packages/go-abigen/ift/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
 	abigen --abi abi/ICS26Router.json --pkg ics26router --type Contract --out packages/go-abigen/ics26router/contract.go
