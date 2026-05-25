@@ -800,24 +800,6 @@ generate-abi: build-contracts
 	#!/usr/bin/env bash
 	set -euo pipefail
 
-	contracts=(
-		"ICS26Router"
-		"ICS20Transfer"
-		"SP1ICS07Tendermint"
-		"ERC20"
-		"IBCERC20"
-		"ICS27Account"
-		"ICS27GMP"
-		"RelayerHelper"
-		"AttestationLightClient"
-		"IFTOwnable"
-	)
-
-	for contract in "${contracts[@]}"; do
-		jq '.abi' "out/${contract}.sol/${contract}.json" > "abi/${contract}.json"
-		jq -r '.bytecode.object' "out/${contract}.sol/${contract}.json" > "abi/${contract}.bin"
-	done
-
 	bindings=(
 		"ERC20|erc20|e2e/interchaintestv8/types/erc20/contract.go"
 		"IFTOwnable|evmift|e2e/interchaintestv8/types/evmift/contract.go"
@@ -831,6 +813,12 @@ generate-abi: build-contracts
 		"RelayerHelper|relayerhelper|packages/go-abigen/relayerhelper/contract.go"
 		"AttestationLightClient|attestation|packages/go-abigen/attestation/contract.go"
 	)
+
+	mapfile -t contracts < <(printf '%s\n' "${bindings[@]}" | cut -d'|' -f1 | sort -u)
+	for contract in "${contracts[@]}"; do
+		jq '.abi' "out/${contract}.sol/${contract}.json" > "abi/${contract}.json"
+		jq -r '.bytecode.object' "out/${contract}.sol/${contract}.json" > "abi/${contract}.bin"
+	done
 
 	for binding in "${bindings[@]}"; do
 		IFS='|' read -r contract pkg output <<< "$binding"
