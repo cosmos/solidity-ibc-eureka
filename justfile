@@ -819,7 +819,6 @@ generate-abi: build-contracts
 	jq '.abi' out/IFTOwnable.sol/IFTOwnable.json > abi/IFTOwnable.json
 	jq -r '.bytecode.object' out/IFTOwnable.sol/IFTOwnable.json > tmp/abigen/IFTOwnable.bin
 	abigen --abi abi/ERC20.json --bin tmp/abigen/ERC20.bin --pkg erc20 --type Contract --out e2e/interchaintestv8/types/erc20/contract.go
-	abigen --abi abi/IFTOwnable.json --bin tmp/abigen/IFTOwnable.bin --pkg evmift --type Contract --out e2e/interchaintestv8/types/evmift/contract.go
 	abigen --abi abi/IFTOwnable.json --bin tmp/abigen/IFTOwnable.bin --pkg ift --type Contract --out packages/go-abigen/ift/contract.go
 	abigen --abi abi/SP1ICS07Tendermint.json --bin tmp/abigen/SP1ICS07Tendermint.bin --pkg sp1ics07tendermint --type Contract --out packages/go-abigen/sp1ics07tendermint/contract.go
 	abigen --abi abi/ICS20Transfer.json --bin tmp/abigen/ICS20Transfer.bin --pkg ics20transfer --type Contract --out packages/go-abigen/ics20transfer/contract.go
