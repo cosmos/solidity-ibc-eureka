@@ -28,6 +28,7 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
+	evmift "github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ift"
 
 	access_manager "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/accessmanager"
 	attestation "github.com/cosmos/solidity-ibc-eureka/packages/go-anchor/attestation"
@@ -41,7 +42,6 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/solana"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 )
 

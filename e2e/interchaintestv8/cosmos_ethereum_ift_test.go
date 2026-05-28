@@ -31,6 +31,7 @@ import (
 	"github.com/cosmos/interchaintest/v11/ibc"
 
 	"github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ics26router"
+	evmift "github.com/cosmos/solidity-ibc-eureka/packages/go-abigen/ift"
 
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/attestor"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/chainconfig"
@@ -40,7 +41,6 @@ import (
 	proofapi "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/proofapi"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/testvalues"
 	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types"
-	"github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/evmift"
 	proofapitypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/proofapi"
 	ifttypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/ift"
 	tokenfactorytypes "github.com/srdtrk/solidity-ibc-eureka/e2e/v8/types/wfchain/tokenfactory"
