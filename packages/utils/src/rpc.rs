@@ -21,6 +21,8 @@ use ibc_proto_eureka::ibc::core::channel::v2::{
     QueryPacketCommitmentRequest, QueryPacketCommitmentResponse, QueryPacketReceiptRequest,
     QueryPacketReceiptResponse,
 };
+use percent_encoding::percent_decode_str;
+use subtle_encoding::base64;
 use tendermint::{
     block::{signed_header::SignedHeader, Height},
     validator::Set,
@@ -92,8 +94,14 @@ pub trait TendermintRpcExt {
 #[async_trait::async_trait]
 impl TendermintRpcExt for HttpClient {
     fn from_rpc_url(rpc_url: &str) -> Self {
+        let (rpc_url, auth_header) = prepare_rpc_url_and_auth(rpc_url);
+        let mut default_headers = reqwest_0_11::header::HeaderMap::new();
+        if let Some(auth_header) = auth_header {
+            default_headers.insert(reqwest_0_11::header::AUTHORIZATION, auth_header);
+        }
+
         Self::builder(
-            Url::from_str(rpc_url)
+            Url::from_str(&rpc_url)
                 .expect("Failed to parse tendermint RPC URL")
                 .try_into()
                 .expect("Failed to convert tendermint RPC URL"),
@@ -103,6 +111,7 @@ impl TendermintRpcExt for HttpClient {
                 .connect_timeout(Duration::from_secs(10))
                 .timeout(Duration::from_secs(30))
                 .pool_idle_timeout(Duration::from_secs(10))
+                .default_headers(default_headers)
                 .build()
                 .expect("Failed to create reqwest client"),
         )
@@ -374,6 +383,51 @@ impl TendermintRpcExt for HttpClient {
     }
 }
 
+fn prepare_rpc_url_and_auth(rpc_url: &str) -> (String, Option<reqwest_0_11::header::HeaderValue>) {
+    let mut parsed = reqwest_0_11::Url::parse(rpc_url).expect("Failed to parse tendermint RPC URL");
+
+    let Some(username) = non_empty_userinfo(parsed.username()) else {
+        return (parsed.to_string(), None);
+    };
+
+    let credentials = basic_auth_credentials(username, parsed.password());
+
+    parsed
+        .set_username("")
+        .expect("Failed to strip RPC username from URL");
+    parsed
+        .set_password(None)
+        .expect("Failed to strip RPC password from URL");
+
+    let encoded = base64::encode(credentials);
+    let header = reqwest_0_11::header::HeaderValue::from_str(&format!(
+        "Basic {}",
+        String::from_utf8_lossy(encoded.as_slice())
+    ))
+    .expect("Failed to build RPC Authorization header");
+
+    (parsed.to_string(), Some(header))
+}
+
+fn non_empty_userinfo(username: &str) -> Option<&str> {
+    if username.is_empty() {
+        None
+    } else {
+        Some(username)
+    }
+}
+
+fn basic_auth_credentials(username: &str, password: Option<&str>) -> Vec<u8> {
+    let mut credentials = percent_decode_str(username).collect::<Vec<_>>();
+
+    if let Some(password) = password {
+        credentials.push(b':');
+        credentials.extend(percent_decode_str(password));
+    }
+
+    credentials
+}
+
 /// Sorts the signatures in the signed header based on the descending order of validators' power.
 fn sort_signatures_by_validators_power_desc(
     signed_header: &mut SignedHeader,
@@ -396,4 +450,33 @@ fn sort_signatures_by_validators_power_desc(
             .unwrap_or(&0);
         power_b.cmp(power_a)
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strips_basic_auth_from_rpc_url() {
+        let (url, header) = prepare_rpc_url_and_auth("https://user:pass@example.com");
+
+        assert_eq!(url, "https://example.com/");
+        assert_eq!(header.unwrap().to_str().unwrap(), "Basic dXNlcjpwYXNz");
+    }
+
+    #[test]
+    fn decodes_percent_encoded_basic_auth_credentials() {
+        let (url, header) = prepare_rpc_url_and_auth("https://user:p%3F%21@example.com");
+
+        assert_eq!(url, "https://example.com/");
+        assert_eq!(header.unwrap().to_str().unwrap(), "Basic dXNlcjpwPyE=");
+    }
+
+    #[test]
+    fn leaves_unauthenticated_rpc_urls_unchanged() {
+        let (url, header) = prepare_rpc_url_and_auth("https://example.com/rpc");
+
+        assert_eq!(url, "https://example.com/rpc");
+        assert!(header.is_none());
+    }
 }

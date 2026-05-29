@@ -80,6 +80,7 @@ serde_json      = { version = "1.0", default-features = false }
 serde_with      = { version = "3.11", default-features = false }
 hex             = { version = "0.4", default-features = false }
 base64          = { version = "0.22", default-features = false }
+percent-encoding = { version = "2.3", default-features = false, features = ["alloc"] }
 prost           = { version = "0.13", default-features = false }
 prost-build     = { version = "0.13", default-features = false }
 # Solana workspace uses borsh 0.10.4 for Anchor compatibility (Anchor 0.31.1 requires that version).
