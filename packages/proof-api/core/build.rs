@@ -7,8 +7,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .file_descriptor_set_path(&descriptor_path)
         .build_server(true)
         .compile_protos(
-            &["../../../proto/proofapi/proofapi.proto"],
-            &["../../../proto/proofapi"],
+            &["proto/proofapi/proofapi.proto"],
+            &["proto/proofapi"],
         )?;
     Ok(())
 }
