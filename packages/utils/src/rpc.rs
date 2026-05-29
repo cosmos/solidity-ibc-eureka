@@ -386,11 +386,13 @@ impl TendermintRpcExt for HttpClient {
 fn prepare_rpc_url_and_auth(rpc_url: &str) -> (String, Option<reqwest_0_11::header::HeaderValue>) {
     let mut parsed = reqwest_0_11::Url::parse(rpc_url).expect("Failed to parse tendermint RPC URL");
 
-    let Some(username) = non_empty_userinfo(parsed.username()) else {
+    if parsed.username().is_empty() && parsed.password().is_none() {
         return (parsed.to_string(), None);
-    };
+    }
 
-    let credentials = basic_auth_credentials(username, parsed.password());
+    // TODO: Remove this compatibility path once tendermint-rpc releases the
+    // upstream fix in cometbft/tendermint-rs#1519 and this repo upgrades.
+    let credentials = basic_auth_credentials(parsed.username(), parsed.password());
 
     parsed
         .set_username("")
@@ -407,14 +409,6 @@ fn prepare_rpc_url_and_auth(rpc_url: &str) -> (String, Option<reqwest_0_11::head
     .expect("Failed to build RPC Authorization header");
 
     (parsed.to_string(), Some(header))
-}
-
-fn non_empty_userinfo(username: &str) -> Option<&str> {
-    if username.is_empty() {
-        None
-    } else {
-        Some(username)
-    }
 }
 
 fn basic_auth_credentials(username: &str, password: Option<&str>) -> Vec<u8> {
@@ -470,6 +464,14 @@ mod tests {
 
         assert_eq!(url, "https://example.com/");
         assert_eq!(header.unwrap().to_str().unwrap(), "Basic dXNlcjpwPyE=");
+    }
+
+    #[test]
+    fn handles_password_only_basic_auth_credentials() {
+        let (url, header) = prepare_rpc_url_and_auth("https://:pass@example.com");
+
+        assert_eq!(url, "https://example.com/");
+        assert_eq!(header.unwrap().to_str().unwrap(), "Basic OnBhc3M=");
     }
 
     #[test]
