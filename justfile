@@ -725,7 +725,6 @@ build-cw-ics08-wasm-eth:
   gzip -n e2e/interchaintestv8/wasm/cw_ics08_wasm_eth.wasm -f
 
 # Build the proof API docker image
-# Only for linux/amd64 since sp1 doesn't have an arm image built
 [group('build')]
 build-proof-api-image:
     docker build -t proof-api:latest -f programs/proof-api/Dockerfile .

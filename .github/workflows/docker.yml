@@ -10,7 +10,11 @@ on:
       - '**.toml'
       - '**.lock'
       - '**.proto'
+      - '.dockerignore'
+      - '.github/workflows/docker.yml'
       - 'abi/**'
+      - 'programs/proof-api/Dockerfile'
+      - 'scripts/proof_api_docker_entrypoint.sh'
 
 # Cancel the workflow if a new commit is pushed to the branch/PR
 concurrency:
@@ -56,8 +60,9 @@ jobs:
             # For sha tags
             type=sha,priority=700,prefix=
       - name: Build and push
-        uses: docker/build-push-action@v6
+        uses: depot/build-push-action@v1
         with:
+          platforms: linux/amd64,linux/arm64
           context: .
           file: ./programs/proof-api/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
