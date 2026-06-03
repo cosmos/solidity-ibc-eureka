@@ -18,6 +18,7 @@ import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
@@ -163,6 +164,31 @@ contract ICS27GMPTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function test_failure_pausedEntryPoints() public {
+        ics27Gmp.pause();
+        assert(ics27Gmp.paused());
+
+        IICS27GMPMsgs.SendCallMsg memory sendMsg;
+        IIBCAppCallbacks.OnRecvPacketCallback memory recvMsg;
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg;
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg;
+
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.sendCall(sendMsg);
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onRecvPacket(recvMsg);
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onAcknowledgementPacket(ackMsg);
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onTimeoutPacket(timeoutMsg);
     }
 
     function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {
