@@ -10,6 +10,7 @@ import { IIBCApp } from "./interfaces/IIBCApp.sol";
 import { IICS27GMP } from "./interfaces/IICS27GMP.sol";
 import { IICS27Account } from "./interfaces/IICS27Account.sol";
 import { IICS27Errors } from "./errors/IICS27Errors.sol";
+import { IPausable } from "./interfaces/IPausable.sol";
 
 import { ReentrancyGuardTransient } from "@openzeppelin-contracts/utils/ReentrancyGuardTransient.sol";
 import { MulticallUpgradeable } from "@openzeppelin-upgradeable/utils/MulticallUpgradeable.sol";
@@ -21,6 +22,7 @@ import { ICS24Host } from "./utils/ICS24Host.sol";
 import { ICS27Lib } from "./utils/ICS27Lib.sol";
 import { IBCSenderCallbacksLib } from "./utils/IBCSenderCallbacksLib.sol";
 import { AccessManagedUpgradeable } from "@openzeppelin-upgradeable/access/manager/AccessManagedUpgradeable.sol";
+import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 
 /// @title ICS27 General Message Passing
 /// @notice This contract is the implementation of the ics27-2 IBC specification for general message passing.
@@ -28,10 +30,12 @@ contract ICS27GMP is
     IICS27Errors,
     IICS27GMP,
     IIBCApp,
+    IPausable,
     ReentrancyGuardTransient,
     MulticallUpgradeable,
     AccessManagedUpgradeable,
-    UUPSUpgradeable
+    UUPSUpgradeable,
+    PausableUpgradeable
 {
     /// @notice Storage of the ICS27GMP contract
     /// @dev It's implemented on a custom ERC-7201 namespace to reduce the risk of storage collisions when using with
@@ -61,11 +65,22 @@ contract ICS27GMP is
     /// @inheritdoc IICS27GMP
     function initialize(address ics26_, address accountLogic, address authority) external initializer {
         __Multicall_init();
+        __Pausable_init();
         __AccessManaged_init(authority);
 
         ICS27GMPStorage storage $ = _getICS27GMPStorage();
         $._ics26 = IICS26Router(ics26_);
         $._accountBeacon = new UpgradeableBeacon(accountLogic, address(this));
+    }
+
+    /// @inheritdoc IPausable
+    function pause() external restricted {
+        _pause();
+    }
+
+    /// @inheritdoc IPausable
+    function unpause() external restricted {
+        _unpause();
     }
 
     /// @inheritdoc IICS27GMP
@@ -88,7 +103,7 @@ contract ICS27GMP is
     }
 
     /// @inheritdoc IICS27GMP
-    function sendCall(IICS27GMPMsgs.SendCallMsg calldata msg_) external nonReentrant returns (uint64) {
+    function sendCall(IICS27GMPMsgs.SendCallMsg calldata msg_) external nonReentrant whenNotPaused returns (uint64) {
         require(msg_.payload.length != 0, ICS27PayloadEmpty());
 
         IICS27GMPMsgs.GMPPacketData memory packetData = IICS27GMPMsgs.GMPPacketData({
@@ -119,6 +134,7 @@ contract ICS27GMP is
     function onRecvPacket(IIBCAppCallbacks.OnRecvPacketCallback calldata msg_)
         external
         nonReentrant
+        whenNotPaused
         onlyRouter
         returns (bytes memory)
     {
@@ -158,6 +174,7 @@ contract ICS27GMP is
     function onAcknowledgementPacket(IIBCAppCallbacks.OnAcknowledgementPacketCallback calldata msg_)
         external
         nonReentrant
+        whenNotPaused
         onlyRouter
     {
         IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
@@ -171,7 +188,12 @@ contract ICS27GMP is
     }
 
     /// @inheritdoc IIBCApp
-    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_) external nonReentrant onlyRouter {
+    function onTimeoutPacket(IIBCAppCallbacks.OnTimeoutPacketCallback calldata msg_)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyRouter
+    {
         IICS27GMPMsgs.GMPPacketData memory packetData = abi.decode(msg_.payload.value, (IICS27GMPMsgs.GMPPacketData));
 
         (bool success, address sender) = Strings.tryParseAddress(packetData.sender);
