@@ -18,6 +18,7 @@ import { ICS27GMP } from "../../contracts/ICS27GMP.sol";
 import { ICS27Lib } from "../../contracts/utils/ICS27Lib.sol";
 import { ICS24Host } from "../../contracts/utils/ICS24Host.sol";
 import { AccessManager } from "@openzeppelin-contracts/access/manager/AccessManager.sol";
+import { PausableUpgradeable } from "@openzeppelin-upgradeable/utils/PausableUpgradeable.sol";
 import { UpgradeableBeacon } from "@openzeppelin-contracts/proxy/beacon/UpgradeableBeacon.sol";
 import { TestHelper } from "./utils/TestHelper.sol";
 import { IntegrationEnv } from "./utils/IntegrationEnv.sol";
@@ -163,6 +164,80 @@ contract ICS27GMPTest is Test {
         );
 
         vm.stopPrank();
+    }
+
+    function test_failure_pausedEntryPoints() public {
+        address sender = makeAddr("sender");
+        address receiver = makeAddr("receiver");
+        address relayer = makeAddr("relayer");
+        bytes memory payload = bytes("payload");
+        bytes memory salt = bytes("salt");
+        string memory firstClientId = th.FIRST_CLIENT_ID();
+        string memory secondClientId = th.SECOND_CLIENT_ID();
+        IICS27GMPMsgs.SendCallMsg memory sendMsg = IICS27GMPMsgs.SendCallMsg({
+            receiver: Strings.toHexString(receiver),
+            payload: payload,
+            salt: salt,
+            memo: "",
+            timeoutTimestamp: th.DEFAULT_TIMEOUT_TIMESTAMP(),
+            sourceClient: firstClientId
+        });
+
+        ics27Gmp.pause();
+        assert(ics27Gmp.paused());
+
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.sendCall(sendMsg);
+
+        IICS26RouterMsgs.Payload memory packetPayload = IICS26RouterMsgs.Payload({
+            sourcePort: ICS27Lib.DEFAULT_PORT_ID,
+            destPort: ICS27Lib.DEFAULT_PORT_ID,
+            version: ICS27Lib.ICS27_VERSION,
+            encoding: ICS27Lib.ICS27_ENCODING,
+            value: abi.encode(
+                IICS27GMPMsgs.GMPPacketData({
+                    sender: Strings.toChecksumHexString(sender),
+                    receiver: Strings.toHexString(receiver),
+                    salt: salt,
+                    payload: payload,
+                    memo: ""
+                })
+            )
+        });
+        IIBCAppCallbacks.OnRecvPacketCallback memory recvMsg = IIBCAppCallbacks.OnRecvPacketCallback({
+            sourceClient: firstClientId,
+            destinationClient: secondClientId,
+            sequence: 1,
+            payload: packetPayload,
+            relayer: relayer
+        });
+        IIBCAppCallbacks.OnAcknowledgementPacketCallback memory ackMsg = IIBCAppCallbacks.OnAcknowledgementPacketCallback({
+            sourceClient: firstClientId,
+            destinationClient: secondClientId,
+            sequence: 1,
+            payload: packetPayload,
+            acknowledgement: ICS27Lib.acknowledgement(bytes("ack")),
+            relayer: relayer
+        });
+        IIBCAppCallbacks.OnTimeoutPacketCallback memory timeoutMsg = IIBCAppCallbacks.OnTimeoutPacketCallback({
+            sourceClient: firstClientId,
+            destinationClient: secondClientId,
+            sequence: 1,
+            payload: packetPayload,
+            relayer: relayer
+        });
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onRecvPacket(recvMsg);
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onAcknowledgementPacket(ackMsg);
+
+        vm.prank(mockIcs26);
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.onTimeoutPacket(timeoutMsg);
     }
 
     function testFuzz_success_onRecvPacket(uint16 saltLen, uint16 payloadLen, uint64 seq) public {

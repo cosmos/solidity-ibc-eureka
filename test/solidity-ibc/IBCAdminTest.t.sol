@@ -8,6 +8,7 @@ import { Test } from "forge-std/Test.sol";
 import { ILightClientMsgs } from "../../contracts/msgs/ILightClientMsgs.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
 import { IICS20TransferMsgs } from "../../contracts/msgs/IICS20TransferMsgs.sol";
+import { IICS27GMPMsgs } from "../../contracts/msgs/IICS27GMPMsgs.sol";
 
 import { IAccessManaged } from "@openzeppelin-contracts/access/manager/IAccessManaged.sol";
 
@@ -168,7 +169,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         ics26Router.upgradeToAndCall(address(newLogic), abi.encodeCall(DummyInitializable.initializeV2, ()));
     }
 
-    function test_success_pauseAndUnpause() public {
+    function test_success_ics20_pauseAndUnpause() public {
         vm.prank(ics20Pauser);
         ics20Transfer.pause();
         assert(ics20Transfer.paused());
@@ -183,7 +184,7 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         assert(!ics20Transfer.paused());
     }
 
-    function test_failure_pauseAndUnpause() public {
+    function test_failure_ics20_pauseAndUnpause() public {
         address unauthorized = makeAddr("unauthorized");
 
         vm.prank(unauthorized);
@@ -204,6 +205,44 @@ contract IBCAdminTest is Test, DeployAccessManagerWithRoles {
         vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, ics20Pauser));
         ics20Transfer.unpause();
         assert(ics20Transfer.paused());
+    }
+
+    function test_success_ics27_pauseAndUnpause() public {
+        vm.prank(ics20Pauser);
+        ics27Gmp.pause();
+        assert(ics27Gmp.paused());
+
+        // Try to call a paused function
+        IICS27GMPMsgs.SendCallMsg memory sendMsg;
+        vm.expectRevert(abi.encodeWithSelector(PausableUpgradeable.EnforcedPause.selector));
+        ics27Gmp.sendCall(sendMsg);
+
+        vm.prank(ics20Unpauser);
+        ics27Gmp.unpause();
+        assert(!ics27Gmp.paused());
+    }
+
+    function test_failure_ics27_pauseAndUnpause() public {
+        address unauthorized = makeAddr("unauthorized");
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        ics27Gmp.pause();
+        assert(!ics27Gmp.paused());
+
+        vm.prank(ics20Pauser);
+        ics27Gmp.pause();
+        assert(ics27Gmp.paused());
+
+        vm.prank(unauthorized);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, unauthorized));
+        ics27Gmp.unpause();
+        assert(ics27Gmp.paused());
+
+        vm.prank(ics20Pauser);
+        vm.expectRevert(abi.encodeWithSelector(IAccessManaged.AccessManagedUnauthorized.selector, ics20Pauser));
+        ics27Gmp.unpause();
+        assert(ics27Gmp.paused());
     }
 
     function test_success_escrow_upgrade() public {
