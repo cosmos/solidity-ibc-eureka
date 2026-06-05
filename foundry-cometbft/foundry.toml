@@ -1,0 +1,34 @@
+# Focused Foundry config for native CometBFT light-client tests.
+
+[profile.default]
+  auto_detect_solc = false
+  allow_paths = ["../contracts", "../node_modules", "../test"]
+  block_timestamp = 1_680_220_800
+  bytecode_hash = "none"
+  evm_version = "cancun"
+  optimizer = true
+  via_ir = true
+  optimizer_runs = 10_000
+  out = "../out-cometbft"
+  remappings = [
+    "forge-std/=../node_modules/forge-std/src/",
+    "@openzeppelin-contracts/=../node_modules/@openzeppelin/contracts/",
+    "@openzeppelin-upgradeable/=../node_modules/@openzeppelin/contracts-upgradeable/",
+    "@sp1-contracts/=../node_modules/sp1-contracts/contracts/src/",
+    "@uniswap/permit2/=../node_modules/@uniswap/permit2/",
+  ]
+  script = "../scripts/cometbft-fixture"
+  solc = "0.8.28"
+  src = "../contracts/light-clients/cometbft"
+  test = "../test/cometbft"
+  fs_permissions = [{ access = "read-write", path = "../" }]
+
+[fmt]
+  bracket_spacing = true
+  int_types = "long"
+  line_length = 120
+  multiline_func_header = "all"
+  number_underscore = "thousands"
+  quote_style = "double"
+  tab_width = 4
+  wrap_comments = true
