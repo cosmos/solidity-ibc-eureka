@@ -1,0 +1,177 @@
+{
+  "chainId": "native-cometbft-1",
+  "trustedHeight": 4,
+  "revisionNumber": 0,
+  "trustingPeriod": 1209600,
+  "unbondingPeriod": 1814400,
+  "maxClockDrift": 30,
+  "proofNow": 1680221400,
+  "trustedConsensusState": {
+    "timestamp": 1680220900456000000,
+    "root": "0x4453f5197a3bb6b54f6cc50ce3968216f430dd5276e32771e24090f3c7c4f0c5",
+    "nextValidatorsHash": "0x53882f80358cc89153a63644d6e301a8ae8cf7b06bbb6e2842ff0293c7ac685b"
+  },
+  "header": {
+    "versionBlock": 11,
+    "versionApp": 1,
+    "chainId": "native-cometbft-1",
+    "height": 7,
+    "timeSeconds": 1680221300,
+    "timeNanos": 789000000,
+    "lastBlockId": {
+      "hash": "0x2ae8f09852bd81b84bb2d33ec33c93ce21aea2442c421eba7f276996f4453c39",
+      "partSetHeader": {
+        "total": 1,
+        "hash": "0x102045482e091dfe22b5cd47fbc04c838aff0cf8fb38c18a47b34396ab288ded"
+      }
+    },
+    "lastCommitHash": "0x8961a309454f0139307810cd4edea5d6c722bb63f6c5ebff2c4fd94d61a98b07",
+    "dataHash": "0x2e3ab1509780e5354ef9b111590036c7e60164ae43665e072681083eedb13395",
+    "validatorsHash": "0x3928cbda244e1b6f3ae1583aee671f38d442abd26251f4357b547c0933b69ec5",
+    "nextValidatorsHash": "0x3928cbda244e1b6f3ae1583aee671f38d442abd26251f4357b547c0933b69ec5",
+    "consensusHash": "0xb175412fdb373563283821e47368a120b38c8a3e0caf71686207f570961e6170",
+    "appHash": "0x4810db9c013ca7adef67086482d31acc16ea84a2aafc1cf05a9d8ab643d1c524",
+    "lastResultsHash": "0x2782a70e99ccfe084148d400cdbeca767ad86f77c6c5e032776a0b795a3860d8",
+    "evidenceHash": "0x0e551fbbeacc7efedafacd8dbc1574cb6c8a3d6d1ba432eb11724d6ddaa899fe",
+    "proposerAddress": "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff"
+  },
+  "commit": {
+    "height": 7,
+    "round": 0,
+    "blockId": {
+      "hash": "0xb1f12713b415500ca1b68d07adee06d74f357a705998df8a6e56e5d1ae639bfb",
+      "partSetHeader": {
+        "total": 1,
+        "hash": "0x62fbcb0c24d617b73de4f29e6938e8691b6260ee26807a03caf2f19975cdcbdd"
+      }
+    },
+    "blockIdFlags": [
+      2,
+      2,
+      2
+    ],
+    "validatorAddresses": [
+      "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff",
+      "0x319387d62b297bc74d2afe235ca568cc895bdda7",
+      "0xf6acc9408a033a626eb98001661ee4f56ebe9808"
+    ],
+    "timestampSeconds": [
+      1680221300,
+      1680221300,
+      1680221300
+    ],
+    "timestampNanos": [
+      789000000,
+      789000000,
+      789000000
+    ],
+    "signatures": [
+      "0xf12db9f1943b6a796e2ed8c5746846a5d58a976715d7a78fa898089fc8058a083ac924afa98b2a6c2b52a9bd195036324d53142732fbeac08531ae7add9c2fa301",
+      "0xae2be4233106bb0b01991d343d2564712f0ad7f5ea24c8d10352d98a49d157ac76a20cc55bff02ec6dd619fef317e3472a7e742c81cd2519938c73e517618b8f01",
+      "0x92dcc93ae795cd8c4d3fd25e6c3637c0a03040eda46272fa968f945a227b6ac459ecbb7dc0cabddf5e607aa7f7db54011d3ba1fb4438bf8cec0ac0974c0c07f601"
+    ]
+  },
+  "trustedValidators": {
+    "addresses": [
+      "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff",
+      "0x1364112d9db53314f19bee4011aea56ca49c3b27",
+      "0x1710a182cd9db638c3a8902839cc33027c6a3322"
+    ],
+    "publicKeys": [
+      "0x0235f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134f",
+      "0x03f9de370224f2d09f997b155eb0e77d4a9cd265eba1b7c68415df1753c30ee054",
+      "0x0303315b2ca1dba316dcf4aa4d06af557dec86844dafdd02061416e61003eb68ec"
+    ],
+    "publicKeyYWitnesses": [
+      "0xda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0x4d4d3b744e13a39f0fb07a313f0eb31b8b4b402f4708ac278617fd292af59c8d",
+      "0xc5fa6d7887877bd5cf3034b44953021907bf1eb2eff12e382d1c464d420686cb"
+    ],
+    "uncompressedPublicKeys": [
+      "0x35f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134fda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0xf9de370224f2d09f997b155eb0e77d4a9cd265eba1b7c68415df1753c30ee0544d4d3b744e13a39f0fb07a313f0eb31b8b4b402f4708ac278617fd292af59c8d",
+      "0x03315b2ca1dba316dcf4aa4d06af557dec86844dafdd02061416e61003eb68ecc5fa6d7887877bd5cf3034b44953021907bf1eb2eff12e382d1c464d420686cb"
+    ],
+    "votingPowers": [
+      34,
+      33,
+      33
+    ]
+  },
+  "validators": {
+    "addresses": [
+      "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff",
+      "0x319387d62b297bc74d2afe235ca568cc895bdda7",
+      "0xf6acc9408a033a626eb98001661ee4f56ebe9808"
+    ],
+    "publicKeys": [
+      "0x0235f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134f",
+      "0x02bad28ad522fa65cfd2eaee574a6471516883d91e48725a3161e5c59a5be032c1",
+      "0x02a64adc43b3005e6b0b3f6e45d4228efa973de96850964d99447528826e1090ad"
+    ],
+    "publicKeyYWitnesses": [
+      "0xda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0x182fe3b0df2cac93707340a701a6656e02471bb5460ef63f1afad74cd3d3d84c",
+      "0x21f92c634692c44725f8d8055a72284e60e21668c9c6079f1bf9f5cf38c51854"
+    ],
+    "uncompressedPublicKeys": [
+      "0x35f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134fda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0xbad28ad522fa65cfd2eaee574a6471516883d91e48725a3161e5c59a5be032c1182fe3b0df2cac93707340a701a6656e02471bb5460ef63f1afad74cd3d3d84c",
+      "0xa64adc43b3005e6b0b3f6e45d4228efa973de96850964d99447528826e1090ad21f92c634692c44725f8d8055a72284e60e21668c9c6079f1bf9f5cf38c51854"
+    ],
+    "votingPowers": [
+      34,
+      33,
+      33
+    ]
+  },
+  "nextValidators": {
+    "addresses": [
+      "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff",
+      "0x319387d62b297bc74d2afe235ca568cc895bdda7",
+      "0xf6acc9408a033a626eb98001661ee4f56ebe9808"
+    ],
+    "publicKeys": [
+      "0x0235f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134f",
+      "0x02bad28ad522fa65cfd2eaee574a6471516883d91e48725a3161e5c59a5be032c1",
+      "0x02a64adc43b3005e6b0b3f6e45d4228efa973de96850964d99447528826e1090ad"
+    ],
+    "publicKeyYWitnesses": [
+      "0xda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0x182fe3b0df2cac93707340a701a6656e02471bb5460ef63f1afad74cd3d3d84c",
+      "0x21f92c634692c44725f8d8055a72284e60e21668c9c6079f1bf9f5cf38c51854"
+    ],
+    "uncompressedPublicKeys": [
+      "0x35f084f0814bc8fa1ca0efb9a198637c7720cdffe28b9ac7b2dc057b0b36134fda586f38d5e9a97986ffd757185f52deaf4d20471d52a0c10a6f786c2571f48c",
+      "0xbad28ad522fa65cfd2eaee574a6471516883d91e48725a3161e5c59a5be032c1182fe3b0df2cac93707340a701a6656e02471bb5460ef63f1afad74cd3d3d84c",
+      "0xa64adc43b3005e6b0b3f6e45d4228efa973de96850964d99447528826e1090ad21f92c634692c44725f8d8055a72284e60e21668c9c6079f1bf9f5cf38c51854"
+    ],
+    "votingPowers": [
+      34,
+      33,
+      33
+    ]
+  },
+  "expected": {
+    "validatorSetHash": "0x3928cbda244e1b6f3ae1583aee671f38d442abd26251f4357b547c0933b69ec5",
+    "nextValidatorSetHash": "0x3928cbda244e1b6f3ae1583aee671f38d442abd26251f4357b547c0933b69ec5",
+    "trustedValidatorSetHash": "0x53882f80358cc89153a63644d6e301a8ae8cf7b06bbb6e2842ff0293c7ac685b",
+    "trustedHeaderHash": "0x7e3d05d67c10c9ec9ae8e1f5c17271e3e00903fadd47c990730731667b583c8e",
+    "headerHash": "0xb1f12713b415500ca1b68d07adee06d74f357a705998df8a6e56e5d1ae639bfb",
+    "voteSignBytes": [
+      "0x76080211070000000000000022480a20b1f12713b415500ca1b68d07adee06d74f357a705998df8a6e56e5d1ae639bfb12240801122062fbcb0c24d617b73de4f29e6938e8691b6260ee26807a03caf2f19975cdcbdd2a0c08f4c898a10610c0de9cf80232116e61746976652d636f6d65746266742d31",
+      "0x76080211070000000000000022480a20b1f12713b415500ca1b68d07adee06d74f357a705998df8a6e56e5d1ae639bfb12240801122062fbcb0c24d617b73de4f29e6938e8691b6260ee26807a03caf2f19975cdcbdd2a0c08f4c898a10610c0de9cf80232116e61746976652d636f6d65746266742d31",
+      "0x76080211070000000000000022480a20b1f12713b415500ca1b68d07adee06d74f357a705998df8a6e56e5d1ae639bfb12240801122062fbcb0c24d617b73de4f29e6938e8691b6260ee26807a03caf2f19975cdcbdd2a0c08f4c898a10610c0de9cf80232116e61746976652d636f6d65746266742d31"
+    ],
+    "recoveredSigners": [
+      "0xaa5f5c00ed0c4ff7476a316b2d1596389cea37ff",
+      "0x319387d62b297bc74d2afe235ca568cc895bdda7",
+      "0xf6acc9408a033a626eb98001661ee4f56ebe9808"
+    ],
+    "trustedSignedVotingPower": 34,
+    "trustedVotingPowerNeeded": 33,
+    "newSignedVotingPower": 100,
+    "newVotingPowerNeeded": 66
+  },
+  "cometbftVerification": "light.Verify chained non-adjacent path checked with local /Users/gg/code/contrib/cometbft"
+}

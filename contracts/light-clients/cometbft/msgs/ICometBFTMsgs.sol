@@ -126,6 +126,7 @@ interface ICometBFTMsgs {
         Header header;
         Commit commit;
         Validator[] validators;
+        Validator[] nextValidators;
     }
 
     struct MsgSubmitMisbehaviour {

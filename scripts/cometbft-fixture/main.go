@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cometbft/cometbft/crypto/secp256k1eth"
 	cmtbytes "github.com/cometbft/cometbft/libs/bytes"
+	cmtmath "github.com/cometbft/cometbft/libs/math"
 	"github.com/cometbft/cometbft/light"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	cmtversion "github.com/cometbft/cometbft/proto/tendermint/version"
@@ -31,7 +33,9 @@ type fixture struct {
 	TrustedConsensus     consensusJSON  `json:"trustedConsensusState"`
 	Header               headerJSON     `json:"header"`
 	Commit               commitJSON     `json:"commit"`
+	TrustedValidators    validatorsJSON `json:"trustedValidators"`
 	Validators           validatorsJSON `json:"validators"`
+	NextValidators       validatorsJSON `json:"nextValidators"`
 	Expected             expectedJSON   `json:"expected"`
 	CometBFTVerification string         `json:"cometbftVerification"`
 }
@@ -91,11 +95,17 @@ type validatorsJSON struct {
 }
 
 type expectedJSON struct {
-	ValidatorSetHash  string   `json:"validatorSetHash"`
-	TrustedHeaderHash string   `json:"trustedHeaderHash"`
-	HeaderHash        string   `json:"headerHash"`
-	VoteSignBytes     []string `json:"voteSignBytes"`
-	RecoveredSigners  []string `json:"recoveredSigners"`
+	ValidatorSetHash         string   `json:"validatorSetHash"`
+	NextValidatorSetHash     string   `json:"nextValidatorSetHash"`
+	TrustedValidatorSetHash  string   `json:"trustedValidatorSetHash"`
+	TrustedHeaderHash        string   `json:"trustedHeaderHash"`
+	HeaderHash               string   `json:"headerHash"`
+	VoteSignBytes            []string `json:"voteSignBytes"`
+	RecoveredSigners         []string `json:"recoveredSigners"`
+	TrustedSignedVotingPower uint64   `json:"trustedSignedVotingPower"`
+	TrustedVotingPowerNeeded uint64   `json:"trustedVotingPowerNeeded"`
+	NewSignedVotingPower     uint64   `json:"newSignedVotingPower"`
+	NewVotingPowerNeeded     uint64   `json:"newVotingPowerNeeded"`
 }
 
 type misbehaviourFixture struct {
@@ -139,6 +149,54 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == "skip" {
+		out := filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_skipping_update_fixture.json")
+		count := 3
+		insufficientTrusted := false
+		if len(os.Args) > 2 {
+			out = os.Args[2]
+		}
+		if len(os.Args) > 3 {
+			var err error
+			count, err = strconv.Atoi(os.Args[3])
+			if err != nil || count < 1 {
+				panic("validator count must be a positive integer")
+			}
+		}
+		if len(os.Args) > 4 {
+			insufficientTrusted = os.Args[4] == "insufficient-trusted"
+		}
+
+		fix, err := buildSkippingFixture(count, insufficientTrusted)
+		if err != nil {
+			panic(err)
+		}
+		writeFixture(out, fix)
+		return
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "skip-next" {
+		out := filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_skipping_next_update_fixture.json")
+		count := 3
+		if len(os.Args) > 2 {
+			out = os.Args[2]
+		}
+		if len(os.Args) > 3 {
+			var err error
+			count, err = strconv.Atoi(os.Args[3])
+			if err != nil || count < 1 {
+				panic("validator count must be a positive integer")
+			}
+		}
+
+		fix, err := buildStoredChainedSkippingFixture(count)
+		if err != nil {
+			panic(err)
+		}
+		writeFixture(out, fix)
+		return
+	}
+
 	if len(os.Args) > 1 {
 		count := 3
 		if len(os.Args) > 2 {
@@ -165,6 +223,49 @@ func main() {
 		{out: filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_update_20_validators_fixture.json"), count: 20},
 	} {
 		fix, err := buildFixture(spec.count)
+		if err != nil {
+			panic(err)
+		}
+		writeFixture(spec.out, fix)
+	}
+
+	for _, spec := range []struct {
+		out                 string
+		count               int
+		insufficientTrusted bool
+	}{
+		{
+			out:   filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_skipping_update_fixture.json"),
+			count: 3,
+		},
+		{
+			out:   filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_skipping_update_20_validators_fixture.json"),
+			count: 20,
+		},
+		{
+			out:   filepath.Join("..", "..", "test", "cometbft", "fixtures", "native_skipping_next_update_fixture.json"),
+			count: 3,
+		},
+		{
+			out: filepath.Join(
+				"..",
+				"..",
+				"test",
+				"cometbft",
+				"fixtures",
+				"native_skipping_insufficient_trusted_overlap_fixture.json",
+			),
+			count:               3,
+			insufficientTrusted: true,
+		},
+	} {
+		var fix fixture
+		var err error
+		if filepath.Base(spec.out) == "native_skipping_next_update_fixture.json" {
+			fix, err = buildStoredChainedSkippingFixture(spec.count)
+		} else {
+			fix, err = buildSkippingFixture(spec.count, spec.insufficientTrusted)
+		}
 		if err != nil {
 			panic(err)
 		}
@@ -532,19 +633,7 @@ func buildFixture(validatorCount int) (fixture, error) {
 		return fixture{}, fmt.Errorf("cometbft adjacent verification failed: %w", err)
 	}
 
-	addresses := make([]string, len(valSet.Validators))
-	publicKeys := make([]string, len(valSet.Validators))
-	publicKeyYWitnesses := make([]string, len(valSet.Validators))
-	uncompressedPublicKeys := make([]string, len(valSet.Validators))
-	powers := make([]uint64, len(valSet.Validators))
-	for i, val := range valSet.Validators {
-		addresses[i] = addressHex(val.Address)
-		publicKeys[i] = hexBytes(val.PubKey.Bytes())
-		uncompressed := uncompressedPubKey(privByAddress[string(val.Address)])
-		publicKeyYWitnesses[i] = hexBytes(uncompressed[32:])
-		uncompressedPublicKeys[i] = hexBytes(uncompressed)
-		powers[i] = uint64(val.VotingPower)
-	}
+	validatorsJSON := validatorsJSONFromSet(valSet, privByAddress)
 
 	blockIDFlags := make([]uint64, len(commit.Signatures))
 	validatorAddresses := make([]string, len(commit.Signatures))
@@ -600,21 +689,381 @@ func buildFixture(validatorCount int) (fixture, error) {
 			TimestampNanos:     commitTimestampNanos,
 			Signatures:         signatures,
 		},
-		Validators: validatorsJSON{
-			Addresses:              addresses,
-			PublicKeys:             publicKeys,
-			PublicKeyYWitnesses:    publicKeyYWitnesses,
-			UncompressedPublicKeys: uncompressedPublicKeys,
-			VotingPowers:           powers,
-		},
+		TrustedValidators: validatorsJSON,
+		Validators:        validatorsJSON,
+		NextValidators:    validatorsJSON,
 		Expected: expectedJSON{
-			ValidatorSetHash:  hexBytes(valSet.Hash()),
-			TrustedHeaderHash: hexBytes(trustedHeader.Hash()),
-			HeaderHash:        hexBytes(header.Hash()),
-			VoteSignBytes:     voteSignBytes,
-			RecoveredSigners:  recoveredSigners,
+			ValidatorSetHash:         hexBytes(valSet.Hash()),
+			NextValidatorSetHash:     hexBytes(valSet.Hash()),
+			TrustedValidatorSetHash:  hexBytes(valSet.Hash()),
+			TrustedHeaderHash:        hexBytes(trustedHeader.Hash()),
+			HeaderHash:               hexBytes(header.Hash()),
+			VoteSignBytes:            voteSignBytes,
+			RecoveredSigners:         recoveredSigners,
+			TrustedSignedVotingPower: uint64(valSet.TotalVotingPower()),
+			TrustedVotingPowerNeeded: uint64(valSet.TotalVotingPower() / 3),
+			NewSignedVotingPower:     uint64(valSet.TotalVotingPower()),
+			NewVotingPowerNeeded:     uint64(valSet.TotalVotingPower() * 2 / 3),
 		},
 		CometBFTVerification: "light.VerifyAdjacent succeeded with local /Users/gg/code/contrib/cometbft",
+	}, nil
+}
+
+func buildSkippingFixture(validatorCount int, insufficientTrusted bool) (fixture, error) {
+	const chainID = "native-cometbft-1"
+	const trustingPeriod = 14 * 24 * 60 * 60
+	const unbondingPeriod = 21 * 24 * 60 * 60
+	const maxClockDrift = 30
+
+	trustedTime := time.Unix(1_680_220_500, 123_000_000).UTC()
+	headerTime := time.Unix(1_680_220_900, 456_000_000).UTC()
+	now := time.Unix(1_680_221_000, 0).UTC()
+
+	type pv struct {
+		priv secp256k1eth.PrivKey
+		val  *cmttypes.Validator
+	}
+
+	trustedPowers := make([]int64, validatorCount)
+	if validatorCount == 3 {
+		trustedPowers = []int64{34, 33, 33}
+		if insufficientTrusted {
+			trustedPowers = []int64{33, 34, 33}
+		}
+	} else {
+		for i := 0; i < validatorCount; i++ {
+			trustedPowers[i] = int64((validatorCount - i) * 10)
+		}
+	}
+
+	trustedPrivVals := make([]pv, validatorCount)
+	privByAddress := map[string]secp256k1eth.PrivKey{}
+	for i := 0; i < validatorCount; i++ {
+		priv := secp256k1eth.GenPrivKeySecp256k1Eth([]byte(fmt.Sprintf("native-cometbft-skip-old-%d", i+1)))
+		val := cmttypes.NewValidator(priv.PubKey(), trustedPowers[i])
+		trustedPrivVals[i] = pv{priv: priv, val: val}
+		privByAddress[string(val.Address)] = priv
+	}
+
+	trustedValidators := make([]*cmttypes.Validator, len(trustedPrivVals))
+	for i, pv := range trustedPrivVals {
+		trustedValidators[i] = pv.val
+	}
+	trustedValSet := cmttypes.NewValidatorSet(trustedValidators)
+
+	overlap := 1
+	if validatorCount > 3 {
+		var signed int64
+		needed := trustedValSet.TotalVotingPower() / 3
+		for overlap < validatorCount && signed <= needed {
+			signed += trustedPrivVals[overlap-1].val.VotingPower
+			if signed > needed {
+				break
+			}
+			overlap++
+		}
+	}
+
+	newValidators := make([]*cmttypes.Validator, 0, validatorCount)
+	for i := 0; i < overlap; i++ {
+		newValidators = append(newValidators, cmttypes.NewValidator(trustedPrivVals[i].priv.PubKey(), trustedPrivVals[i].val.VotingPower))
+	}
+	for i := overlap; i < validatorCount; i++ {
+		priv := secp256k1eth.GenPrivKeySecp256k1Eth([]byte(fmt.Sprintf("native-cometbft-skip-new-%d", i+1)))
+		power := trustedPowers[i]
+		val := cmttypes.NewValidator(priv.PubKey(), power)
+		newValidators = append(newValidators, val)
+		privByAddress[string(val.Address)] = priv
+	}
+	newValSet := cmttypes.NewValidatorSet(newValidators)
+
+	nextValidators := make([]*cmttypes.Validator, 0, validatorCount)
+	for i := 0; i < validatorCount; i++ {
+		priv := secp256k1eth.GenPrivKeySecp256k1Eth([]byte(fmt.Sprintf("native-cometbft-skip-next-%d", i+1)))
+		val := cmttypes.NewValidator(priv.PubKey(), trustedPowers[i])
+		nextValidators = append(nextValidators, val)
+		privByAddress[string(val.Address)] = priv
+	}
+	nextValSet := cmttypes.NewValidatorSet(nextValidators)
+
+	trustedHeader := &cmttypes.Header{
+		Version:            cmtversion.Consensus{Block: version.BlockProtocol, App: 1},
+		ChainID:            chainID,
+		Height:             1,
+		Time:               trustedTime,
+		LastBlockID:        cmttypes.BlockID{},
+		LastCommitHash:     hashBytes("skip-trusted-last-commit"),
+		DataHash:           hashBytes("skip-trusted-data"),
+		ValidatorsHash:     trustedValSet.Hash(),
+		NextValidatorsHash: trustedValSet.Hash(),
+		ConsensusHash:      hashBytes("skip-trusted-consensus"),
+		AppHash:            hashBytes("skip-trusted-app"),
+		LastResultsHash:    hashBytes("skip-trusted-results"),
+		EvidenceHash:       hashBytes("skip-trusted-evidence"),
+		ProposerAddress:    trustedValSet.Proposer.Address,
+	}
+	if err := trustedHeader.ValidateBasic(); err != nil {
+		return fixture{}, fmt.Errorf("trusted skipping header invalid: %w", err)
+	}
+
+	header := &cmttypes.Header{
+		Version: cmtversion.Consensus{Block: version.BlockProtocol, App: 1},
+		ChainID: chainID,
+		Height:  4,
+		Time:    headerTime,
+		LastBlockID: cmttypes.BlockID{
+			Hash:          hashBytes("skip-intermediate-block"),
+			PartSetHeader: cmttypes.PartSetHeader{Total: 1, Hash: hashBytes("skip-intermediate-part-set")},
+		},
+		LastCommitHash:     hashBytes("skip-update-last-commit"),
+		DataHash:           hashBytes("skip-update-data"),
+		ValidatorsHash:     newValSet.Hash(),
+		NextValidatorsHash: nextValSet.Hash(),
+		ConsensusHash:      hashBytes("skip-update-consensus"),
+		AppHash:            hashBytes("skip-update-app"),
+		LastResultsHash:    hashBytes("skip-update-results"),
+		EvidenceHash:       hashBytes("skip-update-evidence"),
+		ProposerAddress:    newValSet.Proposer.Address,
+	}
+	if err := header.ValidateBasic(); err != nil {
+		return fixture{}, fmt.Errorf("skipping update header invalid: %w", err)
+	}
+
+	blockID := cmttypes.BlockID{
+		Hash: header.Hash(), PartSetHeader: cmttypes.PartSetHeader{Total: 1, Hash: hashBytes("skip-update-part-set")},
+	}
+	commit, commitTypes, voteSignBytes, recoveredSigners, err :=
+		signCommitWithTypes(chainID, header, blockID, headerTime, newValSet, privByAddress)
+	if err != nil {
+		return fixture{}, fmt.Errorf("sign skipping update: %w", err)
+	}
+
+	signedHeader := &cmttypes.SignedHeader{Header: header, Commit: commitTypes}
+	if err := light.Verify(
+		&cmttypes.SignedHeader{Header: trustedHeader},
+		trustedValSet,
+		signedHeader,
+		newValSet,
+		time.Duration(trustingPeriod)*time.Second,
+		now,
+		time.Duration(maxClockDrift)*time.Second,
+		cmtmath.Fraction{Numerator: 1, Denominator: 3},
+	); insufficientTrusted {
+		var trustErr light.ErrNewValSetCantBeTrusted
+		if !errors.As(err, &trustErr) {
+			return fixture{}, fmt.Errorf("expected insufficient trusted overlap, got %w", err)
+		}
+	} else if err != nil {
+		return fixture{}, fmt.Errorf("cometbft skipping verification failed: %w", err)
+	}
+
+	trustedSignedPower := int64(0)
+	for i := 0; i < overlap; i++ {
+		trustedSignedPower += trustedPrivVals[i].val.VotingPower
+	}
+
+	return fixture{
+		ChainID:         chainID,
+		TrustedHeight:   1,
+		RevisionNumber:  0,
+		TrustingPeriod:  trustingPeriod,
+		UnbondingPeriod: unbondingPeriod,
+		MaxClockDrift:   maxClockDrift,
+		ProofNow:        uint64(now.Unix()),
+		TrustedConsensus: consensusJSON{
+			Timestamp:          timestampNanos(trustedTime),
+			Root:               hexBytes(trustedHeader.AppHash),
+			NextValidatorsHash: hexBytes(trustedHeader.NextValidatorsHash),
+		},
+		Header:            headerJSONFromTypes(header),
+		Commit:            commit,
+		TrustedValidators: validatorsJSONFromSet(trustedValSet, privByAddress),
+		Validators:        validatorsJSONFromSet(newValSet, privByAddress),
+		NextValidators:    validatorsJSONFromSet(nextValSet, privByAddress),
+		Expected: expectedJSON{
+			ValidatorSetHash:         hexBytes(newValSet.Hash()),
+			NextValidatorSetHash:     hexBytes(nextValSet.Hash()),
+			TrustedValidatorSetHash:  hexBytes(trustedValSet.Hash()),
+			TrustedHeaderHash:        hexBytes(trustedHeader.Hash()),
+			HeaderHash:               hexBytes(header.Hash()),
+			VoteSignBytes:            voteSignBytes,
+			RecoveredSigners:         recoveredSigners,
+			TrustedSignedVotingPower: uint64(trustedSignedPower),
+			TrustedVotingPowerNeeded: uint64(trustedValSet.TotalVotingPower() / 3),
+			NewSignedVotingPower:     uint64(newValSet.TotalVotingPower()),
+			NewVotingPowerNeeded:     uint64(newValSet.TotalVotingPower() * 2 / 3),
+		},
+		CometBFTVerification: "light.Verify non-adjacent path checked with local /Users/gg/code/contrib/cometbft",
+	}, nil
+}
+
+func buildStoredChainedSkippingFixture(validatorCount int) (fixture, error) {
+	const chainID = "native-cometbft-1"
+	const trustingPeriod = 14 * 24 * 60 * 60
+	const unbondingPeriod = 21 * 24 * 60 * 60
+	const maxClockDrift = 30
+
+	trustedTime := time.Unix(1_680_220_900, 456_000_000).UTC()
+	headerTime := time.Unix(1_680_221_300, 789_000_000).UTC()
+	now := time.Unix(1_680_221_400, 0).UTC()
+
+	type pv struct {
+		priv secp256k1eth.PrivKey
+		val  *cmttypes.Validator
+	}
+
+	trustedPowers := []int64{34, 33, 33}
+	if validatorCount != 3 {
+		trustedPowers = make([]int64, validatorCount)
+		for i := 0; i < validatorCount; i++ {
+			trustedPowers[i] = int64((validatorCount - i) * 10)
+		}
+	}
+
+	trustedPrivVals := make([]pv, validatorCount)
+	privByAddress := map[string]secp256k1eth.PrivKey{}
+	for i := 0; i < validatorCount; i++ {
+		priv := secp256k1eth.GenPrivKeySecp256k1Eth([]byte(fmt.Sprintf("native-cometbft-skip-next-%d", i+1)))
+		val := cmttypes.NewValidator(priv.PubKey(), trustedPowers[i])
+		trustedPrivVals[i] = pv{priv: priv, val: val}
+		privByAddress[string(val.Address)] = priv
+	}
+
+	trustedValidators := make([]*cmttypes.Validator, len(trustedPrivVals))
+	for i, pv := range trustedPrivVals {
+		trustedValidators[i] = pv.val
+	}
+	trustedValSet := cmttypes.NewValidatorSet(trustedValidators)
+
+	overlap := 1
+	if validatorCount > 3 {
+		var signed int64
+		needed := trustedValSet.TotalVotingPower() / 3
+		for overlap < validatorCount && signed <= needed {
+			signed += trustedPrivVals[overlap-1].val.VotingPower
+			if signed > needed {
+				break
+			}
+			overlap++
+		}
+	}
+
+	newValidators := make([]*cmttypes.Validator, 0, validatorCount)
+	for i := 0; i < overlap; i++ {
+		newValidators = append(newValidators, cmttypes.NewValidator(trustedPrivVals[i].priv.PubKey(), trustedPrivVals[i].val.VotingPower))
+	}
+	for i := overlap; i < validatorCount; i++ {
+		priv := secp256k1eth.GenPrivKeySecp256k1Eth([]byte(fmt.Sprintf("native-cometbft-skip-chain-new-%d", i+1)))
+		val := cmttypes.NewValidator(priv.PubKey(), trustedPowers[i])
+		newValidators = append(newValidators, val)
+		privByAddress[string(val.Address)] = priv
+	}
+	newValSet := cmttypes.NewValidatorSet(newValidators)
+
+	trustedHeader := &cmttypes.Header{
+		Version:            cmtversion.Consensus{Block: version.BlockProtocol, App: 1},
+		ChainID:            chainID,
+		Height:             4,
+		Time:               trustedTime,
+		LastBlockID:        cmttypes.BlockID{},
+		LastCommitHash:     hashBytes("skip-update-last-commit"),
+		DataHash:           hashBytes("skip-update-data"),
+		ValidatorsHash:     hashBytes("stored-chain-placeholder-current-validators"),
+		NextValidatorsHash: trustedValSet.Hash(),
+		ConsensusHash:      hashBytes("skip-update-consensus"),
+		AppHash:            hashBytes("skip-update-app"),
+		LastResultsHash:    hashBytes("skip-update-results"),
+		EvidenceHash:       hashBytes("skip-update-evidence"),
+		ProposerAddress:    trustedValSet.Proposer.Address,
+	}
+	if err := trustedHeader.ValidateBasic(); err != nil {
+		return fixture{}, fmt.Errorf("trusted chained skipping header invalid: %w", err)
+	}
+
+	header := &cmttypes.Header{
+		Version: cmtversion.Consensus{Block: version.BlockProtocol, App: 1},
+		ChainID: chainID,
+		Height:  7,
+		Time:    headerTime,
+		LastBlockID: cmttypes.BlockID{
+			Hash:          hashBytes("skip-chain-intermediate-block"),
+			PartSetHeader: cmttypes.PartSetHeader{Total: 1, Hash: hashBytes("skip-chain-intermediate-part-set")},
+		},
+		LastCommitHash:     hashBytes("skip-chain-last-commit"),
+		DataHash:           hashBytes("skip-chain-data"),
+		ValidatorsHash:     newValSet.Hash(),
+		NextValidatorsHash: newValSet.Hash(),
+		ConsensusHash:      hashBytes("skip-chain-consensus"),
+		AppHash:            hashBytes("skip-chain-app"),
+		LastResultsHash:    hashBytes("skip-chain-results"),
+		EvidenceHash:       hashBytes("skip-chain-evidence"),
+		ProposerAddress:    newValSet.Proposer.Address,
+	}
+	if err := header.ValidateBasic(); err != nil {
+		return fixture{}, fmt.Errorf("chained skipping update header invalid: %w", err)
+	}
+
+	blockID := cmttypes.BlockID{
+		Hash: header.Hash(), PartSetHeader: cmttypes.PartSetHeader{Total: 1, Hash: hashBytes("skip-chain-part-set")},
+	}
+	commit, commitTypes, voteSignBytes, recoveredSigners, err :=
+		signCommitWithTypes(chainID, header, blockID, headerTime, newValSet, privByAddress)
+	if err != nil {
+		return fixture{}, fmt.Errorf("sign chained skipping update: %w", err)
+	}
+
+	signedHeader := &cmttypes.SignedHeader{Header: header, Commit: commitTypes}
+	if err := light.Verify(
+		&cmttypes.SignedHeader{Header: trustedHeader},
+		trustedValSet,
+		signedHeader,
+		newValSet,
+		time.Duration(trustingPeriod)*time.Second,
+		now,
+		time.Duration(maxClockDrift)*time.Second,
+		cmtmath.Fraction{Numerator: 1, Denominator: 3},
+	); err != nil {
+		return fixture{}, fmt.Errorf("cometbft chained skipping verification failed: %w", err)
+	}
+
+	trustedSignedPower := int64(0)
+	for i := 0; i < overlap; i++ {
+		trustedSignedPower += trustedPrivVals[i].val.VotingPower
+	}
+
+	validatorsJSON := validatorsJSONFromSet(newValSet, privByAddress)
+	return fixture{
+		ChainID:         chainID,
+		TrustedHeight:   4,
+		RevisionNumber:  0,
+		TrustingPeriod:  trustingPeriod,
+		UnbondingPeriod: unbondingPeriod,
+		MaxClockDrift:   maxClockDrift,
+		ProofNow:        uint64(now.Unix()),
+		TrustedConsensus: consensusJSON{
+			Timestamp:          timestampNanos(trustedTime),
+			Root:               hexBytes(trustedHeader.AppHash),
+			NextValidatorsHash: hexBytes(trustedHeader.NextValidatorsHash),
+		},
+		Header:            headerJSONFromTypes(header),
+		Commit:            commit,
+		TrustedValidators: validatorsJSONFromSet(trustedValSet, privByAddress),
+		Validators:        validatorsJSON,
+		NextValidators:    validatorsJSON,
+		Expected: expectedJSON{
+			ValidatorSetHash:         hexBytes(newValSet.Hash()),
+			NextValidatorSetHash:     hexBytes(newValSet.Hash()),
+			TrustedValidatorSetHash:  hexBytes(trustedValSet.Hash()),
+			TrustedHeaderHash:        hexBytes(trustedHeader.Hash()),
+			HeaderHash:               hexBytes(header.Hash()),
+			VoteSignBytes:            voteSignBytes,
+			RecoveredSigners:         recoveredSigners,
+			TrustedSignedVotingPower: uint64(trustedSignedPower),
+			TrustedVotingPowerNeeded: uint64(trustedValSet.TotalVotingPower() / 3),
+			NewSignedVotingPower:     uint64(newValSet.TotalVotingPower()),
+			NewVotingPowerNeeded:     uint64(newValSet.TotalVotingPower() * 2 / 3),
+		},
+		CometBFTVerification: "light.Verify chained non-adjacent path checked with local /Users/gg/code/contrib/cometbft",
 	}, nil
 }
 
@@ -631,6 +1080,38 @@ func signCommit(
 	valSet *cmttypes.ValidatorSet,
 	privByAddress map[string]secp256k1eth.PrivKey,
 ) (commitJSON, []string, []string, error) {
+	commit, voteSignBytes, recoveredSigners, err :=
+		signCommitTypes(chainID, header, blockID, signTime, valSet, privByAddress)
+	if err != nil {
+		return commitJSON{}, nil, nil, err
+	}
+	return commitJSONFromTypes(commit), voteSignBytes, recoveredSigners, nil
+}
+
+func signCommitWithTypes(
+	chainID string,
+	header *cmttypes.Header,
+	blockID cmttypes.BlockID,
+	signTime time.Time,
+	valSet *cmttypes.ValidatorSet,
+	privByAddress map[string]secp256k1eth.PrivKey,
+) (commitJSON, *cmttypes.Commit, []string, []string, error) {
+	commit, voteSignBytes, recoveredSigners, err :=
+		signCommitTypes(chainID, header, blockID, signTime, valSet, privByAddress)
+	if err != nil {
+		return commitJSON{}, nil, nil, nil, err
+	}
+	return commitJSONFromTypes(commit), commit, voteSignBytes, recoveredSigners, nil
+}
+
+func signCommitTypes(
+	chainID string,
+	header *cmttypes.Header,
+	blockID cmttypes.BlockID,
+	signTime time.Time,
+	valSet *cmttypes.ValidatorSet,
+	privByAddress map[string]secp256k1eth.PrivKey,
+) (*cmttypes.Commit, []string, []string, error) {
 	sigs := make([]cmttypes.CommitSig, len(valSet.Validators))
 	voteSignBytes := make([]string, len(valSet.Validators))
 	recoveredSigners := make([]string, len(valSet.Validators))
@@ -648,7 +1129,7 @@ func signCommit(
 		priv := privByAddress[string(val.Address)]
 		sig, err := priv.Sign(signBytes)
 		if err != nil {
-			return commitJSON{}, nil, nil, err
+			return nil, nil, nil, err
 		}
 		sigs[i] = cmttypes.CommitSig{
 			BlockIDFlag:      cmttypes.BlockIDFlagCommit,
@@ -663,9 +1144,9 @@ func signCommit(
 	commit := &cmttypes.Commit{Height: header.Height, Round: 0, BlockID: blockID, Signatures: sigs}
 	signedHeader := &cmttypes.SignedHeader{Header: header, Commit: commit}
 	if err := signedHeader.ValidateBasic(chainID); err != nil {
-		return commitJSON{}, nil, nil, err
+		return nil, nil, nil, err
 	}
-	return commitJSONFromTypes(commit), voteSignBytes, recoveredSigners, nil
+	return commit, voteSignBytes, recoveredSigners, nil
 }
 
 func headerJSONFromTypes(header *cmttypes.Header) headerJSON {
@@ -712,6 +1193,33 @@ func commitJSONFromTypes(commit *cmttypes.Commit) commitJSON {
 		TimestampSeconds:   timestampSeconds,
 		TimestampNanos:     commitTimestampNanos,
 		Signatures:         signatures,
+	}
+}
+
+func validatorsJSONFromSet(
+	valSet *cmttypes.ValidatorSet,
+	privByAddress map[string]secp256k1eth.PrivKey,
+) validatorsJSON {
+	addresses := make([]string, len(valSet.Validators))
+	publicKeys := make([]string, len(valSet.Validators))
+	publicKeyYWitnesses := make([]string, len(valSet.Validators))
+	uncompressedPublicKeys := make([]string, len(valSet.Validators))
+	powers := make([]uint64, len(valSet.Validators))
+	for i, val := range valSet.Validators {
+		addresses[i] = addressHex(val.Address)
+		publicKeys[i] = hexBytes(val.PubKey.Bytes())
+		uncompressed := uncompressedPubKey(privByAddress[string(val.Address)])
+		publicKeyYWitnesses[i] = hexBytes(uncompressed[32:])
+		uncompressedPublicKeys[i] = hexBytes(uncompressed)
+		powers[i] = uint64(val.VotingPower)
+	}
+
+	return validatorsJSON{
+		Addresses:              addresses,
+		PublicKeys:             publicKeys,
+		PublicKeyYWitnesses:    publicKeyYWitnesses,
+		UncompressedPublicKeys: uncompressedPublicKeys,
+		VotingPowers:           powers,
 	}
 }
 

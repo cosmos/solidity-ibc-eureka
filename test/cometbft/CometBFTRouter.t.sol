@@ -298,7 +298,7 @@ contract CometBFTRouterTest is Test {
         accessManager.grantRole(IBCRolesLib.RELAYER_ROLE, relayer, 0);
         accessManager.grantRole(IBCRolesLib.ID_CUSTOMIZER_ROLE, idCustomizer, 0);
 
-        client = new CometBFTClient(_clientState(trustedHeight), consensusState, address(this));
+        client = new CometBFTClient(_clientState(trustedHeight), consensusState, _emptyValidators(), address(this));
         client.grantRole(client.PROOF_SUBMITTER_ROLE(), address(router));
         string memory clientId;
         IICS02ClientMsgs.CounterpartyInfo memory counterpartyInfo =
@@ -330,6 +330,10 @@ contract CometBFTRouterTest is Test {
             maxClockDrift: 30,
             isFrozen: false
         });
+    }
+
+    function _emptyValidators() private pure returns (ICometBFTMsgs.Validator[] memory) {
+        return new ICometBFTMsgs.Validator[](0);
     }
 
     function _consensusState(string memory selector) private view returns (ICometBFTMsgs.ConsensusState memory) {

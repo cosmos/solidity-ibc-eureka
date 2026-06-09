@@ -1036,15 +1036,23 @@ check-cometbft-fixtures: _check-cometbft-fixture-dependency
 
   update_tmp="$(mktemp)"
   update20_tmp="$(mktemp)"
+  skip_tmp="$(mktemp)"
+  skip20_tmp="$(mktemp)"
+  skip_next_tmp="$(mktemp)"
+  skip_insufficient_trusted_tmp="$(mktemp)"
   parser_tmp="$(mktemp)"
   router_tmp="$(mktemp)"
   misbehaviour_tmp="$(mktemp)"
   membership_tmp="$(mktemp)"
   non_membership_tmp="$(mktemp)"
-  trap 'rm -f "$update_tmp" "$update20_tmp" "$parser_tmp" "$router_tmp" "$misbehaviour_tmp" "$membership_tmp" "$non_membership_tmp"' EXIT
+  trap 'rm -f "$update_tmp" "$update20_tmp" "$skip_tmp" "$skip20_tmp" "$skip_next_tmp" "$skip_insufficient_trusted_tmp" "$parser_tmp" "$router_tmp" "$misbehaviour_tmp" "$membership_tmp" "$non_membership_tmp"' EXIT
 
   (cd scripts/cometbft-fixture && go run . "$update_tmp" 3 >/dev/null)
   (cd scripts/cometbft-fixture && go run . "$update20_tmp" 20 >/dev/null)
+  (cd scripts/cometbft-fixture && go run . skip "$skip_tmp" 3 >/dev/null)
+  (cd scripts/cometbft-fixture && go run . skip "$skip20_tmp" 20 >/dev/null)
+  (cd scripts/cometbft-fixture && go run . skip-next "$skip_next_tmp" 3 >/dev/null)
+  (cd scripts/cometbft-fixture && go run . skip "$skip_insufficient_trusted_tmp" 3 insufficient-trusted >/dev/null)
   bash scripts/cometbft-fixture/generate-native-ics23-parser-fixture.sh "$parser_tmp" >/dev/null
   (cd scripts/cometbft-fixture && go run . misbehaviour "$misbehaviour_tmp" >/dev/null)
   (
@@ -1060,6 +1068,10 @@ check-cometbft-fixtures: _check-cometbft-fixture-dependency
 
   diff -u test/cometbft/fixtures/native_update_fixture.json "$update_tmp"
   diff -u test/cometbft/fixtures/native_update_20_validators_fixture.json "$update20_tmp"
+  diff -u test/cometbft/fixtures/native_skipping_update_fixture.json "$skip_tmp"
+  diff -u test/cometbft/fixtures/native_skipping_update_20_validators_fixture.json "$skip20_tmp"
+  diff -u test/cometbft/fixtures/native_skipping_next_update_fixture.json "$skip_next_tmp"
+  diff -u test/cometbft/fixtures/native_skipping_insufficient_trusted_overlap_fixture.json "$skip_insufficient_trusted_tmp"
   diff -u test/cometbft/fixtures/native_ics23_parser_fixture.json "$parser_tmp"
   diff -u test/cometbft/fixtures/native_ics23_router_fixture.json "$router_tmp"
   diff -u test/cometbft/fixtures/native_misbehaviour_fixture.json "$misbehaviour_tmp"
