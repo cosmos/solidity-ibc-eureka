@@ -1,96 +1,175 @@
 # Native CometBFT Light Client Implementation Report
 
-## Summary
+## Executive Summary
 
-The native CometBFT light client in this branch of `solidity-ibc-eureka` is implemented as a scoped Solidity light client for adjacent CometBFT updates using `secp256k1eth` validator keys.
+This branch implements a native Solidity CometBFT light client for the supported production target documented in `docs/adr/native-cometbft-light-client.md`: adjacent CometBFT updates, validator sets using CometBFT's `secp256k1eth` key type, native ICS-23 membership and non-membership verification, router proof flows, and adjacent-scope misbehaviour freezing.
 
-The supported target is intentionally narrower than the full general CometBFT light-client algorithm. It supports adjacent updates, native ICS-23 membership and non-membership proofs, router packet/acknowledgement/timeout proof flows, and adjacent-scope misbehaviour freezing. Non-adjacent skipping verification and validator key types other than `secp256k1eth` remain out of scope.
+The implementation is intentionally not a full general-purpose CometBFT light client. It does not implement non-adjacent skipping verification and it does not support arbitrary CometBFT validator key types. Within the supported target, the client performs real CometBFT-compatible header, validator-set, commit-signature, app-root, and ICS-23 proof verification in Solidity.
 
-## Core Contract
+The key enabling dependency is the local CometBFT branch:
 
-The main implementation is:
+- Repository: `/Users/gg/code/contrib/cometbft`
+- Branch: `gjermund/moar-ethsecp`
+- Relevant commit: `53171bf261ee80504c9faac62fe06451aca75773`
 
-- `contracts/light-clients/cometbft/CometBFTClient.sol`
+That branch makes CometBFT capable of running validator sets whose public keys are normal CometBFT consensus public keys for hashing and protobuf encoding, while their signatures are Ethereum-recoverable secp256k1 signatures that Solidity can verify with `ecrecover`.
 
-`updateClient` ABI-decodes a native update message, validates the trusted consensus state, validates the header and validator set, verifies the commit signatures, and stores the new consensus state keyed by full IBC height.
+## Repository Context
 
-Important mechanics:
+The Solidity implementation lives in:
 
-- `updateClient` performs trusted-state, header/validator, and commit verification before storing the new consensus state.
-- `verifyMembership` and `verifyNonMembership` fetch the consensus state for the requested full IBC height and verify the proof against the stored app hash.
-- `misbehaviour` validates two signed update headers and freezes the client if they conflict or violate time monotonicity.
-- Adjacent-only verification is enforced by requiring `header.height == trustedHeight.revisionHeight + 1`.
-- The contract recomputes the CometBFT validator-set hash and header hash rather than trusting fixture fields.
-- Commit signatures are checked until signed voting power exceeds two-thirds.
+- Repository: `/Users/gg/code/contrib/solidity-ibc-eureka`
+- Branch: `gjermund/cometbft-lc-poc`
+- Main contract: `contracts/light-clients/cometbft/CometBFTClient.sol`
+- Proof verifier: `contracts/light-clients/cometbft/utils/CometBFTICS23.sol`
+- Message types: `contracts/light-clients/cometbft/msgs/ICometBFTMsgs.sol`
+- Tests: `test/cometbft/CometBFTClient.t.sol` and `test/cometbft/CometBFTRouter.t.sol`
+- Update fixture generator: `scripts/cometbft-fixture/main.go`
+- Native ICS-23 fixture converter: `scripts/native-ics23-fixture/main.go`
 
-Validator addresses are derived on-chain from compressed secp256k1 public keys. Each validator carries the compressed public key plus a `y` witness. The contract checks the point is on secp256k1, checks parity against the compressed-key prefix, and derives the Ethereum address as `keccak256(x || y)[12:]`.
+The implementation is meant to answer whether a native Solidity CometBFT light client is feasible when CometBFT validator keys are Ethereum-compatible but still participate in normal CometBFT consensus hashing.
 
-## Native ICS-23 Proofs
+## Supported Scope
 
-The ICS-23 verifier is:
+The current client supports:
 
-- `contracts/light-clients/cometbft/utils/CometBFTICS23.sol`
+- Adjacent updates where `header.height == trustedHeight.revisionHeight + 1`.
+- Full IBC height checks using both `revisionNumber` and `revisionHeight`.
+- `secp256k1eth` CometBFT validators with compressed SEC1 public keys.
+- On-chain validator address derivation from the validator public key and `y` witness.
+- CometBFT validator-set hash recomputation over public keys and voting power.
+- CometBFT header hash recomputation over the supported header fields.
+- Basic commit signature validation over the full validator set.
+- Ethereum ECDSA recovery until signed voting power exceeds two-thirds.
+- Consensus-state storage keyed by full IBC height.
+- ICS-23 membership verification against the stored CometBFT app hash.
+- ICS-23 non-membership verification for timeout-style absence proofs.
+- `ICS26Router` packet commitment, acknowledgement, and timeout proof flows.
+- Misbehaviour freezing for adjacent-scope signed conflicting headers and time monotonicity violations.
 
-It verifies a deliberately narrow native ABI representation of ICS-23:
+The current client does not support:
 
-- Membership: IAVL leaf existence proof plus Tendermint store-root proof.
-- Non-membership: IAVL non-existence proof plus Tendermint store-root proof.
-- Proof entries are bound to the router/client path segments.
-- IAVL leaf, inner-op, prefix/suffix, hash-op, and neighbor-order constraints are checked.
-- The calculated app root must match the consensus state's `appHash`.
+- Non-adjacent CometBFT skipping verification or bisection.
+- Validator key types other than `secp256k1eth`.
+- Raw protobuf ICS-23 decoding on-chain.
+- General-purpose ICS-23 proof variants outside the implemented Cosmos SDK IAVL plus Tendermint multistore subset.
 
-This is not raw protobuf ICS-23 on-chain. The fixture tooling converts real ICS-23 proofs into a Solidity-friendly ABI shape.
+## How Update Verification Works
+
+`CometBFTClient.updateClient` accepts an ABI-encoded native update message. The message includes the trusted IBC height, a CometBFT header, the next validator set, and commit signatures.
+
+The update path performs these checks before writing state:
+
+1. The client is not frozen.
+2. The trusted consensus state exists at the full `(revisionNumber, revisionHeight)` key.
+3. The trusted revision number matches the client state's revision number.
+4. The new header is adjacent to the trusted height.
+5. Header and commit-signature timestamp nanoseconds are valid.
+6. The existing trusted state is not expired.
+7. The new header time is not too far in the future under `maxClockDrift`.
+8. The supplied validator set hashes to the header's `nextValidatorsHash`.
+9. The CometBFT header hash recomputed in Solidity matches the commit block ID.
+10. Commit signatures recover to validators in the supplied set.
+11. Signed voting power is greater than two-thirds of total voting power.
+
+When all checks pass, the client stores the new consensus state at the full IBC height. The stored state includes the timestamp, app root, next validator hash, and consensus-state hash used by the broader IBC client interface.
+
+This is why the realistic 20-validator update gas is in the low hundreds of thousands, not the much larger Foundry test-function gas number. The actual contract call does meaningful work: ABI-decodes a large nested update, recomputes CometBFT hashes, validates commit signatures, and recovers signatures until quorum.
+
+## How Validator Verification Works
+
+The CometBFT branch provides validators with `secp256k1eth` public keys. Solidity receives the compressed public key plus a `y` coordinate witness. The contract:
+
+1. Checks the point is on secp256k1.
+2. Checks the `y` parity matches the compressed public-key prefix.
+3. Derives the Ethereum address as `keccak256(x || y)[12:]`.
+4. Uses `ecrecover` over the CometBFT vote sign bytes to recover commit signers.
+5. Matches recovered addresses against validators derived from the public keys.
+
+The important design point is that validator-set hashing remains CometBFT-compatible. The validator-set hash is computed over CometBFT `SimpleValidator{pub_key, voting_power}` data, not over Ethereum addresses. Ethereum addresses are used only for signature recovery and signer matching.
+
+## How Native ICS-23 Verification Works
+
+`CometBFTICS23.sol` implements the native proof verification path.
+
+The on-chain proof is not raw protobuf. Instead, fixture tooling converts real ICS-23 proofs into a Solidity-friendly ABI representation:
+
+- `ICometBFTMsgs.ICS23Proof`
+- `ICS23CommitmentProof`
+- `ICS23ExistenceProof`
+- `ICS23NonExistenceProof`
+- `ICS23LeafOp`
+- `ICS23InnerOp`
+
+Membership verification checks:
+
+- The proof decodes into the expected native ABI type.
+- Proof entries are bound to router path segments.
+- The leaf key and value match the requested path and value.
+- IAVL proof operations use the supported leaf, inner-op, length, and hash settings.
+- The Tendermint store-root proof links the IAVL root to the CometBFT app hash.
+- The final calculated root equals the consensus state's stored `appHash`.
+
+Non-membership verification checks:
+
+- The first proof entry is an IAVL non-existence proof for the requested leaf path.
+- Left and/or right neighbor proofs are valid when present.
+- Neighbor ordering and boundary conditions are enforced.
+- Parent proof entries link the absence proof to the stored CometBFT app hash.
+
+This is sufficient for the currently supported router flows, including packet receipt absence for timeouts.
 
 ## Router Integration
 
-Router-level tests are in:
+Router-level coverage lives in `test/cometbft/CometBFTRouter.t.sol`.
 
-- `test/cometbft/CometBFTRouter.t.sol`
+Those tests exercise the native client through `ICS26Router` for:
 
-They verify that the native client can be used by `ICS26Router` for:
+- Packet commitment membership.
+- Acknowledgement commitment membership.
+- Packet receipt non-membership for timeout.
 
-- packet commitment membership,
-- acknowledgement commitment membership,
-- packet receipt absence for timeout.
+The tests use native fixtures derived from real Cosmos SDK e2e proof data. The local router state is seeded as needed to put `ICS26Router` into the correct test state, but the remote proof verification itself goes through the native CometBFT client and the generated proof fixtures.
 
-These tests use e2e-derived proof data, not mock proofs. Some local router state is seeded in tests to reach the relevant router path, but the remote proof verification itself goes through the native CometBFT light client and real generated proof fixtures.
+## Fixture And E2E Story
 
-## Fixtures And E2E Path
+There are two fixture paths.
 
-The update/misbehaviour fixture generator is:
+The update and misbehaviour fixture generator is:
 
 - `scripts/cometbft-fixture/main.go`
 
-It uses the local CometBFT branch to create `secp256k1eth` validator sets, sign CometBFT vote sign bytes, run `light.VerifyAdjacent`, and emit vectors for Solidity.
+It uses the local CometBFT dependency to:
+
+- Create `secp256k1eth` validator sets.
+- Sign CometBFT vote sign bytes.
+- Run CometBFT adjacent verification in Go.
+- Emit Solidity fixtures for valid updates, 20-validator updates, and misbehaviour cases.
 
 The native ICS-23 fixture converter is:
 
 - `scripts/native-ics23-fixture/main.go`
 
-It consumes real e2e source fixtures, reference-verifies the ICS-23 proofs in Go, ABI-encodes them into the Solidity proof shape, and writes native Foundry fixtures.
+It consumes e2e-derived proof source data, reference-verifies the proofs in Go, converts them into the native Solidity ABI shape, and writes Foundry fixtures.
 
-The e2e fixture source is generated in:
+The e2e source fixture flow is:
 
 - `e2e/interchaintestv8/cosmos_proof_api_test.go`
+- `e2e/interchaintestv8/types/tendermint_light_client_fixtures.go`
+- `e2e/interchaintestv8/types/tendermint_light_client_fixtures/*.go`
 
-The packet/acknowledgement path broadcasts real relay transactions, extracts the IBC v2 app acknowledgement, queries real proof data, and writes packet commitment, acknowledgement commitment, and packet receipt absence fixtures.
+That path broadcasts real relay transactions, extracts IBC v2 app acknowledgements, queries real proof data, and writes packet commitment, acknowledgement commitment, and packet receipt absence source fixtures.
 
-The `justfile` wires this up:
+The `justfile` ties the paths together:
 
-- `generate-fixtures-tendermint-light-client` runs the heavy e2e fixture generation.
-- `generate-cometbft-fixtures` regenerates native fixtures from committed source data.
+- `generate-fixtures-tendermint-light-client` runs the heavier e2e fixture generation path.
+- `generate-cometbft-fixtures` regenerates native Solidity fixtures.
 - `check-cometbft-fixtures` checks committed fixture drift and verifies the local CometBFT dependency is pinned to the expected commit.
+- `test-foundry-cometbft` runs the focused native CometBFT Foundry suite.
 
 ## Why The Current CometBFT Branch Makes This Possible
 
-The local CometBFT dependency is:
-
-- Repo: `/Users/gg/code/contrib/cometbft`
-- Branch: `gjermund/moar-ethsecp`
-- Commit: `53171bf261ee80504c9faac62fe06451aca75773`
-- Upstream branch: `origin/gjermund/moar-ethsecp`
-
-That branch adds an Ethereum-compatible CometBFT validator key type: `secp256k1eth`.
+The feasibility hinges on the `secp256k1eth` key type added in `/Users/gg/code/contrib/cometbft`.
 
 The key implementation is:
 
@@ -99,52 +178,66 @@ The key implementation is:
 It provides:
 
 - 33-byte compressed SEC1 public keys.
-- Ethereum address derivation: `Keccak256(uncompressedPubKey[1:])[12:]`.
-- signatures as `[R || S || V]`, with `V` in `{0,1}`.
-- legacy Keccak-256 signing, matching Ethereum/go-ethereum behavior.
-- low-`S` signature enforcement.
+- Ethereum address derivation from the uncompressed public key.
+- Signatures encoded as `[R || S || V]`.
+- `V` values in `{0,1}`.
+- Low-`S` enforcement.
+- Legacy Keccak-256 signing compatible with Ethereum recovery.
 
-CometBFT encoding support is added through:
+CometBFT protobuf encoding support is added through:
 
 - `/Users/gg/code/contrib/cometbft/crypto/encoding/codec.go`
 
-That code can convert `secp256k1eth` public keys to and from CometBFT protobuf public keys.
+The decisive property is that CometBFT still hashes validators as CometBFT public keys and voting power. In CometBFT, `ValidatorSet.Hash()` commits to `SimpleValidator{pub_key, voting_power}`. The branch keeps that behavior intact for `secp256k1eth`.
 
-The critical feasibility point is that the branch keeps validator-set hashing compatible with normal CometBFT public-key hashing. CometBFT hashes `SimpleValidator{pub_key, voting_power}` in `/Users/gg/code/contrib/cometbft/types/validator.go`. That means Solidity can reproduce CometBFT's `ValidatorSet.Hash()` by encoding the same public keys and voting powers, without relying on Ethereum addresses as the validator-set hash input.
+That gives Solidity exactly the bridge it needs:
 
-That property is what makes the Solidity implementation viable:
+- CometBFT consensus commits to public keys and voting power in the normal validator-set hash.
+- The same public keys can be represented compactly and checked on-chain.
+- Signatures are Ethereum-recoverable, so Solidity can use `ecrecover`.
+- Recovered Ethereum addresses can be compared to addresses derived from the validator public keys.
+- The contract does not need any consensus-breaking shortcut such as hashing Ethereum addresses instead of CometBFT public keys.
 
-- CometBFT consensus sees validator public keys and voting power.
-- Commit signatures are Ethereum-recoverable because the key type signs with Ethereum-compatible secp256k1.
-- Solidity can recompute the validator-set hash using CometBFT public-key bytes.
-- Solidity can recover Ethereum addresses from signatures and compare them to the addresses derived from the same public keys.
-- No consensus-breaking "hash validator addresses instead of pubkeys" shortcut is needed.
+Without this CometBFT branch, the native Solidity path would be much less practical. Standard CometBFT validators commonly use key/signature schemes that Solidity cannot verify cheaply with precompiles. The branch preserves CometBFT's consensus object model while making the commit signatures verifiable on Ethereum.
 
 ## Verification State
 
-The implementation was verified with:
+The implementation has been validated with the focused native CometBFT suite and fixture checks:
 
-- `just test-foundry-cometbft`
-- `forge test --match-path 'test/cometbft/*' -vvv`
-- `just check-cometbft-fixtures`
-- `just build-contracts`
-- proof-api default and Cosmos-only cargo checks/builds
-- Go tests for native fixture conversion and e2e fixture types
-- `forge fmt --check`
-- `cargo fmt --check`
-- `git diff --check`
-- focused gas report
+```bash
+just check-cometbft-fixtures
+just test-foundry-cometbft
+forge test --match-path 'test/cometbft/*' -vvv
+just build-contracts
+```
 
-Observed hot-path gas:
+Additional validation used during development included:
 
-- `updateClient`: max `644,252`
-- `verifyMembership`: `76,896`
-- `verifyNonMembership`: `109,846`
-- `misbehaviour`: `420,617`
+```bash
+forge fmt --check
+cargo fmt --check
+git diff --check
+cargo check -p proof-api --bin proof-api --locked
+cargo check -p proof-api --bin proof-api --no-default-features --features cosmos-to-cosmos --locked
+```
 
-## Current Caveats
+Focused gas observations from the native CometBFT path:
 
-- This is complete for the documented native CometBFT target, not for generalized non-adjacent CometBFT skipping verification.
-- Validator key types other than `secp256k1eth` are not supported.
-- Full e2e fixture regeneration is intentionally a heavier manual path. CI checks committed fixture drift through `just check-cometbft-fixtures`.
-- The native proof ABI is a Solidity-friendly converted proof format, not raw protobuf ICS-23 bytes.
+- `updateClient` for the 20-validator fixture is about `484k` gas for the actual call path.
+- Broader gas reports have observed hot-path maxima around `644k` for `updateClient`, `77k` for membership, `110k` for non-membership, and `421k` for misbehaviour, depending on the specific fixture/test path.
+
+Large Foundry per-test gas numbers should not be read as contract-call gas. They can include JSON fixture parsing, construction of large nested structs in Solidity tests, client deployment, and assertions.
+
+## Current Caveats And Remaining Boundaries
+
+The implemented client is complete for the scoped native target, but these boundaries remain important:
+
+- Non-adjacent skipping verification is still out of scope.
+- Non-`secp256k1eth` validator sets are still out of scope.
+- The native proof ABI is a Solidity-friendly converted ICS-23 representation, not raw protobuf proof bytes.
+- The full e2e fixture generation path is intentionally heavier than normal local checks; CI-oriented validation relies on committed source fixtures and `check-cometbft-fixtures`.
+- Solana proof-api modules are separate from the native CometBFT target. Solana feature builds still depend on generated Solana SDK artifacts being present.
+
+## Bottom Line
+
+The implementation demonstrates that a native Solidity CometBFT light client is feasible for an adjacent-update, `secp256k1eth` CometBFT chain. The current CometBFT branch makes this possible by preserving normal CometBFT validator-set hashing while producing Ethereum-recoverable consensus signatures. Solidity can therefore verify the same committed validator set and recover commit signers without changing CometBFT's consensus hash semantics.
