@@ -1,0 +1,149 @@
+{
+  "chainId": "native-cometbft-1",
+  "trustedHeight": 1,
+  "revisionNumber": 0,
+  "trustingPeriod": 1209600,
+  "unbondingPeriod": 1814400,
+  "maxClockDrift": 30,
+  "proofNow": 1680221000,
+  "trustedConsensusState": {
+    "timestamp": 1680220500123000000,
+    "root": "0x15cc408e824af454e8c8847892d8ca7cd55fb05ac46e2c05471a5f9c10ddba5a",
+    "nextValidatorsHash": "0x6b3568a0589c86bfacc4dbbdb15c14f37a21bb68654c943a23dd67d1e4b3640e"
+  },
+  "header": {
+    "versionBlock": 11,
+    "versionApp": 1,
+    "chainId": "native-cometbft-1",
+    "height": 4,
+    "timeSeconds": 1680220900,
+    "timeNanos": 456000000,
+    "lastBlockId": {
+      "hash": "0x22af0e9f41e15cb403682a44af586e85ac9b47b8aa63134d21ccc56fa4c0a30e",
+      "partSetHeader": {
+        "total": 1,
+        "hash": "0xb5d7ee03f37884c1561968bda24c9fa7ca0cdc62734a58ad0d00c6bf24de211b"
+      }
+    },
+    "lastCommitHash": "0xcb3480716ed2f4e258261c6c6f2540ee7b79e7bd744bfad4282b40bb7301168e",
+    "dataHash": "0x0e670e10271401bc74d08fb86b39a6a6315ed6a9f18759fbf96e2d3e81ea80a4",
+    "validatorsHash": "0xc7f709d737b0dc7153cafbf970744bc555146869848cda95100840b1db9722c5",
+    "nextValidatorsHash": "0xc7f709d737b0dc7153cafbf970744bc555146869848cda95100840b1db9722c5",
+    "consensusHash": "0x658cf8adc2023197caa406d585c15ee38bb2d49562decbd9489dae005cc5118e",
+    "appHash": "0x4453f5197a3bb6b54f6cc50ce3968216f430dd5276e32771e24090f3c7c4f0c5",
+    "lastResultsHash": "0xffb06313a6f60a7bc647eb8c76f884a290cc4c80b5813ad3be39be581036660b",
+    "evidenceHash": "0x0b431507222108023588a64dedd86416c7547de8000c420e97f10314d7b18e9a",
+    "proposerAddress": "0xaf7c2d13f5a00c599848059e3dca20628a2a151f"
+  },
+  "commit": {
+    "height": 4,
+    "round": 0,
+    "blockId": {
+      "hash": "0x49a786da54d2707ca05aea15fa14e734d681708c4653bbb2d072fe068e11b36f",
+      "partSetHeader": {
+        "total": 1,
+        "hash": "0x0b145172e86ed07d8ba08969d2f2ac43776fac31be2ed1d5186785905fe3617f"
+      }
+    },
+    "blockIdFlags": [
+      2,
+      2,
+      2
+    ],
+    "validatorAddresses": [
+      "0xaf7c2d13f5a00c599848059e3dca20628a2a151f",
+      "0xb8907194379d6a9f1ffcb371a8713f343e17d050",
+      "0xdf091e89ece1319cbcddbcba3c1d847a7fb2e93f"
+    ],
+    "timestampSeconds": [
+      1680220900,
+      1680220900,
+      1680220900
+    ],
+    "timestampNanos": [
+      456000000,
+      456000000,
+      456000000
+    ],
+    "signatures": [
+      "0x9ce029b5b98c3610a942db7497aa058a497457028dbc0e4793ab2457ae9527b72deed5f9a2a3bafe183c934055c353d940f034988b0b916a97a9a9b43bcc7b1400",
+      "0x00efe153ade65eff91f381fe9ef37e9330d8b8e20987ac565f1ae2779634e9e35324e856a68ddca6c3de4d9fa470ae0fea66ef534bb06cb4429e03cb84fad2d701",
+      "0x39b8c6c0cc5924d087786065486cb2bbbab9c47216b703e76db05e8b67417f7d17db50a79d694f7b6afe0174aa5b88a23503031fea512f334be02ccf0e899f9901"
+    ]
+  },
+  "trustedValidators": {
+    "addresses": [
+      "0x3edcd38eb8ec4b4cbf86ff24ca5104cebc7692ca",
+      "0x65f069649927a7d696b211c02ebcc16441cca7fe",
+      "0xdf091e89ece1319cbcddbcba3c1d847a7fb2e93f"
+    ],
+    "publicKeys": [
+      "0x03c4e8a87295b7bed3713f4010569ced2d9433de3e2bfa389733bfe01af288d207",
+      "0x02ff9bae46037540b9f0c324ae2f10089662b2bc65e13c7f3adc2ab84f0f2b3d9b",
+      "0x03be6e6c317b7f355de344c0bccdf07d85a8a13b0d903be31bcbf3dd1d00c069e0"
+    ],
+    "publicKeyYWitnesses": [
+      "0xc61fa71dd6f11ef980309e29d35bdb95622fe89002d4b5656e486a71ba4b58b3",
+      "0xb13741c4117f3b384395be4091e8f51589a25693da7c8fb0bff1f0ff75b7d478",
+      "0x407ceb32894105a9becac1319a1b72a5984cd5e539587b33f79dec1ee66ab1f1"
+    ],
+    "uncompressedPublicKeys": [
+      "0xc4e8a87295b7bed3713f4010569ced2d9433de3e2bfa389733bfe01af288d207c61fa71dd6f11ef980309e29d35bdb95622fe89002d4b5656e486a71ba4b58b3",
+      "0xff9bae46037540b9f0c324ae2f10089662b2bc65e13c7f3adc2ab84f0f2b3d9bb13741c4117f3b384395be4091e8f51589a25693da7c8fb0bff1f0ff75b7d478",
+      "0xbe6e6c317b7f355de344c0bccdf07d85a8a13b0d903be31bcbf3dd1d00c069e0407ceb32894105a9becac1319a1b72a5984cd5e539587b33f79dec1ee66ab1f1"
+    ],
+    "votingPowers": [
+      34,
+      33,
+      33
+    ]
+  },
+  "validators": {
+    "addresses": [
+      "0xaf7c2d13f5a00c599848059e3dca20628a2a151f",
+      "0xb8907194379d6a9f1ffcb371a8713f343e17d050",
+      "0xdf091e89ece1319cbcddbcba3c1d847a7fb2e93f"
+    ],
+    "publicKeys": [
+      "0x02aaf9181ce1f135c9624edc6000875c0704d07b5f1ab777d8ecb9ee9f88692ba7",
+      "0x0221f6d538233f4fb63705cda3b0c180edda8270fcdce12c8c2b3eaa4cdb89d622",
+      "0x03be6e6c317b7f355de344c0bccdf07d85a8a13b0d903be31bcbf3dd1d00c069e0"
+    ],
+    "publicKeyYWitnesses": [
+      "0xd11eb8f5d0431e1f4576d05bae04201136adc162db821d89e9e2cea2e57dd87c",
+      "0xde5c4ce64f13e688c5c4b59c5ec1bbc67edb527b228a2351a3808b4fe6b82b84",
+      "0x407ceb32894105a9becac1319a1b72a5984cd5e539587b33f79dec1ee66ab1f1"
+    ],
+    "uncompressedPublicKeys": [
+      "0xaaf9181ce1f135c9624edc6000875c0704d07b5f1ab777d8ecb9ee9f88692ba7d11eb8f5d0431e1f4576d05bae04201136adc162db821d89e9e2cea2e57dd87c",
+      "0x21f6d538233f4fb63705cda3b0c180edda8270fcdce12c8c2b3eaa4cdb89d622de5c4ce64f13e688c5c4b59c5ec1bbc67edb527b228a2351a3808b4fe6b82b84",
+      "0xbe6e6c317b7f355de344c0bccdf07d85a8a13b0d903be31bcbf3dd1d00c069e0407ceb32894105a9becac1319a1b72a5984cd5e539587b33f79dec1ee66ab1f1"
+    ],
+    "votingPowers": [
+      34,
+      33,
+      33
+    ]
+  },
+  "expected": {
+    "validatorSetHash": "0xc7f709d737b0dc7153cafbf970744bc555146869848cda95100840b1db9722c5",
+    "trustedValidatorSetHash": "0x6b3568a0589c86bfacc4dbbdb15c14f37a21bb68654c943a23dd67d1e4b3640e",
+    "trustedHeaderHash": "0xe581871782aac8b62bc02a112a740dc4cddc794d004da10cfd2a436cfe19b5d6",
+    "headerHash": "0x49a786da54d2707ca05aea15fa14e734d681708c4653bbb2d072fe068e11b36f",
+    "voteSignBytes": [
+      "0x76080211040000000000000022480a2049a786da54d2707ca05aea15fa14e734d681708c4653bbb2d072fe068e11b36f1224080112200b145172e86ed07d8ba08969d2f2ac43776fac31be2ed1d5186785905fe3617f2a0c08e4c598a106108084b8d90132116e61746976652d636f6d65746266742d31",
+      "0x76080211040000000000000022480a2049a786da54d2707ca05aea15fa14e734d681708c4653bbb2d072fe068e11b36f1224080112200b145172e86ed07d8ba08969d2f2ac43776fac31be2ed1d5186785905fe3617f2a0c08e4c598a106108084b8d90132116e61746976652d636f6d65746266742d31",
+      "0x76080211040000000000000022480a2049a786da54d2707ca05aea15fa14e734d681708c4653bbb2d072fe068e11b36f1224080112200b145172e86ed07d8ba08969d2f2ac43776fac31be2ed1d5186785905fe3617f2a0c08e4c598a106108084b8d90132116e61746976652d636f6d65746266742d31"
+    ],
+    "recoveredSigners": [
+      "0xaf7c2d13f5a00c599848059e3dca20628a2a151f",
+      "0xb8907194379d6a9f1ffcb371a8713f343e17d050",
+      "0xdf091e89ece1319cbcddbcba3c1d847a7fb2e93f"
+    ],
+    "trustedSignedVotingPower": 33,
+    "trustedVotingPowerNeeded": 33,
+    "newSignedVotingPower": 100,
+    "newVotingPowerNeeded": 66
+  },
+  "cometbftVerification": "light.Verify non-adjacent path checked with local /Users/gg/code/contrib/cometbft"
+}

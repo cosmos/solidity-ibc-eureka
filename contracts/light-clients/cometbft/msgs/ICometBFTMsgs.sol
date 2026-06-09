@@ -123,6 +123,7 @@ interface ICometBFTMsgs {
     struct MsgUpdateClient {
         IICS02ClientMsgs.Height trustedHeight;
         ConsensusState trustedConsensusState;
+        Validator[] trustedValidators;
         Header header;
         Commit commit;
         Validator[] validators;

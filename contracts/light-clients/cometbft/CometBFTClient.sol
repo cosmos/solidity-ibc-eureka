@@ -13,7 +13,7 @@ import { CometBFTICS23 } from "./utils/CometBFTICS23.sol";
 import { CometBFTProto } from "./utils/CometBFTProto.sol";
 
 /// @title Native CometBFT Light Client
-/// @notice Native adjacent-update CometBFT light client for secp256k1eth validator sets.
+/// @notice Native CometBFT light client for secp256k1eth validator sets.
 contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
     bytes32 public constant PROOF_SUBMITTER_ROLE = keccak256("PROOF_SUBMITTER_ROLE");
     uint8 private constant BLOCK_ID_FLAG_ABSENT = 1;
@@ -78,8 +78,7 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         ICometBFTMsgs.MsgUpdateClient memory msg_ = abi.decode(updateMsg, (ICometBFTMsgs.MsgUpdateClient));
 
         _validateTrustedConsensusState(msg_.trustedHeight, msg_.trustedConsensusState);
-        _validateHeaderAndValidatorSet(msg_, true);
-        _verifyCommit(msg_.header.chainId, msg_.commit, msg_.validators);
+        _validateHeaderAndValidatorSets(msg_, true);
 
         ICometBFTMsgs.ConsensusState memory newConsensusState = ICometBFTMsgs.ConsensusState({
             timestamp: _timestampNanos(msg_.header.timeSeconds, msg_.header.timeNanos),
@@ -159,7 +158,7 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         }
     }
 
-    function _validateHeaderAndValidatorSet(
+    function _validateHeaderAndValidatorSets(
         ICometBFTMsgs.MsgUpdateClient memory msg_,
         bool requireTimeIncreasing
     )
@@ -172,8 +171,8 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         if (keccak256(bytes(header_.chainId)) != keccak256(bytes(clientState.chainId))) {
             revert ChainIdMismatch(clientState.chainId, header_.chainId);
         }
-        if (header_.height != msg_.trustedHeight.revisionHeight + 1) {
-            revert UnsupportedNonAdjacentUpdate(msg_.trustedHeight.revisionHeight, header_.height);
+        if (header_.height <= msg_.trustedHeight.revisionHeight) {
+            revert HeaderHeightNotIncreasing(msg_.trustedHeight.revisionHeight, header_.height);
         }
 
         if (header_.timeNanos >= NANOS_PER_SECOND) {
@@ -198,9 +197,6 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         if (validatorsHash != header_.validatorsHash) {
             revert ValidatorSetHashMismatch(header_.validatorsHash, validatorsHash);
         }
-        if (header_.validatorsHash != trustedConsensusState.nextValidatorsHash) {
-            revert AdjacentValidatorHashMismatch(trustedConsensusState.nextValidatorsHash, header_.validatorsHash);
-        }
 
         bytes32 headerHash = CometBFTProto.headerHash(header_);
         if (headerHash != msg_.commit.blockId.hash) {
@@ -212,12 +208,27 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         if (msg_.commit.blockId.partSetHeader.total == 0 || msg_.commit.blockId.partSetHeader.hash == bytes32(0)) {
             revert InvalidCommitBlockID();
         }
+
+        if (header_.height == msg_.trustedHeight.revisionHeight + 1) {
+            if (header_.validatorsHash != trustedConsensusState.nextValidatorsHash) {
+                revert AdjacentValidatorHashMismatch(trustedConsensusState.nextValidatorsHash, header_.validatorsHash);
+            }
+        } else {
+            _validateValidatorOrdering(msg_.trustedValidators);
+            bytes32 trustedValidatorSetHash = CometBFTProto.validatorSetHash(msg_.trustedValidators);
+            if (trustedValidatorSetHash != trustedConsensusState.nextValidatorsHash) {
+                revert TrustedValidatorSetHashMismatch(
+                    trustedConsensusState.nextValidatorsHash, trustedValidatorSetHash
+                );
+            }
+            _verifyCommitTrusting(header_.chainId, msg_.commit, msg_.trustedValidators);
+        }
+        _verifyCommit(header_.chainId, msg_.commit, msg_.validators);
     }
 
     function _validateMisbehaviourUpdate(ICometBFTMsgs.MsgUpdateClient memory msg_) private view {
         _validateTrustedConsensusState(msg_.trustedHeight, msg_.trustedConsensusState);
-        _validateHeaderAndValidatorSet(msg_, false);
-        _verifyCommit(msg_.header.chainId, msg_.commit, msg_.validators);
+        _validateHeaderAndValidatorSets(msg_, false);
     }
 
     function _isMisbehaviour(
@@ -265,6 +276,9 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
             if (sig.blockIdFlag == BLOCK_ID_FLAG_ABSENT) {
                 continue;
             }
+            if (sig.blockIdFlag != BLOCK_ID_FLAG_COMMIT) {
+                continue;
+            }
 
             address expected = _validatorAddress(i, validators[i]);
             if (sig.validatorAddress != expected) {
@@ -288,6 +302,57 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         revert NotEnoughVotingPower(signedVotingPower, votingPowerNeeded);
     }
 
+    function _verifyCommitTrusting(
+        string memory chainId,
+        ICometBFTMsgs.Commit memory commit,
+        ICometBFTMsgs.Validator[] memory trustedValidators
+    )
+        private
+        view
+    {
+        uint256 totalVotingPower;
+        for (uint256 i = 0; i < trustedValidators.length; ++i) {
+            totalVotingPower += trustedValidators[i].votingPower;
+        }
+        uint256 votingPowerNeeded =
+            totalVotingPower * clientState.trustLevel.numerator / clientState.trustLevel.denominator;
+        uint256 signedVotingPower;
+        bool[] memory seen = new bool[](trustedValidators.length);
+
+        for (uint256 commitIndex = 0; commitIndex < commit.signatures.length; ++commitIndex) {
+            ICometBFTMsgs.CommitSig memory sig = commit.signatures[commitIndex];
+            _validateCommitSigBasic(commitIndex, sig);
+            if (sig.blockIdFlag != BLOCK_ID_FLAG_COMMIT) {
+                continue;
+            }
+
+            for (uint256 validatorIndex = 0; validatorIndex < trustedValidators.length; ++validatorIndex) {
+                address expected = _validatorAddress(validatorIndex, trustedValidators[validatorIndex]);
+                if (sig.validatorAddress != expected) {
+                    continue;
+                }
+                if (seen[validatorIndex]) {
+                    revert DuplicateTrustedValidatorSignature(commitIndex, validatorIndex);
+                }
+                seen[validatorIndex] = true;
+
+                bytes memory signBytes = CometBFTProto.voteSignBytes(chainId, commit, sig);
+                address recovered = CometBFTECDSA.recover(keccak256(signBytes), sig.signature);
+                if (recovered != expected) {
+                    revert SignatureSignerMismatch(commitIndex, expected, recovered);
+                }
+
+                signedVotingPower += trustedValidators[validatorIndex].votingPower;
+                if (signedVotingPower > votingPowerNeeded) {
+                    return;
+                }
+                break;
+            }
+        }
+
+        revert NotEnoughTrustedVotingPower(signedVotingPower, votingPowerNeeded);
+    }
+
     function _validateCommitSigBasic(uint256 index, ICometBFTMsgs.CommitSig memory sig) private pure {
         if (sig.blockIdFlag == BLOCK_ID_FLAG_ABSENT) {
             if (
@@ -303,6 +368,9 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         }
         if (sig.timestampNanos >= NANOS_PER_SECOND) {
             revert InvalidCommitTimestampNanos(index, sig.timestampNanos);
+        }
+        if (sig.signature.length == 0 || sig.signature.length > 65) {
+            revert InvalidSignatureLength(sig.signature.length);
         }
     }
 
@@ -327,6 +395,11 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
                 || (prev.votingPower == current.votingPower && uint160(prevAddress) < uint160(currentAddress));
             if (!sorted) {
                 revert InvalidValidatorOrdering(i);
+            }
+            for (uint256 j = 0; j < i; ++j) {
+                if (_validatorAddress(j, validators[j]) == currentAddress) {
+                    revert InvalidValidatorOrdering(i);
+                }
             }
         }
     }

@@ -71,6 +71,33 @@
       "0xf1f410d306f4ed49b895144af5e003ee4225cd708b51fba8761202776ab0fdc84c85dbf6d18f4be2ad401291a6edc74c197d0974713a14c8da1652a5d724d41b01"
     ]
   },
+  "trustedValidators": {
+    "addresses": [
+      "0x3ada0c79f2568cf08ffdb842a968f646fa2ed88a",
+      "0xbb6864a1bb1ad12d4c3453a3781aeee13db91684",
+      "0x9d61dba14f1b30fce58bb2c65922cd8fae2e69de"
+    ],
+    "publicKeys": [
+      "0x02c7f9b1d04f95c26d58bcaf95460b6b988b3c6ba11e484b7e32988b79c67f05a8",
+      "0x02a875290322ea1ee46efb33d55602e0f3d70d256322fc5fe91b2d5c0aa3ce4dc7",
+      "0x027b4590d2c7bf94676466a6b52b86bd7ef1c098e44871dbe810af4edea0c45fcc"
+    ],
+    "publicKeyYWitnesses": [
+      "0xbe307eb3918dc656b3d2c8a5bf0296ca539c81c3ccab9afddaae75ba12fbf618",
+      "0xbc30e4f4646299bd6e0ac41d1c6be44c4349b3e581b00510b91160218d05854c",
+      "0x289baf41e03cf96d16f29752229a6083c013eb9ede13139ebb7bdabc46c2246a"
+    ],
+    "uncompressedPublicKeys": [
+      "0xc7f9b1d04f95c26d58bcaf95460b6b988b3c6ba11e484b7e32988b79c67f05a8be307eb3918dc656b3d2c8a5bf0296ca539c81c3ccab9afddaae75ba12fbf618",
+      "0xa875290322ea1ee46efb33d55602e0f3d70d256322fc5fe91b2d5c0aa3ce4dc7bc30e4f4646299bd6e0ac41d1c6be44c4349b3e581b00510b91160218d05854c",
+      "0x7b4590d2c7bf94676466a6b52b86bd7ef1c098e44871dbe810af4edea0c45fcc289baf41e03cf96d16f29752229a6083c013eb9ede13139ebb7bdabc46c2246a"
+    ],
+    "votingPowers": [
+      30,
+      20,
+      10
+    ]
+  },
   "validators": {
     "addresses": [
       "0x3ada0c79f2568cf08ffdb842a968f646fa2ed88a",
@@ -100,6 +127,7 @@
   },
   "expected": {
     "validatorSetHash": "0x28c7feb2daece9e25ab36e6ded16740352efdcd56486effe2d133086d0d3ca4d",
+    "trustedValidatorSetHash": "0x28c7feb2daece9e25ab36e6ded16740352efdcd56486effe2d133086d0d3ca4d",
     "trustedHeaderHash": "0xb8ba0b1a3ede7edb4bb388925839deebaf450666e3889a1385f6af831f078f31",
     "headerHash": "0x717e2f896621ed11392c4d7944713aa5b4fba9ccf69e5c7f5e2ba49ac6b4c1a7",
     "voteSignBytes": [
@@ -111,7 +139,11 @@
       "0x3ada0c79f2568cf08ffdb842a968f646fa2ed88a",
       "0xbb6864a1bb1ad12d4c3453a3781aeee13db91684",
       "0x9d61dba14f1b30fce58bb2c65922cd8fae2e69de"
-    ]
+    ],
+    "trustedSignedVotingPower": 60,
+    "trustedVotingPowerNeeded": 20,
+    "newSignedVotingPower": 60,
+    "newVotingPowerNeeded": 40
   },
   "cometbftVerification": "light.VerifyAdjacent succeeded with local /Users/gg/code/contrib/cometbft"
 }

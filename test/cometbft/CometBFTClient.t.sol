@@ -174,6 +174,14 @@ contract CometBFTClientTest is Test {
         _assertValidAdjacentUpdateClient();
     }
 
+    function test_adjacentUpdateAllowsEmptyTrustedValidators() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        assertEq(msg_.trustedValidators.length, 0);
+
+        ILightClientMsgs.UpdateResult result = client.updateClient(abi.encode(msg_));
+        assertEq(uint256(result), uint256(ILightClientMsgs.UpdateResult.Update));
+    }
+
     function test_twentyValidatorFixtureVectorsMatchSolidityCodecs() public {
         _loadFixture("native_update_20_validators_fixture.json");
         assertEq(_validators().length, 20);
@@ -186,6 +194,80 @@ contract CometBFTClientTest is Test {
         assertEq(_validators().length, 20);
 
         _assertValidAdjacentUpdateClient();
+    }
+
+    function test_validSkippingUpdateClient() public {
+        _loadFixture("native_skipping_update_fixture.json");
+        _assertValidSkippingFixtureShape();
+
+        _assertValidAdjacentUpdateClient();
+    }
+
+    function test_twentyValidatorValidSkippingUpdateClient() public {
+        _loadFixture("native_skipping_update_20_validators_fixture.json");
+        assertEq(_validators().length, 20);
+        _assertValidSkippingFixtureShape();
+
+        _assertValidAdjacentUpdateClient();
+    }
+
+    function test_adjacentUpdateMessageSize() public {
+        emit log_named_uint("adjacent update calldata bytes", abi.encode(_updateMsg()).length);
+    }
+
+    function test_twentyValidatorAdjacentUpdateMessageSize() public {
+        _loadFixture("native_update_20_validators_fixture.json");
+        emit log_named_uint("20-validator adjacent update calldata bytes", abi.encode(_updateMsg()).length);
+    }
+
+    function test_skippingUpdateMessageSize() public {
+        _loadFixture("native_skipping_update_fixture.json");
+        emit log_named_uint("skipping update calldata bytes", abi.encode(_updateMsg()).length);
+    }
+
+    function test_twentyValidatorSkippingUpdateMessageSize() public {
+        _loadFixture("native_skipping_update_20_validators_fixture.json");
+        emit log_named_uint("20-validator skipping update calldata bytes", abi.encode(_updateMsg()).length);
+    }
+
+    function test_skippingUpdateRejectsInsufficientTrustedOverlap() public {
+        _loadFixture("native_skipping_insufficient_trusted_overlap_fixture.json");
+        assertGt(_header().height, _trustedHeight().revisionHeight + 1);
+        assertNotEq(_header().validatorsHash, _trustedConsensusState().nextValidatorsHash);
+        assertLe(
+            fixtureJson.readUint(".expected.trustedSignedVotingPower"),
+            fixtureJson.readUint(".expected.trustedVotingPowerNeeded")
+        );
+        assertGt(
+            fixtureJson.readUint(".expected.newSignedVotingPower"),
+            fixtureJson.readUint(".expected.newVotingPowerNeeded")
+        );
+        _assertFixtureVectorsMatch();
+
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.NotEnoughTrustedVotingPower.selector,
+                fixtureJson.readUint(".expected.trustedSignedVotingPower"),
+                fixtureJson.readUint(".expected.trustedVotingPowerNeeded")
+            )
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function test_skippingUpdateRejectsWrongTrustedValidatorSet() public {
+        _loadFixture("native_skipping_update_fixture.json");
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.trustedValidators[0].votingPower += 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.TrustedValidatorSetHashMismatch.selector,
+                _trustedConsensusState().nextValidatorsHash,
+                CometBFTProto.validatorSetHash(msg_.trustedValidators)
+            )
+        );
+        client.updateClient(abi.encode(msg_));
     }
 
     function test_validAdjacentUpdateClientReplayIsNoOp() public {
@@ -432,6 +514,15 @@ contract CometBFTClientTest is Test {
         msg_.commit.signatures[0].blockIdFlag = 3;
 
         vm.expectRevert();
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function test_nilVoteMissingSignatureFails() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.commit.signatures[0].blockIdFlag = 3;
+        msg_.commit.signatures[0].signature = "";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidSignatureLength.selector, 0));
         client.updateClient(abi.encode(msg_));
     }
 
@@ -899,15 +990,14 @@ contract CometBFTClientTest is Test {
         assertFalse(state.isFrozen);
     }
 
-    function test_nonAdjacentMisbehaviourEvidenceDoesNotFreezeClient() public {
+    function test_malformedNonAdjacentMisbehaviourEvidenceDoesNotFreezeClient() public {
         ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
         msg_.updateB.header.height += 1;
+        bytes32 headerHash = CometBFTProto.headerHash(msg_.updateB.header);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                ICometBFTClientErrors.UnsupportedNonAdjacentUpdate.selector,
-                msg_.updateB.trustedHeight.revisionHeight,
-                msg_.updateB.header.height
+                ICometBFTClientErrors.HeaderCommitHashMismatch.selector, headerHash, msg_.updateB.commit.blockId.hash
             )
         );
         client.misbehaviour(abi.encode(msg_));
@@ -1004,6 +1094,7 @@ contract CometBFTClientTest is Test {
         return ICometBFTMsgs.MsgUpdateClient({
             trustedHeight: _trustedHeight(),
             trustedConsensusState: _trustedConsensusState(),
+            trustedValidators: _trustedValidatorsForUpdate(),
             header: _header(),
             commit: _commit(),
             validators: _validators()
@@ -1037,6 +1128,7 @@ contract CometBFTClientTest is Test {
                     string.concat(prefix, ".trustedConsensusState.nextValidatorsHash")
                 )
             }),
+            trustedValidators: _misbehaviourValidators(),
             header: _misbehaviourHeader(prefix),
             commit: _misbehaviourCommit(prefix),
             validators: _misbehaviourValidators()
@@ -1179,9 +1271,28 @@ contract CometBFTClientTest is Test {
     }
 
     function _validators() private view returns (ICometBFTMsgs.Validator[] memory) {
-        bytes[] memory publicKeys = fixtureJson.readBytesArray(".validators.publicKeys");
-        bytes[] memory yWitnesses = fixtureJson.readBytesArray(".validators.publicKeyYWitnesses");
-        uint256[] memory votingPowers = fixtureJson.readUintArray(".validators.votingPowers");
+        return _validators(".validators");
+    }
+
+    function _trustedValidators() private view returns (ICometBFTMsgs.Validator[] memory) {
+        return _validators(".trustedValidators");
+    }
+
+    function _trustedValidatorsForUpdate() private view returns (ICometBFTMsgs.Validator[] memory) {
+        if (_header().height == _trustedHeight().revisionHeight + 1) {
+            return _emptyValidators();
+        }
+        return _trustedValidators();
+    }
+
+    function _emptyValidators() private pure returns (ICometBFTMsgs.Validator[] memory) {
+        return new ICometBFTMsgs.Validator[](0);
+    }
+
+    function _validators(string memory key) private view returns (ICometBFTMsgs.Validator[] memory) {
+        bytes[] memory publicKeys = fixtureJson.readBytesArray(string.concat(key, ".publicKeys"));
+        bytes[] memory yWitnesses = fixtureJson.readBytesArray(string.concat(key, ".publicKeyYWitnesses"));
+        uint256[] memory votingPowers = fixtureJson.readUintArray(string.concat(key, ".votingPowers"));
         require(publicKeys.length == votingPowers.length, "bad fixture validators");
         require(yWitnesses.length == votingPowers.length, "bad fixture validator witnesses");
 
@@ -1274,8 +1385,13 @@ contract CometBFTClientTest is Test {
 
     function _assertFixtureVectorsMatch() private view {
         ICometBFTMsgs.Validator[] memory validators = _validators();
+        ICometBFTMsgs.Validator[] memory trustedValidators = _trustedValidators();
         ICometBFTMsgs.Header memory header_ = _header();
         ICometBFTMsgs.Commit memory commit_ = _commit();
+
+        bytes32 trustedValidatorSetHash = CometBFTProto.validatorSetHash(trustedValidators);
+        assertEq(trustedValidatorSetHash, fixtureJson.readBytes32(".expected.trustedValidatorSetHash"));
+        assertEq(trustedValidatorSetHash, _trustedConsensusState().nextValidatorsHash);
 
         bytes32 validatorSetHash = CometBFTProto.validatorSetHash(validators);
         assertEq(validatorSetHash, fixtureJson.readBytes32(".expected.validatorSetHash"));
@@ -1292,6 +1408,20 @@ contract CometBFTClientTest is Test {
             assertEq(signBytes, expectedVoteSignBytes[i]);
             assertEq(CometBFTECDSA.recover(keccak256(signBytes), commit_.signatures[i].signature), expectedSigners[i]);
         }
+    }
+
+    function _assertValidSkippingFixtureShape() private view {
+        assertGt(_header().height, _trustedHeight().revisionHeight + 1);
+        assertNotEq(_header().validatorsHash, _trustedConsensusState().nextValidatorsHash);
+        assertGt(
+            fixtureJson.readUint(".expected.trustedSignedVotingPower"),
+            fixtureJson.readUint(".expected.trustedVotingPowerNeeded")
+        );
+        assertGt(
+            fixtureJson.readUint(".expected.newSignedVotingPower"),
+            fixtureJson.readUint(".expected.newVotingPowerNeeded")
+        );
+        _assertFixtureVectorsMatch();
     }
 
     function _assertValidAdjacentUpdateClient() private {

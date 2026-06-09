@@ -11,7 +11,7 @@ interface ICometBFTClientErrors {
     error EmptyMembershipValue();
     error InvalidICS23Proof();
     error UnsupportedICS23ProofType(uint8 proofType);
-    error UnsupportedNonAdjacentUpdate(uint64 trustedHeight, uint64 newHeight);
+    error HeaderHeightNotIncreasing(uint64 trustedHeight, uint64 newHeight);
     error RevisionNumberMismatch(uint64 expected, uint64 actual);
     error InvalidClientState();
     error InvalidHeaderTimestampNanos(uint32 nanos);
@@ -21,6 +21,7 @@ interface ICometBFTClientErrors {
     error TrustedConsensusStateExpired(uint256 expiresAt, uint256 nowSeconds);
     error HeaderFromFuture(uint256 headerTime, uint256 nowSeconds, uint256 maxClockDrift);
     error ValidatorSetHashMismatch(bytes32 expected, bytes32 actual);
+    error TrustedValidatorSetHashMismatch(bytes32 expected, bytes32 actual);
     error AdjacentValidatorHashMismatch(bytes32 trustedNextValidatorsHash, bytes32 newValidatorsHash);
     error HeaderCommitHashMismatch(bytes32 headerHash, bytes32 commitBlockHash);
     error InvalidCommitHeight(uint64 expected, uint64 actual);
@@ -40,4 +41,6 @@ interface ICometBFTClientErrors {
     error SignatureInvalid(bytes signature);
     error SignatureSignerMismatch(uint256 index, address expected, address actual);
     error NotEnoughVotingPower(uint256 got, uint256 needed);
+    error NotEnoughTrustedVotingPower(uint256 got, uint256 needed);
+    error DuplicateTrustedValidatorSignature(uint256 commitIndex, uint256 trustedValidatorIndex);
 }
