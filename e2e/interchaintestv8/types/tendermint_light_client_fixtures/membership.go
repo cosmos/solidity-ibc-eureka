@@ -42,6 +42,25 @@ import (
 type KeyPath struct {
 	Key        string
 	Membership bool
+	Name       string
+	Packet     *PacketContext
+}
+
+type PacketContext struct {
+	Sequence         uint64           `json:"sequence"`
+	SourceClient     string           `json:"source_client"`
+	DestClient       string           `json:"dest_client"`
+	TimeoutTimestamp uint64           `json:"timeout_timestamp"`
+	Payloads         []PayloadContext `json:"payloads"`
+	Acknowledgement  []byte           `json:"acknowledgement,omitempty"`
+}
+
+type PayloadContext struct {
+	SourcePort string `json:"source_port"`
+	DestPort   string `json:"dest_port"`
+	Version    string `json:"version"`
+	Encoding   string `json:"encoding"`
+	Value      []byte `json:"value"`
 }
 
 type ProofContext struct {
@@ -87,7 +106,11 @@ func (g *MembershipFixtureGenerator) GenerateMembershipVerificationScenarios(
 	for i, keySpec := range keyPaths {
 		proofType := g.proofTypeNameFor(keySpec.Membership)
 		g.suite.T().Logf("🔍 Processing predefined key path: %s (%s)", keySpec.Key, proofType)
-		g.generateFixtureForKeyPath(ctx, chainA, chainB, keySpec.Key, i, keySpec.Membership, clientId)
+		scenarioName := keySpec.Name
+		if scenarioName == "" {
+			scenarioName = fmt.Sprintf("%s_key_%d", proofType, i)
+		}
+		g.generateFixtureForKeyPath(ctx, chainA, chainB, keySpec.Key, scenarioName, keySpec.Membership, keySpec.Packet, clientId)
 	}
 
 	g.suite.T().Log("✅ Predefined key membership scenarios generated successfully")
@@ -98,8 +121,9 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	chainA *cosmos.CosmosChain, // IBC client chain
 	chainB *cosmos.CosmosChain, // Counterparty chain
 	keyPath string,
-	index int,
+	scenarioName string,
 	expectMembership bool,
+	packet *PacketContext,
 
 	clientId string,
 ) {
@@ -136,7 +160,7 @@ func (g *MembershipFixtureGenerator) generateFixtureForKeyPath(
 	}
 
 	// Step 3: Save the complete fixture with ChainA's client state, ChainB's consensus state, and the proof
-	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, index, clientId)
+	g.saveFixture(ctx, chainA, proofCtx, merkleProofBytes, scenarioName, packet, clientId)
 }
 
 func (g *MembershipFixtureGenerator) proofTypeNameFor(isMembership bool) string {
@@ -277,7 +301,8 @@ func (g *MembershipFixtureGenerator) saveFixture(
 	chainA *cosmos.CosmosChain, // ChainA - where the IBC client is running
 	proofCtx *ProofContext,
 	proofBytes []byte,
-	index int,
+	scenarioName string,
+	packet *PacketContext,
 	clientId string,
 ) {
 	proofType := g.proofTypeNameFor(proofCtx.ExpectMembership)
@@ -289,16 +314,15 @@ func (g *MembershipFixtureGenerator) saveFixture(
 	// Use the consensus state from ChainB (stored in the proof context)
 	consensusState := g.buildConsensusState(proofCtx)
 
-	scenarioName := fmt.Sprintf("%s_key_%d", proofType, index)
 	fixture := g.assembleFixture(
 		scenarioName,
 		clientState,
 		consensusState,
 		membershipMsg,
+		packet,
 	)
 
-	filename := filepath.Join(g.fixtureDir,
-		fmt.Sprintf("verify_%s_key_%d.json", proofType, index))
+	filename := filepath.Join(g.fixtureDir, fmt.Sprintf("verify_%s.json", scenarioName))
 	g.saveJsonFixture(filename, fixture)
 	g.suite.T().Logf("💾 %s fixture saved: %s", proofType, filename)
 }
@@ -338,13 +362,18 @@ func (g *MembershipFixtureGenerator) assembleFixture(
 	clientStateHex string,
 	consensusStateHex string,
 	membershipMsg map[string]interface{},
+	packet *PacketContext,
 ) map[string]interface{} {
-	return map[string]interface{}{
+	fixture := map[string]interface{}{
 		"client_state_hex":    clientStateHex,
 		"consensus_state_hex": consensusStateHex,
 		"membership_msg":      membershipMsg,
 		"metadata":            g.createMetadata(fmt.Sprintf("Tendermint light client fixture for scenario: %s", scenarioName)),
 	}
+	if packet != nil {
+		fixture["packet"] = packet
+	}
+	return fixture
 }
 
 func (g *MembershipFixtureGenerator) saveJsonFixture(filename string, data interface{}) {

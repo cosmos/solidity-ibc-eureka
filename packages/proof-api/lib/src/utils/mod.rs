@@ -67,7 +67,11 @@ pub mod cosmos;
 pub mod cosmos_attested;
 pub mod eth_attested;
 pub mod eth_eureka;
+#[cfg(feature = "solana")]
 pub mod solana;
+#[cfg(feature = "solana")]
 pub mod solana_attested;
+#[cfg(feature = "solana")]
 pub mod solana_gmp;
+#[cfg(feature = "solana")]
 pub mod solana_v0_tx;

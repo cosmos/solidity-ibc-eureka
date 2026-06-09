@@ -9,6 +9,7 @@ import { IICS02ClientMsgs } from "../../msgs/IICS02ClientMsgs.sol";
 import { ICometBFTClientErrors } from "./errors/ICometBFTClientErrors.sol";
 import { ICometBFTMsgs } from "./msgs/ICometBFTMsgs.sol";
 import { CometBFTECDSA } from "./utils/CometBFTECDSA.sol";
+import { CometBFTICS23 } from "./utils/CometBFTICS23.sol";
 import { CometBFTProto } from "./utils/CometBFTProto.sol";
 
 /// @title Native CometBFT Light Client
@@ -19,28 +20,21 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
     uint8 private constant BLOCK_ID_FLAG_COMMIT = 2;
     uint8 private constant BLOCK_ID_FLAG_NIL = 3;
     uint256 private constant SECP256K1_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
+    uint32 private constant NANOS_PER_SECOND = 1_000_000_000;
 
     ICometBFTMsgs.ClientState private clientState;
-    mapping(uint64 revisionHeight => bytes32 consensusStateHash) private consensusStateHashes;
+    mapping(bytes32 heightKey => bool exists) private consensusStateExists;
+    mapping(bytes32 heightKey => ICometBFTMsgs.ConsensusState consensusState) private consensusStates;
 
     constructor(
         ICometBFTMsgs.ClientState memory initialClientState,
         ICometBFTMsgs.ConsensusState memory initialConsensusState,
         address roleManager
     ) {
-        require(bytes(initialClientState.chainId).length > 0, InvalidValidatorSet());
-        require(initialClientState.trustLevel.denominator > 0, InvalidValidatorSet());
-        require(
-            initialClientState.trustLevel.numerator * 3 >= initialClientState.trustLevel.denominator,
-            InvalidValidatorSet()
-        );
-        require(
-            initialClientState.trustLevel.numerator <= initialClientState.trustLevel.denominator, InvalidValidatorSet()
-        );
+        _validateInitialClientState(initialClientState);
 
         clientState = initialClientState;
-        consensusStateHashes[initialClientState.latestHeight.revisionHeight] =
-            _consensusStateHash(initialConsensusState);
+        _storeConsensusState(initialClientState.latestHeight, initialConsensusState);
 
         _grantRole(DEFAULT_ADMIN_ROLE, roleManager);
         _grantRole(PROOF_SUBMITTER_ROLE, roleManager);
@@ -51,13 +45,27 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         return abi.encode(clientState);
     }
 
-    /// @notice Returns the stored consensus-state hash for a revision height.
+    /// @notice Returns the stored consensus-state hash for a full IBC height.
+    function getConsensusStateHash(IICS02ClientMsgs.Height memory height) public view returns (bytes32) {
+        return _consensusStateHash(_getConsensusState(height));
+    }
+
+    /// @notice Returns the stored consensus-state hash for a revision height in the current client revision.
     function getConsensusStateHash(uint64 revisionHeight) public view returns (bytes32) {
-        bytes32 hash = consensusStateHashes[revisionHeight];
-        if (hash == bytes32(0)) {
-            revert ConsensusStateNotFound(revisionHeight);
-        }
-        return hash;
+        return getConsensusStateHash(
+            IICS02ClientMsgs.Height({
+                revisionNumber: clientState.latestHeight.revisionNumber, revisionHeight: revisionHeight
+            })
+        );
+    }
+
+    /// @notice Returns the stored consensus state for a full IBC height.
+    function getConsensusState(IICS02ClientMsgs.Height memory height)
+        public
+        view
+        returns (ICometBFTMsgs.ConsensusState memory)
+    {
+        return _getConsensusState(height);
     }
 
     /// @inheritdoc ILightClient
@@ -69,8 +77,8 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
     {
         ICometBFTMsgs.MsgUpdateClient memory msg_ = abi.decode(updateMsg, (ICometBFTMsgs.MsgUpdateClient));
 
-        _validateTrustedConsensusState(msg_.trustedHeight.revisionHeight, msg_.trustedConsensusState);
-        _validateHeaderAndValidatorSet(msg_);
+        _validateTrustedConsensusState(msg_.trustedHeight, msg_.trustedConsensusState);
+        _validateHeaderAndValidatorSet(msg_, true);
         _verifyCommit(msg_.header.chainId, msg_.commit, msg_.validators);
 
         ICometBFTMsgs.ConsensusState memory newConsensusState = ICometBFTMsgs.ConsensusState({
@@ -79,10 +87,9 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
             nextValidatorsHash: msg_.header.nextValidatorsHash
         });
 
-        ILightClientMsgs.UpdateResult result =
-            _checkUpdateResult(msg_.trustedConsensusState, msg_.header.height, newConsensusState);
+        ILightClientMsgs.UpdateResult result = _checkUpdateResult(msg_.header.height, newConsensusState);
         if (result == ILightClientMsgs.UpdateResult.Update) {
-            consensusStateHashes[msg_.header.height] = _consensusStateHash(newConsensusState);
+            _storeConsensusState(_headerIBCHeight(msg_.header.height), newConsensusState);
             if (msg_.header.height > clientState.latestHeight.revisionHeight) {
                 clientState.latestHeight = IICS02ClientMsgs.Height({
                     revisionNumber: clientState.latestHeight.revisionNumber, revisionHeight: msg_.header.height
@@ -96,27 +103,55 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
     }
 
     /// @inheritdoc ILightClient
-    function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata) external pure returns (uint256) {
-        revert FeatureNotSupported();
+    function verifyMembership(ILightClientMsgs.MsgVerifyMembership calldata msg_)
+        external
+        view
+        notFrozen
+        onlyProofSubmitter
+        returns (uint256)
+    {
+        ICometBFTMsgs.ConsensusState storage consensusState = _getConsensusState(msg_.proofHeight);
+        CometBFTICS23.verifyMembership(consensusState.root, msg_.proof, msg_.path, msg_.value);
+        return uint256(consensusState.timestamp / 1e9);
     }
 
     /// @inheritdoc ILightClient
-    function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata) external pure returns (uint256) {
-        revert FeatureNotSupported();
+    function verifyNonMembership(ILightClientMsgs.MsgVerifyNonMembership calldata msg_)
+        external
+        view
+        notFrozen
+        onlyProofSubmitter
+        returns (uint256)
+    {
+        ICometBFTMsgs.ConsensusState storage consensusState = _getConsensusState(msg_.proofHeight);
+        CometBFTICS23.verifyNonMembership(consensusState.root, msg_.proof, msg_.path);
+        return uint256(consensusState.timestamp / 1e9);
     }
 
     /// @inheritdoc ILightClient
-    function misbehaviour(bytes calldata) external pure {
-        revert FeatureNotSupported();
+    function misbehaviour(bytes calldata misbehaviourMsg) external notFrozen onlyProofSubmitter {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ =
+            abi.decode(misbehaviourMsg, (ICometBFTMsgs.MsgSubmitMisbehaviour));
+
+        _validateMisbehaviourUpdate(msg_.updateA);
+        _validateMisbehaviourUpdate(msg_.updateB);
+        if (!_isMisbehaviour(msg_.updateA.header, msg_.updateB.header)) {
+            revert InvalidMisbehaviour();
+        }
+
+        clientState.isFrozen = true;
     }
 
     function _validateTrustedConsensusState(
-        uint64 trustedHeight,
+        IICS02ClientMsgs.Height memory trustedHeight,
         ICometBFTMsgs.ConsensusState memory trustedConsensusState
     )
         private
         view
     {
+        if (trustedHeight.revisionNumber != clientState.latestHeight.revisionNumber) {
+            revert RevisionNumberMismatch(clientState.latestHeight.revisionNumber, trustedHeight.revisionNumber);
+        }
         bytes32 expected = getConsensusStateHash(trustedHeight);
         bytes32 actual = _consensusStateHash(trustedConsensusState);
         if (actual != expected) {
@@ -124,7 +159,13 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         }
     }
 
-    function _validateHeaderAndValidatorSet(ICometBFTMsgs.MsgUpdateClient memory msg_) private view {
+    function _validateHeaderAndValidatorSet(
+        ICometBFTMsgs.MsgUpdateClient memory msg_,
+        bool requireTimeIncreasing
+    )
+        private
+        view
+    {
         ICometBFTMsgs.Header memory header_ = msg_.header;
         ICometBFTMsgs.ConsensusState memory trustedConsensusState = msg_.trustedConsensusState;
 
@@ -135,8 +176,11 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
             revert UnsupportedNonAdjacentUpdate(msg_.trustedHeight.revisionHeight, header_.height);
         }
 
+        if (header_.timeNanos >= NANOS_PER_SECOND) {
+            revert InvalidHeaderTimestampNanos(header_.timeNanos);
+        }
         uint128 headerTime = _timestampNanos(header_.timeSeconds, header_.timeNanos);
-        if (headerTime <= trustedConsensusState.timestamp) {
+        if (requireTimeIncreasing && headerTime <= trustedConsensusState.timestamp) {
             revert HeaderTimeNotIncreasing(trustedConsensusState.timestamp, headerTime);
         }
 
@@ -168,6 +212,32 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         if (msg_.commit.blockId.partSetHeader.total == 0 || msg_.commit.blockId.partSetHeader.hash == bytes32(0)) {
             revert InvalidCommitBlockID();
         }
+    }
+
+    function _validateMisbehaviourUpdate(ICometBFTMsgs.MsgUpdateClient memory msg_) private view {
+        _validateTrustedConsensusState(msg_.trustedHeight, msg_.trustedConsensusState);
+        _validateHeaderAndValidatorSet(msg_, false);
+        _verifyCommit(msg_.header.chainId, msg_.commit, msg_.validators);
+    }
+
+    function _isMisbehaviour(
+        ICometBFTMsgs.Header memory headerA,
+        ICometBFTMsgs.Header memory headerB
+    )
+        private
+        pure
+        returns (bool)
+    {
+        if (headerA.height == headerB.height) {
+            return CometBFTProto.headerHash(headerA) != CometBFTProto.headerHash(headerB);
+        }
+
+        uint128 timeA = _timestampNanos(headerA.timeSeconds, headerA.timeNanos);
+        uint128 timeB = _timestampNanos(headerB.timeSeconds, headerB.timeNanos);
+        if (headerA.height < headerB.height) {
+            return timeB <= timeA;
+        }
+        return timeA <= timeB;
     }
 
     function _verifyCommit(
@@ -230,6 +300,9 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         }
         if (sig.blockIdFlag != BLOCK_ID_FLAG_COMMIT && sig.blockIdFlag != BLOCK_ID_FLAG_NIL) {
             revert InvalidBlockIDFlag(sig.blockIdFlag);
+        }
+        if (sig.timestampNanos >= NANOS_PER_SECOND) {
+            revert InvalidCommitTimestampNanos(index, sig.timestampNanos);
         }
     }
 
@@ -295,7 +368,6 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
     }
 
     function _checkUpdateResult(
-        ICometBFTMsgs.ConsensusState memory trustedConsensusState,
         uint64 newHeight,
         ICometBFTMsgs.ConsensusState memory newConsensusState
     )
@@ -303,19 +375,68 @@ contract CometBFTClient is ILightClient, ICometBFTClientErrors, AccessControl {
         view
         returns (ILightClientMsgs.UpdateResult)
     {
-        bytes32 existingHash = consensusStateHashes[newHeight];
+        IICS02ClientMsgs.Height memory newIBCHeight = _headerIBCHeight(newHeight);
+        bytes32 heightKey = _heightKey(newIBCHeight);
         bytes32 newHash = _consensusStateHash(newConsensusState);
-        if (existingHash == bytes32(0)) {
+        if (!consensusStateExists[heightKey]) {
             return ILightClientMsgs.UpdateResult.Update;
         }
-        if (existingHash != newHash || trustedConsensusState.timestamp >= newConsensusState.timestamp) {
+        bytes32 existingHash = _consensusStateHash(consensusStates[heightKey]);
+        if (existingHash != newHash) {
             return ILightClientMsgs.UpdateResult.Misbehaviour;
         }
         return ILightClientMsgs.UpdateResult.NoOp;
     }
 
     function _timestampNanos(uint64 seconds_, uint32 nanos) private pure returns (uint128) {
-        return uint128(seconds_) * 1e9 + uint128(nanos);
+        return uint128(seconds_) * NANOS_PER_SECOND + uint128(nanos);
+    }
+
+    function _validateInitialClientState(ICometBFTMsgs.ClientState memory initialClientState) private pure {
+        if (
+            bytes(initialClientState.chainId).length == 0 || initialClientState.latestHeight.revisionHeight == 0
+                || initialClientState.trustLevel.denominator == 0 || initialClientState.trustLevel.numerator == 0
+                || initialClientState.trustLevel.numerator > initialClientState.trustLevel.denominator
+                || initialClientState.trustLevel.numerator * 3 < initialClientState.trustLevel.denominator
+                || initialClientState.trustingPeriod == 0 || initialClientState.unbondingPeriod == 0
+                || initialClientState.trustingPeriod >= initialClientState.unbondingPeriod
+                || initialClientState.maxClockDrift == 0
+        ) {
+            revert InvalidClientState();
+        }
+    }
+
+    function _headerIBCHeight(uint64 revisionHeight) private view returns (IICS02ClientMsgs.Height memory) {
+        return IICS02ClientMsgs.Height({
+            revisionNumber: clientState.latestHeight.revisionNumber, revisionHeight: revisionHeight
+        });
+    }
+
+    function _heightKey(IICS02ClientMsgs.Height memory height) private pure returns (bytes32) {
+        return keccak256(abi.encode(height.revisionNumber, height.revisionHeight));
+    }
+
+    function _getConsensusState(IICS02ClientMsgs.Height memory height)
+        private
+        view
+        returns (ICometBFTMsgs.ConsensusState storage)
+    {
+        bytes32 key = _heightKey(height);
+        if (!consensusStateExists[key]) {
+            revert ConsensusStateNotFound(height.revisionNumber, height.revisionHeight);
+        }
+        return consensusStates[key];
+    }
+
+    function _storeConsensusState(
+        IICS02ClientMsgs.Height memory height,
+        ICometBFTMsgs.ConsensusState memory consensusState
+    )
+        private
+    {
+        bytes32 key = _heightKey(height);
+        consensusStates[key] = consensusState;
+        consensusStateExists[key] = true;
     }
 
     function _consensusStateHash(ICometBFTMsgs.ConsensusState memory consensusState) private pure returns (bytes32) {

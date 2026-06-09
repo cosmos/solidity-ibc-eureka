@@ -3,11 +3,19 @@ pragma solidity ^0.8.28;
 
 /// @title Native CometBFT Light Client Errors
 interface ICometBFTClientErrors {
-    error ConsensusStateNotFound(uint64 revisionHeight);
+    error ConsensusStateNotFound(uint64 revisionNumber, uint64 revisionHeight);
     error ConsensusStateHashMismatch(bytes32 expected, bytes32 actual);
     error FrozenClientState();
     error FeatureNotSupported();
+    error InvalidMisbehaviour();
+    error EmptyMembershipValue();
+    error InvalidICS23Proof();
+    error UnsupportedICS23ProofType(uint8 proofType);
     error UnsupportedNonAdjacentUpdate(uint64 trustedHeight, uint64 newHeight);
+    error RevisionNumberMismatch(uint64 expected, uint64 actual);
+    error InvalidClientState();
+    error InvalidHeaderTimestampNanos(uint32 nanos);
+    error InvalidCommitTimestampNanos(uint256 index, uint32 nanos);
     error ChainIdMismatch(string expected, string actual);
     error HeaderTimeNotIncreasing(uint128 trustedTime, uint128 newTime);
     error TrustedConsensusStateExpired(uint256 expiresAt, uint256 nowSeconds);

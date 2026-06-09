@@ -5,16 +5,36 @@ edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
+[features]
+default = ["non-solana-modules"]
+all-modules = ["non-solana-modules", "solana"]
+non-solana-modules = [
+    "cosmos-to-cosmos",
+    "cosmos-to-eth",
+    "eth-to-cosmos",
+    "eth-to-eth",
+]
+cosmos-to-cosmos = ["dep:proof-api-cosmos-to-cosmos"]
+cosmos-to-eth = ["dep:proof-api-cosmos-to-eth"]
+eth-to-cosmos = ["dep:proof-api-eth-to-cosmos"]
+eth-to-eth = ["dep:proof-api-eth-to-eth"]
+solana = [
+    "dep:proof-api-cosmos-to-solana",
+    "dep:proof-api-eth-to-solana",
+    "dep:proof-api-solana-to-cosmos",
+    "dep:proof-api-solana-to-eth",
+]
+
 [dependencies]
 proof-api-core                 = { workspace = true, default-features = false }
-proof-api-eth-to-cosmos        = { workspace = true, default-features = false }
-proof-api-cosmos-to-eth        = { workspace = true, default-features = false }
-proof-api-eth-to-eth           = { workspace = true, default-features = false }
-proof-api-cosmos-to-cosmos     = { workspace = true, default-features = false }
-proof-api-solana-to-cosmos     = { workspace = true, default-features = false }
-proof-api-cosmos-to-solana     = { workspace = true, default-features = false }
-proof-api-eth-to-solana        = { workspace = true, default-features = false }
-proof-api-solana-to-eth        = { workspace = true, default-features = false }
+proof-api-eth-to-cosmos        = { workspace = true, default-features = false, optional = true }
+proof-api-cosmos-to-eth        = { workspace = true, default-features = false, optional = true }
+proof-api-eth-to-eth           = { workspace = true, default-features = false, optional = true }
+proof-api-cosmos-to-cosmos     = { workspace = true, default-features = false, optional = true }
+proof-api-solana-to-cosmos     = { workspace = true, default-features = false, optional = true }
+proof-api-cosmos-to-solana     = { workspace = true, default-features = false, optional = true }
+proof-api-eth-to-solana        = { workspace = true, default-features = false, optional = true }
+proof-api-solana-to-eth        = { workspace = true, default-features = false, optional = true }
 
 tokio      = { workspace = true, default-features = true }
 prometheus = { workspace = true, default-features = true }

@@ -8,6 +8,7 @@ import { CometBFTClient } from "../../contracts/light-clients/cometbft/CometBFTC
 import { ICometBFTClientErrors } from "../../contracts/light-clients/cometbft/errors/ICometBFTClientErrors.sol";
 import { ICometBFTMsgs } from "../../contracts/light-clients/cometbft/msgs/ICometBFTMsgs.sol";
 import { CometBFTECDSA } from "../../contracts/light-clients/cometbft/utils/CometBFTECDSA.sol";
+import { CometBFTICS23 } from "../../contracts/light-clients/cometbft/utils/CometBFTICS23.sol";
 import { CometBFTMerkle } from "../../contracts/light-clients/cometbft/utils/CometBFTMerkle.sol";
 import { CometBFTProto } from "../../contracts/light-clients/cometbft/utils/CometBFTProto.sol";
 import { IICS02ClientMsgs } from "../../contracts/msgs/IICS02ClientMsgs.sol";
@@ -89,15 +90,72 @@ contract CometBFTGasBenchmark {
     }
 }
 
+contract CometBFTICS23Harness {
+    function decodeMembershipProof(
+        bytes calldata proof,
+        bytes[] calldata path,
+        bytes calldata value
+    )
+        external
+        pure
+        returns (
+            uint256 proofCount,
+            bytes32 leafKeyHash,
+            bytes32 leafValueHash,
+            uint8 leafHashOp,
+            bytes32 leafPrefixHash,
+            uint256 leafInnerOpCount,
+            bytes32 parentKeyHash
+        )
+    {
+        ICometBFTMsgs.ICS23Proof memory decoded = CometBFTICS23.decodeMembershipProof(proof, path, value);
+        ICometBFTMsgs.ICS23ExistenceProof memory leaf = decoded.proofs[0].existence;
+        ICometBFTMsgs.ICS23ExistenceProof memory parent = decoded.proofs[1].existence;
+        return (
+            decoded.proofs.length,
+            keccak256(leaf.key),
+            keccak256(leaf.value),
+            leaf.leaf.hash,
+            keccak256(leaf.leaf.prefix),
+            leaf.path.length,
+            keccak256(parent.key)
+        );
+    }
+
+    function decodeNonMembershipProof(
+        bytes calldata proof,
+        bytes[] calldata path
+    )
+        external
+        pure
+        returns (uint256 proofCount, bytes32 missingKeyHash, bytes32 rightNeighborKeyHash, bytes32 parentKeyHash)
+    {
+        ICometBFTMsgs.ICS23Proof memory decoded = CometBFTICS23.decodeNonMembershipProof(proof, path);
+        ICometBFTMsgs.ICS23NonExistenceProof memory leaf = decoded.proofs[0].nonExistence;
+        ICometBFTMsgs.ICS23ExistenceProof memory parent = decoded.proofs[1].existence;
+        return (decoded.proofs.length, keccak256(leaf.key), keccak256(leaf.right.proof.key), keccak256(parent.key));
+    }
+}
+
 contract CometBFTClientTest is Test {
     using stdJson for string;
 
     string private fixtureJson;
+    string private ics23FixtureJson;
+    string private realMembershipFixtureJson;
+    string private realNonMembershipFixtureJson;
+    string private misbehaviourFixtureJson;
     CometBFTClient private client;
     CometBFTGasBenchmark private gasBenchmark;
+    CometBFTICS23Harness private ics23Harness;
 
     function setUp() public {
         gasBenchmark = new CometBFTGasBenchmark();
+        ics23Harness = new CometBFTICS23Harness();
+        ics23FixtureJson = vm.readFile(_fixturePath("native_ics23_parser_fixture.json"));
+        realMembershipFixtureJson = vm.readFile(_fixturePath("native_ics23_membership_fixture.json"));
+        realNonMembershipFixtureJson = vm.readFile(_fixturePath("native_ics23_non_membership_fixture.json"));
+        misbehaviourFixtureJson = vm.readFile(_fixturePath("native_misbehaviour_fixture.json"));
         _loadFixture("native_update_fixture.json");
     }
 
@@ -138,6 +196,210 @@ contract CometBFTClientTest is Test {
 
         result = client.updateClient(abi.encode(msg_));
         assertEq(uint256(result), uint256(ILightClientMsgs.UpdateResult.NoOp));
+    }
+
+    function test_misbehaviourFixtureVectorsMatchSolidityCodecs() public view {
+        assertEq(
+            CometBFTProto.headerHash(_misbehaviourHeader(".doubleSign")),
+            misbehaviourFixtureJson.readBytes32(".expected.doubleSignHeaderHash")
+        );
+        assertEq(
+            CometBFTProto.headerHash(_misbehaviourHeader(".timeViolation")),
+            misbehaviourFixtureJson.readBytes32(".expected.timeViolationHeaderHash")
+        );
+        assertEq(
+            CometBFTProto.validatorSetHash(_misbehaviourValidators()), _misbehaviourHeader(".doubleSign").validatorsHash
+        );
+        assertEq(
+            CometBFTProto.validatorSetHash(_misbehaviourValidators()),
+            _misbehaviourHeader(".timeViolation").validatorsHash
+        );
+    }
+
+    function test_initialConsensusStateStoredByFullHeight() public view {
+        IICS02ClientMsgs.Height memory trustedHeight = _trustedHeight();
+        ICometBFTMsgs.ConsensusState memory trustedConsensusState = _trustedConsensusState();
+
+        assertEq(client.getConsensusStateHash(trustedHeight), keccak256(abi.encode(trustedConsensusState)));
+        assertEq(
+            client.getConsensusStateHash(trustedHeight.revisionHeight), keccak256(abi.encode(trustedConsensusState))
+        );
+        _assertConsensusStateEq(client.getConsensusState(trustedHeight), trustedConsensusState);
+    }
+
+    function test_consensusStateStorageSupportsNonzeroRevision() public {
+        ICometBFTMsgs.ClientState memory initialClientState = _clientState();
+        initialClientState.latestHeight.revisionNumber = 7;
+        CometBFTClient revisionClient = new CometBFTClient(initialClientState, _trustedConsensusState(), address(this));
+
+        IICS02ClientMsgs.Height memory trustedHeight = _trustedHeight();
+        trustedHeight.revisionNumber = 7;
+        _assertConsensusStateEq(revisionClient.getConsensusState(trustedHeight), _trustedConsensusState());
+        assertEq(revisionClient.getConsensusStateHash(trustedHeight), keccak256(abi.encode(_trustedConsensusState())));
+        assertEq(
+            revisionClient.getConsensusStateHash(trustedHeight.revisionHeight),
+            keccak256(abi.encode(_trustedConsensusState()))
+        );
+
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.trustedHeight.revisionNumber = 7;
+        ILightClientMsgs.UpdateResult result = revisionClient.updateClient(abi.encode(msg_));
+        assertEq(uint256(result), uint256(ILightClientMsgs.UpdateResult.Update));
+
+        ICometBFTMsgs.ConsensusState memory expectedConsensusState = _newConsensusState(msg_.header);
+        IICS02ClientMsgs.Height memory expectedHeight =
+            IICS02ClientMsgs.Height({ revisionNumber: 7, revisionHeight: msg_.header.height });
+        _assertConsensusStateEq(revisionClient.getConsensusState(expectedHeight), expectedConsensusState);
+        assertEq(revisionClient.getConsensusStateHash(expectedHeight), keccak256(abi.encode(expectedConsensusState)));
+        assertEq(
+            revisionClient.getConsensusStateHash(expectedHeight.revisionHeight),
+            keccak256(abi.encode(expectedConsensusState))
+        );
+    }
+
+    function test_wrongTrustedRevisionFails() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.trustedHeight.revisionNumber += 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.RevisionNumberMismatch.selector,
+                _trustedHeight().revisionNumber,
+                msg_.trustedHeight.revisionNumber
+            )
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function testFuzz_wrongTrustedRevisionFails(uint64 wrongRevision) public {
+        vm.assume(wrongRevision != _trustedHeight().revisionNumber);
+
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.trustedHeight.revisionNumber = wrongRevision;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.RevisionNumberMismatch.selector,
+                _trustedHeight().revisionNumber,
+                msg_.trustedHeight.revisionNumber
+            )
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function test_fullHeightConsensusStateKeyIncludesRevision() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        client.updateClient(abi.encode(msg_));
+
+        IICS02ClientMsgs.Height memory wrongRevision = IICS02ClientMsgs.Height({
+            revisionNumber: _trustedHeight().revisionNumber + 1, revisionHeight: msg_.header.height
+        });
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                wrongRevision.revisionNumber,
+                wrongRevision.revisionHeight
+            )
+        );
+        client.getConsensusStateHash(wrongRevision);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                wrongRevision.revisionNumber,
+                wrongRevision.revisionHeight
+            )
+        );
+        client.getConsensusState(wrongRevision);
+    }
+
+    function test_unknownConsensusStateHeightFailsInCurrentRevision() public {
+        IICS02ClientMsgs.Height memory unknownHeight = IICS02ClientMsgs.Height({
+            revisionNumber: _trustedHeight().revisionNumber, revisionHeight: _trustedHeight().revisionHeight + 99
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                unknownHeight.revisionNumber,
+                unknownHeight.revisionHeight
+            )
+        );
+        client.getConsensusStateHash(unknownHeight);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                unknownHeight.revisionNumber,
+                unknownHeight.revisionHeight
+            )
+        );
+        client.getConsensusStateHash(unknownHeight.revisionHeight);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                unknownHeight.revisionNumber,
+                unknownHeight.revisionHeight
+            )
+        );
+        client.getConsensusState(unknownHeight);
+    }
+
+    function test_invalidHeaderTimestampNanosFails() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.header.timeNanos = 1_000_000_000;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ICometBFTClientErrors.InvalidHeaderTimestampNanos.selector, msg_.header.timeNanos)
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function testFuzz_invalidHeaderTimestampNanosFails(uint32 timeNanos) public {
+        timeNanos = uint32(bound(uint256(timeNanos), 1_000_000_000, type(uint32).max));
+
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.header.timeNanos = timeNanos;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ICometBFTClientErrors.InvalidHeaderTimestampNanos.selector, msg_.header.timeNanos)
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function test_invalidCommitTimestampNanosFails() public {
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.commit.signatures[0].timestampNanos = 1_000_000_000;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.InvalidCommitTimestampNanos.selector, 0, msg_.commit.signatures[0].timestampNanos
+            )
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function testFuzz_invalidCommitTimestampNanosFails(uint32 timeNanos) public {
+        timeNanos = uint32(bound(uint256(timeNanos), 1_000_000_000, type(uint32).max));
+
+        ICometBFTMsgs.MsgUpdateClient memory msg_ = _updateMsg();
+        msg_.commit.signatures[0].timestampNanos = timeNanos;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.InvalidCommitTimestampNanos.selector, 0, msg_.commit.signatures[0].timestampNanos
+            )
+        );
+        client.updateClient(abi.encode(msg_));
+    }
+
+    function test_invalidInitialClientStatePeriodsFail() public {
+        ICometBFTMsgs.ClientState memory state = _clientState();
+        state.trustingPeriod = state.unbondingPeriod;
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidClientState.selector));
+        new CometBFTClient(state, _trustedConsensusState(), address(this));
     }
 
     function test_invalidSignatureVFails() public {
@@ -181,6 +443,519 @@ contract CometBFTClientTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidValidatorOrdering.selector, 1));
         client.updateClient(abi.encode(msg_));
+    }
+
+    function test_verifyMembershipSuccess() public {
+        CometBFTClient membershipClient =
+            _membershipFixtureClient(false, ics23FixtureJson.readBytes32(".membership.root"));
+
+        uint256 timestamp = membershipClient.verifyMembership(_membershipVerifyMsg());
+
+        assertEq(timestamp, uint256(_trustedConsensusState().timestamp / 1e9));
+    }
+
+    function test_verifyMembershipRealCometBFTFixtureSuccess() public {
+        CometBFTClient membershipClient = _realMembershipFixtureClient(false);
+
+        uint256 timestamp = membershipClient.verifyMembership(_realMembershipVerifyMsg());
+
+        assertEq(timestamp, realMembershipFixtureJson.readUint(".membership.timestamp") / 1e9);
+    }
+
+    function test_verifyMembershipRealCometBFTFixtureRejectsWrongValue() public {
+        CometBFTClient membershipClient = _realMembershipFixtureClient(false);
+        ILightClientMsgs.MsgVerifyMembership memory msg_ = _realMembershipVerifyMsg();
+        msg_.value = "wrong";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        membershipClient.verifyMembership(msg_);
+    }
+
+    function testFuzz_verifyMembershipRejectsUnknownProofHeight(uint64 revisionHeight) public {
+        IICS02ClientMsgs.Height memory knownHeight = _realMembershipHeight();
+        vm.assume(revisionHeight != knownHeight.revisionHeight);
+
+        CometBFTClient membershipClient = _realMembershipFixtureClient(false);
+        ILightClientMsgs.MsgVerifyMembership memory msg_ = _realMembershipVerifyMsg();
+        msg_.proofHeight.revisionHeight = revisionHeight;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                knownHeight.revisionNumber,
+                msg_.proofHeight.revisionHeight
+            )
+        );
+        membershipClient.verifyMembership(msg_);
+    }
+
+    function test_verifyMembershipRejectsWrongConsensusRoot() public {
+        CometBFTClient membershipClient = _membershipFixtureClient(false, bytes32(uint256(1)));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        membershipClient.verifyMembership(_membershipVerifyMsg());
+    }
+
+    function test_verifyMembershipRejectsUnknownConsensusState() public {
+        CometBFTClient membershipClient =
+            _membershipFixtureClient(false, ics23FixtureJson.readBytes32(".membership.root"));
+        ILightClientMsgs.MsgVerifyMembership memory msg_ = _membershipVerifyMsg();
+        msg_.proofHeight.revisionHeight += 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ConsensusStateNotFound.selector,
+                msg_.proofHeight.revisionNumber,
+                msg_.proofHeight.revisionHeight
+            )
+        );
+        membershipClient.verifyMembership(msg_);
+    }
+
+    function test_verifyMembershipRejectsFrozenClient() public {
+        CometBFTClient membershipClient =
+            _membershipFixtureClient(true, ics23FixtureJson.readBytes32(".membership.root"));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        membershipClient.verifyMembership(_membershipVerifyMsg());
+    }
+
+    function test_verifyMembershipRejectsInvalidLeafSpec() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[0].existence.leaf.hash = 0;
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsInvalidIavlLeafPrefix() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[0].existence.leaf.prefix = hex"00";
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsInvalidIavlInnerPrefix() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[0].existence.path[0].prefix = hex"00000020";
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsInvalidIavlInnerSuffix() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[0].existence.path[0].suffix = hex"01";
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsInvalidTendermintParentSpec() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[1].existence.leaf.prehashValue = 0;
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsRemovedInnerOp() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[0].existence.path = new ICometBFTMsgs.ICS23InnerOp[](0);
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function test_verifyMembershipRejectsAlteredSiblingBytes() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipProofFromFixture();
+        proof.proofs[1].existence.path[0].suffix = abi.encodePacked(bytes32(uint256(1)));
+
+        _expectMembershipProofRevert(proof);
+    }
+
+    function _expectMembershipProofRevert(ICometBFTMsgs.ICS23Proof memory proof) private {
+        CometBFTClient membershipClient =
+            _membershipFixtureClient(false, ics23FixtureJson.readBytes32(".membership.root"));
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        membershipClient.verifyMembership(_membershipVerifyMsg(proof));
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureSuccess() public {
+        CometBFTClient nonMembershipClient = _realNonMembershipFixtureClient(false);
+
+        uint256 timestamp = nonMembershipClient.verifyNonMembership(_realNonMembershipVerifyMsg());
+
+        assertEq(timestamp, realNonMembershipFixtureJson.readUint(".nonMembership.timestamp") / 1e9);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsWrongConsensusRoot() public {
+        CometBFTClient nonMembershipClient = _realNonMembershipFixtureClient(false, bytes32(uint256(1)));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        nonMembershipClient.verifyNonMembership(_realNonMembershipVerifyMsg());
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsWrongPath() public {
+        CometBFTClient nonMembershipClient = _realNonMembershipFixtureClient(false);
+        ILightClientMsgs.MsgVerifyNonMembership memory msg_ = _realNonMembershipVerifyMsg();
+        msg_.path[1] = "clients/07-tendermint-001/wrong";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        nonMembershipClient.verifyNonMembership(msg_);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsAlteredRightNeighbor() public {
+        ILightClientMsgs.MsgVerifyNonMembership memory msg_ = _realNonMembershipVerifyMsg();
+        ICometBFTMsgs.ICS23Proof memory proof = abi.decode(msg_.proof, (ICometBFTMsgs.ICS23Proof));
+        proof.proofs[0].nonExistence.right.proof.path[0].suffix = abi.encodePacked(bytes32(uint256(1)));
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsAlteredLeftNeighbor() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        assertTrue(proof.proofs[0].nonExistence.left.exists);
+        proof.proofs[0].nonExistence.left.proof.value = "altered-left-neighbor-value";
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsBadLeftNeighborOrder() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        proof.proofs[0].nonExistence.left.proof.key = proof.proofs[0].nonExistence.key;
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsBadRightNeighborOrder() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        proof.proofs[0].nonExistence.right.proof.key = proof.proofs[0].nonExistence.key;
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsRemovedLeftNeighbor() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        assertTrue(proof.proofs[0].nonExistence.left.exists);
+        delete proof.proofs[0].nonExistence.left;
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsRemovedRightNeighbor() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        assertTrue(proof.proofs[0].nonExistence.right.exists);
+        delete proof.proofs[0].nonExistence.right;
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsInvalidNeighborLeafSpec() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        proof.proofs[0].nonExistence.right.proof.leaf.hash = 0;
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function test_verifyNonMembershipRealCometBFTFixtureRejectsAlteredParentProof() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _realNonMembershipProofFromFixture();
+        proof.proofs[1].existence.path[0].suffix = abi.encodePacked(bytes32(uint256(1)));
+
+        _expectRealNonMembershipProofRevert(proof);
+    }
+
+    function _expectRealNonMembershipProofRevert(ICometBFTMsgs.ICS23Proof memory proof) private {
+        CometBFTClient nonMembershipClient = _realNonMembershipFixtureClient(false);
+        ILightClientMsgs.MsgVerifyNonMembership memory msg_ = _realNonMembershipVerifyMsg();
+        msg_.proof = abi.encode(proof);
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        nonMembershipClient.verifyNonMembership(msg_);
+    }
+
+    function test_verifyNonMembershipRejectsFrozenClient() public {
+        CometBFTClient nonMembershipClient = _realNonMembershipFixtureClient(true);
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        nonMembershipClient.verifyNonMembership(_realNonMembershipVerifyMsg());
+    }
+
+    function test_decodeNativeICS23MembershipProof() public view {
+        bytes[] memory path = ics23FixtureJson.readBytesArray(".membership.path");
+        bytes memory value = ics23FixtureJson.readBytes(".membership.value");
+        bytes memory proof = ics23FixtureJson.readBytes(".membership.proof");
+
+        (
+            uint256 proofCount,
+            bytes32 leafKeyHash,
+            bytes32 leafValueHash,
+            uint8 leafHashOp,
+            bytes32 leafPrefixHash,
+            uint256 leafInnerOpCount,
+            bytes32 parentKeyHash
+        ) = ics23Harness.decodeMembershipProof(proof, path, value);
+
+        assertEq(proofCount, path.length);
+        assertEq(leafKeyHash, keccak256(path[1]));
+        assertEq(leafValueHash, keccak256(value));
+        assertEq(leafHashOp, 1);
+        assertEq(leafPrefixHash, keccak256(hex"000000"));
+        assertEq(leafInnerOpCount, 1);
+        assertEq(parentKeyHash, keccak256(path[0]));
+    }
+
+    function test_decodeNativeICS23NonMembershipProof() public view {
+        bytes[] memory path = ics23FixtureJson.readBytesArray(".nonMembership.path");
+        bytes memory proof = ics23FixtureJson.readBytes(".nonMembership.proof");
+
+        (uint256 proofCount, bytes32 missingKeyHash, bytes32 rightNeighborKeyHash, bytes32 parentKeyHash) =
+            ics23Harness.decodeNonMembershipProof(proof, path);
+
+        assertEq(proofCount, path.length);
+        assertEq(missingKeyHash, keccak256(path[1]));
+        assertEq(rightNeighborKeyHash, keccak256(bytes("clients/07-tendermint-0/next")));
+        assertEq(parentKeyHash, keccak256(path[0]));
+    }
+
+    function test_decodeNativeICS23MembershipRejectsEmptyValue() public {
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.EmptyMembershipValue.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(_membershipICS23Proof()), _proofPath(), "");
+    }
+
+    function test_decodeNativeICS23ProofRejectsEmptyPath() public {
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(_membershipICS23Proof()), new bytes[](0), "value");
+    }
+
+    function test_decodeNativeICS23ProofRejectsPathProofLengthMismatch() public {
+        bytes[] memory path = new bytes[](1);
+        path[0] = "ibc";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(_membershipICS23Proof()), path, "value");
+    }
+
+    function test_decodeNativeICS23MembershipRejectsNonExistenceProof() public {
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(_nonMembershipICS23Proof()), _proofPath(), "value");
+    }
+
+    function test_decodeNativeICS23MembershipRejectsWrongValue() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipICS23Proof();
+        proof.proofs[0].existence.value = "wrong";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+    }
+
+    function test_decodeNativeICS23MembershipRejectsWrongLeafKey() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipICS23Proof();
+        proof.proofs[0].existence.key = "clients/07-tendermint-0/wrong";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+    }
+
+    function test_decodeNativeICS23MembershipRejectsWrongParentKey() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipICS23Proof();
+        proof.proofs[1].existence.key = "wrong-store";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+    }
+
+    function test_decodeNativeICS23NonMembershipRejectsExistenceFirstProof() public {
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeNonMembershipProof(abi.encode(_membershipICS23Proof()), _nonMembershipProofPath());
+    }
+
+    function test_decodeNativeICS23NonMembershipRejectsWrongLeafKey() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _nonMembershipICS23Proof();
+        proof.proofs[0].nonExistence.key = "clients/07-tendermint-0/wrong";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeNonMembershipProof(abi.encode(proof), _nonMembershipProofPath());
+    }
+
+    function test_decodeNativeICS23ProofRejectsPopulatedInactiveOneofArm() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipICS23Proof();
+        proof.proofs[0].nonExistence.key = "inactive";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+
+        proof = _membershipICS23Proof();
+        proof.proofs[0].nonExistence.left.proof.leaf.prefix = hex"ff";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+
+        proof = _nonMembershipICS23Proof();
+        proof.proofs[0].existence = _existenceProof("clients/07-tendermint-0/clientState", "value");
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeNonMembershipProof(abi.encode(proof), _nonMembershipProofPath());
+
+        proof = _nonMembershipICS23Proof();
+        proof.proofs[0].existence.leaf.prefix = hex"ff";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeNonMembershipProof(abi.encode(proof), _nonMembershipProofPath());
+
+        proof = _nonMembershipICS23Proof();
+        proof.proofs[0].nonExistence.left.proof.leaf.prefix = hex"ff";
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidICS23Proof.selector));
+        ics23Harness.decodeNonMembershipProof(abi.encode(proof), _nonMembershipProofPath());
+    }
+
+    function test_decodeNativeICS23ProofRejectsUnsupportedProofType() public {
+        ICometBFTMsgs.ICS23Proof memory proof = _membershipICS23Proof();
+        proof.proofs[0].proofType = 3;
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.UnsupportedICS23ProofType.selector, 3));
+        ics23Harness.decodeMembershipProof(abi.encode(proof), _proofPath(), "value");
+    }
+
+    function test_doubleSignMisbehaviourFreezesClient() public {
+        client.misbehaviour(abi.encode(_doubleSignMisbehaviourMsg()));
+
+        ICometBFTMsgs.ClientState memory frozenState = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertTrue(frozenState.isFrozen);
+    }
+
+    function test_timeMonotonicityMisbehaviourFreezesClient() public {
+        client.updateClient(abi.encode(_updateMsg()));
+
+        client.misbehaviour(abi.encode(_timeViolationMisbehaviourMsg()));
+
+        ICometBFTMsgs.ClientState memory frozenState = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertTrue(frozenState.isFrozen);
+    }
+
+    function test_invalidMisbehaviourDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ =
+            ICometBFTMsgs.MsgSubmitMisbehaviour({ updateA: _updateMsg(), updateB: _updateMsg() });
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidMisbehaviour.selector));
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+        assertEq(uint256(client.updateClient(abi.encode(_updateMsg()))), uint256(ILightClientMsgs.UpdateResult.Update));
+    }
+
+    function test_invalidMisbehaviourSignatureDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.commit.signatures[0].signature[64] = bytes1(uint8(2));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.InvalidSignatureV.selector, 2));
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_invalidMisbehaviourTrustedConsensusStateDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.trustedConsensusState.root = bytes32(uint256(1));
+        bytes32 expected = client.getConsensusStateHash(msg_.updateB.trustedHeight);
+        bytes32 actual = keccak256(abi.encode(msg_.updateB.trustedConsensusState));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ICometBFTClientErrors.ConsensusStateHashMismatch.selector, expected, actual)
+        );
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_invalidMisbehaviourTrustedRevisionDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.trustedHeight.revisionNumber += 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.RevisionNumberMismatch.selector,
+                _clientState().latestHeight.revisionNumber,
+                msg_.updateB.trustedHeight.revisionNumber
+            )
+        );
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_invalidMisbehaviourChainIDDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.header.chainId = "wrong-chain";
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.ChainIdMismatch.selector, _clientState().chainId, msg_.updateB.header.chainId
+            )
+        );
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_nonAdjacentMisbehaviourEvidenceDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.header.height += 1;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.UnsupportedNonAdjacentUpdate.selector,
+                msg_.updateB.trustedHeight.revisionHeight,
+                msg_.updateB.header.height
+            )
+        );
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_insufficientMisbehaviourQuorumDoesNotFreezeClient() public {
+        ICometBFTMsgs.MsgSubmitMisbehaviour memory msg_ = _doubleSignMisbehaviourMsg();
+        msg_.updateB.commit.signatures[0] = ICometBFTMsgs.CommitSig({
+            blockIdFlag: 1, validatorAddress: address(0), timestampSeconds: 0, timestampNanos: 0, signature: ""
+        });
+        uint256 totalVotingPower;
+        uint256 signedVotingPower;
+        for (uint256 i = 0; i < msg_.updateB.validators.length; ++i) {
+            totalVotingPower += msg_.updateB.validators[i].votingPower;
+            if (i != 0) {
+                signedVotingPower += msg_.updateB.validators[i].votingPower;
+            }
+        }
+        uint256 votingPowerNeeded = totalVotingPower * 2 / 3;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICometBFTClientErrors.NotEnoughVotingPower.selector, signedVotingPower, votingPowerNeeded
+            )
+        );
+        client.misbehaviour(abi.encode(msg_));
+
+        ICometBFTMsgs.ClientState memory state = abi.decode(client.getClientState(), (ICometBFTMsgs.ClientState));
+        assertFalse(state.isFrozen);
+    }
+
+    function test_frozenClientRejectsUpdateProofsAndMisbehaviour() public {
+        client.misbehaviour(abi.encode(_doubleSignMisbehaviourMsg()));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        client.updateClient(abi.encode(_updateMsg()));
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        client.verifyMembership(_membershipVerifyMsg());
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        client.verifyNonMembership(_realNonMembershipVerifyMsg());
+
+        vm.expectRevert(abi.encodeWithSelector(ICometBFTClientErrors.FrozenClientState.selector));
+        client.misbehaviour(abi.encode(_doubleSignMisbehaviourMsg()));
     }
 
     function test_benchmarkCompressedWitnessPath() public view {
@@ -232,6 +1007,39 @@ contract CometBFTClientTest is Test {
             header: _header(),
             commit: _commit(),
             validators: _validators()
+        });
+    }
+
+    function _doubleSignMisbehaviourMsg() private view returns (ICometBFTMsgs.MsgSubmitMisbehaviour memory) {
+        return
+            ICometBFTMsgs.MsgSubmitMisbehaviour({ updateA: _updateMsg(), updateB: _misbehaviourUpdate(".doubleSign") });
+    }
+
+    function _timeViolationMisbehaviourMsg() private view returns (ICometBFTMsgs.MsgSubmitMisbehaviour memory) {
+        return
+            ICometBFTMsgs.MsgSubmitMisbehaviour({
+                updateA: _updateMsg(), updateB: _misbehaviourUpdate(".timeViolation")
+            });
+    }
+
+    function _misbehaviourUpdate(string memory prefix) private view returns (ICometBFTMsgs.MsgUpdateClient memory) {
+        return ICometBFTMsgs.MsgUpdateClient({
+            trustedHeight: IICS02ClientMsgs.Height({
+                revisionNumber: uint64(misbehaviourFixtureJson.readUint(".revisionNumber")),
+                revisionHeight: uint64(misbehaviourFixtureJson.readUint(string.concat(prefix, ".trustedHeight")))
+            }),
+            trustedConsensusState: ICometBFTMsgs.ConsensusState({
+                timestamp: uint128(
+                    misbehaviourFixtureJson.readUint(string.concat(prefix, ".trustedConsensusState.timestamp"))
+                ),
+                root: misbehaviourFixtureJson.readBytes32(string.concat(prefix, ".trustedConsensusState.root")),
+                nextValidatorsHash: misbehaviourFixtureJson.readBytes32(
+                    string.concat(prefix, ".trustedConsensusState.nextValidatorsHash")
+                )
+            }),
+            header: _misbehaviourHeader(prefix),
+            commit: _misbehaviourCommit(prefix),
+            validators: _misbehaviourValidators()
         });
     }
 
@@ -314,12 +1122,84 @@ contract CometBFTClientTest is Test {
         });
     }
 
+    function _misbehaviourHeader(string memory prefix) private view returns (ICometBFTMsgs.Header memory) {
+        string memory key = string.concat(prefix, ".header");
+        return ICometBFTMsgs.Header({
+            versionBlock: uint64(misbehaviourFixtureJson.readUint(string.concat(key, ".versionBlock"))),
+            versionApp: uint64(misbehaviourFixtureJson.readUint(string.concat(key, ".versionApp"))),
+            chainId: misbehaviourFixtureJson.readString(string.concat(key, ".chainId")),
+            height: uint64(misbehaviourFixtureJson.readUint(string.concat(key, ".height"))),
+            timeSeconds: uint64(misbehaviourFixtureJson.readUint(string.concat(key, ".timeSeconds"))),
+            timeNanos: uint32(misbehaviourFixtureJson.readUint(string.concat(key, ".timeNanos"))),
+            lastBlockId: _misbehaviourBlockID(string.concat(key, ".lastBlockId")),
+            lastCommitHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".lastCommitHash")),
+            dataHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".dataHash")),
+            validatorsHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".validatorsHash")),
+            nextValidatorsHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".nextValidatorsHash")),
+            consensusHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".consensusHash")),
+            appHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".appHash")),
+            lastResultsHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".lastResultsHash")),
+            evidenceHash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".evidenceHash")),
+            proposerAddress: misbehaviourFixtureJson.readAddress(string.concat(key, ".proposerAddress"))
+        });
+    }
+
+    function _misbehaviourCommit(string memory prefix) private view returns (ICometBFTMsgs.Commit memory) {
+        string memory key = string.concat(prefix, ".commit");
+        uint256[] memory blockIDFlags = misbehaviourFixtureJson.readUintArray(string.concat(key, ".blockIdFlags"));
+        address[] memory validatorAddresses =
+            misbehaviourFixtureJson.readAddressArray(string.concat(key, ".validatorAddresses"));
+        uint256[] memory timestampSeconds =
+            misbehaviourFixtureJson.readUintArray(string.concat(key, ".timestampSeconds"));
+        uint256[] memory timestampNanos = misbehaviourFixtureJson.readUintArray(string.concat(key, ".timestampNanos"));
+        bytes[] memory signatures = misbehaviourFixtureJson.readBytesArray(string.concat(key, ".signatures"));
+
+        require(validatorAddresses.length == blockIDFlags.length, "bad misbehaviour validator addresses");
+        require(timestampSeconds.length == blockIDFlags.length, "bad misbehaviour timestamp seconds");
+        require(timestampNanos.length == blockIDFlags.length, "bad misbehaviour timestamp nanos");
+        require(signatures.length == blockIDFlags.length, "bad misbehaviour signatures");
+
+        ICometBFTMsgs.CommitSig[] memory commitSigs = new ICometBFTMsgs.CommitSig[](blockIDFlags.length);
+        for (uint256 i = 0; i < blockIDFlags.length; ++i) {
+            commitSigs[i] = ICometBFTMsgs.CommitSig({
+                blockIdFlag: uint8(blockIDFlags[i]),
+                validatorAddress: validatorAddresses[i],
+                timestampSeconds: uint64(timestampSeconds[i]),
+                timestampNanos: uint32(timestampNanos[i]),
+                signature: signatures[i]
+            });
+        }
+
+        return ICometBFTMsgs.Commit({
+            height: uint64(misbehaviourFixtureJson.readUint(string.concat(key, ".height"))),
+            round: uint32(misbehaviourFixtureJson.readUint(string.concat(key, ".round"))),
+            blockId: _misbehaviourBlockID(string.concat(key, ".blockId")),
+            signatures: commitSigs
+        });
+    }
+
     function _validators() private view returns (ICometBFTMsgs.Validator[] memory) {
         bytes[] memory publicKeys = fixtureJson.readBytesArray(".validators.publicKeys");
         bytes[] memory yWitnesses = fixtureJson.readBytesArray(".validators.publicKeyYWitnesses");
         uint256[] memory votingPowers = fixtureJson.readUintArray(".validators.votingPowers");
         require(publicKeys.length == votingPowers.length, "bad fixture validators");
         require(yWitnesses.length == votingPowers.length, "bad fixture validator witnesses");
+
+        ICometBFTMsgs.Validator[] memory validators = new ICometBFTMsgs.Validator[](publicKeys.length);
+        for (uint256 i = 0; i < publicKeys.length; ++i) {
+            validators[i] = ICometBFTMsgs.Validator({
+                pubKey: publicKeys[i], y: _readBytes32(yWitnesses[i]), votingPower: uint64(votingPowers[i])
+            });
+        }
+        return validators;
+    }
+
+    function _misbehaviourValidators() private view returns (ICometBFTMsgs.Validator[] memory) {
+        bytes[] memory publicKeys = misbehaviourFixtureJson.readBytesArray(".validators.publicKeys");
+        bytes[] memory yWitnesses = misbehaviourFixtureJson.readBytesArray(".validators.publicKeyYWitnesses");
+        uint256[] memory votingPowers = misbehaviourFixtureJson.readUintArray(".validators.votingPowers");
+        require(publicKeys.length == votingPowers.length, "bad misbehaviour validators");
+        require(yWitnesses.length == votingPowers.length, "bad misbehaviour validator witnesses");
 
         ICometBFTMsgs.Validator[] memory validators = new ICometBFTMsgs.Validator[](publicKeys.length);
         for (uint256 i = 0; i < publicKeys.length; ++i) {
@@ -351,6 +1231,16 @@ contract CometBFTClientTest is Test {
             partSetHeader: ICometBFTMsgs.PartSetHeader({
                 total: uint32(fixtureJson.readUint(string.concat(key, ".partSetHeader.total"))),
                 hash: fixtureJson.readBytes32(string.concat(key, ".partSetHeader.hash"))
+            })
+        });
+    }
+
+    function _misbehaviourBlockID(string memory key) private view returns (ICometBFTMsgs.BlockID memory) {
+        return ICometBFTMsgs.BlockID({
+            hash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".hash")),
+            partSetHeader: ICometBFTMsgs.PartSetHeader({
+                total: uint32(misbehaviourFixtureJson.readUint(string.concat(key, ".partSetHeader.total"))),
+                hash: misbehaviourFixtureJson.readBytes32(string.concat(key, ".partSetHeader.hash"))
             })
         });
     }
@@ -417,7 +1307,176 @@ contract CometBFTClientTest is Test {
         assertFalse(nextClientState.isFrozen);
 
         ICometBFTMsgs.ConsensusState memory expectedConsensusState = _newConsensusState(msg_.header);
-        assertEq(client.getConsensusStateHash(msg_.header.height), keccak256(abi.encode(expectedConsensusState)));
+        IICS02ClientMsgs.Height memory expectedHeight = IICS02ClientMsgs.Height({
+            revisionNumber: _trustedHeight().revisionNumber, revisionHeight: msg_.header.height
+        });
+        assertEq(client.getConsensusStateHash(expectedHeight), keccak256(abi.encode(expectedConsensusState)));
+        assertEq(
+            client.getConsensusStateHash(expectedHeight.revisionHeight), keccak256(abi.encode(expectedConsensusState))
+        );
+        _assertConsensusStateEq(client.getConsensusState(expectedHeight), expectedConsensusState);
+    }
+
+    function _membershipVerifyMsg() private view returns (ILightClientMsgs.MsgVerifyMembership memory) {
+        return ILightClientMsgs.MsgVerifyMembership({
+            proof: ics23FixtureJson.readBytes(".membership.proof"),
+            proofHeight: _trustedHeight(),
+            path: ics23FixtureJson.readBytesArray(".membership.path"),
+            value: ics23FixtureJson.readBytes(".membership.value")
+        });
+    }
+
+    function _membershipVerifyMsg(ICometBFTMsgs.ICS23Proof memory proof)
+        private
+        view
+        returns (ILightClientMsgs.MsgVerifyMembership memory)
+    {
+        return ILightClientMsgs.MsgVerifyMembership({
+            proof: abi.encode(proof),
+            proofHeight: _trustedHeight(),
+            path: ics23FixtureJson.readBytesArray(".membership.path"),
+            value: ics23FixtureJson.readBytes(".membership.value")
+        });
+    }
+
+    function _membershipProofFromFixture() private view returns (ICometBFTMsgs.ICS23Proof memory) {
+        return abi.decode(ics23FixtureJson.readBytes(".membership.proof"), (ICometBFTMsgs.ICS23Proof));
+    }
+
+    function _membershipFixtureClient(bool frozen, bytes32 root) private returns (CometBFTClient) {
+        ICometBFTMsgs.ClientState memory initialClientState = _clientState();
+        initialClientState.isFrozen = frozen;
+
+        ICometBFTMsgs.ConsensusState memory initialConsensusState = _trustedConsensusState();
+        initialConsensusState.root = root;
+
+        return new CometBFTClient(initialClientState, initialConsensusState, address(this));
+    }
+
+    function _realMembershipVerifyMsg() private view returns (ILightClientMsgs.MsgVerifyMembership memory) {
+        return ILightClientMsgs.MsgVerifyMembership({
+            proof: realMembershipFixtureJson.readBytes(".membership.proof"),
+            proofHeight: _realMembershipHeight(),
+            path: realMembershipFixtureJson.readBytesArray(".membership.path"),
+            value: realMembershipFixtureJson.readBytes(".membership.value")
+        });
+    }
+
+    function _realMembershipFixtureClient(bool frozen) private returns (CometBFTClient) {
+        ICometBFTMsgs.ClientState memory initialClientState = _clientState();
+        initialClientState.latestHeight = _realMembershipHeight();
+        initialClientState.isFrozen = frozen;
+
+        ICometBFTMsgs.ConsensusState memory initialConsensusState = ICometBFTMsgs.ConsensusState({
+            timestamp: uint128(realMembershipFixtureJson.readUint(".membership.timestamp")),
+            root: realMembershipFixtureJson.readBytes32(".membership.root"),
+            nextValidatorsHash: realMembershipFixtureJson.readBytes32(".membership.nextValidatorsHash")
+        });
+
+        return new CometBFTClient(initialClientState, initialConsensusState, address(this));
+    }
+
+    function _realMembershipHeight() private view returns (IICS02ClientMsgs.Height memory) {
+        return IICS02ClientMsgs.Height({
+            revisionNumber: _trustedHeight().revisionNumber,
+            revisionHeight: uint64(realMembershipFixtureJson.readUint(".membership.proofHeight"))
+        });
+    }
+
+    function _realNonMembershipVerifyMsg() private view returns (ILightClientMsgs.MsgVerifyNonMembership memory) {
+        return ILightClientMsgs.MsgVerifyNonMembership({
+            proof: realNonMembershipFixtureJson.readBytes(".nonMembership.proof"),
+            proofHeight: _realNonMembershipHeight(),
+            path: realNonMembershipFixtureJson.readBytesArray(".nonMembership.path")
+        });
+    }
+
+    function _realNonMembershipProofFromFixture() private view returns (ICometBFTMsgs.ICS23Proof memory) {
+        return abi.decode(realNonMembershipFixtureJson.readBytes(".nonMembership.proof"), (ICometBFTMsgs.ICS23Proof));
+    }
+
+    function _realNonMembershipFixtureClient(bool frozen) private returns (CometBFTClient) {
+        return _realNonMembershipFixtureClient(frozen, realNonMembershipFixtureJson.readBytes32(".nonMembership.root"));
+    }
+
+    function _realNonMembershipFixtureClient(bool frozen, bytes32 root) private returns (CometBFTClient) {
+        ICometBFTMsgs.ClientState memory initialClientState = _clientState();
+        initialClientState.latestHeight = _realNonMembershipHeight();
+        initialClientState.isFrozen = frozen;
+
+        ICometBFTMsgs.ConsensusState memory initialConsensusState = ICometBFTMsgs.ConsensusState({
+            timestamp: uint128(realNonMembershipFixtureJson.readUint(".nonMembership.timestamp")),
+            root: root,
+            nextValidatorsHash: realNonMembershipFixtureJson.readBytes32(".nonMembership.nextValidatorsHash")
+        });
+
+        return new CometBFTClient(initialClientState, initialConsensusState, address(this));
+    }
+
+    function _realNonMembershipHeight() private view returns (IICS02ClientMsgs.Height memory) {
+        return IICS02ClientMsgs.Height({
+            revisionNumber: _trustedHeight().revisionNumber,
+            revisionHeight: uint64(realNonMembershipFixtureJson.readUint(".nonMembership.proofHeight"))
+        });
+    }
+
+    function _proofPath() private pure returns (bytes[] memory path) {
+        path = new bytes[](2);
+        path[0] = "ibc";
+        path[1] = "clients/07-tendermint-0/clientState";
+    }
+
+    function _nonMembershipProofPath() private pure returns (bytes[] memory path) {
+        path = new bytes[](2);
+        path[0] = "ibc";
+        path[1] = "clients/07-tendermint-0/missing";
+    }
+
+    function _membershipICS23Proof() private pure returns (ICometBFTMsgs.ICS23Proof memory proof) {
+        proof.proofs = new ICometBFTMsgs.ICS23CommitmentProof[](2);
+        proof.proofs[0].proofType = 1;
+        proof.proofs[0].existence = _existenceProof("clients/07-tendermint-0/clientState", "value");
+        proof.proofs[1].proofType = 1;
+        proof.proofs[1].existence = _existenceProof("ibc", "store-root");
+    }
+
+    function _nonMembershipICS23Proof() private pure returns (ICometBFTMsgs.ICS23Proof memory proof) {
+        proof.proofs = new ICometBFTMsgs.ICS23CommitmentProof[](2);
+        proof.proofs[0].proofType = 2;
+        proof.proofs[0].nonExistence.key = "clients/07-tendermint-0/missing";
+        proof.proofs[0].nonExistence.right.exists = true;
+        proof.proofs[0].nonExistence.right.proof = _existenceProof("clients/07-tendermint-0/next", "value");
+        proof.proofs[1].proofType = 1;
+        proof.proofs[1].existence = _existenceProof("ibc", "store-root");
+    }
+
+    function _existenceProof(
+        bytes memory key,
+        bytes memory value
+    )
+        private
+        pure
+        returns (ICometBFTMsgs.ICS23ExistenceProof memory proof)
+    {
+        proof.key = key;
+        proof.value = value;
+        proof.hasLeaf = true;
+        proof.leaf =
+            ICometBFTMsgs.ICS23LeafOp({ hash: 1, prehashKey: 0, prehashValue: 1, length: 1, prefix: hex"000000" });
+        proof.path = new ICometBFTMsgs.ICS23InnerOp[](1);
+        proof.path[0] = ICometBFTMsgs.ICS23InnerOp({ hash: 1, prefix: hex"02000020", suffix: hex"" });
+    }
+
+    function _assertConsensusStateEq(
+        ICometBFTMsgs.ConsensusState memory actual,
+        ICometBFTMsgs.ConsensusState memory expected
+    )
+        private
+        pure
+    {
+        assertEq(actual.timestamp, expected.timestamp);
+        assertEq(actual.root, expected.root);
+        assertEq(actual.nextValidatorsHash, expected.nextValidatorsHash);
     }
 
     function _assertBenchmarkCompressedWitnessPath() private view {

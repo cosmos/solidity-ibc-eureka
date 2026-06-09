@@ -14,6 +14,8 @@ import (
 )
 
 type KeyPath = tendermint_light_client_fixtures.KeyPath
+type PacketContext = tendermint_light_client_fixtures.PacketContext
+type PayloadContext = tendermint_light_client_fixtures.PayloadContext
 
 type TendermintLightClientFixtureGenerator struct {
 	Enabled    bool

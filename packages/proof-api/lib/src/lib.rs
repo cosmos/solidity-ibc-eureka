@@ -9,8 +9,10 @@
 
 pub mod aggregator;
 
+#[cfg(feature = "solana")]
 use anchor_lang as _;
 use ibc_core_commitment_types as _;
+#[cfg(feature = "solana")]
 use solana_sdk as _;
 use tonic as _;
 

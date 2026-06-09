@@ -1,6 +1,7 @@
 //! Common service patterns and utilities for proof API modules
 //! This module provides shared functionality for `ProofApiService` implementations
 
+#[cfg(feature = "solana")]
 use solana_sdk::signature::Signature;
 use tendermint::Hash;
 use tonic::Status;
@@ -52,6 +53,7 @@ pub fn parse_eth_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<[u8; 32]>, Status
 /// Returns a `Status` error if any transaction ID is not Solana Signature
 #[inline]
 #[allow(clippy::result_large_err)]
+#[cfg(feature = "solana")]
 pub fn parse_solana_tx_hashes(tx_ids: Vec<Vec<u8>>) -> Result<Vec<Signature>, Status> {
     tx_ids
         .into_iter()

@@ -739,6 +739,11 @@ install-operator:
 install-proof-api:
 	cargo install --bin proof-api --path programs/proof-api --locked --force
 
+# Install the Cosmos-to-Cosmos proof API subset for native CometBFT fixture generation.
+[group('install')]
+install-proof-api-cosmos:
+	cargo install --bin proof-api --path programs/proof-api --locked --force --no-default-features --features cosmos-to-cosmos
+
 # Run all linters
 [group('lint')]
 lint:
@@ -892,10 +897,16 @@ generate-fixtures-wasm: clean-foundry install-proof-api
 
 # Generate the fixtures for the Tendermint light client tests using the e2e tests
 [group('generate')]
-generate-fixtures-tendermint-light-client: install-proof-api
+generate-fixtures-tendermint-light-client: install-proof-api-cosmos
 	@echo "Generating Tendermint light client fixtures... This may take a while."
 	@echo "Generating basic membership and update client fixtures..."
 	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosProofAPITestSuite/Test_UpdateClient$' -timeout 40m
+	@echo "Generating packet commitment and acknowledgement fixtures..."
+	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosProofAPITestSuite/Test_ICS20RecvAndAckPacket$' -timeout 40m
+	@echo "Generating packet receipt absence fixture..."
+	cd e2e/interchaintestv8 && GENERATE_TENDERMINT_LIGHT_CLIENT_FIXTURES=true go test -v -run '^TestWithCosmosProofAPITestSuite/Test_ICS20TimeoutPacket$' -timeout 40m
+	@echo "Converting packet fixtures to native CometBFT router fixture..."
+	cd scripts/native-ics23-fixture && go run . router-e2e
 
 # Generate go types for the e2e tests from the ethereum light client code
 [group('generate')]
@@ -960,13 +971,100 @@ generate-buf:
     @echo "Generating Protobuf files"
     buf generate --template buf.gen.yaml
 
-shadowfork := if env("ETH_RPC_URL", "") == "" { "--no-match-path test/shadowfork/*" } else { "" }
-
-# Run all the foundry tests
+# Run all the foundry tests, optionally filtered by test function name or regex.
 [group('test')]
-test-foundry testname=".\\*":
-	forge test -vvv --show-progress --fuzz-runs 5000 --match-test ^{{testname}}\(.\*\)\$ {{shadowfork}}
-	@ {{ if shadowfork == "" { "" } else { 'echo ' + BOLD + YELLOW + 'Ran without shadowfork tests since ETH_RPC_URL was not set' } }}
+test-foundry testname="":
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  args=(-vvv --show-progress --fuzz-runs 5000)
+  testname={{quote(testname)}}
+  if [ -n "$testname" ]; then
+    args+=(--match-test "$testname")
+  fi
+  if [ -z "${ETH_RPC_URL:-}" ]; then
+    args+=(--no-match-path 'test/shadowfork/*')
+  fi
+
+  forge test "${args[@]}"
+
+  if [ -z "${ETH_RPC_URL:-}" ]; then
+    echo '{{BOLD}}{{YELLOW}}Ran without shadowfork tests since ETH_RPC_URL was not set'
+  fi
+
+# Run the focused native CometBFT Foundry tests.
+[group('test')]
+test-foundry-cometbft:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  args=(--config-path foundry-cometbft/foundry.toml -vvv --show-progress --fuzz-runs 5000)
+  if [ -z "${ETH_RPC_URL:-}" ]; then
+    args+=(--no-match-path 'test/shadowfork/*')
+  fi
+
+  forge test "${args[@]}"
+
+_check-cometbft-fixture-dependency:
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  expected_cometbft_sha="53171bf261ee80504c9faac62fe06451aca75773"
+  actual_cometbft_sha="$(git -C ../cometbft rev-parse HEAD)"
+  if [[ "$actual_cometbft_sha" != "$expected_cometbft_sha" ]]; then
+    echo "expected ../cometbft at $expected_cometbft_sha, got $actual_cometbft_sha" >&2
+    exit 1
+  fi
+
+# Generate native CometBFT fixtures.
+[group('generate')]
+generate-cometbft-fixtures: _check-cometbft-fixture-dependency
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  (cd scripts/cometbft-fixture && go run .)
+  bash scripts/cometbft-fixture/generate-native-ics23-parser-fixture.sh
+  (cd scripts/native-ics23-fixture && go run . membership)
+  (cd scripts/native-ics23-fixture && go run . non-membership)
+  (cd scripts/native-ics23-fixture && go run . router-e2e)
+
+# Check generated native CometBFT fixtures match committed JSON.
+[group('test')]
+check-cometbft-fixtures: _check-cometbft-fixture-dependency
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  update_tmp="$(mktemp)"
+  update20_tmp="$(mktemp)"
+  parser_tmp="$(mktemp)"
+  router_tmp="$(mktemp)"
+  misbehaviour_tmp="$(mktemp)"
+  membership_tmp="$(mktemp)"
+  non_membership_tmp="$(mktemp)"
+  trap 'rm -f "$update_tmp" "$update20_tmp" "$parser_tmp" "$router_tmp" "$misbehaviour_tmp" "$membership_tmp" "$non_membership_tmp"' EXIT
+
+  (cd scripts/cometbft-fixture && go run . "$update_tmp" 3 >/dev/null)
+  (cd scripts/cometbft-fixture && go run . "$update20_tmp" 20 >/dev/null)
+  bash scripts/cometbft-fixture/generate-native-ics23-parser-fixture.sh "$parser_tmp" >/dev/null
+  (cd scripts/cometbft-fixture && go run . misbehaviour "$misbehaviour_tmp" >/dev/null)
+  (
+    cd scripts/native-ics23-fixture
+    go run . membership ../../packages/tendermint-light-client/fixtures/verify_membership_key_0.json "$membership_tmp" >/dev/null
+    go run . non-membership ../../packages/tendermint-light-client/fixtures/verify_non-membership_key_1.json "$non_membership_tmp" >/dev/null
+    go run . router-e2e \
+      ../../packages/tendermint-light-client/fixtures/verify_packet_commitment.json \
+      ../../packages/tendermint-light-client/fixtures/verify_acknowledgement_commitment.json \
+      ../../packages/tendermint-light-client/fixtures/verify_packet_receipt_absence.json \
+      "$router_tmp" >/dev/null
+  )
+
+  diff -u test/cometbft/fixtures/native_update_fixture.json "$update_tmp"
+  diff -u test/cometbft/fixtures/native_update_20_validators_fixture.json "$update20_tmp"
+  diff -u test/cometbft/fixtures/native_ics23_parser_fixture.json "$parser_tmp"
+  diff -u test/cometbft/fixtures/native_ics23_router_fixture.json "$router_tmp"
+  diff -u test/cometbft/fixtures/native_misbehaviour_fixture.json "$misbehaviour_tmp"
+  diff -u test/cometbft/fixtures/native_ics23_membership_fixture.json "$membership_tmp"
+  diff -u test/cometbft/fixtures/native_ics23_non_membership_fixture.json "$non_membership_tmp"
 
 # Run the benchmark tests
 [group('test')]

@@ -2,6 +2,7 @@
 
 pub mod cosmos_sdk;
 pub mod eth_eureka;
+#[cfg(feature = "solana")]
 pub mod solana;
 mod r#trait;
 

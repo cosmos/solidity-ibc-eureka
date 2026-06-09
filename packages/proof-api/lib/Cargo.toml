@@ -5,6 +5,22 @@ edition    = { workspace = true }
 repository = { workspace = true }
 license    = { workspace = true }
 
+[features]
+default = []
+solana = [
+    "dep:anchor-lang",
+    "dep:base64",
+    "dep:bincode",
+    "dep:borsh",
+    "dep:solana-client",
+    "dep:solana-ibc-constants",
+    "dep:solana-ibc-gmp-types",
+    "dep:solana-ibc-proto",
+    "dep:solana-ibc-sdk",
+    "dep:solana-sdk",
+    "dep:solana-transaction-status",
+]
+
 [dependencies]
 ibc-eureka-solidity-types   = { workspace = true, features = ["rpc"] }
 ibc-eureka-utils            = { workspace = true }
@@ -19,7 +35,7 @@ ethereum-types = { workspace = true }
 serde      = { workspace = true, features = ["derive"] }
 prost      = { workspace = true, features = ["std"] }
 serde_json = { workspace = true }
-base64     = { workspace = true }
+base64     = { workspace = true, optional = true }
 
 async-trait   = { workspace = true }
 anyhow        = { workspace = true, features = ["std"] }
@@ -34,16 +50,16 @@ tracing-opentelemetry = { workspace = true, default-features = true }
 tendermint                       = { workspace = true, features = ["std"] }
 tendermint-rpc                   = { workspace = true, features = ["http-client"] }
 tendermint-light-client-verifier = { workspace = true }
-anchor-lang                      = { workspace = true }
-bincode                          = { workspace = true }
-borsh                            = { workspace = true }
-solana-sdk                       = { workspace = true }
-solana-client                    = { workspace = true }
-solana-transaction-status        = { workspace = true }
-solana-ibc-sdk                   = { path = "../../../programs/solana/packages/solana-ibc-sdk" }
-solana-ibc-gmp-types             = { path = "../../../programs/solana/packages/solana-ibc-gmp-types" }
-solana-ibc-constants             = { path = "../../../programs/solana/packages/solana-ibc-constants" }
-solana-ibc-proto                 = { path = "../../../programs/solana/packages/solana-ibc-proto" }
+anchor-lang                      = { workspace = true, optional = true }
+bincode                          = { workspace = true, optional = true }
+borsh                            = { workspace = true, optional = true }
+solana-sdk                       = { workspace = true, optional = true }
+solana-client                    = { workspace = true, optional = true }
+solana-transaction-status        = { workspace = true, optional = true }
+solana-ibc-sdk                   = { path = "../../../programs/solana/packages/solana-ibc-sdk", optional = true }
+solana-ibc-gmp-types             = { path = "../../../programs/solana/packages/solana-ibc-gmp-types", optional = true }
+solana-ibc-constants             = { path = "../../../programs/solana/packages/solana-ibc-constants", optional = true }
+solana-ibc-proto                 = { path = "../../../programs/solana/packages/solana-ibc-proto", optional = true }
 
 ibc-proto                   = { workspace = true }
 ibc-proto-eureka            = { workspace = true }

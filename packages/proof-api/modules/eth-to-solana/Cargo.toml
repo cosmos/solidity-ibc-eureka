@@ -7,7 +7,7 @@ license.workspace    = true
 
 [dependencies]
 proof-api-core          = { workspace = true, default-features = false }
-proof-api-lib.workspace = true
+proof-api-lib           = { workspace = true, features = ["solana"] }
 ibc-eureka-utils.workspace       = true
 ibc-eureka-solidity-types        = { workspace = true, features = ["rpc"] }
 

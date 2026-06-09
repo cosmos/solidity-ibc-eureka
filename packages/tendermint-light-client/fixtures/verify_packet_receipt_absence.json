@@ -1,0 +1,35 @@
+{
+  "client_state_hex": "0a0673696d642d321204080110031a040880ea4922040880df6e2a02080f32003a040802103f42190a090801180120012a0100120c0a02000110211804200c300142190a090801180120012a0100120c0a02000110201801200130014a07757067726164654a1075706772616465644942435374617465",
+  "consensus_state_hex": "0a0c08e3c7a0d10610cfd5a2860212220a2078a8edfdcc4e9cb9aaba14d5f3927ca49b7ddce4d34ff0fa9d3a58b6f61ce1471a20b4d36514fa09f3efbf2f68dc44f21aaafb5c3d764660fa3873e2352f23c765f6",
+  "membership_msg": {
+    "delay_block_period": 0,
+    "delay_time_period": 0,
+    "height": 62,
+    "path": [
+      "ibc",
+      "07-tendermint-0\u0002\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0001"
+    ],
+    "proof": "0af40112f1010a1830372d74656e6465726d696e742d300200000000000000011ad4010a0c636c69656e74506172616d7312030a012a1a0b0801180120012a03000202222b08011204020422201a2120954edf75e519f1399131c56767de5f258bd24da65014633f588687f4685caa54222b08011204040822201a21204ab28926e5c958aecec7154d00af5b636bf3dd93693e13127430c3fc0daa7b39222b08011204060e4c201a2120a42cf65af23d2c04d33679bff09f33b6152d2a6c8146fab0fae91e9b29e573ae222b08011204081c4c201a2120c0b7e695730ce8e599bdf87c766a0dec8d2ec6d70c43e5fe2d20c15d42a6d5300afe010afb010a036962631220652b7b0505886ceb12d9f85dd3ef6d2ea29e631546f3f2009c83bce4a5e2aab91a090801180120012a0100222708011201011a202cd8b50700950546180ad979135a8708c2ea2098fff6ade31b7e40eb5dcf7c0522250801122101ed52b034c3f0149ed7001fe7ccbac8c91b06a9e63c5e863443342df25eddc0ca222708011201011a20d325df6684acd9dccb13ef4a69938baed9fbb107a8fc1e6e7fe716cae1d90af32225080112210133f86487c348d81396996c815f9263c8dc326d2e68cfaa53b75e6e2a7e6cdcfc222708011201011a20c674b5ede898b34f21b41b8c47dcd5c709c31e708384e2d14c7c9ea7c8255aa8",
+    "value": ""
+  },
+  "metadata": {
+    "description": "Tendermint light client fixture for scenario: packet_receipt_absence",
+    "generated_at": "2026-06-09T14:32:20Z",
+    "source": "local_cosmos_chain"
+  },
+  "packet": {
+    "sequence": 1,
+    "source_client": "07-tendermint-0",
+    "dest_client": "07-tendermint-0",
+    "timeout_timestamp": 1781015513,
+    "payloads": [
+      {
+        "source_port": "transfer",
+        "dest_port": "transfer",
+        "version": "ics20-1",
+        "encoding": "application/json",
+        "value": "eyJkZW5vbSI6InN0YWtlIiwiYW1vdW50IjoiMTAwMDAwMDAwMCIsInNlbmRlciI6ImNvc21vczE2eDQ4M3hxanpteG55d3M2c2pwYThwNTNsNTdoOTl1dHl4eXo3aiIsInJlY2VpdmVyIjoiY29zbW9zMTJyZHJrMGdscjg3bHJrdDV3Z2NnZmR2cW5reG5zM2xzeXB4anduIn0="
+      }
+    ]
+  }
+}

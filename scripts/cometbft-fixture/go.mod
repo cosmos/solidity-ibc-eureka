@@ -70,4 +70,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/cometbft/cometbft => /Users/gg/code/contrib/cometbft
+replace github.com/cometbft/cometbft => ../../../cometbft

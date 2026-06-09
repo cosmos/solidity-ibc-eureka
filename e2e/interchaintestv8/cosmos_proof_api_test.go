@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"math/big"
 	"os"
@@ -252,8 +253,9 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 	}
 
 	var txHashes [][]byte
+	var sentPackets []e2etypes.PacketContext
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
-		for range numOfTransfers {
+		for i := range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Minute).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -290,6 +292,19 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 			s.Require().NotEmpty(txHash)
 
 			txHashes = append(txHashes, txHash)
+			sentPackets = append(sentPackets, e2etypes.PacketContext{
+				Sequence:         uint64(i + 1),
+				SourceClient:     ibctesting.FirstClientID,
+				DestClient:       ibctesting.FirstClientID,
+				TimeoutTimestamp: timeout,
+				Payloads: []e2etypes.PayloadContext{{
+					SourcePort: transfertypes.PortID,
+					DestPort:   transfertypes.PortID,
+					Version:    transfertypes.V1,
+					Encoding:   transfertypes.EncodingJSON,
+					Value:      transferPayload.GetBytes(),
+				}},
+			})
 		}
 
 		s.Require().True(s.Run("Verify balances on Chain A", func() {
@@ -329,6 +344,32 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 			ackTxHash, err = hex.DecodeString(resp.TxHash)
 			s.Require().NoError(err)
 			s.Require().NotEmpty(ackTxHash)
+			ackHex, err := cosmosutils.GetEventValue(resp.Events, channeltypesv2.EventTypeWriteAck, channeltypesv2.AttributeKeyEncodedAckHex)
+			s.Require().NoError(err)
+			acknowledgement, err := hex.DecodeString(ackHex)
+			s.Require().NoError(err)
+			s.Require().NotEmpty(acknowledgement)
+			var ack channeltypesv2.Acknowledgement
+			s.Require().NoError(proto.Unmarshal(acknowledgement, &ack))
+			s.Require().Len(ack.AppAcknowledgements, 1)
+			s.Require().NotEmpty(ack.AppAcknowledgements[0])
+			sentPackets[0].Acknowledgement = ack.AppAcknowledgements[0]
+
+			s.Require().True(s.Run("Generate packet commitment fixture", func() {
+				packet := sentPackets[0]
+				s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(
+					ctx,
+					s.SimdB,
+					s.SimdA,
+					[]e2etypes.KeyPath{{
+						Name:       "packet_commitment",
+						Key:        packetHostPath(packet.SourceClient, 1, packet.Sequence),
+						Membership: true,
+						Packet:     &packet,
+					}},
+					ibctesting.FirstClientID,
+				)
+			}))
 
 			s.Require().True(s.Run("Verify balances on Chain B", func() {
 				ibcDenom := transfertypes.NewDenom(s.SimdA.Config().Denom, transfertypes.NewHop(transfertypes.PortID, ibctesting.FirstClientID)).IBCDenom()
@@ -378,6 +419,22 @@ func (s *CosmosProofAPITestSuite) FilteredICS20RecvAndAckPacketTest(ctx context.
 			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, ackTxBodyBz)
 		}))
 
+		s.Require().True(s.Run("Generate acknowledgement commitment fixture", func() {
+			packet := sentPackets[0]
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(
+				ctx,
+				s.SimdA,
+				s.SimdB,
+				[]e2etypes.KeyPath{{
+					Name:       "acknowledgement_commitment",
+					Key:        packetHostPath(packet.DestClient, 3, packet.Sequence),
+					Membership: true,
+					Packet:     &packet,
+				}},
+				ibctesting.FirstClientID,
+			)
+		}))
+
 		s.Require().True(s.Run("Verify commitments removed", func() {
 			for _, seq := range recvAndAckFilter {
 				_, err := e2esuite.GRPCQuery[channeltypesv2.QueryPacketCommitmentResponse](ctx, s.SimdA, &channeltypesv2.QueryPacketCommitmentRequest{
@@ -421,8 +478,9 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 	}
 
 	var txHashes [][]byte
+	var sentPackets []e2etypes.PacketContext
 	s.Require().True(s.Run("Send transfers on Chain A", func() {
-		for range numOfTransfers {
+		for i := range numOfTransfers {
 			timeout := uint64(time.Now().Add(30 * time.Second).Unix())
 			transferCoin := sdk.NewCoin(s.SimdA.Config().Denom, sdkmath.NewIntFromBigInt(transferAmount))
 
@@ -459,6 +517,19 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 			s.Require().NotEmpty(txHash)
 
 			txHashes = append(txHashes, txHash)
+			sentPackets = append(sentPackets, e2etypes.PacketContext{
+				Sequence:         uint64(i + 1),
+				SourceClient:     ibctesting.FirstClientID,
+				DestClient:       ibctesting.FirstClientID,
+				TimeoutTimestamp: timeout,
+				Payloads: []e2etypes.PayloadContext{{
+					SourcePort: transfertypes.PortID,
+					DestPort:   transfertypes.PortID,
+					Version:    transfertypes.V1,
+					Encoding:   transfertypes.EncodingJSON,
+					Value:      transferPayload.GetBytes(),
+				}},
+			})
 		}
 
 		s.Require().True(s.Run("Verify balances on Chain A", func() {
@@ -514,6 +585,22 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 			_ = s.MustBroadcastSdkTxBody(ctx, s.SimdA, s.SimdASubmitter, 2_000_000, timeoutTxBodyBz)
 		}))
 
+		s.Require().True(s.Run("Generate packet receipt absence fixture", func() {
+			packet := sentPackets[0]
+			s.TendermintLightClientFixtures.GenerateMembershipVerificationScenarios(
+				ctx,
+				s.SimdA,
+				s.SimdB,
+				[]e2etypes.KeyPath{{
+					Name:       "packet_receipt_absence",
+					Key:        packetHostPath(packet.DestClient, 2, packet.Sequence),
+					Membership: false,
+					Packet:     &packet,
+				}},
+				ibctesting.FirstClientID,
+			)
+		}))
+
 		s.Require().True(s.Run("Verify balances on Chain A", func() {
 			resp, err := e2esuite.GRPCQuery[banktypes.QueryBalanceResponse](ctx, s.SimdA, &banktypes.QueryBalanceRequest{
 				Address: simdAUser.FormattedAddress(),
@@ -542,6 +629,12 @@ func (s *CosmosProofAPITestSuite) FilteredICS20TimeoutPacketTest(ctx context.Con
 		s.Require().ErrorContains(err, "timeout elapsed")
 		s.Require().Nil(resp)
 	}))
+}
+
+func packetHostPath(clientID string, kind byte, sequence uint64) string {
+	var sequenceBz [8]byte
+	binary.BigEndian.PutUint64(sequenceBz[:], sequence)
+	return string(append(append([]byte(clientID), kind), sequenceBz[:]...))
 }
 
 func (s *CosmosProofAPITestSuite) Test_UpdateClient() {

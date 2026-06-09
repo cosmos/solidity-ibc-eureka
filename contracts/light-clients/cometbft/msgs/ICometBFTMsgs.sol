@@ -77,11 +77,59 @@ interface ICometBFTMsgs {
         uint64 votingPower;
     }
 
+    struct ICS23Proof {
+        ICS23CommitmentProof[] proofs;
+    }
+
+    struct ICS23CommitmentProof {
+        uint8 proofType;
+        ICS23ExistenceProof existence;
+        ICS23NonExistenceProof nonExistence;
+    }
+
+    struct ICS23ExistenceProof {
+        bytes key;
+        bytes value;
+        bool hasLeaf;
+        ICS23LeafOp leaf;
+        ICS23InnerOp[] path;
+    }
+
+    struct ICS23NonExistenceProof {
+        bytes key;
+        ICS23OptionalExistenceProof left;
+        ICS23OptionalExistenceProof right;
+    }
+
+    struct ICS23OptionalExistenceProof {
+        bool exists;
+        ICS23ExistenceProof proof;
+    }
+
+    struct ICS23LeafOp {
+        uint8 hash;
+        uint8 prehashKey;
+        uint8 prehashValue;
+        uint8 length;
+        bytes prefix;
+    }
+
+    struct ICS23InnerOp {
+        uint8 hash;
+        bytes prefix;
+        bytes suffix;
+    }
+
     struct MsgUpdateClient {
         IICS02ClientMsgs.Height trustedHeight;
         ConsensusState trustedConsensusState;
         Header header;
         Commit commit;
         Validator[] validators;
+    }
+
+    struct MsgSubmitMisbehaviour {
+        MsgUpdateClient updateA;
+        MsgUpdateClient updateB;
     }
 }

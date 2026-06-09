@@ -4,13 +4,21 @@ use clap::Parser;
 use proof_api::cli::{Commands, ProofApiCli};
 use proof_api::observability::init_observability;
 use proof_api_core::{builder::ProofApiBuilder, config::ProofApiConfig};
+#[cfg(feature = "cosmos-to-cosmos")]
 use proof_api_cosmos_to_cosmos::CosmosToCosmosProofApiModule;
+#[cfg(feature = "cosmos-to-eth")]
 use proof_api_cosmos_to_eth::CosmosToEthProofApiModule;
+#[cfg(feature = "solana")]
 use proof_api_cosmos_to_solana::CosmosToSolanaProofApiModule;
+#[cfg(feature = "eth-to-cosmos")]
 use proof_api_eth_to_cosmos::EthToCosmosProofApiModule;
+#[cfg(feature = "eth-to-eth")]
 use proof_api_eth_to_eth::EthToEthProofApiModule;
+#[cfg(feature = "solana")]
 use proof_api_eth_to_solana::EthToSolanaProofApiModule;
+#[cfg(feature = "solana")]
 use proof_api_solana_to_cosmos::SolanaToCosmosProofApiModule;
+#[cfg(feature = "solana")]
 use proof_api_solana_to_eth::SolanaToEthProofApiModule;
 
 use prometheus::{Encoder, TextEncoder};
@@ -39,13 +47,21 @@ async fn main() -> anyhow::Result<()> {
 
             // Build the proof API server.
             let mut proof_api_builder = ProofApiBuilder::default();
+            #[cfg(feature = "cosmos-to-eth")]
             proof_api_builder.add_module(CosmosToEthProofApiModule);
+            #[cfg(feature = "cosmos-to-cosmos")]
             proof_api_builder.add_module(CosmosToCosmosProofApiModule);
+            #[cfg(feature = "eth-to-cosmos")]
             proof_api_builder.add_module(EthToCosmosProofApiModule);
+            #[cfg(feature = "eth-to-eth")]
             proof_api_builder.add_module(EthToEthProofApiModule);
+            #[cfg(feature = "solana")]
             proof_api_builder.add_module(SolanaToCosmosProofApiModule);
+            #[cfg(feature = "solana")]
             proof_api_builder.add_module(CosmosToSolanaProofApiModule);
+            #[cfg(feature = "solana")]
             proof_api_builder.add_module(EthToSolanaProofApiModule);
+            #[cfg(feature = "solana")]
             proof_api_builder.add_module(SolanaToEthProofApiModule);
 
             // Start the metrics server.
