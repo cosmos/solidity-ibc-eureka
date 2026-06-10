@@ -15,9 +15,13 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -36,7 +40,7 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   build:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -51,8 +55,7 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   test:
-    needs: [lint, build]
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -79,8 +82,7 @@ jobs:
           echo "✅ Passed" >> $GITHUB_STEP_SUMMARY
 
   security:
-    needs: [build]
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -102,7 +104,7 @@ jobs:
 
   coverage:
     needs: [test]
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment

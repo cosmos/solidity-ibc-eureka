@@ -13,7 +13,7 @@ env:
 
 jobs:
   release-sp1-programs:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'sp1-programs-')
     steps:
       - uses: actions/checkout@v5
@@ -21,6 +21,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: 1.93.0
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-sp1-programs
+          cache-on-failure: true
       - name: Install SP1 toolchain
         shell: bash
         run: |
@@ -44,7 +49,7 @@ jobs:
           overwrite: true
 
   release-cw-ics08-wasm-eth:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
     steps:
       - uses: actions/checkout@v5
@@ -59,7 +64,7 @@ jobs:
           overwrite: true
 
   release-solidity-contracts:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     if: startsWith(github.ref_name, 'solidity-')
     steps:
       - uses: actions/checkout@v5

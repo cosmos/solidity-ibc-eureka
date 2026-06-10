@@ -10,6 +10,9 @@ runs:
   steps:
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
+      with:
+        rust-cache: 'true'
+        rust-cache-key: e2e-build
 
     - name: Cache SP1 Toolchain
       id: cache-sp1-toolchain
@@ -56,10 +59,8 @@ runs:
 
     - name: Install proof API
       if: steps.cache-proof-api.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin proof-api --path programs/proof-api --locked
+      shell: bash
+      run: cargo install --bin proof-api --path programs/proof-api --locked
 
     - name: Cache Operator
       id: cache-operator
@@ -70,10 +71,8 @@ runs:
 
     - name: Install operator
       if: steps.cache-operator.outputs.cache-hit != 'true'
-      uses: actions-rs/cargo@v1
-      with:
-        command: install
-        args: --bin operator --path programs/operator --locked
+      shell: bash
+      run: cargo install --bin operator --path programs/operator --locked
 
     - name: Cache Solana Programs
       id: cache-solana

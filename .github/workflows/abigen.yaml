@@ -18,9 +18,13 @@ on:
       - 'abi/**'
       - 'packages/go-abigen/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -48,7 +52,7 @@ jobs:
           fi
 
   golangci:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -63,7 +67,7 @@ jobs:
           working-directory: packages/go-abigen
 
   test:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6

@@ -32,7 +32,7 @@ permissions:
 
 jobs:
   generate-matrix:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
@@ -44,7 +44,7 @@ jobs:
         uses: ./.github/actions/e2e-matrix
 
   generate-matrix-eth-to-eth:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
     steps:
@@ -56,7 +56,7 @@ jobs:
         uses: ./.github/actions/e2e-matrix
 
   build-e2e-programs:
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Build E2E artifacts
@@ -73,7 +73,7 @@ jobs:
     env:
       ETH_LC_ON_COSMOS: attestor-native
 
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment
@@ -96,7 +96,7 @@ jobs:
       matrix: ${{ fromJson(needs.generate-matrix-eth-to-eth.outputs.matrix) }}
     name: attestor-native/${{ matrix.entrypoint }}/${{ matrix.test }}
 
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment
@@ -128,7 +128,7 @@ jobs:
       MULTI_ATTESTOR_QUORUM: ${{ matrix.required_signatures }}
       MULTI_ATTESTOR_ACTIVE: ${{ matrix.active_attestors }}
 
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment
@@ -150,7 +150,7 @@ jobs:
       MULTI_ATTESTOR_QUORUM: 1
       MULTI_ATTESTOR_ACTIVE: 1
 
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment

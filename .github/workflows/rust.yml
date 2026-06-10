@@ -15,32 +15,37 @@ on:
       - 'abi/**'
       - '.github/workflows/rust.yml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lints:
     name: fmt-and-clippy
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
+        with:
+          rust-cache: 'true'
+          rust-cache-key: lints
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
+        run: cargo clippy
 
   tests:
     name: unit-tests
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
+        with:
+          rust-cache: 'true'
+          rust-cache-key: tests
 
       - name: Install just
         uses: extractions/setup-just@v3
@@ -51,35 +56,35 @@ jobs:
 
   build-proof-api:
     name: build-proof-api
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
-      - name: Build
-        uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --bin proof-api --release --locked
+          rust-cache: 'true'
+          rust-cache-key: build-proof-api
+      - name: Build
+        run: cargo build --bin proof-api --release --locked
 
   build-operator:
     name: build-operator
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
         uses: ./.github/actions/foundry-setup
-      - name: Build
-        uses: actions-rs/cargo@v1
         with:
-          command: build
-          args: --bin operator --release --locked
+          rust-cache: 'true'
+          rust-cache-key: build-operator
+      - name: Build
+        run: cargo build --bin operator --release --locked
 
-build-08-wasm-eth:
+  build-08-wasm-eth:
     name: build-08-wasm-eth
-    runs-on: depot-ubuntu-24.04-4
+    runs-on: ubuntu-latest
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -90,12 +95,15 @@ build-08-wasm-eth:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: build-08-wasm-eth
+          cache-on-failure: true
+
       # TODO: re-enable once cosmwasm-check is updated
       # - name: Install cargo-run-script and cosmwasm-check
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: install
-      #     args: cosmwasm-check
+      #   run: cargo install cosmwasm-check
 
       - name: Install just
         uses: extractions/setup-just@v3
