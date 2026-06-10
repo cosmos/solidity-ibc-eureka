@@ -80,6 +80,8 @@ jobs:
         uses: ./.github/actions/e2e-setup
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Attestor suites are Eth/Cosmos-only; skip the Solana toolchain.
+          setup-solana: 'false'
 
       - name: Run Tests
         env:
@@ -103,6 +105,8 @@ jobs:
         uses: ./.github/actions/e2e-setup
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Attestor suites are Eth/Cosmos-only; skip the Solana toolchain.
+          setup-solana: 'false'
 
       - name: Run Tests
         run: |
@@ -135,6 +139,8 @@ jobs:
         uses: ./.github/actions/e2e-setup
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Attestor suites are Eth/Cosmos-only; skip the Solana toolchain.
+          setup-solana: 'false'
 
       - name: Run Tests
         run: |
@@ -157,6 +163,8 @@ jobs:
         uses: ./.github/actions/e2e-setup
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Attestor suites are Eth/Cosmos-only; skip the Solana toolchain.
+          setup-solana: 'false'
 
       - name: Run Tests
         run: |

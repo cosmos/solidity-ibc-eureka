@@ -1,6 +1,11 @@
 name: foundry-setup
+description: Install the common toolchain (Rust, Foundry, Bun, protoc) used across CI jobs.
 
 inputs:
+  rust:
+    description: Install the Rust toolchain. Set to 'false' for jobs that only run prebuilt binaries (e.g. e2e test shards) to skip the unused toolchain install.
+    required: false
+    default: 'true'
   rust-cache:
     description: Enable Swatinem/rust-cache for jobs that compile Rust
     required: false
@@ -14,12 +19,13 @@ runs:
   using: composite
   steps:
     - name: Set up Rust
+      if: inputs.rust == 'true'
       uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: stable
         components: rustfmt, clippy
     - name: Cache Rust build artifacts
-      if: inputs.rust-cache == 'true'
+      if: inputs.rust == 'true' && inputs.rust-cache == 'true'
       uses: Swatinem/rust-cache@v2
       with:
         shared-key: ${{ inputs.rust-cache-key }}

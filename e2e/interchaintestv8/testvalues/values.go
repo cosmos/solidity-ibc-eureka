@@ -263,10 +263,13 @@ const (
 var (
 	// MaxDepositPeriod Maximum period to deposit on a proposal.
 	// This value overrides the default value in the gov module using the `modifyGovV1AppState` function.
-	MaxDepositPeriod = time.Second * 10
+	MaxDepositPeriod = time.Second * 5
 	// VotingPeriod Duration of the voting period.
 	// This value overrides the default value in the gov module using the `modifyGovV1AppState` function.
-	VotingPeriod = time.Second * 30
+	// Kept short to reduce per-test setup time (every test stores its wasm light client via a gov proposal),
+	// but must stay comfortably above the ~2s block time so validator vote txs are committed and tallied
+	// before the period ends — otherwise the proposal is rejected for lack of quorum.
+	VotingPeriod = time.Second * 20
 
 	// StartingEthBalance is the amount of ETH to give to each user at the start of the test.
 	StartingEthBalance = math.NewInt(2 * ethereum.ETHER.Int64())

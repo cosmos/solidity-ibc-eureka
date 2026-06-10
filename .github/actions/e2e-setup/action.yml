@@ -5,6 +5,10 @@ inputs:
   github_token:
     description: A Github PAT
     required: true
+  setup-solana:
+    description: Install the Solana/Anchor toolchain. Only needed for Solana test suites; skip it for Eth/Cosmos-only shards to save setup time.
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -19,17 +23,35 @@ runs:
         retry_wait_seconds: 5
         command: docker login ghcr.io -u ${{ github.actor }} --password-stdin <<< "$GH_TOKEN"
 
-    - name: Pre-pull private images
+    - name: Cache wfchain Docker image
+      id: cache-wfchain
+      uses: actions/cache@v4
+      with:
+        path: /tmp/wfchain.tar
+        key: wfchain-${{ runner.os }}-v0.2.0
+
+    - name: Load wfchain Docker image
+      if: steps.cache-wfchain.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load -i /tmp/wfchain.tar
+
+    - name: Pull and cache wfchain Docker image
+      if: steps.cache-wfchain.outputs.cache-hit != 'true'
       uses: nick-invision/retry@v3
       with:
         timeout_minutes: 10
         max_attempts: 3
         retry_wait_seconds: 5
-        command: docker pull ghcr.io/cosmos/wfchain:latest
-      continue-on-error: true
+        command: |
+          docker pull ghcr.io/cosmos/wfchain:v0.2.0
+          docker save ghcr.io/cosmos/wfchain:v0.2.0 -o /tmp/wfchain.tar
 
     - name: Set up foundry tooling
       uses: ./.github/actions/foundry-setup
+      with:
+        # Test shards run prebuilt proof-api/operator binaries and never invoke cargo,
+        # so skip the unused Rust toolchain install.
+        rust: 'false'
 
     - name: Setup Go
       uses: actions/setup-go@v6
@@ -46,6 +68,7 @@ runs:
 
     - name: Cache Solana
       id: cache-solana
+      if: inputs.setup-solana == 'true'
       uses: actions/cache@v4
       with:
         path: |
@@ -76,15 +99,23 @@ runs:
         mkdir -p programs/solana/target/deploy/
         cp -r e2e-artifacts/solana-programs/* programs/solana/target/deploy/
 
-    - name: Setup Kurtosis APT repository
+    - name: Cache Kurtosis binary
+      id: cache-kurtosis
       if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
+      uses: actions/cache@v4
+      with:
+        path: /usr/bin/kurtosis
+        key: kurtosis-${{ runner.os }}-1.15.2
+
+    - name: Setup Kurtosis APT repository
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE) && steps.cache-kurtosis.outputs.cache-hit != 'true'
       shell: bash
       run: |
         echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
 
     # Must match the kurtosis library version we use in the e2e tests
     - name: Install Kurtosis
-      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE)
+      if: contains(fromJSON('["pos", "optimism", "arbitrum", "cosmos"]'), env.ETH_TESTNET_TYPE) && steps.cache-kurtosis.outputs.cache-hit != 'true'
       uses: nick-invision/retry@v3
       with:
         timeout_minutes: 10
@@ -103,14 +134,30 @@ runs:
         echo "$(dirname $(which kurtosis))" >> $GITHUB_PATH
 
     - name: Setup Solana
+      if: inputs.setup-solana == 'true'
       uses: solana-developers/github-actions/setup-all@v0.2.5
       with:
         solana_version: ${{ env.SOLANA_VERSION }}
 
-    - name: Pull attestor Docker image
+    - name: Cache attestor Docker image
+      id: cache-attestor
+      uses: actions/cache@v4
+      with:
+        path: /tmp/ibc-attestor.tar
+        key: ibc-attestor-${{ runner.os }}-${{ env.IBC_ATTESTOR_IMAGE }}
+
+    - name: Load attestor Docker image
+      if: steps.cache-attestor.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load -i /tmp/ibc-attestor.tar
+
+    - name: Pull and cache attestor Docker image
+      if: steps.cache-attestor.outputs.cache-hit != 'true'
       uses: nick-invision/retry@v3
       with:
         timeout_minutes: 10
         max_attempts: 3
         retry_wait_seconds: 5
-        command: docker pull ${IBC_ATTESTOR_IMAGE:-ghcr.io/cosmos/ibc-attestor:v0.3.0}
+        command: |
+          docker pull ${IBC_ATTESTOR_IMAGE:-ghcr.io/cosmos/ibc-attestor:v0.3.0}
+          docker save ${IBC_ATTESTOR_IMAGE:-ghcr.io/cosmos/ibc-attestor:v0.3.0} -o /tmp/ibc-attestor.tar

@@ -218,12 +218,12 @@ func (s *TestSuite) ExecuteGovV1Proposal(ctx context.Context, msg sdk.Msg, cosmo
 	return s.waitForGovV1ProposalToPass(ctx, cosmosChain, proposalID)
 }
 
-// waitForGovV1ProposalToPass polls for the entire voting period to see if the proposal has passed.
-// if the proposal has not passed within the duration of the voting period, an error is returned.
+// waitForGovV1ProposalToPass polls until the proposal has passed.
+// The proposal is only tallied at the end of the voting period, so we poll for the voting period plus
+// a buffer (and at a short interval) to reliably observe the result rather than racing the period boundary.
 func (*TestSuite) waitForGovV1ProposalToPass(ctx context.Context, chain *cosmos.CosmosChain, proposalID uint64) error {
 	var govProposal *govtypesv1.Proposal
-	// poll for the query for the entire voting period to see if the proposal has passed.
-	err := testutil.WaitForCondition(testvalues.VotingPeriod, 10*time.Second, func() (bool, error) {
+	err := testutil.WaitForCondition(testvalues.VotingPeriod+30*time.Second, 2*time.Second, func() (bool, error) {
 		proposalResp, err := GRPCQuery[govtypesv1.QueryProposalResponse](ctx, chain, &govtypesv1.QueryProposalRequest{
 			ProposalId: proposalID,
 		})
