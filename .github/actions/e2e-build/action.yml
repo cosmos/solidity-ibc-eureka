@@ -4,6 +4,10 @@ inputs:
   github_token:
     description: A Github PAT
     required: true
+  build-solana:
+    description: Whether to build Solana programs
+    required: false
+    default: 'true'
 
 runs:
   using: composite
@@ -50,32 +54,29 @@ runs:
       shell: bash
       run: just build-sp1-programs
 
-    - name: Cache Proof API
-      id: cache-proof-api
+    # Build proof-api and operator in a single cargo invocation so their shared
+    # dependency graph is compiled once. The combined cache key is the union of
+    # both binaries' inputs; a hit skips the entire ~20 min compilation pass.
+    - name: Cache Rust binaries (proof-api + operator)
+      id: cache-bins
       uses: actions/cache@v4
       with:
-        path: ~/.cargo/bin/proof-api
-        key: ${{ runner.os }}-proof-api-${{ hashFiles('programs/proof-api/**', 'packages/**', 'programs/solana/packages/solana-ibc-constants/**', 'programs/solana/packages/solana-ibc-types/**', 'abi/bytecode/**', 'Cargo.lock') }}
+        path: |
+          ~/.cargo/bin/proof-api
+          ~/.cargo/bin/operator
+        key: ${{ runner.os }}-e2e-bins-${{ hashFiles('programs/proof-api/**', 'programs/operator/**', 'packages/**', 'abi/bytecode/**', 'Cargo.lock') }}
 
-    - name: Install proof API
-      if: steps.cache-proof-api.outputs.cache-hit != 'true'
+    - name: Build proof-api and operator
+      if: steps.cache-bins.outputs.cache-hit != 'true'
       shell: bash
-      run: cargo install --bin proof-api --path programs/proof-api --locked
-
-    - name: Cache Operator
-      id: cache-operator
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/bin/operator
-        key: ${{ runner.os }}-operator-${{ hashFiles('programs/operator/**', 'packages/**', 'Cargo.lock') }}
-
-    - name: Install operator
-      if: steps.cache-operator.outputs.cache-hit != 'true'
-      shell: bash
-      run: cargo install --bin operator --path programs/operator --locked
+      run: |
+        cargo build --bin proof-api --bin operator --release --locked
+        cp target/release/proof-api ~/.cargo/bin/proof-api
+        cp target/release/operator ~/.cargo/bin/operator
 
     - name: Cache Solana Programs
       id: cache-solana
+      if: inputs.build-solana == 'true'
       uses: actions/cache@v4
       with:
         path: |
@@ -87,18 +88,18 @@ runs:
         key: ${{ runner.os }}-solana-${{ env.SOLANA_VERSION }}-${{ env.ANCHOR_VERSION }}-${{ hashFiles('programs/solana/**') }}
 
     - name: Setup Solana and Anchor
-      if: steps.cache-solana.outputs.cache-hit != 'true'
+      if: inputs.build-solana == 'true' && steps.cache-solana.outputs.cache-hit != 'true'
       uses: solana-developers/github-actions/setup-all@v0.2.5
       with:
         anchor_version: ${{ env.ANCHOR_VERSION }}
         solana_version: ${{ env.SOLANA_VERSION }}
 
     - name: Install just for Solana build
-      if: steps.cache-solana.outputs.cache-hit != 'true'
+      if: inputs.build-solana == 'true' && steps.cache-solana.outputs.cache-hit != 'true'
       uses: extractions/setup-just@v2
 
     - name: Build Solana Programs
-      if: steps.cache-solana.outputs.cache-hit != 'true'
+      if: inputs.build-solana == 'true' && steps.cache-solana.outputs.cache-hit != 'true'
       shell: bash
       run: just build-solana-programs
 
@@ -107,10 +108,15 @@ runs:
       run: |
         mkdir -p e2e-artifacts/bin
         mkdir -p e2e-artifacts/sp1-programs
-        mkdir -p e2e-artifacts/solana-programs
         cp ~/.cargo/bin/proof-api e2e-artifacts/bin/
         cp ~/.cargo/bin/operator e2e-artifacts/bin/
         cp -r programs/sp1-programs/target/elf-compilation/riscv64im-succinct-zkvm-elf/release/* e2e-artifacts/sp1-programs/
+
+    - name: Package Solana artifacts
+      if: inputs.build-solana == 'true'
+      shell: bash
+      run: |
+        mkdir -p e2e-artifacts/solana-programs
         cp -r programs/solana/target/deploy/* e2e-artifacts/solana-programs/
 
     - name: Upload artifacts

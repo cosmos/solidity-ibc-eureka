@@ -23,7 +23,7 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   FOUNDRY_PROFILE: ci
@@ -42,13 +42,15 @@ permissions:
 
 jobs:
   build-e2e-programs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v5
       - name: Build E2E artifacts
         uses: ./.github/actions/e2e-build
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          build-solana: 'false'
 
   e2e-lc-combinations:
     needs: build-e2e-programs
@@ -70,7 +72,8 @@ jobs:
       ETH_LC_ON_COSMOS: ${{ matrix.eth_lc_on_cosmos }}
       COSMOS_LC_ON_ETH: ${{ matrix.cosmos_lc_on_eth }}
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v5
       - name: Set up E2E environment

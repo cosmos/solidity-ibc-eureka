@@ -11,9 +11,14 @@ env:
   SP1_VERSION: "6.1.0"
 
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release-sp1-programs:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
     if: startsWith(github.ref_name, 'sp1-programs-')
     steps:
       - uses: actions/checkout@v5
@@ -49,7 +54,8 @@ jobs:
           overwrite: true
 
   release-cw-ics08-wasm-eth:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     if: startsWith(github.ref_name, 'cw-ics08-wasm-eth-')
     steps:
       - uses: actions/checkout@v5
@@ -64,7 +70,8 @@ jobs:
           overwrite: true
 
   release-solidity-contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     if: startsWith(github.ref_name, 'solidity-')
     steps:
       - uses: actions/checkout@v5

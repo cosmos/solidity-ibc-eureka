@@ -17,12 +17,13 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   lints:
     name: fmt-and-clippy
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -38,7 +39,8 @@ jobs:
 
   tests:
     name: unit-tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
       - name: Set up environment
@@ -56,7 +58,8 @@ jobs:
 
   build-proof-api:
     name: build-proof-api
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -70,7 +73,8 @@ jobs:
 
   build-operator:
     name: build-operator
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5
@@ -84,7 +88,8 @@ jobs:
 
   build-08-wasm-eth:
     name: build-08-wasm-eth
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     continue-on-error: true
     steps:
       - uses: actions/checkout@v5

@@ -141,12 +141,8 @@ impl Deployer {
 
 async fn submit_tx(chain: &mut Chain, ixs: &[Instruction], signers: &[&Keypair]) {
     let blockhash = chain.refresh_blockhash().await;
-    let tx = Transaction::new_signed_with_payer(
-        ixs,
-        Some(&signers[0].pubkey()),
-        signers,
-        blockhash,
-    );
+    let tx =
+        Transaction::new_signed_with_payer(ixs, Some(&signers[0].pubkey()), signers, blockhash);
     chain.process_transaction(tx).await.expect("init tx failed");
 }
 

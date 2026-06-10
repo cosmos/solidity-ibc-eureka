@@ -1,4 +1,17 @@
-FROM rust:1.92-bookworm AS builder
+# ── Stage 1: install cargo-chef ──────────────────────────────────────────────
+FROM rust:1.96-bookworm AS chef
+RUN cargo install cargo-chef --locked
+WORKDIR /app
+
+# ── Stage 2: compute the dependency recipe ───────────────────────────────────
+# Copies the full source tree so cargo-chef can walk all workspace Cargo.toml
+# files and produce a recipe that captures the exact dependency graph.
+FROM chef AS planner
+COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
+
+# ── Stage 3: build dependencies, then the binaries ───────────────────────────
+FROM chef AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
@@ -6,21 +19,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libprotobuf-dev \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Compile only dependencies (layer is cached until Cargo.toml / Cargo.lock changes)
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Now copy source and build both binaries in one invocation (shared dep compilation)
 COPY Cargo.toml Cargo.lock ./
 COPY packages packages
 COPY programs programs
 COPY contracts contracts
 COPY abi abi
 COPY proto proto
+RUN cargo build --bin proof-api --bin operator --release --locked
 
-RUN cargo build --bin proof-api --release --locked
-RUN cargo build --bin operator --release --locked
-
+# ── Stage 4: CA certificates ─────────────────────────────────────────────────
 FROM debian:bookworm-slim AS certs
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
+# ── Stage 5: minimal runtime image ───────────────────────────────────────────
 FROM gcr.io/distroless/cc-debian12:debug
 
 ARG BUILD_DATE

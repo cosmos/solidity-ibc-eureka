@@ -19,7 +19,7 @@ on:
 # Cancel the workflow if a new commit is pushed to the branch/PR
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   REGISTRY_IMAGE: ghcr.io/cosmos/proof-api
@@ -34,10 +34,11 @@ jobs:
       matrix:
         include:
           - platform: linux/amd64
-            runs-on: ubuntu-latest
+            runs-on: ubuntu-24.04
           - platform: linux/arm64
             runs-on: ubuntu-24.04-arm
     runs-on: ${{ matrix.runs-on }}
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write
@@ -97,7 +98,8 @@ jobs:
   # tag it. This is the only job that resolves the user-facing tags.
   merge:
     needs: [build]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
