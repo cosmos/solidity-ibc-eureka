@@ -58,6 +58,15 @@ library IBCRolesLib {
         return idCustomizerFunctions;
     }
 
+    /// @notice The functions that can be used to migrate clients in ICS26Router.
+    /// @dev These functions are not associated with a specific role, but are restricted to the ADMIN_ROLE.
+    /// @return An array of function selectors that can be used to migrate clients.
+    function ics26MigrationSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory migrationFunctions = new bytes4[](1);
+        migrationFunctions[0] = IICS02ClientAccessControlled.migrateClient.selector;
+        return migrationFunctions;
+    }
+
     /// @notice The functions that can be called by the ERC20_CUSTOMIZER_ROLE in ICS20Transfer.
     /// @return An array of function selectors that can be called by the ERC20_CUSTOMIZER_ROLE.
     function erc20CustomizerSelectors() internal pure returns (bytes4[] memory) {
