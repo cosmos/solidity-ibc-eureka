@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import { IICS26RouterAccessControlled } from "../interfaces/IICS26Router.sol";
 import { IICS02ClientAccessControlled } from "../interfaces/IICS02Client.sol";
 import { IICS20TransferAccessControlled } from "../interfaces/IICS20Transfer.sol";
+import { IICS27GMP } from "../interfaces/IICS27GMP.sol";
 import { IPausable } from "../interfaces/IPausable.sol";
 import { IRateLimit } from "../interfaces/IRateLimit.sol";
 import { UUPSUpgradeable } from "@openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
@@ -61,7 +62,7 @@ library IBCRolesLib {
     /// @notice The functions that can be used to migrate clients in ICS26Router.
     /// @dev These functions are not associated with a specific role, but are restricted to the ADMIN_ROLE.
     /// @return An array of function selectors that can be used to migrate clients.
-    function ics26MigrationSelectors() internal pure returns (bytes4[] memory) {
+    function ics26ClientMigrationSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory migrationFunctions = new bytes4[](1);
         migrationFunctions[0] = IICS02ClientAccessControlled.migrateClient.selector;
         return migrationFunctions;
@@ -110,10 +111,19 @@ library IBCRolesLib {
     /// @notice The functions that can be used to upgrade the beacon contracts in ICS20Transfer.
     /// @dev These functions are not associated with a specific role, but are restricted to the ADMIN_ROLE.
     /// @return An array of function selectors that can be used to upgrade the beacon contracts.
-    function beaconUpgradeSelectors() internal pure returns (bytes4[] memory) {
+    function ics20BeaconUpgradeSelectors() internal pure returns (bytes4[] memory) {
         bytes4[] memory beaconUpgradeFunctions = new bytes4[](2);
         beaconUpgradeFunctions[0] = IICS20TransferAccessControlled.upgradeEscrowTo.selector;
         beaconUpgradeFunctions[1] = IICS20TransferAccessControlled.upgradeIBCERC20To.selector;
+        return beaconUpgradeFunctions;
+    }
+
+    /// @notice The functions that can be used to upgrade the beacon contracts in ICS27GMP.
+    /// @dev These functions are not associated with a specific role, but are restricted to the ADMIN_ROLE.
+    /// @return An array of function selectors that can be used to upgrade the beacon contracts.
+    function ics27BeaconUpgradeSelectors() internal pure returns (bytes4[] memory) {
+        bytes4[] memory beaconUpgradeFunctions = new bytes4[](1);
+        beaconUpgradeFunctions[0] = IICS27GMP.upgradeAccountTo.selector;
         return beaconUpgradeFunctions;
     }
 

@@ -33,8 +33,9 @@ abstract contract DeployAccessManagerWithRoles {
         // TODO: fix rate limiter role (#559)
 
         // Explicitly register admin-gated selectors so deployments expose the full role map.
-        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26MigrationSelectors(), IBCRolesLib.ADMIN_ROLE);
-        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.beaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics26, IBCRolesLib.ics26ClientMigrationSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics20, IBCRolesLib.ics20BeaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
+        accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.ics27BeaconUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics20, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics26, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);
         accessManager.setTargetFunctionRole(ics27Gmp, IBCRolesLib.uupsUpgradeSelectors(), IBCRolesLib.ADMIN_ROLE);

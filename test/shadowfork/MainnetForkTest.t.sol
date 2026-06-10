@@ -18,7 +18,7 @@ import { DeployAccessManagerWithRoles } from "../../scripts/deployments/DeployAc
 
 contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
     // solhint-disable-next-line var-name-mixedcase
-    string public ETH_RPC_URL = vm.envString("ETH_RPC_URL");
+    string public ETH_RPC_URL;
 
     string public clientId = "cosmoshub-0";
 
@@ -30,6 +30,9 @@ contract MainnetForkTest is Test, DeployAccessManagerWithRoles {
     address public relayer = 0xC4C09A23dDBd1fF0f313885265113F83622284C2;
 
     function setUp() public {
+        ETH_RPC_URL = vm.envOr("ETH_RPC_URL", string(""));
+        vm.skip(bytes(ETH_RPC_URL).length == 0, "ETH_RPC_URL not set");
+
         uint256 forkId = vm.createFork(ETH_RPC_URL);
         vm.selectFork(forkId);
     }
