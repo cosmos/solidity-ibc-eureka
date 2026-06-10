@@ -20,9 +20,9 @@ runs:
   steps:
     - name: Set up Rust
       if: inputs.rust == 'true'
-      uses: dtolnay/rust-toolchain@stable
+      uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: stable
+        toolchain: "1.96.0"
         components: rustfmt, clippy
     - name: Cache Rust build artifacts
       if: inputs.rust == 'true' && inputs.rust-cache == 'true'

@@ -43,7 +43,7 @@ struct SP1ICS07SubmitMisbehaviourFixture {
 
 /// Returns the trusted revision heights from the two misbehaviour headers.
 #[allow(clippy::cast_possible_truncation)]
-fn trusted_heights(misbehaviour: &RawMisbehaviour) -> (u64, u64) {
+const fn trusted_heights(misbehaviour: &RawMisbehaviour) -> (u64, u64) {
     let height_1 = misbehaviour
         .header_1
         .as_ref()

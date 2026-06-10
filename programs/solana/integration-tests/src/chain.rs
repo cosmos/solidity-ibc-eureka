@@ -293,6 +293,19 @@ impl Chain {
         self.blockhash
     }
 
+    /// Fetch a fresh blockhash from the bank, update the cache, and return it.
+    ///
+    /// Call this before building a transaction on a chain that may have been
+    /// idle (no transactions processed) while other chains were active. Solana's
+    /// ProgramTest bank can advance slots internally during that time, making
+    /// the previously cached hash stale enough to cause an arithmetic underflow
+    /// inside `get_blockhash_last_valid_block_height`.
+    pub async fn refresh_blockhash(&mut self) -> Hash {
+        let banks = self.banks.as_mut().expect("chain not started yet");
+        self.blockhash = banks.get_latest_blockhash().await.unwrap();
+        self.blockhash
+    }
+
     /// Submit a transaction and auto-refresh the blockhash.
     pub async fn process_transaction(&mut self, tx: Transaction) -> Result<(), BanksClientError> {
         let banks = self.banks.as_mut().expect("chain not started yet");

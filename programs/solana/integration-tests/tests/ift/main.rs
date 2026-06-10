@@ -143,11 +143,12 @@ async fn setup_ift_chain_with_token(
             ift::build_create_spl_token_ix(admin_pubkey, admin_pubkey, mint, MINT_DECIMALS)
         }
     };
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[create_token_ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair(), mint_keypair],
-        chain.blockhash(),
+        blockhash,
     );
     chain.process_transaction(tx).await.expect("create token");
 
@@ -159,11 +160,12 @@ async fn setup_ift_chain_with_token(
         chain.client_id(),
         ift::COUNTERPARTY_IFT_ADDRESS,
     );
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[register_bridge_ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair()],
-        chain.blockhash(),
+        blockhash,
     );
     chain
         .process_transaction(tx)
@@ -179,11 +181,12 @@ async fn setup_ift_chain_with_token(
         INITIAL_BALANCE,
         token_kind,
     );
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[admin_mint_ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair()],
-        chain.blockhash(),
+        blockhash,
     );
     chain.process_transaction(tx).await.expect("admin mint");
 
@@ -246,11 +249,12 @@ async fn assert_mint_keypair_powerless(
     )
     .expect("build set_authority ix");
     // user pays fees; mint_keypair signs the set_authority instruction itself.
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[hijack_ix],
         Some(&user.pubkey()),
         &[user.keypair(), mint_keypair],
-        chain.blockhash(),
+        blockhash,
     );
     let err = chain
         .process_transaction(tx)
@@ -272,11 +276,12 @@ async fn assert_mint_keypair_powerless(
         1,
     )
     .expect("build mint_to ix");
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[mint_to_ix],
         Some(&user.pubkey()),
         &[user.keypair(), mint_keypair],
-        chain.blockhash(),
+        blockhash,
     );
     let err = chain
         .process_transaction(tx)
@@ -294,11 +299,12 @@ async fn create_spl_token(chain: &mut Chain, ift_admin: &IftAdmin, mint_keypair:
         mint_keypair.pubkey(),
         MINT_DECIMALS,
     );
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair(), mint_keypair],
-        chain.blockhash(),
+        blockhash,
     );
     chain
         .process_transaction(tx)
@@ -325,11 +331,12 @@ async fn register_solana_bridge(
         counterparty_mint,
         &counterparty_client_id,
     );
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair()],
-        chain.blockhash(),
+        blockhash,
     );
     chain
         .process_transaction(tx)
@@ -353,11 +360,12 @@ async fn admin_mint_to_user(
         INITIAL_BALANCE,
         TokenKind::Spl,
     );
+    let blockhash = chain.refresh_blockhash().await;
     let tx = Transaction::new_signed_with_payer(
         &[ix],
         Some(&admin_pubkey),
         &[ift_admin.keypair()],
-        chain.blockhash(),
+        blockhash,
     );
     chain.process_transaction(tx).await.expect("admin mint");
 }
