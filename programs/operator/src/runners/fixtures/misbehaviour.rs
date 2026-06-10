@@ -41,6 +41,26 @@ struct SP1ICS07SubmitMisbehaviourFixture {
     submit_msg: Vec<u8>,
 }
 
+/// Returns the trusted revision heights from the two misbehaviour headers.
+#[allow(clippy::cast_possible_truncation)]
+fn trusted_heights(misbehaviour: &RawMisbehaviour) -> (u64, u64) {
+    let height_1 = misbehaviour
+        .header_1
+        .as_ref()
+        .unwrap()
+        .trusted_height
+        .unwrap()
+        .revision_height;
+    let height_2 = misbehaviour
+        .header_2
+        .as_ref()
+        .unwrap()
+        .trusted_height
+        .unwrap()
+        .revision_height;
+    (height_1, height_2)
+}
+
 /// Writes the proof data for misbehaviour to the given fixture path.
 #[allow(clippy::missing_errors_doc, clippy::missing_panics_doc)]
 pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
@@ -69,22 +89,7 @@ pub async fn run(args: MisbehaviourCmd) -> anyhow::Result<()> {
         Sp1Prover::Env(ProverClient::from_env().await)
     };
 
-    #[allow(clippy::cast_possible_truncation)]
-    let height_1 = misbehaviour
-        .header_1
-        .as_ref()
-        .unwrap()
-        .trusted_height
-        .unwrap()
-        .revision_height;
-    #[allow(clippy::cast_possible_truncation)]
-    let height_2 = misbehaviour
-        .header_2
-        .as_ref()
-        .unwrap()
-        .trusted_height
-        .unwrap()
-        .revision_height;
+    let (height_1, height_2) = trusted_heights(&misbehaviour);
     let trusted_light_block_1 = tm_rpc_client.get_light_block(Some(height_1)).await?;
     let trusted_light_block_2 = tm_rpc_client.get_light_block(Some(height_2)).await?;
 

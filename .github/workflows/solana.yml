@@ -33,8 +33,9 @@ jobs:
           submodules: recursive
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@nightly
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.96.0"
           components: rustfmt, clippy
 
       - name: Cache Rust build artifacts
